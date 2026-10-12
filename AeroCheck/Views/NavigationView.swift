@@ -174,6 +174,11 @@ class SharedMapState: ObservableObject {
     /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
     /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
     @Published var bandRegion: MKCoordinateRegion?
+    /// The pilot's zoom as the band last measured it, with the panel closed (`LegsBandDriver`): kept here
+    /// because the map view isn't. Portrait and landscape are different views, and a map made with the
+    /// panel open, the device just turned, has never shown the pilot's chart: its band never framed until
+    /// the panel closed. (6.3.0, the author's device check fix1-4)
+    var bandPilotZoom: (scale: Double, perMetre: Double, height: CGFloat)?
     /// An annotation's callout is open (an aerodrome, a reporting point, a procedure's label): the chrome
     /// laid over the chart where a callout opens, the scale bar and the off-screen route pill, steps aside
     /// until it closes. Kept by the representables' coordinators from MapKit's selection. (6.2.0)
@@ -3373,11 +3378,9 @@ final class LegsBandDriver {
     private var redrawsTilesAtRest = false
 
     /// The map came to rest (the coordinator's `regionDidChange`): note its zoom, the pilot's when the
-    /// band doesn't have the camera.
-    func mapCameToRest(_ mapView: MKMapView) {
-        let distance = mapView.camera.centerCoordinateDistance
-        guard let scale = Self.scale(of: mapView), distance > 0 else { return }
-        scalePerMetre = (scale / distance, mapView.bounds.height)
+    /// band doesn't have the camera, in the shared state too.
+    func mapCameToRest(_ mapView: MKMapView, mapState: SharedMapState) {
+        guard let scale = measure(mapView), let measured = scalePerMetre else { return }
         if let restoring, abs(mapView.bounds.height - restoring.height) < 1 {
             // Back to its height: now the pilot's camera, exactly.
             finishRestore(mapView, mapState: restoring.mapState)
@@ -3389,7 +3392,16 @@ final class LegsBandDriver {
         }
         guard !ownsCamera else { return }
         pilotScale = scale
-        pilotScalePerMetre = scalePerMetre
+        pilotScalePerMetre = measured
+        mapState.bandPilotZoom = (scale, measured.value, measured.height)
+    }
+
+    /// The map's zoom as it stands, noted as the last zoom per metre. nil before it has a size.
+    private func measure(_ mapView: MKMapView) -> Double? {
+        let distance = mapView.camera.centerCoordinateDistance
+        guard let scale = Self.scale(of: mapView), distance > 0 else { return nil }
+        scalePerMetre = (scale / distance, mapView.bounds.height)
+        return scale
     }
 
     /// One update pass. True while the band has the camera.
@@ -3398,14 +3410,19 @@ final class LegsBandDriver {
             if isOpen { close(mapView, mapState: mapState) }
             return ownsCamera
         }
-        if !isOpen { open(mapView) }
+        if !isOpen { open(mapView, mapState: mapState) }
         frame(mapView, band: band)
         return true
     }
 
-    private func open(_ mapView: MKMapView) {
+    private func open(_ mapView: MKMapView, mapState: SharedMapState) {
+        // A map made with the panel open (the device turned): the pilot's zoom as the last map saw it.
+        if pilotScale == nil, let kept = mapState.bandPilotZoom {
+            pilotScale = kept.scale
+            pilotScalePerMetre = (kept.perMetre, kept.height)
+        }
         // A map that hasn't moved since it was made: its zoom as it stands.
-        if pilotScale == nil { mapCameToRest(mapView) }
+        if pilotScale == nil { mapCameToRest(mapView, mapState: mapState) }
         // Unless a restore is still on its way: then the range it will put back.
         if !ownsCamera { zoomRangeBeforeBand = mapView.cameraZoomRange }
         isOpen = true
@@ -3425,6 +3442,8 @@ final class LegsBandDriver {
     }
 
     private func frame(_ mapView: MKMapView, band: LegsPanelMap.Band) {
+        // A map made with the panel open, which the band hasn't moved yet: as it stands, it is at rest.
+        if scalePerMetre == nil, lastCamera == nil { _ = measure(mapView) }
         // Not measured with the panel open yet: wait for it.
         guard let rect = band.rect, band.viewSize.height > 0, let pilotScale, let measured = scalePerMetre else { return }
         if !Self.same(band.waypoint, framedWaypoint) {
@@ -4041,7 +4060,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // A marker the move took off the map leaves no deselect behind. (6.2.0)
             parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
-            legsBand.mapCameToRest(mapView)
+            legsBand.mapCameToRest(mapView, mapState: parent.mapState)
             // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
             if legsBand.ownsCamera {
                 parent.mapState.updateBandRegion(mapView.region)
@@ -5677,7 +5696,7 @@ struct SwissMapView: UIViewRepresentable {
             // A marker the move took off the map leaves no deselect behind. (6.2.0)
             parent.mapState.noteCalloutSelection(on: mapView)
             // Its zoom at rest, for the legs panel's band: the pilot's, unless the band has the camera.
-            legsBand.mapCameToRest(mapView)
+            legsBand.mapCameToRest(mapView, mapState: parent.mapState)
             // The band's camera is not the pilot's: the shared state keeps theirs, to go back to.
             if legsBand.ownsCamera {
                 parent.mapState.updateBandRegion(mapView.region)

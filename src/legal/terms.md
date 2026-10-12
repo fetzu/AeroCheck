@@ -76,7 +76,7 @@ A subscription buys you access to checklist content. It does not make that conte
 
 ## 4.0 Sending us an aircraft's checklist
 
-Anyone may send us an aircraft's checklist through [aerocheck.app/send](/send). By sending one, you confirm that:
+Anyone may send us an aircraft's checklist, through [aerocheck.app/send](/send) or from the app (Aircraft › “Send us an aircraft’s checklist”). By sending one, you confirm that:
 
 - you may share the document with us for this purpose: you send it for the club or operator it belongs to, or with its agreement, or the aircraft is yours;
 - as far as you know, it is the current revision.

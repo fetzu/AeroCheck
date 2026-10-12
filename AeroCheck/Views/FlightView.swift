@@ -61,8 +61,10 @@ struct FlightView: View {
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
-    /// Stable periodic timer (created once) driving FREDA's evaluation. (v4 UI/UX Revamp fix; FREDA 6.1)
-    @State private var fredaEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    /// Stable periodic timer (created once) driving FREDA's evaluation, every 5 s of the flight's clock
+    /// (`FredaEvaluationCadence`, 6.4.0). (v4 UI/UX Revamp fix; FREDA 6.1)
+    @State private var fredaEvalTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+    @State private var fredaCadence = FredaEvaluationCadence()
     @State private var showHourMeterStop = false
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
@@ -350,7 +352,7 @@ struct FlightView: View {
             windDataService.stopFetching()
         }
         .onReceive(fredaEvalTimer) { _ in
-            evaluateFreda()
+            if fredaCadence.isDue(at: FlightClock.now) { evaluateFreda() }
         }
         .onChange(of: appState.currentPhase) { _, phase in
             // A briefing phase is exactly when a stale observation matters most: an approach

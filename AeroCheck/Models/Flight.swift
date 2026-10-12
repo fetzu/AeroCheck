@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import os
 
 /// Current export format version
 /// - v1: Original format (no fullStopCount, fullStopTimes, flightPlanId, flightPlan)
@@ -93,45 +94,93 @@ enum FlightClock {
 
 extension FlightClock {
     /// Now, for everything a flight times: the track and its fixes' age, the detector and its cues, the
-    /// check slot, FREDA, the landed card, the leg timer, the times over and the logbook's times. A
-    /// Release build reads the wall clock, always. A DEBUG ground replay (`GroundReplay`) runs it faster,
-    /// so a recorded flight replays on the simulator in minutes with all of those on one clock.
+    /// check slot, FREDA, the landed card, the leg timer, the times over and the logbook's times. The wall
+    /// clock, unless a dry run (6.4.0) or a DEBUG ground replay runs a flight of its own on a faster one:
+    /// then all of those are on that clock, together.
     static var now: Date {
-        #if DEBUG
-        if let virtual { return virtual.now }
-        #endif
-        return Date()
+        virtual?.now ?? Date()
     }
 
     /// The pilot's seconds since `date`, a time on this clock: what an undo toast's six seconds are
-    /// counted in, whatever pace a replay runs the flight at. Release: `Date().timeIntervalSince(date)`.
+    /// counted in, whatever pace the flight runs at. Each stretch of the clock counts at its own rate (a
+    /// dry run sped up from 4× to 10× counts the time at 4× at 4×), a pause counts for nothing, and the
+    /// time before the clock's first stretch counts at that stretch's rate (a test's clock, stopped at a
+    /// moment of its choosing). Without a clock of its own: `Date().timeIntervalSince(date)`.
     static func pilotSeconds(since date: Date) -> TimeInterval {
-        #if DEBUG
-        if let virtual { return virtual.now.timeIntervalSince(date) / max(virtual.rate, 1) }
-        #endif
-        return Date().timeIntervalSince(date)
+        guard let virtual else { return Date().timeIntervalSince(date) }
+        let now = virtual.now
+        guard now > date else { return 0 }
+        let stretches = virtual.earlier + [Virtual.Stretch(start: virtual.virtualAnchor, rate: virtual.rate)]
+        var seconds = 0.0
+        for (index, stretch) in stretches.enumerated() {
+            let from = index == 0 ? date : max(stretch.start, date)
+            let to = index + 1 < stretches.count ? min(stretches[index + 1].start, now) : now
+            if to > from { seconds += to.timeIntervalSince(from) / max(stretch.rate, 1) }
+        }
+        return seconds
     }
 
-    #if DEBUG
-    /// DEV-ONLY: a clock that runs `rate` times faster than the wall clock from its anchor (a test may
-    /// stop it with 0).
-    struct Virtual: Equatable {
+    /// A clock that runs `rate` times faster than the wall clock from its anchor: a dry run's (pause is
+    /// rate 0), a DEBUG ground replay's, a test's (stopped at a moment of its choosing).
+    struct Virtual: Equatable, Sendable {
+        /// Where the clock ran at another rate before, oldest first: what `pilotSeconds` counts them at.
+        struct Stretch: Equatable, Sendable {
+            let start: Date
+            let rate: Double
+        }
+
         /// The wall clock and the virtual one at the same instant.
         let wallAnchor: Date
         let virtualAnchor: Date
         let rate: Double
+        var earlier: [Stretch] = []
 
         var now: Date { virtual(at: Date()) }
 
         func virtual(at wall: Date) -> Date {
             virtualAnchor.addingTimeInterval(wall.timeIntervalSince(wallAnchor) * rate)
         }
+
+        /// The same clock from now on at `newRate`: the time goes on from where it is, no jump.
+        func changingRate(to newRate: Double, atWall wall: Date = Date()) -> Virtual {
+            Virtual(wallAnchor: wall, virtualAnchor: virtual(at: wall), rate: max(0, newRate),
+                    earlier: earlier + [Stretch(start: virtualAnchor, rate: rate)])
+        }
     }
 
-    /// DEV-ONLY: the replay's clock, nil for the wall clock. Read first from the launch environment
-    /// (`GroundReplay.clockAtLaunch`), so a replay's flight restored at launch never sees the wall clock.
-    nonisolated(unsafe) static var virtual: Virtual? = GroundReplay.clockAtLaunch()
-    #endif
+    /// The clock a flight of its own runs on, nil for the wall clock. A DEBUG build reads it first from
+    /// the launch environment (`GroundReplay.clockAtLaunch`), so a replay's flight restored at launch never
+    /// sees the wall clock; a Release build starts on the wall clock, always, and only a dry run sets it.
+    /// Read from any thread (the checkpoint's queue, the barometer's): behind a lock.
+    static var virtual: Virtual? {
+        get { virtualLock.withLock { $0 } }
+        set { virtualLock.withLock { $0 = newValue } }
+    }
+
+    private static let virtualLock = OSAllocatedUnfairLock<Virtual?>(initialState: launchClock())
+
+    private static func launchClock() -> Virtual? {
+        #if DEBUG
+        return GroundReplay.clockAtLaunch()
+        #else
+        return nil
+        #endif
+    }
+
+    /// A dry run's clock, from `start` (now by default) at `rate`. (6.4.0)
+    static func runVirtual(from start: Date = Date(), rate: Double) {
+        virtual = Virtual(wallAnchor: Date(), virtualAnchor: start, rate: max(0, rate))
+    }
+
+    /// The running clock at `rate` from now on (0: paused), the time going on from where it is.
+    static func setVirtualRate(_ rate: Double) {
+        virtualLock.withLock { clock in clock = clock?.changingRate(to: rate) }
+    }
+
+    /// Back to the wall clock.
+    static func endVirtual() {
+        virtual = nil
+    }
 }
 
 /// The live flight's timing milestones, grouped as one cohesive value extracted from AppState's

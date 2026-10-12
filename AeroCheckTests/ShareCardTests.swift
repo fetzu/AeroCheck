@@ -274,6 +274,34 @@ final class ShareCardTests: XCTestCase {
                        "1 touch-and-go, 1 go-around, 2 stop-and-goes")
     }
 
+    /// One landing logged twice, seconds apart, as flights logged before the duplicate guard can carry
+    /// it (the author's Vol d'Alpes at LSZQ: 11:55:22 and 11:55:26): one landing, no stop-and-go in the
+    /// timeline, the remarks or the card. 6.3.0's timeline showed a stop-and-go a few seconds before the
+    /// landing.
+    func testALandingLoggedTwiceSecondsApartIsOneLanding() {
+        let flight = makeFlight(at: [("2026-05-28T10:11:00Z", home), ("2026-05-28T11:55:24Z", home)],
+                                fullStops: ["2026-05-28T11:55:22Z", "2026-05-28T11:55:26Z"],
+                                takeoff: "2026-05-28T10:11:00Z")
+        XCTAssertEqual(flight.intermediateFullStops?.count, 0)
+        XCTAssertTrue(FlightTimelineEvents.events(of: flight).isEmpty)
+        XCTAssertEqual(flight.stopAndGoCount, 0)
+        XCTAssertEqual(ShareCardFigures(flight: flight).counts.stopAndGoes, 0)
+        XCTAssertEqual(LogbookLineBuilder.build(flight: flight).remarks, "")
+    }
+
+    /// A real stop-and-go before a landing logged twice still counts, at its own time.
+    func testAStopAndGoBeforeALandingLoggedTwiceStillCounts() {
+        let runwayEnd = point(eastNM: 0.4, of: home)
+        let flight = makeFlight(at: [("2026-04-30T09:09:00Z", home),
+                                     ("2026-04-30T09:27:00Z", runwayEnd),
+                                     ("2026-04-30T09:44:00Z", home)],
+                                fullStops: ["2026-04-30T09:27:00Z", "2026-04-30T09:44:00Z", "2026-04-30T09:44:07Z"],
+                                takeoff: "2026-04-30T09:09:00Z")
+        XCTAssertEqual(FlightTimelineEvents.events(of: flight).map(\.kind), [.stopAndGo])
+        XCTAssertEqual(FlightTimelineEvents.events(of: flight).map(\.time), [date("2026-04-30T09:27:00Z")])
+        XCTAssertEqual(flight.stopAndGoCount, 1)
+    }
+
     /// One landing: nothing between the take-off and the landing, no remark.
     func testAFlightWithOneLandingKeepsItsTimelineAndRemarks() {
         let flight = makeFlight(at: [("2026-04-30T09:09:00Z", home), ("2026-04-30T09:40:00Z", home)],

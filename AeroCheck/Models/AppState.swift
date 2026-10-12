@@ -2622,8 +2622,9 @@ class AppState {
 
     /// Two landings (T&G or full stop) closer than this are one physical event — these
     /// aircraft cannot land twice in under a minute. Guards manual double-taps and
-    /// manual/auto duplicates; the corpus contains real pairs 7–35 s apart. (R5)
-    private let landingDedupeWindow: TimeInterval = 60.0
+    /// manual/auto duplicates; the corpus contains real pairs 7–35 s apart. (R5) The same minute
+    /// counts a pair logged before the guard as one landing (`Flight.sameLandingSeconds`).
+    private let landingDedupeWindow: TimeInterval = Flight.sameLandingSeconds
 
     private func isDuplicateLandingEvent(at time: Date) -> Bool {
         guard let flight = currentFlight else { return false }

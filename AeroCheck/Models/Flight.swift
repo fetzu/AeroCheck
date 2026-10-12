@@ -1732,6 +1732,11 @@ extension Flight {
     /// How far from a full stop the nearest fix may be for the track to place it.
     static let placementToleranceSeconds: TimeInterval = 120
 
+    /// Two landings closer than this are one landing logged twice: no aircraft lands, takes off and
+    /// lands again in a minute. The app keeps the second out as it flies (`AppState`'s duplicate
+    /// guard); flights logged before the guard carry such pairs, a few seconds apart.
+    static let sameLandingSeconds: TimeInterval = 60
+
     /// Each full stop before the last one (the last is the flight's landing), in time order, as a
     /// stop-and-go or a stop. Read by the share card's counts, the Logbook's timeline and the logbook
     /// line's remarks, so the three agree (moved from `ShareCardFigures` in 6.3.0).
@@ -1743,11 +1748,18 @@ extension Flight {
     /// stop-and-go, as every non-final full stop was before (decision D1): only the track can show it
     /// was elsewhere.
     ///
+    /// Full stops less than `sameLandingSeconds` apart are one landing, at the later time: the author's
+    /// Vol d'Alpes logged its landing at LSZQ twice, four seconds apart, and 6.3.0's timeline showed the
+    /// first as a stop-and-go (the website's logbook shot).
+    ///
     /// Nil when the times don't match the count (a flight from before they were kept): which full stop
     /// was the last can't be told, and every one before it is a stop-and-go without a time.
     var intermediateFullStops: [(time: Date, kind: IntermediateFullStop)]? {
-        let times = fullStopTimes.sorted()
-        guard times.count == fullStopCount else { return nil }
+        let logged = fullStopTimes.sorted()
+        guard logged.count == fullStopCount else { return nil }
+        let times = logged.indices.filter { index in
+            index == logged.count - 1 || logged[index + 1].timeIntervalSince(logged[index]) >= Self.sameLandingSeconds
+        }.map { logged[$0] }
         guard times.count > 1 else { return [] }
 
         let track = gpsTrack

@@ -21,7 +21,7 @@
 #                  turns its window for real, whichever way the simulator is held.
 #   --as KEY       write the shot under KEY instead of the scene's own shot key (one scene): the same
 #                  scene makes `cockpit` and, with a tap on V-SPEEDS, `vspeeds`; `cruisemap` on its side
-#                  makes `landscape`.
+#                  makes `landscape`. Since 6.3.0 `circuits` is a scene of its own, no gesture.
 #   --rotate       App Store iPad in landscape only: simctl writes the portrait framebuffer, so a landscape
 #                  capture needs a software rotate, 90 or 270 depending on the way the sim is held.
 #   --pause        stop before each screenshot so you can perform the scene's gesture (see SCREENSHOTS.md)
@@ -84,6 +84,7 @@ shot_key() {
     homeflight|homeflighttoday) echo "today" ;;
     conflicts|planconflicts)   echo "route" ;;
     flightlog|flightlogdetail) echo "log" ;;
+    circuits|planmapcircuits)  echo "circuits" ;;   # since 6.3.0: Plan › Map at LSZQ, no gesture
     *)                         echo "$1" ;;
   esac
 }
@@ -131,6 +132,6 @@ for SCENE in "${LIST[@]}"; do
   fi
   echo "   → $DEST ($(sips -g pixelWidth -g pixelHeight "$DEST" | awk '/pixel/ {printf "%s ", $2}'))"
 done
-echo "✓ done. Now: look at each image (the ring at 10/12, GPS green, no \"Flight Restored\" or other alert over"
-echo "  the screen: close it and capture again), set CAPTURED_FROM in src/lib/shots.ts to the app version,"
+echo "✓ done. Now: look at each image (the ring at 10/12, GPS green, no alert over the screen, \"Flight Restored\""
+echo "  from a build before 6.3.0 included: close it and capture again), set CAPTURED_FROM in src/lib/shots.ts to the app version,"
 echo "  run 'npm run build' (no [shots] warning), and after the deploy scripts/check-live-screenshots.sh."

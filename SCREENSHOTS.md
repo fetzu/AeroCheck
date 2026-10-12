@@ -39,7 +39,7 @@ shot keys; `--as` names a shot that shares a scene with another.
 | `route` | `conflicts` | The route editor: Geneva → Samedan over the ICAO chart, the profile, the leg table, the conflicts count | tap Today's ROUTE strip, then the route; close the "Airspace data missing" banner with its ×; needs airspace data (below) |
 | `log` | `flightlog` | Vol d'Alpes in the logbook: track, altitude profile | Logbook tab, tap Vol d'Alpes |
 | `landscape` | `cruisemap` | The iPhone on its side: the Cockpit's column, the map at full height | iPhone only: `--orientation landscapeLeft --as landscape` |
-| `circuits` | `nav` | Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25 | Plan › Map; Map sheet: National map, Airspace off, Traffic circuits and Arrival & departure routes on; the magnifying glass, "LSZQ"; close the airport callout; iPad: tap "2900 ft" for its callout and pan it clear of the controls (`--as circuits --pause`) |
+| `circuits` | `circuits` | Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25 | none (since 6.3.0 the scene opens Plan › Map on the national map, Airspace off, Traffic circuits and Arrival & departure routes on, framed on LSZQ about 8 NM across, without a callout) |
 
 The rules that are not negotiable:
 
@@ -47,12 +47,14 @@ The rules that are not negotiable:
   site shows the iPad with the iPhone in front of it. The one exception is `landscape`, the phone on
   its side.
 - **Use a simulator kept for captures.** Every scene cancels a running flight, clears all flight
-  threads, turns circuit mode on, and the map scene turns the OpenAIP layers off. Those are the
-  right conditions for a picture and the wrong thing to do to a simulator you use.
-- **"Flight Restored" over the in-flight shots.** The script launches each scene twice; the second
-  launch restores the flight the first one started, and its alert can cover the Cockpit (it did on
-  most 6.2.0 in-flight shots). Close it (iPad about (410, 642) pt, iPhone about (201, 496)) and take
-  the screenshot again, with the script's `sips` settings.
+  threads, turns circuit mode on, the map scene turns the OpenAIP layers off, and the `circuits`
+  scene leaves the national map selected and the airspace off. Those are the right conditions for a
+  picture and the wrong thing to do to a simulator you use.
+- **No "Flight Restored" since 6.3.0.** The script launches each scene twice, and the second launch
+  restores the flight the first one started; a build from 6.3.0 on no longer shows the alert when
+  launched with a scene. A build before it does (it covered most 6.2.0 in-flight shots): close it
+  (iPad about (410, 642) pt, iPhone about (201, 496)) and take the screenshot again, with the script's
+  `sips` settings.
 - **The scene launch bypasses the safety gate and onboarding.** A fresh container needs no tapping.
 - **The VFR procedures need the server's current files**: a capture simulator's open flightmaps
   data from before 7 Oct 2026 has no sector letters, so the `circuits` shot shows no W and E badges.
@@ -89,15 +91,13 @@ quits at launch.
 APP=/tmp/ac_dd/Build/Products/Debug-iphonesimulator/AeroCheck.app
 # Each device: the scenes without a gesture, then the ones with one (--pause stops before each shot).
 scripts/capture-screenshots.sh --app $APP --device "Capture iPad" \
-  --scenes cruiseroute,cruisemap,homeflight,flight,closeout
+  --scenes cruiseroute,cruisemap,homeflight,flight,closeout,circuits
 scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes cruiseroute --as vspeeds --pause
-scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes nav --as circuits --pause
 scripts/capture-screenshots.sh --app $APP --device "Capture iPad" --scenes prepare,conflicts,flightlog --pause
 
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" \
-  --scenes cruiseroute,cruisemap,homeflight,flight,closeout
+  --scenes cruiseroute,cruisemap,homeflight,flight,closeout,circuits
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruiseroute --as vspeeds --pause
-scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes nav --as circuits --pause
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes prepare,conflicts,flightlog --pause
 scripts/capture-screenshots.sh --app $APP --device "Capture iPhone" --scenes cruisemap \
   --orientation landscapeLeft --as landscape

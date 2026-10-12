@@ -959,6 +959,16 @@ final class CompanionLinkTests: XCTestCase {
         XCTAssertLessThan(ContinuousClock.now - start, .seconds(2))
     }
 
+    func testAGoodbyeWhoseSendGaveUpIsNotReportedAsSent() async {
+        let connection = Task<Void, any Error> { try await Task.sleep(for: .seconds(60)) }
+        // What the hanging goodbye's send throws when its own limit comes before the wait's, made certain.
+        let fails: @Sendable (CompanionMessage) async throws -> Void = { _ in throw CompanionSendTimeout() }
+        let went = await CompanionConnectivityManager.sayGoodbye(goodbye, on: fails, thenClose: connection,
+                                                                 upTo: .seconds(2))
+        XCTAssertFalse(went, "the send ended, but nothing went out")
+        XCTAssertTrue(connection.isCancelled, "closed anyway")
+    }
+
     func testAPhoneThatDisconnectsTellsTheIPad() async throws {
         let sent = SentMessages()
         let (companion, _) = try connectedViewer(sent: sent)

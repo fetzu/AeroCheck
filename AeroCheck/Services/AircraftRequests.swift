@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 // MARK: - Aircraft requests from the app (6.3.0)
 //
@@ -288,16 +289,75 @@ struct AircraftRequestFile: Equatable, Identifiable {
     var size: Int { data.count }
 
     /// A file whose bytes are a PDF, JPEG, PNG or HEIC (whatever its name says), or nil. The name gets
-    /// the extension of what it is when it has another.
+    /// the extension of what it is when it has another. An image loses where it was taken
+    /// (`withoutLocation`), or is refused when that fails.
     init?(name: String, data: Data) {
         guard let kind = Kind.sniff(data) else { return nil }
+        guard let bytes = kind == .pdf ? data : Self.withoutLocation(data) else { return nil }
         self.id = UUID()
         self.kind = kind
-        self.data = data
+        self.data = bytes
         let base = (name as NSString).deletingPathExtension
         let ext = (name as NSString).pathExtension.lowercased()
         let fits = ext == kind.fileExtension || (kind == .jpeg && ext == "jpeg") || (kind == .heic && ext == "heif")
         self.name = fits ? name : "\(base.isEmpty ? "checklist" : base).\(kind.fileExtension)"
+    }
+}
+
+extension AircraftRequestFile {
+    /// An image's bytes without where it was taken: a photo of a checklist taken in the hangar said where
+    /// the hangar is, and the intake keeps what it receives (6.3.0). The GPS of its EXIF and XMP is left
+    /// out and the image copied as it is, with no new compression; where ImageIO can't copy that format,
+    /// the image is written again with its orientation and nothing else. The bytes unchanged when they
+    /// carry no location, or when ImageIO can't read them (nor could it read a location in them); nil
+    /// when a location can't be taken out.
+    static func withoutLocation(_ data: Data) -> Data? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let type = CGImageSourceGetType(source), CGImageSourceGetCount(source) > 0 else { return data }
+        guard hasLocation(source) else { return data }
+        for rewrite in [copyLeavingOutLocation, writeImagesOnly] {
+            if let out = rewrite(source, type),
+               let check = CGImageSourceCreateWithData(out as CFData, nil), !hasLocation(check) {
+                return out
+            }
+        }
+        return nil
+    }
+
+    /// GPS in any image of the file, in its EXIF or its XMP.
+    static func hasLocation(_ source: CGImageSource) -> Bool {
+        (0..<CGImageSourceGetCount(source)).contains { index in
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
+            if properties?[kCGImagePropertyGPSDictionary] != nil { return true }
+            guard let metadata = CGImageSourceCopyMetadataAtIndex(source, index, nil) else { return false }
+            return CGImageMetadataCopyTagWithPath(metadata, nil, "exif:GPSLatitude" as CFString) != nil
+                || CGImageMetadataCopyTagWithPath(metadata, nil, "exif:GPSLongitude" as CFString) != nil
+        }
+    }
+
+    /// The copy keeps no metadata it isn't given (the orientation went too): the image's own, less GPS.
+    private static func copyLeavingOutLocation(_ source: CGImageSource, _ type: CFString) -> Data? {
+        let output = NSMutableData()
+        var options: [CFString: Any] = [kCGImageMetadataShouldExcludeGPS: true]
+        options[kCGImageDestinationMetadata] = CGImageSourceCopyMetadataAtIndex(source, 0, nil)
+        guard let destination = CGImageDestinationCreateWithData(output, type, CGImageSourceGetCount(source), nil),
+              CGImageDestinationCopyImageSource(destination, source, options as CFDictionary, nil)
+        else { return nil }
+        return output as Data
+    }
+
+    private static func writeImagesOnly(_ source: CGImageSource, _ type: CFString) -> Data? {
+        let count = CGImageSourceGetCount(source)
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(output, type, count, nil) else { return nil }
+        for index in 0..<count {
+            guard let image = CGImageSourceCreateImageAtIndex(source, index, nil) else { return nil }
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
+            var kept: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.9]
+            kept[kCGImagePropertyOrientation] = properties?[kCGImagePropertyOrientation]
+            CGImageDestinationAddImage(destination, image, kept as CFDictionary)
+        }
+        return CGImageDestinationFinalize(destination) ? output as Data : nil
     }
 }
 

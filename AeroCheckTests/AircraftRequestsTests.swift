@@ -1,4 +1,6 @@
 import XCTest
+import ImageIO
+import UniformTypeIdentifiers
 @testable import AeroCheck
 
 /// Aircraft requests sent from the app (6.3.0): the intake's rules as the app applies them, the form,
@@ -59,6 +61,46 @@ final class AircraftRequestsTests: XCTestCase {
         XCTAssertEqual(AircraftRequestFile(name: "scan.png", data: Self.jpeg)?.name, "scan.jpg")
         XCTAssertEqual(AircraftRequestFile(name: "photo.jpeg", data: Self.jpeg)?.name, "photo.jpeg")
         XCTAssertEqual(AircraftRequestFile(name: "", data: Self.pdf)?.name, "checklist.pdf")
+    }
+
+    /// A photo taken in the hangar says where the hangar is: it goes without its GPS, the image the same
+    /// (its size, its orientation).
+    func testAPhotoGoesWithoutWhereItWasTaken() throws {
+        let photo = try Self.image(UTType.jpeg, location: true, orientation: 6)
+        XCTAssertTrue(Self.hasLocation(photo), "the test photo has its location")
+        let file = try XCTUnwrap(AircraftRequestFile(name: "IMG_1.jpg", data: photo))
+        XCTAssertEqual(file.kind, .jpeg)
+        XCTAssertFalse(Self.hasLocation(file.data))
+        let properties = try XCTUnwrap(Self.properties(file.data))
+        XCTAssertEqual(properties[kCGImagePropertyPixelWidth] as? Int, 64)
+        XCTAssertEqual(properties[kCGImagePropertyPixelHeight] as? Int, 48)
+        XCTAssertEqual(properties[kCGImagePropertyOrientation] as? Int, 6)
+    }
+
+    func testAPNGGoesWithoutItsLocationToo() throws {
+        let image = try Self.image(UTType.png, location: true, orientation: 1)
+        try XCTSkipUnless(Self.hasLocation(image), "ImageIO writes no GPS into a PNG here")
+        let file = try XCTUnwrap(AircraftRequestFile(name: "screen.png", data: image))
+        XCTAssertEqual(file.kind, .png)
+        XCTAssertFalse(Self.hasLocation(file.data))
+    }
+
+    /// An iPhone's photo is a HEIC: it stays one, without its GPS.
+    func testAHEICPhotoStaysAHEICWithoutItsLocation() throws {
+        try XCTSkipUnless((CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).contains(UTType.heic.identifier),
+                          "no HEIC encoder here")
+        let photo = try Self.image(UTType.heic, location: true, orientation: 6)
+        XCTAssertTrue(Self.hasLocation(photo))
+        let file = try XCTUnwrap(AircraftRequestFile(name: "IMG_2.HEIC", data: photo))
+        XCTAssertEqual(file.kind, .heic)
+        XCTAssertFalse(Self.hasLocation(file.data))
+        XCTAssertEqual(Self.properties(file.data)?[kCGImagePropertyOrientation] as? Int, 6)
+    }
+
+    /// Nothing to take out: the bytes as they are.
+    func testAnImageWithNoLocationGoesAsItIs() throws {
+        let photo = try Self.image(UTType.jpeg, location: false, orientation: 1)
+        XCTAssertEqual(AircraftRequestFile(name: "p.jpg", data: photo)?.data, photo)
     }
 
     // MARK: - The form
@@ -414,6 +456,38 @@ final class AircraftRequestsTests: XCTestCase {
         let upload = try await store.create(submission)
         try await store.complete(upload, now: Date(timeIntervalSince1970: 1_800_000_000))
         return store
+    }
+
+    /// A 64 x 48 image of `type`, with a position in Lausanne or none.
+    static func image(_ type: UTType, location: Bool, orientation: Int) throws -> Data {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 64, height: 48, bitsPerComponent: 8, bytesPerRow: 0,
+                                              space: CGColorSpaceCreateDeviceRGB(),
+                                              bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(red: 0.8, green: 0.6, blue: 0.1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 32, height: 48))
+        let image = try XCTUnwrap(context.makeImage())
+        let output = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(output, type.identifier as CFString, 1, nil))
+        var properties: [CFString: Any] = [kCGImagePropertyOrientation: orientation]
+        if location {
+            properties[kCGImagePropertyGPSDictionary] = [
+                kCGImagePropertyGPSLatitude: 46.5455, kCGImagePropertyGPSLatitudeRef: "N",
+                kCGImagePropertyGPSLongitude: 6.6175, kCGImagePropertyGPSLongitudeRef: "E",
+            ] as [CFString: Any]
+        }
+        CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return output as Data
+    }
+
+    static func hasLocation(_ data: Data) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
+        return AircraftRequestFile.hasLocation(source)
+    }
+
+    static func properties(_ data: Data) -> [CFString: Any]? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        return CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
     }
 
     static let pdf = Data("%PDF-1.7\n%âãÏÓ\n".utf8)

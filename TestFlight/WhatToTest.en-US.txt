@@ -1,12 +1,12 @@
-6.2.0 takes the Cockpit apart: three pages (CHECKLIST, MAP, ROUTE) between a band at the top that reads the flight and four fixed buttons at the foot. The map can also draw traffic circuits, VFR routes and arrival sectors from open flightmaps, and each aerodrome links to its official chart. Try it on the ground first: plan a flight with a route, START FLIGHT, then walk through the phases.
+6.3.0 brings full-stop circuits: after a full stop the flight goes on to the After Landing check, and at its end NEW CIRCUIT takes you back to the check before departure for another lap, or the parking check ends the session. You can also send us an aircraft's checklist from the app. Try it on the ground: Today › CIRCUITS, then press the landings as they come.
 
 What to look at:
-- the bottom row: the same four places on every page, CHECK is now the second button;
-- ROUTE: the destination line, the legs (a tap shows the leg on MAP) and every frequency in the order you'll need it;
-- MAP: the chart alone, the buttons on the right edge, and the slot at the top left (UNDO after MARK, CHART OFFLINE in airplane mode);
-- the iPad: BRIEFING in the page bar, next to ROUTE;
-- the iPhone: one line per button, words only, and more chart; ROUTE shows LEGS or RADIO; the flight time and Abandon Flight are in Menu;
-- Plan › Map: the magnifying glass to find an aerodrome, and Map › Traffic circuits and Arrival & departure routes, once the data is downloaded in Settings › Navigation & Maps;
-- Companion mode (iOS 26 on both): Divert from the iPhone, and the link coming back by itself after a drop.
+- a circuits session: touch-and-goes and go-arounds as before; after a full stop, the After Landing check, and at its end NEW CIRCUIT or PARKING CHECK (on the iPhone ↻ CIRCUIT or PARKING); each lap's full stop is counted once, in Menu;
+- the iPad's phase bar: two loops, touch-and-go and full stop, each with its count; on the iPhone, the lap in the phase button (↻ 3);
+- leaving circuits: Cruise and Descent are dimmed in the phase list and a tap asks “Leave circuits?”; Menu › Options has a Circuits switch, both ways;
+- the Logbook: a flight's TIMELINE lists each touch-and-go, go-around and stop-and-go with its time;
+- Aircraft › “Send us an aircraft’s checklist”: look up a registration, scan or add its checklist, send; “Your requests” then shows where it stands. A request is real and reaches AéroCheck, so send one only for an aircraft you want in the app;
+- Plan › Map with no flight running: a leg tapped in the legs panel is framed on its own, wherever the iPad is, and stays framed when you turn the iPad;
+- Companion mode (iOS 26 on both): from NAV, a tap on the check slot takes the iPhone to the next check's list.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

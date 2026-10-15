@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A0000A111111110000001 /* GroundReplayTests.swift */; };
+		A49AF57ED809E0A0A95997E0 /* DryRunGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5317F83F9FE25B563CED139 /* DryRunGeneratorTests.swift */; };
 		C7A00009211111110000002 /* Scenarios in Resources */ = {isa = PBXBuildFile; fileRef = C7A00009111111110000001 /* Scenarios */; };
 		C7A00008211111110000001 /* CockpitPilot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000001 /* CockpitPilot.swift */; };
 		C7A00008211111110000002 /* ChecksInFlightUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000002 /* ChecksInFlightUITests.swift */; };
@@ -159,6 +160,7 @@
 		A1000001211111110000010 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000010 /* LocationManager.swift */; };
 		A1000001211111110000099 /* FlightLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000099 /* FlightLauncher.swift */; };
 		A1000001211111110000E01 /* GroundReplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000E01 /* GroundReplay.swift */; };
+		6CAB83037C332BA0F546C8E6 /* DryRunGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DDBA502A1810636084AC2D /* DryRunGenerator.swift */; };
 		A1000001211111110000050 /* ExternalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000050 /* ExternalRequest.swift */; };
 		A1000001211111110000A06 /* ExportStaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000A06 /* ExportStaging.swift */; };
 		A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000065 /* OpenAIPNavaidDataService.swift */; };
@@ -292,6 +294,7 @@
 		D1000001211111110000009 /* country-boundaries.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000009 /* country-boundaries.json */; };
 		D1000001211111110000003 /* wt9-dynamic-bundled-fr.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */; };
 		E1000001211111110000001 /* Airport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000001 /* Airport.swift */; };
+		DE8E4A1E4DC38F2F86C3FE57 /* DryRunAerodrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A244576842F7A6A580C97F9 /* DryRunAerodrome.swift */; };
 		E1000001211111110000020 /* Navaid.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000020 /* Navaid.swift */; };
 		E1000001211111110000021 /* Obstacle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000021 /* Obstacle.swift */; };
 		E1000001211111110000022 /* ReportingPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000022 /* ReportingPoint.swift */; };
@@ -406,6 +409,7 @@
 
 /* Begin PBXFileReference section */
 		C7A0000A111111110000001 /* GroundReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundReplayTests.swift; sourceTree = "<group>"; };
+		F5317F83F9FE25B563CED139 /* DryRunGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunGeneratorTests.swift; sourceTree = "<group>"; };
 		C7A00001111111110000000 /* AeroCheckUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AeroCheckUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7A00008111111110000001 /* CockpitPilot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPilot.swift; sourceTree = "<group>"; };
 		C7A00008111111110000002 /* ChecksInFlightUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecksInFlightUITests.swift; sourceTree = "<group>"; };
@@ -563,6 +567,7 @@
 		A1000001111111110000010 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000099 /* FlightLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncher.swift; sourceTree = "<group>"; };
 		A1000001111111110000E01 /* GroundReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroundReplay.swift; sourceTree = "<group>"; };
+		64DDBA502A1810636084AC2D /* DryRunGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunGenerator.swift; sourceTree = "<group>"; };
 		A1000001111111110000050 /* ExternalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequest.swift; sourceTree = "<group>"; };
 		A1000001111111110000A06 /* ExportStaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportStaging.swift; sourceTree = "<group>"; };
 		A1000001111111110000065 /* OpenAIPNavaidDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPNavaidDataService.swift; sourceTree = "<group>"; };
@@ -686,6 +691,7 @@
 		D1000001111111110000009 /* country-boundaries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "country-boundaries.json"; sourceTree = "<group>"; };
 		D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled-fr.json"; sourceTree = "<group>"; };
 		E1000001111111110000001 /* Airport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airport.swift; sourceTree = "<group>"; };
+		7A244576842F7A6A580C97F9 /* DryRunAerodrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunAerodrome.swift; sourceTree = "<group>"; };
 		E1000001111111110000020 /* Navaid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navaid.swift; sourceTree = "<group>"; };
 		E1000001111111110000021 /* Obstacle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Obstacle.swift; sourceTree = "<group>"; };
 		E1000001111111110000022 /* ReportingPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPoint.swift; sourceTree = "<group>"; };
@@ -917,6 +923,7 @@
 				A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
 				C7A0000A111111110000001 /* GroundReplayTests.swift */,
+				F5317F83F9FE25B563CED139 /* DryRunGeneratorTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -1067,6 +1074,7 @@
 			children = (
 				A1000001111111110000015 /* Aircraft.swift */,
 				E1000001111111110000001 /* Airport.swift */,
+				7A244576842F7A6A580C97F9 /* DryRunAerodrome.swift */,
 				E1000001111111110000020 /* Navaid.swift */,
 				E1000001111111110000021 /* Obstacle.swift */,
 				E1000001111111110000022 /* ReportingPoint.swift */,
@@ -1110,6 +1118,7 @@
 				A1000001111111110000010 /* LocationManager.swift */,
 				A1000001111111110000099 /* FlightLauncher.swift */,
 				A1000001111111110000E01 /* GroundReplay.swift */,
+				64DDBA502A1810636084AC2D /* DryRunGenerator.swift */,
 				A1000001111111110000050 /* ExternalRequest.swift */,
 				A1000001111111110000A06 /* ExportStaging.swift */,
 				A1000001111111110000071 /* OpenAIPLayerCache.swift */,
@@ -1460,6 +1469,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */,
+				A49AF57ED809E0A0A95997E0 /* DryRunGeneratorTests.swift in Sources */,
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
 				A5000008111111110000906 /* SafeNumericTests.swift in Sources */,
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
@@ -1615,6 +1625,7 @@
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
 				A1000001211111110000099 /* FlightLauncher.swift in Sources */,
 				A1000001211111110000E01 /* GroundReplay.swift in Sources */,
+				6CAB83037C332BA0F546C8E6 /* DryRunGenerator.swift in Sources */,
 				A1000001211111110000050 /* ExternalRequest.swift in Sources */,
 				A1000001211111110000A06 /* ExportStaging.swift in Sources */,
 				A1000001211111110000071 /* OpenAIPLayerCache.swift in Sources */,
@@ -1712,6 +1723,7 @@
 				C1000001211111110000001 /* Localization.swift in Sources */,
 				D1000001211111110000001 /* BundledChecklistService.swift in Sources */,
 				E1000001211111110000001 /* Airport.swift in Sources */,
+				DE8E4A1E4DC38F2F86C3FE57 /* DryRunAerodrome.swift in Sources */,
 				E1000001211111110000020 /* Navaid.swift in Sources */,
 				E1000001211111110000021 /* Obstacle.swift in Sources */,
 				E1000001211111110000022 /* ReportingPoint.swift in Sources */,

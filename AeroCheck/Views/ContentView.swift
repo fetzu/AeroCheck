@@ -251,13 +251,18 @@ struct ContentView: View {
             // A dry run instead (`AEROCHECK_DRYRUN=lszq`, at `AEROCHECK_DRYRUN_SPEED`, 4 by default): its
             // circuits at LSZQ from launch, for a check or a capture without a tap. `AEROCHECK_DRYRUN_AUTO=1`
             // flies it as a pilot would, `AEROCHECK_DRYRUN_STOP=final|cruise|over` stops it there
-            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet. (6.4.0)
+            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet; `guided`: the guided flight, from
+            // `AEROCHECK_DRYRUN_CHAPTER` (1 by default). (6.4.0)
             let environment = ProcessInfo.processInfo.environment
             if let dryRun = environment["AEROCHECK_DRYRUN"]?.lowercased() {
                 if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
                 if !appState.hasSeenOnboarding { appState.completeOnboarding() }
                 if dryRun == "sheet" {
                     DryRunCenter.shared.requestStart()
+                    return
+                }
+                if dryRun == "guided" {
+                    DryRunCenter.shared.requestGuided(chapter: environment["AEROCHECK_DRYRUN_CHAPTER"].flatMap { Int($0) } ?? 1)
                     return
                 }
                 let speed = environment["AEROCHECK_DRYRUN_SPEED"].flatMap(Double.init) ?? 4

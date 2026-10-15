@@ -20,8 +20,12 @@ final class DryRunSession: ObservableObject, Identifiable {
     let world: DryRunWorld
     let generator: DryRunGenerator
     let setup: DryRunSetup
+    /// The guided flight's coach; nil in free practice.
+    let coach: DryRunCoach?
     /// An aerodrome the app's data gives, for a divert; nil without a runway to fly.
     var resolveAerodrome: (String) -> DryRunAerodrome? = { _ in nil }
+    /// The guided flight flown to its end: the app's Today card then stops offering it (`DryRunCenter`).
+    var onGuidedFinished: (() -> Void)?
 
     /// Times the wall clock's pace; paused or not, the pace it runs at.
     @Published private(set) var rate: Double
@@ -35,6 +39,8 @@ final class DryRunSession: ObservableObject, Identifiable {
     @Published var finalChoice: DryRunGenerator.Landing = .fullStop
     /// Next check: the flight sped through until a check falls due, the aircraft waits, or the final.
     @Published private(set) var isSkipping = false
+    /// The coach's step holds the flight until the pilot has done it, or read it.
+    @Published private(set) var isCoachHolding = false
     @Published private(set) var state: State = .flying
     private(set) var hasEnded = false
 
@@ -79,6 +85,7 @@ final class DryRunSession: ObservableObject, Identifiable {
         self.setup = setup
         rate = setup.rate
         landings = setup.landings
+        coach = setup.guidedChapter.map { DryRunCoach(startChapter: $0) }
         generator = DryRunGenerator(departure: setup.departure, mission: setup.generatorMission,
                                     performance: performance, seed: seed)
         generator.pilot = DryRunGenerator.Pilot(
@@ -108,13 +115,13 @@ final class DryRunSession: ObservableObject, Identifiable {
         }
     }
 
-    /// Stopped on the runway after a full stop: round again once the pilot is at the check before departure
-    /// (NEW CIRCUIT) or the line-up, off to the parking once at the engine shutdown (PARKING) or after; a
-    /// flight that isn't circuits vacates at once. A check of the air still showing (the pilot didn't follow
-    /// the circuit) waits for the pilot to catch up. Nil: not yet.
+    /// Stopped on the runway after a full stop: in circuits, round again once the pilot is at the check before
+    /// departure (NEW CIRCUIT) or the line-up; off to the parking once at the engine shutdown (PARKING) or
+    /// after, or at the after landing check of a flight that isn't circuits. A check still showing from
+    /// before (the pilot didn't follow the flight) waits for the pilot to catch up. Nil: not yet.
     static func afterFullStop(phase: ChecklistPhase, circuits: Bool) -> DryRunGenerator.AfterFullStop? {
         switch phase {
-        case .beforeDeparture, .lineUp: return .goAgain
+        case .beforeDeparture, .lineUp: return circuits ? .goAgain : nil
         case .shutdown, .hangar: return .vacate
         case .afterLanding: return circuits ? nil : .vacate
         default: return nil
@@ -129,7 +136,7 @@ final class DryRunSession: ObservableObject, Identifiable {
     func begin(airports: AirportDataService, now: Date = Date()) -> Bool {
         guard start == nil else { return true }
         start = now
-        FlightClock.runVirtual(from: now, rate: rate)
+        FlightClock.runVirtual(from: now, rate: coach?.isPreluding == true ? Self.skipRate : rate)
         guard world.startFlight(circuits: setup.isCircuits, aerodromes: setup.aerodromes.map(\.airport),
                                 airports: airports) else {
             end()
@@ -168,7 +175,6 @@ final class DryRunSession: ObservableObject, Identifiable {
             finish()
             return
         }
-        if generator.isWaiting != isWaiting { isWaiting = generator.isWaiting }
         let onFinal = generator.isOnFinal
         if onFinal != isOnFinal {
             if onFinal { finalChoice = .fullStop }
@@ -177,6 +183,28 @@ final class DryRunSession: ObservableObject, Identifiable {
         checksDone = ChecklistPhase.allCases.filter { appState.getPhaseStatus($0) == .completed }.count
         followRoute()
         stepSkip()
+        if let coach {
+            let hold = coach.tick(self)
+            if hold != isCoachHolding { isCoachHolding = hold }
+        }
+        let waiting = generator.isWaiting || isCoachHolding
+        if waiting != isWaiting { isWaiting = waiting }
+        applyRate()
+    }
+
+    /// The clock's pace for where the dry run stands: stopped while paused or held by the coach, Next
+    /// check's or the guided flight's way to its chapter at 30×, else the pace chosen.
+    private func applyRate() {
+        guard state == .flying else { return }
+        let pace: Double
+        if isPaused || isCoachHolding {
+            pace = 0
+        } else if isSkipping || coach?.isPreluding == true {
+            pace = Self.skipRate
+        } else {
+            pace = rate
+        }
+        if FlightClock.virtual?.rate != pace { FlightClock.setVirtualRate(pace) }
     }
 
     /// A Direct To or a divert made in the Cockpit, for the generator: a jump ahead on the route, a diversion
@@ -213,20 +241,20 @@ final class DryRunSession: ObservableObject, Identifiable {
     func setRate(_ newRate: Double) {
         if isSkipping { stopSkip() }
         rate = max(0.25, newRate)
-        if !isPaused { FlightClock.setVirtualRate(rate) }
+        applyRate()
     }
 
     func pause() {
         guard !isPaused, state == .flying else { return }
         if isSkipping { stopSkip() }
         isPaused = true
-        FlightClock.setVirtualRate(0)
+        applyRate()
     }
 
     func resume() {
         guard isPaused, state == .flying else { return }
         isPaused = false
-        FlightClock.setVirtualRate(rate)
+        applyRate()
     }
 
     /// On to the next check: the flight sped through (30×) until a check falls due (a cue), the aircraft waits
@@ -236,7 +264,7 @@ final class DryRunSession: ObservableObject, Identifiable {
         isPaused = false
         isSkipping = true
         skipFrom = (CueMark(world.appState.flightCues), FlightClock.now)
-        FlightClock.setVirtualRate(Self.skipRate)
+        applyRate()
     }
 
     private func stepSkip() {
@@ -250,7 +278,7 @@ final class DryRunSession: ObservableObject, Identifiable {
     private func stopSkip() {
         isSkipping = false
         skipFrom = nil
-        FlightClock.setVirtualRate(isPaused ? 0 : rate)
+        applyRate()
     }
 
     /// Ended from the Menu: the flight abandoned in the world, then the dry run's page.
@@ -272,9 +300,16 @@ final class DryRunSession: ObservableObject, Identifiable {
     private func finish() {
         guard state == .flying else { return }
         let end = FlightClock.now
-        state = .over(DryRunSummary.make(title: setup.title, aircraft: aircraftLabel, checksDone: checksDone,
+        // The coach's last step is the flight's end: it counts, with its chapter.
+        coach?.tick(self)
+        var summary = DryRunSummary.make(title: setup.title, aircraft: aircraftLabel, checksDone: checksDone,
                                          wasCircuits: setup.isCircuits, diverted: diverted,
-                                         marks: generator.marks, seconds: end.timeIntervalSince(start ?? end)))
+                                         marks: generator.marks, seconds: end.timeIntervalSince(start ?? end))
+        if let coach {
+            summary.habits = coach.chaptersDone.sorted().map(DryRunChapters.habit)
+            if coach.isFinished { onGuidedFinished?() }
+        }
+        state = .over(summary)
         self.end()
     }
 
@@ -321,6 +356,17 @@ final class DryRunCenter: ObservableObject {
     /// Starting one: the aircraft's checklist loading, the route armed.
     @Published private(set) var isStarting = false
     @Published var startRequest: StartRequest?
+    /// The guided flight asked for, from this chapter: the presenter starts it (`dryRunPresenter`).
+    @Published var guidedRequest: GuidedRequest?
+
+    struct GuidedRequest: Identifiable {
+        let id = UUID()
+        let chapter: Int
+    }
+
+    /// Device-local (D7): Today's card put away with Not now, and the guided flight flown to its end.
+    nonisolated static let todayCardDismissedKey = "dryRun.todayCardDismissed"
+    nonisolated static let guidedFlownKey = "dryRun.guidedFlown"
     /// Which screen shows the start sheet and the Cockpit (`dryRunPresenter`).
     @Published private(set) var presenter = DryRunCenter.rootPresenter
     /// Ready, waiting for the sheet that prepared it to go (`launchPrepared`).
@@ -343,6 +389,27 @@ final class DryRunCenter: ObservableObject {
         guard !isRunning, prepared == nil, !isStarting else { return }
         self.presenter = presenter
         startRequest = StartRequest(route: route)
+    }
+
+    /// Asks `presenter` (the app's root by default) for the guided flight, from `chapter`.
+    func requestGuided(chapter: Int = 1, presenter: String = DryRunCenter.rootPresenter) {
+        guard !isRunning, prepared == nil, !isStarting else { return }
+        self.presenter = presenter
+        guidedRequest = GuidedRequest(chapter: chapter)
+    }
+
+    /// The guided flight: the WT9 from the home aerodrome (LSZQ when there is none, or no runway for it), out
+    /// to a turning point and back, the coach from `chapter`.
+    @discardableResult
+    func beginGuided(chapter: Int, settings: @escaping () -> AppSettings, airports: AirportDataService,
+                     aircraftData: AircraftDataService, isFlightActive: Bool) async -> Outcome {
+        await airports.ensureLoaded()
+        await OFMDataService.shared.ensureLoaded()
+        let home = settings().homeAerodromeIdent.flatMap { Self.aerodrome($0, airports: airports) } ?? .lszq
+        let setup = DryRunSetup(mission: .route(DryRunChapters.route(from: home), departure: home, destination: home),
+                                guidedChapter: chapter)
+        return await begin(setup, settings: settings, airports: airports, aircraftData: aircraftData,
+                           isFlightActive: isFlightActive, presenter: presenter)
     }
 
     /// `setup` in a world of its own, begun at once. `settings`: the pilot's, read now and again for "Fly it
@@ -382,6 +449,9 @@ final class DryRunCenter: ObservableObject {
         let session = DryRunSession(world: world, setup: setup,
                                     performance: Self.performance(of: world, settings: settings()))
         session.resolveAerodrome = { Self.aerodrome($0, airports: airports) }
+        if setup.isGuided {
+            session.onGuidedFinished = { UserDefaults.standard.set(true, forKey: Self.guidedFlownKey) }
+        }
         prepared = session
         return .started
     }

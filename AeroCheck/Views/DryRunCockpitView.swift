@@ -73,6 +73,7 @@ struct DryRunCockpitView: View {
                     .ignoresSafeArea(edges: .top)
                 if session.isOnFinal {
                     DryRunFinalCard(session: session, compact: !metrics.isWide)
+                        .coachTarget(.finalCard)
                         .frame(maxWidth: metrics.finalCardWidth)
                         .padding(.horizontal, 12)
                         .padding(.bottom, metrics.finalCardBottom)
@@ -82,7 +83,42 @@ struct DryRunCockpitView: View {
                 }
             }
             .animation(.easeOut(duration: 0.2), value: session.isOnFinal)
+            // The guided flight's coach: its card above the act band, the veil and the ring over the control.
+            .overlayPreferenceValue(CoachTargetKey.self) { anchors in
+                if let coach = session.coach {
+                    DryRunCoachLayer(coach: coach, session: session, anchors: anchors, metrics: metrics)
+                }
+            }
+            .onPreferenceChange(CockpitPageKey.self) { page in session.coach?.page = page ?? .checklist }
         }
+    }
+}
+
+/// The coach's step over the Cockpit: the veil and the ring where its control is, the card above the act band
+/// (and above the card on final when it is up).
+struct DryRunCoachLayer: View {
+    @ObservedObject var coach: DryRunCoach
+    @ObservedObject var session: DryRunSession
+    let anchors: [DryRunCoachStep.Target: Anchor<CGRect>]
+    let metrics: DryRunBandMetrics
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let step = coach.step {
+                let target = step.target.flatMap { anchors[$0] }.map { proxy[$0] }
+                ZStack {
+                    DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
+                    DryRunCoachCard(coach: coach, session: session, step: step, compact: !metrics.isWide)
+                        .frame(maxWidth: metrics.isWide ? 600 : .infinity)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 104 : 90) : 0))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: coach.step)
     }
 }
 
@@ -94,9 +130,22 @@ struct DryRunCockpitView: View {
 struct DryRunPresenter: ViewModifier {
     let id: String
     @ObservedObject private var center = DryRunCenter.shared
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var airportDataService: AirportDataService
+    @EnvironmentObject private var aircraftDataService: AircraftDataService
 
     func body(content: Content) -> some View {
         content
+            // The guided flight (Today's card, onboarding's last page, Settings): no sheet, it starts at once.
+            .onChange(of: center.guidedRequest?.id) { _, request in
+                guard request != nil, center.presenter == id, let chapter = center.guidedRequest?.chapter else { return }
+                center.guidedRequest = nil
+                Task {
+                    await center.beginGuided(chapter: chapter, settings: { [appState] in appState.settings },
+                                             airports: airportDataService, aircraftData: aircraftDataService,
+                                             isFlightActive: appState.isFlightActive)
+                }
+            }
             .sheet(item: Binding(get: { center.presenter == id ? center.startRequest : nil },
                                  set: { if $0 == nil { center.startRequest = nil } }),
                    onDismiss: { center.launchPrepared(from: id) }) { request in
@@ -201,7 +250,8 @@ struct DryRunBand: View {
                 HStack(spacing: 10) {
                     DryRunPlate(text: "\(L10n.DryRun.band) · \(state)")
                     Spacer(minLength: 8)
-                    DryRunControls(session: session, height: 36)
+                    // The guided flight paces itself: its coach has Pause.
+                    if session.coach == nil { DryRunControls(session: session, height: 36) }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, max(0, metrics.height - 44))
@@ -226,6 +276,7 @@ struct DryRunBand: View {
 
     /// Where it stands: its pace, paused, on to the next check, waiting for the pilot.
     private var state: String {
+        if let coach = session.coach, coach.isPreluding { return L10n.DryRunCoach.toChapter(coach.startChapter) }
         if session.isSkipping { return L10n.DryRun.skipping }
         if session.isPaused { return L10n.DryRun.paused }
         if session.isWaiting { return L10n.DryRun.waiting }
@@ -233,7 +284,7 @@ struct DryRunBand: View {
     }
 
     private var shortState: String {
-        if session.isSkipping { return DryRunSetup.paceLabel(DryRunSession.skipRate) }
+        if session.isSkipping || session.coach?.isPreluding == true { return DryRunSetup.paceLabel(DryRunSession.skipRate) }
         if session.isPaused { return L10n.DryRun.paused }
         if session.isWaiting { return L10n.DryRun.waitingShort }
         return DryRunSetup.paceLabel(session.rate)
@@ -391,6 +442,22 @@ struct DryRunSummaryView: View {
                         }
                         .font(.aero(size: 18))
                         .foregroundColor(theme.textSecondary)
+                        if !summary.habits.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(L10n.DryRunCoach.habitsTitle.uppercased())
+                                    .font(.aero(size: 13, weight: .semibold, design: .monospaced))
+                                    .tracking(1.2)
+                                    .foregroundColor(theme.textSecondary)
+                                ForEach(summary.habits, id: \.self) { habit in
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Image(systemName: "checkmark").foregroundColor(theme.onTarget)
+                                        Text(habit)
+                                    }
+                                }
+                            }
+                            .font(.aero(size: 18))
+                            .foregroundColor(theme.textPrimary)
+                        }
                         Text(summary.nextTime)
                             .font(.aero(size: 18, weight: .semibold))
                             .foregroundColor(theme.textPrimary)

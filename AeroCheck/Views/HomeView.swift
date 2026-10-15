@@ -499,6 +499,8 @@ struct HomeView: View {
                     planFlightButton(isCompact: isCompact)
                 }
             }
+            // The guided flight on the ground, while the logbook is empty (6.4.0, D7).
+            DryRunTodayCard(isCompact: isCompact)
             sectionLabel(L10n.Ground.recent, isCompact: isCompact)
                 .padding(.top, isCompact ? 4 : 8)
             aircraftStrip(fillsHeight: false)

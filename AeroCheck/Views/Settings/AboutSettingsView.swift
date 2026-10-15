@@ -78,7 +78,29 @@ struct AboutSettingsView: View {
                               subtitle: L10n.Settings.replayIntroFooter, tint: .aviationGold, showsChevron: false) {
                 appState.replayOnboarding()
             }
-            // Beside the introduction (D5): the app flown on the ground, through the real Cockpit. (6.4.0)
+            // Beside the introduction (D5): the app flown on the ground, through the real Cockpit, guided or
+            // free. (6.4.0)
+            SettingsButtonRow(icon: "graduationcap", title: L10n.DryRunCoach.settingsGuided,
+                              subtitle: L10n.DryRunCoach.settingsGuidedSubtitle, tint: .aviationGold, showsChevron: false) {
+                DryRunCenter.shared.requestGuided()
+            }
+            .disabled(appState.isFlightActive)
+            NavigationLink {
+                DryRunChaptersView()
+            } label: {
+                HStack(spacing: 8) {
+                    SettingsRowLabel(icon: "list.number", title: L10n.DryRunCoach.chaptersRow, tint: .aviationGold)
+                    Image(systemName: "chevron.right")
+                        .font(.aero(size: 14, weight: .semibold))
+                        .foregroundColor(.dimText)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(appState.isFlightActive)
             SettingsButtonRow(icon: "airplane.circle", title: L10n.DryRun.settingsRow,
                               subtitle: L10n.DryRun.settingsRowSubtitle, tint: .aviationGold, showsChevron: false) {
                 DryRunCenter.shared.requestStart()

@@ -753,7 +753,12 @@ struct OnboardingView: View {
             Spacer()
             pageDots
             primaryButton(L10n.Onboarding.readyButton, icon: "airplane") { completeOnboarding() }
-                .padding(.bottom, 44)
+            // Or the guided flight first, on the ground: onboarding done, then the dry run. (6.4.0)
+            secondaryButton(L10n.DryRunCoach.onboardingFly, icon: "airplane.circle") {
+                completeOnboarding()
+                DryRunCenter.shared.requestGuided()
+            }
+            .padding(.bottom, 44)
         }
     }
 

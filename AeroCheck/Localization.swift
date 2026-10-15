@@ -158,6 +158,7 @@ enum L10n {
         static let cancel = String(localized: "button.cancel")
         static let delete = String(localized: "button.delete")
         static let flightLog = String(localized: "button.flightLog")
+        static let back = String(localized: "button.back")
     }
 
     // MARK: - Border crossing (v5.0.0)
@@ -1065,6 +1066,8 @@ enum L10n {
         static let skip = String(localized: "onboarding.skip")
         static let getStarted = String(localized: "onboarding.getStarted")
         static let next = String(localized: "onboarding.next")
+        /// Under the location step's reasons, while iOS has yet to ask. (6.3.2)
+        static let locationNext = String(localized: "onboarding.location.next")
     }
 
     // MARK: - Safety notice

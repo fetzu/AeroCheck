@@ -81,7 +81,8 @@ struct SubscriptionView: View {
                 headerSection
 
                 if !subscriptionManager.subscriptionStatus.isSubscribed, let days = yearlyTrialDays {
-                    trialBanner(days: days)
+                    trialBanner(days: days,
+                                yearlyPrice: subscriptionManager.products.first { $0.id == yearlyID }?.displayPrice)
                 }
 
                 // Lifetime owners can't buy anything more; everyone else sees the purchasable plans —
@@ -198,7 +199,10 @@ struct SubscriptionView: View {
 
     // MARK: - Free-trial banner
 
-    private func trialBanner(days: Int) -> some View {
+    /// The trial says what comes after it, price included: App Review wants the amount billed to be the
+    /// clearest price on the page, and "Free" in green with the price only further down could read the
+    /// other way round (guideline 3.1.2). (6.3.2)
+    private func trialBanner(days: Int, yearlyPrice: String?) -> some View {
         HStack(spacing: 11) {
             Image(systemName: "gift.fill")
                 .scaledFont(size: 18, relativeTo: .title3)
@@ -208,7 +212,8 @@ struct SubscriptionView: View {
                 Text(L10n.Subscription.freeTrialDays(days))
                     .font(.aero(.subheadline)).fontWeight(.semibold)
                     .foregroundColor(Color.aviationGreen)
-                Text(L10n.Subscription.freeTrialNoteDays(days))
+                Text(yearlyPrice.map { L10n.Subscription.freeTrialNoteDays(days, then: $0) }
+                     ?? L10n.Subscription.freeTrialNoteDays(days))
                     .font(.aero(.caption))
                     .foregroundColor(Color.secondaryText)
             }

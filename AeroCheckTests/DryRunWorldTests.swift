@@ -28,7 +28,7 @@ final class DryRunWorldTests: XCTestCase {
         var settings = AppSettings()
         settings.enableCompanionMode = true
         let world = DryRunWorld(settings: settings, base: base)
-        let session = DryRunSession(world: world, aerodrome: .lszq, circuits: true, rate: 0, seed: 7)
+        let session = DryRunSession(world: world, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0), seed: 7)
         let appState = world.appState
         let start = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -253,7 +253,7 @@ final class DryRunWorldTests: XCTestCase {
 
     func testPauseStopsTheClockAndTheSpeedGoesOnFromWhereItIs() {
         let session = DryRunSession(world: DryRunWorld(settings: AppSettings(), base: makeTestDirectory()),
-                                    aerodrome: .lszq, circuits: true, rate: 4, seed: 1)
+                                    setup: DryRunSetup(mission: .circuits(.lszq), rate: 4), seed: 1)
         addTeardownBlock { @MainActor in session.end() }
         XCTAssertTrue(session.begin(airports: AirportDataService(openAIPAirports: makeTestOpenAIPAirportLayer { _ in [] },
                                                                  rootDirectory: makeTestDirectory())))
@@ -327,16 +327,19 @@ final class DryRunWorldTests: XCTestCase {
         center.whenNotRunning { ran += 1 }
         XCTAssertEqual(ran, 1, "at once, with no dry run")
 
-        let refused = await center.beginCircuits(at: .lszq, settings: AppSettings(), airports: airports,
-                                                 isFlightActive: true, rate: 4)
-        XCTAssertFalse(refused, "never during a real flight")
-        let started = await center.beginCircuits(at: .lszq, settings: AppSettings(), airports: airports,
-                                                 isFlightActive: false, rate: 4)
-        XCTAssertTrue(started)
+        let aircraftData = makeTestAircraftDataService(subscriptionManager: makeTestSubscriptionManager())
+        let setup = DryRunSetup(mission: .circuits(.lszq))
+        func begin(flying: Bool) async -> DryRunCenter.Outcome {
+            await center.begin(setup, settings: { AppSettings() }, airports: airports, aircraftData: aircraftData,
+                               isFlightActive: flying)
+        }
+        let refused = await begin(flying: true)
+        XCTAssertEqual(refused, .busy, "never during a real flight")
+        let started = await begin(flying: false)
+        XCTAssertEqual(started, .started)
         addTeardownBlock { @MainActor in DryRunCenter.shared.end() }
-        let second = await center.beginCircuits(at: .lszq, settings: AppSettings(), airports: airports,
-                                                isFlightActive: false, rate: 4)
-        XCTAssertFalse(second, "one at a time")
+        let second = await begin(flying: false)
+        XCTAssertEqual(second, .busy, "one at a time")
 
         center.whenNotRunning { ran += 1 }
         XCTAssertEqual(ran, 1, "held while the dry run runs")

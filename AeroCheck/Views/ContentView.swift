@@ -249,15 +249,27 @@ struct ContentView: View {
                                                    flightPlanManager: flightPlanManager,
                                                    threadManager: threadManager) { return }
             // A dry run instead (`AEROCHECK_DRYRUN=lszq`, at `AEROCHECK_DRYRUN_SPEED`, 4 by default): its
-            // circuits at LSZQ from launch, for a check or a capture without a tap. (6.4.0)
-            if ProcessInfo.processInfo.environment["AEROCHECK_DRYRUN"]?.lowercased() == "lszq" {
+            // circuits at LSZQ from launch, for a check or a capture without a tap. `AEROCHECK_DRYRUN_AUTO=1`
+            // flies it as a pilot would, `AEROCHECK_DRYRUN_STOP=final|cruise|over` stops it there
+            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet. (6.4.0)
+            let environment = ProcessInfo.processInfo.environment
+            if let dryRun = environment["AEROCHECK_DRYRUN"]?.lowercased() {
                 if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
                 if !appState.hasSeenOnboarding { appState.completeOnboarding() }
-                let speed = ProcessInfo.processInfo.environment["AEROCHECK_DRYRUN_SPEED"].flatMap(Double.init) ?? 4
-                await DryRunCenter.shared.beginCircuits(at: .lszq, settings: appState.settings,
-                                                        airports: airportDataService,
-                                                        isFlightActive: appState.isFlightActive, rate: speed,
-                                                        landings: [.touchAndGo, .goAround])
+                if dryRun == "sheet" {
+                    DryRunCenter.shared.requestStart()
+                    return
+                }
+                let speed = environment["AEROCHECK_DRYRUN_SPEED"].flatMap(Double.init) ?? 4
+                let auto = environment["AEROCHECK_DRYRUN_AUTO"] == "1"
+                await DryRunCenter.shared.begin(DryRunSetup(mission: .circuits(.lszq), rate: speed,
+                                                            landings: auto ? [] : [.touchAndGo, .goAround]),
+                                                settings: { [appState] in appState.settings },
+                                                airports: airportDataService, aircraftData: aircraftDataService,
+                                                isFlightActive: appState.isFlightActive)
+                if auto {
+                    DryRunAutopilot(stop: environment["AEROCHECK_DRYRUN_STOP"].flatMap(DryRunAutopilot.Stop.init)).fly()
+                }
                 return
             }
             guard let key = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() else { return }
@@ -476,10 +488,9 @@ struct ContentView: View {
                 .presentationDetents([.large])
             }
         }
-        // A dry run: the real Cockpit in a world of its own, over everything; it ends with its flight. (6.4.0)
-        .fullScreenCover(item: Binding(get: { dryRuns.session }, set: { if $0 == nil { dryRuns.end() } })) { session in
-            DryRunCockpitView(session: session)
-        }
+        // A dry run: the start sheet (from Settings › About), then, once it has gone, the real Cockpit in a
+        // world of its own, over everything, until its page's Done. (6.4.0)
+        .dryRunPresenter()
         .fullScreenCover(isPresented: Bindable(appState).showFlightLog) {
             FlightLogView()
                 .environment(appState)

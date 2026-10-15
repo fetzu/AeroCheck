@@ -2739,11 +2739,16 @@ private struct DrawerDragDismiss: ViewModifier {
 struct GPSStatusContent: View {
     @Environment(\.cockpitTheme) private var theme
     @Environment(AppState.self) private var appState
+    @Environment(\.openURL) private var openURL
     @ObservedObject var locationManager: LocationManager
     // Tap the value to switch units: Vertical defaults to metres, Altitude to feet. (round 6)
     @State private var verticalInFeet = false
     @State private var altitudeInMeters = false
     @State private var positionCopied = false
+
+    private var locationIsOff: Bool {
+        locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted
+    }
 
     /// When GPS is degraded/lost, a short reason shown under the status word ("why"). (round 6)
     private var statusReason: String? {
@@ -2848,6 +2853,17 @@ struct GPSStatusContent: View {
                         Spacer(minLength: 0)
                     }
                     .font(.aero(size: 13))
+                }
+                // Where the pilot changes either (location off, or While Using only): the app's page in
+                // Settings. Said and linked, never asked for: the choice stays theirs. (6.3.2)
+                if locationIsOff || locationManager.backgroundTrackingLimited {
+                    Button(L10n.Button.openSettings) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                    .font(.aero(size: 14, weight: .semibold))
+                    .foregroundColor(theme.action)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
             }
             .cardSection()

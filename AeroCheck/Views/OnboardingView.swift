@@ -48,6 +48,11 @@ enum CountryNeighbors {
 /// default-off/on features up front; the toggles bind straight to `AppSettings` and persist when
 /// onboarding completes. Cockpit language: tinted page icons, gold primary actions, custom gold page
 /// dots. (onboarding revamp)
+///
+/// The location step is App Review's (guideline 5.1.1(iv), which rejected 6.2.0): a screen shown before
+/// a permission prompt has ONE way on, a button worded "Continue", and that way always leads to the
+/// system's question. So no "Enable location", no "Not now", no Skip or Back on that page, and no
+/// swiping past it: the pages turn by their buttons only. (6.3.2)
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
@@ -61,6 +66,8 @@ struct OnboardingView: View {
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var currentPage = 0
+    /// The edge the next page slides in from: trailing going forward, leading going back.
+    @State private var pageEdge: Edge = .trailing
     @State private var showSkipConfirm = false
     @State private var showNoDownloadWarning = false
     @State private var showSubscription = false
@@ -103,36 +110,28 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                // Back and Skip keep their room on every page and only fade out where they don't apply,
+                // so the page under them never jumps. Neither is on the location step (see above).
                 HStack {
-                    Spacer()
-                    Button(action: { showSkipConfirm = true }) {
-                        Text(L10n.Onboarding.skip)
-                            .font(.aero(.subheadline).weight(.medium))
-                            .foregroundColor(.secondaryText)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
+                    topBarButton(L10n.Button.back, icon: "chevron.left", isShown: currentPage >= 2) {
+                        go(to: currentPage - 1)
                     }
+                    Spacer()
+                    topBarButton(L10n.Onboarding.skip, isShown: currentPage != 1) { showSkipConfirm = true }
                 }
                 .padding(.top, 8)
-                .padding(.trailing, 8)
+                .padding(.horizontal, 8)
 
-                TabView(selection: $currentPage) {
-                    welcomePage.tag(0)
-                    locationPage.tag(1)
-                    mapsDataPage.tag(2)
-                    checklistsPage.tag(3)
-                    // The four chapters, introduced right after the checklist that is chapter three.
-                    // Without this page the app's spine is something a pilot has to discover. (v5.0.0)
-                    flightsPage.tag(4)
-                    // Where the pilot is based, right after what a flight is: skippable, like the
-                    // pages around it. (v6.1)
-                    homeAerodromePage.tag(5)
-                    yourMapPage.tag(6)
-                    inFlightFeaturesPage.tag(7)
-                    premiumPage.tag(8)
-                    readyPage.tag(9)
+                // One page at a time, turned by its buttons only. The page view this replaces could be
+                // swiped past the location step without its Continue, which App Review counts as putting
+                // the permission off. (6.3.2)
+                ZStack {
+                    page(currentPage)
+                        .id(currentPage)
+                        .transition(.push(from: pageEdge))
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             }
         }
         .preferredColorScheme(.dark)
@@ -145,7 +144,7 @@ struct OnboardingView: View {
         }
         .alert(String(localized: "No airspace data downloaded"), isPresented: $showNoDownloadWarning) {
             Button(String(localized: "Select countries"), role: .cancel) {}
-            Button(String(localized: "Continue anyway")) { withAnimation { currentPage = 3 } }
+            Button(String(localized: "Continue anyway")) { go(to: 3) }
         } message: {
             Text(String(localized: "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first."))
         }
@@ -157,16 +156,70 @@ struct OnboardingView: View {
         .onChange(of: subscriptionManager.subscriptionStatus) { _, status in
             if showSubscription && status.isSubscribed {
                 showSubscription = false
-                withAnimation { currentPage = 9 }
+                go(to: 9)
             }
         }
         // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
         .onChange(of: locationManager.authorizationStatus) { _, status in
             if awaitingLocationResponse && status != .notDetermined {
                 awaitingLocationResponse = false
-                withAnimation { currentPage = 2 }
+                go(to: 2)
             }
         }
+    }
+
+    @ViewBuilder
+    private func page(_ index: Int) -> some View {
+        switch index {
+        case 0: welcomePage
+        case 1: locationPage
+        case 2: mapsDataPage
+        case 3: checklistsPage
+        // The four chapters, introduced right after the checklist that is chapter three. Without this
+        // page the app's spine is something a pilot has to discover. (v5.0.0)
+        case 4: flightsPage
+        // Where the pilot is based, right after what a flight is: skippable, like the pages around it. (v6.1)
+        case 5: homeAerodromePage
+        case 6: yourMapPage
+        case 7: inFlightFeaturesPage
+        case 8: premiumPage
+        default: readyPage
+        }
+    }
+
+    /// Turn to `page`, forward from the right and back from the left. The edge is set a beat before the
+    /// page changes: a leaving view keeps the transition of its last body, so changing both at once
+    /// slid the first page after a change of direction the wrong way.
+    private func go(to page: Int) {
+        guard page != currentPage, (0..<totalPages).contains(page) else { return }
+        pageEdge = page > currentPage ? .trailing : .leading
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.3)) { currentPage = page }
+        }
+    }
+
+    /// Back and Skip: plain words at the top. `isShown` fades one out and takes it out of reach (and out
+    /// of VoiceOver) without giving its room to the other.
+    private func topBarButton(_ title: String, icon: String? = nil, isShown: Bool,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let icon {
+                    Image(systemName: icon)
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        .accessibilityHidden(true)
+                }
+                Text(title)
+                    .font(.aero(.subheadline).weight(.medium))
+            }
+            .foregroundColor(.secondaryText)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .opacity(isShown ? 1 : 0)
+        .disabled(!isShown)
+        .accessibilityHidden(!isShown)
+        .animation(.easeInOut(duration: 0.2), value: isShown)
     }
 
     // MARK: - 1: Welcome
@@ -214,7 +267,7 @@ struct OnboardingView: View {
             Spacer()
 
             pageDots
-            primaryButton(L10n.Onboarding.getStarted, icon: "arrow.right") { withAnimation { currentPage = 1 } }
+            primaryButton(L10n.Onboarding.getStarted, icon: "arrow.right") { go(to: 1) }
                 .padding(.bottom, 40)
         }
     }
@@ -254,25 +307,36 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 50)
 
+            // Says what comes next, and that the answer isn't final. Only while there is a question to
+            // come: replaying onboarding later, iOS asks nothing.
+            if locationManager.authorizationStatus == .notDetermined {
+                Text(L10n.Onboarding.locationNext)
+                    .font(.aero(.footnote))
+                    .foregroundColor(.dimText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 50)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Spacer()
 
             pageDots
-            VStack(spacing: 10) {
-                primaryButton(String(localized: "Enable location"), icon: "location.fill") {
-                    if locationManager.authorizationStatus == .notDetermined {
-                        // Show the system prompt and wait for the answer; the .onChange advances us.
-                        awaitingLocationResponse = true
-                        locationManager.requestAuthorization()
-                    } else {
-                        withAnimation { currentPage = 2 }
-                    }
-                }
-                Button(String(localized: "Not now")) { withAnimation { currentPage = 2 } }
-                    .font(.aero(.subheadline))
-                    .foregroundColor(.secondaryText)
-                    .padding(.vertical, 4)
-            }
-            .padding(.bottom, 40)
+            // The one way on, worded as App Review asks (5.1.1(iv)): see the note on the type.
+            primaryButton(String(localized: "Continue"), icon: "arrow.right") { continueFromLocation() }
+                .padding(.bottom, 40)
+        }
+    }
+
+    /// Ask iOS if nobody has yet, and turn the page once the pilot has answered (the `.onChange` on
+    /// the authorization). Asked before, or still waiting for an answer that never came (the system
+    /// can decline to show its prompt): the page simply turns, so it never holds the pilot.
+    private func continueFromLocation() {
+        if locationManager.authorizationStatus == .notDetermined && !awaitingLocationResponse {
+            awaitingLocationResponse = true
+            locationManager.requestAuthorization()
+        } else {
+            awaitingLocationResponse = false
+            go(to: 2)
         }
     }
 
@@ -339,7 +403,7 @@ struct OnboardingView: View {
                 Spacer()
                 inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
                     if openAIPDataService.isDataAvailable {
-                        withAnimation { currentPage = 3 }
+                        go(to: 3)
                     } else {
                         showNoDownloadWarning = true
                     }
@@ -669,7 +733,7 @@ struct OnboardingView: View {
             pageDots
             VStack(spacing: 10) {
                 primaryButton(String(localized: "See AéroCheck Pro"), icon: "sparkles") { showSubscription = true }
-                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 9 } }
+                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { go(to: 9) }
             }
             .padding(.bottom, 40)
         }
@@ -730,7 +794,7 @@ struct OnboardingView: View {
                 pageDots
                 Spacer()
                 inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
-                    withAnimation { currentPage = page + 1 }
+                    go(to: page + 1)
                 }
             }
         }

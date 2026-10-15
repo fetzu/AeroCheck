@@ -3,6 +3,7 @@ import SwiftUI
 /// Settings sub-page for iCloud sync, GPS configuration, and data statistics
 struct SyncDataSettingsView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject var locationManager: LocationManager
     @ObservedObject private var syncManager = SyncManager.shared
 
@@ -114,6 +115,14 @@ struct SyncDataSettingsView: View {
                     locationManager.requestAuthorization()
                 }
             }
+
+            // Turned off once, iOS never asks again: the way back is the app's page in Settings. (6.3.2)
+            if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+                SettingsButtonRow(icon: "gearshape", title: L10n.Button.openSettings,
+                                  tint: tint, showsChevron: false) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+            }
         }
     }
 
@@ -140,15 +149,15 @@ struct SyncDataSettingsView: View {
     private var gpsStatusText: String {
         switch locationManager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
-            return "Authorized"
+            return L10n.GPS.authorized
         case .denied:
-            return "Denied"
+            return L10n.GPS.statusDenied
         case .restricted:
-            return "Restricted"
+            return L10n.GPS.statusRestricted
         case .notDetermined:
-            return "Not Set"
+            return L10n.GPS.notDetermined
         @unknown default:
-            return "Unknown"
+            return L10n.GPS.unknown
         }
     }
 

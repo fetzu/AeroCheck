@@ -65,6 +65,34 @@ final class FlightLauncherTests: XCTestCase {
             .blockedLocationDenied)
     }
 
+    /// Location off, and the pilot chose to fly anyway: the checklists without a position. Location off
+    /// was a dead end until 6.3.2; App Review asks for a way on (5.1.1(iv)).
+    func testEvaluateLocationOffStartsWhenThePilotFliesWithoutIt() {
+        for auth: CLAuthorizationStatus in [.denied, .restricted] {
+            XCTAssertEqual(
+                FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+                                        authorization: auth, hasOwnFix: false, hasPeerFix: false,
+                                        startsWithoutLocation: true),
+                .started, "\(auth.rawValue)")
+        }
+    }
+
+    /// Flying without location changes the location answer only: the guards before it still win.
+    func testEvaluateWithoutLocationKeepsTheOtherGuards() {
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: true, isOwned: true, isChecklistResolved: true,
+                                    authorization: .denied, startsWithoutLocation: true),
+            .blockedActiveFlight)
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: false, isChecklistResolved: true,
+                                    authorization: .denied, startsWithoutLocation: true),
+            .blockedUnowned)
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: false,
+                                    authorization: .denied, startsWithoutLocation: true),
+            .blockedChecklistUnresolved)
+    }
+
     func testEvaluateAllClearStarts() {
         for auth: CLAuthorizationStatus in [.authorizedWhenInUse, .authorizedAlways, .notDetermined] {
             XCTAssertEqual(

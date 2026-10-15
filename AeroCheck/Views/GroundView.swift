@@ -50,8 +50,15 @@ struct GroundView: View {
 /// until the pilot went back to Today. (on-device review #4, point 1)
 private struct FlightStartAlerts: ViewModifier {
     @Environment(AppState.self) private var appState
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    // What a replayed start needs: the "Location is off" alert starts the flight itself.
+    @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
 
     func body(content: Content) -> some View {
         content
@@ -62,6 +69,26 @@ private struct FlightStartAlerts: ViewModifier {
                 Button(L10n.Button.close, role: .cancel) { appState.flightStartError = nil }
             } message: {
                 Text(appState.flightStartError ?? "")
+            }
+            // Location is off for the app: the flight can still run, the checklists and all, with
+            // nothing recorded. The pilot decides, Settings one tap away. This was a dead end
+            // ("Location access is required"), which kept the checklists from anyone who had said no
+            // to the location; App Review asks for a way on (guideline 5.1.1(iv)). (6.3.2)
+            .alert(L10n.Alert.locationOffTitle, isPresented: Binding(
+                get: { appState.flightStartWithoutLocation != nil },
+                set: { if !$0 { appState.flightStartWithoutLocation = nil } }
+            ), presenting: appState.flightStartWithoutLocation) { request in
+                Button(L10n.Alert.startWithoutGPS) {
+                    appState.flightStartWithoutLocation = nil
+                    startWithoutLocation(request)
+                }
+                Button(L10n.Button.openSettings) {
+                    appState.flightStartWithoutLocation = nil
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+                Button(L10n.Button.cancel, role: .cancel) { appState.flightStartWithoutLocation = nil }
+            } message: { _ in
+                Text(L10n.Alert.locationOffMessage)
             }
             // AéroCheck Pro isn't active for the aircraft the pilot tried to fly: say so, and offer
             // the two ways out. A lapsed subscription used to read "check your connection".
@@ -102,6 +129,23 @@ private struct FlightStartAlerts: ViewModifier {
                 SubscriptionView(contextAircraftName: selectedModelName)
                     .environmentObject(subscriptionManager)
             }
+    }
+
+    /// The held start, replayed through the one launch sequence with the pilot's go-ahead.
+    private func startWithoutLocation(_ request: LocationOffFlightStart) {
+        let launcher = FlightLauncher(
+            appState: appState,
+            locationManager: locationManager,
+            aircraftDataService: aircraftDataService,
+            airportDataService: airportDataService,
+            flightEventDetector: flightEventDetector,
+            flightPlanManager: flightPlanManager,
+            threadManager: threadManager
+        )
+        Task {
+            await launcher.begin(circuitMode: request.circuitMode, followedFlightId: request.followedFlightId,
+                                 unplanned: request.unplanned, withoutLocation: true)
+        }
     }
 
     private var selectedModelName: String? {

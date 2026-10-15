@@ -32799,6 +32799,23 @@
         }
       }
     },
+    "subscription.freeTrialNoteDaysPrice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free for the first %d days, then %@ per year. Cancel anytime."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratuit les %d premiers jours, puis %@ par an. Annulable à tout moment."
+          }
+        }
+      }
+    },
     "subscription.lifetimeTagline": {
       "extractionState": "manual",
       "localizations": {

@@ -1235,6 +1235,10 @@ enum L10n {
         static func freeTrialNoteDays(_ days: Int) -> String {
             String(format: String(localized: "subscription.freeTrialNoteDays"), days)
         }
+        /// "…, then <the yearly price> per year": the trial with what it turns into. (6.3.2)
+        static func freeTrialNoteDays(_ days: Int, then yearlyPrice: String) -> String {
+            String(format: String(localized: "subscription.freeTrialNoteDaysPrice"), days, yearlyPrice)
+        }
         static let lifetimeTagline = String(localized: "subscription.lifetimeTagline")
         static let oneTime = String(localized: "subscription.oneTime")
     }

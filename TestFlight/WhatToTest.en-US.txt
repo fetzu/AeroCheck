@@ -1,7 +1,9 @@
-6.3.1 fixes one thing in 6.3.0: a landing logged twice, seconds apart (as older flights can carry), showed as a stop-and-go in the flight's TIMELINE, in the logbook line's remarks and on the share card. Full stops less than a minute apart now count as one landing.
+6.3.2 reworks how the app asks for your location, and lets you fly with location turned off.
 
 What to look at:
-- the Logbook: a flight's TIMELINE lists each touch-and-go, go-around and stop-and-go with its time, and no stop-and-go a few seconds before the Landing;
-- everything 6.3.0 brought is still worth a try on the ground: a circuits session from Today › CIRCUITS (a full stop, After Landing, then NEW CIRCUIT or PARKING CHECK), and Aircraft › “Send us an aircraft’s checklist” (a request is real and reaches AéroCheck, so send one only for an aircraft you want in the app).
+- onboarding (Settings › About › Replay onboarding, or a fresh install): the location page has a single Continue, which brings up iOS's question; no Skip and no Not now there, the pages no longer turn with a swipe, and Back sits at the top left from the third page on;
+- with location off for AéroCheck (iOS Settings › AéroCheck › Location › Never), START FLIGHT now asks: Start Without GPS runs the checklists with nothing recorded (the GPS reads lost), Open Settings goes to AéroCheck's page; turn location back on during that flight and the recording starts from then;
+- Settings › iCloud & Log: an Open Settings row when location is off, and the GPS status in your language;
+- the AéroCheck Pro page: the free trial line says what the yearly plan costs after it.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

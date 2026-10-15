@@ -206,7 +206,7 @@ class LocationManager: NSObject, ObservableObject {
     private var lastFilteredFix: CLLocation?
     /// Deferred-start intents: set when start is requested before authorization is decided, so
     /// the start completes automatically once permission is granted. (PERF-03)
-    private var pendingTrackingStart = false
+    private(set) var pendingTrackingStart = false   // readable by the tests
     private var pendingLocationUpdatesStart = false
     private var pendingSharedGPSProviderStart = false
 
@@ -364,6 +364,11 @@ class LocationManager: NSObject, ObservableObject {
             // Permission not yet decided — remember the intent and start once it's granted,
             // so a flight begun before the prompt is answered still records GPS. (PERF-03)
             pendingTrackingStart = true
+            // Location off (the pilot chose to fly without it): no position will come until it is
+            // turned back on, so the GPS reads lost, never the green set above. (6.3.2)
+            if authorizationStatus == .denied || authorizationStatus == .restricted {
+                gpsSignalStatus = .lost
+            }
             requestAuthorization()
             return
         }
@@ -411,6 +416,8 @@ class LocationManager: NSObject, ObservableObject {
 
     func stopTracking() {
         isTracking = false
+        // A flight that never got its permission stops waiting for it with the flight. (6.3.2)
+        pendingTrackingStart = false
         altitudeSamples.removeAll()
         verticalSpeedFpm = nil
         // PR-39: clear the display-session flag too — stopLocationUpdates is a no-op while tracking,
@@ -1380,7 +1387,13 @@ extension LocationManager: CLLocationManagerDelegate {
                 self.locationError = self.authorizationStatus == .denied
                     ? "Location access denied. Please enable in Settings."
                     : "Location access restricted."
-                self.pendingTrackingStart = false
+                // A flight that is waiting for the permission keeps waiting: turned back on in Settings
+                // mid-flight, it starts recording then. Until it does, the GPS reads lost. (6.3.2)
+                if self.pendingTrackingStart && self.appState != nil {
+                    self.gpsSignalStatus = .lost
+                } else {
+                    self.pendingTrackingStart = false
+                }
                 self.pendingLocationUpdatesStart = false
                 self.pendingSharedGPSProviderStart = false
                 self.backgroundTrackingLimited = false

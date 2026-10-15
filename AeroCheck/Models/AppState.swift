@@ -942,8 +942,13 @@ class AppState {
     }
     #endif
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
-    /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
+    /// no GPS fix has come yet). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     var flightStartError: String?
+
+    /// A flight start held because location is off for the app and no companion lends its GPS. The
+    /// UI asks whether to fly without a position (the request is replayed as it was) or to open
+    /// Settings. (6.3.2)
+    var flightStartWithoutLocation: LocationOffFlightStart?
 
     /// Set when a flight start is refused because the requested premium aircraft isn't owned.
     /// Observed by the UI to present the subscription paywall. (UX-07)

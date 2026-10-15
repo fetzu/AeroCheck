@@ -50,6 +50,8 @@ struct AeroCheckApp: App {
     @StateObject private var openAIPNavaidDataService: OpenAIPNavaidDataService
     @StateObject private var openAIPDataService: OpenAIPDataService
     @StateObject private var flightEventDetector = FlightEventDetector()
+    /// The dry run under way, if any (6.4.0).
+    @StateObject private var dryRunCenter = DryRunCenter.shared
     /// Network reachability (Wi-Fi vs cellular, Low Data Mode) for data-refresh decisions. (v4.1.0 Data Freshness)
     @StateObject private var networkMonitor: NetworkMonitor
     /// The single data-freshness "brain": aggregates per-source DataSets → ambient Home-dot health. (v4.1.0 Data Freshness)
@@ -61,6 +63,8 @@ struct AeroCheckApp: App {
     init() {
         // B612 in the UIKit chrome SwiftUI draws: bar titles, segmented pickers, tab labels. (v6.0)
         AeroAppearance.apply()
+        // What a dry run left when the app stopped during it: before anything could start one. (6.4.0)
+        DryRunWorld.sweepLeftovers()
         // Initialize subscription manager first, then aircraft data service
         // Use deferLoadProducts to speed up initial launch - products will be loaded after view appears
         let subManager = SubscriptionManager(deferLoadProducts: true)
@@ -217,13 +221,19 @@ struct AeroCheckApp: App {
                     }
                     // Its page opens; it is followed only on the ground (`ReminderTap`). (6.2.0)
                     NotificationService.shared.openThreadHandler = { threadId in
-                        ReminderTap.open(threadId, appState: appState, threads: flightThreadManager)
+                        // During a dry run, once it ends: its Cockpit covers the app, and the flight
+                        // followed is the real one's business. (6.4.0)
+                        DryRunCenter.shared.whenNotRunning {
+                            ReminderTap.open(threadId, appState: appState, threads: flightThreadManager)
+                        }
                     }
                     // In flight, no banner before At the Hangar: what arrives meanwhile waits in
                     // Notification Center, and shows when the flight gets there or ends. (6.2.0)
                     NotificationService.shared.mayInterrupt = {
-                        NotificationPresentationRule.mayInterrupt(isFlightActive: appState.isFlightActive,
-                                                                  phase: appState.currentPhase)
+                        // A dry run is flown as a flight: its phases hold the banners as a real one's. (6.4.0)
+                        let flying = DryRunCenter.shared.session?.world.appState ?? appState
+                        return NotificationPresentationRule.mayInterrupt(isFlightActive: flying.isFlightActive,
+                                                                         phase: flying.currentPhase)
                     }
                     // An aircraft request live: the notice opens the Aircraft tab, where the aircraft now
                     // is; the list is fetched again so it is there. (6.3.0)
@@ -349,7 +359,9 @@ struct AeroCheckApp: App {
                     // disk when fresh). Not awaited: nothing at launch waits for a link.
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
                     // The aircraft requests sent from this device: where they stand. (6.3.0)
-                    if !appState.isFlightActive { Task { await AircraftRequestStore.shared.refreshIfDue() } }
+                    if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
+                        Task { await AircraftRequestStore.shared.refreshIfDue() }
+                    }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
@@ -365,6 +377,8 @@ struct AeroCheckApp: App {
                     NotificationService.shared.releaseHeld()
                 }
                 .onChange(of: appState.currentPhase) { _, _ in NotificationService.shared.releaseHeld() }
+                // What a dry run held, once it ends. (6.4.0)
+                .onChange(of: dryRunCenter.isRunning) { _, _ in NotificationService.shared.releaseHeld() }
                 // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
                 // refresh any STALE small data the network gate permits. No background tasks.
                 .onChange(of: scenePhase) { _, phase in
@@ -375,8 +389,10 @@ struct AeroCheckApp: App {
                     // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
                     // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
-                    // Oct: when the app opens, no background work.)
-                    if !appState.isFlightActive { Task { await AircraftRequestStore.shared.refreshIfDue() } }
+                    // Oct: when the app opens, no background work.) Nor during a dry run. (6.4.0)
+                    if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
+                        Task { await AircraftRequestStore.shared.refreshIfDue() }
+                    }
                     // Re-establish the companion link on foreground (e.g. after the peer relaunched), and
                     // back from the background, check it or look afresh. (v4.1; 6.1.0)
                     companionConnectivityManager.appBecameActive()
@@ -419,8 +435,9 @@ struct AeroCheckApp: App {
                   let aircraft = components.queryItems?.first(where: { $0.name == "aircraft" })?.value else {
                 return
             }
-            // UX-06: never overwrite a running flight from a widget tap / deep link.
-            guard !appState.isFlightActive else { return }
+            // UX-06: never overwrite a running flight from a widget tap / deep link. Nor start one under a
+            // dry run's Cockpit. (6.4.0)
+            guard !appState.isFlightActive, !DryRunCenter.shared.isRunning else { return }
             // UX-11: resolve and select the requested aircraft (by id or registration); refuse an
             // unknown token rather than launching the wrong or an empty aircraft.
             guard appState.selectAircraft(id: aircraft, available: aircraftDataService.availableAircraft) else {

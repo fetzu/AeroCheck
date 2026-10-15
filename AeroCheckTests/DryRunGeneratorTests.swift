@@ -194,7 +194,7 @@ final class DryRunGeneratorTests: XCTestCase {
     private func fly(_ generator: DryRunGenerator, vso: Double = 33, vr: Double = 40,
                      destination: CLLocationCoordinate2D? = nil) -> Flown {
         let start = Date(timeIntervalSince1970: 1_800_000_000)
-        let aerodromes = [DryRunAerodrome.lszq, lsgc].map(Self.airport)
+        let aerodromes = [DryRunAerodrome.lszq, lsgc].map(\.airport)
         let detector = FlightEventDetector()
         detector.configure(vsoKts: vso, vrKts: vr)
         detector.cueDestination = destination
@@ -221,12 +221,5 @@ final class DryRunGeneratorTests: XCTestCase {
         _ = detector.flushEndOfFlight()
         return Flown(start: start, events: detector.emittedEvents, cues: detector.cueEvents,
                      takeoffs: detector.takeoffTimes.count)
-    }
-
-    private static func airport(_ field: DryRunAerodrome) -> Airport {
-        Airport(id: field.ident.hashValue & 0xFFFFFF, ident: field.ident, type: .smallAirport, name: field.name,
-                latitude: field.reference.latitude, longitude: field.reference.longitude,
-                elevation: Int(field.elevationFt), continent: "EU", isoCountry: "CH", isoRegion: "", municipality: nil,
-                scheduledService: false, gpsCode: field.ident, iataCode: nil, localCode: nil)
     }
 }

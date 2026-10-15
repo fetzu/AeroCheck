@@ -231,6 +231,25 @@ class LocationManager: NSObject, ObservableObject {
     private var isReplaying = false
     #endif
 
+    /// A dry run's (6.4.0, `DryRunWorld`): its fixes come from the dry run alone (`feedDryRunFix`). It never
+    /// starts Core Location, so no GPS, no background updates, no "Always" prompt and no barometer (the
+    /// dry run's altitude is the GPS's, the author's D3), and a borrowed Companion fix is no business of it.
+    private(set) var isDryRun = false
+
+    /// Aerodromes the detector may anchor to besides the store's: a dry run's bundled ones (LSZQ), which a
+    /// fresh install's store doesn't have yet. (6.4.0)
+    var extraDetectorAirports: [Airport] = []
+
+    /// A LocationManager for a dry run (`isDryRun`). Its GPS is the dry run's, so it reads as allowed,
+    /// whatever the device's permission: a pilot who said no to location can still try the app.
+    static func dryRun() -> LocationManager {
+        let manager = LocationManager()
+        manager.isDryRun = true
+        manager.authorizationStatus = .authorizedWhenInUse
+        manager.accuracyAuthorization = .fullAccuracy
+        return manager
+    }
+
     // Dynamic distance filter: on the ground the hardware takes every fix and the flight's pipeline
     // takes them 5 m apart (`groundModeDistanceFilter`); in flight a 50 m filter, for battery.
     private var isGroundMode: Bool = true
@@ -315,6 +334,8 @@ class LocationManager: NSObject, ObservableObject {
     // MARK: - Public Methods
 
     func requestAuthorization() {
+        // A dry run's never asks: its GPS is the dry run's. (6.4.0)
+        guard !isDryRun else { return }
         locationManager.requestWhenInUseAuthorization()
     }
     
@@ -338,7 +359,7 @@ class LocationManager: NSObject, ObservableObject {
         self.lastSatelliteFixTime = FlightClock.now   // a session starts counting the 20 s too
         self.gpsSignalStatus = .good
 
-        guard authorizationStatus == .authorizedWhenInUse ||
+        guard isDryRun || authorizationStatus == .authorizedWhenInUse ||
               authorizationStatus == .authorizedAlways else {
             // Permission not yet decided — remember the intent and start once it's granted,
             // so a flight begun before the prompt is answered still records GPS. (PERF-03)
@@ -360,6 +381,11 @@ class LocationManager: NSObject, ObservableObject {
     private func beginTrackingNow() {
         guard let appState = appState else { return }
         isTracking = true
+        // A dry run's fixes are fed: nothing of the device's to start.
+        if isDryRun {
+            startSignalCheckTimer()
+            return
+        }
         // PR-38: a real flight keeps recording in the background; enable it only now (not at init).
         locationManager.allowsBackgroundLocationUpdates = true
         applyGPSPriority(appState.settings.gpsPriority)
@@ -376,6 +402,7 @@ class LocationManager: NSObject, ObservableObject {
 
     /// Upgrade WhenInUse -> Always so the GPS track survives backgrounding on long flights. (PERF-04)
     private func requestAlwaysUpgradeIfNeeded() {
+        guard !isDryRun else { return }
         if authorizationStatus == .authorizedWhenInUse {
             locationManager.requestAlwaysAuthorization()
         }
@@ -452,6 +479,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Start location updates without recording (for navigation view)
     /// This enables GPS for real-time position display without storing track points
     func startLocationUpdates() {
+        guard !isDryRun else { return }
         guard authorizationStatus == .authorizedWhenInUse ||
               authorizationStatus == .authorizedAlways else {
             // Defer until permission is granted (PERF-03)
@@ -966,7 +994,7 @@ class LocationManager: NSObject, ObservableObject {
     /// HUD instrument strip, the recorded track and event detection all consume it transparently.
     /// Applied only when this device has no live own fix — a real own fix always wins. (shared-GPS)
     func injectCompanionLocation(_ location: CLLocation) {
-        guard !marketingModeActive else { return }
+        guard !marketingModeActive, !isDryRun else { return }
         guard !ownFixIsLive else { return }
         processLocation(location, isOwnFix: false)
     }
@@ -1026,6 +1054,15 @@ class LocationManager: NSObject, ObservableObject {
                                                groundMode: Bool, filter: CLLocationDistance) -> Bool {
         guard groundMode, let lastPassed else { return true }
         return location.distance(from: lastPassed) >= filter
+    }
+
+    /// A dry run's fix, stamped on its clock, into the pipeline as the ground replays feed theirs: past the
+    /// 5 m ground filter. The generator's fixes standing still stay within a metre or two of each other, so
+    /// behind the filter the detector never saw the aircraft stop, and a full stop on the runway went
+    /// unseen until the flight ended. (6.4.0)
+    func feedDryRunFix(_ location: CLLocation) {
+        guard isDryRun else { return }
+        processLocation(location, isOwnFix: true, now: FlightClock.now)
     }
 
     #if DEBUG
@@ -1166,7 +1203,8 @@ class LocationManager: NSObject, ObservableObject {
                 hasNotifiedTakeoffTime = true
             }
 
-            let nearbyAirports = Self.detectorAirports(near: location.coordinate, in: airportService)
+            let nearbyAirports = Self.detectorAirports(near: location.coordinate, in: airportService,
+                                                       extra: extraDetectorAirports)
             // The approach check is due 5 NM from where the flight is going: its own route's end, or the
             // aerodrome it diverted to. Only the flight's own plan, as for the ATOs. (6.1, cues)
             detector.cueDestination = cueDestination(of: appState)
@@ -1183,9 +1221,14 @@ class LocationManager: NSObject, ObservableObject {
     /// The fields the detector may anchor to near `coordinate`. Fixed-wing only: the v2 detector's altitude
     /// anchor must never land on a heliport or closed strip (its "AGL" flapped ±440 ft at LSZQ when it
     /// did, failure mechanism M4).
-    private static func detectorAirports(near coordinate: CLLocationCoordinate2D,
-                                         in airports: AirportDataService) -> [Airport] {
-        airports.findNearestAirports(to: coordinate, limit: 3, maxDistanceNm: 5.0, types: AirportType.fixedWing)
+    private static func detectorAirports(near coordinate: CLLocationCoordinate2D, in airports: AirportDataService,
+                                         extra: [Airport] = []) -> [Airport] {
+        let stored = airports.findNearestAirports(to: coordinate, limit: 3, maxDistanceNm: 5.0, types: AirportType.fixedWing)
+        let more = extra.filter { field in
+            AirportType.fixedWing.contains(field.type) && field.distance(from: coordinate) <= 5.0
+                && !stored.contains { $0.ident == field.ident }
+        }
+        return stored + more
     }
 
     /// Where the flight is going, for the approach cue: the flight's own plan's, never another's.
@@ -1238,7 +1281,8 @@ class LocationManager: NSObject, ObservableObject {
             let location = CLLocation(coordinate: point.coordinate, altitude: point.altitude,
                                       horizontalAccuracy: point.horizontalAccuracy ?? 0, verticalAccuracy: 10,
                                       course: point.course, speed: point.speed, timestamp: point.timestamp)
-            detector.processLocation(location, nearbyAirports: Self.detectorAirports(near: point.coordinate, in: airports))
+            detector.processLocation(location, nearbyAirports: Self.detectorAirports(near: point.coordinate, in: airports,
+                                                                                     extra: extraDetectorAirports))
         }
         AppLog.flightEvents.debugLine("Detector caught up with the restored flight: \(track.count) points")
     }
@@ -1253,6 +1297,7 @@ extension LocationManager: CLLocationManagerDelegate {
             #if DEBUG
             if self.isReplaying { return }
             #endif
+            if self.isDryRun { return }
             self.receiveDeviceFix(location)
         }
     }
@@ -1301,6 +1346,8 @@ extension LocationManager: CLLocationManagerDelegate {
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
+            // The device's permission is no business of a dry run's (`dryRun()`).
+            guard !self.isDryRun else { return }
             self.authorizationStatus = manager.authorizationStatus
             // Reduced accuracy can be toggled independently of the authorization state, and the
             // delegate fires for it too, so read it on every change rather than only at start. (RES-09)

@@ -159,6 +159,8 @@ enum L10n {
         static let delete = String(localized: "button.delete")
         static let flightLog = String(localized: "button.flightLog")
         static let back = String(localized: "button.back")
+        /// The app's own page in the Settings app, where its permissions are changed. (6.3.2)
+        static let openSettings = String(localized: "button.openSettings")
     }
 
     // MARK: - Border crossing (v5.0.0)
@@ -558,6 +560,9 @@ enum L10n {
         static let authorized = String(localized: "gps.authorized")
         static let notDetermined = String(localized: "gps.notDetermined")
         static let unknown = String(localized: "gps.unknown")
+        /// The permission's state in Settings › GPS, under the row's own "GPS Status". (6.3.2)
+        static let statusDenied = String(localized: "gps.status.denied")
+        static let statusRestricted = String(localized: "gps.status.restricted")
         static let requestPermission = String(localized: "gps.requestPermission")
         static let signal = String(localized: "gps.signal")
         static let signalGood = String(localized: "gps.signal.good")
@@ -650,7 +655,10 @@ enum L10n {
             String(format: String(localized: "alert.checklistUnreachable.message"), registration)
         }
         static let seePlans = String(localized: "alert.proNotActive.seePlans")
-        static let locationRequired = String(localized: "alert.locationRequired.message")
+        /// START FLIGHT with location off for the app: fly without a position, or Settings. (6.3.2)
+        static let locationOffTitle = String(localized: "alert.locationOff.title")
+        static let locationOffMessage = String(localized: "alert.locationOff.message")
+        static let startWithoutGPS = String(localized: "alert.locationOff.startWithoutGPS")
         static let acquiringGPS = String(localized: "alert.acquiringGPS.message")
         static let flightSaveFailedTitle = String(localized: "alert.flightSaveFailed.title")
         static let flightSaveFailed = String(localized: "alert.flightSaveFailed.message")

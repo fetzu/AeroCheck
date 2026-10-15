@@ -18790,19 +18790,53 @@
         }
       }
     },
-    "alert.locationRequired.message": {
+    "alert.locationOff.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Location access is required to record your flight. Enable location for AéroCheck in Settings, then try again."
+            "value": "Location Is Off"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'accès à la localisation est nécessaire pour enregistrer votre vol. Activez la localisation pour AéroCheck dans Réglages, puis réessayez."
+            "value": "Localisation désactivée"
+          }
+        }
+      }
+    },
+    "alert.locationOff.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck can’t use this device’s location: this flight won’t record a track, and take-offs and landings won’t be detected. The checklists work as usual. To record the flight, turn location on for AéroCheck in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck ne peut pas utiliser la position de cet appareil : ce vol n’enregistrera pas de trace, et les décollages et atterrissages ne seront pas détectés. Les checklists fonctionnent comme d’habitude. Pour enregistrer le vol, activez la localisation pour AéroCheck dans Réglages."
+          }
+        }
+      }
+    },
+    "alert.locationOff.startWithoutGPS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Without GPS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrer sans GPS"
           }
         }
       }
@@ -19722,6 +19756,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Retour"
+          }
+        }
+      }
+    },
+    "button.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir Réglages"
           }
         }
       }
@@ -23752,13 +23803,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limited GPS — grant \"Always\" so the track keeps recording in the background"
+            "value": "Location is set to While Using the App: the track may stop when AéroCheck leaves the screen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS limité — autorisez « Toujours » pour continuer l'enregistrement en arrière-plan"
+            "value": "Position réglée sur « Lorsque l’app est active » : la trace peut s’arrêter quand AéroCheck quitte l’écran."
           }
         }
       }
@@ -24320,6 +24371,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inconnu"
+          }
+        }
+      }
+    },
+    "gps.status.denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denied"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refusé"
+          }
+        }
+      }
+    },
+    "gps.status.restricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restricted"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restreint"
           }
         }
       }

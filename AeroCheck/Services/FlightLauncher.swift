@@ -28,7 +28,7 @@ struct FlightLauncher {
         case blockedActiveFlight        // a flight is already running (UX-06)
         case blockedUnowned             // premium aircraft not owned → present paywall (UX-07)
         case blockedChecklistUnresolved // premium checklist failed to load (ARCH-01)
-        case blockedLocationDenied      // location permission denied/restricted, no companion fix (UX-13)
+        case blockedLocationDenied      // location off, no companion fix: the pilot is asked (UX-13, 6.3.2)
         case blockedAcquiringGPS        // permitted but no usable fix yet — transient, retry (shared-GPS)
     }
 
@@ -41,20 +41,26 @@ struct FlightLauncher {
     /// usable GPS fix. The shared-GPS guard requires at least one before starting, so a flight never
     /// begins blind — and so a GPS-less device (e.g. a Wi-Fi iPad) can still launch off a companion's
     /// GPS. They default to "own fix present, no peer", the pre-shared-GPS assumption. (shared-GPS)
+    ///
+    /// `startsWithoutLocation` is the pilot's answer to "Location is off": fly anyway, the checklists
+    /// without a position. Location off was a dead end until 6.3.2, which left the checklists out of
+    /// reach of anyone who had said no; App Review asks for a way on (guideline 5.1.1(iv)).
     static func evaluate(isFlightActive: Bool,
                          isOwned: Bool,
                          isChecklistResolved: Bool,
                          authorization: CLAuthorizationStatus,
                          hasOwnFix: Bool = true,
-                         hasPeerFix: Bool = false) -> Outcome {
+                         hasPeerFix: Bool = false,
+                         startsWithoutLocation: Bool = false) -> Outcome {
         if isFlightActive { return .blockedActiveFlight }
         if !isOwned { return .blockedUnowned }
         if !isChecklistResolved { return .blockedChecklistUnresolved }
 
-        // Own location denied/restricted: the flight can still run off a companion's borrowed GPS, but
-        // with neither own nor peer fix it would record nothing. (UX-13, extended for shared-GPS)
+        // Own location denied/restricted: the flight can still run off a companion's borrowed GPS. With
+        // neither own nor peer fix it records nothing, so it only starts once the pilot has said so.
+        // (UX-13, extended for shared-GPS; 6.3.2)
         if authorization == .denied || authorization == .restricted {
-            return hasPeerFix ? .started : .blockedLocationDenied
+            return hasPeerFix || startsWithoutLocation ? .started : .blockedLocationDenied
         }
 
         // Permission granted or still to be asked: require at least one usable fix before starting so the
@@ -83,8 +89,10 @@ struct FlightLauncher {
     /// Returns the outcome; side effects (paywall request / error alert) are set on `appState`.
     /// `followedFlightId` is set when the pilot pressed START FLIGHT inside a followed flight, which
     /// names it exactly. Every other entry point leaves it nil and relies on the armed plan.
+    /// `withoutLocation` is set only by the "Location is off" alert, replaying a start it held.
     @discardableResult
-    func begin(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false) async -> Outcome {
+    func begin(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false,
+               withoutLocation: Bool = false) async -> Outcome {
         // UX-06: never overwrite a running flight. Checked first so we don't reload the active
         // checklist out from under a flight already in progress.
         guard !appState.isFlightActive else { return .blockedActiveFlight }
@@ -147,11 +155,15 @@ struct FlightLauncher {
         // second `startFlight` would replace `currentFlight` and orphan the first. (review F5)
         switch FlightLauncher.evaluate(isFlightActive: appState.isFlightActive, isOwned: true,
                                        isChecklistResolved: true,
-                                       authorization: authorization, hasOwnFix: hasOwnFix, hasPeerFix: hasPeerFix) {
+                                       authorization: authorization, hasOwnFix: hasOwnFix, hasPeerFix: hasPeerFix,
+                                       startsWithoutLocation: withoutLocation) {
         case .blockedActiveFlight:
             return .blockedActiveFlight
         case .blockedLocationDenied:
-            appState.flightStartError = L10n.Alert.locationRequired
+            // Not a refusal: the pilot chooses between flying without a position and Settings, and the
+            // same start is replayed if they fly. (6.3.2)
+            appState.flightStartWithoutLocation = LocationOffFlightStart(
+                circuitMode: circuitMode, followedFlightId: followedFlightId, unplanned: unplanned)
             return .blockedLocationDenied
         case .blockedAcquiringGPS:
             // Transient: permission is granted but no fix has locked yet. Kick the GPS pipeline (no-op if
@@ -165,7 +177,10 @@ struct FlightLauncher {
             appState.flightStartError = L10n.Alert.acquiringGPS
             return .blockedAcquiringGPS
         default:
-            break   // .started — proceed (a `.notDetermined` defer also lands here; startTracking prompts)
+            // .started: proceed. A `.notDetermined` defer also lands here (startTracking prompts), and
+            // so does a flight without location, whose tracking waits for a permission that may come
+            // mid-flight (`LocationManager.startTracking`).
+            break
         }
 
         // A flight plan applies to a normal flight only, not to circuit training — and not to a
@@ -245,4 +260,12 @@ struct FlightLauncher {
         let checklist = appState.activeChecklist
         flightEventDetector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed)
     }
+}
+
+/// A START FLIGHT held by `FlightLauncher` because location is off for the app, kept so the "Location
+/// is off" alert can replay it exactly if the pilot flies without a position. (6.3.2)
+struct LocationOffFlightStart: Equatable {
+    let circuitMode: Bool
+    let followedFlightId: UUID?
+    let unplanned: Bool
 }

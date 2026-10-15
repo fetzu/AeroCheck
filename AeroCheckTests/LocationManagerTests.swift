@@ -363,6 +363,35 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertFalse(lm.isSharedGPSProviderActive, "provider should release on stop")
     }
 
+    /// A flight started with location off (the pilot chose to fly without it) reads lost, never the green
+    /// a recording start sets, and waits for the permission: turned on mid-flight, it records from then.
+    /// Ending the flight ends the wait. (6.3.2)
+    @MainActor
+    func testAFlightWithLocationOffReadsLostAndWaitsForThePermission() {
+        let appState = makeTestAppState()
+        for auth: CLAuthorizationStatus in [.denied, .restricted] {
+            let lm = LocationManager()
+            lm.authorizationStatus = auth
+            lm.startTracking(appState: appState, interval: 5)
+            XCTAssertEqual(lm.gpsSignalStatus, .lost, "no position can come: \(auth.rawValue)")
+            XCTAssertFalse(lm.isTracking, "nothing is recorded without the permission")
+            XCTAssertTrue(lm.pendingTrackingStart, "the flight still records once location is turned on")
+            lm.stopTracking()
+            XCTAssertFalse(lm.pendingTrackingStart, "a permission granted after the flight starts nothing")
+        }
+    }
+
+    /// Not yet asked: the prompt is on its way, so the start stays as it was (green until it is answered).
+    @MainActor
+    func testAFlightStartedBeforeThePromptIsAnsweredIsNotMarkedLost() {
+        let lm = LocationManager()
+        lm.authorizationStatus = .notDetermined
+        lm.startTracking(appState: makeTestAppState(), interval: 5)
+        XCTAssertNotEqual(lm.gpsSignalStatus, .lost)
+        XCTAssertTrue(lm.pendingTrackingStart)
+        lm.stopTracking()
+    }
+
     @MainActor
     func testSharedGPSProviderDefersWithoutAuthorization() {
         let lm = LocationManager()

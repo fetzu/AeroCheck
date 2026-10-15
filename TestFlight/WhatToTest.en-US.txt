@@ -1,4 +1,4 @@
-6.3.2 answers App Review on the location permission, and lets you fly with location turned off.
+6.3.2 reworks how the app asks for your location, and lets you fly with location turned off.
 
 What to look at:
 - onboarding (Settings › About › Replay onboarding, or a fresh install): the location page has a single Continue, which brings up iOS's question; no Skip and no Not now there, the pages no longer turn with a swipe, and Back sits at the top left from the third page on;

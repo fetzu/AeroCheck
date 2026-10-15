@@ -1,4 +1,4 @@
-6.3.2 répond à l'App Review sur l'autorisation de localisation, et permet de voler avec la localisation désactivée.
+6.3.2 revoit la façon dont l'app demande votre position, et permet de voler avec la localisation désactivée.
 
 À regarder :
 - l'intégration (Réglages › À propos › Revoir l'intégration, ou une nouvelle installation) : la page de localisation n'a plus qu'un bouton Continuer, qui affiche la question d'iOS ; plus de Passer ni de Plus tard sur cette page, les pages ne se tournent plus d'un glissement, et Retour se trouve en haut à gauche dès la troisième page ;

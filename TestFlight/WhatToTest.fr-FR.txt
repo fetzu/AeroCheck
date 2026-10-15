@@ -1,7 +1,9 @@
-6.3.1 corrige une chose de 6.3.0 : un atterrissage enregistré deux fois, à quelques secondes d'intervalle (comme d'anciens vols peuvent en porter), apparaissait comme un arrêt-décollé dans la CHRONOLOGIE du vol, dans les remarques de la ligne du carnet et sur la carte de partage. Des atterrissages complets à moins d'une minute d'intervalle comptent désormais comme un seul atterrissage.
+6.3.2 répond à l'App Review sur l'autorisation de localisation, et permet de voler avec la localisation désactivée.
 
 À regarder :
-- le Carnet de vol : la CHRONOLOGIE d'un vol liste chaque posé-décollé, remise de gaz et arrêt-décollé avec son heure, et plus d'arrêt-décollé quelques secondes avant l'atterrissage ;
-- tout ce qu'a apporté 6.3.0 vaut toujours un essai au sol : une séance de tours de piste depuis Aujourd'hui › TOURS DE PISTE (un atterrissage complet, APRÈS ATTERRISSAGE, puis NOUVEAU TOUR ou ARRÊT MOTEUR), et Avions › « Envoyez-nous la checklist d’un avion » (une demande est réelle et arrive chez AéroCheck : n'en envoyez que pour un avion que vous voulez dans l'app).
+- l'intégration (Réglages › À propos › Revoir l'intégration, ou une nouvelle installation) : la page de localisation n'a plus qu'un bouton Continuer, qui affiche la question d'iOS ; plus de Passer ni de Plus tard sur cette page, les pages ne se tournent plus d'un glissement, et Retour se trouve en haut à gauche dès la troisième page ;
+- localisation désactivée pour AéroCheck (Réglages d'iOS › AéroCheck › Position › Jamais), DÉMARRER LE VOL demande désormais : Démarrer sans GPS lance les checklists sans rien enregistrer (le GPS est perdu), Ouvrir Réglages mène à la page d'AéroCheck ; réactivez la localisation pendant ce vol et l'enregistrement commence dès ce moment ;
+- Réglages › iCloud et journal : une ligne Ouvrir Réglages quand la localisation est désactivée, et le statut GPS en français ;
+- la page AéroCheck Pro : la ligne de l'essai gratuit indique ce que coûte ensuite l'abonnement annuel.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

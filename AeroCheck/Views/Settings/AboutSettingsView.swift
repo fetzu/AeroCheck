@@ -24,9 +24,10 @@ struct AboutSettingsView: View {
     var body: some View {
         SettingsPage {
             aboutSection
+            // Between ABOUT and LEGAL, under its own title, where it is found (the author, 16 Oct). (6.4.0)
+            replayOnboardingSection
             legalSection
             dataSourcesSection
-            replayOnboardingSection
             developerOptionsSection
         }
         .navigationTitle(L10n.Settings.about)
@@ -68,12 +69,13 @@ struct AboutSettingsView: View {
         }
     }
 
-    // MARK: - Replay Onboarding
+    // MARK: - Learn and practise
 
     /// Re-show the first-run walkthrough. Clearing the flag makes the app root (ContentView) swap to
-    /// OnboardingView, which tears down the settings presentation behind it. (v4 UI/UX Revamp)
+    /// OnboardingView, which tears down the settings presentation behind it. (v4 UI/UX Revamp) Beside it, the
+    /// guided flight and free practice: LEARN AND PRACTISE. (6.4.0)
     private var replayOnboardingSection: some View {
-        SettingsGroup(tint: tint) {
+        SettingsGroup(title: L10n.DryRunCoach.learnGroup, tint: tint) {
             SettingsButtonRow(icon: "play.circle", title: L10n.Settings.replayIntro,
                               subtitle: L10n.Settings.replayIntroFooter, tint: .aviationGold, showsChevron: false) {
                 appState.replayOnboarding()

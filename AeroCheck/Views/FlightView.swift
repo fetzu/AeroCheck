@@ -17,6 +17,9 @@ struct FlightView: View {
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
+    /// A dry run's: the guided flight's coach reads the engine hours' prompt, and shows its card over it.
+    /// Nil in a real flight. (6.4.0)
+    @Environment(\.dryRunSession) private var dryRunSession
     @State private var showPhaseSelector = false
     @State private var showEndFlightAlert = false
     @State private var showAbandonFlightAlert = false
@@ -315,6 +318,7 @@ struct FlightView: View {
                 },
                 initialValue: hourMeterStartInitialValue
             )
+            .dryRunCoachCard(dryRunSession)
         }
         .fullScreenCover(isPresented: $showHourMeterStop) {
             HourMeterInputView(
@@ -327,6 +331,14 @@ struct FlightView: View {
                 initialValue: hourMeterStopInitialValue,
                 startHours: appState.currentFlight?.engineHourStart
             )
+            .dryRunCoachCard(dryRunSession)
+        }
+        // The guided flight's coach reads the prompt: its card asks about the engine hours over it. (6.4.0)
+        .onChange(of: showHourMeterStart) { _, shown in
+            dryRunSession?.coach?.hourMeter = shown ? .beforeStart : nil
+        }
+        .onChange(of: showHourMeterStop) { _, shown in
+            dryRunSession?.coach?.hourMeter = shown ? .afterStop : nil
         }
         .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -1058,7 +1070,6 @@ extension FlightView {
             // 4 pt on the phone, whose chart has every point it can get (6.2, PR 4; 6.2.0, device check
             // 11 Oct).
             cockpitPageBar(narrow: narrow)
-                .coachTarget(.pageBar)
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.vertical, narrow ? 4 : 10)
                 .onPreferenceChange(CockpitBriefingInBarKey.self) { briefingInBar = $0 }
@@ -1212,7 +1223,6 @@ extension FlightView {
                 .padding(.horizontal, 12)
                 .padding(.top, Self.cockpitColumnTop)
             cockpitPickerRow(compact: true)
-                .coachTarget(.pageBar)
                 .padding(.horizontal, 12)
                 .padding(.top, Self.cockpitColumnGap)
         }

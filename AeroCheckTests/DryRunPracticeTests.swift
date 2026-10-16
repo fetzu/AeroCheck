@@ -358,6 +358,13 @@ final class DryRunHeadless {
         }
     }
 
+    /// The guided flight taken to its chapter, as the timer does behind the cover; the test's clock then goes
+    /// on from there.
+    func fastForward() {
+        session.fastForward(budget: 4 * 3600)
+        seconds = session.generator.t
+    }
+
     @discardableResult
     func fly(until done: () -> Bool, within limit: Int) -> Bool {
         for _ in 0..<limit where !done() { wait(1) }

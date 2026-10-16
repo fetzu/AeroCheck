@@ -3888,6 +3888,397 @@
         }
       }
     },
+    "dryRunCoach.chaptersFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A chapter on its own: the flight taken there in a few seconds, the checks before it done as you would."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un chapitre seul : le vol mené jusque-là en quelques secondes, les vérifications d'avant faites comme vous les feriez."
+          }
+        }
+      }
+    },
+    "dryRunCoach.coverBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The flight is flown to where this chapter starts, the checks before it done as you would. A few seconds."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le vol est mené jusqu'au début de ce chapitre, les vérifications d'avant faites comme vous les feriez. Quelques secondes."
+          }
+        }
+      }
+    },
+    "dryRunCoach.coverTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting to chapter %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vers le chapitre %lld"
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.base": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Base."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape de base."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.climbing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Climbing to the cruise."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montée vers la croisière."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.climbingOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Climbing away."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montée initiale."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.crosswind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crosswind."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent traversier."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.cruising": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the way to %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En route vers %@."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.descending": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descending to the circuit."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descente vers le tour de piste."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.downwind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downwind."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent arrière."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.final": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Final."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finale."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.goingAround": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Going around."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remise de gaz."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.holding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the holding point."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au point d'attente."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.joining": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Joining the circuit."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intégration dans le tour de piste."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.landing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrissage."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.liningUp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lining up: the aircraft takes off by itself."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alignement : l'avion décolle tout seul."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.parked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parked."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au parking."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.parkedEnd": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the parking."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au parking."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.stopped": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopped on the runway."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêté sur la piste."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.takeoffRoll": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take-off roll."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Course au décollage."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.taxiing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxiing to the holding point."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roulage vers le point d'attente."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.taxiingIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxiing to the parking."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roulage vers le parking."
+          }
+        }
+      }
+    },
+    "dryRunCoach.doing.upwind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upwind."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montée dans l'axe."
+          }
+        }
+      }
+    },
     "dryRunCoach.habit1": {
       "extractionState": "manual",
       "localizations": {
@@ -4007,279 +4398,75 @@
         }
       }
     },
-    "dryRunCoach.c1s1Title": {
+    "dryRunCoach.learnGroup": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your first flight, on the ground"
+            "value": "Learn and practise"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre premier vol, au sol"
+            "value": "Apprendre et s'exercer"
           }
         }
       }
     },
-    "dryRunCoach.c1s1Body": {
+    "dryRunCoach.nextForYou": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is the Cockpit you fly with. The app flies the aircraft and waits for you at every step. In a real flight, START FLIGHT on Today starts it; this dry run did it for you."
+            "value": "Next for you: %@."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voici le cockpit avec lequel vous volez. L'app fait voler l'avion et vous attend à chaque étape. Dans un vrai vol, DÉMARRER LE VOL sur Aujourd'hui le lance ; ce vol à blanc l'a fait pour vous."
+            "value": "Ensuite pour vous : %@."
           }
         }
       }
     },
-    "dryRunCoach.c1s2Title": {
+    "dryRunCoach.settingsGuidedSubtitle": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check an item"
+            "value": "Seven short chapters with a coach, from the aircraft to END FLIGHT. About 10 minutes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cochez un élément"
+            "value": "Sept courts chapitres avec un guide, de l'avion à TERMINER LE VOL. Environ 10 minutes."
           }
         }
       }
     },
-    "dryRunCoach.c1s2Body": {
+    "dryRunCoach.step.airborne.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK ticks the item shown and moves to the next one. Tap it once."
+            "value": "It wrote the take-off time by itself. In flight the app follows you: tap only when it asks."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "COCHER valide l'élément affiché et passe au suivant. Touchez-le une fois."
+            "value": "Elle a noté l'heure de décollage toute seule. En vol, l'app vous suit : ne touchez que quand elle le demande."
           }
         }
       }
     },
-    "dryRunCoach.c1s3Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The Memory test"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le test de mémoire"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c1s3Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In the Menu, the Memory test hides the items you should know by heart. Turn it on once you know them."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dans le Menu, le test de mémoire cache les éléments à connaître par cœur. Activez-le quand vous les savez."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c2s1Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start the engine"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Démarrez le moteur"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c2s1Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Go through the checks to the engine start. Once the engine runs, tap ENGINE START: the app notes the time."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Faites les vérifications jusqu'au démarrage. Une fois le moteur lancé, touchez DÉMARRAGE MOTEUR : l'app note l'heure."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c2s2Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Defer a check"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reportez une vérification"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c2s2Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Busy taxiing? DEFER sets the check aside, and the app keeps it. Try it now."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Occupé au roulage ? REPORTER met la vérification de côté, et l'app la garde. Essayez maintenant."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c2s3Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing is lost"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rien ne se perd"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c2s3Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What you deferred waits here, in amber. Tap it any time to finish it."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce que vous avez reporté attend ici, en orange. Touchez-le quand vous voulez pour le terminer."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c3s1Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "At the holding point"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Au point d'attente"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c3s1Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The aircraft waits at the holding point. Go through the checks to the one before departure."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L'avion attend au point d'attente. Faites les vérifications jusqu'à celle avant le départ."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c3s2Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ready for line-up"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prêt pour l'alignement"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c3s2Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finish the check, then tap READY FOR LINE UP. The app takes the take-off time from this tap and times the route from it."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terminez la vérification, puis touchez PRÊT POUR L'ALIGNEMENT. L'app en tire l'heure de décollage et chronomètre la route à partir de là."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c4s1Title": {
+    "dryRunCoach.step.airborne.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4296,160 +4483,24 @@
         }
       }
     },
-    "dryRunCoach.c4s1Body": {
+    "dryRunCoach.step.approachCheck.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It noted the take-off time, and the climb check is due: the first button shows it. Nothing to tap; in flight, the app follows you."
+            "value": "Near the aerodrome, the approach check is due. Do it when the flying lets you: the app keeps the order."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elle a noté l'heure de décollage, et la vérification de montée est due : le premier bouton l'affiche. Rien à toucher ; en vol, l'app vous suit."
+            "value": "Près de l'aérodrome, la vérification d'approche est due. Faites-la quand le pilotage le permet : l'app garde l'ordre."
           }
         }
       }
     },
-    "dryRunCoach.c4s2Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What you read"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce que vous lisez"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c4s2Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GS, ALT and TRK come from the GPS. Under them, where the leg goes and when you get there, then who to talk to: NOW and NEXT."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GS, ALT et TRK viennent du GPS. Dessous, où va la branche et quand vous y serez, puis à qui parler : ACT et SUIV."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c5s1Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The map"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La carte"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c5s1Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open MAP: the route, the airspace and the aircraft, on the chart you chose."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvrez CARTE : la route, l'espace aérien et l'avion, sur la carte choisie."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c5s2Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The route"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La route"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c5s2Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Now ROUTE: the legs with their times, and every frequency in the order you will use them."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maintenant ROUTE : les branches avec leurs heures, et chaque fréquence dans l'ordre où vous l'utiliserez."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c5s3Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The turning point"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le point de virage"
-          }
-        }
-      }
-    },
-    "dryRunCoach.c5s3Body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Passing it, the app wrote down the time over and moved on to the next leg, by itself."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En le passant, l'app a noté l'heure de passage et est passée à la branche suivante, toute seule."
-          }
-        }
-      }
-    },
-    "dryRunCoach.c6s1Title": {
+    "dryRunCoach.step.approachCheck.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4466,58 +4517,75 @@
         }
       }
     },
-    "dryRunCoach.c6s1Body": {
+    "dryRunCoach.step.approachCheck.upcoming": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Five miles out, the approach check is due. Do it when the flying lets you: the app keeps the order."
+            "value": "the approach check, near the aerodrome"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "À cinq milles, la vérification d'approche est due. Faites-la quand le pilotage le permet : l'app garde l'ordre."
+            "value": "la vérification d'approche, près de l'aérodrome"
           }
         }
       }
     },
-    "dryRunCoach.c6s2Title": {
+    "dryRunCoach.step.checkOnce.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Try a go-around"
+            "value": "CHECK ticks the item shown and moves to the next one. Tap it once."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Essayez une remise de gaz"
+            "value": "COCHER valide l'élément affiché et passe au suivant. Touchez-le une fois."
           }
         }
       }
     },
-    "dryRunCoach.c6s2Body": {
+    "dryRunCoach.step.checkOnce.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On this final, choose GO AROUND on the card: the aircraft climbs away, and the app sees it."
+            "value": "Check an item"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte, et l'app le voit."
+            "value": "Cochez un élément"
           }
         }
       }
     },
-    "dryRunCoach.c6s3Title": {
+    "dryRunCoach.step.climbAgain.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After a go-around the app starts the checks again at the climb check. Do it on the way round."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après une remise de gaz, l'app reprend les vérifications à celle de montée. Faites-la pendant le tour de piste."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.climbAgain.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4534,24 +4602,415 @@
         }
       }
     },
-    "dryRunCoach.c6s3Body": {
+    "dryRunCoach.step.climbAgain.upcoming": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app saw the go-around. The circuit brings you back to land."
+            "value": "the climb check again, at 500 ft"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app a vu la remise de gaz. Le tour de piste vous ramène pour l'atterrissage."
+            "value": "la vérification de montée à nouveau, à 500 ft"
           }
         }
       }
     },
-    "dryRunCoach.c6s4Title": {
+    "dryRunCoach.step.climbCheck.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due at 500 ft above the field: its button has the ring. Tap it, then work through it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due à 500 ft sol : son bouton est entouré. Touchez-le, puis faites-la."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.climbCheck.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The climb check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification de montée"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.climbCheck.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the climb check, at 500 ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la vérification de montée, à 500 ft"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cockpit.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the Cockpit you fly with. In a real flight, START FLIGHT on Today opens it; this dry run did it for you. The aircraft waits for you at each step."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voici le cockpit avec lequel vous volez. Dans un vrai vol, DÉMARRER LE VOL sur Aujourd'hui l'ouvre ; ce vol à blanc l'a fait pour vous. L'avion vous attend à chaque étape."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cockpit.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your first flight, on the ground"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre premier vol, au sol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cruiseCheck.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level at the cruise: the cruise check is due, its button has the ring. Do it now."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En palier de croisière : la vérification est due, son bouton est entouré. Faites-la maintenant."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cruiseCheck.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The cruise check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification de croisière"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cruiseCheck.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the cruise check, at the level-off"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la vérification de croisière, à la mise en palier"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.defer.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busy taxiing? DEFER sets the check aside, and the app keeps it. Try it now."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occupé au roulage ? REPORTER met la vérification de côté, et l'app la garde. Essayez maintenant."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.defer.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Defer a check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reportez une vérification"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.deferredChip.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you deferred waits here, in amber. Tap it any time to finish it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que vous avez reporté attend ici, en orange. Touchez-le quand vous voulez pour le terminer."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.deferredChip.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is lost"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien ne se perd"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.descentCheck.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The descent has begun: the descent check is due, its button has the ring. Do it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La descente a commencé : la vérification est due, son bouton est entouré. Faites-la."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.descentCheck.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The descent check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification de descente"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.descentCheck.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the descent check, as the descent begins"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la vérification de descente, au début de la descente"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.endFlight.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It closes the flight and makes its logbook entry, with the times from the GPS track. This is a dry run: nothing of it is kept."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il clôt le vol et fait son entrée au carnet, avec les heures tirées de la trace GPS. C'est un vol à blanc : rien n'en est gardé."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.endFlight.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "END FLIGHT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TERMINER LE VOL"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineShutdown.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parked, once the engine has stopped: tap it, and the app notes the time."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au parking, une fois le moteur arrêté : touchez-le, et l'app note l'heure."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineShutdown.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ENGINE SHUTDOWN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT MOTEUR"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineShutdown.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ENGINE SHUTDOWN, once parked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT MOTEUR, une fois au parking"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineStart.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once the engine runs, tap it: the app notes the time, and the flight's times count from there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une fois le moteur lancé, touchez-le : l'app note l'heure, et les temps du vol partent de là."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineStart.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now ENGINE START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenant DÉMARRAGE MOTEUR"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fullStop.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FULL STOP is lit already. The aircraft lands."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT COMPLET est déjà allumé. L'avion se pose."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fullStop.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4568,24 +5027,177 @@
         }
       }
     },
-    "dryRunCoach.c6s4Body": {
+    "dryRunCoach.step.goAround.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FULL STOP is lit already. Land."
+            "value": "On this final, choose GO AROUND on the card: the aircraft climbs away, and the app sees it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET est déjà allumé. Posez-vous."
+            "value": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte, et l'app le voit."
           }
         }
       }
     },
-    "dryRunCoach.c6s5Title": {
+    "dryRunCoach.step.goAround.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a go-around"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayez une remise de gaz"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.goAround.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a go-around, on the first final"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "une remise de gaz, sur la première finale"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.goAroundCard.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It asks: CONFIRM records it in the flight. Left alone, the card goes after 20 seconds and records nothing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle demande : CONFIRMER l'enregistre dans le vol. Sans réponse, l'encadré part après 20 secondes sans rien enregistrer."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.goAroundCard.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app saw the go-around"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'app a vu la remise de gaz"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.hoursAfter.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The counter again, as it reads now. From the two, the logbook and the cost take the time flown."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le compteur à nouveau, tel qu'il se lit maintenant. Des deux, le carnet de vol et le coût tirent le temps de vol."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.hoursAfter.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine hours"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures moteur"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.hoursBefore.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before the start, type the engine's hour counter as it reads. The logbook and the cost take the time flown from it. In a dry run any number will do, or Skip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avant le démarrage, entrez le compteur horaire tel qu'il se lit. Le carnet de vol et le coût en tirent le temps de vol. Dans un vol à blanc, n'importe quel nombre convient, ou Passer."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.hoursBefore.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine hours"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures moteur"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.landed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The LANDED card asks whether the landing check was done: answer it, and the after landing check opens. The aircraft then leaves the runway."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'encadré POSÉ demande si la vérification d'atterrissage était faite : répondez, et la vérification après l'atterrissage s'ouvre. L'avion quitte alors la piste."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.landed.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4602,87 +5214,461 @@
         }
       }
     },
-    "dryRunCoach.c6s5Body": {
+    "dryRunCoach.step.landed.upcoming": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The aircraft stops on the runway. The LANDED card asks about the landing check: answer it, and the after landing check opens. The aircraft then leaves the runway."
+            "value": "the LANDED card, once stopped"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'avion s'arrête sur la piste. L'encadré POSÉ demande si la vérification d'atterrissage était faite : répondez, et la vérification après l'atterrissage s'ouvre. L'avion quitte alors la piste."
+            "value": "l'encadré POSÉ, une fois arrêté"
           }
         }
       }
     },
-    "dryRunCoach.c7s1Title": {
+    "dryRunCoach.step.landingShown.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "At the parking"
+            "value": "From circuit height it shows here, dashed: done from memory, nothing to press until the runway is behind you."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Au parking"
+            "value": "Dès la hauteur du tour de piste, elle s'affiche ici en pointillé : faite de mémoire, rien à toucher avant d'avoir quitté la piste."
           }
         }
       }
     },
-    "dryRunCoach.c7s1Body": {
+    "dryRunCoach.step.landingShown.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go through the checks to the engine shutdown, then tap ENGINE SHUTDOWN once the engine has stopped."
+            "value": "The landing check"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites les vérifications jusqu'à l'arrêt, puis touchez ARRÊT MOTEUR une fois le moteur arrêté."
+            "value": "La vérification d'atterrissage"
           }
         }
       }
     },
-    "dryRunCoach.c7s2Title": {
+    "dryRunCoach.step.lineUpCheck.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "End the flight"
+            "value": "Work through it. The aircraft lines up once you are done."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terminez le vol"
+            "value": "Faites-la. L'avion s'aligne une fois que vous avez terminé."
           }
         }
       }
     },
-    "dryRunCoach.c7s2Body": {
+    "dryRunCoach.step.lineUpCheck.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "At the last check, END FLIGHT closes the flight and makes the logbook entry for you. Here, nothing is saved."
+            "value": "The line up check"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "À la dernière vérification, TERMINER LE VOL clôt le vol et fait l'entrée du carnet pour vous. Ici, rien n'est enregistré."
+            "value": "La vérification d'alignement"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.mapTakeoff.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open MAP. The aircraft lines up and takes off by itself; your next step is the climb check, once airborne."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul ; votre prochaine étape est la vérification de montée, une fois en l'air."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.mapTakeoff.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch the take-off"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regardez le décollage"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.memoryTest.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the Menu, the Memory test hides the items you should know by heart. Turn it on once you know them."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans le Menu, le test de mémoire cache les éléments à connaître par cœur. Activez-le quand vous les savez."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.memoryTest.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Memory test"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le test de mémoire"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.readBand.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GS, ALT and TRK come from the GPS. Under them, where the leg goes and when you get there, then who to talk to: NOW and NEXT."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GS, ALT et TRK viennent du GPS. Dessous, où va la branche et quand vous y serez, puis à qui parler : ACT et SUIV."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.readBand.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you read"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que vous lisez"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.readyForLineUp.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap it. The app takes the take-off time from this tap and times the route from it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez-le. L'app en tire l'heure de décollage et chronomètre la route à partir de là."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.readyForLineUp.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "READY FOR LINE UP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRÊT POUR L'ALIGNEMENT"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.routePage.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open ROUTE: the legs with their times, and every frequency in the order you will use them."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez ROUTE : les branches avec leurs heures, et chaque fréquence dans l'ordre où vous l'utiliserez."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.routePage.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.timeOver.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passing it, the app wrote its time over on ROUTE and went on to the next leg, by itself."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En le passant, l'app a noté son heure de passage sur ROUTE et est passée à la branche suivante, toute seule."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.timeOver.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The turning point"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le point de virage"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toBeforeDeparture.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The aircraft waits here. Work through the checks to the one before departure; at its end, READY FOR LINE UP gets the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'avion attend ici. Faites les vérifications jusqu'à celle avant le départ ; à sa fin, PRÊT POUR L'ALIGNEMENT sera entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toBeforeDeparture.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the holding point"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au point d'attente"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toBeforeDeparture.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the checks to the one before departure, at the holding point"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "les vérifications jusqu'à celle avant le départ, au point d'attente"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toEndFlight.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through them to the end: END FLIGHT then gets the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites-les jusqu'au bout : TERMINER LE VOL sera alors entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toEndFlight.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last checks"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les dernières vérifications"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toEngineStart.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHECK ticks each item; at the end of a check, NEXT goes on to the next one. Work through them to the engine start: its button then gets the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "COCHER valide chaque élément ; à la fin d'une vérification, SUIVANT passe à la suivante. Avancez ainsi jusqu'au démarrage : son bouton sera alors entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toEngineStart.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Through the checks"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les vérifications"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toShutdown.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the after landing check while the aircraft taxis in, then the checks at the parking. At the engine shutdown, its button gets the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification après l'atterrissage pendant que l'avion roule, puis celles du parking. À l'arrêt moteur, son bouton sera entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toShutdown.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To the parking"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vers le parking"
+          }
+        }
+      }
+    },
+    "dryRunCoach.todayBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The WT9, a short local flight, a coach at each step. About 10 minutes; nothing of it is kept."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le WT9, un court vol local, un guide à chaque étape. Environ 10 minutes ; rien n'en est gardé."
           }
         }
       }
@@ -4806,23 +5792,6 @@
         }
       }
     },
-    "dryRunCoach.toChapter": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "to chapter %lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "vers le chapitre %lld"
-          }
-        }
-      }
-    },
     "dryRunCoach.habitsTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -4870,23 +5839,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Faites votre premier vol au sol"
-          }
-        }
-      }
-    },
-    "dryRunCoach.todayBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The WT9, a short local flight, a coach at each step. About 15 minutes; nothing is saved."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le WT9, un court vol local, un guide à chaque étape. Environ 15 minutes ; rien n'est enregistré."
           }
         }
       }
@@ -4959,23 +5911,6 @@
         }
       }
     },
-    "dryRunCoach.settingsGuidedSubtitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seven short chapters with a coach, from the aircraft to END FLIGHT. About 15 minutes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sept courts chapitres avec un guide, de l'avion à TERMINER LE VOL. Environ 15 minutes."
-          }
-        }
-      }
-    },
     "dryRunCoach.chaptersRow": {
       "extractionState": "manual",
       "localizations": {
@@ -4989,23 +5924,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les chapitres un par un"
-          }
-        }
-      }
-    },
-    "dryRunCoach.chaptersFooter": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A chapter flown on its own: the aircraft placed where it starts, the checks before it taken as done."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un chapitre seul : l'avion placé là où il commence, les vérifications d'avant considérées comme faites."
           }
         }
       }

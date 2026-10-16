@@ -98,6 +98,110 @@ struct DryRunCoachCard: View {
     }
 }
 
+/// The guided flight's card folded to one line between two steps, in the card's place (the proposal's Q4):
+/// what the aircraft does, then the next thing for the pilot to do, so a stretch with nothing to tap says so.
+struct DryRunFoldedLine: View {
+    let text: String
+    /// The chapter the next step is in.
+    let chapter: Int?
+    let compact: Bool
+
+    private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
+    private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            if let chapter {
+                Text(compact ? "\(chapter)" : "\(chapter) · \(DryRunChapters.title(chapter))")
+                    .font(.aero(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                    .opacity(0.7)
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+                .font(.aero(size: compact ? 15 : 16))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundColor(ink)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(paper))
+        .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
+/// The guided flight on its way to a chapter flown on its own (the proposal's Q6): this, in place of the
+/// Cockpit, for the few seconds the flight takes to be flown there. Nothing is asked on the way.
+struct DryRunFastForwardCover: View {
+    let chapter: Int
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Text(L10n.DryRunCoach.coverTitle(chapter))
+                .font(.aero(size: 15, weight: .semibold, design: .monospaced))
+                .tracking(1.4)
+                .textCase(.uppercase)
+                .foregroundColor(theme.textSecondary)
+            Text(DryRunChapters.title(chapter))
+                .font(.aero(size: 30, weight: .bold))
+                .foregroundColor(theme.textPrimary)
+                .multilineTextAlignment(.center)
+            Text(L10n.DryRunCoach.coverBody)
+                .font(.aero(size: 17))
+                .foregroundColor(theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 460)
+            ProgressView()
+                .controlSize(.large)
+                .tint(theme.action)
+                .padding(.top, 8)
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.background.ignoresSafeArea())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The coach's card over a screen the Cockpit shows over itself (the engine hours' prompt), where its own
+/// layer can't reach: the card alone, at the foot, no veil and no ring.
+private struct DryRunCoachOverCover: View {
+    @ObservedObject var coach: DryRunCoach
+    @ObservedObject var session: DryRunSession
+
+    var body: some View {
+        if let step = coach.step, step.target == nil, case .hourMeter = step.moment {
+            DryRunCoachCard(coach: coach, session: session, step: step,
+                            compact: UIDevice.current.userInterfaceIdiom != .pad)
+                .frame(maxWidth: 600)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 16)
+                .transition(.opacity)
+        }
+    }
+}
+
+extension View {
+    /// The guided flight's card over this screen, when a dry run's coach has one for it. Nothing in a real
+    /// flight (`session` nil). (6.4.0)
+    func dryRunCoachCard(_ session: DryRunSession?) -> some View {
+        overlay(alignment: .bottom) {
+            if let session, let coach = session.coach {
+                DryRunCoachOverCover(coach: coach, session: session)
+            }
+        }
+    }
+}
+
 /// The veil and the ring: a do step that is one tap veils the rest of the screen, its control rung and live;
 /// any other step with a control only rings it. Nothing when the control isn't on screen (another page).
 struct DryRunCoachVeil: View {

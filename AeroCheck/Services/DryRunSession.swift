@@ -41,6 +41,10 @@ final class DryRunSession: ObservableObject, Identifiable {
     @Published private(set) var isSkipping = false
     /// The coach's step holds the flight until the pilot has done it, or read it.
     @Published private(set) var isCoachHolding = false
+    /// The clock's pace as it runs now: 0 held or paused; in the guided flight, `guidedPace`.
+    @Published private(set) var pace: Double = 0
+    /// The guided flight's card folded to one line between two steps (`makeFoldedLine`); nil otherwise.
+    @Published private(set) var foldedLine: String?
     @Published private(set) var state: State = .flying
     private(set) var hasEnded = false
 
@@ -48,6 +52,8 @@ final class DryRunSession: ObservableObject, Identifiable {
     private(set) var start: Date?
     /// The next fix, decided and not due yet.
     private var pending: DryRunFix?
+    /// When the guided flight began its way to its chapter, on the wall clock (the log's measure).
+    private var fastForwardBegan: Date?
     private var timer: Timer?
     private var landings: [DryRunGenerator.Landing]
 
@@ -76,6 +82,17 @@ final class DryRunSession: ObservableObject, Identifiable {
         }
     }
     static let skipRate = 30.0
+    /// How near the waypoint the generator flies to a time over the app writes is its own passage, metres.
+    static let passageRadius = 1.5 * DryRunGeo.metresPerNM
+    /// The guided flight's paces (the proposal's Q3, "Plan to Logbook", tuned on the headless flight so that no
+    /// stretch is longer than 13 s without a card or a tap, `DryRunGuidedTests`): what is worth seeing move at
+    /// 5× (the taxi's first seconds, the take-off roll and the lift-off, a turning point, the start of the
+    /// downwind, the last of a final), the line-up at 10× and the landing roll at 6×, everything else at 30×.
+    /// At 20× the legs out and back ran 16 to 22 s without anything for the pilot.
+    static let watchRate = 5.0
+    static let flyOnRate = 30.0
+    /// Fixes fed per tick of the timer while the guided flight is taken to its chapter, behind the cover.
+    static let fastForwardBudget = 400
     /// Never longer than this of the dry run's time: a check that never falls due doesn't run it away.
     static let skipLimit: TimeInterval = 15 * 60
 
@@ -136,14 +153,23 @@ final class DryRunSession: ObservableObject, Identifiable {
     func begin(airports: AirportDataService, now: Date = Date()) -> Bool {
         guard start == nil else { return true }
         start = now
-        FlightClock.runVirtual(from: now, rate: coach?.isPreluding == true ? Self.skipRate : rate)
+        // The guided flight's pace is the coach's, from its first step (which holds); on its way to a chapter
+        // the clock is set fix by fix (`fastForward`).
+        FlightClock.runVirtual(from: now, rate: coach == nil ? rate : 0)
         guard world.startFlight(circuits: setup.isCircuits, aerodromes: setup.aerodromes.map(\.airport),
                                 airports: airports) else {
             end()
             return false
         }
         let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.feedDueFixes(upTo: FlightClock.now) }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if self.coach?.isFastForwarding == true {
+                    self.fastForward()
+                } else {
+                    self.feedDueFixes(upTo: FlightClock.now)
+                }
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -165,6 +191,34 @@ final class DryRunSession: ObservableObject, Identifiable {
             world.location.feedDryRunFix(fix.location(at: due))
         }
         observe()
+    }
+
+    /// The guided flight on its way to the chapter it starts at, behind the cover: fix after fix as fast as
+    /// they can be fed, the clock set to each (as a ground replay's tests set it), the coach doing the earlier
+    /// steps as the pilot would. At most `budget` fixes, so the cover keeps drawing; the chapter's first step
+    /// ends it, and the clock runs on from there at the coach's pace.
+    func fastForward(budget: Int = DryRunSession.fastForwardBudget) {
+        guard let start, state == .flying, let coach else { return }
+        let began = fastForwardBegan ?? Date()
+        fastForwardBegan = began
+        defer {
+            if !coach.isFastForwarding {
+                AppLog.general.publicLine("Dry run: at chapter \(coach.startChapter) in \(String(format: "%.1f", Date().timeIntervalSince(began))) s")
+            }
+        }
+        for _ in 0..<budget where coach.isFastForwarding && state == .flying {
+            let fix = pending ?? generator.nextFix()
+            pending = nil
+            let due = start.addingTimeInterval(TimeInterval(fix.t))
+            FlightClock.virtual = FlightClock.Virtual(wallAnchor: Date(), virtualAnchor: due, rate: 0)
+            world.location.feedDryRunFix(fix.location(at: due))
+            observe()
+            // Never longer than a flight could be: a step that can't come doesn't keep the cover up.
+            if fix.t > 3 * 3600 {
+                AppLog.general.publicLine("Dry run: the chapter's start never came")
+                stop()
+            }
+        }
     }
 
     /// The Cockpit's side: the flight ended, the generator's state for the band and the card, the route
@@ -190,21 +244,82 @@ final class DryRunSession: ObservableObject, Identifiable {
         let waiting = generator.isWaiting || isCoachHolding
         if waiting != isWaiting { isWaiting = waiting }
         applyRate()
+        if coach != nil {
+            let line = makeFoldedLine()
+            if line != foldedLine { foldedLine = line }
+        }
     }
 
-    /// The clock's pace for where the dry run stands: stopped while paused or held by the coach, Next
-    /// check's or the guided flight's way to its chapter at 30×, else the pace chosen.
+    /// The clock's pace for where the dry run stands: stopped while paused or held by the coach (and on the
+    /// guided flight's way to its chapter, where the clock is set fix by fix), the guided flight's pace for
+    /// where the aircraft is, Next check's 30×, else the pace chosen.
     private func applyRate() {
         guard state == .flying else { return }
         let pace: Double
-        if isPaused || isCoachHolding {
+        if isPaused || isCoachHolding || coach?.isFastForwarding == true {
             pace = 0
-        } else if isSkipping || coach?.isPreluding == true {
+        } else if coach != nil {
+            pace = Self.guidedPace(generator)
+        } else if isSkipping {
             pace = Self.skipRate
         } else {
             pace = rate
         }
+        if self.pace != pace { self.pace = pace }
         if FlightClock.virtual?.rate != pace { FlightClock.setVirtualRate(pace) }
+    }
+
+    /// The guided flight's pace for what the aircraft is doing.
+    static func guidedPace(_ generator: DryRunGenerator) -> Double {
+        let since = generator.t - generator.activitySince
+        let firstCircuit = generator.mark("goAround") == nil
+        switch generator.activity {
+        case .taxiing: return since < 10 ? watchRate : flyOnRate
+        case .liningUp: return 10
+        case .takeoffRoll: return watchRate
+        // The lift-off, until the card that says the app saw it.
+        case .climbingOut: return firstCircuit && since < 12 ? watchRate : flyOnRate
+        case .downwind: return firstCircuit && since < 15 ? 10 : flyOnRate
+        case .final: return generator.heightAboveFieldFt < 100 ? watchRate : flyOnRate
+        case .landing: return 6
+        case .climbing, .cruising, .descending:
+            let near = (generator.secondsToWaypoint ?? .infinity) < 15 || (generator.secondsSinceWaypoint ?? .max) < 15
+            return near ? watchRate : flyOnRate
+        default: return flyOnRate
+        }
+    }
+
+    /// The guided flight's card folded between two steps: what the aircraft does, and the next thing for the
+    /// pilot to do, if one is coming.
+    private func makeFoldedLine() -> String? {
+        guard let coach, coach.step == nil, !coach.isFastForwarding, state == .flying else { return nil }
+        let doing: String
+        switch generator.activity {
+        case .parked: doing = L10n.DryRunCoach.Doing.parked
+        case .taxiing: doing = L10n.DryRunCoach.Doing.taxiing
+        case .holding: doing = L10n.DryRunCoach.Doing.holding
+        case .liningUp: doing = L10n.DryRunCoach.Doing.liningUp
+        case .takeoffRoll: doing = L10n.DryRunCoach.Doing.takeoffRoll
+        case .climbingOut: doing = L10n.DryRunCoach.Doing.climbingOut
+        case .climbing: doing = L10n.DryRunCoach.Doing.climbing
+        case .cruising:
+            let next = world.plans.activeFlightPlan?.nextWaypoint?.name
+            doing = next.map(L10n.DryRunCoach.Doing.cruising) ?? L10n.DryRunCoach.Doing.climbing
+        case .descending: doing = L10n.DryRunCoach.Doing.descending
+        case .joining: doing = L10n.DryRunCoach.Doing.joining
+        case .upwind: doing = L10n.DryRunCoach.Doing.upwind
+        case .crosswind: doing = L10n.DryRunCoach.Doing.crosswind
+        case .downwind: doing = L10n.DryRunCoach.Doing.downwind
+        case .base: doing = L10n.DryRunCoach.Doing.base
+        case .final: doing = L10n.DryRunCoach.Doing.final
+        case .goingAround: doing = L10n.DryRunCoach.Doing.goingAround
+        case .landing: doing = L10n.DryRunCoach.Doing.landing
+        case .stopped: doing = L10n.DryRunCoach.Doing.stopped
+        case .taxiingIn: doing = L10n.DryRunCoach.Doing.taxiingIn
+        case .parkedEnd: doing = L10n.DryRunCoach.Doing.parkedEnd
+        }
+        guard let upcoming = coach.upcoming?.upcoming else { return doing }
+        return "\(doing) \(L10n.DryRunCoach.nextForYou(upcoming))"
     }
 
     /// A Direct To or a divert made in the Cockpit, for the generator: a jump ahead on the route, a diversion
@@ -230,9 +345,15 @@ final class DryRunSession: ObservableObject, Identifiable {
         guard diversion == nil else { return }
         if plan.currentWaypointIndex != seenWaypointIndex {
             // The plan's waypoint i is the generator's leg i - 1 (its legs start after the departure). A natural
-            // passage finds the generator there already; only a jump ahead is the pilot's.
-            if seenWaypointIndex != nil, plan.currentWaypointIndex - 1 > generator.legIndex {
-                generator.directTo(waypointAt: plan.currentWaypointIndex - 1)
+            // passage finds the generator there already, or about to be: the app writes a time over abeam,
+            // which can come a second before the generator itself reaches the point. Only a jump further, or
+            // from far off, is the pilot's (a Direct To). Taken for one, the generator lost its own passage,
+            // and the guided flight waited for it for good (device check c-1, 16 Oct).
+            let target = plan.currentWaypointIndex - 1
+            let natural = target == generator.legIndex + 1
+                && (generator.distance(toWaypointAt: generator.legIndex) ?? .infinity) < Self.passageRadius
+            if seenWaypointIndex != nil, target > generator.legIndex, !natural {
+                generator.directTo(waypointAt: target)
             }
             seenWaypointIndex = plan.currentWaypointIndex
         }

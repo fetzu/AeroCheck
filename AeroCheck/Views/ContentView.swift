@@ -263,6 +263,9 @@ struct ContentView: View {
                 }
                 if dryRun == "guided" {
                     DryRunCenter.shared.requestGuided(chapter: environment["AEROCHECK_DRYRUN_CHAPTER"].flatMap { Int($0) } ?? 1)
+                    if environment["AEROCHECK_DRYRUN_AUTO"] == "1" {
+                        DryRunAutopilot(stop: environment["AEROCHECK_DRYRUN_STOP"].flatMap(DryRunAutopilot.Stop.init)).fly()
+                    }
                     return
                 }
                 let speed = environment["AEROCHECK_DRYRUN_SPEED"].flatMap(Double.init) ?? 4

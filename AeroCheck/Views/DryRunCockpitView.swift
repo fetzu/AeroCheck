@@ -222,7 +222,8 @@ struct DryRunCoachLayer: View {
         GeometryReader { proxy in
             let bottom = metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 104 : 90) : 0)
             let alignment: Alignment = metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom
-            if let step = coach.step {
+            // The Cockpit's own steps: a step for the Menu (a sheet over it) shows there, not here as well.
+            if let step = coach.step, step.screen == .cockpit {
                 // The prompt over the Cockpit has the card (`dryRunCoachCard`): nothing here meanwhile.
                 if coach.hourMeter == nil {
                     let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }

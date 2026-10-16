@@ -282,13 +282,15 @@ struct DryRunCoachCard: View {
             .opacity(0.7)
     }
 
-    /// The card folded to one line: its title, and a tap opens it again.
+    /// The card folded to one line: what to do, with a verb (its title when it has no such line), and a tap
+    /// opens it again.
     private var folded: some View {
         Button { coach.unfold() } label: {
             HStack(spacing: 10) {
-                Text(step.title)
+                Text(step.fold ?? step.title)
                     .font(.aero(size: compact ? 15 : 16, weight: .bold))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 6)
                 partLine
                 Image(systemName: "chevron.up")

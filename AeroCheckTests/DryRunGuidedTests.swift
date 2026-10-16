@@ -192,6 +192,42 @@ final class DryRunGuidedTests: XCTestCase {
         flight.session.end()
     }
 
+    // MARK: - The third round of device checks (16 Oct)
+
+    /// DEFER's card when nothing can be deferred any more (the check worked through, or a memory check): it goes
+    /// by itself, and the chip's card with it; the story goes on (r3-10: DEFER disabled, and no way on).
+    func testDEFERNeverHoldsTheStoryWhenNothingCanBeDeferred() throws {
+        let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
+            guard step.id == "defer" else { return false }
+            DryRunCoach.workThroughCurrentCheck(session.world.appState)
+            return true
+        })
+        XCTAssertTrue(record.shown.contains("defer"))
+        XCTAssertFalse(record.shown.contains("deferredChip"), "nothing deferred: no chip to show")
+        XCTAssertTrue(record.shown.contains("endFlight"), "\(record.shown)")
+    }
+
+    /// The memory items in the engine start check, which has some (r3-7): the Menu rung, then its switch once
+    /// it is open; closing the Menu goes on to the check's items.
+    func testTheMemoryItemsComeInTheEngineStartCheck() {
+        let ids = DryRunChapters.steps.map(\.id)
+        let memory = try? XCTUnwrap(ids.firstIndex(of: "memoryTest"))
+        XCTAssertEqual(DryRunChapters.steps.first { $0.id == "memoryTest" }?.chapter, 2)
+        XCTAssertEqual(memory.map { ids[$0 + 1] }, "memorySwitch")
+        XCTAssertLessThan(ids.firstIndex(of: "memorySwitch") ?? .max, ids.firstIndex(of: "engineStartCheck") ?? 0)
+        let toggle = DryRunChapters.steps.first { $0.id == "memorySwitch" }
+        XCTAssertEqual(toggle?.screen, .menu)
+        XCTAssertEqual(toggle?.target, .memoryItemsToggle)
+    }
+
+    /// Folded, a card that sends the pilot through the checks says what to do, with a verb (r3-8).
+    func testAFoldedCardSaysWhatToDo() {
+        for step in DryRunChapters.steps where step.kind == .act && !step.veils && step.screen == .cockpit
+            && step.target == .check {
+            XCTAssertNotNil(step.fold, step.id)
+        }
+    }
+
     /// The guided dry run shows every item, whatever the pilot hides: its cards wait for checks named due.
     func testTheGuidedWorldShowsEveryItem() {
         var settings = AppSettings()

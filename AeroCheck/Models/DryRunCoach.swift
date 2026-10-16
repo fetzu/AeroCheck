@@ -54,6 +54,8 @@ struct DryRunCoachStep: Equatable {
     /// Where the card shows: over the Cockpit, or over one of the ground's screens in the dry run's world.
     enum Screen: Hashable {
         case cockpit, today, planSheet, flightPage, fuelSheet, numbers, logbook, flightDetail
+        /// The Cockpit's Menu (a sheet over it).
+        case menu
     }
 
     /// Where the card points: the control rung, live, under the veil (a do step that is one tap), or just rung.
@@ -69,6 +71,8 @@ struct DryRunCoachStep: Equatable {
         case check
         case deferItem
         case deferredChip
+        /// Hide memory items, in the Cockpit's Menu.
+        case memoryItemsToggle
         case pageMap
         case pageRoute
         case readBand
@@ -207,6 +211,12 @@ struct DryRunCoachStep: Equatable {
         case fromPlan
         /// Fly on its own: the dry run started the flight.
         case notFromPlan
+        /// DEFER can set something aside now: the check open, not a memory check (`ActBandRoles`' rule). Else
+        /// the card has nothing to ask (the author's third round, r3-10: a memory-only check, DEFER disabled,
+        /// and no way on).
+        case canDefer
+        /// Something deferred, for the chip's card.
+        case somethingDeferred
     }
 
     /// Stable: the strings' key, the tests'.
@@ -229,6 +239,8 @@ struct DryRunCoachStep: Equatable {
     var upcoming: String? = nil
     var part: DryRunPart = .fly
     var screen: Screen = .cockpit
+    /// What the folded card says: what to do, with a verb (the author's third round, r3-8). The title when nil.
+    var fold: String? = nil
 
     /// The part, or Fly's chapter, whose habit it counts toward.
     enum Segment: Hashable {
@@ -291,33 +303,45 @@ enum DryRunChapters {
               requires: .notFromPlan, title: T.cockpitTitle, body: T.cockpitBody),
             S(id: "checkOnce", chapter: 1, kind: .act, target: .primary, veils: true, holds: true, moment: .now,
               done: .itemChecked, title: T.checkOnceTitle, body: T.checkOnceBody),
-            S(id: "memoryTest", chapter: 1, kind: .look, target: .menu, veils: false, holds: true, moment: .now,
-              done: .next, title: T.memoryTestTitle, body: T.memoryTestBody),
             // 2 · Engine and taxi. ENGINE START after the engine start check's items, as a pilot presses it; the
             // aircraft taxis once the after engine start check is done; DEFER while it taxis (st-10, st-11).
             S(id: "toEngineStart", chapter: 2, kind: .act, target: .check, veils: false, holds: false, moment: .now,
-              done: .shows(.engineStartCheck), title: T.toEngineStartTitle, body: T.toEngineStartBody),
+              done: .shows(.engineStartCheck), title: T.toEngineStartTitle, body: T.toEngineStartBody,
+              fold: T.toEngineStartFold),
             S(id: "hoursBefore", chapter: 2, kind: .act, target: nil, veils: false, holds: true,
               moment: .hourMeter(.beforeStart), done: .hourMeterClosed, requires: .engineHoursBefore,
               title: T.hoursBeforeTitle, body: T.hoursBeforeBody),
+            // The memory items where a check has some: the engine start check mixes items to read and items to
+            // know by heart. The Menu rung, then its switch once it is open (r3-7).
+            S(id: "memoryTest", chapter: 2, kind: .act, target: .menu, veils: true, holds: true, moment: .now,
+              done: .screen(.menu), title: T.memoryTestTitle, body: T.memoryTestBody),
+            S(id: "memorySwitch", chapter: 2, kind: .act, target: .memoryItemsToggle, veils: false, holds: true,
+              moment: .screen(.menu), done: .screenClosed(.menu), title: T.memorySwitchTitle, body: T.memorySwitchBody,
+              screen: .menu),
             S(id: "engineStartCheck", chapter: 2, kind: .act, target: .check, veils: false, holds: false, moment: .now,
-              done: .shows(.engineStart), title: T.engineStartCheckTitle, body: T.engineStartCheckBody),
+              done: .shows(.engineStart), title: T.engineStartCheckTitle, body: T.engineStartCheckBody,
+              fold: T.engineStartCheckFold),
             S(id: "engineStart", chapter: 2, kind: .act, target: .first, veils: true, holds: true,
               moment: .shows(.engineStart), done: .engineStarted, title: T.engineStartTitle, body: T.engineStartBody),
-            S(id: "afterStart", chapter: 2, kind: .act, target: .check, veils: false, holds: true, moment: .now,
-              done: .reached(.taxi), title: T.afterStartTitle, body: T.afterStartBody),
-            S(id: "defer", chapter: 2, kind: .act, target: .deferItem, veils: true, holds: true, moment: .taxiing,
-              done: .deferred, title: T.deferTitle, body: T.deferBody),
+            // On to the after engine start check; DEFER there, when something can be deferred (r3-10); the rest
+            // of it, and NEXT: the aircraft taxis once the taxi check is open (st-11).
+            S(id: "toAfterStart", chapter: 2, kind: .act, target: .check, veils: true, holds: true, moment: .now,
+              done: .reached(.afterEngineStart), title: T.toAfterStartTitle, body: T.toAfterStartBody),
+            S(id: "defer", chapter: 2, kind: .act, target: .deferItem, veils: true, holds: true, moment: .now,
+              done: .deferred, requires: .canDefer, title: T.deferTitle, body: T.deferBody),
             S(id: "deferredChip", chapter: 2, kind: .look, target: .deferredChip, veils: false, holds: true,
-              moment: .now, done: .next, title: T.deferredChipTitle, body: T.deferredChipBody),
+              moment: .now, done: .next, requires: .somethingDeferred, title: T.deferredChipTitle,
+              body: T.deferredChipBody),
+            S(id: "afterStart", chapter: 2, kind: .act, target: .check, veils: false, holds: true, moment: .now,
+              done: .reached(.taxi), title: T.afterStartTitle, body: T.afterStartBody, fold: T.afterStartFold),
             // 3 · Line-up
             S(id: "toBeforeDeparture", chapter: 3, kind: .act, target: .check, veils: false, holds: false,
               moment: .holdingPoint, done: .shows(.readyForLineUp), title: T.toBeforeDepartureTitle,
-              body: T.toBeforeDepartureBody, upcoming: T.toBeforeDepartureUpcoming),
+              body: T.toBeforeDepartureBody, upcoming: T.toBeforeDepartureUpcoming, fold: T.toBeforeDepartureFold),
             S(id: "readyForLineUp", chapter: 3, kind: .act, target: .primary, veils: true, holds: true,
               moment: .shows(.readyForLineUp), done: .linedUp, title: T.readyForLineUpTitle, body: T.readyForLineUpBody),
             S(id: "lineUpCheck", chapter: 3, kind: .act, target: .check, veils: false, holds: true, moment: .now,
-              done: .checkDone(.lineUp), title: T.lineUpCheckTitle, body: T.lineUpCheckBody),
+              done: .checkDone(.lineUp), title: T.lineUpCheckTitle, body: T.lineUpCheckBody, fold: T.lineUpCheckFold),
             S(id: "mapTakeoff", chapter: 3, kind: .act, target: .pageMap, veils: true, holds: true, moment: .now,
               done: .page(.map), title: T.mapTakeoffTitle, body: T.mapTakeoffBody),
             // 4 · Take-off and climb
@@ -325,24 +349,24 @@ enum DryRunChapters {
               done: .next, title: T.airborneTitle, body: T.airborneBody),
             S(id: "climbCheck", chapter: 4, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.climb)), done: .checkDone(.climb), title: T.climbCheckTitle,
-              body: T.climbCheckBody, upcoming: T.climbCheckUpcoming),
+              body: T.climbCheckBody, upcoming: T.climbCheckUpcoming, fold: T.climbCheckFold),
             S(id: "readBand", chapter: 4, kind: .look, target: .readBand, veils: false, holds: true, moment: .now,
               done: .next, title: T.readBandTitle, body: T.readBandBody),
             // 5 · On the route
             S(id: "cruiseCheck", chapter: 5, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.cruise)), done: .checkDone(.cruise), title: T.cruiseCheckTitle,
-              body: T.cruiseCheckBody, upcoming: T.cruiseCheckUpcoming),
+              body: T.cruiseCheckBody, upcoming: T.cruiseCheckUpcoming, fold: T.cruiseCheckFold),
             S(id: "routePage", chapter: 5, kind: .act, target: .pageRoute, veils: true, holds: true, moment: .now,
               done: .page(.route), title: T.routePageTitle, body: T.routePageBody),
             S(id: "timeOver", chapter: 5, kind: .look, target: .undoToast, veils: false, holds: true, moment: .timeOver(1),
               done: .next, title: T.timeOverTitle, body: T.timeOverBody),
             S(id: "descentCheck", chapter: 5, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.descent)), done: .checkDone(.descent), title: T.descentCheckTitle,
-              body: T.descentCheckBody, upcoming: T.descentCheckUpcoming),
+              body: T.descentCheckBody, upcoming: T.descentCheckUpcoming, fold: T.descentCheckFold),
             // 6 · Back to land
             S(id: "approachCheck", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
               moment: .nearCircuit(.check(.approach)), done: .checkDone(.approach), title: T.approachCheckTitle,
-              body: T.approachCheckBody, upcoming: T.approachCheckUpcoming),
+              body: T.approachCheckBody, upcoming: T.approachCheckUpcoming, fold: T.approachCheckFold),
             // On final, where the landing check is said (st-14), before the card on final's choice.
             S(id: "landingShown", chapter: 6, kind: .look, target: .first, veils: false, holds: true,
               moment: .final(1), done: .next, title: T.landingShownTitle, body: T.landingShownBody),
@@ -352,24 +376,24 @@ enum DryRunChapters {
               moment: .goAroundCard, done: .goAroundAnswered, title: T.goAroundCardTitle, body: T.goAroundCardBody),
             S(id: "climbAgain", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.climb)), done: .checkDone(.climb), title: T.climbAgainTitle,
-              body: T.climbAgainBody, upcoming: T.climbAgainUpcoming),
+              body: T.climbAgainBody, upcoming: T.climbAgainUpcoming, fold: T.climbAgainFold),
             // The go-around where the flight was going took up circuits (6.4.0, st-14): the approach check on
             // the downwind, and the landing check from memory, which no card asks about after a circuit's
             // full stop: a tap records it.
             S(id: "approachAgain", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.approach)), done: .checkDone(.approach), title: T.approachAgainTitle,
-              body: T.approachAgainBody, upcoming: T.approachAgainUpcoming),
+              body: T.approachAgainBody, upcoming: T.approachAgainUpcoming, fold: T.approachAgainFold),
             S(id: "fullStop", chapter: 6, kind: .act, target: .first, veils: false, holds: true, moment: .final(2),
-              done: .checkDone(.landing), title: T.fullStopTitle, body: T.fullStopBody),
+              done: .checkDone(.landing), title: T.fullStopTitle, body: T.fullStopBody, fold: T.fullStopFold),
             S(id: "landed", chapter: 6, kind: .act, target: .landedCard, veils: false, holds: true, moment: .landedCard,
               done: .landedAnswered, title: T.landedTitle, body: T.landedBody, upcoming: T.landedUpcoming),
             // 7 · After landing. The after landing check while it taxis in, PARKING at its end, the engine
             // shutdown check at the parking, then ENGINE SHUTDOWN (st-15).
             S(id: "toShutdown", chapter: 7, kind: .act, target: .check, veils: false, holds: false, moment: .now,
-              done: .shows(.shutdownCheck), title: T.toShutdownTitle, body: T.toShutdownBody),
+              done: .shows(.shutdownCheck), title: T.toShutdownTitle, body: T.toShutdownBody, fold: T.toShutdownFold),
             S(id: "shutdownCheck", chapter: 7, kind: .act, target: .check, veils: false, holds: false,
               moment: .parkedAndShows(.shutdownCheck), done: .shows(.engineShutdown), title: T.shutdownCheckTitle,
-              body: T.shutdownCheckBody),
+              body: T.shutdownCheckBody, fold: T.shutdownCheckFold),
             S(id: "engineShutdown", chapter: 7, kind: .act, target: .first, veils: true, holds: true,
               moment: .parkedAndShows(.engineShutdown), done: .engineShutdown, title: T.engineShutdownTitle,
               body: T.engineShutdownBody, upcoming: T.engineShutdownUpcoming),
@@ -377,7 +401,7 @@ enum DryRunChapters {
               moment: .hourMeter(.afterStop), done: .hourMeterClosed, requires: .engineHoursAfter,
               title: T.hoursAfterTitle, body: T.hoursAfterBody),
             S(id: "toEndFlight", chapter: 7, kind: .act, target: .check, veils: false, holds: false, moment: .now,
-              done: .shows(.endFlight), title: T.toEndFlightTitle, body: T.toEndFlightBody),
+              done: .shows(.endFlight), title: T.toEndFlightTitle, body: T.toEndFlightBody, fold: T.toEndFlightFold),
             S(id: "endFlight", chapter: 7, kind: .act, target: .primary, veils: true, holds: true,
               moment: .shows(.endFlight), done: .flightEnded, title: T.endFlightTitle, body: T.endFlightBody),
         ]
@@ -754,7 +778,14 @@ final class DryRunCoach: ObservableObject {
             return !isFastForwarding && appState.settings.logEngineHours && appState.currentFlight?.engineHourEnd == nil
         case .fromPlan: return fromPlan
         case .notFromPlan: return !fromPlan
+        case .canDefer: return Self.canDefer(appState)
+        case .somethingDeferred: return appState.deferredItemCount + appState.deferredChecks.count > 0
         }
+    }
+
+    /// DEFER enabled, as the act band has it: the check open, and not a memory check.
+    static func canDefer(_ appState: AppState) -> Bool {
+        !appState.currentCheckIsDone && !appState.currentCheckAwaitsConfirmation
     }
 
     private func reached(_ moment: DryRunCoachStep.Moment, _ session: DryRunSession) -> Bool {
@@ -851,7 +882,10 @@ final class DryRunCoach: ObservableObject {
         case .next: return false
         case .shows(let slot): return Self.shows(slot, appState)
         case .hourMeterClosed: return hourMeterSeen && hourMeter == nil
-        case .itemChecked, .deferred, .chipTapped, .linkTapped: return count(for: step, session) > baseline
+        case .deferred:
+            // Done, or nothing left to defer (a memory check, the check done): the card never holds the story.
+            return count(for: step, session) > baseline || !Self.canDefer(appState)
+        case .itemChecked, .chipTapped, .linkTapped: return count(for: step, session) > baseline
         case .engineStarted: return appState.engineStartTime != nil
         case .linedUp: return appState.lineUpTime != nil
         case .page(let page): return self.page == page

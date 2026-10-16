@@ -282,7 +282,21 @@ struct FlightView: View {
                 showFlightInfo = false
                 performAbandonFlight()
             })
+            // A dry run's coach over the Menu: its switch for the memory items rung (r3-7). (6.4.0)
+            .environment(\.dryRunSession, dryRunSession)
+            .dryRunCoachScreen(.menu)
         }
+        #if DEBUG
+        // The dry run's DEBUG autopilot, in place of a tap: the Menu. (6.4.0)
+        .dryRunAutopilotTap { tap in
+            guard dryRunSession != nil else { return }
+            switch tap {
+            case .open(.menu): showFlightInfo = true
+            case .close(.menu): showFlightInfo = false
+            default: break
+            }
+        }
+        #endif
         .sheet(item: $openItemsReview) { review in
             OpenItemsReviewSheet(
                 phase: review.phase,
@@ -2240,6 +2254,7 @@ struct FlightInfoSheet: View {
                             get: { !appState.settings.learningMode },
                             set: { appState.settings.learningMode = !$0; appState.saveSettings() }
                         ))
+                        .coachTarget(.memoryItemsToggle)
                         rowDivider
                         toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
                         // Companion mode only makes sense once a device is paired (pairing happens in

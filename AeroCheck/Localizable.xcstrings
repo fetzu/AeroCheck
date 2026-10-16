@@ -4795,13 +4795,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The after engine start check: work through it, then NEXT. The aircraft taxis once you are on the taxi check."
+            "value": "Work through it, then NEXT. The aircraft taxis once you are on the taxi check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification après le démarrage : faites-la, puis SUIVANT. L'avion roule une fois la vérification de roulage ouverte."
+            "value": "Faites-la, puis SUIVANT. L'avion roule une fois la vérification de roulage ouverte."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.afterStart.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the after engine start check, then NEXT."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification après le démarrage, puis SUIVANT."
           }
         }
       }
@@ -4812,13 +4829,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After the start"
+            "value": "The after engine start check"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Après le démarrage"
+            "value": "La vérification après le démarrage"
           }
         }
       }
@@ -4874,6 +4891,23 @@
         }
       }
     },
+    "dryRunCoach.step.approachAgain.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the approach check again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refaites la vérification d'approche."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.approachAgain.title": {
       "extractionState": "manual",
       "localizations": {
@@ -4921,6 +4955,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bientôt dans le tour de piste : la vérification d'approche, avant le vent arrière. Son bouton est entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.approachCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the approach check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification d'approche."
           }
         }
       }
@@ -5078,6 +5129,23 @@
         }
       }
     },
+    "dryRunCoach.step.climbAgain.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the climb check again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refaites la vérification de montée."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.climbAgain.title": {
       "extractionState": "manual",
       "localizations": {
@@ -5125,6 +5193,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une fois établi en montée positive et compensée, en général à 400 ou 500 ft sol : son bouton est entouré. Touchez-le, puis faites-la."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.climbCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the climb check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification de montée."
           }
         }
       }
@@ -5282,6 +5367,23 @@
         }
       }
     },
+    "dryRunCoach.step.cruiseCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the cruise check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification de croisière."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.cruiseCheck.title": {
       "extractionState": "manual",
       "localizations": {
@@ -5390,13 +5492,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Busy taxiing? DEFER sets the check aside, and the app keeps it. Try it now."
+            "value": "Something you can't do now? DEFER sets it aside, and the app keeps it. Try it now."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Occupé au roulage ? REPORTER met la vérification de côté, et l'app la garde. Essayez maintenant."
+            "value": "Quelque chose à faire plus tard ? REPORTER le met de côté, et l'app le garde. Essayez maintenant."
           }
         }
       }
@@ -5407,13 +5509,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Defer a check"
+            "value": "Defer an item"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reportez une vérification"
+            "value": "Reporter un élément"
           }
         }
       }
@@ -5465,6 +5567,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "La descente a commencé : la vérification est due, son bouton est entouré. Faites-la."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.descentCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the descent check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification de descente."
           }
         }
       }
@@ -5635,6 +5754,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ses éléments viennent avant le démarrage : faites-les. DÉMARRAGE MOTEUR sera alors entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineStartCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the engine start check's items, then ENGINE START."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites les éléments de la vérification de démarrage, puis DÉMARRAGE MOTEUR."
           }
         }
       }
@@ -5839,6 +5975,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "ARRÊT COMPLET est déjà allumé ; l'avion se pose. En courte finale, la vérification d'atterrissage de mémoire : en tour de piste, aucun encadré ne la demande ensuite, un appui l'enregistre donc."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fullStop.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On short final, tap the landing check once."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En courte finale, touchez une fois la vérification d'atterrissage."
           }
         }
       }
@@ -6115,6 +6268,23 @@
         }
       }
     },
+    "dryRunCoach.step.lineUpCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the line up check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification d'alignement."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.lineUpCheck.title": {
       "extractionState": "manual",
       "localizations": {
@@ -6268,19 +6438,53 @@
         }
       }
     },
+    "dryRunCoach.step.memorySwitch.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On, the checks show only the items to read; the rest you say from memory, with one tap when done. Turn it on once you know them; close the Menu to go on."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activé, les vérifications ne montrent que les éléments à lire ; le reste se récite de mémoire, d'un appui une fois fait. Activez-le quand vous les savez ; fermez le Menu pour continuer."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.memorySwitch.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide memory items"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer les éléments mémoire"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.memoryTest.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In the Menu, Hide memory items hides the checks you should know by heart, so you say them from memory. Turn it on once you know them."
+            "value": "The engine start check mixes items to read and items to know by heart: its memory items. The Menu can hide them, so you say them from memory. Open the Menu."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans le Menu, Masquer les éléments mémoire cache les vérifications à connaître par cœur, pour les réciter de mémoire. Activez-le quand vous les savez."
+            "value": "La vérification de démarrage mêle des éléments à lire et des éléments à connaître par cœur : ses éléments mémoire. Le Menu peut les masquer, pour les réciter de mémoire. Ouvrez le Menu."
           }
         }
       }
@@ -6625,6 +6829,23 @@
         }
       }
     },
+    "dryRunCoach.step.shutdownCheck.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the engine shutdown check, then ENGINE SHUTDOWN."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification d'arrêt moteur, puis ARRÊT MOTEUR."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.shutdownCheck.title": {
       "extractionState": "manual",
       "localizations": {
@@ -6744,6 +6965,40 @@
         }
       }
     },
+    "dryRunCoach.step.toAfterStart.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEXT goes on to the after engine start check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUIVANT passe à la vérification après le démarrage."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toAfterStart.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After the start"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après le démarrage"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.toBeforeDeparture.body": {
       "extractionState": "manual",
       "localizations": {
@@ -6757,6 +7012,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "L'avion attend ici. Faites les vérifications jusqu'à celle avant le départ ; à sa fin, PRÊT POUR L'ALIGNEMENT sera entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toBeforeDeparture.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep going through the checks to READY FOR LINE UP."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuez les vérifications jusqu'à PRÊT POUR L'ALIGNEMENT."
           }
         }
       }
@@ -6812,6 +7084,23 @@
         }
       }
     },
+    "dryRunCoach.step.toEndFlight.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the last checks, then END FLIGHT."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites les dernières vérifications, puis TERMINER LE VOL."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.toEndFlight.title": {
       "extractionState": "manual",
       "localizations": {
@@ -6846,6 +7135,23 @@
         }
       }
     },
+    "dryRunCoach.step.toEngineStart.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep going through the checks to the engine start check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuez les vérifications jusqu'à celle de démarrage."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.toEngineStart.title": {
       "extractionState": "manual",
       "localizations": {
@@ -6876,6 +7182,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Faites la vérification après l'atterrissage pendant que l'avion roule. À sa fin, ARRÊT MOTEUR mène à l'arrêt du moteur."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.toShutdown.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work through the after landing check, then PARKING CHECK."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites la vérification après l'atterrissage, puis ARRÊT MOTEUR."
           }
         }
       }

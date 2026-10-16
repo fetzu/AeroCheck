@@ -227,10 +227,10 @@ struct DryRunCoachLayer: View {
                 // The prompt over the Cockpit has the card (`dryRunCoachCard`): nothing here meanwhile.
                 if coach.hourMeter == nil {
                     let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }
-                    // What it rings low on the page but above the act band (the undo toast at the checklist's
-                    // foot): the card at the top, under the read band, not over it (st-3's rule, the Cockpit's).
-                    let atTop = target.map { $0.midY > proxy.size.height * 0.5 && $0.maxY < proxy.size.height - bottom - 24 }
-                        ?? false
+                    // What it rings where the card would stand, above the act band (the undo toast at the foot of
+                    // CHECKLIST and ROUTE): the card at the top, under the read band, not over it (st-3, r3-12).
+                    let cardTop = proxy.size.height - bottom - 200
+                    let atTop = target.map { $0.maxY > cardTop && $0.minY < proxy.size.height - bottom - 4 } ?? false
                     let top = anchors[.readBand].map { proxy[$0].maxY + 8 } ?? 120
                     ZStack {
                         DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)

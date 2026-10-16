@@ -3809,6 +3809,7 @@ enum L10n {
             String(format: String(localized: "dryRunCoach.partOf"), part, count)
         }
         static let fold = String(localized: "dryRunCoach.fold")
+        static let memoryCheckNote = String(localized: "dryRunCoach.memoryCheckNote")
         static let unfold = String(localized: "dryRunCoach.unfold")
     }
 }

@@ -220,6 +220,20 @@ final class DryRunGuidedTests: XCTestCase {
         XCTAssertEqual(toggle?.target, .memoryItemsToggle)
     }
 
+    /// A pilot who hides the memory items when the Menu's card shows the switch, as the author did (16 Oct):
+    /// every check from then on that is all memory items reads "from memory, one tap when done". The story goes
+    /// on to its end all the same (r3-15: it stopped after the landing, its line naming the climb check).
+    func testAPilotWhoHidesTheMemoryItemsFliesTheWholeStory() throws {
+        let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
+            guard step.id == "memorySwitch" else { return false }
+            session.world.appState.settings.learningMode = false
+            session.coach?.hide(.menu)
+            return true
+        })
+        XCTAssertTrue(record.shown.contains("endFlight"), "\(record.shown)")
+        XCTAssertTrue(record.coach.isFinished || record.shown.last == "end.fly", "\(record.shown)")
+    }
+
     /// Folded, a card that sends the pilot through the checks says what to do, with a verb (r3-8).
     func testAFoldedCardSaysWhatToDo() {
         for step in DryRunChapters.steps where step.kind == .act && !step.veils && step.screen == .cockpit

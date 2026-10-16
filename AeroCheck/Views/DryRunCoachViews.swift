@@ -331,6 +331,13 @@ struct DryRunCoachCard: View {
             Text(step.body)
                 .font(.aero(size: compact ? 15 : 16))
                 .fixedSize(horizontal: false, vertical: true)
+            // A check whose items the Menu hides: what the card asks for looks different (the author's third
+            // round, r3-14: "the app does not seem to display it").
+            if step.target == .check, session.world.appState.currentCheckAwaitsConfirmation {
+                Text(L10n.DryRunCoach.memoryCheckNote)
+                    .font(.aero(size: compact ? 14 : 15, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 8) {
                 Spacer()
                 if step.kind == .look {

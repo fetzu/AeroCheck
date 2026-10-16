@@ -4568,6 +4568,23 @@
         }
       }
     },
+    "dryRunCoach.memoryCheckNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its items are hidden as memory items: say them from memory, then one tap on the check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses éléments sont masqués comme éléments mémoire : récitez-les de mémoire, puis un appui sur la vérification."
+          }
+        }
+      }
+    },
     "dryRunCoach.nextClose": {
       "extractionState": "manual",
       "localizations": {

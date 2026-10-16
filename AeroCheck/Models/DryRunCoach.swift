@@ -716,6 +716,23 @@ final class DryRunCoach: ObservableObject {
                 index += 1
                 continue
             }
+            let appState = session.world.appState
+            // ENGINE START or ENGINE SHUTDOWN left behind (the checklist gone on without it): pressed for the
+            // pilot, as the Flight review would ask, so the aircraft never waits for it for good.
+            if candidate.kind == .act, let phase = Self.controlPhase(candidate.done),
+               appState.currentPhase.rawValue > phase.rawValue, !isDone(candidate, session) {
+                actAsPilot(candidate, session)
+                index += 1
+                continue
+            }
+            // A step the flight has gone past (its chapter's last phase behind it) gives way rather than hold the
+            // story: whatever the pilot did on the way, the coach is never behind the flight (the author's third
+            // round, r3-15: after the landing the line still named the climb check, and nothing went on).
+            if !isFastForwarding, candidate.part == .fly, let last = Self.lastPhase(ofChapter: candidate.chapter),
+               appState.currentPhase.rawValue > last.rawValue, !reached(candidate.moment, session) {
+                index += 1
+                continue
+            }
             guard reached(candidate.moment, session) else { return false }
             if isFastForwarding {
                 if index < startIndex {
@@ -781,6 +798,40 @@ final class DryRunCoach: ObservableObject {
         case .canDefer: return Self.canDefer(appState)
         case .somethingDeferred: return appState.deferredItemCount + appState.deferredChecks.count > 0
         }
+    }
+
+    /// The last check a chapter's steps can still show at: past it, they give way.
+    static func lastPhase(ofChapter chapter: Int) -> ChecklistPhase? {
+        switch chapter {
+        case 2: return .taxi
+        case 3: return .lineUp
+        case 4: return .climb
+        case 5: return .descent
+        case 6: return .landing
+        default: return nil
+        }
+    }
+
+    /// The check a control belongs to, for a step that presses it.
+    static func controlPhase(_ done: DryRunCoachStep.Done) -> ChecklistPhase? {
+        switch done {
+        case .engineStarted: return .engineStart
+        case .engineShutdown: return .shutdown
+        default: return nil
+        }
+    }
+
+    /// The band went past what it would show: the Cockpit at a later check.
+    static func passed(_ slot: DryRunCoachStep.Slot, _ appState: AppState) -> Bool {
+        let phase: ChecklistPhase
+        switch slot {
+        case .check(let check): phase = check
+        case .engineStartCheck, .engineStart: phase = .engineStart
+        case .readyForLineUp: phase = .beforeDeparture
+        case .shutdownCheck, .engineShutdown: phase = .shutdown
+        case .endFlight: return false
+        }
+        return appState.currentPhase.rawValue > phase.rawValue
     }
 
     /// DEFER enabled, as the act band has it: the check open, and not a memory check.
@@ -880,7 +931,8 @@ final class DryRunCoach: ObservableObject {
         let appState = session.world.appState
         switch step.done {
         case .next: return false
-        case .shows(let slot): return Self.shows(slot, appState)
+        // Shown, or gone past: a pilot ahead of the card is done with it.
+        case .shows(let slot): return Self.shows(slot, appState) || Self.passed(slot, appState)
         case .hourMeterClosed: return hourMeterSeen && hourMeter == nil
         case .deferred:
             // Done, or nothing left to defer (a memory check, the check done): the card never holds the story.

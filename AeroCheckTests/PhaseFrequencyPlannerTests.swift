@@ -108,6 +108,24 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertNil(plan.next)
     }
 
+    /// A local flight from Bressaucourt and back, out of its circuit (the author's dry run checks, st-12): the
+    /// field is NOW; NEXT is the CTR around, else the area's Info, as without a route, never empty.
+    func testALocalFlightOutOfTheCircuitHasTheCTROrTheInfoNext() {
+        var local = FlightPlan(name: "Triangle", waypoints: [
+            Self.waypoint("LSZQ"),
+            FlightPlanWaypoint(name: "TP1", coordinate: .init(latitude: 47.42, longitude: 7.17)),
+            FlightPlanWaypoint(name: "TP2", coordinate: .init(latitude: 47.33, longitude: 7.12)),
+            Self.waypoint("LSZQ")])
+        local.currentWaypointIndex = 1
+        let plan = PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: Self.world.sources)
+        XCTAssertEqual(plan.current, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertEqual(plan.next, .init(station: "Zürich Info", freq: "124.700"), "the Swiss split's, at Bressaucourt")
+        var world = Self.world
+        world.ctrs = [(station: "GRENCHEN", frequency: "120.100")]
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: world.sources).next?.station,
+                       "GRENCHEN", "a CTR around first, as without a route")
+    }
+
     func testThePanelListsEachStationOnceEmergencyLast() {
         var world = Self.world
         world.ctrs = [(station: "GRENCHEN", frequency: "120.100"), (station: "BERN", frequency: "121.025")]

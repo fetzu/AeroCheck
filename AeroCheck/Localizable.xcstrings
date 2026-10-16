@@ -6172,13 +6172,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In the Menu, the Memory test hides the items you should know by heart. Turn it on once you know them."
+            "value": "In the Menu, Hide memory items hides the checks you should know by heart, so you say them from memory. Turn it on once you know them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans le Menu, le test de mémoire cache les éléments à connaître par cœur. Activez-le quand vous les savez."
+            "value": "Dans le Menu, Masquer les éléments mémoire cache les vérifications à connaître par cœur, pour les réciter de mémoire. Activez-le quand vous les savez."
           }
         }
       }
@@ -6189,13 +6189,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The Memory test"
+            "value": "Memory items"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le test de mémoire"
+            "value": "Les éléments mémoire"
           }
         }
       }
@@ -14768,13 +14768,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Memory test"
+            "value": "Hide memory items"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test de mémoire"
+            "value": "Masquer les éléments mémoire"
           }
         }
       }
@@ -14785,13 +14785,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hides the checks you should know by heart, so you can say them from memory. Hold the banner in the checklist to show them."
+            "value": "Hides the memory items, the checks you should know by heart, so you say them from memory. Hold the banner in the checklist to show them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masque les vérifications à connaître par cœur, pour les réciter de mémoire. Maintenez le bandeau dans la checklist pour les afficher."
+            "value": "Masque les éléments mémoire, les vérifications à connaître par cœur, pour les réciter de mémoire. Maintenez le bandeau dans la checklist pour les afficher."
           }
         }
       }
@@ -14802,13 +14802,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide the checks you should know by heart"
+            "value": "Hide the memory items, the checks you should know by heart"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masquer les vérifications à connaître par cœur"
+            "value": "Masquer les éléments mémoire, les vérifications à connaître par cœur"
           }
         }
       }
@@ -24385,13 +24385,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MEMORY TEST"
+            "value": "MEMORY ITEMS"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TEST DE MÉMOIRE"
+            "value": "ÉLÉMENTS MÉMOIRE"
           }
         }
       }
@@ -35585,17 +35585,18 @@
       }
     },
     "settings.hub.checklistAndFlightSubtitle": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Memory test, language, logging, display"
+            "value": "Memory items, language, logging, display"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Test de mémoire, langue, journal, affichage"
+            "value": "Éléments mémoire, langue, journal, affichage"
           }
         }
       }

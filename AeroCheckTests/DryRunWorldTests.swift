@@ -136,7 +136,7 @@ final class DryRunWorldTests: XCTestCase {
             ],
             "Models/FlightThreadManager.swift": [
                 "DataPersistenceManager.shared": (1, "the default; the world passes its own"),
-                "NotificationService.shared": (1, "the default; the world's manager has no thread, so schedules nothing"),
+                "NotificationService.shared": (1, "the default; the world's manager is given `.inert()`, which schedules nothing"),
             ],
             "Services/AircraftRequests.swift": ["DataPersistenceManager.shared": (1, "the Aircraft tab, never under a dry run")],
             "Services/AirfieldTariffService.swift": ["DataPersistenceManager.shared": (1, "a cache of the server's tariffs, every flight's")],
@@ -144,7 +144,6 @@ final class DryRunWorldTests: XCTestCase {
             "Services/DataPersistenceManager.swift": ["UserDefaults.standard": (2, "the app's store; the world's is confined")],
             "Services/DryRunSession.swift": ["UserDefaults.standard": (1, "the app's own flag that the guided flight was flown (Today's card), never the world's")],
             "Views/DryRunGuidedViews.swift": ["@AppStorage": (2, "Today's card: the app's own flags, read on the ground, never by the world")],
-            "Services/FlightCreator.swift": ["NotificationService.shared": (4, "planning, on the ground")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],
             "Services/LocationManager.swift": ["CLLocationManager()": (1, "never started by a dry run's (`isDryRun`)")],
             "Services/NotificationService.swift": [
@@ -171,12 +170,12 @@ final class DryRunWorldTests: XCTestCase {
                 "NotificationService.shared": (1, "the Aircraft tab, never under a dry run"),
             ],
             "Views/CompanionPairingView.swift": ["CompanionConnectivityManager.shared": (2, "Settings, never under a dry run")],
-            "Views/FlightLogView.swift": ["@AppStorage": (3, "the logbook, never under a dry run")],
+            "Views/FlightLogView.swift": ["@AppStorage": (3, "the share card's look, the pilot's own choice wherever it is made, the dry run's logbook included")],
             "Views/FlightPlanningView.swift": ["NotificationService.shared": (1, "planning, on the ground")],
             "Views/FlightView.swift": ["CompanionConnectivityManager.shared": (3, "the in-flight menu's Companion toggle, hidden in a dry run (`isDryRun`)")],
             "Views/NavigationView.swift": ["WatchConnectivityManager.shared": (1, "Plan › Map, never open in flight")],
             "Views/Settings/SyncDataSettingsView.swift": ["SyncManager.shared": (1, "Settings, never under a dry run")],
-            "Views/ShareCardSheet.swift": ["@AppStorage": (4, "the logbook's share card, never under a dry run")],
+            "Views/ShareCardSheet.swift": ["@AppStorage": (4, "the share card's look, the pilot's own choice wherever it is made, the dry run's logbook included")],
         ]
         let apis: [(name: String, pattern: String)] = [
             "NotificationService.shared", "UNUserNotificationCenter", "WatchConnectivityManager.shared", "WCSession",

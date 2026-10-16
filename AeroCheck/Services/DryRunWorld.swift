@@ -51,7 +51,9 @@ final class DryRunWorld {
         persistence.saveSettings(Self.settings(from: settings, aircraft: aircraft))
         appState = AppState(defaults: defaults, persistence: persistence)
         plans = FlightPlanManager(defaults: defaults, persistence: persistence)
-        threads = FlightThreadManager(defaults: defaults, persistence: persistence)
+        // Inert notifications: a flight planned or closed out in the world schedules no reminder (the
+        // story's Plan and Close out parts plan and close one).
+        threads = FlightThreadManager(defaults: defaults, notifications: .inert(), persistence: persistence)
         detector = FlightEventDetector()
         location = .dryRun()
         companion = CompanionConnectivityManager(defaults: defaults, usesWiFiAware: false)
@@ -97,6 +99,24 @@ final class DryRunWorld {
         }
         plans.add(plan)
         plans.activateFlightPlan(plan)
+    }
+
+    /// A copy of a route among the world's routes, not armed (the guided dry run's: the Plan sheet offers it,
+    /// START FLIGHT arms the flight's own copy). Once the world's plans have loaded.
+    func keep(_ plan: FlightPlan) async {
+        for _ in 0..<50 where !plans.hasLoadedPlans {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        plans.add(plan)
+    }
+
+    /// Five made-up flights in the world's logbook, earlier in the year (`DryRunLogbook`): the Logbook part's
+    /// figures mean something. Once the world's logbook has loaded (empty), or the load would replace them.
+    func seedLogbook(at field: DryRunAerodrome, now: Date) async {
+        for _ in 0..<50 where appState.isLoadingFlights {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        appState.addMadeUpFlights(DryRunLogbook.flights(at: field, before: now))
     }
 
     /// Starts the flight and its GPS, the dry run's: as `FlightLauncher` does, without its guards, which are
@@ -155,5 +175,73 @@ final class DryRunWorld {
     nonisolated static var defaultPreferencesDirectory: URL? {
         FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
             .appendingPathComponent("Preferences", isDirectory: true)
+    }
+}
+
+// MARK: - The dry run's logbook
+
+/// Five made-up flights for the guided dry run's logbook, earlier in the year, so its Logbook part has figures
+/// that mean something (the author's Q9, "Plan to Logbook"): circuits at the dry run's aerodrome flown by the
+/// generator (their track, their times, their landings), each kept as the logbook keeps a flight, its checks
+/// included. They are the dry run's world's only, and go with it. (6.4.0)
+enum DryRunLogbook {
+    /// How long ago each was flown, in days, and the touch-and-goes before its full stop.
+    static let flown: [(daysAgo: Int, touchAndGos: Int)] = [(9, 2), (23, 0), (41, 3), (67, 1), (98, 2)]
+
+    static func flights(at field: DryRunAerodrome, before now: Date) -> [Flight] {
+        let calendar = Calendar(identifier: .gregorian)
+        return flown.enumerated().map { index, flown in
+            let day = calendar.date(byAdding: .day, value: -flown.daysAgo, to: now) ?? now
+            let start = calendar.date(bySettingHour: 9 + index, minute: 15 * (index % 3), second: 0, of: day) ?? day
+            return flight(at: field, start: start, touchAndGos: flown.touchAndGos, index: index)
+        }
+    }
+
+    private static func flight(at field: DryRunAerodrome, start: Date, touchAndGos: Int, index: Int) -> Flight {
+        var landings = Array(repeating: DryRunGenerator.Landing.touchAndGo, count: touchAndGos)
+        var pilot = DryRunGenerator.Pilot()
+        pilot.landing = { _ in landings.isEmpty ? .fullStop : landings.removeFirst() }
+        pilot.afterFullStop = { _ in .vacate }
+        let generator = DryRunGenerator(departure: field, mission: .circuits, seed: UInt64(41 + index), pilot: pilot)
+        var track: [GPSPoint] = []
+        var blockOff: Date?
+        for _ in 0..<(2 * 3600) where !generator.isParkedForGood {
+            let fix = generator.nextFix()
+            let time = start.addingTimeInterval(TimeInterval(fix.t))
+            if blockOff == nil, fix.speedMS > 1 { blockOff = time }
+            // A fix every five seconds, the recording's default.
+            guard fix.t % 5 == 0 else { continue }
+            track.append(GPSPoint(latitude: fix.latitude, longitude: fix.longitude, altitude: fix.altitudeM,
+                                  timestamp: time, speed: fix.speedMS, course: max(0, fix.course),
+                                  horizontalAccuracy: fix.horizontalAccuracyM))
+        }
+        func at(_ mark: String) -> Date? { generator.mark(mark).map { start.addingTimeInterval(TimeInterval($0)) } }
+        let touchdowns = generator.marks.filter { $0.name == "touchdown" }.map { start.addingTimeInterval(TimeInterval($0.t)) }
+        let parked = at("parked") ?? start.addingTimeInterval(TimeInterval(generator.t))
+        let bundled = AircraftType.wt9Dynamic
+        var flight = Flight(aircraftRegistration: bundled.registration, aircraftType: bundled.rawValue,
+                            checklistVersion: bundled.checklistVersion, startTime: start,
+                            stopTime: parked.addingTimeInterval(120), engineStartTime: start.addingTimeInterval(5),
+                            lineUpTime: at("lineUp"), landingTime: touchdowns.last,
+                            engineShutdownTime: parked.addingTimeInterval(30), blockOffTime: blockOff,
+                            blockOnTime: parked, departureAirportIdent: field.ident, arrivalAirportIdent: field.ident,
+                            gpsTrack: track, touchAndGoCount: touchAndGos, fullStopCount: 1,
+                            touchAndGoTimes: Array(touchdowns.dropLast()), fullStopTimes: Array(touchdowns.suffix(1)),
+                            modifiedAt: start)
+        flight.checkOutcomes = outcomes(index)
+        return flight
+    }
+
+    /// How its checks ended: done, the climb check from memory every other flight, the approach check skipped
+    /// once, the landing check confirmed after landing.
+    private static func outcomes(_ index: Int) -> [CheckOutcome] {
+        ChecklistPhase.allCases.filter { !$0.isSkippedInCircuitMode(true) }.map { phase in
+            switch phase {
+            case .climb where index % 2 == 0: return CheckOutcome(phase: phase, status: .doneFromMemory)
+            case .approach where index == 1: return CheckOutcome(phase: phase, status: .skipped)
+            case .landing: return CheckOutcome(phase: phase, status: .confirmedAfterLanding)
+            default: return CheckOutcome(phase: phase, status: .done)
+            }
+        }
     }
 }

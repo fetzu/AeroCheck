@@ -1,14 +1,60 @@
 import Foundation
 import CoreLocation
 
-// MARK: - Dry run (6.4.0): the guided flight
+// MARK: - Dry run (6.4.0): the guided flight, from the plan to the logbook
+
+/// The guided dry run's parts: one flight, from the plan to the logbook ("Plan to Logbook", the author's Q1,
+/// 16 Oct). Each can be taken on its own, the flight it needs flown to it behind the cover. (6.4.0)
+enum DryRunPart: Int, CaseIterable, Comparable, Identifiable {
+    case plan = 1, fly, closeOut, logbook
+
+    var id: Int { rawValue }
+    static func < (a: DryRunPart, b: DryRunPart) -> Bool { a.rawValue < b.rawValue }
+
+    var title: String {
+        switch self {
+        case .plan: return L10n.DryRunCoach.part1
+        case .fly: return L10n.DryRunCoach.part2
+        case .closeOut: return L10n.DryRunCoach.part3
+        case .logbook: return L10n.DryRunCoach.part4
+        }
+    }
+
+    var next: DryRunPart? { DryRunPart(rawValue: rawValue + 1) }
+
+    /// The part's habit for the dry run's page; Fly's are its chapters'.
+    var habit: String? {
+        switch self {
+        case .plan: return L10n.DryRunCoach.habitPlan
+        case .fly: return nil
+        case .closeOut: return L10n.DryRunCoach.habitClose
+        case .logbook: return L10n.DryRunCoach.habitLogbook
+        }
+    }
+}
+
+/// Where a guided dry run starts: a part, and in Fly a chapter.
+struct DryRunStart: Equatable {
+    var part: DryRunPart
+    /// Fly's chapter, 1 to 7.
+    var chapter = 1
+
+    static let story = DryRunStart(part: .plan)
+}
 
 /// One step of the guided flight: a card that says what to look at (a look step, Next goes on) or what to do
 /// (a do step, done when the pilot has done it), shown when the Cockpit shows what it speaks of. Never on a
 /// timer, and never on a cue the screen doesn't show yet: the approach check's card waits for the slot to name
 /// the approach check (the device checks, 16 Oct, g-7). (6.4.0)
 struct DryRunCoachStep: Equatable {
-    enum Kind: Equatable { case look, act }
+    /// A look step goes on with Next; a do step once done; a part's end is the page between two parts (on to
+    /// the next, or stop there).
+    enum Kind: Equatable { case look, act, partEnd }
+
+    /// Where the card shows: over the Cockpit, or over one of the ground's screens in the dry run's world.
+    enum Screen: Hashable {
+        case cockpit, today, planSheet, flightPage, fuelSheet, numbers, logbook, flightDetail
+    }
 
     /// Where the card points: the control rung, live, under the veil (a do step that is one tap), or just rung.
     /// A ring is only ever on a control that shows what the card names: a step that sends the pilot through
@@ -31,6 +77,27 @@ struct DryRunCoachStep: Equatable {
         case landedCard
         /// CONFIRM on a detected event's card (the go-around).
         case eventConfirm
+        // The ground's (the story's Plan, Close out and Logbook parts).
+        case planNewFlight
+        case createFlight
+        case chapterBar
+        case prepareChip
+        case nextCard
+        case fuelRow
+        case notamLink
+        case notamTick
+        case flightPlanRow
+        case startFlight
+        case flightCard
+        case readiness
+        case logbookRow
+        case debriefTick
+        case finish
+        case logbookDashboard
+        case logbookFlight
+        case flightTrack
+        case flightChecks
+        case flightExport
     }
 
     /// What the act band shows, as the coach reads it.
@@ -69,6 +136,11 @@ struct DryRunCoachStep: Equatable {
         case goAroundCard
         /// The LANDED card.
         case landedCard
+        /// The ground's screen shown.
+        case screen(Screen)
+        /// The flight over, the ground's screens back.
+        case onTheGround
+        case tab(GroundTab)
     }
 
     /// What finishes it.
@@ -90,6 +162,18 @@ struct DryRunCoachStep: Equatable {
         case landedAnswered
         case engineShutdown
         case flightEnded
+        // The ground's.
+        case screen(Screen)
+        case screenClosed(Screen)
+        case chipTapped
+        case linkTapped
+        case threadCreated
+        case task(ThreadTaskKey, ThreadTaskState)
+        case flightStarted
+        case threadFinished
+        case tab(GroundTab)
+        /// The page between two parts: on to the next.
+        case partEnd
     }
 
     /// Whether the step is for this flight at all.
@@ -98,6 +182,11 @@ struct DryRunCoachStep: Equatable {
         /// The aircraft logs its engine hours and the counter before the start is still to give.
         case engineHoursBefore
         case engineHoursAfter
+        /// The story began with the Plan part (or before the part it starts at): its flight was planned and
+        /// started on the ground.
+        case fromPlan
+        /// Fly on its own: the dry run started the flight.
+        case notFromPlan
     }
 
     /// Stable: the strings' key, the tests'.
@@ -118,6 +207,23 @@ struct DryRunCoachStep: Equatable {
     /// What the folded card says comes next for the pilot while this step is the next one to do ("the climb
     /// check, at 500 ft"); nil where nothing waits for them.
     var upcoming: String? = nil
+    var part: DryRunPart = .fly
+    var screen: Screen = .cockpit
+
+    /// The part, or Fly's chapter, whose habit it counts toward.
+    enum Segment: Hashable {
+        case part(DryRunPart)
+        case chapter(Int)
+
+        var habit: String? {
+            switch self {
+            case .part(let part): return part.habit
+            case .chapter(let chapter): return DryRunChapters.habit(chapter)
+            }
+        }
+    }
+
+    var segment: Segment { part == .fly ? .chapter(chapter) : .part(part) }
 }
 
 /// The guided flight's chapters, each ending on one habit the summary keeps.
@@ -153,9 +259,16 @@ enum DryRunChapters {
         typealias S = DryRunCoachStep
         typealias T = L10n.DryRunCoach.Step
         return [
+            // START FLIGHT on the flight's page (done for the pilot when Fly is on its own), then the Cockpit it
+            // opened.
+            S(id: "startFlight", chapter: 1, kind: .act, target: .startFlight, veils: true, holds: true, moment: .now,
+              done: .flightStarted, title: T.startFlightTitle, body: T.startFlightBody,
+              screen: .flightPage),
+            S(id: "cockpitAfterPlan", chapter: 1, kind: .look, target: nil, veils: false, holds: true, moment: .now,
+              done: .next, requires: .fromPlan, title: T.cockpitAfterPlanTitle, body: T.cockpitAfterPlanBody),
             // 1 · Before you go
             S(id: "cockpit", chapter: 1, kind: .look, target: nil, veils: false, holds: true, moment: .now, done: .next,
-              title: T.cockpitTitle, body: T.cockpitBody),
+              requires: .notFromPlan, title: T.cockpitTitle, body: T.cockpitBody),
             S(id: "checkOnce", chapter: 1, kind: .act, target: .primary, veils: true, holds: true, moment: .now,
               done: .itemChecked, title: T.checkOnceTitle, body: T.checkOnceBody),
             S(id: "memoryTest", chapter: 1, kind: .look, target: .menu, veils: false, holds: true, moment: .now,
@@ -270,42 +383,162 @@ enum DryRunChapters {
     }
 }
 
-/// The guided flight under way: which step shows, and when the next one does. Ticked by the session after each
-/// fix; holds the flight while a step that holds shows. Started at a chapter, the flight is first taken there
-/// behind a cover, as fast as it can be flown, the earlier steps done for the pilot as the pilot would
-/// (`perform`), nothing shown and nothing asked on the way; the chapter's first step then shows over the
-/// Cockpit (the proposal's Q6).
+/// The guided dry run's whole story: the Plan part, the flight (`DryRunChapters.steps`), Close out and the
+/// Logbook, with a page between two parts. (6.4.0)
+enum DryRunStory {
+    static var steps: [DryRunCoachStep] {
+        typealias S = DryRunCoachStep
+        typealias T = L10n.DryRunCoach.Step
+        let plan: [S] = [
+            S(id: "today", chapter: 0, kind: .act, target: .planNewFlight, veils: true, holds: true, moment: .now,
+              done: .screen(.planSheet), title: T.todayTitle, body: T.todayBody, part: .plan, screen: .today),
+            S(id: "planSheet", chapter: 0, kind: .act, target: .createFlight, veils: true, holds: true,
+              moment: .screen(.planSheet), done: .threadCreated, title: T.planSheetTitle, body: T.planSheetBody,
+              part: .plan, screen: .planSheet),
+            S(id: "flightPage", chapter: 0, kind: .look, target: .chapterBar, veils: false, holds: true,
+              moment: .screen(.flightPage), done: .next, title: T.flightPageTitle, body: T.flightPageBody,
+              part: .plan, screen: .flightPage),
+            S(id: "chip", chapter: 0, kind: .act, target: .prepareChip, veils: true, holds: true, moment: .now,
+              done: .chipTapped, title: T.chipTitle, body: T.chipBody, part: .plan, screen: .flightPage),
+            S(id: "nextCard", chapter: 0, kind: .look, target: .nextCard, veils: false, holds: true, moment: .now,
+              done: .next, title: T.nextCardTitle, body: T.nextCardBody, part: .plan, screen: .flightPage),
+            S(id: "fuelRow", chapter: 0, kind: .act, target: .fuelRow, veils: true, holds: true, moment: .now,
+              done: .screen(.fuelSheet), title: T.fuelRowTitle, body: T.fuelRowBody, part: .plan, screen: .flightPage),
+            S(id: "fuelSheet", chapter: 0, kind: .act, target: nil, veils: false, holds: true,
+              moment: .screen(.fuelSheet), done: .screenClosed(.fuelSheet), title: T.fuelSheetTitle,
+              body: T.fuelSheetBody, part: .plan, screen: .fuelSheet),
+            S(id: "link", chapter: 0, kind: .act, target: .notamLink, veils: true, holds: true, moment: .now,
+              done: .linkTapped, title: T.linkTitle, body: T.linkBody, part: .plan, screen: .flightPage),
+            S(id: "tickNotam", chapter: 0, kind: .act, target: .notamTick, veils: false, holds: true, moment: .now,
+              done: .task(.notamChecked, .done), title: T.tickNotamTitle, body: T.tickNotamBody, part: .plan,
+              screen: .flightPage),
+            S(id: "notApplicable", chapter: 0, kind: .act, target: .flightPlanRow, veils: false, holds: true,
+              moment: .now, done: .task(.flightPlanFiled, .notApplicable), title: T.notApplicableTitle,
+              body: T.notApplicableBody, part: .plan, screen: .flightPage),
+            partEnd(.plan, screen: .flightPage),
+        ]
+        let close: [S] = [
+            partEnd(.fly, screen: .today, moment: .onTheGround),
+            S(id: "openFlightPage", chapter: 0, kind: .act, target: .flightCard, veils: true, holds: true,
+              moment: .now, done: .screen(.flightPage), title: T.openFlightPageTitle, body: T.openFlightPageBody,
+              part: .closeOut, screen: .today),
+            S(id: "closeOut", chapter: 0, kind: .look, target: .readiness, veils: false, holds: true,
+              moment: .screen(.flightPage), done: .next, title: T.closeOutTitle, body: T.closeOutBody,
+              part: .closeOut, screen: .flightPage),
+            S(id: "logbookLine", chapter: 0, kind: .act, target: .logbookRow, veils: true, holds: true, moment: .now,
+              done: .screen(.numbers), title: T.logbookLineTitle, body: T.logbookLineBody, part: .closeOut,
+              screen: .flightPage),
+            S(id: "numbers", chapter: 0, kind: .act, target: nil, veils: false, holds: true,
+              moment: .screen(.numbers), done: .screenClosed(.numbers), title: T.numbersTitle, body: T.numbersBody,
+              part: .closeOut, screen: .numbers),
+            S(id: "debrief", chapter: 0, kind: .act, target: .debriefTick, veils: false, holds: true, moment: .now,
+              done: .task(.debriefWritten, .done), title: T.debriefTitle, body: T.debriefBody, part: .closeOut,
+              screen: .flightPage),
+            S(id: "finish", chapter: 0, kind: .act, target: .finish, veils: true, holds: true, moment: .now,
+              done: .threadFinished, title: T.finishTitle, body: T.finishBody, part: .closeOut, screen: .flightPage),
+            partEnd(.closeOut, screen: .today),
+        ]
+        let logbook: [S] = [
+            S(id: "logbookTab", chapter: 0, kind: .act, target: nil, veils: false, holds: true, moment: .now,
+              done: .tab(.logbook), title: T.logbookTabTitle, body: T.logbookTabBody, part: .logbook, screen: .today),
+            S(id: "dashboard", chapter: 0, kind: .look, target: .logbookDashboard, veils: false, holds: true,
+              moment: .tab(.logbook), done: .next, title: T.dashboardTitle, body: T.dashboardBody, part: .logbook,
+              screen: .logbook),
+            S(id: "openLoggedFlight", chapter: 0, kind: .act, target: .logbookFlight, veils: true, holds: true,
+              moment: .now, done: .screen(.flightDetail), title: T.openLoggedFlightTitle,
+              body: T.openLoggedFlightBody, part: .logbook, screen: .logbook),
+            S(id: "track", chapter: 0, kind: .look, target: .flightTrack, veils: false, holds: true,
+              moment: .screen(.flightDetail), done: .next, title: T.trackTitle, body: T.trackBody, part: .logbook,
+              screen: .flightDetail),
+            S(id: "checks", chapter: 0, kind: .look, target: .flightChecks, veils: false, holds: true, moment: .now,
+              done: .next, title: T.checksTitle, body: T.checksBody, part: .logbook, screen: .flightDetail),
+            S(id: "exports", chapter: 0, kind: .look, target: .flightExport, veils: false, holds: true, moment: .now,
+              done: .next, title: T.exportsTitle, body: T.exportsBody, part: .logbook, screen: .flightDetail),
+        ]
+        return plan + DryRunChapters.steps + close + logbook
+    }
+
+    /// The page after `part`: on to the next part, or stop there.
+    private static func partEnd(_ part: DryRunPart, screen: DryRunCoachStep.Screen,
+                                moment: DryRunCoachStep.Moment = .now) -> DryRunCoachStep {
+        DryRunCoachStep(id: "end.\(part)", chapter: 0, kind: .partEnd, target: nil, veils: false, holds: true,
+                        moment: moment, done: .partEnd, title: L10n.DryRunCoach.partDone(part.title),
+                        body: part.next.map(Self.nextBody) ?? "", part: part, screen: screen)
+    }
+
+    private static func nextBody(_ part: DryRunPart) -> String {
+        switch part {
+        case .plan: return ""
+        case .fly: return L10n.DryRunCoach.nextFly
+        case .closeOut: return L10n.DryRunCoach.nextClose
+        case .logbook: return L10n.DryRunCoach.nextLogbook
+        }
+    }
+
+    /// Where `start` begins in `steps`: the part's first step, Fly's chapter's first over the Cockpit (the
+    /// flight already started for it when Fly is on its own).
+    static func startIndex(of start: DryRunStart, in steps: [DryRunCoachStep]) -> Int {
+        switch start.part {
+        case .plan:
+            return 0
+        case .fly:
+            return steps.firstIndex { $0.part == .fly && $0.chapter == start.chapter && $0.screen == .cockpit
+                && $0.requires != .fromPlan } ?? 0
+        case .closeOut, .logbook:
+            // After the page that ends the part before it.
+            return steps.firstIndex { $0.part == start.part && $0.kind != .partEnd } ?? 0
+        }
+    }
+}
+
+/// The guided dry run under way: which step shows, and when the next one does. Ticked by the session after each
+/// fix, and on the ground as the pilot goes; holds the flight while a step that holds shows. Started at a part
+/// or a chapter, the flight is first taken there behind a cover, as fast as it can be flown, the earlier steps
+/// done for the pilot as the pilot would (`actAsPilot`), nothing shown and nothing asked on the way; the start's
+/// first step then shows (the proposal's Q6).
 @MainActor
 final class DryRunCoach: ObservableObject {
     let steps: [DryRunCoachStep]
-    let startChapter: Int
+    let start: DryRunStart
+    /// Where `start` begins in `steps`.
+    let startIndex: Int
+    /// The story's flight was planned on the ground (the story began with the Plan part, or after it): not Fly
+    /// on its own, whose flight the dry run starts.
+    let fromPlan: Bool
 
     /// The step showing, if any.
     @Published private(set) var step: DryRunCoachStep?
-    /// The chapters gone through, for their habits.
-    @Published private(set) var chaptersDone: [Int] = []
-    /// Getting to the chapter it starts at, behind the cover.
+    /// The parts and Fly's chapters gone through, in order, for their habits.
+    @Published private(set) var segmentsDone: [DryRunCoachStep.Segment] = []
+    /// Getting to where it starts, behind the cover.
     @Published private(set) var isFastForwarding: Bool
     /// "Show me again": the ring pulses once more.
     @Published private(set) var pulse = 0
     /// The engine hours' prompt over the Cockpit, as `FlightView` shows it.
     @Published var hourMeter: DryRunCoachStep.HourMeterPrompt?
+    /// The ground's screens on show, as they say so (`dryRunCoachScreen`).
+    @Published private(set) var screens: Set<DryRunCoachStep.Screen> = []
     /// The Cockpit's page, from `FlightView`.
     var page: CockpitPage = .checklist
 
     private(set) var index = 0
     private var finalsSeen = 0
     private var wasOnFinal = false
-    /// Where a do step's count starts: the items checked, the checks deferred.
+    /// Where a do step's count starts: the items checked, the checks deferred, the taps.
     private var baseline = 0
     /// The step's prompt came up: its closing finishes the step.
     private var hourMeterSeen = false
+    /// The step's screen came up: its closing finishes the step.
+    private var screenSeen = false
+    private var chipTaps = 0
+    private var linkTaps = 0
 
-    init(startChapter: Int = 1, steps: [DryRunCoachStep] = DryRunChapters.steps) {
+    init(start: DryRunStart = .story, steps: [DryRunCoachStep] = DryRunStory.steps) {
         self.steps = steps
-        self.startChapter = max(1, min(startChapter, DryRunChapters.count))
-        isFastForwarding = self.startChapter > 1
-        chaptersDone = Array(1..<self.startChapter)
+        self.start = start
+        startIndex = DryRunStory.startIndex(of: start, in: steps)
+        fromPlan = start.part != .fly
+        isFastForwarding = startIndex > 0
     }
 
     var isFinished: Bool { index >= steps.count }
@@ -316,13 +549,36 @@ final class DryRunCoach: ObservableObject {
         return steps[min(index, steps.count)...].first { $0.kind == .act && $0.upcoming != nil }
     }
 
-    /// Next, on a look step.
+    /// Next, on a look step or a part's end.
     func next() {
-        guard let step, step.kind == .look else { return }
+        guard let step, step.kind != .act else { return }
         complete(step)
     }
 
     func showAgain() { pulse += 1 }
+
+    /// The part the story is in: the step's, or between two steps the one ahead's.
+    var part: DryRunPart {
+        step?.part ?? (index < steps.count ? steps[index].part : steps.last?.part) ?? .plan
+    }
+
+    // MARK: The ground's screens and taps
+
+    func show(_ screen: DryRunCoachStep.Screen) {
+        if !screens.contains(screen) { screens.insert(screen) }
+    }
+
+    func hide(_ screen: DryRunCoachStep.Screen) {
+        if screens.contains(screen) { screens.remove(screen) }
+    }
+
+    /// A chapter's chip tapped on the flight's page.
+    func noteChip(_ chapter: ThreadChapter) {
+        if chapter == .prepare { chipTaps += 1 }
+    }
+
+    /// A link the dry run kept from opening.
+    func noteLink() { linkTaps += 1 }
 
     /// Where the flight is: a step's moment come, a step done. Returns whether the flight should wait.
     @discardableResult
@@ -332,6 +588,7 @@ final class DryRunCoach: ObservableObject {
         for _ in 0...steps.count {
             if let step {
                 if hourMeter != nil { hourMeterSeen = true }
+                if case .screenClosed(let screen) = step.done, screens.contains(screen) { screenSeen = true }
                 if isDone(step, session) { complete(step) } else { return step.holds }
             }
             guard index < steps.count else { return false }
@@ -340,10 +597,14 @@ final class DryRunCoach: ObservableObject {
                 index += 1
                 continue
             }
+            if isFastForwarding, index < startIndex, candidate.kind == .partEnd {
+                index += 1
+                continue
+            }
             guard reached(candidate.moment, session) else { return false }
             if isFastForwarding {
-                if candidate.chapter < startChapter {
-                    // Before the chapter flown: done for the pilot, at once, as the pilot would.
+                if index < startIndex {
+                    // Before where it starts: done for the pilot, at once, as the pilot would.
                     actAsPilot(candidate, session, onTheWay: true)
                     index += 1
                     continue
@@ -358,6 +619,7 @@ final class DryRunCoach: ObservableObject {
             }
             baseline = count(for: candidate, session)
             hourMeterSeen = hourMeter != nil
+            screenSeen = false
             step = candidate
         }
         return step?.holds ?? false
@@ -373,8 +635,9 @@ final class DryRunCoach: ObservableObject {
     private func complete(_ done: DryRunCoachStep) {
         step = nil
         index += 1
-        let chapterEnds = index >= steps.count || steps[index].chapter != done.chapter
-        if chapterEnds, !chaptersDone.contains(done.chapter) { chaptersDone.append(done.chapter) }
+        guard done.kind != .partEnd else { return }
+        let next = steps[index...].first { $0.kind != .partEnd }
+        if next?.segment != done.segment, !segmentsDone.contains(done.segment) { segmentsDone.append(done.segment) }
     }
 
     // MARK: Moments and what finishes a step
@@ -389,6 +652,8 @@ final class DryRunCoach: ObservableObject {
             return !isFastForwarding && appState.settings.logEngineHours && appState.currentFlight?.engineHourStart == nil
         case .engineHoursAfter:
             return !isFastForwarding && appState.settings.logEngineHours && appState.currentFlight?.engineHourEnd == nil
+        case .fromPlan: return fromPlan
+        case .notFromPlan: return !fromPlan
         }
     }
 
@@ -414,6 +679,10 @@ final class DryRunCoach: ObservableObject {
         case .final(let n): return session.isOnFinal && finalsSeen >= n
         case .goAroundCard: return session.world.detector.pendingGoAround != nil
         case .landedCard: return appState.landedCard != nil
+        // On the way to where it starts, no screen shows: the ground's moments come as the steps are done.
+        case .screen(let screen): return isFastForwarding || screens.contains(screen)
+        case .onTheGround: return session.hasFlown && !appState.isFlightActive
+        case .tab(let tab): return isFastForwarding || appState.groundTab == tab
         }
     }
 
@@ -450,6 +719,10 @@ final class DryRunCoach: ObservableObject {
                 + ChecklistPhase.allCases.filter { appState.getPhaseStatus($0) == .completed }.count
         case .deferred:
             return appState.deferredChecks.count + appState.deferredItemCount
+        case .chipTapped:
+            return chipTaps
+        case .linkTapped:
+            return linkTaps
         default:
             return 0
         }
@@ -461,7 +734,7 @@ final class DryRunCoach: ObservableObject {
         case .next: return false
         case .shows(let slot): return Self.shows(slot, appState)
         case .hourMeterClosed: return hourMeterSeen && hourMeter == nil
-        case .itemChecked, .deferred: return count(for: step, session) > baseline
+        case .itemChecked, .deferred, .chipTapped, .linkTapped: return count(for: step, session) > baseline
         case .engineStarted: return appState.engineStartTime != nil
         case .linedUp: return appState.lineUpTime != nil
         case .page(let page): return self.page == page
@@ -474,6 +747,14 @@ final class DryRunCoach: ObservableObject {
         case .landedAnswered: return appState.landedCard == nil
         case .engineShutdown: return appState.engineShutdownTime != nil
         case .flightEnded: return !appState.isFlightActive
+        case .screen(let screen): return screens.contains(screen)
+        case .screenClosed(let screen): return screenSeen && !screens.contains(screen)
+        case .threadCreated: return session.storyThread != nil
+        case .task(let key, let state): return session.storyThread?.tasks.first { $0.key == key }?.state == state
+        case .flightStarted: return appState.isFlightActive || session.hasFlown
+        case .threadFinished: return session.storyThread?.state == .done
+        case .tab(let tab): return appState.groundTab == tab
+        case .partEnd: return false
         }
     }
 
@@ -515,8 +796,7 @@ final class DryRunCoach: ObservableObject {
         case .deferred:
             if !onTheWay { appState.deferHighlightedItem() }
         case .flightEnded:
-            session.world.location.stopTracking()
-            appState.endFlight()
+            session.endFlight()
         case .finalChoice(let landing):
             session.finalChoice = landing
         case .goAroundAnswered:
@@ -527,7 +807,17 @@ final class DryRunCoach: ObservableObject {
             if appState.landedCard != nil { appState.answerLandedCard(.yes) }
         case .engineShutdown:
             appState.recordEngineShutdown()
-        case .next, .hourMeterClosed:
+        case .threadCreated:
+            session.planStoryFlight()
+        case .task(let key, let state):
+            session.setStoryTask(key, to: state)
+        case .flightStarted:
+            session.startFlightFromGround()
+        case .threadFinished:
+            session.finishStoryThread()
+        case .tab(let tab):
+            appState.groundTab = tab
+        case .next, .hourMeterClosed, .screen, .screenClosed, .chipTapped, .linkTapped, .partEnd:
             break
         }
     }

@@ -271,3 +271,108 @@ struct LocationOffFlightStart: Equatable {
     let followedFlightId: UUID?
     let unplanned: Bool
 }
+
+/// END FLIGHT's sequence: the track's times, the aerodromes, the plan flown settled and let go, the flight into
+/// the logbook, its followed flight into close-out (or the circuits' light close-out offered), and the
+/// post-flight reconciliation. The Cockpit's END FLIGHT runs it, and the dry run's story on its way to a later
+/// part, on its world's objects. (6.4.0: moved from `FlightView.performEndFlight`, unchanged.)
+@MainActor
+struct FlightEnder {
+    let appState: AppState
+    let locationManager: LocationManager
+    let airportDataService: AirportDataService
+    let flightPlanManager: FlightPlanManager
+    let threadManager: FlightThreadManager
+
+    func end() {
+        let endedFlightId = appState.currentFlight?.id
+        let checklist = appState.activeChecklist
+        locationManager.stopTracking()
+        // Block off, take-off and block on from the whole track, before the plan's times over
+        // and the thread read them. (v5.2)
+        appState.refineTimingFromTrack()
+        // Then a departure or an arrival the live detection missed (or an arrival it left on an
+        // earlier stop), from those measured positions, before the plan reads where it landed. (v6.1)
+        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: { airportDataService.aerodromeIdent(at: $0) })
+        // The plan this flight flew gets its times (and, landed elsewhere, the diversion), is attached
+        // to it and ends its activation. Only the plan the flight was started with: one left armed
+        // through circuits or a flight started without it is left as it was, still armed. (v5.1, v6.0.1)
+        // Its landings are counted against the home aerodrome: the airport data is loaded at flight start.
+        let flownPlan = appState.currentFlight.flatMap { flight in
+            flightPlanManager.settleFlownPlan(flight, takeoff: appState.lineUpTime, landing: appState.landingTime,
+                                              landedAt: landedAerodrome(flight),
+                                              landings: airportDataService.landingTally(
+                                                for: flight, home: appState.settings.homeAerodromeIdent))
+        }
+        let plannedDestination = flownPlan?.waypoints.last?.name
+        let landedDiversion = flownPlan?.diversion
+        // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
+        // there is no plan left to resolve it from. A flight with no thread resolves to nil
+        // and nothing below changes, which is what "start a flight without a thread" means.
+        // Circuits can be left or taken up in flight (6.3.0): the close-out goes by how the flight began,
+        // the light circuits close-out by whether circuits were flown at the end of it.
+        let wasCircuits = appState.isCircuitMode || appState.startedAsCircuits
+        let closingThreadId = threadManager.threadToCloseOut(
+            flightId: endedFlightId,
+            planId: flightPlanManager.activeFlightPlan?.id,
+            isCircuitMode: appState.startedAsCircuits,
+            isUnplanned: appState.flightIsUnplanned
+        )
+        appState.endFlight(withFlightPlan: flownPlan)
+        if flownPlan != nil { flightPlanManager.deactivateFlightPlan() }
+
+        // Move the thread into close-out. This is what raises the open-flight-plan banner and
+        // arms the reminder, so it must run after the flight is actually over.
+        if let closingThreadId {
+            // Landed elsewhere: the thread says so first, so the banner and the reminder name
+            // the aerodrome the aircraft is actually at. (v5.1)
+            if let landedDiversion, let plannedDestination {
+                threadManager.recordLanding(threadId: closingThreadId, plannedIdent: plannedDestination,
+                                            landedIdent: landedDiversion.ident,
+                                            landedName: landedDiversion.name)
+            }
+            threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
+        } else if wasCircuits, let endedFlightId,
+                  let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
+            // Circuits resolve to no thread by design — they cannot be planned. Offer the
+            // light close-out rather than leaving the session with no logbook line. (v5.x)
+            threadManager.offerCircuitCloseOut(
+                flightId: endedFlightId,
+                departureIdent: flown.departureAirportIdent,
+                aircraftRegistration: flown.aircraftRegistration
+            )
+        }
+
+        // Post-flight reconciliation (D2): re-segment the saved track offline and
+        // build the review diff. Shown only when it would change EVENTS; a pure
+        // block-time back-fill (additive) is applied without ceremony.
+        if let endedFlightId,
+           let flight = appState.flights.first(where: { $0.id == endedFlightId }) {
+            let result = FlightReconciliation.analyze(
+                flight: flight,
+                speeds: checklist.speeds,
+                stallSpeed: checklist.stallSpeed,
+                nearbyAirports: { coordinate in
+                    airportDataService.findNearestAirports(
+                        to: coordinate, limit: 3, maxDistanceNm: 5.0,
+                        types: AirportType.fixedWing
+                    )
+                }
+            )
+            if result.hasEventDiff {
+                appState.pendingReconciliation = result
+            } else {
+                appState.backfillBlockTimes(result)
+            }
+        }
+    }
+
+    private func landedAerodrome(_ flight: Flight) -> TripPlanner.Aerodrome? {
+        if let ident = flight.arrivalAirportIdent, let airport = airportDataService.findAirport(byIdent: ident) {
+            return airportDataService.planningAerodrome(airport)
+        }
+        guard let last = flight.gpsTrack.last else { return nil }
+        return airportDataService.nearestAirport(to: last.coordinate, maxDistanceNm: 3, types: AirportType.fixedWing)
+            .map(airportDataService.planningAerodrome)
+    }
+}

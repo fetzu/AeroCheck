@@ -40,7 +40,7 @@ struct DryRunCockpitView: View {
             switch session.state {
             case .flying:
                 if let coach = session.coach {
-                    DryRunGuidedGate(coach: coach) { cockpit }
+                    DryRunGuidedGate(coach: coach, session: session) { cockpit }
                 } else {
                     cockpit
                 }
@@ -98,17 +98,115 @@ struct DryRunCockpitView: View {
     }
 }
 
-/// The guided flight's Cockpit, once the flight is where its chapter starts: until then, the cover.
+/// The guided dry run's screens: the cover while it is taken to where it starts; the Cockpit while its flight
+/// runs; the ground (Today, the Logbook) before START FLIGHT and after END FLIGHT.
 private struct DryRunGuidedGate<Cockpit: View>: View {
     @ObservedObject var coach: DryRunCoach
+    @ObservedObject var session: DryRunSession
     @ViewBuilder let cockpit: () -> Cockpit
 
     var body: some View {
         if coach.isFastForwarding {
-            DryRunFastForwardCover(chapter: coach.startChapter)
-        } else {
+            DryRunFastForwardCover(start: coach.start)
+        } else if session.world.appState.isFlightActive {
             cockpit()
+        } else {
+            DryRunGroundView(session: session)
         }
+    }
+}
+
+/// The ground in the dry run's world (the story's Plan, Close out and Logbook parts): Today and the Logbook, the
+/// app's own screens on the world's AppState, plans, flights and GPS, under the band. Plan's other segments,
+/// Aircraft and Settings aren't there. No link leaves the app: a card says where it would go, and the coach
+/// hears it. (6.4.0, "Plan to Logbook")
+struct DryRunGroundView: View {
+    @ObservedObject var session: DryRunSession
+    /// The link the dry run kept from opening, for its card.
+    @State private var keptLink: URL?
+
+    var body: some View {
+        let world = session.world
+        @Bindable var appState = world.appState
+        VStack(spacing: 0) {
+            DryRunGroundBand(session: session)
+            TabView(selection: $appState.groundTab) {
+                HomeView()
+                    .dryRunCoachScreen(.today)
+                    .tabItem { Label(L10n.Ground.today, systemImage: "sun.horizon.fill") }
+                    .tag(GroundTab.today)
+                FlightLogView(mode: .logbook)
+                    .dryRunCoachScreen(.logbook)
+                    .tabItem { Label(L10n.Ground.logbook, systemImage: "book.closed.fill") }
+                    .tag(GroundTab.logbook)
+            }
+            .tint(.aviationGold)
+        }
+        .background(Color.cockpitBackground.ignoresSafeArea())
+        .environment(world.appState)
+        .environmentObject(world.location)
+        .environmentObject(world.plans)
+        .environmentObject(world.threads)
+        .environmentObject(world.detector)
+        .environmentObject(world.companion)
+        .environment(\.isDryRun, true)
+        .environment(\.dryRunSession, session)
+        .environment(\.openURL, OpenURLAction { url in
+            keptLink = url
+            session.coach?.noteLink()
+            return .handled
+        })
+        .alert(L10n.DryRunCoach.linkKeptTitle, isPresented: Binding(get: { keptLink != nil },
+                                                                     set: { if !$0 { keptLink = nil } })) {
+            Button(L10n.Subscription.ok) { keptLink = nil }
+        } message: {
+            Text(L10n.DryRunCoach.linkKept(keptLink.map(Self.place) ?? ""))
+        }
+        // Only Today and the Logbook are here: a button that goes to another tab comes back to Today.
+        .onChange(of: world.appState.groundTab) { _, tab in
+            if tab != .today, tab != .logbook { world.appState.groundTab = .today }
+        }
+    }
+
+    /// Where a link goes, as a pilot reads it: the site's name, or the number a call would dial.
+    static func place(_ url: URL) -> String {
+        if url.scheme == "tel" { return url.absoluteString.replacingOccurrences(of: "tel://", with: "") }
+        return url.host?.replacingOccurrences(of: "www.", with: "") ?? url.absoluteString
+    }
+}
+
+/// The band over the ground's screens in a dry run: DRY RUN and the part, and End.
+struct DryRunGroundBand: View {
+    @ObservedObject var session: DryRunSession
+
+    var body: some View {
+        ZStack {
+            DryRunHatch()
+            HStack(spacing: 10) {
+                if let coach = session.coach {
+                    DryRunPartPlate(coach: coach)
+                } else {
+                    DryRunPlate(text: L10n.DryRun.band)
+                }
+                Spacer(minLength: 8)
+                Button { session.stop() } label: {
+                    DryRunPlate(text: L10n.DryRunCoach.end)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.DryRun.endDryRun)
+            }
+            .padding(.horizontal, 12)
+        }
+        .frame(height: 36)
+    }
+}
+
+/// DRY RUN and the part the coach is in, as it moves on (the step ahead's between two steps).
+private struct DryRunPartPlate: View {
+    @ObservedObject var coach: DryRunCoach
+
+    var body: some View {
+        DryRunPlate(text: "\(L10n.DryRun.band) · \(coach.part.title)")
     }
 }
 
@@ -178,10 +276,10 @@ struct DryRunPresenter: ViewModifier {
         content
             // The guided flight (Today's card, onboarding's last page, Settings): no sheet, it starts at once.
             .onChange(of: center.guidedRequest?.id) { _, request in
-                guard request != nil, center.presenter == id, let chapter = center.guidedRequest?.chapter else { return }
+                guard request != nil, center.presenter == id, let start = center.guidedRequest?.start else { return }
                 center.guidedRequest = nil
                 Task {
-                    await center.beginGuided(chapter: chapter, settings: { [appState] in appState.settings },
+                    await center.beginGuided(start, settings: { [appState] in appState.settings },
                                              airports: airportDataService, aircraftData: aircraftDataService,
                                              isFlightActive: appState.isFlightActive)
                 }
@@ -478,7 +576,7 @@ struct DryRunSummaryView: View {
                             ForEach(Array(summary.lines.enumerated()), id: \.offset) { _, line in
                                 Text(DryRunSummary.text(of: line))
                             }
-                            Text(L10n.DryRun.nothingSaved)
+                            Text(summary.isStory ? L10n.DryRunCoach.storyNothingKept : L10n.DryRun.nothingSaved)
                         }
                         .font(.aero(size: 18))
                         .foregroundColor(theme.textSecondary)

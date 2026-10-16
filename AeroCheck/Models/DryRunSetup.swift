@@ -19,10 +19,11 @@ struct DryRunSetup {
     /// What the aircraft does at the end of the first finals, before the pilot's choice on final (DEBUG's
     /// scripted circuits).
     var landings: [DryRunGenerator.Landing] = []
-    /// The guided flight, from this chapter (1 for the whole flight); nil for free practice.
-    var guidedChapter: Int?
+    /// The guided dry run, from where it starts (the whole story from the Plan part, a part, or Fly's chapter);
+    /// nil for free practice.
+    var guided: DryRunStart?
 
-    var isGuided: Bool { guidedChapter != nil }
+    var isGuided: Bool { guided != nil }
 
     static let defaultRate = 4.0
     /// The paces offered: as the pilot flies, four times, ten times.
@@ -114,8 +115,10 @@ struct DryRunSummary: Equatable {
 
     var title: String
     var aircraft: String
-    /// The guided flight's habits, one per chapter flown.
+    /// The guided dry run's habits, one per part and per Fly chapter gone through.
     var habits: [String] = []
+    /// The guided dry run: its logbook was the world's, and went with it.
+    var isStory = false
     var checksDone: Int
     var checksTotal: Int
     var lines: [Line]

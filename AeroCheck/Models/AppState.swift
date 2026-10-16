@@ -3288,6 +3288,15 @@ class AppState {
         return imported
     }
     
+    /// Flights made rather than recorded, into the logbook as it keeps any: a dry run's world's made-up flights
+    /// for its Logbook part (`DryRunLogbook`). Its AppState has no sync: they stay in its folder. (6.4.0)
+    func addMadeUpFlights(_ made: [Flight]) {
+        guard !made.isEmpty else { return }
+        flights.append(contentsOf: made)
+        flights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
+        saveFlights()
+    }
+
     func updateFlightNotes(_ flight: Flight, notes: String) {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].notes = notes

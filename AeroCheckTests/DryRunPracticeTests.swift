@@ -340,7 +340,15 @@ final class DryRunHeadless {
         world = DryRunWorld(settings: AppSettings(), base: test.makeTestDirectory())
         if let plan {
             world.plans.add(plan)
-            world.plans.activateFlightPlan(plan)
+            // The guided dry run keeps its route unarmed (START FLIGHT arms the flight's own copy), and has its
+            // logbook's made-up flights, as `DryRunCenter.prepare` gives them.
+            if !setup.isGuided { world.plans.activateFlightPlan(plan) }
+        }
+        if setup.isGuided {
+            for _ in 0..<500 where world.appState.isLoadingFlights {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            }
+            world.appState.addMadeUpFlights(DryRunLogbook.flights(at: setup.departure, before: start))
         }
         session = DryRunSession(world: world, setup: setup, seed: 11)
         guard session.begin(airports: airports, now: start) else { throw XCTSkip("the flight didn't start") }

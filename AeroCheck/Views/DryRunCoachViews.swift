@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // MARK: - Dry run (6.4.0): the coach on screen
 
@@ -27,11 +28,140 @@ extension View {
     func coachTarget(_ target: DryRunCoachStep.Target) -> some View {
         anchorPreference(key: CoachTargetKey.self, value: .bounds) { [target: $0] }
     }
+
+    /// This control, when it is one the guided flight rings (`target` not nil).
+    @ViewBuilder
+    func coachTarget(ifAny target: DryRunCoachStep.Target?) -> some View {
+        if let target { coachTarget(target) } else { self }
+    }
+
+    /// A dry run's coach's step, once it is the coach's: `$step` publishes before the step changes, and a scroll
+    /// made then redraws the screen, its coach's card with it, with the step before. (6.4.0)
+    func onDryRunCoachStep(_ session: DryRunSession?, perform: @escaping (DryRunCoachStep) -> Void) -> some View {
+        onReceive(session?.coach?.$step.compactMap { $0 }.receive(on: DispatchQueue.main).eraseToAnyPublisher()
+                  ?? Empty<DryRunCoachStep, Never>().eraseToAnyPublisher(), perform: perform)
+    }
+
+    /// This ground screen, for a dry run's coach: it says it is on show, and the coach's card for it shows over
+    /// it, with its veil and its ring. Nothing at all for the app's own screens (no dry run in the
+    /// environment). (6.4.0)
+    func dryRunCoachScreen(_ screen: DryRunCoachStep.Screen) -> some View {
+        modifier(DryRunCoachScreen(screen: screen))
+    }
+}
+
+private struct DryRunCoachScreen: ViewModifier {
+    let screen: DryRunCoachStep.Screen
+    @Environment(\.dryRunSession) private var session
+
+    func body(content: Content) -> some View {
+        if let session, let coach = session.coach {
+            content
+                // A screen over the ground (the flight's page is a cover) keeps the band on top.
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if screen == .flightPage { DryRunGroundBand(session: session) }
+                }
+                .overlayPreferenceValue(CoachTargetKey.self) { anchors in
+                    DryRunGroundCoachLayer(coach: coach, session: session, screen: screen, anchors: anchors)
+                }
+                .onAppear { coach.show(screen) }
+                .onDisappear { coach.hide(screen) }
+        } else {
+            content
+        }
+    }
+}
+
+/// The coach over one of the ground's screens: its step's card at the foot, the veil and the ring over its
+/// control, when the step is this screen's.
+private struct DryRunGroundCoachLayer: View {
+    @ObservedObject var coach: DryRunCoach
+    @ObservedObject var session: DryRunSession
+    let screen: DryRunCoachStep.Screen
+    let anchors: [DryRunCoachStep.Target: Anchor<CGRect>]
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let step = coach.step, step.screen == screen, step.kind == .partEnd {
+                DryRunPartEndPage(coach: coach, session: session, step: step)
+            } else if let step = coach.step, step.screen == screen {
+                let wide = proxy.size.width >= 600
+                let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }
+                ZStack {
+                    DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
+                    DryRunCoachCard(coach: coach, session: session, step: step, compact: !wide)
+                        .frame(maxWidth: wide ? 600 : .infinity)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: coach.step)
+    }
+}
+
+/// The page between two parts of the story: what was done, what comes next, on to it or stop there (the rest
+/// waits in Settings). (6.4.0, "Plan to Logbook")
+struct DryRunPartEndPage: View {
+    @ObservedObject var coach: DryRunCoach
+    @ObservedObject var session: DryRunSession
+    let step: DryRunCoachStep
+
+    private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
+    private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 14) {
+                Text(step.title)
+                    .font(.aero(size: 24, weight: .bold))
+                if !step.body.isEmpty {
+                    Text(step.body)
+                        .font(.aero(size: 17))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(spacing: 10) {
+                    if let next = step.part.next {
+                        button(L10n.DryRunCoach.onTo(next.title), filled: true) { coach.next() }
+                    }
+                    button(L10n.DryRunCoach.stopHere, filled: false) { session.stop() }
+                }
+                .padding(.top, 4)
+                Text(L10n.DryRunCoach.stopHereNote)
+                    .font(.aero(size: 14))
+                    .opacity(0.7)
+            }
+            .foregroundColor(ink)
+            .padding(22)
+            .frame(maxWidth: 520)
+            .background(RoundedRectangle(cornerRadius: 18).fill(paper))
+            .padding(24)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func button(_ title: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.aero(size: 17, weight: .bold))
+                .foregroundColor(filled ? paper : ink)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(RoundedRectangle(cornerRadius: 11).fill(filled ? ink : Color.clear))
+                .overlay(RoundedRectangle(cornerRadius: 11).stroke(ink, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 /// The coach's light card, docked above the act band (D4, Q5 A): the chapter and its progress, what to look at
 /// or do, and on a look step Pause and Next.
 struct DryRunCoachCard: View {
+    /// What a ground screen leaves free under its last control in a dry run, for the card at its foot.
+    static let room: CGFloat = 240
+
     @ObservedObject var coach: DryRunCoach
     @ObservedObject var session: DryRunSession
     let step: DryRunCoachStep
@@ -40,11 +170,17 @@ struct DryRunCoachCard: View {
     private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
     private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
 
+    /// "Fly it · chapter 2 of 7 · Engine and taxi", "Plan a flight"; shorter on a phone.
+    private var header: String {
+        guard step.part == .fly, step.chapter > 0 else { return step.part.title }
+        let chapter = L10n.DryRunCoach.chapterOf(step.chapter, DryRunChapters.count)
+        return compact ? chapter : "\(chapter) · \(DryRunChapters.title(step.chapter))"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
-                Text(compact ? L10n.DryRunCoach.chapterOf(step.chapter, DryRunChapters.count)
-                             : "\(L10n.DryRunCoach.chapterOf(step.chapter, DryRunChapters.count)) · \(DryRunChapters.title(step.chapter))")
+                Text(header)
                     .font(.aero(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(1.2)
                     .textCase(.uppercase)
@@ -53,8 +189,8 @@ struct DryRunCoachCard: View {
                     .opacity(0.7)
                 Spacer(minLength: 4)
                 HStack(spacing: 3) {
-                    ForEach(1...DryRunChapters.count, id: \.self) { chapter in
-                        Capsule().frame(width: 14, height: 3).opacity(chapter <= step.chapter ? 1 : 0.25)
+                    ForEach(1...DryRunPart.allCases.count, id: \.self) { part in
+                        Capsule().frame(width: 14, height: 3).opacity(part <= step.part.rawValue ? 1 : 0.25)
                     }
                 }
                 .accessibilityHidden(true)
@@ -67,8 +203,11 @@ struct DryRunCoachCard: View {
             HStack(spacing: 8) {
                 Spacer()
                 if step.kind == .look {
-                    button(session.isPaused ? L10n.DryRunCoach.goOn : L10n.DryRunCoach.pause, filled: false) {
-                        session.isPaused ? session.resume() : session.pause()
+                    // Pause only where a flight runs; on the ground nothing moves.
+                    if step.screen == .cockpit {
+                        button(session.isPaused ? L10n.DryRunCoach.goOn : L10n.DryRunCoach.pause, filled: false) {
+                            session.isPaused ? session.resume() : session.pause()
+                        }
                     }
                     button(L10n.DryRunCoach.next, filled: true) { coach.next() }
                 } else if step.target != nil {
@@ -139,18 +278,18 @@ struct DryRunFoldedLine: View {
 /// The guided flight on its way to a chapter flown on its own (the proposal's Q6): this, in place of the
 /// Cockpit, for the few seconds the flight takes to be flown there. Nothing is asked on the way.
 struct DryRunFastForwardCover: View {
-    let chapter: Int
+    let start: DryRunStart
     @Environment(\.cockpitTheme) private var theme
 
     var body: some View {
         VStack(spacing: 18) {
             Spacer()
-            Text(L10n.DryRunCoach.coverTitle(chapter))
+            Text(start.part == .fly ? L10n.DryRunCoach.coverTitle(start.chapter) : L10n.DryRunCoach.coverTitlePart)
                 .font(.aero(size: 15, weight: .semibold, design: .monospaced))
                 .tracking(1.4)
                 .textCase(.uppercase)
                 .foregroundColor(theme.textSecondary)
-            Text(DryRunChapters.title(chapter))
+            Text(start.part == .fly ? DryRunChapters.title(start.chapter) : start.part.title)
                 .font(.aero(size: 30, weight: .bold))
                 .foregroundColor(theme.textPrimary)
                 .multilineTextAlignment(.center)

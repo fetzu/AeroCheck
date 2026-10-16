@@ -91,7 +91,7 @@ struct DryRunCoachStep: Equatable {
         case flightCard
         case readiness
         case logbookRow
-        case debriefTick
+        case debriefField
         case finish
         case logbookDashboard
         case logbookFlight
@@ -437,8 +437,8 @@ enum DryRunStory {
             S(id: "numbers", chapter: 0, kind: .act, target: nil, veils: false, holds: true,
               moment: .screen(.numbers), done: .screenClosed(.numbers), title: T.numbersTitle, body: T.numbersBody,
               part: .closeOut, screen: .numbers),
-            S(id: "debrief", chapter: 0, kind: .act, target: .debriefTick, veils: false, holds: true, moment: .now,
-              done: .task(.debriefWritten, .done), title: T.debriefTitle, body: T.debriefBody, part: .closeOut,
+            S(id: "debrief", chapter: 0, kind: .look, target: .debriefField, veils: false, holds: true, moment: .now,
+              done: .next, title: T.debriefTitle, body: T.debriefBody, part: .closeOut,
               screen: .flightPage),
             S(id: "finish", chapter: 0, kind: .act, target: .finish, veils: true, holds: true, moment: .now,
               done: .threadFinished, title: T.finishTitle, body: T.finishBody, part: .closeOut, screen: .flightPage),

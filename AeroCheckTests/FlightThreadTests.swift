@@ -70,8 +70,18 @@ final class FlightThreadTests: XCTestCase {
         // But the parts that still pay off are there.
         XCTAssertTrue(produced.contains(.weatherBriefed))
         XCTAssertTrue(produced.contains(.logbookEntry))
-        XCTAssertTrue(produced.contains(.debriefWritten))
         XCTAssertTrue(produced.contains(.aircraftReserved))
+        // The debrief is the flight's notes, optional, since 6.4.0: never a task (st-18).
+        XCTAssertFalse(produced.contains(.debriefWritten))
+    }
+
+    /// A thread from before 6.4.0 kept a debrief task: the next regeneration drops it, so CLOSE counts the
+    /// logbook line alone and the debrief is the optional notes field (st-18).
+    func testAnOlderThreadsDebriefTaskGoesAtTheNextRegeneration() {
+        let existing = [ThreadTask(key: .logbookEntry, kind: .check), ThreadTask(key: .debriefWritten, kind: .check)]
+        let tasks = ThreadTaskEngine.generate(context: context(profile: .local), existing: existing)
+        XCTAssertFalse(tasks.contains { $0.key == .debriefWritten })
+        XCTAssertEqual(tasks.filter { $0.chapter == .close }.map(\.key), [.logbookEntry])
     }
 
     // MARK: - Engine: conditional rules
@@ -716,10 +726,11 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(manager.thread(withId: thread.id)?.flightId, flightId)
         XCTAssertTrue(thread.routeLabel.contains("LSZQ"), "ident should be normalised for display")
 
-        // The light profile: a logbook line and a debrief, and nothing about flight plans or customs.
+        // The light profile: a logbook line (the debrief is the flight's notes, optional), and nothing
+        // about flight plans or customs.
         let keys = Set(manager.thread(withId: thread.id)?.tasks.map(\.key) ?? [])
         XCTAssertTrue(keys.contains(.logbookEntry))
-        XCTAssertTrue(keys.contains(.debriefWritten))
+        XCTAssertFalse(keys.contains(.debriefWritten))
         XCTAssertFalse(keys.contains(.flightPlanFiled))
     }
 

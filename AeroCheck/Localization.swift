@@ -429,6 +429,8 @@ enum L10n {
         static let taskFlightPlanClose = String(localized: "Close the flight plan")
         static let taskLogbook = String(localized: "Logbook entry")
         static let taskDebrief = String(localized: "Debrief")
+        static let debriefOptional = String(localized: "thread.debrief.optional")
+        static let debriefPlaceholder = String(localized: "thread.debrief.placeholder")
         static func taskPPR(_ ident: String) -> String { String(localized: "PPR — \(ident)") }
         static func taskCustoms(_ country: String) -> String { String(localized: "Border crossing — \(country)") }
         static func taskFees(_ ident: String) -> String { String(localized: "Fees — \(ident)") }

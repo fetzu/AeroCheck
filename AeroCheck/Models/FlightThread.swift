@@ -69,6 +69,8 @@ enum ThreadTaskKey: String, Codable, CaseIterable, Sendable {
     case flightPlanClosed   = "close.fpl"
     case feesPaid           = "close.fees"
     case logbookEntry       = "close.logbook"
+    /// Not emitted since 6.4.0: the debrief is the flight's notes, optional, written in the CLOSE
+    /// chapter (`ThreadDebriefField`) or the logbook. Kept so the threads that have one still decode.
     case debriefWritten     = "close.debrief"
 
     var chapter: ThreadChapter {

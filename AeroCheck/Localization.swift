@@ -3508,6 +3508,65 @@ enum L10n {
             }
         }
     }
+
+    /// Dry run (6.4.0): the app flown on the ground through the real Cockpit.
+    enum DryRun {
+        static let band = String(localized: "dryRun.band")
+        static let paused = String(localized: "dryRun.paused")
+        static let waiting = String(localized: "dryRun.waiting")
+        static let waitingShort = String(localized: "dryRun.waitingShort")
+        static let skipping = String(localized: "dryRun.skipping")
+        static let over = String(localized: "dryRun.over")
+        static let overTitle = String(localized: "dryRun.overTitle")
+        static let pause = String(localized: "dryRun.pause")
+        static let resume = String(localized: "dryRun.resume")
+        static func paceAccessibility(_ a0: String) -> String { String(format: String(localized: "dryRun.paceAccessibility"), a0) }
+        static let nextCheck = String(localized: "dryRun.nextCheck")
+        static let onThisFinal = String(localized: "dryRun.onThisFinal")
+        static let onThisFinalShort = String(localized: "dryRun.onThisFinalShort")
+        static let fullStop = String(localized: "dryRun.fullStop")
+        static let endDryRun = String(localized: "dryRun.endDryRun")
+        static let checks = String(localized: "dryRun.checks")
+        static let landings = String(localized: "dryRun.landings")
+        static let circuitsFigure = String(localized: "dryRun.circuitsFigure")
+        static let time = String(localized: "dryRun.time")
+        static let nothingSaved = String(localized: "dryRun.nothingSaved")
+        static let again = String(localized: "dryRun.again")
+        static let done = String(localized: "dryRun.done")
+        static let nextGoAround = String(localized: "dryRun.nextGoAround")
+        static let nextTouchAndGo = String(localized: "dryRun.nextTouchAndGo")
+        static let nextRoute = String(localized: "dryRun.nextRoute")
+        static let nextCircuits = String(localized: "dryRun.nextCircuits")
+        static let nextDivert = String(localized: "dryRun.nextDivert")
+        static func takeoffAt(_ a0: String) -> String { String(format: String(localized: "dryRun.takeoffAt"), a0) }
+        static func touchAndGoAt(_ a0: String) -> String { String(format: String(localized: "dryRun.touchAndGoAt"), a0) }
+        static func goAroundAt(_ a0: String) -> String { String(format: String(localized: "dryRun.goAroundAt"), a0) }
+        static func fullStopAt(_ a0: String) -> String { String(format: String(localized: "dryRun.fullStopAt"), a0) }
+        static func circuitsAt(_ a0: String) -> String { String(format: String(localized: "dryRun.circuitsAt"), a0) }
+        static let startTitle = String(localized: "dryRun.startTitle")
+        static let startIntro = String(localized: "dryRun.startIntro")
+        static let what = String(localized: "dryRun.what")
+        static let theRoute = String(localized: "dryRun.theRoute")
+        static let circuits = String(localized: "dryRun.circuits")
+        static let aerodrome = String(localized: "dryRun.aerodrome")
+        static let looking = String(localized: "dryRun.looking")
+        static func noRunway(_ a0: String) -> String { String(format: String(localized: "dryRun.noRunway"), a0) }
+        static let routeTooShort = String(localized: "dryRun.routeTooShort")
+        static let noAirportData = String(localized: "dryRun.noAirportData")
+        static let aircraft = String(localized: "dryRun.aircraft")
+        static let pace = String(localized: "dryRun.pace")
+        static let startFooter = String(localized: "dryRun.startFooter")
+        static let fly = String(localized: "dryRun.fly")
+        static func leftHand(_ a0: String) -> String { String(format: String(localized: "dryRun.leftHand"), a0) }
+        static func rightHand(_ a0: String) -> String { String(format: String(localized: "dryRun.rightHand"), a0) }
+        static func runway(_ a0: String) -> String { String(format: String(localized: "dryRun.runway"), a0) }
+        static let checklistUnavailable = String(localized: "dryRun.checklistUnavailable")
+        static let busy = String(localized: "dryRun.busy")
+        static let refused = String(localized: "dryRun.refused")
+        static let settingsRow = String(localized: "dryRun.settingsRow")
+        static let settingsRowSubtitle = String(localized: "dryRun.settingsRowSubtitle")
+        static let flyRoute = String(localized: "dryRun.flyRoute")
+    }
 }
 
 // MARK: - Checklist Language

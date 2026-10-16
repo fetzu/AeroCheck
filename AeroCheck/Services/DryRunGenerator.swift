@@ -77,7 +77,8 @@ final class DryRunGenerator {
     struct Pilot {
         /// May it go on from `hold`? Asked every second while it waits.
         var mayGo: (Hold) -> Bool = { _ in true }
-        /// What the aircraft does at the end of this final: asked once, at the start of the final.
+        /// What the aircraft does at the end of this final: asked once, at 250 ft above the field (where a
+        /// go-around climbs away), so the pilot can choose on the way down.
         var landing: (DryRunAerodrome) -> Landing = { _ in .fullStop }
         /// Stopped on the runway after a full stop: go again from there, off the runway, or not yet (nil).
         /// Asked every second until it has an answer.
@@ -102,9 +103,25 @@ final class DryRunGenerator {
     /// Parked off the runway at the end, for good.
     var isParkedForGood: Bool { if case .hold(.parked)? = actions.first { return true } else { return false } }
 
+    /// On final, its end not decided yet: what the pilot can still choose.
+    var isOnFinal: Bool {
+        switch actions.first {
+        case .onFinal?, .final(nil)?: return true
+        default: return false
+        }
+    }
+    /// Waiting for the pilot: the engine start, the line-up, after a full stop, or parked at the end.
+    var isWaiting: Bool {
+        switch actions.first {
+        case .hold?, .afterFullStop?: return true
+        default: return false
+        }
+    }
+
     // The route, when it flies one: the leg to `waypoints[legIndex]`, then the destination's circuit.
     private var waypoints: [CLLocationCoordinate2D] = []
-    private var legIndex = 0
+    /// The leg flown: to `waypoints[legIndex]`, or the destination's circuit at the route's count.
+    private(set) var legIndex = 0
     private var destination: DryRunAerodrome?
     private var cruiseAltitudeFt = 0.0
     private var enRoutePrevious: Double?
@@ -161,6 +178,16 @@ final class DryRunGenerator {
         if isAirborne { actions = [.enRoute] }
     }
 
+    /// The route again after a divert (the Cockpit's resume), from the leg to waypoint `index`.
+    func follow(route points: [CLLocationCoordinate2D], to field: DryRunAerodrome, from index: Int) {
+        destination = field
+        waypoints = points
+        legIndex = min(max(0, index), points.count)
+        enRoutePrevious = nil
+        descending = false
+        if isAirborne { actions = [.enRoute] }
+    }
+
     /// The next second of the flight.
     func nextFix() -> DryRunFix {
         // Each pass either emits the second's fix or finishes an action that took no time; a few at most.
@@ -204,7 +231,8 @@ final class DryRunGenerator {
         case roll(toSpeed: Double)
         /// On the runway's heading, `count` seconds.
         case steps(count: Int, speed: Double, accel: Double, verticalSpeed: Double)
-        case final(goAround: Bool)
+        /// Down the final; its end decided at 250 ft above the field (nil until then).
+        case final(Landing?)
         case flare
         case brake
         case enRoute
@@ -281,19 +309,29 @@ final class DryRunGenerator {
             actions[0] = .steps(count: count - 1, speed: speed, accel: accel, verticalSpeed: verticalSpeed)
             return step(speed: speed, accel: accel, verticalSpeed: verticalSpeed, heading: field.runwayHeading)
 
-        case .final(let goAround):
-            // Final at ~3°: down to the touchdown point; a go-around climbs away from 250 ft above the field.
+        case .final(let decided):
+            // Final at ~3°: down to the touchdown point. At 250 ft above the field the pilot's choice is
+            // taken: a go-around climbs away from there.
             let touchdown = field.touchdownPoint
             let d = DryRunGeo.distance(position, touchdown)
             let height = max(0, altitudeFt - field.elevationFt)
-            if goAround, height <= 250 || d <= 40 {
+            if decided == nil, height <= 250 || d <= 40 {
+                let landing = pilot.landing(field)
                 actions.removeFirst()
-                actions.insert(contentsOf: [.mark("goAround"),
-                                          .steps(count: 25, speed: performance.vy, accel: 1.5, verticalSpeed: 650),
-                                          .circuit(upwind: true)], at: 0)
+                if landing == .goAround {
+                    actions.insert(contentsOf: [.mark("goAround"),
+                                              .steps(count: 25, speed: performance.vy, accel: 1.5, verticalSpeed: 650),
+                                              .circuit(upwind: true)], at: 0)
+                } else {
+                    actions.insert(.final(landing), at: 0)
+                }
                 return nil
             }
-            guard d > 40 else { actions.removeFirst(); return nil }
+            guard d > 40 else {
+                actions.removeFirst()
+                actions.insert(contentsOf: [.flare, .mark("touchdown"), .afterTouchdown(decided ?? .fullStop)], at: 0)
+                return nil
+            }
             let groundSpeed = max(speedKt * DryRunGeo.metresPerSecondPerKnot, 1)
             let verticalSpeed = -min(420, max(120, height / max(d / groundSpeed, 1) * 60))
             return step(speed: performance.finalApproach, accel: 0.8, verticalSpeed: verticalSpeed,
@@ -378,19 +416,14 @@ final class DryRunGenerator {
 
         case .onFinal:
             actions.removeFirst()
-            let landing = pilot.landing(field)
-            if landing == .goAround {
-                actions.insert(.final(goAround: true), at: 0)
-            } else {
-                actions.insert(contentsOf: [.final(goAround: false), .flare, .mark("touchdown"), .afterTouchdown(landing)], at: 0)
-            }
+            actions.insert(.final(nil), at: 0)
             return nil
 
         case .afterTouchdown(let landing):
             actions.removeFirst()
             if landing == .touchAndGo {
                 // On the wheels a few seconds, flaps up, power, and away.
-                actions.insert(contentsOf: [.steps(count: 12, speed: performance.vr + 2, accel: 1.2, verticalSpeed: 0),
+                actions.insert(contentsOf: [.mark("touchAndGo"), .steps(count: 12, speed: performance.vr + 2, accel: 1.2, verticalSpeed: 0),
                                           .roll(toSpeed: performance.vr + 8), .mark("liftoff"),
                                           .steps(count: 20, speed: performance.vy, accel: 1.2, verticalSpeed: 550),
                                           .circuit(upwind: true)], at: 0)

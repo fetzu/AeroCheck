@@ -132,6 +132,91 @@ struct DryRunAerodrome {
         circuitAltitudeFt: 2900)
 }
 
+// MARK: - From the app's data
+
+extension DryRunAerodrome {
+    /// An aerodrome as the app's data has it, nil without a runway to fly:
+    /// - the runway's ends from open flightmaps' thresholds, else from the airport data's runway ends, else
+    ///   laid out on the reference point along the runway's heading and length;
+    /// - the runway in use: the one open flightmaps' powered circuit lands on (its line ends at the
+    ///   threshold), with that circuit's side, reach and altitude; else the longest open runway from its low
+    ///   end, with a left-hand circuit 1,000 ft above the field. (6.4.0)
+    static func make(airport: Airport, runways: [Runway], thresholds: [VFRThreshold] = [],
+                     circuits: [VFRProcedure] = []) -> DryRunAerodrome? {
+        let reference = CLLocationCoordinate2D(latitude: airport.latitude, longitude: airport.longitude)
+        let elevation = Double(airport.elevation ?? 0)
+        let open = runways.filter { !$0.closed }.sorted { ($0.lengthFt ?? 0) > ($1.lengthFt ?? 0) }
+
+        // The runways as pairs of ends, the longest first.
+        var ends: [(CLLocationCoordinate2D, CLLocationCoordinate2D)] = []
+        for runway in open {
+            let le = runway.leIdent.flatMap { id in thresholds.first { sameRunwayEnd($0.runway, id) } }?.position.coordinate
+                ?? coordinate(runway.leLatitude, runway.leLongitude)
+            let he = runway.heIdent.flatMap { id in thresholds.first { sameRunwayEnd($0.runway, id) } }?.position.coordinate
+                ?? coordinate(runway.heLatitude, runway.heLongitude)
+            if let le, let he, DryRunGeo.distance(le, he) > 150 { ends.append((le, he)) }
+        }
+        if ends.isEmpty { ends = pairs(of: thresholds) }
+
+        // The powered circuit, and the runway it lands on: the end nearest its line's last point.
+        let circuit = circuits.first { $0.kind == .circuit && $0.categories.contains(.powered) && $0.usage != .helicopter }
+        if let circuit, let last = circuit.line.last?.coordinate {
+            var best: (threshold: CLLocationCoordinate2D, farEnd: CLLocationCoordinate2D, distance: Double)?
+            for (a, b) in ends {
+                for (threshold, farEnd) in [(a, b), (b, a)] {
+                    let distance = DryRunGeo.distance(threshold, last)
+                    if distance < (best?.distance ?? 800) { best = (threshold, farEnd, distance) }
+                }
+            }
+            if let best {
+                return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
+                            threshold: best.threshold, farEnd: best.farEnd,
+                            circuitLine: circuit.line.map(\.coordinate), circuitAltitudeFt: circuit.altitudeFt.map(Double.init))
+            }
+        }
+        if let longest = ends.first {
+            return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
+                        threshold: longest.0, farEnd: longest.1)
+        }
+        // Only a heading and a length.
+        if let runway = open.first, let heading = runway.leHeadingDegT ?? runway.heHeadingDegT.map({ ($0 + 180).truncatingRemainder(dividingBy: 360) }),
+           let length = runway.lengthMeters, length > 150 {
+            return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
+                        heading: heading, lengthM: Double(length))
+        }
+        return nil
+    }
+
+    private static func coordinate(_ latitude: Double?, _ longitude: Double?) -> CLLocationCoordinate2D? {
+        guard let latitude, let longitude, latitude != 0 || longitude != 0 else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    /// "07" and "7", "25L" and "25 L": the same end.
+    static func sameRunwayEnd(_ a: String, _ b: String) -> Bool {
+        func normal(_ s: String) -> String {
+            let t = s.uppercased().replacingOccurrences(of: " ", with: "")
+            let digits = t.prefix { $0.isNumber }
+            return String(Int(digits).map(String.init) ?? String(digits)) + t.dropFirst(digits.count)
+        }
+        return normal(a) == normal(b)
+    }
+
+    /// Open flightmaps' thresholds paired end to end (their designators 18 apart), when the airport data has
+    /// no runway.
+    private static func pairs(of thresholds: [VFRThreshold]) -> [(CLLocationCoordinate2D, CLLocationCoordinate2D)] {
+        var result: [(CLLocationCoordinate2D, CLLocationCoordinate2D)] = []
+        for (i, a) in thresholds.enumerated() {
+            guard let na = Int(a.runway.prefix { $0.isNumber }) else { continue }
+            for b in thresholds[(i + 1)...] {
+                guard let nb = Int(b.runway.prefix { $0.isNumber }), abs(na - nb) == 18 else { continue }
+                result.append((a.position.coordinate, b.position.coordinate))
+            }
+        }
+        return result.sorted { DryRunGeo.distance($0.0, $0.1) > DryRunGeo.distance($1.0, $1.1) }
+    }
+}
+
 // MARK: - The geometry (a sphere: plenty for a few tens of NM)
 
 enum DryRunGeo {

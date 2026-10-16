@@ -36,16 +36,19 @@ final class DryRunWorld {
     let companion: CompanionConnectivityManager
     /// The Cockpit's frequencies, which tell the Watch nothing (D8).
     let radio: CockpitRadio
+    /// The aircraft flown; nil for the WT9.
+    let aircraft: AircraftOption?
     private(set) var isTornDown = false
 
-    init(settings: AppSettings, base: URL = DryRunWorld.baseDirectory) {
+    init(settings: AppSettings, aircraft: AircraftOption? = nil, base: URL = DryRunWorld.baseDirectory) {
+        self.aircraft = aircraft
         root = base.appendingPathComponent("DryRun-\(id.uuidString)", isDirectory: true)
         suiteName = Self.suitePrefix + id.uuidString
         // Nil only for the app's own domain or the global one, which this never is.
         defaults = UserDefaults(suiteName: suiteName)!
         persistence = DataPersistenceManager(rootDirectory: root)
         // The pilot's settings, read by the world's AppState as its own: what the Cockpit changes stays here.
-        persistence.saveSettings(Self.settings(from: settings))
+        persistence.saveSettings(Self.settings(from: settings, aircraft: aircraft))
         appState = AppState(defaults: defaults, persistence: persistence)
         plans = FlightPlanManager(defaults: defaults, persistence: persistence)
         threads = FlightThreadManager(defaults: defaults, persistence: persistence)
@@ -61,14 +64,39 @@ final class DryRunWorld {
         appState.takeLapFullStop = { [weak detector] in detector?.notifyManualEvent(.fullStop) }
     }
 
-    /// The pilot's settings for a dry run: Companion off (D8), and the WT9, bundled, which every install can fly
-    /// with no data. (Free practice picks another aircraft: 6.4.0, PR 5.)
-    static func settings(from real: AppSettings) -> AppSettings {
+    /// The pilot's settings for a dry run: Companion off (D8), and the aircraft chosen, the WT9 when none
+    /// (bundled, every install can fly it with no data).
+    static func settings(from real: AppSettings, aircraft: AircraftOption? = nil) -> AppSettings {
         var settings = real
         settings.enableCompanionMode = false
-        settings.selectedAircraft = .wt9Dynamic
-        settings.selectedRemoteAircraftId = nil
+        switch aircraft {
+        case .remote(let metadata)?:
+            settings.selectedRemoteAircraftId = metadata.id
+        case .bundled(let type)?:
+            settings.selectedAircraft = type
+            settings.selectedRemoteAircraftId = nil
+        case nil:
+            settings.selectedAircraft = .wt9Dynamic
+            settings.selectedRemoteAircraftId = nil
+        }
         return settings
+    }
+
+    /// The aircraft's checklist in the pilot's language, as START FLIGHT loads it: a premium one from the
+    /// cache or the server. False when it can't be had (no Pro, no connection and no copy).
+    func loadChecklist(aircraftDataService: AircraftDataService) async -> Bool {
+        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+        return appState.isPremiumChecklistResolved
+    }
+
+    /// A copy of the pilot's route, armed in the world's plans as START FLIGHT takes it. Once the world's
+    /// (empty) plans have loaded, or the load would replace it.
+    func arm(_ plan: FlightPlan) async {
+        for _ in 0..<50 where !plans.hasLoadedPlans {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        plans.add(plan)
+        plans.activateFlightPlan(plan)
     }
 
     /// Starts the flight and its GPS, the dry run's: as `FlightLauncher` does, without its guards, which are
@@ -76,11 +104,13 @@ final class DryRunWorld {
     /// store's, for a store that doesn't have them. False if the AppState refused it.
     @discardableResult
     func startFlight(circuits: Bool, aerodromes: [Airport], airports: AirportDataService) -> Bool {
-        let aircraft = appState.settings.selectedAircraft
+        let bundled = appState.settings.selectedAircraft
         detector.configure(speeds: appState.activeChecklist.speeds, stallSpeed: appState.activeChecklist.stallSpeed)
         appState.startFlight(withAircraft: appState.settings.defaultAirplane,
-                             aircraftRegistration: aircraft.registration, aircraftType: aircraft.rawValue,
-                             checklistVersion: aircraft.checklistVersion, circuitMode: circuits)
+                             aircraftRegistration: aircraft?.registration ?? bundled.registration,
+                             aircraftType: aircraft?.aircraftType ?? bundled.rawValue,
+                             checklistVersion: aircraft?.version ?? bundled.checklistVersion,
+                             flightPlanId: circuits ? nil : plans.activeFlightPlan?.id, circuitMode: circuits)
         guard appState.isFlightActive else { return false }
         location.extraDetectorAirports = aerodromes
         location.startTracking(appState: appState, interval: appState.settings.gpsRecordingInterval,

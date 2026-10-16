@@ -2834,6 +2834,941 @@
         }
       }
     },
+    "dryRun.band": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DRY RUN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VOL À BLANC"
+          }
+        }
+      }
+    },
+    "dryRun.paused": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "paused"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en pause"
+          }
+        }
+      }
+    },
+    "dryRun.waiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "waiting for you"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on vous attend"
+          }
+        }
+      }
+    },
+    "dryRun.waitingShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "waiting"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à vous"
+          }
+        }
+      }
+    },
+    "dryRun.skipping": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "next check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vérification suivante"
+          }
+        }
+      }
+    },
+    "dryRun.over": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OVER"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TERMINÉ"
+          }
+        }
+      }
+    },
+    "dryRun.overTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dry run is over"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le vol à blanc est terminé"
+          }
+        }
+      }
+    },
+    "dryRun.pause": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause the dry run"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre le vol à blanc en pause"
+          }
+        }
+      }
+    },
+    "dryRun.resume": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go on with the dry run"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre le vol à blanc"
+          }
+        }
+      }
+    },
+    "dryRun.paceAccessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pace %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cadence %@"
+          }
+        }
+      }
+    },
+    "dryRun.nextCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEXT CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VÉRIF. SUIVANTE"
+          }
+        }
+      }
+    },
+    "dryRun.onThisFinal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ON THIS FINAL, THE AIRCRAFT WILL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUR CETTE FINALE, L'AVION FERA"
+          }
+        }
+      }
+    },
+    "dryRun.onThisFinalShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ON THIS FINAL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUR CETTE FINALE"
+          }
+        }
+      }
+    },
+    "dryRun.fullStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FULL STOP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT COMPLET"
+          }
+        }
+      }
+    },
+    "dryRun.endDryRun": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End the dry run"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer le vol à blanc"
+          }
+        }
+      }
+    },
+    "dryRun.checks": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHECKS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VÉRIFICATIONS"
+          }
+        }
+      }
+    },
+    "dryRun.landings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LANDINGS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATTERRISSAGES"
+          }
+        }
+      }
+    },
+    "dryRun.circuitsFigure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CIRCUITS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TOURS"
+          }
+        }
+      }
+    },
+    "dryRun.time": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TIME"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DURÉE"
+          }
+        }
+      }
+    },
+    "dryRun.nothingSaved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was saved: no logbook entry, no iCloud."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien n'a été enregistré : ni carnet de vol, ni iCloud."
+          }
+        }
+      }
+    },
+    "dryRun.again": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FLY IT AGAIN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RECOMMENCER"
+          }
+        }
+      }
+    },
+    "dryRun.done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DONE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TERMINÉ"
+          }
+        }
+      }
+    },
+    "dryRun.nextGoAround": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next time: a go-around, chosen on final."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine fois : une remise de gaz, choisie en finale."
+          }
+        }
+      }
+    },
+    "dryRun.nextTouchAndGo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next time: a touch-and-go, chosen on final."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine fois : un posé-décollé, choisi en finale."
+          }
+        }
+      }
+    },
+    "dryRun.nextRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next time: a route you planned, from its menu in Plan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine fois : une route que vous avez préparée, depuis son menu dans Planifier."
+          }
+        }
+      }
+    },
+    "dryRun.nextCircuits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next time: circuits, with a go-around."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine fois : des tours de piste, avec une remise de gaz."
+          }
+        }
+      }
+    },
+    "dryRun.nextDivert": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next time: a divert on the way, from DIVERT."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine fois : un déroutement en route, avec DÉROUTER."
+          }
+        }
+      }
+    },
+    "dryRun.takeoffAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take-off at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décollage à %@"
+          }
+        }
+      }
+    },
+    "dryRun.touchAndGoAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch-and-go at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posé-décollé à %@"
+          }
+        }
+      }
+    },
+    "dryRun.goAroundAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go-around at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remise de gaz à %@"
+          }
+        }
+      }
+    },
+    "dryRun.fullStopAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full stop at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterrissage complet à %@"
+          }
+        }
+      }
+    },
+    "dryRun.circuitsAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circuits at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste à %@"
+          }
+        }
+      }
+    },
+    "dryRun.startTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly a dry run"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire un vol à blanc"
+          }
+        }
+      }
+    },
+    "dryRun.startIntro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app flies the aircraft on the ground, through the real Cockpit: try anything, at any pace. Nothing is saved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'app fait voler l'avion au sol, dans le vrai cockpit : essayez tout, à la cadence voulue. Rien n'est enregistré."
+          }
+        }
+      }
+    },
+    "dryRun.what": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What to fly"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quoi voler"
+          }
+        }
+      }
+    },
+    "dryRun.theRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route"
+          }
+        }
+      }
+    },
+    "dryRun.circuits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circuits"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste"
+          }
+        }
+      }
+    },
+    "dryRun.aerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aerodrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodrome"
+          }
+        }
+      }
+    },
+    "dryRun.looking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking in the airport data…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche dans les données des aérodromes…"
+          }
+        }
+      }
+    },
+    "dryRun.noRunway": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No runway for %@ in the app's data."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune piste pour %@ dans les données de l'app."
+          }
+        }
+      }
+    },
+    "dryRun.routeTooShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route needs two aerodromes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route doit avoir deux aérodromes."
+          }
+        }
+      }
+    },
+    "dryRun.noAirportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The airport data isn't on this device yet: only LSZQ can be flown until it is downloaded (Settings, Data & Storage)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données des aérodromes ne sont pas encore sur cet appareil : seul LSZQ peut être volé avant leur téléchargement (Réglages, Données et stockage)."
+          }
+        }
+      }
+    },
+    "dryRun.aircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avion"
+          }
+        }
+      }
+    },
+    "dryRun.pace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cadence"
+          }
+        }
+      }
+    },
+    "dryRun.startFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause, the pace and Next check are in the band on the iPad, in the Menu on the iPhone. Leaving the app pauses the dry run."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause, cadence et vérification suivante sont dans le bandeau sur l'iPad, dans le Menu sur l'iPhone. Quitter l'app met le vol à blanc en pause."
+          }
+        }
+      }
+    },
+    "dryRun.fly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FLY THE DRY RUN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FAIRE LE VOL À BLANC"
+          }
+        }
+      }
+    },
+    "dryRun.leftHand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "left-hand circuit at %@ ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tour de piste à gauche à %@ ft"
+          }
+        }
+      }
+    },
+    "dryRun.rightHand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "right-hand circuit at %@ ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tour de piste à droite à %@ ft"
+          }
+        }
+      }
+    },
+    "dryRun.runway": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "runway %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "piste %@"
+          }
+        }
+      }
+    },
+    "dryRun.checklistUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This aircraft's checklist can't be had right now: AéroCheck Pro, or a connection, is needed."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist de cet avion n'est pas disponible pour l'instant : il faut AéroCheck Pro, ou une connexion."
+          }
+        }
+      }
+    },
+    "dryRun.busy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A flight or a dry run is already under way."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un vol ou un vol à blanc est déjà en cours."
+          }
+        }
+      }
+    },
+    "dryRun.refused": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dry run couldn't start."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le vol à blanc n'a pas pu démarrer."
+          }
+        }
+      }
+    },
+    "dryRun.settingsRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly a dry run on the ground"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire un vol à blanc"
+          }
+        }
+      }
+    },
+    "dryRun.settingsRowSubtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app flies a flight on the ground through the real Cockpit, for trying anything. Nothing is saved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'app fait voler un vol au sol dans le vrai cockpit, pour tout essayer. Rien n'est enregistré."
+          }
+        }
+      }
+    },
+    "dryRun.flyRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly a dry run"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire un vol à blanc"
+          }
+        }
+      }
+    },
     "flightDetail.touchAndGo": {
       "extractionState": "manual",
       "localizations": {

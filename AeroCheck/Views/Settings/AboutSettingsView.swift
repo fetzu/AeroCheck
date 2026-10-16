@@ -8,7 +8,6 @@ struct AboutSettingsView: View {
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
-    @EnvironmentObject var airportDataService: AirportDataService
 
     @Environment(\.openURL) private var openURL
 
@@ -74,11 +73,17 @@ struct AboutSettingsView: View {
     /// Re-show the first-run walkthrough. Clearing the flag makes the app root (ContentView) swap to
     /// OnboardingView, which tears down the settings presentation behind it. (v4 UI/UX Revamp)
     private var replayOnboardingSection: some View {
-        SettingsGroup(tint: tint, footer: L10n.Settings.replayIntroFooter) {
+        SettingsGroup(tint: tint) {
             SettingsButtonRow(icon: "play.circle", title: L10n.Settings.replayIntro,
-                              tint: .aviationGold, showsChevron: false) {
+                              subtitle: L10n.Settings.replayIntroFooter, tint: .aviationGold, showsChevron: false) {
                 appState.replayOnboarding()
             }
+            // Beside the introduction (D5): the app flown on the ground, through the real Cockpit. (6.4.0)
+            SettingsButtonRow(icon: "airplane.circle", title: L10n.DryRun.settingsRow,
+                              subtitle: L10n.DryRun.settingsRowSubtitle, tint: .aviationGold, showsChevron: false) {
+                DryRunCenter.shared.requestStart()
+            }
+            .disabled(appState.isFlightActive)
         }
     }
 
@@ -319,21 +324,6 @@ struct AboutSettingsView: View {
                         await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
                     }
                 }
-
-                #if DEBUG
-                // The dry run's world before free practice gives it an entry of its own (6.4.0, PR 5):
-                // circuits at LSZQ at 4×, a touch-and-go, a go-around, then full stops. END FLIGHT, or
-                // abandoning the flight, ends it.
-                SettingsButtonRow(icon: "airplane.circle", title: "Dry run: circuits at LSZQ (4×)",
-                                  tint: tint, showsChevron: false) {
-                    Task {
-                        await DryRunCenter.shared.beginCircuits(at: .lszq, settings: appState.settings,
-                                                                airports: airportDataService,
-                                                                isFlightActive: appState.isFlightActive, rate: 4,
-                                                                landings: [.touchAndGo, .goAround])
-                    }
-                }
-                #endif
 
                 // Temporary: fire a sample detected event so the restyled confirmation prompt can be
                 // verified without flying a pattern.

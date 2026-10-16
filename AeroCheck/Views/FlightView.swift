@@ -2212,6 +2212,7 @@ struct FlightInfoSheet: View {
     @State private var confirmAbandonFlight = false
     @ObservedObject private var companion = CompanionConnectivityManager.shared
     @Environment(\.isDryRun) private var isDryRun
+    @Environment(\.dryRunSession) private var dryRunSession
     @Environment(\.dismiss) var dismiss
     @State private var detent: PresentationDetent = .large  // open extended
 
@@ -2257,6 +2258,24 @@ struct FlightInfoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
+                    // A dry run's controls first, at the top: on the iPhone its band has no room for them
+                    // (D4), and End is here on both. (6.4.0)
+                    if let dryRunSession {
+                        settingsCard(title: L10n.DryRun.band) {
+                            DryRunControls(session: dryRunSession, height: 44, stacked: true)
+                            rowDivider
+                            Button(role: .destructive) {
+                                dismiss()
+                                dryRunSession.stop()
+                            } label: {
+                                Text(L10n.DryRun.endDryRun)
+                                    .font(.aero(size: CockpitType.label, weight: .semibold))
+                                    .foregroundColor(theme.danger)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                     // Display first: it is what the Menu is opened for, in glare or at dusk. (review B7)
                     settingsCard(title: L10n.Cockpit.display) {
                         VStack(alignment: .leading, spacing: 8) {

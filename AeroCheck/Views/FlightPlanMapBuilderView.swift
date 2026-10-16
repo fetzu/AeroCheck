@@ -38,6 +38,9 @@ struct FlightPlanMapBuilderView: View {
         span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
     )
     @State private var visibleAirports: [Airport] = []
+    /// Where this editor shows a dry run of its route: over itself (it is a cover, maybe over a flight's page,
+    /// which the app's root can't present over). (6.4.0)
+    @State private var dryRunToken = UUID().uuidString
     @State private var airportUpdateTask: Task<Void, Never>?
     @State private var visibleNavaids: [Navaid] = []
     @State private var visibleReportingPoints: [ReportingPoint] = []   // v4.1.0 ③
@@ -347,7 +350,7 @@ struct FlightPlanMapBuilderView: View {
                 //
                 // Icon-only on both sizes. A labelled variant was tried for iPad — a navigation bar
                 // renders a `Label` icon-only regardless, `.labelStyle(.titleAndIcon)` included — and
-                // it would have been the odd one out anyway beside the nav-log and export icons.
+                // it would have been the odd one out anyway beside the menu's icon.
                 // The colour carries the state: green to arm, amber to disarm, matching the buttons
                 // in the plan list.
                 ToolbarItem(placement: .primaryAction) {
@@ -358,44 +361,33 @@ struct FlightPlanMapBuilderView: View {
                     .disabled(waypoints.isEmpty)
                     .accessibilityLabel(isPlanActive ? L10n.Nav.deactivateFlightPlan : L10n.Nav.activateFlightPlan)
                 }
-                // Nav Log + Export GPX. Two surfaced icons on iPad, where there is room; folded into
-                // one overflow menu on iPhone, because Done + summary + Activate + two icons is one
-                // item too many — the principal route summary collapsed to "8 … · … · 1…". The
-                // summary is the more useful of the two, so the secondary actions give way.
-                if horizontalSizeClass == .compact {
-                    ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Button { showTableEditor = true } label: {
-                                Label(L10n.Nav.navLog, systemImage: "list.clipboard")
-                            }
-                            .disabled(waypoints.isEmpty)
-                            Button { exportGPX() } label: {
-                                Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up")
-                            }
-                            .disabled(waypoints.count < 2)
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                        .accessibilityLabel(L10n.DataStorage.rowActions)
-                    }
-                } else {
-                    ToolbarItem(placement: .primaryAction) {
+                // Nav Log, Export GPX and Fly a dry run, in one menu on both sizes (D6, 6.4.0): on the iPhone
+                // Done + summary + Activate + two icons was one item too many (the principal route summary
+                // collapsed to "8 … · … · 1…"), and the iPad's two icons had no room for a third action.
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
                         Button { showTableEditor = true } label: {
-                            Image(systemName: "list.clipboard")
+                            Label(L10n.Nav.navLog, systemImage: "list.clipboard")
                         }
                         .disabled(waypoints.isEmpty)
-                        .accessibilityLabel(L10n.Nav.navLog)
-                    }
-                    ToolbarItem(placement: .primaryAction) {
                         Button { exportGPX() } label: {
-                            Image(systemName: "square.and.arrow.up").foregroundColor(.aviationGold)
+                            Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up")
                         }
                         .disabled(waypoints.count < 2)
-                        .accessibilityLabel(L10n.Nav.exportGPX)
+                        Button {
+                            if let plan { DryRunCenter.shared.requestStart(route: plan, presenter: dryRunToken) }
+                        } label: {
+                            Label(L10n.DryRun.flyRoute, systemImage: "airplane.circle")
+                        }
+                        .disabled(waypoints.count < 2 || appState.isFlightActive)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityLabel(L10n.DataStorage.rowActions)
                 }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: focusToken)
+            .dryRunPresenter(dryRunToken)
             .alert(L10n.Nav.deactivateConfirmTitle, isPresented: $showDeactivateConfirm) {
                 Button(L10n.Button.cancel, role: .cancel) { }
                 Button(L10n.Nav.deactivate, role: .destructive) { flightPlanManager.deactivateFlightPlan() }

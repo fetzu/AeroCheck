@@ -154,13 +154,11 @@ final class DryRunGuidedTests: XCTestCase {
             let first = DryRunChapters.steps.first { $0.chapter == chapter && $0.requires == .always && $0.screen == .cockpit }
             XCTAssertEqual(coach.step?.id, first?.id, "chapter \(chapter) opens on its first step")
             XCTAssertNotNil(flight.session.storyThread, "chapter \(chapter): its flight planned, as for the Plan part")
-            // After the go-around the app starts the checks again at the climb check, and the landing passes
-            // over the cruise, descent and approach checks of that lap: the app's rule for any landing, which
-            // keeps them, deferred (a question for the author, device checks r641).
-            let lap: Set<ChecklistPhase> = chapter == 7 ? [.cruise, .descent, .approach] : []
+            // The go-around where the flight is going took up circuits: no cruise or descent check on that
+            // lap, so none passed over and deferred at the landing (the author, st-14).
             XCTAssertEqual(flight.appState.deferredItemCount, 0, "chapter \(chapter): nothing deferred on the way")
-            XCTAssertTrue(Set(flight.appState.deferredChecks).isSubset(of: lap),
-                          "chapter \(chapter): \(flight.appState.deferredChecks)")
+            XCTAssertEqual(flight.appState.deferredChecks, [], "chapter \(chapter)")
+            if chapter == 7 { XCTAssertTrue(flight.appState.isCircuitMode, "circuits from the go-around on") }
             XCTAssertNil(flight.world.detector.pendingGoAround, "nothing asked on the way")
             XCTAssertNil(flight.appState.landedCard)
             if coach.step?.holds == true {

@@ -1208,6 +1208,7 @@ class LocationManager: NSObject, ObservableObject {
             // The approach check is due 5 NM from where the flight is going: its own route's end, or the
             // aerodrome it diverted to. Only the flight's own plan, as for the ATOs. (6.1, cues)
             detector.cueDestination = cueDestination(of: appState)
+            appState.routeDestination = detector.cueDestination
             detector.processLocation(location, nearbyAirports: nearbyAirports, baroSample: barometer.currentSample)
             // A field to anchor the take-off to: the cues will time the checks from the first roll on, so
             // the climb check waits for 500 ft rather than show due on the runway. (6.1.0)
@@ -1270,6 +1271,7 @@ class LocationManager: NSObject, ObservableObject {
             hasNotifiedTakeoffTime = true
         }
         detector.cueDestination = cueDestination(of: appState)
+        appState.routeDestination = detector.cueDestination
         let engineStart = appState.engineStartTime ?? appState.currentFlight?.engineStartTime
         var lastFed: Date?
         for point in track.sorted(by: { $0.timestamp < $1.timestamp }) where point.timestamp < now {

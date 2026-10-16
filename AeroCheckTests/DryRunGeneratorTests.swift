@@ -172,6 +172,120 @@ final class DryRunGeneratorTests: XCTestCase {
         }
     }
 
+    // MARK: - The published circuit
+
+    /// LSZQ's circuit as open flightmaps draws it, read leg by leg: on along the runway past its far end, the
+    /// crosswind to the north, the downwind, the base, the final (its corner included).
+    func testLSZQsCircuitLegsAreReadFromItsLine() {
+        XCTAssertEqual(DryRunAerodrome.lszq.circuitLegs,
+                       [.upwind, .upwind, .crosswind, .downwind, .downwind, .downwind, .base, .final, .final])
+    }
+
+    /// Circuits at LSZQ follow the circuit open flightmaps draws (the author's device check g-7, 16 Oct: "it
+    /// should enter the downwind and follow the pattern"): once a leg has begun, the aircraft is never more than
+    /// 200 m off the line (about 110 on the iPad's seeds), the turns begun before their corners as a pilot
+    /// begins them.
+    func testCircuitsAtLSZQFollowThePublishedLine() {
+        let lszq = DryRunAerodrome.lszq
+        for seed in UInt64(1)...4 {
+            let track = flownTrack(DryRunGenerator(departure: lszq, mission: .circuits, seed: seed))
+            let onLegs = track.filter { [.downwind, .base, .crosswind].contains($0.activity) && $0.intoActivity >= 15 }
+            XCTAssertGreaterThan(onLegs.count, 100, "seed \(seed)")
+            let worst = onLegs.map { offLine($0.coordinate, lszq.circuitLine) }.max() ?? 0
+            XCTAssertLessThan(worst, 200, "seed \(seed)")
+        }
+    }
+
+    /// From the east, the aircraft comes home by LSZQ's ARR SECTOR EAST: past its points off the circuit, onto
+    /// the circuit at the crosswind, then the downwind as drawn, and the full stop seen at LSZQ.
+    func testARouteComesHomeByThePublishedArrivalOnItsSide() {
+        let lszq = DryRunAerodrome.lszq
+        let east = CLLocationCoordinate2D(latitude: 47.36, longitude: 7.25)
+        let generator = DryRunGenerator(departure: lszq,
+                                        mission: .route(waypoints: [east], destination: lszq, cruiseAltitudeFt: 4400),
+                                        seed: 5)
+        let track = flownTrack(generator)
+        for point in lszq.arrivals[0].line[0...2] {
+            XCTAssertLessThan(track.map { DryRunGeo.distance($0.coordinate, point) }.min() ?? .infinity, 400)
+        }
+        let joining = track.firstIndex { $0.activity == .joining }
+        let downwind = track.firstIndex { $0.activity == .downwind }
+        XCTAssertNotNil(joining)
+        XCTAssertLessThan(joining ?? .max, downwind ?? -1, "joined, then the downwind")
+        let flown = fly(DryRunGenerator(departure: lszq,
+                                        mission: .route(waypoints: [east], destination: lszq, cruiseAltitudeFt: 4400),
+                                        seed: 5), destination: lszq.reference)
+        XCTAssertEqual(flown.events.map(\.type), [.fullStop])
+        XCTAssertEqual(flown.events.first?.airportIdent, "LSZQ")
+    }
+
+    /// Without a published arrival, the downwind is joined at 45° from 1 NM outside the circuit.
+    func testWithoutAnArrivalTheDownwindIsJoinedAt45Degrees() throws {
+        var lszq = DryRunAerodrome.lszq
+        lszq.arrivals = []
+        let join = try XCTUnwrap(lszq.joinFromOutside)
+        let start = lszq.circuitLine[join.index]
+        XCTAssertEqual(DryRunGeo.distance(join.entry, start) / DryRunGeo.metresPerNM, 1, accuracy: 0.01)
+        XCTAssertGreaterThan(DryRunGeo.distance(join.entry, lszq.runwayCentre), DryRunGeo.distance(start, lszq.runwayCentre),
+                             "outside the circuit")
+        let east = CLLocationCoordinate2D(latitude: 47.36, longitude: 7.25)
+        let track = flownTrack(DryRunGenerator(departure: lszq,
+                                               mission: .route(waypoints: [east], destination: lszq, cruiseAltitudeFt: 4400),
+                                               seed: 8))
+        XCTAssertLessThan(track.map { DryRunGeo.distance($0.coordinate, join.entry) }.min() ?? .infinity, 400)
+    }
+
+    /// A published departure toward the route is flown before its legs.
+    func testAPublishedDepartureIsFlownTowardTheRoute() {
+        var lszq = DryRunAerodrome.lszq
+        let exit = CLLocationCoordinate2D(latitude: 47.43, longitude: 7.09)
+        lszq.departures = [.init(name: "DEP NE",
+                                 line: [lszq.farEnd, CLLocationCoordinate2D(latitude: 47.41, longitude: 7.07), exit],
+                                 offCircuit: 1...2)]
+        let far = CLLocationCoordinate2D(latitude: 47.55, longitude: 7.30)
+        let generator = DryRunGenerator(departure: lszq,
+                                        mission: .route(waypoints: [far], destination: .lszq, cruiseAltitudeFt: 4400),
+                                        seed: 6)
+        let track = flownTrack(generator, until: { $0.mark("wp1") != nil })
+        XCTAssertLessThan(track.map { DryRunGeo.distance($0.coordinate, exit) }.min() ?? .infinity, 400)
+    }
+
+    // MARK: - The track
+
+    private struct Point {
+        let coordinate: CLLocationCoordinate2D
+        let activity: DryRunGenerator.Activity
+        /// Seconds since the activity began.
+        let intoActivity: Int
+    }
+
+    /// The generator's fixes to the end (or `until`), each with what the aircraft was doing.
+    private func flownTrack(_ generator: DryRunGenerator,
+                            until done: (DryRunGenerator) -> Bool = { $0.isParkedForGood }) -> [Point] {
+        var track: [Point] = []
+        for _ in 0..<(3 * 3600) where !done(generator) {
+            let fix = generator.nextFix()
+            track.append(Point(coordinate: fix.coordinate, activity: generator.activity,
+                               intoActivity: generator.t - generator.activitySince))
+        }
+        return track
+    }
+
+    /// Metres from `point` to the nearest segment of `line` (a local flat projection, plenty for a circuit).
+    private func offLine(_ point: CLLocationCoordinate2D, _ line: [CLLocationCoordinate2D]) -> Double {
+        let metresPerDegree = 111_320.0
+        let k = cos(point.latitude * .pi / 180)
+        func xy(_ c: CLLocationCoordinate2D) -> (Double, Double) {
+            ((c.longitude - point.longitude) * metresPerDegree * k, (c.latitude - point.latitude) * metresPerDegree)
+        }
+        return zip(line, line.dropFirst()).map { a, b -> Double in
+            let (ax, ay) = xy(a), (bx, by) = xy(b)
+            let dx = bx - ax, dy = by - ay
+            let t = max(0, min(1, -(ax * dx + ay * dy) / max(dx * dx + dy * dy, 1)))
+            return hypot(ax + t * dx, ay + t * dy)
+        }.min() ?? .infinity
+    }
+
     // MARK: - The referee
 
     private struct Flown {

@@ -5673,23 +5673,6 @@
         }
       }
     },
-    "dryRunCoach.turningPoint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Turning point"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Point de virage"
-          }
-        }
-      }
-    },
     "dryRunCoach.flightName": {
       "extractionState": "manual",
       "localizations": {
@@ -5924,6 +5907,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les chapitres un par un"
+          }
+        }
+      }
+    },
+    "dryRunCoach.turningPointNumber": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turning point %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de virage %lld"
           }
         }
       }

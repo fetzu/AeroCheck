@@ -159,6 +159,8 @@ final class DryRunGenerator {
     private var cruiseAltitudeFt = 0.0
     private var enRoutePrevious: Double?
     private var descending = false
+    /// The destination's way in, chosen as the arrival begins.
+    private var wayIn: (points: [CLLocationCoordinate2D], legs: [DryRunAerodrome.Leg?])?
 
     // The aircraft, as it really is (feet, knots, degrees true).
     private var position: CLLocationCoordinate2D
@@ -199,6 +201,7 @@ final class DryRunGenerator {
     func directTo(waypointAt index: Int) {
         legIndex = min(max(0, index), waypoints.count)
         enRoutePrevious = nil
+        wayIn = nil
     }
 
     /// A divert: straight to `field`'s circuit, the rest of the route left; in the air at once, on the
@@ -209,6 +212,7 @@ final class DryRunGenerator {
         legIndex = 0
         enRoutePrevious = nil
         descending = false
+        wayIn = nil
         if isAirborne { actions = [.enRoute] }
     }
 
@@ -219,6 +223,7 @@ final class DryRunGenerator {
         legIndex = min(max(0, index), points.count)
         enRoutePrevious = nil
         descending = false
+        wayIn = nil
         if isAirborne { actions = [.enRoute] }
     }
 
@@ -256,6 +261,38 @@ final class DryRunGenerator {
         }
     }
 
+    /// A line flown point after point, each turn begun before its point as a pilot begins it: the circuit as
+    /// drawn, the way into it (a published arrival, or a 45° join to the downwind), a published departure.
+    /// (6.4.0, the published circuit: the author's device check g-7, "it should enter the downwind and follow
+    /// the pattern".)
+    private struct Line {
+        enum Kind: Equatable {
+            case circuit
+            case departure(cruiseFt: Double)
+        }
+
+        var points: [CLLocationCoordinate2D]
+        /// Each segment's leg of the circuit, `points[i]` to `points[i + 1]`; nil where the line isn't the
+        /// circuit (yet).
+        var legs: [DryRunAerodrome.Leg?]
+        var kind: Kind
+        /// The height above the field the base comes down to, feet: a 3° final from where the final begins.
+        var baseHeightFt: Double
+        /// The point flown to, along the segment from `points[index - 1]`.
+        var index = 1
+        /// The leg last noted (its mark, the activity), none yet.
+        var noted: DryRunAerodrome.Leg?? = .none
+
+        static func circuit(_ points: [CLLocationCoordinate2D], legs: [DryRunAerodrome.Leg?]) -> Line {
+            var finalM = 0.0
+            for (i, leg) in legs.enumerated() where leg == .final {
+                finalM += DryRunGeo.distance(points[i], points[i + 1])
+            }
+            let height = finalM * tan(3 * Double.pi / 180) / DryRunGeo.metresPerFoot
+            return Line(points: points, legs: legs, kind: .circuit, baseHeightFt: min(700, max(300, height)))
+        }
+    }
+
     private enum Action {
         case hold(Hold)
         case park(Int)
@@ -275,7 +312,9 @@ final class DryRunGenerator {
         case mark(String)
         case alignWithRunway
         case afterTakeOff
-        case circuit(upwind: Bool)
+        /// The circuit from its start (the runway's far end): its line flown to the final.
+        case circuit
+        case followLine(Line)
         case onFinal
         case afterTouchdown(Landing)
         case vacate
@@ -357,7 +396,7 @@ final class DryRunGenerator {
                 if landing == .goAround {
                     actions.insert(contentsOf: [.mark("goAround"),
                                               .steps(count: 25, speed: performance.vy, accel: 1.5, verticalSpeed: 650),
-                                              .circuit(upwind: true)], at: 0)
+                                              .circuit], at: 0)
                 } else {
                     actions.insert(.final(landing), at: 0)
                 }
@@ -399,7 +438,7 @@ final class DryRunGenerator {
                 actions.insert(contentsOf: [.hold(.lineUp), .mark("takeoffRoll"), .roll(toSpeed: performance.vr + 6),
                                           .mark("liftoff"),
                                           .steps(count: 20, speed: performance.vy, accel: 1.2, verticalSpeed: 550),
-                                          .circuit(upwind: true)], at: 0)
+                                          .circuit], at: 0)
             case .vacate:
                 actions.insert(.vacate, at: 0)
             }
@@ -426,40 +465,33 @@ final class DryRunGenerator {
         case .afterTakeOff:
             actions.removeFirst()
             if destination == nil {
-                // Circuits: straight on to 500 ft above the field, then the crosswind.
-                actions.insert(contentsOf: [.climb(toFt: field.elevationFt + 500, speed: performance.vy,
-                                                 toward: field.point(along: field.runwayLengthM / 2 + 2 * DryRunGeo.metresPerNM)),
-                                          .mark("levelOff"), .circuit(upwind: true)], at: 0)
+                // Circuits: on along the circuit's upwind, climbing to its altitude; the turn onto the crosswind
+                // begins about 500 ft above the field, where the upwind ends.
+                actions.insert(.circuit, at: 0)
             } else {
-                // A route: straight on to 800 ft above the field, then the legs, climbing to the cruise.
-                actions.insert(contentsOf: [.climb(toFt: field.elevationFt + 800, speed: performance.vy,
-                                                 toward: field.point(along: field.runwayLengthM / 2 + 1.5 * DryRunGeo.metresPerNM)),
-                                          .enRoute], at: 0)
+                // A route: straight on to 800 ft above the field, then the published departure toward the
+                // route's first point if there is one, then the legs, climbing to the cruise.
+                var next: [Action] = [.climb(toFt: field.elevationFt + 800, speed: performance.vy,
+                                             toward: field.point(along: field.runwayLengthM / 2 + 1.5 * DryRunGeo.metresPerNM))]
+                if let first = waypoints.first ?? destination?.reference,
+                   let departure = field.departure(toward: DryRunGeo.bearing(from: field.reference, to: first)),
+                   departure.line.count >= 2 {
+                    next.append(.followLine(Line(points: departure.line,
+                                                 legs: Array(repeating: nil, count: departure.line.count - 1),
+                                                 kind: .departure(cruiseFt: cruiseAltitudeFt), baseHeightFt: 0)))
+                }
+                next.append(.enRoute)
+                actions.insert(contentsOf: next, at: 0)
             }
             return nil
 
-        case .circuit(let upwind):
+        case .circuit:
             actions.removeFirst()
-            let pattern = field.patternAltitudeFt
-            var legs: [Action] = []
-            if upwind {
-                legs += [.doing(.upwind),
-                         .goTo(GoTo(point: field.crosswindPoint, speed: performance.vy, altitudeFt: pattern,
-                                    verticalSpeed: 650)),
-                         .doing(.crosswind)]
-            } else {
-                legs.append(.doing(.joining))
-            }
-            legs += [.goTo(GoTo(point: field.downwindStart, speed: performance.downwind, altitudeFt: pattern,
-                                verticalSpeed: 650)),
-                     .mark("downwind"),
-                     .goTo(GoTo(point: field.downwindEnd, speed: performance.downwind, altitudeFt: pattern)),
-                     .goTo(GoTo(point: field.basePoint, speed: performance.base, altitudeFt: field.elevationFt + 650)),
-                     .mark("base"),
-                     .goTo(GoTo(point: field.finalPoint, speed: performance.finalApproach, altitudeFt: field.elevationFt + 450)),
-                     .mark("final"), .onFinal]
-            actions.insert(contentsOf: legs, at: 0)
+            actions.insert(.followLine(.circuit(field.circuitLine, legs: field.circuitLegs.map(Optional.some))), at: 0)
             return nil
+
+        case .followLine(var line):
+            return followLine(&line, field: field)
 
         case .onFinal:
             actions.removeFirst()
@@ -473,7 +505,7 @@ final class DryRunGenerator {
                 actions.insert(contentsOf: [.mark("touchAndGo"), .steps(count: 12, speed: performance.vr + 2, accel: 1.2, verticalSpeed: 0),
                                           .roll(toSpeed: performance.vr + 8), .mark("liftoff"),
                                           .steps(count: 20, speed: performance.vy, accel: 1.2, verticalSpeed: 550),
-                                          .circuit(upwind: true)], at: 0)
+                                          .circuit], at: 0)
             } else {
                 actions.insert(contentsOf: [.brake, .mark("stopped"), .afterFullStop], at: 0)
             }
@@ -493,12 +525,15 @@ final class DryRunGenerator {
         }
     }
 
-    /// The legs at the cruise, then the destination's circuit, joined at the start of its downwind: down to
-    /// its altitude from 9 NM out, so the descent comes well before the approach.
+    /// The legs at the cruise, then the destination's way in (its published arrival, or a 45° join to its
+    /// downwind) and its circuit: down to its altitude from 9 NM before the way in, so the descent comes well
+    /// before the approach.
     private func flyEnRoute() -> DryRunFix? {
         guard let field = destination else { actions.removeFirst(); return nil }
         let arriving = legIndex >= waypoints.count
-        let target = arriving ? field.downwindStart : waypoints[legIndex]
+        // The way in, chosen as the arrival begins: the published arrival from the side it comes from.
+        if arriving, wayIn == nil { wayIn = field.wayIn(from: position) }
+        let target = arriving ? wayIn?.points.first ?? field.downwindStart : waypoints[legIndex]
         let d = DryRunGeo.distance(position, target)
         if arriving, d <= 9 * DryRunGeo.metresPerNM, !descending {
             descending = true
@@ -514,7 +549,12 @@ final class DryRunGenerator {
                 aerodrome = field
                 destination = nil
                 descending = false
-                actions.insert(.circuit(upwind: false), at: 0)
+                if let way = wayIn {
+                    actions.insert(.followLine(.circuit(way.points, legs: way.legs)), at: 0)
+                } else {
+                    actions.insert(.circuit, at: 0)
+                }
+                wayIn = nil
             } else {
                 legIndex += 1
                 marks.append(("wp\(legIndex)", t))
@@ -528,6 +568,101 @@ final class DryRunGenerator {
         let verticalSpeed = max(-maxVerticalSpeed, min(maxVerticalSpeed, gap * 6))
         return step(speed: !descending && gap > 50 ? performance.vy : speed, verticalSpeed: verticalSpeed,
                     heading: DryRunGeo.bearing(from: position, to: target))
+    }
+
+    /// A second along `line`, steered as a pilot follows a line on a chart: toward the point a turn's radius
+    /// ahead along it (pure pursuit), so each turn begins before its corner, however the corner is drawn (open
+    /// flightmaps draws most with two points). The segment it is on is the first whose end it hasn't passed;
+    /// the final is handed to the final's own action.
+    private func followLine(_ line: inout Line, field: DryRunAerodrome) -> DryRunFix? {
+        while line.index < line.points.count,
+              Self.fraction(of: position, along: line.points[line.index - 1], line.points[line.index]) >= 1 {
+            line.index += 1
+        }
+        guard line.index < line.points.count else {
+            actions.removeFirst()
+            return nil
+        }
+        let leg = line.legs[line.index - 1]
+        if leg == .final, line.kind == .circuit {
+            // The final is the final's own: down to the runway, the pilot's choice at 250 ft.
+            actions.removeFirst()
+            actions.insert(contentsOf: [.mark("final"), .onFinal], at: 0)
+            return nil
+        }
+        if line.noted != .some(leg) {
+            line.noted = .some(leg)
+            switch leg {
+            case nil: set(line.kind == .circuit ? .joining : .climbing)
+            case .upwind?: set(.upwind)
+            case .crosswind?: set(.crosswind)
+            case .downwind?:
+                marks.append(("downwind", t))
+                set(.downwind)
+            case .base?:
+                marks.append(("base", t))
+                set(.base)
+            case .final?: break
+            }
+        }
+        actions[0] = .followLine(line)
+        // A circuit's turns at a circuit's bank (25 to 30°, about 4.5° a second at its speeds); a departure's
+        // at rate one. The turn's radius at that rate and the speed flown.
+        let turnRate = line.kind == .circuit ? 4.5 : 3
+        let radius = max(speedKt, 40) * DryRunGeo.metresPerSecondPerKnot / (turnRate * Double.pi / 180)
+        let target = Self.point(ahead: max(250, 0.8 * radius), of: position, on: line.points, from: line.index)
+        let pattern = field.patternAltitudeFt
+        var speed = performance.downwind
+        var altitude = pattern
+        var maxVerticalSpeed = 650.0
+        switch line.kind {
+        case .departure(let cruise):
+            speed = performance.vy
+            altitude = cruise
+            maxVerticalSpeed = 700
+        case .circuit:
+            switch leg {
+            case nil: maxVerticalSpeed = 550
+            case .upwind?, .crosswind?: if altitudeFt < pattern - 50 { speed = performance.vy }
+            case .downwind?: break
+            case .base?, .final?:
+                speed = performance.base
+                altitude = field.elevationFt + line.baseHeightFt
+                maxVerticalSpeed = 700
+            }
+        }
+        let verticalSpeed = max(-maxVerticalSpeed, min(maxVerticalSpeed, (altitude - altitudeFt) * 6))
+        return step(speed: speed, verticalSpeed: verticalSpeed, heading: DryRunGeo.bearing(from: position, to: target),
+                    turnRate: turnRate)
+    }
+
+    /// How far along `a`→`b` `point` is abeam: 0 at `a`, 1 at `b` (a local flat projection, plenty within a
+    /// circuit).
+    private static func fraction(of point: CLLocationCoordinate2D, along a: CLLocationCoordinate2D,
+                                 _ b: CLLocationCoordinate2D) -> Double {
+        let k = cos(a.latitude * .pi / 180)
+        let bx = (b.longitude - a.longitude) * k, by = b.latitude - a.latitude
+        let px = (point.longitude - a.longitude) * k, py = point.latitude - a.latitude
+        let length = bx * bx + by * by
+        return length > 0 ? (px * bx + py * by) / length : 1
+    }
+
+    /// The point `distance` metres along `points` beyond where `position` is abeam on the segment ending at
+    /// `points[index]`; the line's end when it is nearer.
+    private static func point(ahead distance: Double, of position: CLLocationCoordinate2D,
+                              on points: [CLLocationCoordinate2D], from index: Int) -> CLLocationCoordinate2D {
+        let a = points[index - 1], b = points[index]
+        let t = max(0, min(1, fraction(of: position, along: a, b)))
+        var from = CLLocationCoordinate2D(latitude: a.latitude + (b.latitude - a.latitude) * t,
+                                          longitude: a.longitude + (b.longitude - a.longitude) * t)
+        var remaining = distance
+        for next in points[index...] {
+            let d = DryRunGeo.distance(from, next)
+            if d >= remaining { return DryRunGeo.destination(from: from, bearing: DryRunGeo.bearing(from: from, to: next), distance: remaining) }
+            remaining -= d
+            from = next
+        }
+        return points[points.count - 1]
     }
 
     private func set(_ doing: Activity) {

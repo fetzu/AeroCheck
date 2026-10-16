@@ -15,17 +15,27 @@ final class DryRunGuidedTests: XCTestCase {
 
     // MARK: - The route and the steps
 
-    func testTheGuidedRouteGoesOutToATurningPointAndBack() {
-        let plan = DryRunChapters.route(from: .lszq)
-        XCTAssertEqual(plan.waypoints.count, 3)
+    /// The guided route from LSZQ (the proposal's Q8): a triangle, straight out to the first turning point 6 NM
+    /// ahead of runway 07, the second 2.5 NM outside where ARR SECTOR EAST begins, home by that arrival, which
+    /// joins the circuit before its downwind; both points at 1,500 ft over the circuit.
+    func testTheGuidedRouteIsATriangleHomeByThePublishedArrival() {
+        let lszq = DryRunAerodrome.lszq
+        let plan = DryRunChapters.route(from: lszq)
+        XCTAssertEqual(plan.waypoints.count, 4)
         XCTAssertEqual(plan.waypoints.map { DryRunSetup.aerodromeIdent(of: $0) }.first, "LSZQ")
         XCTAssertEqual(plan.waypoints.map { DryRunSetup.aerodromeIdent(of: $0) }.last, "LSZQ")
-        XCTAssertEqual(Set(plan.waypoints.map(\.id)).count, 3, "three waypoints of their own")
-        let turn = CLLocationCoordinate2D(latitude: plan.waypoints[1].latitude, longitude: plan.waypoints[1].longitude)
-        XCTAssertEqual(DryRunGeo.distance(DryRunAerodrome.lszq.reference, turn) / DryRunGeo.metresPerNM, 8, accuracy: 0.1)
-        XCTAssertEqual(plan.waypoints[1].altitude, DryRunAerodrome.lszq.patternAltitudeFt + 1500)
-        // Away from the circuit's side (LSZQ's is to the north, on the left of 07).
-        XCTAssertLessThan(turn.latitude, DryRunAerodrome.lszq.reference.latitude)
+        XCTAssertEqual(Set(plan.waypoints.map(\.id)).count, 4, "four waypoints of their own")
+        func point(_ i: Int) -> CLLocationCoordinate2D {
+            CLLocationCoordinate2D(latitude: plan.waypoints[i].latitude, longitude: plan.waypoints[i].longitude)
+        }
+        XCTAssertEqual(DryRunGeo.distance(lszq.reference, point(1)) / DryRunGeo.metresPerNM, 6, accuracy: 0.1)
+        XCTAssertEqual(DryRunGeo.bearing(from: lszq.reference, to: point(1)), lszq.runwayHeading, accuracy: 1, "straight out")
+        let east = lszq.arrivals[0].line[0]
+        XCTAssertEqual(DryRunGeo.distance(east, point(2)) / DryRunGeo.metresPerNM, 2.5, accuracy: 0.1)
+        XCTAssertGreaterThanOrEqual(DryRunGeo.distance(point(1), point(2)) / DryRunGeo.metresPerNM, 2.5)
+        XCTAssertEqual(plan.waypoints[1].altitude, lszq.patternAltitudeFt + 1500)
+        XCTAssertEqual(plan.waypoints[2].altitude, lszq.patternAltitudeFt + 1500)
+        XCTAssertEqual(lszq.guidedEntry.point.latitude, east.latitude, accuracy: 1e-9, "ARR SECTOR EAST, before the downwind")
     }
 
     func testTheStepsGoThroughTheSevenChaptersInOrder() {

@@ -108,6 +108,27 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertNil(plan.next)
     }
 
+    /// A local flight from Bressaucourt and back, out of its circuit (the author's dry run checks, st-12, and
+    /// 17 Oct): the field is NOW; NEXT is the area's Info, before any CTR around that the route doesn't enter.
+    func testALocalFlightOutOfTheCircuitHasTheCTROrTheInfoNext() {
+        var local = FlightPlan(name: "Triangle", waypoints: [
+            Self.waypoint("LSZQ"),
+            FlightPlanWaypoint(name: "TP1", coordinate: .init(latitude: 47.42, longitude: 7.17)),
+            FlightPlanWaypoint(name: "TP2", coordinate: .init(latitude: 47.33, longitude: 7.12)),
+            Self.waypoint("LSZQ")])
+        local.currentWaypointIndex = 1
+        let plan = PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: Self.world.sources)
+        XCTAssertEqual(plan.current, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertEqual(plan.next, .init(station: "Zürich Info", freq: "124.700"), "the Swiss split's, at Bressaucourt")
+        var world = Self.world
+        world.ctrs = [(station: "GRENCHEN", frequency: "120.100")]
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: world.sources).next?.station,
+                       "Zürich Info", "the area's Info, not a CTR the route doesn't enter")
+        world.fisSectors = { _ in [.init(station: "BALE INFORMATION", freq: "130.900")] }
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: world.sources).next,
+                       .init(station: "BALE INFORMATION", freq: "130.900"), "the data's sector at Bressaucourt: Bâle")
+    }
+
     func testThePanelListsEachStationOnceEmergencyLast() {
         var world = Self.world
         world.ctrs = [(station: "GRENCHEN", frequency: "120.100"), (station: "BERN", frequency: "121.025")]
@@ -364,6 +385,7 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         var fields: [String: Field]
         var ctrs: [(station: String, frequency: String?)] = []
         var hasAirportData = true
+        var fisSectors: (CLLocationCoordinate2D) -> [PhaseFrequencyPlanner.Entry] = { _ in [] }
 
         var sources: PhaseFrequencyPlanner.Sources {
             let fields = self.fields
@@ -382,7 +404,8 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                         .map { PhaseFrequencyPlanner.Field(ident: $0.ident, coordinate: $0.coordinate) }
                 },
                 fieldFrequencies: { ident in fields[ident.uppercased()]?.frequencies ?? [] },
-                nearbyCTRs: { _ in ctrs })
+                nearbyCTRs: { _ in ctrs },
+                fisSectors: fisSectors)
         }
     }
 

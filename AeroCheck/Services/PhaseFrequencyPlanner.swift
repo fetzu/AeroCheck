@@ -62,6 +62,9 @@ enum PhaseFrequencyPlanner {
 
     /// Within this of a field, the field is NOW (about the size of a CTR or an RMZ).
     static let nearFieldNM = 10.0
+    /// A route with a waypoint this far from the field it starts at leaves its circuit (the circuit cue's
+    /// 3 NM, `FlightCueTracker.circuitNm`).
+    static let circuitRadiusNM = 3.0
     static let nearestFieldLimit = 6
     static let nearestFieldRadiusNM = 40.0
     static let ctrRadiusNM = 25.0
@@ -141,6 +144,19 @@ enum PhaseFrequencyPlanner {
                                                longitude: field.coordinate.longitude)) / 1852.0
             } else {
                 nearDistanceNM = nil
+            }
+        }
+
+        /// Whether a waypoint from the one flown to on lies beyond `circuitRadiusNM` of the field the
+        /// aircraft is near (of the aircraft, away from any).
+        func leavesTheCircuit(_ plan: FlightPlan, from index: Int) -> Bool {
+            guard let centre = nearField?.coordinate ?? position else { return false }
+            let here = CLLocation(latitude: centre.latitude, longitude: centre.longitude)
+            return plan.waypoints.indices.contains { i in
+                guard i >= index else { return false }
+                let point = plan.waypoints[i].coordinate
+                return here.distance(from: CLLocation(latitude: point.latitude, longitude: point.longitude)) / 1852
+                    > PhaseFrequencyPlanner.circuitRadiusNM
             }
         }
 
@@ -248,7 +264,17 @@ enum PhaseFrequencyPlanner {
                 } else if let ahead = plan.waypoints.indices.first(where: {
                     $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty
                 }) {
-                    next = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[ahead]))
+                    let field = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[ahead]))
+                    // A local flight back to the field it is at: that field is NOW, not NEXT. Once the route
+                    // leaves the circuit, NEXT is the area's Info, the station called once out of the field's
+                    // zone (at Bressaucourt, Bâle Information, not Grenchen's CTR 22 NM off the route); a CTR
+                    // around only where no Info is known. Circuits flown on a plan keep none. (6.4.0, the
+                    // author's dry run checks, st-12 and 17 Oct)
+                    if field != current || !leavesTheCircuit(plan, from: index) {
+                        next = field
+                    } else if let fisEntry, fisEntry != current {
+                        next = fisEntry
+                    }
                 }
             }
             if next == nil, let ctr = ctrs.first, let frequency = ctr.frequency {

@@ -4755,23 +4755,6 @@
         }
       }
     },
-    "dryRunCoach.settingsGuidedSubtitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seven short chapters with a coach, from the aircraft to END FLIGHT. About 10 minutes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sept courts chapitres avec un guide, de l'avion à TERMINER LE VOL. Environ 10 minutes."
-          }
-        }
-      }
-    },
     "dryRunCoach.step.airborne.body": {
       "extractionState": "manual",
       "localizations": {
@@ -7097,40 +7080,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Faire mon premier vol au sol"
-          }
-        }
-      }
-    },
-    "dryRunCoach.settingsGuided": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your first flight, guided"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre premier vol, guidé"
-          }
-        }
-      }
-    },
-    "dryRunCoach.chaptersRow": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The chapters one by one"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les chapitres un par un"
           }
         }
       }

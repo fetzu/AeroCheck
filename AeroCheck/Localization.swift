@@ -3599,9 +3599,6 @@ enum L10n {
         static let todayStart = String(localized: "dryRunCoach.todayStart")
         static let todayNotNow = String(localized: "dryRunCoach.todayNotNow")
         static let onboardingFly = String(localized: "dryRunCoach.onboardingFly")
-        static let settingsGuided = String(localized: "dryRunCoach.settingsGuided")
-        static let settingsGuidedSubtitle = String(localized: "dryRunCoach.settingsGuidedSubtitle")
-        static let chaptersRow = String(localized: "dryRunCoach.chaptersRow")
         static let chaptersFooter = String(localized: "dryRunCoach.chaptersFooter")
 
         /// The steps' words, by the step's id (`DryRunChapters.steps`).

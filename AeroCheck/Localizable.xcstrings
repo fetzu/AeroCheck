@@ -4789,6 +4789,57 @@
         }
       }
     },
+    "dryRunCoach.step.approachAgain.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On a circuit it comes on the downwind: its button has the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En tour de piste, elle vient en vent arrière : son bouton est entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.approachAgain.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The approach check, again"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification d'approche, à nouveau"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.approachAgain.upcoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the approach check, on the downwind"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la vérification d'approche, en vent arrière"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.approachCheck.body": {
       "extractionState": "manual",
       "localizations": {
@@ -4948,13 +4999,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After a go-around the app starts the checks again at the climb check. Do it on the way round."
+            "value": "After a go-around where the flight was going, the app flies it as a circuit: the climb check again, then the approach check on the downwind, no cruise or descent check. Do the climb check on the way round."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Après une remise de gaz, l'app reprend les vérifications à celle de montée. Faites-la pendant le tour de piste."
+            "value": "Après une remise de gaz là où le vol allait, l'app le vole comme un tour de piste : la vérification de montée à nouveau, puis celle d'approche en vent arrière, ni croisière ni descente. Faites celle de montée pendant le tour."
           }
         }
       }
@@ -4982,13 +5033,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the climb check again, at 500 ft"
+            "value": "the climb check again, once climbing"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "la vérification de montée à nouveau, à 500 ft"
+            "value": "la vérification de montée à nouveau, une fois en montée"
           }
         }
       }
@@ -5679,13 +5730,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FULL STOP is lit already. The aircraft lands."
+            "value": "FULL STOP is lit already; the aircraft lands. On short final, the landing check from memory: on a circuit no card asks about it afterwards, so one tap on it records it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET est déjà allumé. L'avion se pose."
+            "value": "ARRÊT COMPLET est déjà allumé ; l'avion se pose. En courte finale, la vérification d'atterrissage de mémoire : en tour de piste, aucun encadré ne la demande ensuite, un appui l'enregistre donc."
           }
         }
       }
@@ -5866,13 +5917,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The LANDED card asks whether the landing check was done: answer it, and the after landing check opens. The aircraft then leaves the runway."
+            "value": "The app saw the full stop: CONFIRM on its card records it, and the after landing check opens. The aircraft then leaves the runway."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'encadré POSÉ demande si la vérification d'atterrissage était faite : répondez, et la vérification après l'atterrissage s'ouvre. L'avion quitte alors la piste."
+            "value": "L'app a vu l'atterrissage complet : CONFIRMER sur son encadré l'enregistre, et la vérification après l'atterrissage s'ouvre. L'avion quitte alors la piste."
           }
         }
       }
@@ -5900,13 +5951,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the LANDED card, once stopped"
+            "value": "the full stop's card, once stopped"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "l'encadré POSÉ, une fois arrêté"
+            "value": "l'encadré de l'atterrissage complet, une fois arrêté"
           }
         }
       }

@@ -327,8 +327,14 @@ enum DryRunChapters {
             S(id: "climbAgain", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.climb)), done: .checkDone(.climb), title: T.climbAgainTitle,
               body: T.climbAgainBody, upcoming: T.climbAgainUpcoming),
-            S(id: "fullStop", chapter: 6, kind: .look, target: .finalCard, veils: false, holds: true, moment: .final(2),
-              done: .next, title: T.fullStopTitle, body: T.fullStopBody),
+            // The go-around where the flight was going took up circuits (6.4.0, st-14): the approach check on
+            // the downwind, and the landing check from memory, which no card asks about after a circuit's
+            // full stop: a tap records it.
+            S(id: "approachAgain", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
+              moment: .shows(.check(.approach)), done: .checkDone(.approach), title: T.approachAgainTitle,
+              body: T.approachAgainBody, upcoming: T.approachAgainUpcoming),
+            S(id: "fullStop", chapter: 6, kind: .act, target: .first, veils: false, holds: true, moment: .final(2),
+              done: .checkDone(.landing), title: T.fullStopTitle, body: T.fullStopBody),
             S(id: "landed", chapter: 6, kind: .act, target: .landedCard, veils: false, holds: true, moment: .landedCard,
               done: .landedAnswered, title: T.landedTitle, body: T.landedBody, upcoming: T.landedUpcoming),
             // 7 · After landing
@@ -583,6 +589,8 @@ final class DryRunCoach: ObservableObject {
     /// Where the flight is: a step's moment come, a step done. Returns whether the flight should wait.
     @discardableResult
     func tick(_ session: DryRunSession) -> Bool {
+        let fullStopCard = session.world.detector.pendingFullStop != nil
+        if fullStopCard != fullStopCardUp { fullStopCardUp = fullStopCard }
         if session.isOnFinal, !wasOnFinal { finalsSeen += 1 }
         wasOnFinal = session.isOnFinal
         for _ in 0...steps.count {
@@ -628,9 +636,13 @@ final class DryRunCoach: ObservableObject {
     /// Where the step's ring goes, as the Cockpit stands: `.check` is the first slot on MAP and ROUTE (it
     /// names the check), CHECK or NEXT on CHECKLIST.
     func resolvedTarget(of step: DryRunCoachStep) -> DryRunCoachStep.Target? {
+        if step.target == .landedCard, fullStopCardUp { return .eventConfirm }
         guard step.target == .check else { return step.target }
         return page == .checklist ? .primary : .first
     }
+
+    /// The detector's full-stop card is up (circuits, or circuits taken up): the landing's card is that one.
+    private(set) var fullStopCardUp = false
 
     private func complete(_ done: DryRunCoachStep) {
         step = nil
@@ -678,7 +690,9 @@ final class DryRunCoach: ObservableObject {
         case .landingShown: return appState.landingCheckShown
         case .final(let n): return session.isOnFinal && finalsSeen >= n
         case .goAroundCard: return session.world.detector.pendingGoAround != nil
-        case .landedCard: return appState.landedCard != nil
+        // The LANDED card on a route flight; the full stop's card once circuits were taken up (a go-around
+        // where the flight was going, 6.4.0).
+        case .landedCard: return appState.landedCard != nil || session.world.detector.pendingFullStop != nil
         // On the way to where it starts, no screen shows: the ground's moments come as the steps are done.
         case .screen(let screen): return isFastForwarding || screens.contains(screen)
         case .onTheGround: return session.hasFlown && !appState.isFlightActive
@@ -744,7 +758,7 @@ final class DryRunCoach: ObservableObject {
                 || appState.getPhaseStatus(check) == .completed
         case .finalChoice(let landing): return session.finalChoice == landing
         case .goAroundAnswered: return session.world.detector.pendingGoAround == nil
-        case .landedAnswered: return appState.landedCard == nil
+        case .landedAnswered: return appState.landedCard == nil && session.world.detector.pendingFullStop == nil
         case .engineShutdown: return appState.engineShutdownTime != nil
         case .flightEnded: return !appState.isFlightActive
         case .screen(let screen): return screens.contains(screen)
@@ -804,7 +818,11 @@ final class DryRunCoach: ObservableObject {
                 FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: session.world.detector)
             }
         case .landedAnswered:
-            if appState.landedCard != nil { appState.answerLandedCard(.yes) }
+            if appState.landedCard != nil {
+                appState.answerLandedCard(.yes)
+            } else if let event = session.world.detector.pendingFullStop {
+                FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: session.world.detector)
+            }
         case .engineShutdown:
             appState.recordEngineShutdown()
         case .threadCreated:

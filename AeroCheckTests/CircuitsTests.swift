@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import AeroCheck
 
 /// Full-stop circuits (6.3.0, PLAN-6.3.0, the author's Q1 to Q3 of 11 Oct). A full stop goes on to the after
@@ -372,6 +373,61 @@ final class CircuitsTests: XCTestCase {
         appState.nextPhase()
         XCTAssertEqual(appState.currentPhase, .approach)
         XCTAssertEqual(appState.phaseCompletionStatus[.cruise], .skipped)
+    }
+
+    // MARK: A go-around where the flight is going (6.4.0, st-14)
+
+    /// LSZQ, the route's end in these tests.
+    private let lszq = CLLocationCoordinate2D(latitude: 47.4517, longitude: 7.0247)
+
+    /// The last fix: `nm` east of LSZQ.
+    private func at(_ appState: AppState, nmEastOfLSZQ nm: Double) {
+        let longitude = lszq.longitude + nm / (60 * cos(lszq.latitude * .pi / 180))
+        appState.addGPSPoint(GPSPoint(latitude: lszq.latitude, longitude: longitude, altitude: 700, speed: 40, course: 70))
+    }
+
+    /// A go-around on a flight with no route is a circuit: circuits from there on, the climb check, then the
+    /// approach check; the cruise and descent checks skipped, never owed.
+    func testAGoAroundWithoutARouteTakesUpCircuits() {
+        let appState = flight(circuits: false)
+        fly(appState, to: .landing)
+        appState.recordGoAround(at: t(400))
+        XCTAssertTrue(appState.isCircuitMode)
+        XCTAssertFalse(appState.startedAsCircuits, "how the flight began stays")
+        XCTAssertEqual(appState.currentPhase, .climb)
+        completeCurrentCheck(appState)
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .approach)
+        XCTAssertEqual(appState.phaseCompletionStatus[.cruise], .skipped)
+        XCTAssertEqual(appState.phaseCompletionStatus[.descent], .skipped)
+    }
+
+    /// At the route's end (within the approach cue's 5 NM), a go-around and a touch-and-go take up circuits.
+    func testAGoAroundOrATouchAndGoAtTheRoutesEndTakesUpCircuits() {
+        for touchAndGo in [false, true] {
+            let appState = flight(circuits: false)
+            appState.routeDestination = lszq
+            fly(appState, to: .landing)
+            at(appState, nmEastOfLSZQ: 0.4)
+            if touchAndGo { appState.recordTouchAndGo(at: t(400)) } else { appState.recordGoAround(at: t(400)) }
+            XCTAssertTrue(appState.isCircuitMode, touchAndGo ? "touch-and-go" : "go-around")
+            completeCurrentCheck(appState)
+            appState.nextPhase()
+            XCTAssertEqual(appState.currentPhase, .approach)
+        }
+    }
+
+    /// At an aerodrome on the way, the route goes on: its cruise and descent checks with it.
+    func testATouchAndGoOnTheWayKeepsTheRoutesChecks() {
+        let appState = flight(circuits: false)
+        appState.routeDestination = lszq
+        fly(appState, to: .landing)
+        at(appState, nmEastOfLSZQ: 20)
+        appState.recordTouchAndGo(at: t(400))
+        XCTAssertFalse(appState.isCircuitMode)
+        completeCurrentCheck(appState)
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .cruise)
     }
 
     /// A relaunch finds the switch as it was left, and how the flight began.

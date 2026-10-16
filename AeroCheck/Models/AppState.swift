@@ -2673,6 +2673,7 @@ class AppState {
         // Reset phases from climb onwards, and go to the climb check.
         startChecksOfNewLap(from: .climb, through: .hangar)
         currentPhase = .climb
+        takeUpCircuitsAtRouteEnd()
     }
 
     /// Record a touch-and-go and return to climb phase, resetting subsequent phases.
@@ -2690,6 +2691,29 @@ class AppState {
         // Reset phases from climb onwards, and go to the climb check.
         startChecksOfNewLap(from: .climb, through: .hangar)
         currentPhase = .climb
+        takeUpCircuitsAtRouteEnd()
+    }
+
+    /// Where the flight's route ends, as the cues have it (`LocationManager` sets it with the detector's
+    /// `cueDestination`): the flight's own plan's end, or the aerodrome it diverted to. Set with every fix,
+    /// read only here: nothing draws it. (6.4.0)
+    @ObservationIgnored var routeDestination: CLLocationCoordinate2D?
+
+    /// A go-around or a touch-and-go where the flight is going (within the approach cue's 5 NM of the route's
+    /// end, or anywhere on a flight without a route) is a circuit: circuits from there on, as Menu › Options
+    /// takes them up (`setCircuitMode`). The climb check, then the approach check on the downwind and the
+    /// landing check; no cruise or descent check for a lap that never leaves the circuit, so none left in
+    /// amber after the landing. One on the way, at an aerodrome passed, keeps the route's checks. (6.4.0,
+    /// the author's second dry run checks, st-14)
+    private func takeUpCircuitsAtRouteEnd() {
+        guard !isCircuitMode else { return }
+        if let destination = routeDestination {
+            guard let fix = currentFlight?.gpsTrack.last else { return }
+            let metres = CLLocation(latitude: fix.latitude, longitude: fix.longitude)
+                .distance(from: CLLocation(latitude: destination.latitude, longitude: destination.longitude))
+            guard metres / 1852 <= FlightCueTracker.approachNm else { return }
+        }
+        setCircuitMode(true)
     }
 
     /// The checks a new lap flies again, from `first` through `last`, started clean, deferred items

@@ -266,9 +266,15 @@ enum PhaseFrequencyPlanner {
                 }) {
                     let field = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[ahead]))
                     // A local flight back to the field it is at: that field is NOW, not NEXT. Once the route
-                    // leaves the circuit, NEXT is the CTR or the Info around, as without a route; circuits
-                    // flown on a plan keep none. (6.4.0, the author's dry run checks, st-12)
-                    if field != current || !leavesTheCircuit(plan, from: index) { next = field }
+                    // leaves the circuit, NEXT is the area's Info, the station called once out of the field's
+                    // zone (at Bressaucourt, Bâle Information, not Grenchen's CTR 22 NM off the route); a CTR
+                    // around only where no Info is known. Circuits flown on a plan keep none. (6.4.0, the
+                    // author's dry run checks, st-12 and 17 Oct)
+                    if field != current || !leavesTheCircuit(plan, from: index) {
+                        next = field
+                    } else if let fisEntry, fisEntry != current {
+                        next = fisEntry
+                    }
                 }
             }
             if next == nil, let ctr = ctrs.first, let frequency = ctr.frequency {

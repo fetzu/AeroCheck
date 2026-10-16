@@ -7390,6 +7390,7 @@ struct AutoMarkUndoToast: View {
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
                     appState.dismissCheckConfirmation(offer.id)
                 }
+                .coachTarget(.undoToast)
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.bottom, 8)
             }

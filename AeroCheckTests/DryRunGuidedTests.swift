@@ -65,18 +65,27 @@ final class DryRunGuidedTests: XCTestCase {
     }
 
     /// A ring is only ever on a control that shows what the card names: a step that sends the pilot through the
-    /// checks to a control rings CHECK, and the control's own step comes when the band shows it.
+    /// checks rings CHECK (or the slot naming the check, off CHECKLIST), and a control's own step (ENGINE START,
+    /// READY FOR LINE UP, ENGINE SHUTDOWN, END FLIGHT) comes when the band shows it, after its check's items
+    /// (the author's second dry run checks, st-10).
     func testAControlIsRungOnlyOnceTheBandShowsIt() {
         let steps = DryRunChapters.steps
-        for (index, step) in steps.enumerated() {
-            guard case .shows(let slot) = step.done else { continue }
-            XCTAssertEqual(step.target, .primary, "\(step.id) rings CHECK on the way")
-            let following = steps[(index + 1)...].first { $0.requires == .always }
-            XCTAssertEqual(following?.moment == .shows(slot) || following?.moment == .parkedAndShows(slot), true,
-                           "after \(step.id), the next step waits for the band to show it")
+        let controls: [DryRunCoachStep.Slot] = [.engineStart, .readyForLineUp, .engineShutdown, .endFlight]
+        for step in steps {
+            if case .shows = step.done {
+                XCTAssertEqual(step.target, .check, "\(step.id) rings CHECK on the way")
+            }
+            if let slot = controls.first(where: { step.moment == .shows($0) || step.moment == .parkedAndShows($0) }) {
+                XCTAssertTrue(step.target == .first || step.target == .primary, "\(step.id) rings \(slot)'s control")
+            }
         }
-        XCTAssertEqual(steps.first { $0.id == "approachCheck" }?.moment, .shows(.check(.approach)),
-                       "the approach check's card waits for the slot to name it (g-7)")
+        for control in ["engineStart", "readyForLineUp", "engineShutdown", "endFlight"] {
+            let step = steps.first { $0.id == control }
+            XCTAssertTrue(controls.contains { step?.moment == .shows($0) || step?.moment == .parkedAndShows($0) },
+                          "\(control) waits for the band to show it")
+        }
+        XCTAssertEqual(steps.first { $0.id == "approachCheck" }?.moment, .nearCircuit(.check(.approach)),
+                       "the approach check's card waits for the slot to name it, before the downwind (g-7, st-14)")
     }
 
     func testALookStepGoesOnWithNextADoStepOnlyOnceDone() {
@@ -115,6 +124,130 @@ final class DryRunGuidedTests: XCTestCase {
                        + [L10n.DryRunCoach.habitClose, L10n.DryRunCoach.habitLogbook])
         XCTAssertEqual(summary.goArounds, 1)
         XCTAssertEqual(summary.landings, 1)
+    }
+
+    // MARK: - The second round of device checks (16 Oct)
+
+    /// A pilot ahead of the cards: the climb check worked through on the runway, before it fell due. Its card
+    /// has nothing to ask and goes; the story goes on to the go-around and the landing (the author's second
+    /// run: the card waited for a check never due again, and came after the landing).
+    func testAPilotAheadOfTheCardsIsNotHeldBack() throws {
+        let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
+            guard step.id == "lineUpCheck" else { return false }
+            let appState = session.world.appState
+            DryRunCoach.workThroughCurrentCheck(appState)
+            appState.nextPhase()
+            DryRunCoach.workThroughCurrentCheck(appState)
+            return true
+        })
+        XCTAssertFalse(record.shown.contains("climbCheck"), "\(record.shown)")
+        XCTAssertTrue(record.shown.contains("goAround"))
+        XCTAssertNotNil(record.session.generator.mark("goAround"))
+        XCTAssertTrue(record.shown.contains("endFlight"))
+    }
+
+    /// The ATC flight plan ticked rather than set aside: either answers its card (st-7).
+    func testTheATCFlightPlanTickedAlsoGoesOn() throws {
+        let record = try flyTheStory(.story, stopAt: "end.plan", answer: { step, session in
+            guard step.id == "notApplicable" else { return false }
+            session.setStoryTask(.flightPlanFiled, to: .done)
+            return true
+        })
+        XCTAssertEqual(Array(record.shown.suffix(2)), ["notApplicable", "end.plan"])
+    }
+
+    /// The card folds to one line once the pilot does what an unveiled do step asks (an item checked), and
+    /// stays open once opened again; the next step opens it.
+    func testTheCardFoldsOnceThePilotIsAtItAndOpensAgain() throws {
+        let plan = DryRunChapters.route(from: .lszq)
+        let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: .lszq), rate: 0,
+                                guided: DryRunStart(part: .fly, chapter: 2))
+        let flight = try DryRunHeadless(self, setup: setup, plan: plan)
+        let coach = try XCTUnwrap(flight.session.coach)
+        flight.fastForward()
+        XCTAssertEqual(coach.step?.id, "toEngineStart")
+        XCTAssertFalse(coach.isFolded)
+        DryRunCoach.checkItem(flight.appState)
+        flight.wait(1)
+        XCTAssertTrue(coach.isFolded, "an item checked: the card folds")
+        coach.showAgain()
+        XCTAssertFalse(coach.isFolded)
+        DryRunCoach.checkItem(flight.appState)
+        flight.wait(1)
+        XCTAssertFalse(coach.isFolded, "opened again by the pilot: it stays open")
+        flight.session.end()
+    }
+
+    /// How far into its part the card is: the bar along its top edge.
+    func testTheCardSaysHowFarIntoItsPart() throws {
+        let plan = DryRunChapters.route(from: .lszq)
+        let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: .lszq), rate: 0, guided: .story)
+        let flight = try DryRunHeadless(self, setup: setup, plan: plan)
+        let coach = try XCTUnwrap(flight.session.coach)
+        flight.wait(1)
+        XCTAssertEqual(coach.step?.id, "today")
+        let progress = try XCTUnwrap(coach.partProgress)
+        XCTAssertEqual(progress.done, 0)
+        XCTAssertEqual(progress.total, DryRunStory.steps.filter { $0.part == .plan && $0.kind != .partEnd }.count)
+        flight.session.end()
+    }
+
+    // MARK: - The third round of device checks (16 Oct)
+
+    /// DEFER's card when nothing can be deferred any more (the check worked through, or a memory check): it goes
+    /// by itself, and the chip's card with it; the story goes on (r3-10: DEFER disabled, and no way on).
+    func testDEFERNeverHoldsTheStoryWhenNothingCanBeDeferred() throws {
+        let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
+            guard step.id == "defer" else { return false }
+            DryRunCoach.workThroughCurrentCheck(session.world.appState)
+            return true
+        })
+        XCTAssertTrue(record.shown.contains("defer"))
+        XCTAssertFalse(record.shown.contains("deferredChip"), "nothing deferred: no chip to show")
+        XCTAssertTrue(record.shown.contains("endFlight"), "\(record.shown)")
+    }
+
+    /// The memory items in the engine start check, which has some (r3-7): the Menu rung, then its switch once
+    /// it is open; closing the Menu goes on to the check's items.
+    func testTheMemoryItemsComeInTheEngineStartCheck() {
+        let ids = DryRunChapters.steps.map(\.id)
+        let memory = try? XCTUnwrap(ids.firstIndex(of: "memoryTest"))
+        XCTAssertEqual(DryRunChapters.steps.first { $0.id == "memoryTest" }?.chapter, 2)
+        XCTAssertEqual(memory.map { ids[$0 + 1] }, "memorySwitch")
+        XCTAssertLessThan(ids.firstIndex(of: "memorySwitch") ?? .max, ids.firstIndex(of: "engineStartCheck") ?? 0)
+        let toggle = DryRunChapters.steps.first { $0.id == "memorySwitch" }
+        XCTAssertEqual(toggle?.screen, .menu)
+        XCTAssertEqual(toggle?.target, .memoryItemsToggle)
+    }
+
+    /// A pilot who hides the memory items when the Menu's card shows the switch, as the author did (16 Oct):
+    /// every check from then on that is all memory items reads "from memory, one tap when done". The story goes
+    /// on to its end all the same (r3-15: it stopped after the landing, its line naming the climb check).
+    func testAPilotWhoHidesTheMemoryItemsFliesTheWholeStory() throws {
+        let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
+            guard step.id == "memorySwitch" else { return false }
+            session.world.appState.settings.learningMode = false
+            session.coach?.hide(.menu)
+            return true
+        })
+        XCTAssertTrue(record.shown.contains("endFlight"), "\(record.shown)")
+        XCTAssertTrue(record.coach.isFinished || record.shown.last == "end.fly", "\(record.shown)")
+    }
+
+    /// Folded, a card that sends the pilot through the checks says what to do, with a verb (r3-8).
+    func testAFoldedCardSaysWhatToDo() {
+        for step in DryRunChapters.steps where step.kind == .act && !step.veils && step.screen == .cockpit
+            && step.target == .check {
+            XCTAssertNotNil(step.fold, step.id)
+        }
+    }
+
+    /// The guided dry run shows every item, whatever the pilot hides: its cards wait for checks named due.
+    func testTheGuidedWorldShowsEveryItem() {
+        var settings = AppSettings()
+        settings.learningMode = false
+        XCTAssertTrue(DryRunCenter.worldSettings(settings, guided: true).learningMode)
+        XCTAssertFalse(DryRunCenter.worldSettings(settings, guided: false).learningMode, "free practice: the pilot's")
     }
 
     /// Stop here, on the page after a part: the dry run's page at once, the habits of what was done.
@@ -260,7 +393,9 @@ final class DryRunGuidedTests: XCTestCase {
     /// as the app opens them, the Cockpit's engine hours' prompt played as `FlightView` shows it. `stopAt`: Stop
     /// here on that page. Each stretch between two steps is timed in the pilot's seconds: a second of the flight
     /// at pace p is 1/p of the pilot's.
-    private func flyTheStory(_ start: DryRunStart, stopAt: String? = nil) throws -> Record {
+    /// `answer`: the test's own answer to a step, in place of the pilot's (true: answered).
+    private func flyTheStory(_ start: DryRunStart, stopAt: String? = nil,
+                             answer: ((DryRunCoachStep, DryRunSession) -> Bool)? = nil) throws -> Record {
         let plan = DryRunChapters.route(from: .lszq)
         let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: .lszq), rate: 0, guided: start)
         let flight = try DryRunHeadless(self, setup: setup, plan: plan)
@@ -299,6 +434,10 @@ final class DryRunGuidedTests: XCTestCase {
                 if step.id == stopAt {
                     session.stop()
                     break
+                }
+                if let answer, answer(step, session) {
+                    flight.wait(1)
+                    continue
                 }
                 switch step.done {
                 case .next, .partEnd: coach.next()

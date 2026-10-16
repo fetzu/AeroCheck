@@ -125,6 +125,10 @@ struct DestinationInput: Equatable {
     var diversionIdent: String?
     /// NM to the navigation target (the next waypoint, or the diversion field); nil with no fix.
     var liveDistanceNM: Double?
+    /// How far along the leg to the next waypoint the aircraft is, 0 to 1, as the times over are taken
+    /// (abeam, `WaypointPassage`): the route track's ▶. Nil off the leg's corridor or with no fix: then the
+    /// distance to go places it. (6.4.0)
+    var legFractionFlown: Double? = nil
     /// Knots, as the NEXT cell reads it (`LocationManager.currentSpeedKnots`).
     var groundSpeedKnots: Double
     var now: Date
@@ -160,6 +164,18 @@ extension DestinationInput {
             plan.navigationTarget.map {
                 location.distance(from: CLLocation(latitude: $0.latitude, longitude: $0.longitude)) / 1852.0
             }
+        }
+        // Past a waypoint not yet marked (overflown, the turn begun), the distance to it grows again for a
+        // few seconds and the ▶ slid back (the author's dry run checks, 16 Oct): along the leg, it stays at
+        // the waypoint until the app marks it, as a time over is taken abeam.
+        let n = plan.currentWaypointIndex
+        legFractionFlown = location.flatMap { location in
+            guard plan.diversion == nil, n >= 1, n < waypoints.count else { return nil }
+            let leg = RouteGeometry(route: [waypoints[n - 1].coordinate, waypoints[n].coordinate])
+            let length = leg.cumulative[1]
+            let (along, offset) = leg.project(leg.xy(location.coordinate), onto: 0)
+            guard length > 0, offset <= WaypointPassage.toleranceNM else { return nil }
+            return along / length
         }
         self.groundSpeedKnots = groundSpeedKnots
         self.now = now
@@ -253,6 +269,7 @@ enum DestinationEstimator {
                                    delta: delta(planned: input.plannedOverDestination, actual: eta),
                                    track: RouteTrack.make(legDistanceNM: input.legDistanceNM, nextIndex: next,
                                                           remainingNM: input.liveDistanceNM == nil ? nil : remaining,
+                                                          legFraction: input.liveDistanceNM == nil ? nil : input.legFractionFlown,
                                                           diverting: false),
                                    nextIdent: input.names[next])
     }
@@ -298,7 +315,7 @@ struct RouteTrack: Equatable {
     /// Nil while diverting (the track hides) or for a route with no length. `remainingNM` nil = no fix:
     /// the aircraft is shown at the waypoint it last passed.
     static func make(legDistanceNM: [Double?], nextIndex n: Int, remainingNM: Double?,
-                     diverting: Bool) -> RouteTrack? {
+                     legFraction: Double? = nil, diverting: Bool) -> RouteTrack? {
         let count = legDistanceNM.count
         guard !diverting, count >= 2 else { return nil }
 
@@ -317,6 +334,9 @@ struct RouteTrack: Equatable {
             flownNM = 0
         } else if n >= count {
             flownNM = total
+        } else if let legFraction {
+            // Along the leg, as a time over is taken: never back past a waypoint not yet marked.
+            flownNM = cumulative[n - 1] + min(max(legFraction, 0), 1) * (cumulative[n] - cumulative[n - 1])
         } else if let remainingNM {
             flownNM = min(max(total - remainingNM, cumulative[n - 1]), cumulative[n])
         } else {

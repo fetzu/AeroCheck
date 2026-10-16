@@ -705,7 +705,10 @@ final class DryRunGenerator {
 
     /// The second's fix: where the aircraft is, as a GPS would put it.
     private func emit() -> DryRunFix {
-        errorAltitudeM = 0.92 * errorAltitudeM + random.gaussian(0.6)
+        // On the ground the altitude holds still: its wander read as the aircraft bobbing before the take-off
+        // (the author's checks, 17 Oct). The draw is still made, so a seed flies the same track as before.
+        let altitudeDrift = random.gaussian(0.6)
+        errorAltitudeM = isAirborne ? 0.92 * errorAltitudeM + altitudeDrift : 0
         errorNorthM = 0.9 * errorNorthM + random.gaussian(0.45)
         errorEastM = 0.9 * errorEastM + random.gaussian(0.45)
         let reported = DryRunGeo.destination(from: DryRunGeo.destination(from: position, bearing: 0, distance: errorNorthM),

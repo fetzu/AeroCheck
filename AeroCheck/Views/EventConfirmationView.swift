@@ -252,6 +252,8 @@ struct LandedCardView: View {
         .background(RoundedRectangle(cornerRadius: 24).fill(theme.card))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(theme.panelStroke, lineWidth: 1.5))
         .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+        // The coach's ring on the card itself, inside its margins (st-15: it stood out past the card).
+        .coachTarget(.landedCard)
         .padding(.horizontal, CockpitType.size(kneeboard: 24, phone: 16))
         .accessibilityElement(children: .contain)
     }
@@ -268,7 +270,6 @@ struct LandedCardOverlay: View {
                 Color.black.opacity(0.5).ignoresSafeArea()
                 LandedCardView(aerodrome: card.aerodrome, time: appState.formatTime(card.touchdown),
                                landingCheckSettled: appState.landingCheckSettled) { appState.answerLandedCard($0) }
-                    .coachTarget(.landedCard)
             }
         }
     }

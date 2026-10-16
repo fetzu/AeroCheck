@@ -237,6 +237,63 @@ final class FlightThreadTests: XCTestCase {
                        "dismissing a task must move the ring, not strand it")
     }
 
+    /// READY once every task before the flight is ticked or set aside, PLANNED again when one is unticked; the
+    /// flight's own states left alone. It used to say PLANNED with everything ticked. (6.4.0)
+    func testAFlightIsReadyOnceEverythingBeforeItIsSettled() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGY")
+        thread.tasks = ThreadTaskEngine.generate(context: context())
+        thread.settleReadiness()
+        XCTAssertEqual(thread.state, .planned)
+
+        for task in thread.tasks where (task.chapter == .plan || task.chapter == .prepare) && task.state == .pending {
+            thread.setState(task.key == .pprObtained ? .notApplicable : .done, forTaskWithId: task.id)
+        }
+        thread.settleReadiness()
+        XCTAssertEqual(thread.state, .ready, "everything ticked or set aside")
+
+        let weather = thread.tasks.first { $0.key == .weatherBriefed }!
+        thread.setState(.pending, forTaskWithId: weather.id)
+        thread.settleReadiness()
+        XCTAssertEqual(thread.state, .planned, "unticked again")
+
+        thread.state = .closeOut
+        thread.settleReadiness()
+        XCTAssertEqual(thread.state, .closeOut, "after the flight, the flight's state")
+    }
+
+    @MainActor
+    func testTheManagerMovesAFlightToReadyAsItsTasksAreTicked() {
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+        XCTAssertEqual(manager.thread(withId: thread.id)?.state, .planned)
+        for task in thread.tasks where (task.chapter == .plan || task.chapter == .prepare) && task.kind != .auto {
+            manager.setTaskState(.done, taskId: task.id, threadId: thread.id)
+        }
+        let after = manager.thread(withId: thread.id)
+        let progress = after?.preFlightProgress
+        XCTAssertEqual(after?.state, progress.map { $0.done >= $0.total } == true ? .ready : .planned,
+                       "READY exactly when the ring is full (\(String(describing: progress)))")
+    }
+
+    /// Weather briefed has somewhere to go, like the other briefings: skybriefing's weather briefing, and
+    /// MeteoSwiss's aviation weather when the flight touches Switzerland. (6.4.0)
+    func testWeatherBriefedLinksToTheBriefing() {
+        let weather = ThreadTask(key: .weatherBriefed, kind: .check)
+        let abroad = ThreadTaskPresentation.links(for: weather)
+        XCTAssertEqual(abroad.map(\.url.absoluteString), ["https://www.skybriefing.com/services/weather-briefing"])
+        XCTAssertEqual(abroad.map(\.label), [L10n.Thread.openWeatherBriefing])
+        let swiss = ThreadTaskPresentation.links(for: weather, touchesSwitzerland: true)
+        XCTAssertEqual(swiss.count, 2)
+        XCTAssertEqual(swiss.last?.label, L10n.Thread.openMeteoSwiss)
+    }
+
+    /// The Settings row has its page's name: the page holds the pilot, the home aerodrome and the cost, not
+    /// only the planning. (6.4.0)
+    func testTheFlightsSettingsRowIsNamedAsItsPage() {
+        XCTAssertEqual(SettingsView.Section.flightPlanning.title, L10n.Flights.title)
+    }
+
     func testNextTaskIgnoresCloseOutUntilTheFlightIsOver() {
         var thread = FlightThread(routeLabel: "LSZQ → LSGY")
         var c = context()

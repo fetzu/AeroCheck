@@ -153,6 +153,7 @@ class FlightThreadManager: ObservableObject {
         thread.countries = context.countries
         thread.homeCountry = context.homeCountry
         thread.tasks = ThreadTaskEngine.generate(context: context)
+        thread.settleReadiness()
 
         threads.insert(thread, at: 0)
         currentThreadId = thread.id
@@ -210,6 +211,7 @@ class FlightThreadManager: ObservableObject {
         threads[index].countries = context.countries
         threads[index].homeCountry = context.homeCountry
         threads[index].tasks = regenerated
+        threads[index].settleReadiness()
 
         // The cached departure drives "is this today?" and the preparation reminder. Left stale it
         // reads a date the plan no longer has, which is how a flight moved to tomorrow kept being
@@ -682,6 +684,7 @@ class FlightThreadManager: ObservableObject {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         let wasOpen = threads[index].hasOpenFlightPlan
         threads[index].setState(state, forTaskWithId: taskId)
+        threads[index].settleReadiness()
 
         let task = threads[index].tasks.first { $0.id == taskId }
 
@@ -717,6 +720,7 @@ class FlightThreadManager: ObservableObject {
         context.hasRoute = existing.contains { $0.key == .routePlanned && $0.state == .done }
         let enriched = enrich(context, from: threads[index])
         threads[index].tasks = ThreadTaskEngine.generate(context: enriched, existing: existing)
+        threads[index].settleReadiness()
         threads[index].touch()
     }
 

@@ -450,6 +450,7 @@ enum L10n {
         static let openSkybriefing = String(localized: "Open skybriefing")
         static let openDabs = String(localized: "Open DABS")
         static let openNotamBriefing = String(localized: "Open NOTAM briefing")
+        static let openWeatherBriefing = String(localized: "Open weather briefing")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
         static let openMeteoSwiss = String(localized: "Open MeteoSwiss")

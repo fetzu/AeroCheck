@@ -103,6 +103,14 @@ struct ThreadTaskPresentation {
             // tick without doing. skybriefing is the Swiss briefing channel, same as for filing.
             return [(L10n.Thread.openNotamBriefing,
                      URL(string: "https://www.skybriefing.com/services/notam-briefing")!)]
+        case .weatherBriefed:
+            // The same: the weather was the one briefing with nowhere to go. skybriefing's weather briefing,
+            // and MeteoSwiss's aviation weather when the flight touches Switzerland. (6.4.0)
+            let skybriefing = [(label: L10n.Thread.openWeatherBriefing,
+                                url: URL(string: "https://www.skybriefing.com/services/weather-briefing")!)]
+            let swiss = [(label: L10n.Thread.openMeteoSwiss,
+                          url: URL(string: "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html")!)]
+            return skybriefing + (touchesSwitzerland ? swiss : [])
         case .dabsChecked:
             return [(L10n.Thread.openDabs, URL(string: "https://www.skybriefing.com/dabs")!)]
         case .gaforChecked:
@@ -163,7 +171,8 @@ struct FlightThreadView: View {
     /// The official-chart registry: a PPR or fee task's chart turns up when it arrives. (6.2.0)
     @ObservedObject private var officialCharts = OfficialChartService.shared
 
-    @State private var expandedChapter: ThreadChapter?
+    /// The chapter whose chip was tapped: the page goes to it.
+    @State private var scrollToChapter: ThreadChapter?
     /// Registration whose mass & balance is open, from the PLAN task. (v5.0.0)
     @State private var weightBalanceRegistration: String?
     /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
@@ -213,6 +222,7 @@ struct FlightThreadView: View {
             Color.cockpitBackground.ignoresSafeArea()
 
             if let thread {
+                ScrollViewReader { scroller in
                 VStack(spacing: 0) {
                     header(thread)
                     chapterBar(thread)
@@ -233,6 +243,7 @@ struct FlightThreadView: View {
                             continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
                                 chapterSection(thread, chapter: chapter)
+                                    .id(chapter)
                             }
                             footer(thread)
                         }
@@ -240,6 +251,15 @@ struct FlightThreadView: View {
                         .frame(maxWidth: 760)
                         .frame(maxWidth: .infinity)
                     }
+                }
+                // A chapter's chip takes the page to that chapter, its ticked tasks unfolded when nothing in it is
+                // open. It used to set a state nothing read: a tap did nothing. (6.4.0)
+                .onChange(of: scrollToChapter) { _, chapter in
+                    guard let chapter else { return }
+                    scrollToChapter = nil
+                    if thread.tasks(in: chapter).allSatisfy({ $0.state != .pending }) { unfoldedDone.insert(chapter) }
+                    withAnimation(.easeInOut(duration: 0.25)) { scroller.scrollTo(chapter, anchor: .top) }
+                }
                 }
             } else {
                 // The thread was deleted underneath us (another device, or the pilot). Say so rather
@@ -972,9 +992,7 @@ struct FlightThreadView: View {
             : (isComplete ? .aviationGreen : .aviationGold)
 
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                expandedChapter = (expandedChapter == chapter) ? nil : chapter
-            }
+            scrollToChapter = chapter
         } label: {
             HStack(spacing: 6) {
                 Text(chapterName(chapter))

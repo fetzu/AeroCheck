@@ -17633,6 +17633,16 @@
         }
       }
     },
+    "Open weather briefing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir le briefing météo"
+          }
+        }
+      }
+    },
     "Open skybriefing" : {
       "localizations" : {
         "fr" : {
@@ -34371,13 +34381,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Route planning, terrain profiles"
+            "value": "Pilot, home aerodrome, flight cost, route planning"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Planification de route, profils de terrain"
+            "value": "Pilote, aérodrome de base, coût du vol, planification de route"
           }
         }
       }

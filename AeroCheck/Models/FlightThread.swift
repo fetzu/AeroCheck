@@ -230,6 +230,16 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
         return (relevant.filter { $0.state == .done }.count, relevant.count)
     }
 
+    /// PLANNED until every task before the flight is ticked or set aside, then READY, as the ring beside the
+    /// state already says ("x of y done"); back to PLANNED when one is unticked or a new one appears. Before
+    /// the flight only: FLY, CLOSE-OUT and DONE are the flight's. READY was only ever set when an abandoned
+    /// flight was detached, so a flight with everything ticked still said PLANNED. (6.4.0)
+    mutating func settleReadiness() {
+        guard state == .planned || state == .ready else { return }
+        let progress = preFlightProgress
+        state = progress.total > 0 && progress.done >= progress.total ? .ready : .planned
+    }
+
     var closeOutProgress: (done: Int, total: Int) {
         let relevant = tasks.filter { $0.chapter == .close && $0.state != .notApplicable }
         return (relevant.filter { $0.state == .done }.count, relevant.count)

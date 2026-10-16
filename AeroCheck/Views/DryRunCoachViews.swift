@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Combine
 
 // MARK: - Dry run (6.4.0): the coach on screen
@@ -24,9 +25,11 @@ struct CockpitPageKey: PreferenceKey {
 }
 
 extension View {
-    /// This control, for the guided flight's ring. (6.4.0)
+    /// This control, for the guided flight's ring. (6.4.0) Merged with what the view's own controls say: a
+    /// plain `anchorPreference` on a container replaced its children's, so the chapter bar hid PREPARE's ring
+    /// and Show me again had nothing to show (the author's second dry run checks, st-4).
     func coachTarget(_ target: DryRunCoachStep.Target) -> some View {
-        anchorPreference(key: CoachTargetKey.self, value: .bounds) { [target: $0] }
+        transformAnchorPreference(key: CoachTargetKey.self, value: .bounds) { $0[target] = $1 }
     }
 
     /// This control, when it is one the guided flight rings (`target` not nil).
@@ -53,6 +56,9 @@ extension View {
 private struct DryRunCoachScreen: ViewModifier {
     let screen: DryRunCoachStep.Screen
     @Environment(\.dryRunSession) private var session
+    /// The link the dry run kept from opening, said on the screen it was tapped on: said from the ground
+    /// under the flight's page, the alert closed the page (the author's second dry run checks, st-6).
+    @State private var keptLink: URL?
 
     func body(content: Content) -> some View {
         if let session, let coach = session.coach {
@@ -66,6 +72,17 @@ private struct DryRunCoachScreen: ViewModifier {
                 }
                 .onAppear { coach.show(screen) }
                 .onDisappear { coach.hide(screen) }
+                .environment(\.openURL, OpenURLAction { url in
+                    keptLink = url
+                    coach.noteLink()
+                    return .handled
+                })
+                .alert(L10n.DryRunCoach.linkKeptTitle, isPresented: Binding(get: { keptLink != nil },
+                                                                             set: { if !$0 { keptLink = nil } })) {
+                    Button(L10n.Subscription.ok) { keptLink = nil }
+                } message: {
+                    Text(L10n.DryRunCoach.linkKept(keptLink.map(DryRunGroundView.place) ?? ""))
+                }
         } else {
             content
         }
@@ -85,20 +102,74 @@ private struct DryRunGroundCoachLayer: View {
             if let step = coach.step, step.screen == screen, step.kind == .partEnd {
                 DryRunPartEndPage(coach: coach, session: session, step: step)
             } else if let step = coach.step, step.screen == screen {
-                let wide = proxy.size.width >= 600
-                let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }
-                ZStack {
-                    DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
-                    DryRunCoachCard(coach: coach, session: session, step: step, compact: !wide)
-                        .frame(maxWidth: wide ? 600 : .infinity)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 12)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .transition(.opacity)
+                if coach.resolvedTarget(of: step) == .logbookTab {
+                    // The tab bar is UIKit's: looked for twice a second, as it may come after the card.
+                    TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                        content(step, target: Self.tabFrame(L10n.Ground.logbook, in: proxy), proxy: proxy)
+                    }
+                } else {
+                    content(step, target: coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] },
+                            proxy: proxy)
                 }
             }
         }
         .animation(.easeOut(duration: 0.2), value: coach.step)
+    }
+
+    /// The veil, the ring, and the card: at the foot, or at the top when what it rings is in the lower half
+    /// (the author's second dry run checks: the card stood over CREATE FLIGHT, st-3).
+    private func content(_ step: DryRunCoachStep, target: CGRect?, proxy: GeometryProxy) -> some View {
+        let wide = proxy.size.width >= 600
+        let atTop = target.map { $0.midY > proxy.size.height * 0.5 } ?? false
+        return ZStack {
+            DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
+            DryRunCoachCard(coach: coach, session: session, step: step, compact: !wide)
+                .frame(maxWidth: wide ? 600 : .infinity)
+                .padding(.horizontal, 12)
+                .padding(atTop ? .top : .bottom, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: atTop ? .top : .bottom)
+                .transition(.opacity)
+        }
+    }
+
+    /// The system tab bar's item `title`, in the layer's own coordinates.
+    static func tabFrame(_ title: String, in proxy: GeometryProxy) -> CGRect? {
+        guard let global = SystemTabItemLocator.frame(of: title) else { return nil }
+        let origin = proxy.frame(in: .global).origin
+        return global.offsetBy(dx: -origin.x, dy: -origin.y)
+    }
+}
+
+/// A tab of the system tab bar, which SwiftUI's anchors don't reach: the visible UIKit view VoiceOver names
+/// `title`, its frame in the window (SwiftUI's global space). Nil when there is none. For the coach's ring on
+/// Logbook only. (6.4.0, the author's second dry run checks, st-19)
+@MainActor
+enum SystemTabItemLocator {
+    static func frame(of title: String) -> CGRect? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .filter(\.isKeyWindow)
+        for window in windows {
+            // The screen on top (the dry run's cover): the app's own tab bar under it says the same word.
+            guard var top = window.rootViewController else { continue }
+            while let presented = top.presentedViewController { top = presented }
+            guard let label = label(titled: title, in: top.view) else { continue }
+            // Out to the tab's own view: the item around the label, no wider than a tab.
+            var item: UIView = label
+            while let parent = item.superview, parent.bounds.width <= 160, parent.bounds.height <= 64 { item = parent }
+            return item.convert(item.bounds, to: window)
+        }
+        return nil
+    }
+
+    private static func label(titled title: String, in view: UIView) -> UILabel? {
+        if view.isHidden || view.alpha < 0.01 { return nil }
+        if let label = view as? UILabel, label.text == title { return label }
+        for subview in view.subviews {
+            if let label = label(titled: title, in: subview) { return label }
+        }
+        return nil
     }
 }
 
@@ -178,6 +249,61 @@ struct DryRunCoachCard: View {
     }
 
     var body: some View {
+        Group {
+            if coach.isFolded { folded } else { card }
+        }
+        .foregroundColor(ink)
+        .background(RoundedRectangle(cornerRadius: 14).fill(paper))
+        // How far into its part: a bar along the top edge that fills card by card (the author's second dry run
+        // checks: four marks that never moved within a part read as a progress gone wrong).
+        .overlay(alignment: .top) {
+            if let progress = coach.partProgress {
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(ink.opacity(0.6))
+                        .frame(width: geometry.size.width * CGFloat(progress.done + 1) / CGFloat(progress.total))
+                }
+                .frame(height: 3)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14))
+                .accessibilityHidden(true)
+            }
+        }
+        .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// "PART 1 OF 4": which of the story's four parts this is, in words.
+    private var partLine: some View {
+        Text(L10n.DryRunCoach.partOf(step.part.rawValue, DryRunPart.allCases.count))
+            .font(.aero(size: 11, weight: .semibold, design: .monospaced))
+            .tracking(1.2)
+            .textCase(.uppercase)
+            .lineLimit(1)
+            .opacity(0.7)
+    }
+
+    /// The card folded to one line: its title, and a tap opens it again.
+    private var folded: some View {
+        Button { coach.unfold() } label: {
+            HStack(spacing: 10) {
+                Text(step.title)
+                    .font(.aero(size: compact ? 15 : 16, weight: .bold))
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                partLine
+                Image(systemName: "chevron.up")
+                    .font(.aero(size: 14, weight: .bold))
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(step.title)
+        .accessibilityHint(L10n.DryRunCoach.unfold)
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
                 Text(header)
@@ -188,12 +314,15 @@ struct DryRunCoachCard: View {
                     .minimumScaleFactor(0.7)
                     .opacity(0.7)
                 Spacer(minLength: 4)
-                HStack(spacing: 3) {
-                    ForEach(1...DryRunPart.allCases.count, id: \.self) { part in
-                        Capsule().frame(width: 14, height: 3).opacity(part <= step.part.rawValue ? 1 : 0.25)
-                    }
+                partLine
+                Button { coach.fold() } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.aero(size: 14, weight: .bold))
+                        .frame(width: 32, height: 28)
+                        .contentShape(Rectangle())
                 }
-                .accessibilityHidden(true)
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.DryRunCoach.fold)
             }
             Text(step.title)
                 .font(.aero(size: compact ? 17 : 19, weight: .bold))
@@ -215,12 +344,8 @@ struct DryRunCoachCard: View {
                 }
             }
         }
-        .foregroundColor(ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 14).fill(paper))
-        .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
-        .accessibilityElement(children: .contain)
     }
 
     private func button(_ title: String, filled: Bool, action: @escaping () -> Void) -> some View {

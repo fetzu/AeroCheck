@@ -90,6 +90,8 @@ final class DryRunSession: ObservableObject, Identifiable {
     static let skipRate = 30.0
     /// How near the waypoint the generator flies to a time over the app writes is its own passage, metres.
     static let passageRadius = 1.5 * DryRunGeo.metresPerNM
+    /// The last of a final and the landing roll, in the guided flight.
+    static let landingRate = 12.0
     /// The guided flight's paces (the proposal's Q3, "Plan to Logbook", tuned on the headless flight so that no
     /// stretch is longer than 13 s without a card or a tap, `DryRunGuidedTests`): what is worth seeing move at
     /// 5× (the taxi's first seconds, the take-off roll and the lift-off, a turning point, the start of the
@@ -311,8 +313,9 @@ final class DryRunSession: ObservableObject, Identifiable {
         // The lift-off, until the card that says the app saw it.
         case .climbingOut: return firstCircuit && since < 12 ? watchRate : flyOnRate
         case .downwind: return firstCircuit && since < 15 ? 10 : flyOnRate
-        case .final: return generator.heightAboveFieldFt < 100 ? watchRate : flyOnRate
-        case .landing: return 6
+        // Not much slower for the landing: slowed down more, it read as the app stuttering (st-15).
+        case .final: return generator.heightAboveFieldFt < 100 ? landingRate : flyOnRate
+        case .landing: return landingRate
         case .climbing, .cruising, .descending:
             let near = (generator.secondsToWaypoint ?? .infinity) < 15 || (generator.secondsSinceWaypoint ?? .max) < 15
             return near ? watchRate : flyOnRate
@@ -490,6 +493,22 @@ final class DryRunSession: ObservableObject, Identifiable {
         return true
     }
 
+    /// The rest of Plan and Prepare, done for the pilot as START FLIGHT's card shows: the fuel on board for the
+    /// fuel plan's AUTO row, every other task ticked. Close out then shows its own tasks alone (st-16).
+    func settleStoryPreflight() {
+        guard let thread = storyThread else { return }
+        if let planId = thread.flightPlanId, var plan = world.plans.flightPlans.first(where: { $0.id == planId }),
+           let required = plan.fuelRequired, (plan.fuelOnBoard ?? 0) < required {
+            plan.fuelOnBoard = (required / 10).rounded(.up) * 10 + 10
+            world.plans.updateFlightPlan(plan)
+            world.threads.regenerateTasks(threadId: thread.id, plan: plan)
+        }
+        for task in storyThread?.tasks ?? [] where task.state == .pending && task.kind != .auto
+            && (task.chapter == .plan || task.chapter == .prepare) {
+            world.threads.setTaskState(.done, taskId: task.id, threadId: thread.id)
+        }
+    }
+
     /// END FLIGHT as the Cockpit's button does it (`FlightEnder`), on the world's objects: for the pilot, on the
     /// way to a later part.
     func endFlight() {
@@ -643,6 +662,16 @@ final class DryRunCenter: ObservableObject {
 
     /// Builds `setup`'s world and loads its aircraft's checklist, without beginning: the start sheet waits for
     /// this, then goes, and the Cockpit covers the app once it has (`launchPrepared`).
+    ///
+    /// The pilot's settings for the world: the guided dry run teaches with every item shown. With the memory
+    /// items hidden, a check's card waited for a slot that named it "from memory" (the author's second run,
+    /// 16 Oct). Its card on the Menu shows where to hide them, in the world only.
+    static func worldSettings(_ settings: AppSettings, guided: Bool) -> AppSettings {
+        var settings = settings
+        if guided { settings.learningMode = true }
+        return settings
+    }
+
     func prepare(_ setup: DryRunSetup, settings: @escaping () -> AppSettings, airports: AirportDataService,
                  aircraftData: AircraftDataService, isFlightActive: Bool) async -> Outcome {
         guard session == nil, prepared == nil, !isStarting, !isFlightActive else { return .busy }
@@ -651,7 +680,7 @@ final class DryRunCenter: ObservableObject {
         services = (settings, airports, aircraftData)
         // Where the detector finds the aerodromes, and the map their frequencies.
         await airports.ensureLoaded()
-        let world = DryRunWorld(settings: settings(), aircraft: setup.aircraft)
+        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided), aircraft: setup.aircraft)
         guard await world.loadChecklist(aircraftDataService: aircraftData) else {
             world.tearDown()
             return .checklistUnavailable

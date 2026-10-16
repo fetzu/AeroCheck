@@ -3708,6 +3708,12 @@ enum L10n {
             static let climbAgainTitle = String(localized: "dryRunCoach.step.climbAgain.title")
             static let climbAgainBody = String(localized: "dryRunCoach.step.climbAgain.body")
             static let climbAgainUpcoming = String(localized: "dryRunCoach.step.climbAgain.upcoming")
+            static let engineStartCheckTitle = String(localized: "dryRunCoach.step.engineStartCheck.title")
+            static let engineStartCheckBody = String(localized: "dryRunCoach.step.engineStartCheck.body")
+            static let afterStartTitle = String(localized: "dryRunCoach.step.afterStart.title")
+            static let afterStartBody = String(localized: "dryRunCoach.step.afterStart.body")
+            static let shutdownCheckTitle = String(localized: "dryRunCoach.step.shutdownCheck.title")
+            static let shutdownCheckBody = String(localized: "dryRunCoach.step.shutdownCheck.body")
             static let approachAgainTitle = String(localized: "dryRunCoach.step.approachAgain.title")
             static let approachAgainBody = String(localized: "dryRunCoach.step.approachAgain.body")
             static let approachAgainUpcoming = String(localized: "dryRunCoach.step.approachAgain.upcoming")
@@ -3780,6 +3786,11 @@ enum L10n {
         static let partsRow = String(localized: "dryRunCoach.partsRow")
         static let partsFooter = String(localized: "dryRunCoach.partsFooter")
         static let flyChapters = String(localized: "dryRunCoach.flyChapters")
+        static func partOf(_ part: Int, _ count: Int) -> String {
+            String(format: String(localized: "dryRunCoach.partOf"), part, count)
+        }
+        static let fold = String(localized: "dryRunCoach.fold")
+        static let unfold = String(localized: "dryRunCoach.unfold")
     }
 }
 

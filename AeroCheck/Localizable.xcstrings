@@ -4330,6 +4330,23 @@
         }
       }
     },
+    "dryRunCoach.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fold the card"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replier l'encadré"
+          }
+        }
+      }
+    },
     "dryRunCoach.habit1": {
       "extractionState": "manual",
       "localizations": {
@@ -4506,7 +4523,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Learn and practise"
+            "value": "Learn and practice"
           }
         },
         "fr": {
@@ -4721,6 +4738,23 @@
         }
       }
     },
+    "dryRunCoach.partOf": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part %1$lld of %2$lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partie %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
     "dryRunCoach.partsFooter": {
       "extractionState": "manual",
       "localizations": {
@@ -4751,6 +4785,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une partie à la fois"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.afterStart.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The after engine start check: work through it, then NEXT. The aircraft taxis once you are on the taxi check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification après le démarrage : faites-la, puis SUIVANT. L'avion roule une fois la vérification de roulage ouverte."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.afterStart.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After the start"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après le démarrage"
           }
         }
       }
@@ -4846,13 +4914,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Near the aerodrome, the approach check is due. Do it when the flying lets you: the app keeps the order."
+            "value": "About to join the circuit: the approach check, before the downwind. Its button has the ring."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Près de l'aérodrome, la vérification d'approche est due. Faites-la quand le pilotage le permet : l'app garde l'ordre."
+            "value": "Bientôt dans le tour de piste : la vérification d'approche, avant le vent arrière. Son bouton est entouré."
           }
         }
       }
@@ -4880,13 +4948,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the approach check, near the aerodrome"
+            "value": "the approach check, before the downwind"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "la vérification d'approche, près de l'aérodrome"
+            "value": "la vérification d'approche, avant le vent arrière"
           }
         }
       }
@@ -5050,13 +5118,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Due at 500 ft above the field: its button has the ring. Tap it, then work through it."
+            "value": "Once established in a positive, trimmed climb, usually 400 to 500 ft above the ground: its button has the ring. Tap it, then work through it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Due à 500 ft sol : son bouton est entouré. Touchez-le, puis faites-la."
+            "value": "Une fois établi en montée positive et compensée, en général à 400 ou 500 ft sol : son bouton est entouré. Touchez-le, puis faites-la."
           }
         }
       }
@@ -5084,13 +5152,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the climb check, at 500 ft"
+            "value": "the climb check, once established in the climb"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "la vérification de montée, à 500 ft"
+            "value": "la vérification de montée, une fois établi en montée"
           }
         }
       }
@@ -5475,13 +5543,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Parked, once the engine has stopped: tap it, and the app notes the time."
+            "value": "The engine has stopped: tap it, and the app notes the time."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Au parking, une fois le moteur arrêté : touchez-le, et l'app note l'heure."
+            "value": "Le moteur est arrêté : touchez-le, et l'app note l'heure."
           }
         }
       }
@@ -5550,6 +5618,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Maintenant DÉMARRAGE MOTEUR"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineStartCheck.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its items come before the start: work through them. ENGINE START then gets the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses éléments viennent avant le démarrage : faites-les. DÉMARRAGE MOTEUR sera alors entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.engineStartCheck.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The engine start check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification de démarrage"
           }
         }
       }
@@ -5798,13 +5900,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "a go-around, on the first final"
+            "value": "a go-around, on the final"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "une remise de gaz, sur la première finale"
+            "value": "une remise de gaz, en finale"
           }
         }
       }
@@ -5815,13 +5917,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It asks: CONFIRM records it in the flight. Left alone, the card goes after 20 seconds and records nothing."
+            "value": "It asks: CONFIRM records it now. Left alone, the card goes after 20 seconds, and the Flight review after END FLIGHT asks again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elle demande : CONFIRMER l'enregistre dans le vol. Sans réponse, l'encadré part après 20 secondes sans rien enregistrer."
+            "value": "Elle demande : CONFIRMER l'enregistre tout de suite. Sans réponse, l'encadré part après 20 secondes, et la Revue du vol, après TERMINER LE VOL, le redemande."
           }
         }
       }
@@ -5968,13 +6070,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "From circuit height it shows here, dashed: done from memory, nothing to press until the runway is behind you."
+            "value": "On short final, the landing check, from memory: it shows here, dashed, with nothing to press."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dès la hauteur du tour de piste, elle s'affiche ici en pointillé : faite de mémoire, rien à toucher avant d'avoir quitté la piste."
+            "value": "En courte finale, la vérification d'atterrissage, de mémoire : elle s'affiche ici en pointillé, rien à toucher."
           }
         }
       }
@@ -6104,13 +6206,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open the Logbook tab."
+            "value": "Tap Logbook, in the tab bar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez l'onglet Carnet de vol."
+            "value": "Touchez Carnet de vol, dans la barre d'onglets."
           }
         }
       }
@@ -6506,19 +6608,53 @@
         }
       }
     },
+    "dryRunCoach.step.shutdownCheck.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The engine shutdown check: work through it. ENGINE SHUTDOWN then gets the ring."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification d'arrêt moteur : faites-la. ARRÊT MOTEUR sera alors entouré."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.shutdownCheck.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the parking"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au parking"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.startFlight.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "START FLIGHT, in the Fly chapter: the Cockpit opens. Started from Today, it asks first when something isn't ticked."
+            "value": "START FLIGHT, in the Fly chapter: the Cockpit opens. Here the rest of Plan and Prepare is ticked for you; in a real flight, START FLIGHT asks first when something isn't."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRER LE VOL, dans le chapitre Voler : le cockpit s'ouvre. Démarré depuis Aujourd'hui, il demande d'abord si quelque chose n'est pas coché."
+            "value": "DÉMARRER LE VOL, dans le chapitre Voler : le cockpit s'ouvre. Ici, le reste de Planifier et Préparer est coché pour vous ; en vol réel, DÉMARRER LE VOL demande d'abord si quelque chose ne l'est pas."
           }
         }
       }
@@ -6580,13 +6716,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passing it, the app wrote its time over on ROUTE and went on to the next leg, by itself."
+            "value": "Passing it, the app wrote its time over on ROUTE and went on to the next leg, by itself. Undo, here, takes it back if it was too early."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En le passant, l'app a noté son heure de passage sur ROUTE et est passée à la branche suivante, toute seule."
+            "value": "En le passant, l'app a noté son heure de passage sur ROUTE et est passée à la branche suivante, toute seule. Annuler, ici, la reprend si c'était trop tôt."
           }
         }
       }
@@ -6699,13 +6835,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK ticks each item; at the end of a check, NEXT goes on to the next one. Work through them to the engine start: its button then gets the ring."
+            "value": "CHECK ticks each item; at the end of a check, NEXT goes on to the next one. Work through them to the engine start check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "COCHER valide chaque élément ; à la fin d'une vérification, SUIVANT passe à la suivante. Avancez ainsi jusqu'au démarrage : son bouton sera alors entouré."
+            "value": "COCHER valide chaque élément ; à la fin d'une vérification, SUIVANT passe à la suivante. Avancez ainsi jusqu'à la vérification de démarrage."
           }
         }
       }
@@ -6733,13 +6869,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through the after landing check while the aircraft taxis in, then the checks at the parking. At the engine shutdown, its button gets the ring."
+            "value": "Work through the after landing check while the aircraft taxis in. At its end, PARKING CHECK goes on to the engine shutdown."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites la vérification après l'atterrissage pendant que l'avion roule, puis celles du parking. À l'arrêt moteur, son bouton sera entouré."
+            "value": "Faites la vérification après l'atterrissage pendant que l'avion roule. À sa fin, ARRÊT MOTEUR mène à l'arrêt du moteur."
           }
         }
       }
@@ -6852,7 +6988,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The rest waits in Settings, Learn and practise."
+            "value": "The rest waits in Settings, Learn and practice."
           }
         },
         "fr": {
@@ -7148,6 +7284,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Point de virage %lld"
+          }
+        }
+      }
+    },
+    "dryRunCoach.unfold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the card"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir l'encadré"
           }
         }
       }

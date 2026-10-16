@@ -627,6 +627,7 @@ struct MapStatusSlot: View {
             if let offer = undoOffer {
                 MapUndoSlot(offer: offer, metrics: metrics, language: language) { actions.dismissUndo(offer) }
                     .id(offer.id)
+                    .coachTarget(.undoToast)
             }
         } else {
             MapStatusButton(status: status, metrics: metrics, language: language) {

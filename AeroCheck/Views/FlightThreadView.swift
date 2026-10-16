@@ -1049,6 +1049,7 @@ struct FlightThreadView: View {
     }
 
     private static let footerId = "footer"
+    private static let debriefId = "debrief"
 
     /// Where the page goes for a dry run's step: the row its ring is on, the Fly chapter's START FLIGHT, the
     /// footer's Finish. (6.4.0)
@@ -1059,7 +1060,7 @@ struct FlightThreadView: View {
         case .notamLink?, .notamTick?: return row(.notamChecked)
         case .flightPlanRow?: return row(.flightPlanFiled)
         case .logbookRow?: return row(.logbookEntry)
-        case .debriefTick?: return row(.debriefWritten)
+        case .debriefField?: return AnyHashable(debriefId)
         case .startFlight?: return AnyHashable(ThreadChapter.fly)
         case .finish?: return AnyHashable(footerId)
         default: return nil
@@ -1082,7 +1083,7 @@ struct FlightThreadView: View {
         let tasks = thread.tasks(in: chapter)
         if chapter == .fly {
             flyChapterCard(thread)
-        } else if !tasks.isEmpty {
+        } else if !tasks.isEmpty || (chapter == .close && thread.flightId != nil) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text(chapterName(chapter).uppercased())
@@ -1136,6 +1137,13 @@ struct FlightThreadView: View {
                             taskRow(task, in: thread)
                         }
                     }
+                }
+                // The debrief: the flight's notes, optional, never counted. (6.4.0, the author's st-18)
+                if chapter == .close, let flightId = thread.flightId {
+                    if !tasks.isEmpty { Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46) }
+                    ThreadDebriefField(flightId: flightId)
+                        .coachTarget(.debriefField)
+                        .id(Self.debriefId)
                 }
             }
             .background(Color.cardBackground)
@@ -1617,7 +1625,6 @@ struct ThreadTaskRow: View {
     static func tickTarget(_ key: ThreadTaskKey) -> DryRunCoachStep.Target? {
         switch key {
         case .notamChecked: return .notamTick
-        case .debriefWritten: return .debriefTick
         default: return nil
         }
     }
@@ -1805,5 +1812,48 @@ struct ThreadTaskRow: View {
         case .notApplicable: return .dimText.opacity(0.5)
         case .pending:       return task.isUrgent ? .aviationRed : .dimText
         }
+    }
+}
+
+/// The debrief, in the CLOSE chapter: a word on what went well and what to change, if the pilot wants one.
+/// It is the flight's notes, the logbook's NOTES: written here or there, it is the same text. Optional, so
+/// never a task and never counted. (6.4.0, the author's dry run checks, st-18)
+struct ThreadDebriefField: View {
+    let flightId: UUID
+    @Environment(AppState.self) private var appState
+
+    private var flight: Flight? { appState.flights.first { $0.id == flightId } }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "text.bubble")
+                .scaledFont(size: 16, relativeTo: .body)
+                .foregroundColor(.secondaryText)
+                .frame(width: 22)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(L10n.Thread.taskDebrief)
+                        .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                    Text(L10n.Thread.debriefOptional)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                }
+                TextField(L10n.Thread.debriefPlaceholder, text: Binding(
+                    get: { flight?.notes ?? "" },
+                    set: { notes in if let flight { appState.updateFlightNotes(flight, notes: notes) } }
+                ), axis: .vertical)
+                    .lineLimit(2...8)
+                    .scaledFont(size: 15, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .opacity(flight == nil ? 0.5 : 1)
+        .disabled(flight == nil)
     }
 }

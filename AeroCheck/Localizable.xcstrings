@@ -5288,13 +5288,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A word on what went well and what to change, then tick it."
+            "value": "A word on what went well and what to change, if you like: optional, and the flight's notes in your logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un mot sur ce qui s'est bien passé et ce qui est à changer, puis cochez."
+            "value": "Un mot sur ce qui s'est bien passé et ce qu'il faut changer, si vous le voulez : facultatif, ce sont les notes du vol dans votre carnet."
           }
         }
       }
@@ -7600,6 +7600,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "aucun point à venir"
+          }
+        }
+      }
+    },
+    "thread.debrief.optional": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "optional"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "facultatif"
+          }
+        }
+      }
+    },
+    "thread.debrief.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What went well, what to change. The flight's notes in the logbook."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce qui s'est bien passé, ce qu'il faut changer. Les notes du vol dans le carnet."
           }
         }
       }

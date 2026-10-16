@@ -47,7 +47,9 @@ struct SettingsView: View {
             case .aircraft: return L10n.Settings.aircraftAndSubscription
             case .checklist: return L10n.Settings.checklistAndFlight
             case .navigation: return L10n.Settings.navigationAndMaps
-            case .flightPlanning: return L10n.Settings.flightPlanning
+            // The page's own name: it holds the pilot, the home aerodrome and the cost as well as the planning.
+            // (6.4.0)
+            case .flightPlanning: return L10n.Flights.title
             case .sync: return L10n.Settings.syncAndData
             case .dataStorage: return L10n.DataStorage.title
             case .companion: return L10n.Settings.companionMode

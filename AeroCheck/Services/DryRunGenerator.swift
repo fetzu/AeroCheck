@@ -110,6 +110,39 @@ final class DryRunGenerator {
         default: return false
         }
     }
+    /// What the aircraft is doing, for the guided flight's folded card and its pace. (6.4.0)
+    enum Activity: Equatable {
+        case parked, taxiing, holding, liningUp, takeoffRoll, climbingOut, climbing, cruising, descending, joining
+        case upwind, crosswind, downwind, base, final, goingAround, landing, stopped, taxiingIn, parkedEnd
+    }
+    private(set) var activity: Activity = .parked
+    /// When `activity` began, in the flight's seconds.
+    private(set) var activitySince = 0
+
+    /// Feet above the aerodrome flown at (or to).
+    var heightAboveFieldFt: Double { altitudeFt - aerodrome.elevationFt }
+
+    /// Seconds to the route's waypoint flown to, and since the last one passed: around a turning point.
+    var secondsToWaypoint: Double? {
+        guard case .enRoute? = actions.first, legIndex < waypoints.count, speedKt > 1 else { return nil }
+        return DryRunGeo.distance(position, waypoints[legIndex]) / (speedKt * DryRunGeo.metresPerSecondPerKnot)
+    }
+    var secondsSinceWaypoint: Int? {
+        marks.last { $0.name.hasPrefix("wp") }.map { t - $0.t }
+    }
+
+    /// Metres to the route's waypoint `index` (its legs: 0 is the first after the departure).
+    func distance(toWaypointAt index: Int) -> Double? {
+        waypoints.indices.contains(index) ? DryRunGeo.distance(position, waypoints[index]) : nil
+    }
+
+    /// Where it waits for the pilot, if it does: the engine start, the holding point (or on the runway after a
+    /// full stop, for the line-up), parked at the end.
+    var waitingAt: Hold? {
+        if case .hold(let hold)? = actions.first { return hold }
+        return nil
+    }
+
     /// Waiting for the pilot: the engine start, the line-up, after a full stop, or parked at the end.
     var isWaiting: Bool {
         switch actions.first {
@@ -157,8 +190,9 @@ final class DryRunGenerator {
             cruiseAltitudeFt = cruise
         }
         // Parked; after ENGINE START, the taxi to the holding point, the run-up, the line-up the pilot calls.
-        actions = [.hold(.engineStart), .park(45), .goTo(.taxi(to: departure.holdingPoint, speed: performance.taxi)),
-                 .park(30), .hold(.lineUp), .park(20)] + lineUpAndTakeOff()
+        actions = [.hold(.engineStart), .park(45), .doing(.taxiing),
+                   .goTo(.taxi(to: departure.holdingPoint, speed: performance.taxi)), .doing(.holding),
+                   .park(30), .hold(.lineUp), .park(20)] + lineUpAndTakeOff()
     }
 
     /// A Direct To: from now on the leg to waypoint `index` (the route's count: the destination).
@@ -245,6 +279,8 @@ final class DryRunGenerator {
         case onFinal
         case afterTouchdown(Landing)
         case vacate
+        /// What the aircraft does from here (`activity`).
+        case doing(Activity)
     }
 
     private func lineUpAndTakeOff() -> [Action] {
@@ -338,6 +374,7 @@ final class DryRunGenerator {
                         heading: DryRunGeo.bearing(from: position, to: touchdown))
 
         case .flare:
+            set(.landing)
             guard altitudeFt > field.elevationFt + 0.5 else {
                 altitudeFt = field.elevationFt
                 actions.removeFirst()
@@ -370,8 +407,14 @@ final class DryRunGenerator {
 
         case .mark(let name):
             marks.append((name, t))
+            if let doing = Self.activity(at: name) { set(doing) }
             if name == "liftoff" { isAirborne = true }
             if name == "touchdown" { isAirborne = false }
+            actions.removeFirst()
+            return nil
+
+        case .doing(let doing):
+            set(doing)
             actions.removeFirst()
             return nil
 
@@ -400,8 +443,12 @@ final class DryRunGenerator {
             let pattern = field.patternAltitudeFt
             var legs: [Action] = []
             if upwind {
-                legs.append(.goTo(GoTo(point: field.crosswindPoint, speed: performance.vy, altitudeFt: pattern,
-                                       verticalSpeed: 650)))
+                legs += [.doing(.upwind),
+                         .goTo(GoTo(point: field.crosswindPoint, speed: performance.vy, altitudeFt: pattern,
+                                    verticalSpeed: 650)),
+                         .doing(.crosswind)]
+            } else {
+                legs.append(.doing(.joining))
             }
             legs += [.goTo(GoTo(point: field.downwindStart, speed: performance.downwind, altitudeFt: pattern,
                                 verticalSpeed: 650)),
@@ -439,7 +486,7 @@ final class DryRunGenerator {
             let along = DryRunGeo.distance(centre, position)
                 * (abs(DryRunGeo.angleDifference(from: field.runwayHeading, to: DryRunGeo.bearing(from: centre, to: position))) < 90 ? 1 : -1)
             let exit = field.point(along: along, right: -field.circuitSide.sign * 60)
-            actions.insert(contentsOf: [.goTo(.taxi(to: exit, speed: 8)), .mark("vacated"),
+            actions.insert(contentsOf: [.doing(.taxiingIn), .goTo(.taxi(to: exit, speed: 8)), .mark("vacated"),
                                       .goTo(.taxi(to: field.apron, speed: performance.taxi)), .mark("parked"),
                                       .hold(.parked)], at: 0)
             return nil
@@ -476,10 +523,34 @@ final class DryRunGenerator {
         }
         enRoutePrevious = d
         let gap = altitude - altitudeFt
+        set(descending ? .descending : gap > 50 ? .climbing : .cruising)
         let maxVerticalSpeed = descending ? 550.0 : 700.0
         let verticalSpeed = max(-maxVerticalSpeed, min(maxVerticalSpeed, gap * 6))
         return step(speed: !descending && gap > 50 ? performance.vy : speed, verticalSpeed: verticalSpeed,
                     heading: DryRunGeo.bearing(from: position, to: target))
+    }
+
+    private func set(_ doing: Activity) {
+        guard doing != activity else { return }
+        activity = doing
+        activitySince = t
+    }
+
+    /// What a mark starts.
+    private static func activity(at mark: String) -> Activity? {
+        switch mark {
+        case "lineUp": return .liningUp
+        case "takeoffRoll": return .takeoffRoll
+        case "liftoff": return .climbingOut
+        case "downwind": return .downwind
+        case "base": return .base
+        case "final": return .final
+        case "goAround": return .goingAround
+        case "touchdown": return .landing
+        case "stopped": return .stopped
+        case "parked": return .parkedEnd
+        default: return nil
+        }
     }
 
     // MARK: - One second

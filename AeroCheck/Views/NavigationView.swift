@@ -3755,6 +3755,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // still the region a fit just replaced (`FitRegionSync`). (6.2)
         let regionChanged = !context.coordinator.fitSync.isStale(mapState.region)
             && !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
+        // Unanimated in a dry run faster than real time (`DryRunCameraPace`).
         if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -3762,7 +3763,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: true)
+            mapView.setCamera(camera, animated: DryRunCameraPace.animates)
         }
 
         // Apply heading changes independently of region (for track-up mode).
@@ -3777,7 +3778,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     pitch: 0,
                     heading: mapState.cameraHeading
                 )
-                mapView.setCamera(camera, animated: true)
+                mapView.setCamera(camera, animated: DryRunCameraPace.animates)
             }
         }
 
@@ -5286,14 +5287,15 @@ struct SwissMapView: UIViewRepresentable {
                 }
             }
         } else if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
-            // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern)
+            // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern); unanimated in
+            // a dry run faster than real time (`DryRunCameraPace`).
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
                 fromDistance: Self.clamped(mapState.cameraDistance, to: mapView.cameraZoomRange),
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: true)
+            mapView.setCamera(camera, animated: DryRunCameraPace.animates)
         }
 
         // Apply heading changes independently of region (for track-up mode).
@@ -5308,7 +5310,7 @@ struct SwissMapView: UIViewRepresentable {
                     pitch: 0,
                     heading: mapState.cameraHeading
                 )
-                mapView.setCamera(camera, animated: true)
+                mapView.setCamera(camera, animated: DryRunCameraPace.animates)
             }
         }
 

@@ -81,6 +81,7 @@ struct EventConfirmationView: View {
                     onConfirm()
                 }
                 .accessibilityIdentifier("eventCard.confirm")
+                .coachTarget(.eventConfirm)
             }
 
             // Auto-dismiss countdown + progress (PR-06: unattended events are dismissed, not confirmed)
@@ -267,6 +268,7 @@ struct LandedCardOverlay: View {
                 Color.black.opacity(0.5).ignoresSafeArea()
                 LandedCardView(aerodrome: card.aerodrome, time: appState.formatTime(card.touchdown),
                                landingCheckSettled: appState.landingCheckSettled) { appState.answerLandedCard($0) }
+                    .coachTarget(.landedCard)
             }
         }
     }

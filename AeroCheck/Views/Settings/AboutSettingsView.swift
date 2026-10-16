@@ -24,9 +24,10 @@ struct AboutSettingsView: View {
     var body: some View {
         SettingsPage {
             aboutSection
+            // Between ABOUT and LEGAL, under its own title, where it is found (the author, 16 Oct). (6.4.0)
+            replayOnboardingSection
             legalSection
             dataSourcesSection
-            replayOnboardingSection
             developerOptionsSection
         }
         .navigationTitle(L10n.Settings.about)
@@ -68,17 +69,40 @@ struct AboutSettingsView: View {
         }
     }
 
-    // MARK: - Replay Onboarding
+    // MARK: - Learn and practise
 
     /// Re-show the first-run walkthrough. Clearing the flag makes the app root (ContentView) swap to
-    /// OnboardingView, which tears down the settings presentation behind it. (v4 UI/UX Revamp)
+    /// OnboardingView, which tears down the settings presentation behind it. (v4 UI/UX Revamp) Beside it, the
+    /// guided flight and free practice: LEARN AND PRACTISE. (6.4.0)
     private var replayOnboardingSection: some View {
-        SettingsGroup(tint: tint) {
+        SettingsGroup(title: L10n.DryRunCoach.learnGroup, tint: tint) {
             SettingsButtonRow(icon: "play.circle", title: L10n.Settings.replayIntro,
                               subtitle: L10n.Settings.replayIntroFooter, tint: .aviationGold, showsChevron: false) {
                 appState.replayOnboarding()
             }
-            // Beside the introduction (D5): the app flown on the ground, through the real Cockpit. (6.4.0)
+            // Beside the introduction (D5): the app flown on the ground, through the real Cockpit, guided or
+            // free. (6.4.0)
+            SettingsButtonRow(icon: "graduationcap", title: L10n.DryRunCoach.settingsGuided,
+                              subtitle: L10n.DryRunCoach.settingsGuidedSubtitle, tint: .aviationGold, showsChevron: false) {
+                DryRunCenter.shared.requestGuided()
+            }
+            .disabled(appState.isFlightActive)
+            NavigationLink {
+                DryRunChaptersView()
+            } label: {
+                HStack(spacing: 8) {
+                    SettingsRowLabel(icon: "list.number", title: L10n.DryRunCoach.chaptersRow, tint: .aviationGold)
+                    Image(systemName: "chevron.right")
+                        .font(.aero(size: 14, weight: .semibold))
+                        .foregroundColor(.dimText)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(appState.isFlightActive)
             SettingsButtonRow(icon: "airplane.circle", title: L10n.DryRun.settingsRow,
                               subtitle: L10n.DryRun.settingsRowSubtitle, tint: .aviationGold, showsChevron: false) {
                 DryRunCenter.shared.requestStart()

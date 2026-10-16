@@ -869,6 +869,7 @@ struct ActSlotView: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .modifier(ActSlotCoachTarget(role: role))
     }
 
     @ViewBuilder
@@ -1366,6 +1367,21 @@ struct CockpitMoreMenu: View {
                     Label(L10n.Nav.resetChronometer, systemImage: "arrow.counterclockwise")
                 }
             }
+        }
+    }
+}
+
+/// Where a dry run's coach finds the act band's slots (6.4.0): the first (the check slot, ENGINE START, ENGINE
+/// SHUTDOWN), the checklist's CHECK and what follows it, DEFER. Nothing else reads it.
+private struct ActSlotCoachTarget: ViewModifier {
+    let role: ActSlotRole
+
+    func body(content: Content) -> some View {
+        switch role {
+        case .checkSlot, .engineStart, .engineShutdown: content.coachTarget(.first)
+        case .checklistPrimary: content.coachTarget(.primary)
+        case .deferItem: content.coachTarget(.deferItem)
+        default: content
         }
     }
 }

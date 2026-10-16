@@ -39,7 +39,11 @@ struct DryRunCockpitView: View {
         Group {
             switch session.state {
             case .flying:
-                cockpit
+                if let coach = session.coach {
+                    DryRunGuidedGate(coach: coach) { cockpit }
+                } else {
+                    cockpit
+                }
             case .over(let summary):
                 DryRunSummaryView(summary: summary,
                                   onAgain: { Task { await DryRunCenter.shared.again() } },
@@ -73,6 +77,7 @@ struct DryRunCockpitView: View {
                     .ignoresSafeArea(edges: .top)
                 if session.isOnFinal {
                     DryRunFinalCard(session: session, compact: !metrics.isWide)
+                        .coachTarget(.finalCard)
                         .frame(maxWidth: metrics.finalCardWidth)
                         .padding(.horizontal, 12)
                         .padding(.bottom, metrics.finalCardBottom)
@@ -82,8 +87,79 @@ struct DryRunCockpitView: View {
                 }
             }
             .animation(.easeOut(duration: 0.2), value: session.isOnFinal)
+            // The guided flight's coach: its card above the act band, the veil and the ring over the control.
+            .overlayPreferenceValue(CoachTargetKey.self) { anchors in
+                if let coach = session.coach {
+                    DryRunCoachLayer(coach: coach, session: session, anchors: anchors, metrics: metrics)
+                }
+            }
+            .onPreferenceChange(CockpitPageKey.self) { page in session.coach?.page = page ?? .checklist }
         }
     }
+}
+
+/// The guided flight's Cockpit, once the flight is where its chapter starts: until then, the cover.
+private struct DryRunGuidedGate<Cockpit: View>: View {
+    @ObservedObject var coach: DryRunCoach
+    @ViewBuilder let cockpit: () -> Cockpit
+
+    var body: some View {
+        if coach.isFastForwarding {
+            DryRunFastForwardCover(chapter: coach.startChapter)
+        } else {
+            cockpit()
+        }
+    }
+}
+
+/// The coach's step over the Cockpit: the veil and the ring where its control is, the card above the act band
+/// (and above the card on final when it is up).
+struct DryRunCoachLayer: View {
+    @ObservedObject var coach: DryRunCoach
+    @ObservedObject var session: DryRunSession
+    let anchors: [DryRunCoachStep.Target: Anchor<CGRect>]
+    let metrics: DryRunBandMetrics
+
+    var body: some View {
+        GeometryReader { proxy in
+            let bottom = metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 104 : 90) : 0)
+            let alignment: Alignment = metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom
+            if let step = coach.step {
+                // The prompt over the Cockpit has the card (`dryRunCoachCard`): nothing here meanwhile.
+                if coach.hourMeter == nil {
+                    let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }
+                    ZStack {
+                        DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
+                        DryRunCoachCard(coach: coach, session: session, step: step, compact: !metrics.isWide)
+                            .frame(maxWidth: metrics.isWide ? 600 : .infinity)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, bottom)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+                            .transition(.opacity)
+                    }
+                }
+            } else if let line = session.foldedLine {
+                DryRunFoldedLine(text: line, chapter: coach.upcoming?.chapter, compact: !metrics.isWide)
+                    .frame(maxWidth: metrics.isWide ? 600 : .infinity)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, bottom)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: coach.step)
+    }
+}
+
+// MARK: - The map's camera
+
+/// The map's camera in a dry run faster than real time: moved without an animation. At 4× an animated move came
+/// with every fix, four a second, each begun before the last had ended, and the map rocked in the circuit's turns
+/// (device check g-7, 16 Oct); unanimated, one fix after another reads as a smooth follow at any pace. On the
+/// wall clock (every real flight) it animates, as before. (6.4.0)
+enum DryRunCameraPace {
+    static var animates: Bool { (FlightClock.virtual?.rate ?? 1) <= 1.5 }
 }
 
 // MARK: - Where it shows
@@ -94,9 +170,22 @@ struct DryRunCockpitView: View {
 struct DryRunPresenter: ViewModifier {
     let id: String
     @ObservedObject private var center = DryRunCenter.shared
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var airportDataService: AirportDataService
+    @EnvironmentObject private var aircraftDataService: AircraftDataService
 
     func body(content: Content) -> some View {
         content
+            // The guided flight (Today's card, onboarding's last page, Settings): no sheet, it starts at once.
+            .onChange(of: center.guidedRequest?.id) { _, request in
+                guard request != nil, center.presenter == id, let chapter = center.guidedRequest?.chapter else { return }
+                center.guidedRequest = nil
+                Task {
+                    await center.beginGuided(chapter: chapter, settings: { [appState] in appState.settings },
+                                             airports: airportDataService, aircraftData: aircraftDataService,
+                                             isFlightActive: appState.isFlightActive)
+                }
+            }
             .sheet(item: Binding(get: { center.presenter == id ? center.startRequest : nil },
                                  set: { if $0 == nil { center.startRequest = nil } }),
                    onDismiss: { center.launchPrepared(from: id) }) { request in
@@ -201,7 +290,8 @@ struct DryRunBand: View {
                 HStack(spacing: 10) {
                     DryRunPlate(text: "\(L10n.DryRun.band) · \(state)")
                     Spacer(minLength: 8)
-                    DryRunControls(session: session, height: 36)
+                    // The guided flight paces itself: its coach has Pause.
+                    if session.coach == nil { DryRunControls(session: session, height: 36) }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, max(0, metrics.height - 44))
@@ -224,19 +314,20 @@ struct DryRunBand: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// Where it stands: its pace, paused, on to the next check, waiting for the pilot.
+    /// Where it stands: its pace (the guided flight's own as it goes), paused, on to the next check, waiting
+    /// for the pilot.
     private var state: String {
         if session.isSkipping { return L10n.DryRun.skipping }
         if session.isPaused { return L10n.DryRun.paused }
         if session.isWaiting { return L10n.DryRun.waiting }
-        return DryRunSetup.paceLabel(session.rate)
+        return DryRunSetup.paceLabel(session.coach == nil ? session.rate : session.pace)
     }
 
     private var shortState: String {
         if session.isSkipping { return DryRunSetup.paceLabel(DryRunSession.skipRate) }
         if session.isPaused { return L10n.DryRun.paused }
         if session.isWaiting { return L10n.DryRun.waitingShort }
-        return DryRunSetup.paceLabel(session.rate)
+        return DryRunSetup.paceLabel(session.coach == nil ? session.rate : session.pace)
     }
 }
 
@@ -391,6 +482,22 @@ struct DryRunSummaryView: View {
                         }
                         .font(.aero(size: 18))
                         .foregroundColor(theme.textSecondary)
+                        if !summary.habits.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(L10n.DryRunCoach.habitsTitle.uppercased())
+                                    .font(.aero(size: 13, weight: .semibold, design: .monospaced))
+                                    .tracking(1.2)
+                                    .foregroundColor(theme.textSecondary)
+                                ForEach(summary.habits, id: \.self) { habit in
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Image(systemName: "checkmark").foregroundColor(theme.onTarget)
+                                        Text(habit)
+                                    }
+                                }
+                            }
+                            .font(.aero(size: 18))
+                            .foregroundColor(theme.textPrimary)
+                        }
                         Text(summary.nextTime)
                             .font(.aero(size: 18, weight: .semibold))
                             .foregroundColor(theme.textPrimary)

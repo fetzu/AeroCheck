@@ -142,6 +142,8 @@ final class DryRunWorldTests: XCTestCase {
             "Services/AirfieldTariffService.swift": ["DataPersistenceManager.shared": (1, "a cache of the server's tariffs, every flight's")],
             "Services/BarometricAltitudeService.swift": ["CMAltimeter()": (1, "started by a real flight's tracking only (D3)")],
             "Services/DataPersistenceManager.swift": ["UserDefaults.standard": (2, "the app's store; the world's is confined")],
+            "Services/DryRunSession.swift": ["UserDefaults.standard": (1, "the app's own flag that the guided flight was flown (Today's card), never the world's")],
+            "Views/DryRunGuidedViews.swift": ["@AppStorage": (2, "Today's card: the app's own flags, read on the ground, never by the world")],
             "Services/FlightCreator.swift": ["NotificationService.shared": (4, "planning, on the ground")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],
             "Services/LocationManager.swift": ["CLLocationManager()": (1, "never started by a dry run's (`isDryRun`)")],
@@ -240,6 +242,8 @@ final class DryRunWorldTests: XCTestCase {
         // PARKING, or the shutdown reached any way: off the runway.
         XCTAssertEqual(DryRunSession.afterFullStop(phase: .shutdown, circuits: true), .vacate)
         XCTAssertEqual(DryRunSession.afterFullStop(phase: .hangar, circuits: false), .vacate)
+        // A route never goes round again: a line-up check left showing waits for the pilot.
+        XCTAssertNil(DryRunSession.afterFullStop(phase: .lineUp, circuits: false))
         // The after landing check: circuits wait for the pilot's choice; a flight that isn't vacates.
         XCTAssertNil(DryRunSession.afterFullStop(phase: .afterLanding, circuits: true))
         XCTAssertEqual(DryRunSession.afterFullStop(phase: .afterLanding, circuits: false), .vacate)

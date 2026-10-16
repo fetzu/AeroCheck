@@ -19,6 +19,10 @@ struct DryRunSetup {
     /// What the aircraft does at the end of the first finals, before the pilot's choice on final (DEBUG's
     /// scripted circuits).
     var landings: [DryRunGenerator.Landing] = []
+    /// The guided flight, from this chapter (1 for the whole flight); nil for free practice.
+    var guidedChapter: Int?
+
+    var isGuided: Bool { guidedChapter != nil }
 
     static let defaultRate = 4.0
     /// The paces offered: as the pilot flies, four times, ten times.
@@ -73,8 +77,9 @@ struct DryRunSetup {
         }
     }
 
-    /// "Circuits at LSZQ", "LSZQ → LSGC".
+    /// "Circuits at LSZQ", "LSZQ → LSGC", "Your first flight".
     var title: String {
+        if isGuided { return L10n.DryRunCoach.flightName }
         switch mission {
         case .circuits(let field): return L10n.DryRun.circuitsAt(field.ident)
         case .route(_, let departure, let destination): return "\(departure.ident) → \(destination.ident)"
@@ -109,6 +114,8 @@ struct DryRunSummary: Equatable {
 
     var title: String
     var aircraft: String
+    /// The guided flight's habits, one per chapter flown.
+    var habits: [String] = []
     var checksDone: Int
     var checksTotal: Int
     var lines: [Line]
@@ -144,6 +151,7 @@ struct DryRunSummary: Equatable {
 
     /// What to try next time: the one thing this dry run didn't.
     var nextTime: String {
+        if !habits.isEmpty { return L10n.DryRunCoach.nextFree }
         if wasCircuits {
             if goArounds == 0 { return L10n.DryRun.nextGoAround }
             if !lines.contains(where: { $0.event == .touchAndGo }) { return L10n.DryRun.nextTouchAndGo }

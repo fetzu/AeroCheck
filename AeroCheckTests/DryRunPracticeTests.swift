@@ -131,7 +131,7 @@ final class DryRunPracticeTests: XCTestCase {
 
     /// The card's choice is what the aircraft does, and each final starts on a full stop again.
     func testTheCardOnFinalDecidesAndEachFinalStartsOnAFullStop() throws {
-        let flight = try Headless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
+        let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
         flight.takeOff()
         XCTAssertTrue(flight.fly(until: { flight.session.isOnFinal }, within: 900), "on final")
         XCTAssertEqual(flight.session.finalChoice, .fullStop)
@@ -146,7 +146,7 @@ final class DryRunPracticeTests: XCTestCase {
     // MARK: - Next check
 
     func testNextCheckSpeedsOnUntilTheAircraftWaitsOrACheckFallsDue() throws {
-        let flight = try Headless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
+        let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
         flight.wait(5)
         flight.session.skipToNextCheck()
         XCTAssertFalse(flight.session.isSkipping, "nothing to speed through while the aircraft waits")
@@ -179,7 +179,7 @@ final class DryRunPracticeTests: XCTestCase {
             FlightPlanWaypoint(name: "INS", coordinate: ins),
             FlightPlanWaypoint(name: "LSGC", coordinate: lsgc.reference)])
         let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: lsgc), rate: 0)
-        let flight = try Headless(self, setup: setup, plan: plan)
+        let flight = try DryRunHeadless(self, setup: setup, plan: plan)
         flight.session.resolveAerodrome = { $0 == "LSZQ" ? .lszq : nil }
         XCTAssertNotNil(flight.world.plans.activeFlightPlan, "the copy armed in the world")
         XCTAssertEqual(flight.appState.currentFlight?.flightPlanId, plan.id)
@@ -223,7 +223,7 @@ final class DryRunPracticeTests: XCTestCase {
 
     /// Ended from the Menu: the flight abandoned in the world, the page with what was flown, the world gone.
     func testEndingFromTheMenuShowsTheDryRunsPage() throws {
-        let flight = try Headless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
+        let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
         flight.takeOff()
         flight.wait(120)
         flight.session.stop()
@@ -324,7 +324,7 @@ final class DryRunPracticeTests: XCTestCase {
 /// A dry run in a world of its own, one second at a time with the clock pinned there, as its timer would feed
 /// it, and the pilot doing what the Cockpit's buttons do.
 @MainActor
-private final class Headless {
+final class DryRunHeadless {
     let session: DryRunSession
     let world: DryRunWorld
     /// Held here as the app holds its own: the GPS pipeline holds it weakly.
@@ -356,6 +356,13 @@ private final class Headless {
                                                       rate: 0)
             session.feedDueFixes(upTo: FlightClock.now)
         }
+    }
+
+    /// The guided flight taken to its chapter, as the timer does behind the cover; the test's clock then goes
+    /// on from there.
+    func fastForward() {
+        session.fastForward(budget: 4 * 3600)
+        seconds = session.generator.t
     }
 
     @discardableResult

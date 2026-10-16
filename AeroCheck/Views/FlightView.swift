@@ -17,6 +17,9 @@ struct FlightView: View {
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
+    /// A dry run's: the guided flight's coach reads the engine hours' prompt, and shows its card over it.
+    /// Nil in a real flight. (6.4.0)
+    @Environment(\.dryRunSession) private var dryRunSession
     @State private var showPhaseSelector = false
     @State private var showEndFlightAlert = false
     @State private var showAbandonFlightAlert = false
@@ -315,6 +318,7 @@ struct FlightView: View {
                 },
                 initialValue: hourMeterStartInitialValue
             )
+            .dryRunCoachCard(dryRunSession)
         }
         .fullScreenCover(isPresented: $showHourMeterStop) {
             HourMeterInputView(
@@ -327,6 +331,14 @@ struct FlightView: View {
                 initialValue: hourMeterStopInitialValue,
                 startHours: appState.currentFlight?.engineHourStart
             )
+            .dryRunCoachCard(dryRunSession)
+        }
+        // The guided flight's coach reads the prompt: its card asks about the engine hours over it. (6.4.0)
+        .onChange(of: showHourMeterStart) { _, shown in
+            dryRunSession?.coach?.hourMeter = shown ? .beforeStart : nil
+        }
+        .onChange(of: showHourMeterStop) { _, shown in
+            dryRunSession?.coach?.hourMeter = shown ? .afterStop : nil
         }
         .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -1004,6 +1016,8 @@ extension FlightView {
             }
         }
         .background(theme.background)
+        // The page, for a dry run's coach ("Open MAP"); nothing reads it in a real flight. (6.4.0)
+        .preference(key: CockpitPageKey.self, value: cockpitCurrentPage)
         .onChange(of: cockpitDefaultPage) { _, _ in pageChoice.suggestionChanged() }
         // ROUTE opens on LEGS, from the picker too, unless the NOW line asked for RADIO. (6.2.0)
         .onChange(of: cockpitCurrentPage) { _, page in if page != .route { navState.routeList = .legs } }
@@ -1051,6 +1065,7 @@ extension FlightView {
             // moves (Taxi to After landing), NEXT with its figures, then NOW | NEXT; on the phone, the
             // strip of three, then the next line and the NOW line. (6.2, the read band)
             SeparateView { cockpitReadRows(layout: narrow ? .narrow : .wide) }
+                .coachTarget(.readBand)
 
             // 4 pt on the phone, whose chart has every point it can get (6.2, PR 4; 6.2.0, device check
             // 11 Oct).
@@ -1136,6 +1151,7 @@ extension FlightView {
             VStack(spacing: 0) {
                 cockpitColumnHead
                 SeparateView { cockpitReadRows(layout: .columns, mergesLines: mergesReadLines) }
+                    .coachTarget(.readBand)
                     .padding(.top, Self.cockpitColumnGap)
                 Spacer(minLength: 0)
                 SeparateView { cockpitActBand(layout: .columns) }
@@ -1171,7 +1187,7 @@ extension FlightView {
     /// BRIEFING alone fits there again on an iPad. (6.2)
     private func cockpitChecklistChips(narrow: Bool) -> some View {
         HStack(spacing: 8) {
-            if appState.hasDeferredWork { deferredChip }
+            if appState.hasDeferredWork { deferredChip.coachTarget(.deferredChip) }
             if narrow || !briefingInBar { cockpitBriefingChip }
             cockpitNextChip
             Spacer(minLength: 0)
@@ -1444,6 +1460,7 @@ extension FlightView {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .coachTarget(.menu)
         .accessibilityIdentifier("cockpit.menu")
         .accessibilityLabel(L10n.Cockpit.menu)
     }
@@ -2262,8 +2279,11 @@ struct FlightInfoSheet: View {
                     // (D4), and End is here on both. (6.4.0)
                     if let dryRunSession {
                         settingsCard(title: L10n.DryRun.band) {
-                            DryRunControls(session: dryRunSession, height: 44, stacked: true)
-                            rowDivider
+                            // The guided flight paces itself: End only.
+                            if dryRunSession.coach == nil {
+                                DryRunControls(session: dryRunSession, height: 44, stacked: true)
+                                rowDivider
+                            }
                             Button(role: .destructive) {
                                 dismiss()
                                 dryRunSession.stop()

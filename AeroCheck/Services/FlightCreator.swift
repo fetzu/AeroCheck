@@ -26,7 +26,7 @@ enum FlightCreator {
         // Resolved INSIDE the body rather than as a default argument. Default arguments are
         // evaluated in a nonisolated context, so `= .shared` reaches a main-actor property from
         // outside the actor — a warning today and an error under Swift 6.
-        let notifications = notifications ?? NotificationService.shared
+        let notifications = notifications ?? threads.notificationService
         if !intent.departureIdent.isEmpty {
             await airports.ensureLoaded()
         }
@@ -68,7 +68,7 @@ enum FlightCreator {
                        plans: FlightPlanManager,
                        threads: FlightThreadManager,
                        notifications: NotificationService? = nil) async -> FlightThread {
-        let notifications = notifications ?? NotificationService.shared
+        let notifications = notifications ?? threads.notificationService
         let plan = plan(fromRoute: route, intent: intent)
         plans.add(plan)
 
@@ -130,7 +130,7 @@ enum FlightCreator {
                            plans: FlightPlanManager,
                            threads: FlightThreadManager,
                            notifications: NotificationService? = nil) async -> Trip? {
-        let notifications = notifications ?? NotificationService.shared
+        let notifications = notifications ?? threads.notificationService
         // Before any `createThread`, for the reason given in `create(from:)` above. (review F16)
         await notifications.requestAuthorization()
         return formTrip(fromRoute: route, intent: intent, landings: landings, plans: plans, threads: threads)
@@ -216,7 +216,7 @@ enum FlightCreator {
                            threads: FlightThreadManager,
                            airports: AirportDataService,
                            notifications: NotificationService? = nil) async -> Trip? {
-        let notifications = notifications ?? NotificationService.shared
+        let notifications = notifications ?? threads.notificationService
         let stops = idents.map { $0.trimmingCharacters(in: .whitespaces).uppercased() }
             .filter { !$0.isEmpty }
         guard stops.count >= 3 else { return nil }   // fewer than two legs is just a flight

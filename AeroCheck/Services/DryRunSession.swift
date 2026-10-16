@@ -52,6 +52,12 @@ final class DryRunSession: ObservableObject, Identifiable {
     private(set) var start: Date?
     /// The next fix, decided and not due yet.
     private var pending: DryRunFix?
+    /// The app's airports, for the world's flight and its END FLIGHT.
+    private var airports: AirportDataService?
+    /// Whether the dry run's flight has begun: free practice's at once, the guided one's from START FLIGHT.
+    private(set) var hasFlown = false
+    /// Ended from the Menu or a part's page: the page at once, whatever the story still had.
+    private var stopRequested = false
     /// When the guided flight began its way to its chapter, on the wall clock (the log's measure).
     private var fastForwardBegan: Date?
     private var timer: Timer?
@@ -92,7 +98,7 @@ final class DryRunSession: ObservableObject, Identifiable {
     static let watchRate = 5.0
     static let flyOnRate = 30.0
     /// Fixes fed per tick of the timer while the guided flight is taken to its chapter, behind the cover.
-    static let fastForwardBudget = 400
+    nonisolated static let fastForwardBudget = 400
     /// Never longer than this of the dry run's time: a check that never falls due doesn't run it away.
     static let skipLimit: TimeInterval = 15 * 60
 
@@ -102,7 +108,7 @@ final class DryRunSession: ObservableObject, Identifiable {
         self.setup = setup
         rate = setup.rate
         landings = setup.landings
-        coach = setup.guidedChapter.map { DryRunCoach(startChapter: $0) }
+        coach = setup.guided.map { DryRunCoach(start: $0) }
         generator = DryRunGenerator(departure: setup.departure, mission: setup.generatorMission,
                                     performance: performance, seed: seed)
         generator.pilot = DryRunGenerator.Pilot(
@@ -153,13 +159,18 @@ final class DryRunSession: ObservableObject, Identifiable {
     func begin(airports: AirportDataService, now: Date = Date()) -> Bool {
         guard start == nil else { return true }
         start = now
-        // The guided flight's pace is the coach's, from its first step (which holds); on its way to a chapter
-        // the clock is set fix by fix (`fastForward`).
+        self.airports = airports
+        // The guided dry run's pace is the coach's, from its first step (which holds); on its way to where it
+        // starts the clock is set fix by fix (`fastForward`). Its flight starts from its steps: START FLIGHT on
+        // the ground, done for the pilot when it starts later. Free practice's flight starts at once.
         FlightClock.runVirtual(from: now, rate: coach == nil ? rate : 0)
-        guard world.startFlight(circuits: setup.isCircuits, aerodromes: setup.aerodromes.map(\.airport),
-                                airports: airports) else {
-            end()
-            return false
+        if coach == nil {
+            guard world.startFlight(circuits: setup.isCircuits, aerodromes: setup.aerodromes.map(\.airport),
+                                    airports: airports) else {
+                end()
+                return false
+            }
+            hasFlown = true
         }
         let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -180,7 +191,8 @@ final class DryRunSession: ObservableObject, Identifiable {
     /// over a few ticks rather than in one. Then what the Cockpit did meanwhile.
     func feedDueFixes(upTo now: Date, cap: Int = 50) {
         guard let start, state == .flying else { return }
-        for _ in 0..<cap {
+        // On the ground (the story before START FLIGHT and after END FLIGHT) there is no flight to feed.
+        for _ in 0..<cap where world.appState.isFlightActive {
             let fix = pending ?? generator.nextFix()
             let due = start.addingTimeInterval(TimeInterval(fix.t))
             guard due <= now else {
@@ -203,10 +215,17 @@ final class DryRunSession: ObservableObject, Identifiable {
         fastForwardBegan = began
         defer {
             if !coach.isFastForwarding {
-                AppLog.general.publicLine("Dry run: at chapter \(coach.startChapter) in \(String(format: "%.1f", Date().timeIntervalSince(began))) s")
+                AppLog.general.publicLine("Dry run: at part \(coach.start.part.rawValue), chapter \(coach.start.chapter) in \(String(format: "%.1f", Date().timeIntervalSince(began))) s")
             }
         }
         for _ in 0..<budget where coach.isFastForwarding && state == .flying {
+            // On the ground the steps are the pilot's on the ground: no fix, the coach does them.
+            guard world.appState.isFlightActive else {
+                let index = coach.index
+                observe()
+                if coach.index == index, !world.appState.isFlightActive { break }
+                continue
+            }
             let fix = pending ?? generator.nextFix()
             pending = nil
             let due = start.addingTimeInterval(TimeInterval(fix.t))
@@ -226,6 +245,18 @@ final class DryRunSession: ObservableObject, Identifiable {
     private func observe() {
         let appState = world.appState
         guard appState.isFlightActive else {
+            // The story's ground, before START FLIGHT and after END FLIGHT: the coach goes on, the clock stands.
+            // The dry run ends with its last step, or with Stop here; free practice with its flight.
+            if let coach, !coach.isFinished, !stopRequested {
+                if isOnFinal { isOnFinal = false }
+                let hold = coach.tick(self)
+                if hold != isCoachHolding { isCoachHolding = hold }
+                if isWaiting { isWaiting = false }
+                if foldedLine != nil { foldedLine = nil }
+                applyRate()
+                if coach.isFinished { finish() }
+                return
+            }
             finish()
             return
         }
@@ -256,7 +287,7 @@ final class DryRunSession: ObservableObject, Identifiable {
     private func applyRate() {
         guard state == .flying else { return }
         let pace: Double
-        if isPaused || isCoachHolding || coach?.isFastForwarding == true {
+        if isPaused || isCoachHolding || coach?.isFastForwarding == true || !world.appState.isFlightActive {
             pace = 0
         } else if coach != nil {
             pace = Self.guidedPace(generator)
@@ -402,12 +433,74 @@ final class DryRunSession: ObservableObject, Identifiable {
         applyRate()
     }
 
-    /// Ended from the Menu: the flight abandoned in the world, then the dry run's page.
+    /// Ended from the Menu, or Stop here on a part's page: the flight abandoned in the world if one runs, then
+    /// the dry run's page.
     func stop() {
         guard state == .flying else { return }
-        world.location.stopTracking()
-        world.appState.cancelFlight()
+        stopRequested = true
+        if world.appState.isFlightActive {
+            world.location.stopTracking()
+            world.appState.cancelFlight()
+        }
         observe()
+    }
+
+    // MARK: The story's ground
+
+    /// The story's flight, as planned on the ground (the Plan sheet, or `planStoryFlight`).
+    var storyThread: FlightThread? { world.threads.threads.first }
+
+    /// Create flight, as Plan new flight does it from the dry run's route: a copy of the route for the flight,
+    /// due in ten minutes, and the flight following it. For the pilot, on the way to a later part.
+    func planStoryFlight() {
+        guard storyThread == nil, let route = setup.plan else { return }
+        var plan = FlightPlan(name: route.name, waypoints: route.waypoints)
+        plan.flightOwned = true
+        plan.plannedDepartureTime = FlightClock.now.addingTimeInterval(10 * 60)
+        plan.calculateRouteData()
+        world.plans.add(plan)
+        let bundled = AircraftType.wt9Dynamic
+        world.threads.createThread(from: plan, profile: .full,
+                                   aircraftRegistration: world.aircraft?.registration ?? bundled.registration)
+    }
+
+    func setStoryTask(_ key: ThreadTaskKey, to state: ThreadTaskState) {
+        guard let thread = storyThread, let task = thread.tasks.first(where: { $0.key == key }) else { return }
+        world.threads.setTaskState(state, taskId: task.id, threadId: thread.id)
+    }
+
+    /// START FLIGHT on the ground (the flight's page, Today), and for the pilot on the way to a later part: the
+    /// story's flight with its plan armed, attached to its page, the generator on its way. The app's own start
+    /// (`FlightLauncher`) is a real flight's, which a dry run never starts. False when the world refused it.
+    @discardableResult
+    func startFlightFromGround() -> Bool {
+        guard state == .flying, !hasFlown, !world.appState.isFlightActive, let airports else { return false }
+        if let planId = storyThread?.flightPlanId,
+           let plan = world.plans.flightPlans.first(where: { $0.id == planId }) {
+            world.plans.activateFlightPlan(plan)
+        }
+        guard world.startFlight(circuits: false, aerodromes: setup.aerodromes.map(\.airport), airports: airports) else {
+            AppLog.general.publicLine("Dry run: the flight didn't start")
+            return false
+        }
+        hasFlown = true
+        if let thread = storyThread, let flightId = world.appState.currentFlight?.id {
+            world.threads.attachFlight(flightId, toThreadId: thread.id)
+        }
+        return true
+    }
+
+    /// END FLIGHT as the Cockpit's button does it (`FlightEnder`), on the world's objects: for the pilot, on the
+    /// way to a later part.
+    func endFlight() {
+        guard world.appState.isFlightActive, let airports else { return }
+        FlightEnder(appState: world.appState, locationManager: world.location, airportDataService: airports,
+                    flightPlanManager: world.plans, threadManager: world.threads).end()
+    }
+
+    func finishStoryThread() {
+        guard let thread = storyThread, thread.state != .done else { return }
+        world.threads.finishThread(threadId: thread.id)
     }
 
     /// "WT9 · F-HVXA".
@@ -427,7 +520,8 @@ final class DryRunSession: ObservableObject, Identifiable {
                                          wasCircuits: setup.isCircuits, diverted: diverted,
                                          marks: generator.marks, seconds: end.timeIntervalSince(start ?? end))
         if let coach {
-            summary.habits = coach.chaptersDone.sorted().map(DryRunChapters.habit)
+            summary.habits = coach.segmentsDone.compactMap(\.habit)
+            summary.isStory = true
             if coach.isFinished { onGuidedFinished?() }
         }
         state = .over(summary)
@@ -477,12 +571,12 @@ final class DryRunCenter: ObservableObject {
     /// Starting one: the aircraft's checklist loading, the route armed.
     @Published private(set) var isStarting = false
     @Published var startRequest: StartRequest?
-    /// The guided flight asked for, from this chapter: the presenter starts it (`dryRunPresenter`).
+    /// The guided dry run asked for, from where it starts: the presenter starts it (`dryRunPresenter`).
     @Published var guidedRequest: GuidedRequest?
 
     struct GuidedRequest: Identifiable {
         let id = UUID()
-        let chapter: Int
+        let start: DryRunStart
     }
 
     /// Device-local (D7): Today's card put away with Not now, and the guided flight flown to its end.
@@ -512,23 +606,23 @@ final class DryRunCenter: ObservableObject {
         startRequest = StartRequest(route: route)
     }
 
-    /// Asks `presenter` (the app's root by default) for the guided flight, from `chapter`.
-    func requestGuided(chapter: Int = 1, presenter: String = DryRunCenter.rootPresenter) {
+    /// Asks `presenter` (the app's root by default) for the guided dry run, from `start`.
+    func requestGuided(_ start: DryRunStart = .story, presenter: String = DryRunCenter.rootPresenter) {
         guard !isRunning, prepared == nil, !isStarting else { return }
         self.presenter = presenter
-        guidedRequest = GuidedRequest(chapter: chapter)
+        guidedRequest = GuidedRequest(start: start)
     }
 
-    /// The guided flight: the WT9 from the home aerodrome (LSZQ when there is none, or no runway for it), out
-    /// to a turning point and back, the coach from `chapter`.
+    /// The guided dry run: the WT9 from the home aerodrome (LSZQ when there is none, or no runway for it),
+    /// round the triangle and back, the coach from `start`.
     @discardableResult
-    func beginGuided(chapter: Int, settings: @escaping () -> AppSettings, airports: AirportDataService,
+    func beginGuided(_ start: DryRunStart, settings: @escaping () -> AppSettings, airports: AirportDataService,
                      aircraftData: AircraftDataService, isFlightActive: Bool) async -> Outcome {
         await airports.ensureLoaded()
         await OFMDataService.shared.ensureLoaded()
         let home = settings().homeAerodromeIdent.flatMap { Self.aerodrome($0, airports: airports) } ?? .lszq
         let setup = DryRunSetup(mission: .route(DryRunChapters.route(from: home), departure: home, destination: home),
-                                guidedChapter: chapter)
+                                guided: start)
         return await begin(setup, settings: settings, airports: airports, aircraftData: aircraftData,
                            isFlightActive: isFlightActive, presenter: presenter)
     }
@@ -562,7 +656,16 @@ final class DryRunCenter: ObservableObject {
             world.tearDown()
             return .checklistUnavailable
         }
-        if let plan = setup.plan { await world.arm(plan) }
+        if let plan = setup.plan {
+            if setup.isGuided {
+                // The guided dry run's route, among the world's routes for Plan new flight; armed when its flight
+                // starts. Its logbook, five made-up flights before it, for the Logbook part.
+                await world.keep(plan)
+                await world.seedLogbook(at: setup.departure, now: Date())
+            } else {
+                await world.arm(plan)
+            }
+        }
         guard session == nil, prepared == nil else {
             world.tearDown()
             return .busy

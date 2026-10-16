@@ -54,6 +54,10 @@ class FlightThreadManager: ObservableObject {
     /// Snapshot of each thread as last persisted, for dirty detection (same idea as the plan manager).
     private var lastPersisted: [UUID: FlightThread] = [:]
 
+    /// The notifications this manager schedules through: the app's, or an inert one (a dry run's world).
+    /// `FlightCreator` asks the same for permission. (6.4.0)
+    var notificationService: NotificationService { notifications }
+
     // MARK: - Initialization
 
     init(defaults: UserDefaults = .standard,

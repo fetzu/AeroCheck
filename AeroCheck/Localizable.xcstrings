@@ -3939,6 +3939,23 @@
         }
       }
     },
+    "dryRunCoach.coverTitlePart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting there"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En route"
+          }
+        }
+      }
+    },
     "dryRunCoach.doing.base": {
       "extractionState": "manual",
       "localizations": {
@@ -4279,6 +4296,40 @@
         }
       }
     },
+    "dryRunCoach.end": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "END"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIN"
+          }
+        }
+      }
+    },
+    "dryRunCoach.flyChapters": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly it, chapter by chapter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le voler, chapitre par chapitre"
+          }
+        }
+      }
+    },
     "dryRunCoach.habit1": {
       "extractionState": "manual",
       "localizations": {
@@ -4398,6 +4449,57 @@
         }
       }
     },
+    "dryRunCoach.habitClose": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A filed flight plan is closed first; the rest can wait for the evening."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un plan de vol déposé se ferme d'abord ; le reste peut attendre le soir."
+          }
+        }
+      }
+    },
+    "dryRunCoach.habitLogbook": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The entry is a draft: read it over, then copy it to your logbook."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'entrée est un brouillon : relisez-la, puis recopiez-la dans votre carnet."
+          }
+        }
+      }
+    },
+    "dryRunCoach.habitPlan": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One page per flight: the next thing to do is always on top."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une page par vol : la prochaine chose à faire est toujours en haut."
+          }
+        }
+      }
+    },
     "dryRunCoach.learnGroup": {
       "extractionState": "manual",
       "localizations": {
@@ -4411,6 +4513,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apprendre et s'exercer"
+          }
+        }
+      }
+    },
+    "dryRunCoach.linkKept": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In a real flight this opens %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans un vrai vol, ceci ouvre %@."
+          }
+        }
+      }
+    },
+    "dryRunCoach.linkKeptTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A dry run"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un vol à blanc"
+          }
+        }
+      }
+    },
+    "dryRunCoach.nextClose": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next, closing the flight out: the logbook line, the cost, the debrief."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ensuite, la clôture du vol : la ligne du carnet, le coût, le débriefing."
+          }
+        }
+      }
+    },
+    "dryRunCoach.nextFly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next, the flight itself: START FLIGHT, then the Cockpit, the checks, a go-around and a full stop."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ensuite, le vol lui-même : DÉMARRER LE VOL, puis le cockpit, les vérifications, une remise de gaz et un atterrissage complet."
           }
         }
       }
@@ -4432,19 +4602,155 @@
         }
       }
     },
-    "dryRunCoach.settingsGuidedSubtitle": {
+    "dryRunCoach.nextLogbook": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seven short chapters with a coach, from the aircraft to END FLIGHT. About 10 minutes."
+            "value": "Next, your logbook: the flight just flown, its track and its checks."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sept courts chapitres avec un guide, de l'avion à TERMINER LE VOL. Environ 10 minutes."
+            "value": "Ensuite, votre carnet : le vol que vous venez de faire, sa trace et ses vérifications."
+          }
+        }
+      }
+    },
+    "dryRunCoach.onTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer : %@"
+          }
+        }
+      }
+    },
+    "dryRunCoach.part1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan a flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparer un vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.part2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le voler"
+          }
+        }
+      }
+    },
+    "dryRunCoach.part3": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close out"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôturer"
+          }
+        }
+      }
+    },
+    "dryRunCoach.part4": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your logbook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre carnet"
+          }
+        }
+      }
+    },
+    "dryRunCoach.partDone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : fait"
+          }
+        }
+      }
+    },
+    "dryRunCoach.partsFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A part on its own: the flight it needs flown to it in a few seconds, the steps before it done as you would."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie seule : le vol dont elle a besoin y est mené en quelques secondes, les étapes d'avant faites comme vous les feriez."
+          }
+        }
+      }
+    },
+    "dryRunCoach.partsRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One part at a time"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie à la fois"
           }
         }
       }
@@ -4568,6 +4874,74 @@
         }
       }
     },
+    "dryRunCoach.step.checks.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done, from memory, deferred and found again: your checks, flight by flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faite, de mémoire, reportée puis retrouvée : vos vérifications, vol après vol."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.checks.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How each check ended"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comment chaque vérification s'est terminée"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.chip.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap PREPARE: the page goes to it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez PRÉPARER : la page y va."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.chip.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A chapter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un chapitre"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.climbAgain.body": {
       "extractionState": "manual",
       "localizations": {
@@ -4670,6 +5044,40 @@
         }
       }
     },
+    "dryRunCoach.step.closeOut.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "END FLIGHT put the flight in CLOSE-OUT: what is left to close. Had you filed a flight plan, closing it would come first, in red, with the number to call."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TERMINER LE VOL a mis le vol en CLÔTURE : ce qui reste à clore. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.closeOut.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After the flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après le vol"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.cockpit.body": {
       "extractionState": "manual",
       "localizations": {
@@ -4688,6 +5096,40 @@
       }
     },
     "dryRunCoach.step.cockpit.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your first flight, on the ground"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre premier vol, au sol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cockpitAfterPlan.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the Cockpit START FLIGHT opened. The aircraft waits for you at each step."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voici le cockpit que DÉMARRER LE VOL a ouvert. L'avion vous attend à chaque étape."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.cockpitAfterPlan.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4751,6 +5193,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "la vérification de croisière, à la mise en palier"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.dashboard.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The hours, flights and landings, the hours by aircraft, what you spent, how your checks went. The dry run's logbook has five made-up flights before yours."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les heures, les vols et les atterrissages, les heures par avion, ce que vous avez dépensé, comment vos vérifications se sont passées. Le carnet du vol à blanc a cinq vols inventés avant le vôtre."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.dashboard.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The year at a glance"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'année en un coup d'œil"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.debrief.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A word on what went well and what to change, then tick it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un mot sur ce qui s'est bien passé et ce qui est à changer, puis cochez."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.debrief.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Debrief"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Débriefing"
           }
         }
       }
@@ -4989,6 +5499,176 @@
           "stringUnit": {
             "state": "translated",
             "value": "Maintenant DÉMARRAGE MOTEUR"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.exports.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export makes a GPX or a JSON of the flight; the logbook's own Export makes the EASA logbook PDF. Plan this again, a swipe to the right on a flight, starts the next one from it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter fait un GPX ou un JSON du vol ; celui du carnet fait le PDF du carnet EASA. Planifier à nouveau, en glissant un vol vers la droite, prépare le suivant à partir de lui."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.exports.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export, and plan again"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter, et replanifier"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.finish.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish closes the flight's page; the flight stays in the logbook."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer clôt la page du vol ; le vol reste dans le carnet."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.finish.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.flightPage.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything for this flight, from the plan to the logbook, in four chapters: Plan, Prepare, Fly, Close. The ring counts what is done."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout ce vol, du plan au carnet, en quatre chapitres : Planifier, Préparer, Voler, Clôturer. L'anneau compte ce qui est fait."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.flightPage.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One page per flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une page par vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fuelRow.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AUTO rows fill themselves from the route and the aircraft. Tap the fuel plan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les lignes AUTO se remplissent d'elles-mêmes avec la route et l'avion. Touchez le plan carburant."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fuelRow.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worked out for you"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calculé pour vous"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fuelSheet.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What the route needs, and what you put in. Close it when you have read it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que la route demande, et ce que vous avez mis. Fermez quand vous l'avez lu."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.fuelSheet.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel on board"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant à bord"
           }
         }
       }
@@ -5299,6 +5979,108 @@
         }
       }
     },
+    "dryRunCoach.step.link.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gold buttons stay in the app; blue ones open a site. Tap Open NOTAM briefing: a dry run only says where it would go."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site. Touchez Ouvrir le briefing NOTAM : un vol à blanc dit seulement où il irait."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.link.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gold or blue"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or ou bleu"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.logbookLine.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap Logbook line: the line for your logbook, its times taken from the GPS track."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez Ligne de carnet de vol : la ligne pour votre carnet de vol, ses heures tirées de la trace GPS."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.logbookLine.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The logbook line"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ligne du carnet"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.logbookTab.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the Logbook tab."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez l'onglet Carnet de vol."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.logbookTab.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your logbook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre carnet"
+          }
+        }
+      }
+    },
     "dryRunCoach.step.mapTakeoff.body": {
       "extractionState": "manual",
       "localizations": {
@@ -5363,6 +6145,210 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le test de mémoire"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.nextCard.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What to do next is always on top of the page, and on Today."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine chose à faire est toujours en haut de la page, et sur Aujourd'hui."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.nextCard.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The next thing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine chose"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.notApplicable.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A local flight files no flight plan: long-press Flight plan filed, then Not applicable."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un vol local ne dépose pas de plan de vol : touchez longuement Plan de vol ATC déposé, puis Non applicable."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.notApplicable.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not for this flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas pour ce vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.numbers.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Block and flight time, the landings, the engine hours, and the cost from the aircraft's rate. Copy line puts the line on the clipboard. Close it when you have read it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps bloc et temps de vol, les atterrissages, les heures moteur, et le coût selon le tarif de l'avion. Copier la ligne la met dans le presse-papiers. Fermez quand vous l'avez lu."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.numbers.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logbook & costs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carnet et coûts"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.openFlightPage.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On Today, tap the flight: its page is in CLOSE-OUT now."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur Aujourd'hui, touchez le vol : sa page est maintenant en CLÔTURE."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.openFlightPage.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to the flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour au vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.openLoggedFlight.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap the flight you just flew."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez le vol que vous venez de faire."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.openLoggedFlight.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.planSheet.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From, to, the stops, the day, the aircraft. The dry run chose its route for you: your aerodrome, two turning points, back. A flight planned for another day gets a reminder the day before. Tap Create flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ, arrivée, escales, le jour, l'avion. Le vol à blanc a choisi la route pour vous : votre aérodrome, deux points de virage, retour. Un vol prévu un autre jour a un rappel la veille. Touchez Créer le vol."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.planSheet.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le vol"
           }
         }
       }
@@ -5465,6 +6451,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "La route"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.startFlight.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "START FLIGHT, in the Fly chapter: the Cockpit opens. Started from Today, it asks first when something isn't ticked."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉMARRER LE VOL, dans le chapitre Voler : le cockpit s'ouvre. Démarré depuis Aujourd'hui, il demande d'abord si quelque chose n'est pas coché."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.startFlight.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "START FLIGHT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉMARRER LE VOL"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.tickNotam.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once the NOTAMs are read, tick their row."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une fois les NOTAM lus, cochez leur ligne."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.tickNotam.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tick it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cochez-la"
           }
         }
       }
@@ -5656,19 +6710,172 @@
         }
       }
     },
+    "dryRunCoach.step.today.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every flight starts on Today. Tap Plan new flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque vol commence sur Aujourd'hui. Touchez Planifier un vol."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.today.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan a flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparez un vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.track.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its track, and the chart under it: slide along the chart to move along the flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sa trace, et le graphique en dessous : glissez sur le graphique pour suivre le vol."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.track.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The flight, again"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le vol, à nouveau"
+          }
+        }
+      }
+    },
+    "dryRunCoach.stopHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêter ici"
+          }
+        }
+      }
+    },
+    "dryRunCoach.stopHereNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The rest waits in Settings, Learn and practise."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suite attend dans Réglages, Apprendre et s'exercer."
+          }
+        }
+      }
+    },
+    "dryRunCoach.storyNothingKept": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing of it was kept: the dry run's logbook is gone, yours is as it was."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien n'en est gardé : le carnet du vol à blanc a disparu, le vôtre est tel qu'il était."
+          }
+        }
+      }
+    },
+    "dryRunCoach.storyRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your first flight, from plan to logbook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre premier vol, du plan au carnet"
+          }
+        }
+      }
+    },
+    "dryRunCoach.storyRowSubtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan a flight, fly it, close it out, read it in the logbook, a coach at each step. About 15 minutes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparer un vol, le voler, le clôturer, le relire dans le carnet, un guide à chaque étape. Environ 15 minutes."
+          }
+        }
+      }
+    },
     "dryRunCoach.todayBody": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The WT9, a short local flight, a coach at each step. About 10 minutes; nothing of it is kept."
+            "value": "Plan a flight, fly it with the WT9, close it out and read it in the logbook, a coach at each step. About 15 minutes; nothing of it is kept."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le WT9, un court vol local, un guide à chaque étape. Environ 10 minutes ; rien n'en est gardé."
+            "value": "Préparer un vol, le voler avec le WT9, le clôturer et le relire dans le carnet, un guide à chaque étape. Environ 15 minutes ; rien n'en est gardé."
           }
         }
       }
@@ -5873,40 +7080,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Faire mon premier vol au sol"
-          }
-        }
-      }
-    },
-    "dryRunCoach.settingsGuided": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your first flight, guided"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre premier vol, guidé"
-          }
-        }
-      }
-    },
-    "dryRunCoach.chaptersRow": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The chapters one by one"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les chapitres un par un"
           }
         }
       }

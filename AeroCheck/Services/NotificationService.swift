@@ -65,9 +65,17 @@ final class NotificationService: NSObject, ObservableObject {
     /// Userinfo key carrying the ticket of an aircraft request's notice. (6.3.0)
     nonisolated static let aircraftRequestKey = "aircraftRequest"
 
-    private override init() {
+    /// A dry run's (6.4.0): asks, schedules and cancels nothing, so a flight planned, flown or closed out
+    /// in a dry run's world (its thread manager, `FlightCreator`) never reaches the system's notifications.
+    private let isInert: Bool
+
+    private init(inert: Bool = false) {
+        isInert = inert
         super.init()
     }
+
+    /// A service that does nothing: the dry run's world's. (6.4.0)
+    static func inert() -> NotificationService { NotificationService(inert: true) }
 
     // MARK: - Setup
 
@@ -90,6 +98,7 @@ final class NotificationService: NSObject, ObservableObject {
     }
 
     func refreshAuthorizationStatus() async {
+        guard !isInert else { return }
         let settings = await center.notificationSettings()
         authorizationStatus = settings.authorizationStatus
     }
@@ -98,6 +107,7 @@ final class NotificationService: NSObject, ObservableObject {
     /// permission prompt before the feature has been used is how you get denied.
     @discardableResult
     func requestAuthorization() async -> Bool {
+        guard !isInert else { return false }
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             await refreshAuthorizationStatus()
@@ -110,6 +120,8 @@ final class NotificationService: NSObject, ObservableObject {
     }
 
     private func hasPermission() async -> Bool {
+        // The inert service schedules nothing: every schedule asks this first.
+        guard !isInert else { return false }
         let settings = await center.notificationSettings()
         return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
     }
@@ -223,12 +235,14 @@ final class NotificationService: NSObject, ObservableObject {
 
     /// Drop the close reminder — the plan was closed, or the thread was finished or deleted.
     func cancelFlightPlanCloseReminder(threadId: UUID) {
+        guard !isInert else { return }
         center.removePendingNotificationRequests(withIdentifiers: [Identifier.fplClose(threadId)])
         center.removeDeliveredNotifications(withIdentifiers: [Identifier.fplClose(threadId)])
         held.removeAll { $0.identifier == Identifier.fplClose(threadId) }
     }
 
     func cancelPreparationReminder(threadId: UUID) {
+        guard !isInert else { return }
         center.removePendingNotificationRequests(withIdentifiers: [Identifier.preparation(threadId)])
         held.removeAll { $0.identifier == Identifier.preparation(threadId) }
         // Also clear a banner already sitting in Notification Center — otherwise "Flight tomorrow"

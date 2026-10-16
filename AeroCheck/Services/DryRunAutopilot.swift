@@ -1,4 +1,6 @@
 import Foundation
+import Combine
+import SwiftUI
 
 #if DEBUG
 /// DEV-ONLY: a dry run flown with no hand on the screen, for a check or a capture (`AEROCHECK_DRYRUN`, launched
@@ -30,12 +32,24 @@ final class DryRunAutopilot {
     /// The one flying, held while it does.
     static var current: DryRunAutopilot?
 
+    /// What the autopilot does on the ground in place of a tap: the screens hear it (`dryRunAutopilotTap`).
+    enum Tap: Equatable {
+        case open(DryRunCoachStep.Screen)
+        case close(DryRunCoachStep.Screen)
+        case createFlight
+    }
+
+    static let taps = PassthroughSubject<Tap, Never>()
+
     private let stop: Stop?
     private var timer: Timer?
     private var airborneSince: Date?
     private var sawSession = false
     /// "after:<id>": when the step was done, on the wall clock.
     private var doneAt: Date?
+    /// The step on show, and since when (wall clock).
+    private var stepId: String?
+    private var stepSince = Date()
 
     init(stop: Stop?) {
         self.stop = stop
@@ -88,12 +102,38 @@ final class DryRunAutopilot {
                 timer?.invalidate()
                 return
             }
-            guard doneAt == nil, let step = coach.step, !session.isPaused else { return }
+            guard doneAt == nil, let step = coach.step, !session.isPaused else {
+                // The screen the app would open by itself (the flight's page once created): open.
+                if coach.step == nil, coach.index < coach.steps.count,
+                   case .screen(let screen) = coach.steps[coach.index].moment, !coach.screens.contains(screen) {
+                    Self.taps.send(.open(screen))
+                }
+                return
+            }
             if case .step(let id)? = stop, step.id == id {
                 timer?.invalidate()
                 return
             }
-            if step.kind == .look { coach.next() } else { coach.actAsPilot(step, session) }
+            if step.id != stepId {
+                stepId = step.id
+                stepSince = Date()
+            }
+            // A sheet still coming up ignores the tap that closes it (and its state, already nil, never closes
+            // it after): on the ground the autopilot waits a second, as a hand would.
+            if step.screen != .cockpit, Date().timeIntervalSince(stepSince) < 1 { return }
+            switch step.done {
+            case .next, .partEnd: coach.next()
+            case .screen(let screen): Self.taps.send(.open(screen))
+            case .screenClosed(let screen): Self.taps.send(.close(screen))
+            case .threadCreated: Self.taps.send(.createFlight)
+            case .chipTapped: coach.noteChip(.prepare)
+            case .linkTapped: coach.noteLink()
+            case .threadFinished:
+                coach.actAsPilot(step, session)
+                Self.taps.send(.close(.flightPage))
+            default:
+                if step.kind == .look { coach.next() } else { coach.actAsPilot(step, session) }
+            }
             if case .after(let id)? = stop, step.id == id { doneAt = Date() }
             return
         }
@@ -112,6 +152,13 @@ final class DryRunAutopilot {
         } else if generator.mark("stopped") != nil, session.setup.isCircuits {
             appState.goToPhase(.beforeDeparture)
         }
+    }
+}
+
+extension View {
+    /// What the DEBUG autopilot taps on this screen (`DryRunAutopilot.Tap`).
+    func dryRunAutopilotTap(_ perform: @escaping (DryRunAutopilot.Tap) -> Void) -> some View {
+        onReceive(DryRunAutopilot.taps) { perform($0) }
     }
 }
 #endif

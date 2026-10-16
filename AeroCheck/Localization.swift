@@ -3584,7 +3584,7 @@ enum L10n {
         static let habit5 = String(localized: "dryRunCoach.habit5")
         static let habit6 = String(localized: "dryRunCoach.habit6")
         static let habit7 = String(localized: "dryRunCoach.habit7")
-        static let turningPoint = String(localized: "dryRunCoach.turningPoint")
+        static func turningPointNumber(_ a0: Int) -> String { String(format: String(localized: "dryRunCoach.turningPointNumber"), a0) }
         static let flightName = String(localized: "dryRunCoach.flightName")
         static func chapterOf(_ a0: Int, _ a1: Int) -> String { String(format: String(localized: "dryRunCoach.chapterOf"), a0, a1) }
         static let next = String(localized: "dryRunCoach.next")

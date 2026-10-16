@@ -234,21 +234,37 @@ enum DryRunChapters {
         ]
     }
 
-    /// The guided flight's route: from `field`, out to a turning point 8 NM away (ahead of the runway, away
-    /// from its circuit) and back, at 1,500 ft over the circuit.
+    /// The guided flight's route, a triangle from `field` (the proposal's Q8): the first turning point 6 NM out,
+    /// ahead of the runway, so the departure is straight out; the second 2.5 NM outside where the aerodrome's way
+    /// in begins (its published arrival that joins before the downwind, else a 45° join to it), so the aircraft
+    /// comes home by it and flies the downwind; both at 1,500 ft over the circuit. Each turn under 135°, the two
+    /// points at least 2.5 NM apart: the first point swung off the runway's line until they are.
     static func route(from field: DryRunAerodrome) -> FlightPlan {
-        let bearing = (field.runwayHeading - field.circuitSide.sign * 40 + 360).truncatingRemainder(dividingBy: 360)
-        let turn = DryRunGeo.destination(from: field.reference, bearing: bearing, distance: 8 * DryRunGeo.metresPerNM)
+        let entry = field.guidedEntry
+        let second = DryRunGeo.destination(from: entry.point, bearing: entry.outward, distance: 2.5 * DryRunGeo.metresPerNM)
+        func turn(_ a: Double, _ b: Double) -> Double { abs(DryRunGeo.angleDifference(from: a, to: b)) }
+        func first(swung offset: Double) -> CLLocationCoordinate2D {
+            DryRunGeo.destination(from: field.reference, bearing: field.runwayHeading + offset, distance: 6 * DryRunGeo.metresPerNM)
+        }
+        // Away from the circuit first, then toward it, further each time.
+        let away = -field.circuitSide.sign
+        let offsets = [0.0] + stride(from: 20.0, through: 100, by: 20).flatMap { [away * $0, -away * $0] }
+        let point = offsets.lazy.map(first(swung:)).first { candidate in
+            DryRunGeo.distance(candidate, second) >= 2.5 * DryRunGeo.metresPerNM
+                && turn(DryRunGeo.bearing(from: field.reference, to: candidate), DryRunGeo.bearing(from: candidate, to: second)) <= 135
+                && turn(DryRunGeo.bearing(from: candidate, to: second), DryRunGeo.bearing(from: second, to: entry.point)) <= 135
+        } ?? first(swung: away * 40)
         func aerodrome() -> FlightPlanWaypoint {
             var waypoint = FlightPlanWaypoint(name: field.ident, coordinate: field.reference)
             waypoint.pointKind = .aerodrome
             waypoint.sourceId = field.ident
             return waypoint
         }
+        let altitude = (field.patternAltitudeFt + 1500).rounded()
         let home = aerodrome(), back = aerodrome()
-        let point = FlightPlanWaypoint(name: L10n.DryRunCoach.turningPoint, coordinate: turn,
-                                       altitude: (field.patternAltitudeFt + 1500).rounded())
-        var plan = FlightPlan(name: L10n.DryRunCoach.flightName, waypoints: [home, point, back])
+        let one = FlightPlanWaypoint(name: L10n.DryRunCoach.turningPointNumber(1), coordinate: point, altitude: altitude)
+        let two = FlightPlanWaypoint(name: L10n.DryRunCoach.turningPointNumber(2), coordinate: second, altitude: altitude)
+        var plan = FlightPlan(name: L10n.DryRunCoach.flightName, waypoints: [home, one, two, back])
         plan.calculateRouteData()
         return plan
     }

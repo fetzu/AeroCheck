@@ -4,9 +4,10 @@ import CoreLocation
 // MARK: - Dry run (6.4.0): an aerodrome as the generator flies it
 
 /// An aerodrome as a dry run flies it: the runway in use from its threshold to its far end, the side of its
-/// circuit, how far out the downwind runs and the circuit's altitude. Made from open flightmaps' thresholds
-/// and powered circuit where the app has them, else laid out on the reference point along a heading. LSZQ
-/// is bundled (the author's pick, 12 Oct), so the guided flight flies on a fresh install, before any data
+/// circuit, how far out the downwind runs and the circuit's altitude; the published circuit's line, and the
+/// published arrivals and departures, which the generator flies as they are drawn. Made from open flightmaps'
+/// thresholds and procedures where the app has them, else laid out on the reference point along a heading.
+/// LSZQ is bundled (the author's pick, 12 Oct), so the guided flight flies on a fresh install, before any data
 /// is downloaded. (6.4.0)
 struct DryRunAerodrome {
     enum Side: Equatable {
@@ -14,6 +15,19 @@ struct DryRunAerodrome {
 
         /// +1 right of the runway's direction, -1 left (the generator's offsets).
         var sign: Double { self == .right ? 1 : -1 }
+    }
+
+    /// A leg of the circuit, as its line goes.
+    enum Leg: Equatable {
+        case upwind, crosswind, downwind, base, final
+    }
+
+    /// A published arrival or departure: its line, and the part of it flown off the circuit (open flightmaps',
+    /// the server's weekly job's `offCircuit`; nil when it gives none).
+    struct Procedure {
+        let name: String
+        let line: [CLLocationCoordinate2D]
+        let offCircuit: ClosedRange<Int>?
     }
 
     let ident: String
@@ -29,6 +43,10 @@ struct DryRunAerodrome {
     let downwindOffsetM: Double
     /// The circuit's altitude, feet above sea level.
     let patternAltitudeFt: Double
+    /// The published circuit's line, from the runway's far end round to its threshold; empty without one.
+    var publishedCircuit: [CLLocationCoordinate2D] = []
+    var arrivals: [Procedure] = []
+    var departures: [Procedure] = []
 
     /// A circuit drawn with nothing to go by: 0.9 NM out, 1,000 ft above the field (the generator's).
     static let defaultDownwindOffsetM = 0.9 * DryRunGeo.metresPerNM
@@ -84,7 +102,8 @@ struct DryRunAerodrome {
     /// 1,000 ft above the field.
     static func make(ident: String, name: String, reference: CLLocationCoordinate2D, elevationFt: Double,
                      threshold: CLLocationCoordinate2D, farEnd: CLLocationCoordinate2D,
-                     circuitLine: [CLLocationCoordinate2D] = [], circuitAltitudeFt: Double? = nil) -> DryRunAerodrome {
+                     circuitLine: [CLLocationCoordinate2D] = [], circuitAltitudeFt: Double? = nil,
+                     arrivals: [Procedure] = [], departures: [Procedure] = []) -> DryRunAerodrome {
         let heading = DryRunGeo.bearing(from: threshold, to: farEnd)
         // Each point's distance off the runway's line, metres, positive to its right.
         let offsets = circuitLine.map { point -> Double in
@@ -99,9 +118,18 @@ struct DryRunAerodrome {
             let reach = offsets.map(abs).max() ?? offset
             offset = min(1.6 * DryRunGeo.metresPerNM, max(0.6 * DryRunGeo.metresPerNM, reach))
         }
+        // The published line from the runway's far end round to the threshold, as the generator flies it; a line
+        // the other way round (its last point the far end) is turned.
+        var published = circuitLine
+        if let first = published.first, let last = published.last,
+           DryRunGeo.distance(first, threshold) < DryRunGeo.distance(last, threshold) {
+            published.reverse()
+        }
         return DryRunAerodrome(ident: ident, name: name, reference: reference, elevationFt: elevationFt,
                                threshold: threshold, farEnd: farEnd, circuitSide: side, downwindOffsetM: offset,
-                               patternAltitudeFt: circuitAltitudeFt ?? elevationFt + defaultPatternHeightFt)
+                               patternAltitudeFt: circuitAltitudeFt ?? elevationFt + defaultPatternHeightFt,
+                               publishedCircuit: published.count >= 4 ? published : [],
+                               arrivals: arrivals, departures: departures)
     }
 
     /// No thresholds in the data: the runway laid out on the reference point along `heading` (degrees
@@ -117,9 +145,9 @@ struct DryRunAerodrome {
                                patternAltitudeFt: patternAltitudeFt ?? elevationFt + defaultPatternHeightFt)
     }
 
-    /// LSZQ, Bressaucourt, bundled: runway 07 in use, its left-hand circuit at 2,900 ft as open flightmaps
-    /// draws it (AIRAC 2610), the thresholds and the circuit's line from there, the reference point and the
-    /// elevation from OurAirports. (OurAirports gives its runway, 07/25, without thresholds.)
+    /// LSZQ, Bressaucourt, bundled: runway 07 in use, its left-hand circuit at 2,900 ft and its two arrivals as
+    /// open flightmaps draws them (AIRAC 2610), the thresholds and the lines from there, the reference point and
+    /// the elevation from OurAirports. (OurAirports gives its runway, 07/25, without thresholds.)
     static let lszq = make(
         ident: "LSZQ", name: "Bressaucourt",
         reference: CLLocationCoordinate2D(latitude: 47.392408, longitude: 7.028956), elevationFt: 1866,
@@ -129,7 +157,114 @@ struct DryRunAerodrome {
                       (7.044, 47.41884), (6.98485, 47.40447), (6.98375, 47.40284), (6.99369, 47.38507),
                       (6.99602, 47.38434), (7.02427, 47.39125)]
             .map { CLLocationCoordinate2D(latitude: $0.1, longitude: $0.0) },
-        circuitAltitudeFt: 2900)
+        circuitAltitudeFt: 2900,
+        arrivals: [
+            Procedure(name: "ARR SECTOR EAST",
+                      line: [(7.10158, 47.38718), (7.07828, 47.39336), (7.05721, 47.39871), (7.05612, 47.39946),
+                             (7.04636, 47.41809), (7.044, 47.41884), (6.98485, 47.40447), (6.98374, 47.40285),
+                             (6.99369, 47.38507), (6.99603, 47.38434), (7.02427, 47.39125)]
+                        .map { CLLocationCoordinate2D(latitude: $0.1, longitude: $0.0) },
+                      offCircuit: 0...2),
+            Procedure(name: "ARR SEKTOR WEST",
+                      line: [(6.94334, 47.37823), (6.97003, 47.38313), (6.98894, 47.38365), (6.99462, 47.384),
+                             (7.02427, 47.39125)]
+                        .map { CLLocationCoordinate2D(latitude: $0.1, longitude: $0.0) },
+                      offCircuit: 0...3),
+        ])
+}
+
+// MARK: - The circuit as flown
+
+extension DryRunAerodrome {
+    /// The circuit the generator flies: the published line, or one laid out on the points above (the runway's far
+    /// end, the upwind's end, the downwind, the base, the final, the threshold).
+    var circuitLine: [CLLocationCoordinate2D] {
+        guard publishedCircuit.isEmpty else { return publishedCircuit }
+        return [farEnd, crosswindPoint, downwindStart, downwindEnd, basePoint, finalPoint, threshold]
+    }
+
+    /// Each segment's leg, `line[i]` to `line[i + 1]`: along the runway's direction before the downwind is the
+    /// upwind, after it the final; against it the downwind; across it the crosswind before the downwind, the base
+    /// after. (The legs are worked out as the generator flies them, for its speeds, its heights and what the
+    /// guided flight's folded card says; nothing of it is shown as data.)
+    static func legs(of line: [CLLocationCoordinate2D], runwayHeading: Double) -> [Leg] {
+        var sawDownwind = false
+        return zip(line, line.dropFirst()).map { a, b in
+            let off = abs(DryRunGeo.angleDifference(from: runwayHeading, to: DryRunGeo.bearing(from: a, to: b)))
+            if off > 130 {
+                sawDownwind = true
+                return .downwind
+            }
+            if off < 50 { return sawDownwind ? .final : .upwind }
+            return sawDownwind ? .base : .crosswind
+        }
+    }
+
+    var circuitLegs: [Leg] { Self.legs(of: circuitLine, runwayHeading: runwayHeading) }
+
+    /// The way in from `position`: the published arrival whose start is nearest, else a 45° join to the start of
+    /// the downwind from 1 NM outside the circuit. Its points from where it begins (flown to first) to the
+    /// threshold, and each segment's leg of the circuit (nil: still joining). `beforeDownwind`: only an arrival
+    /// that joins the circuit before its downwind (the guided flight's, so the downwind is flown).
+    func wayIn(from position: CLLocationCoordinate2D, beforeDownwind: Bool = false) -> (points: [CLLocationCoordinate2D], legs: [Leg?]) {
+        let circuit = circuitLine
+        let legs = circuitLegs
+        let candidates = arrivals.compactMap { arrival -> (points: [CLLocationCoordinate2D], legs: [Leg?])? in
+            guard let join = joinIndex(of: arrival) else { return nil }
+            if beforeDownwind, !legs[join...].contains(.downwind) { return nil }
+            let off = Array(arrival.line[...(arrival.offCircuit?.upperBound ?? max(0, arrival.line.count - 2))])
+            let points = off + circuit[join...]
+            return (points, Array(repeating: nil, count: off.count) + legs[join...].map(Optional.some))
+        }
+        if let nearest = candidates.min(by: {
+            DryRunGeo.distance(position, $0.points[0]) < DryRunGeo.distance(position, $1.points[0])
+        }) {
+            return nearest
+        }
+        guard let join = joinFromOutside else {
+            return (circuit, legs.map(Optional.some))
+        }
+        return ([join.entry] + circuit[join.index...], [nil] + legs[join.index...].map(Optional.some))
+    }
+
+    /// The way in the guided flight comes back by (the same as `wayIn` from the side it is placed on): its first
+    /// point, and the bearing straight out from it, away from the circuit.
+    var guidedEntry: (point: CLLocationCoordinate2D, outward: Double) {
+        let way = wayIn(from: reference, beforeDownwind: true)
+        let first = way.points[0], second = way.points[min(1, way.points.count - 1)]
+        return (first, DryRunGeo.bearing(from: second, to: first))
+    }
+
+    /// The circuit's point nearest where `arrival` comes onto it (its first point past the part off it).
+    func joinIndex(of arrival: Procedure) -> Int? {
+        let circuit = circuitLine
+        let onCircuit = arrival.offCircuit.map { $0.upperBound + 1 } ?? (arrival.line.count - 1)
+        guard arrival.line.indices.contains(onCircuit), !circuit.isEmpty else { return nil }
+        let point = arrival.line[onCircuit]
+        return circuit.indices.min { DryRunGeo.distance(circuit[$0], point) < DryRunGeo.distance(circuit[$1], point) }
+    }
+
+    /// The downwind's first point on the circuit line, and a point 1 NM outside the circuit from which the
+    /// downwind is joined at 45°.
+    var joinFromOutside: (entry: CLLocationCoordinate2D, index: Int)? {
+        let circuit = circuitLine
+        guard let index = circuitLegs.firstIndex(of: .downwind) else { return nil }
+        let start = circuit[index]
+        let downwind = DryRunGeo.bearing(from: start, to: circuit[index + 1])
+        // Outside a left-hand circuit is to the right of its downwind, outside a right-hand one to the left.
+        let outward: Double = circuitSide == .left ? 1 : -1
+        let inbound = downwind - 45 * outward
+        return (DryRunGeo.destination(from: start, bearing: inbound + 180, distance: DryRunGeo.metresPerNM), index)
+    }
+
+    /// The published departure that leaves toward `bearing` (degrees true from the aerodrome), nil without one
+    /// within 90° of it.
+    func departure(toward bearing: Double) -> Procedure? {
+        departures.filter { !$0.line.isEmpty }
+            .map { ($0, abs(DryRunGeo.angleDifference(from: bearing, to: DryRunGeo.bearing(from: reference, to: $0.line.last!)))) }
+            .filter { $0.1 < 90 }
+            .min { $0.1 < $1.1 }?.0
+    }
 }
 
 // MARK: - From the app's data
@@ -169,9 +304,15 @@ extension DryRunAerodrome {
                 }
             }
             if let best {
+                // Its arrivals and departures, for the same aircraft as the circuit.
+                func procedures(_ kind: VFRProcedure.Kind) -> [Procedure] {
+                    circuits.filter { $0.kind == kind && $0.isFor(any: [.powered]) && $0.usage != .helicopter && $0.line.count >= 2 }
+                        .map { Procedure(name: $0.name, line: $0.line.map(\.coordinate), offCircuit: $0.offCircuit) }
+                }
                 return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
                             threshold: best.threshold, farEnd: best.farEnd,
-                            circuitLine: circuit.line.map(\.coordinate), circuitAltitudeFt: circuit.altitudeFt.map(Double.init))
+                            circuitLine: circuit.line.map(\.coordinate), circuitAltitudeFt: circuit.altitudeFt.map(Double.init),
+                            arrivals: procedures(.arrival), departures: procedures(.departure))
             }
         }
         if let longest = ends.first {

@@ -253,13 +253,13 @@ struct OnboardingView: View {
             // The flight told as a story: PLAN · FLY · NAVIGATE · LOG.
             VStack(alignment: .leading, spacing: 13) {
                 welcomePhase("point.3.connected.trianglepath.dotted",
-                             String(localized: "Plan|Build your route on the map — airspace and terrain in view."))
+                             String(localized: "Plan|Build your route on the map, with airspace and terrain in view."))
                 welcomePhase("checklist",
                              String(localized: "Fly|Work the checklists through all 16 phases, preflight to shutdown."))
                 welcomePhase("location.north.line",
                              String(localized: "Navigate|A moving map with airspace, frequencies and your live track."))
                 welcomePhase("book.closed",
-                             String(localized: "Log|Every flight recorded automatically — times, track and landings."))
+                             String(localized: "Log|Every flight is recorded automatically: times, track and landings."))
             }
             .padding(.horizontal, 36)
             .padding(.top, 4)
@@ -355,7 +355,7 @@ struct OnboardingView: View {
                     Text(String(localized: "Maps & Data"))
                         .font(.aero(.title3).weight(.semibold))
                         .foregroundColor(.primaryText)
-                    Text(String(localized: "Download what you'll fly over — offline-ready."))
+                    Text(String(localized: "Download what you'll fly over so it works offline."))
                         .font(.aero(.footnote))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -565,7 +565,7 @@ struct OnboardingView: View {
         configContainer(
             icon: "checklist", tint: .altimeterBlue,
             title: String(localized: "Checklists"),
-            subtitle: String(localized: "Interactive checklists for all 16 flight phases — set how you run them."),
+            subtitle: String(localized: "Interactive checklists for all 16 flight phases. Choose how you run them."),
             page: 3
         ) {
             VStack(spacing: 11) {
@@ -589,7 +589,7 @@ struct OnboardingView: View {
         configContainer(
             icon: "airplane.departure", tint: .aviationGold,
             title: String(localized: "Flights"),
-            subtitle: String(localized: "AeroCheck follows a flight end to end — plan it, prepare it, fly it, close it out."),
+            subtitle: String(localized: "AeroCheck follows a flight end to end: plan it, prepare it, fly it, close it out."),
             page: 4
         ) {
             VStack(spacing: 11) {
@@ -665,7 +665,7 @@ struct OnboardingView: View {
         configContainer(
             icon: "map.fill", tint: .aviationGreen,
             title: String(localized: "Your map"),
-            subtitle: String(localized: "Swiss & worldwide layers on the moving map — pick what's drawn."),
+            subtitle: String(localized: "Choose the Swiss and worldwide layers shown on the moving map."),
             page: 6
         ) {
             LazyVGrid(columns: toggleColumns, spacing: 11) {
@@ -720,8 +720,8 @@ struct OnboardingView: View {
         VStack(spacing: 20) {
             Spacer()
             pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
-            pageTitle(String(localized: "One aircraft free — unlock the rest"))
-            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app."))
+            pageTitle(String(localized: "One aircraft free: unlock the rest"))
+            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft: the full fleet of the partner flying clubs, listed on aerocheck.app."))
             // A line, not a button: the form waits until the pilot is in the app. (6.3.0)
             Text(L10n.AircraftRequests.onboardingLine)
                 .font(.aero(.footnote))

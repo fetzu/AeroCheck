@@ -527,7 +527,7 @@ struct MapUpdateReminderSheet: View {
                     .foregroundColor(.primaryText)
 
                 // Description
-                Text("SwissTopo has released a new version of the ICAO Aeronautical Chart. The chart is updated yearly in April. Update your cached chart to ensure accurate navigation data.")
+                Text("swisstopo has released a new version of the ICAO Aeronautical Chart. The chart is updated every year in April. Update your saved chart to keep your navigation data accurate.")
                     .font(.aero(size: 16))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)

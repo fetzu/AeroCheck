@@ -2300,10 +2300,11 @@ class AppState {
     /// Moving at 40 kt or more over the ground: the take-off roll, or in the air.
     private(set) var rollingFast = false
 
-    /// On the line up check, the way on to the climb check (NEXT, the slot, the phase bar) waits until the
-    /// aircraft has taken off: a climb check done on the runway is none (the author's fifth round, 17 Oct). Never
-    /// a trap: it waits only where the app can see the take-off (a field near to anchor it to), and opens at the
-    /// take-off it sees or at 40 kt, whichever comes first.
+    /// On the line up check, NEXT and the slot wait until the aircraft has taken off: a climb check done on the
+    /// runway is none (the author's fifth round, 17 Oct). Never a trap: it waits only where the take-off can be
+    /// detected (a field near to anchor it to), opens at the detected take-off or at 40 kt, and the phase bar
+    /// and the phase list go anywhere as before (the sixth round, r6-12: a NEW CIRCUIT tapped by mistake left
+    /// the pilot on the line up check, the jump doing nothing).
     var waitsForTakeoff: Bool {
         isFlightActive && currentPhase == .lineUp && flightCues.hasCueSource && flightCues.legs <= legsAtLineUp
             && !rollingFast
@@ -2960,8 +2961,12 @@ class AppState {
     /// NEW CIRCUIT in NEXT's place: a circuits flight at the end of its after landing check. The check
     /// slot has the parking check beside it, as at the end of every after landing check. (6.3.0, Q2)
     var offersNewCircuit: Bool {
-        isFlightActive && isCircuitMode && currentPhase == .afterLanding && currentCheckIsDone
+        newCircuitAllowed && isFlightActive && isCircuitMode && currentPhase == .afterLanding && currentCheckIsDone
     }
+
+    /// Whether NEW CIRCUIT is offered at all: not in the guided dry run, whose story ends at the parking (the
+    /// author's sixth round, r6-12: tapped by mistake, it sent the story back to the check before departure).
+    var newCircuitAllowed = true
 
     /// NEW CIRCUIT, at the end of the after landing check of a circuits flight (6.3.0, the author's Q1 to
     /// Q3): the lap's full stop counted if nothing counted it yet, the after landing check left as NEXT
@@ -3353,8 +3358,6 @@ class AppState {
         if phase.isSkippedInCircuitMode(isCircuitMode) {
             return
         }
-        // Past the line up check only once airborne, where the climb check waits for the take-off.
-        if waitsForTakeoff, phase.rawValue > currentPhase.rawValue { return }
 
         if let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
            let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase),

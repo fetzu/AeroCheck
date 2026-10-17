@@ -198,7 +198,8 @@ final class DryRunGuidedTests: XCTestCase {
     }
 
     /// The climb check waits for the take-off: on the runway, the line up check done, NEXT goes nowhere and the
-    /// slot opens the checklist, whose NEXT says AFTER TAKE-OFF; once airborne it goes on (the author's fifth
+    /// slot opens the checklist, whose NEXT says AFTER TAKE-OFF (the phase bar still goes anywhere, the way out);
+    /// once airborne it goes on (the author's fifth
     /// round, 17 Oct: the climb check done before the aircraft took off).
     func testTheClimbCheckWaitsForTheTakeoff() throws {
         var tried = false
@@ -209,7 +210,6 @@ final class DryRunGuidedTests: XCTestCase {
             DryRunCoach.workThroughCurrentCheck(appState)
             XCTAssertTrue(appState.waitsForTakeoff)
             appState.nextPhase()
-            appState.goToPhase(.climb)
             XCTAssertEqual(appState.currentPhase, .lineUp, "no climb check on the runway")
             XCTAssertEqual(CockpitCheckSlot.slot(for: appState).action, .showChecklist)
             return true
@@ -237,6 +237,30 @@ final class DryRunGuidedTests: XCTestCase {
         XCTAssertFalse(appState.waitsForTakeoff, "the take-off seen")
         appState.nextPhase()
         XCTAssertEqual(appState.currentPhase, .climb)
+    }
+
+    /// The phase bar and the phase list go on from the line up check whatever the gate: the way out when the
+    /// take-off can't come (the author's sixth round, r6-12: a NEW CIRCUIT tapped by mistake at the parking,
+    /// the line up check, and the jump's DEFER or ALREADY DONE doing nothing).
+    func testThePhaseBarAlwaysGoesOnFromTheLineUpCheck() {
+        let appState = makeTestAppState()
+        appState.startFlight()
+        addTeardownBlock { @MainActor in appState.cancelFlight() }
+        appState.noteCueSourceReady()
+        appState.goToPhase(.lineUp, skipped: .alreadyDone)
+        XCTAssertTrue(appState.waitsForTakeoff)
+        appState.goToPhase(.afterLanding, skipped: .alreadyDone)
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+    }
+
+    /// No NEW CIRCUIT in the story, which ends at the parking (r6-12); free practice keeps it.
+    func testTheStoryOffersNoNewCircuit() throws {
+        let plan = DryRunChapters.route(from: .lszq)
+        let story = try DryRunHeadless(self, setup: DryRunSetup(mission: .route(plan, departure: .lszq, destination: .lszq),
+                                                                rate: 0, guided: .story), plan: plan)
+        XCTAssertFalse(story.appState.newCircuitAllowed)
+        let practice = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
+        XCTAssertTrue(practice.appState.newCircuitAllowed)
     }
 
     /// The ATC flight plan ticked rather than set aside: either answers its card (st-7).
@@ -540,7 +564,6 @@ final class DryRunGuidedTests: XCTestCase {
                     coach.hourMeter = nil
                 case .screen(let screen): coach.show(screen)
                 case .screenClosed(let screen): coach.hide(screen)
-                case .chipTapped: coach.noteChip(.prepare)
                 case .linkTapped: coach.noteLink()
                 case .fullTanksTapped: coach.noteFullTanks()
                 case .flightStarted:

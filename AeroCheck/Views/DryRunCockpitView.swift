@@ -96,6 +96,10 @@ struct DryRunCockpitView: View {
                 DryRunBand(session: session, metrics: metrics)
                     .ignoresSafeArea(edges: .top)
             }
+            // Paused, said in the middle of the screen with the way on (the author's sixth round, p-9).
+            .overlay {
+                if session.isPaused { DryRunPausedPlate(session: session) }
+            }
             .onPreferenceChange(CockpitPageKey.self) { page in session.coach?.page = page ?? .checklist }
         }
     }
@@ -175,6 +179,40 @@ struct DryRunGroundView: View {
     static func place(_ url: URL) -> String {
         if url.scheme == "tel" { return url.absoluteString.replacingOccurrences(of: "tel://", with: "") }
         return url.host?.replacingOccurrences(of: "www.", with: "") ?? url.absoluteString
+    }
+}
+
+/// DRY RUN PAUSED in the middle of the screen while the dry run is paused, and the button that goes on.
+struct DryRunPausedPlate: View {
+    @ObservedObject var session: DryRunSession
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text(L10n.DryRun.pausedTitle)
+                .font(.aero(size: 22, weight: .bold, design: .monospaced))
+                .tracking(1.6)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.white)
+            Button { session.resume() } label: {
+                Label(L10n.DryRunCoach.goOn, systemImage: "play.fill")
+                    .font(.aero(size: 17, weight: .bold))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 22)
+                    .frame(minHeight: 48)
+                    .background(Capsule().fill(Color.white))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.DryRun.resume)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 22)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.78)))
+        .overlay(alignment: .top) {
+            DryRunHatch()
+                .frame(height: 6)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 

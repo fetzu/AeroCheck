@@ -86,11 +86,12 @@ struct DryRunCoachStep: Equatable {
         case planNewFlight
         case createFlight
         case chapterBar
-        case prepareChip
         case nextCard
         case fuelRow
         /// Full tanks, in the fuel on board sheet.
         case fullTanks
+        /// Done, in a sheet's navigation bar: UIKit's, found by `SystemTabItemLocator` as the tab bar is.
+        case sheetDone
         case notamLink
         case notamTick
         case flightPlanRow
@@ -106,8 +107,6 @@ struct DryRunCoachStep: Equatable {
         case finish
         case logbookDashboard
         case logbookFlight
-        case flightTrack
-        case flightChecks
         case flightExport
     }
 
@@ -188,7 +187,6 @@ struct DryRunCoachStep: Equatable {
         // The ground's.
         case screen(Screen)
         case screenClosed(Screen)
-        case chipTapped
         case linkTapped
         /// Full tanks tapped in the fuel on board sheet.
         case fullTanksTapped
@@ -220,6 +218,8 @@ struct DryRunCoachStep: Equatable {
         case canDefer
         /// Something deferred, for the chip's card.
         case somethingDeferred
+        /// The screen still up (a sheet the pilot may have closed already).
+        case screenOpen(Screen)
     }
 
     /// Stable: the strings' key, the tests'.
@@ -491,19 +491,19 @@ enum DryRunStory {
             S(id: "flightPage", chapter: 0, kind: .look, target: .chapterBar, veils: false, holds: true,
               moment: .screen(.flightPage), done: .next, title: T.flightPageTitle, body: T.flightPageBody,
               part: .plan, screen: .flightPage),
-            S(id: "chip", chapter: 0, kind: .act, target: .prepareChip, veils: true, holds: true, moment: .now,
-              done: .chipTapped, title: T.chipTitle, body: T.chipBody, part: .plan, screen: .flightPage),
             S(id: "nextCard", chapter: 0, kind: .look, target: .nextCard, veils: false, holds: true, moment: .now,
               done: .next, title: T.nextCardTitle, body: T.nextCardBody, part: .plan, screen: .flightPage),
             S(id: "fuelRow", chapter: 0, kind: .act, target: .fuelRow, veils: true, holds: true, moment: .now,
               done: .screen(.fuelSheet), title: T.fuelRowTitle, body: T.fuelRowBody, part: .plan, screen: .flightPage),
             // Full tanks, then Done: the fuel for this flight set and kept (the author's fifth round, 17 Oct).
+            // Full tanks (or the figure, then Save · full tanks), then Done; the sheet closed before either, the
+            // story goes on all the same (the author's sixth round, r6-1).
             S(id: "fuelSheet", chapter: 0, kind: .act, target: .fullTanks, veils: false, holds: true,
               moment: .screen(.fuelSheet), done: .fullTanksTapped, title: T.fuelSheetTitle,
               body: T.fuelSheetBody, part: .plan, screen: .fuelSheet),
-            S(id: "fuelDone", chapter: 0, kind: .act, target: nil, veils: false, holds: true, moment: .now,
-              done: .screenClosed(.fuelSheet), title: T.fuelDoneTitle, body: T.fuelDoneBody, part: .plan,
-              screen: .fuelSheet),
+            S(id: "fuelDone", chapter: 0, kind: .act, target: .sheetDone, veils: false, holds: true, moment: .now,
+              done: .screenClosed(.fuelSheet), requires: .screenOpen(.fuelSheet), title: T.fuelDoneTitle,
+              body: T.fuelDoneBody, part: .plan, screen: .fuelSheet),
             S(id: "link", chapter: 0, kind: .act, target: .notamLink, veils: true, holds: true, moment: .now,
               done: .linkTapped, title: T.linkTitle, body: T.linkBody, part: .plan, screen: .flightPage),
             S(id: "tickNotam", chapter: 0, kind: .act, target: .notamTick, veils: false, holds: true, moment: .now,
@@ -548,11 +548,11 @@ enum DryRunStory {
             S(id: "openLoggedFlight", chapter: 0, kind: .act, target: .logbookFlight, veils: true, holds: true,
               moment: .now, done: .screen(.flightDetail), title: T.openLoggedFlightTitle,
               body: T.openLoggedFlightBody, part: .logbook, screen: .logbook),
-            S(id: "track", chapter: 0, kind: .look, target: .flightTrack, veils: false, holds: true,
+            // What the flight's page holds, to explore as the pilot likes; only Export singled out (the author's
+            // sixth round, 17 Oct).
+            S(id: "track", chapter: 0, kind: .look, target: nil, veils: false, holds: true,
               moment: .screen(.flightDetail), done: .next, title: T.trackTitle, body: T.trackBody, part: .logbook,
               screen: .flightDetail),
-            S(id: "checks", chapter: 0, kind: .look, target: .flightChecks, veils: false, holds: true, moment: .now,
-              done: .next, title: T.checksTitle, body: T.checksBody, part: .logbook, screen: .flightDetail),
             S(id: "exports", chapter: 0, kind: .look, target: .flightExport, veils: false, holds: true, moment: .now,
               done: .next, title: T.exportsTitle, body: T.exportsBody, part: .logbook, screen: .flightDetail),
         ]
@@ -639,7 +639,6 @@ final class DryRunCoach: ObservableObject {
     private var hourMeterSeen = false
     /// The step's screen came up: its closing finishes the step.
     private var screenSeen = false
-    private var chipTaps = 0
     private var linkTaps = 0
     private var fullTanksTaps = 0
 
@@ -713,11 +712,6 @@ final class DryRunCoach: ObservableObject {
         if screens.contains(screen) { screens.remove(screen) }
     }
 
-    /// A chapter's chip tapped on the flight's page.
-    func noteChip(_ chapter: ThreadChapter) {
-        if chapter == .prepare { chipTaps += 1 }
-    }
-
     /// A link the dry run kept from opening.
     func noteLink() { linkTaps += 1 }
 
@@ -733,6 +727,7 @@ final class DryRunCoach: ObservableObject {
             if let step {
                 if hourMeter != nil { hourMeterSeen = true }
                 if case .screenClosed(let screen) = step.done, screens.contains(screen) { screenSeen = true }
+                if step.done == .fullTanksTapped, screens.contains(.fuelSheet) { screenSeen = true }
                 if isDone(step, session) { complete(step) } else {
                     if !isFolded, !keptOpen, step.kind == .act, !step.veils, step.screen == .cockpit,
                        Self.itemsWorked(session.world.appState) > foldBaseline {
@@ -838,6 +833,7 @@ final class DryRunCoach: ObservableObject {
         case .notFromPlan: return !fromPlan
         case .canDefer: return Self.canDefer(appState)
         case .somethingDeferred: return appState.deferredItemCount + appState.deferredChecks.count > 0
+        case .screenOpen(let screen): return isFastForwarding || screens.contains(screen)
         }
     }
 
@@ -978,8 +974,6 @@ final class DryRunCoach: ObservableObject {
             return Self.itemsWorked(appState)
         case .deferred:
             return appState.deferredChecks.count + appState.deferredItemCount
-        case .chipTapped:
-            return chipTaps
         case .linkTapped:
             return linkTaps
         case .fullTanksTapped:
@@ -999,7 +993,9 @@ final class DryRunCoach: ObservableObject {
         case .deferred:
             // Done, or nothing left to defer (a memory check, the check done): the card never holds the story.
             return count(for: step, session) > baseline || !Self.canDefer(appState)
-        case .itemChecked, .chipTapped, .linkTapped, .fullTanksTapped: return count(for: step, session) > baseline
+        case .itemChecked, .linkTapped: return count(for: step, session) > baseline
+        // Or the sheet closed without it (Done with a figure typed by hand, or Cancel).
+        case .fullTanksTapped: return count(for: step, session) > baseline || (screenSeen && !screens.contains(.fuelSheet))
         case .engineStarted: return appState.engineStartTime != nil
         case .linedUp: return appState.lineUpTime != nil
         case .page(let page): return self.page == page
@@ -1091,7 +1087,7 @@ final class DryRunCoach: ObservableObject {
             session.finishStoryThread()
         case .tab(let tab):
             appState.groundTab = tab
-        case .next, .hourMeterClosed, .screen, .screenClosed, .chipTapped, .linkTapped, .fullTanksTapped, .partEnd:
+        case .next, .hourMeterClosed, .screen, .screenClosed, .linkTapped, .fullTanksTapped, .partEnd:
             break
         }
     }

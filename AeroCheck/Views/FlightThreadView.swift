@@ -1028,7 +1028,6 @@ struct FlightThreadView: View {
 
         return Button {
             scrollToChapter = chapter
-            dryRunSession?.coach?.noteChip(chapter)
         } label: {
             HStack(spacing: 6) {
                 Text(chapterName(chapter))
@@ -1045,7 +1044,6 @@ struct FlightThreadView: View {
             .overlay(Capsule().strokeBorder(color.opacity(0.5), lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .coachTarget(ifAny: chapter == .prepare ? .prepareChip : nil)
     }
 
     private static let footerId = "footer"
@@ -1617,7 +1615,6 @@ struct ThreadTaskRow: View {
         switch key {
         case .fuelPlanned: return .fuelRow
         case .flightPlanFiled: return .flightPlanRow
-        case .logbookEntry: return .logbookRow
         default: return nil
         }
     }
@@ -1756,6 +1753,8 @@ struct ThreadTaskRow: View {
                         // Gold rather than blue: this one stays inside the app, where the blue chips
                         // all leave it.
                         chip(toolLabel, color: .aviationGold, strokeOpacity: 0.5) { onOpenTool() }
+                            // The logbook line's button, not its row: the line opens from it (r6-13). (6.4.0)
+                            .coachTarget(ifAny: !prominent && task.key == .logbookEntry ? .logbookRow : nil)
                     }
                     ForEach(links, id: \.label) { link in
                         chip(link.label, color: .altimeterBlue, strokeOpacity: 0.45) { onOpen(link.url) }

@@ -35,8 +35,19 @@ final class DryRunSession: ObservableObject, Identifiable {
     @Published private(set) var isWaiting = false
     /// On final, its end still the pilot's to choose (the card on final).
     @Published private(set) var isOnFinal = false
-    /// How this final ends; a full stop at the start of each.
-    @Published var finalChoice: DryRunGenerator.Landing = .fullStop
+    /// How this final ends; a full stop at the start of each. Picked on the card, it lets the flight go on.
+    @Published var finalChoice: DryRunGenerator.Landing = .fullStop {
+        didSet {
+            if awaitsFinalChoice {
+                awaitsFinalChoice = false
+                applyRate()
+            }
+        }
+    }
+    /// Free practice on final: the flight waits until the pilot picks how it ends on the card (the author's
+    /// sixth round, r6-19: at 30× the card came and went before a tap). Not the guided flight, whose coach
+    /// holds it, nor the tests' scripted landings.
+    @Published private(set) var awaitsFinalChoice = false
     /// Next check: the flight sped through until a check falls due, the aircraft waits, or the final.
     @Published private(set) var isSkipping = false
     /// The coach's step holds the flight until the pilot has done it, or read it.
@@ -114,6 +125,8 @@ final class DryRunSession: ObservableObject, Identifiable {
         rate = setup.rate
         landings = setup.landings
         coach = setup.guided.map { DryRunCoach(start: $0) }
+        // The story ends at the parking: no NEW CIRCUIT to tap by mistake (r6-12).
+        world.appState.newCircuitAllowed = !setup.isGuided
         generator = DryRunGenerator(departure: setup.departure, mission: setup.generatorMission,
                                     performance: performance, seed: seed)
         generator.pilot = DryRunGenerator.Pilot(
@@ -268,6 +281,7 @@ final class DryRunSession: ObservableObject, Identifiable {
         let onFinal = generator.isOnFinal
         if onFinal != isOnFinal {
             if onFinal { finalChoice = .fullStop }
+            awaitsFinalChoice = onFinal && coach == nil && landings.isEmpty
             isOnFinal = onFinal
         }
         takeDetectedEvents()
@@ -278,7 +292,7 @@ final class DryRunSession: ObservableObject, Identifiable {
             let hold = coach.tick(self)
             if hold != isCoachHolding { isCoachHolding = hold }
         }
-        let waiting = generator.isWaiting || isCoachHolding
+        let waiting = generator.isWaiting || isCoachHolding || awaitsFinalChoice
         if waiting != isWaiting { isWaiting = waiting }
         applyRate()
         if coach != nil {
@@ -293,7 +307,8 @@ final class DryRunSession: ObservableObject, Identifiable {
     private func applyRate() {
         guard state == .flying else { return }
         let pace: Double
-        if isPaused || isCoachHolding || coach?.isFastForwarding == true || !world.appState.isFlightActive {
+        if isPaused || isCoachHolding || awaitsFinalChoice || coach?.isFastForwarding == true
+            || !world.appState.isFlightActive {
             pace = 0
         } else if coach != nil {
             pace = Self.guidedPace(generator)
@@ -399,8 +414,14 @@ final class DryRunSession: ObservableObject, Identifiable {
             let target = plan.currentWaypointIndex - 1
             let natural = target == generator.legIndex + 1
                 && (generator.distance(toWaypointAt: generator.legIndex) ?? .infinity) < Self.passageRadius
+            // A DIRECT TO leaves the points it skips without a time over; MARK writes one. A point marked ahead
+            // of the aircraft is the pilot's record, not where to fly: the aircraft flies on to it (the author's
+            // sixth round, r6-4: two MARKs in a turn sent it home, past the second turning point).
             if seenWaypointIndex != nil, target > generator.legIndex, !natural {
-                generator.directTo(waypointAt: target)
+                let skipped = (generator.legIndex + 1)...target
+                if skipped.contains(where: { plan.waypoints.indices.contains($0) && plan.waypoints[$0].actualTimeOver == nil }) {
+                    generator.directTo(waypointAt: target)
+                }
             }
             seenWaypointIndex = plan.currentWaypointIndex
         }

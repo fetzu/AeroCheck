@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@: time to check the weather, DABS and any PPR.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : il est temps de vérifier la météo, le DABS et les éventuels PPR."
+          }
+        }
+      }
+    },
+    "%lld images: this card first, then one for each leg": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld images : cette carte d’abord, puis celle de chaque étape"
+          }
+        }
+      }
+    },
     "%lld stop-and-go": {
       "localizations": {
         "en": {
@@ -121,12 +141,362 @@
         }
       }
     },
+    "A draft for your logbook: AeroCheck is not a logbook of record": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un brouillon pour votre carnet : AéroCheck n'est pas un carnet de vol officiel"
+          }
+        }
+      }
+    },
+    "A reminder, not a clearance: the authority's page is the reference": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un rappel, pas une autorisation : la page de l'autorité fait foi"
+          }
+        }
+      }
+    },
+    "Advisory only: check against the load sheet and the AFM": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À titre indicatif : à vérifier avec la fiche de charge et le manuel de vol"
+          }
+        }
+      }
+    },
+    "AeroCheck follows a flight end to end: plan it, prepare it, fly it, close it out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck suit un vol de bout en bout : planifiez-le, préparez-le, volez, clôturez-le."
+          }
+        }
+      }
+    },
+    "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft: the full fleet of the partner flying clubs, listed on aerocheck.app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck est entièrement fonctionnelle dès le départ, avec le WT9 Dynamic inclus gratuitement. AéroCheck Pro débloque tous les autres avions : la flotte complète des aéroclubs partenaires, listée sur aerocheck.app."
+          }
+        }
+      }
+    },
+    "Border crossing: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passage de frontière : %@"
+          }
+        }
+      }
+    },
+    "Checked %@, re-check for this leg": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifié à %@, à revérifier pour cette étape"
+          }
+        }
+      }
+    },
+    "Choose the Swiss and worldwide layers shown on the moving map.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez les calques suisses et mondiaux affichés sur la carte mobile."
+          }
+        }
+      }
+    },
+    "Circuits at %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste à %@"
+          }
+        }
+      }
+    },
+    "Download what you'll fly over so it works offline.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargez ce que vous survolerez pour l'utiliser hors ligne."
+          }
+        }
+      }
+    },
+    "Enter night and IFR time yourself: the app does not compute twilight": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez vous-même le temps de nuit et IFR : l'app ne calcule pas le crépuscule"
+          }
+        }
+      }
+    },
+    "Everything ticked, ready to fly": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout est coché, prêt à voler"
+          }
+        }
+      }
+    },
+    "Fees: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxes : %@"
+          }
+        }
+      }
+    },
+    "Follow a flight from planning to logbook: fuel, weather, customs, then the numbers": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivez un vol de la planification au carnet : carburant, météo, douane, puis les chiffres"
+          }
+        }
+      }
+    },
+    "If a requirement is not established, assume it applies until you have checked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si une exigence n'est pas établie, considérez qu'elle s'applique jusqu'à vérification"
+          }
+        }
+      }
+    },
+    "Interactive checklists for all 16 flight phases. Choose how you run them.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Des checklists interactives pour les 16 phases de vol. Choisissez comment les utiliser."
+          }
+        }
+      }
+    },
+    "Leaves out the first 300 m of the first leg and the last 300 m of the last leg": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retire les 300 premiers mètres de la première étape et les 300 derniers de la dernière"
+          }
+        }
+      }
+    },
+    "Log|Every flight is recorded automatically: times, track and landings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer|Chaque vol est enregistré automatiquement : heures, trace et atterrissages."
+          }
+        }
+      }
+    },
+    "No envelope entered: mass and CG only": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun domaine saisi : masse et centrage seulement"
+          }
+        }
+      }
+    },
+    "Not checked for this country yet: see the AIP and the national customs authority": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore vérifié pour ce pays : consultez l'AIP et la douane nationale"
+          }
+        }
+      }
+    },
+    "Off hides the landing-fee tasks. Your logbook line is unaffected.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé : les tâches de taxes d'atterrissage sont masquées. Votre ligne de carnet n'est pas affectée."
+          }
+        }
+      }
+    },
+    "One aircraft free: unlock the rest": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un avion gratuit : débloquez les autres"
+          }
+        }
+      }
+    },
+    "OpenAIP · optional chart imagery. Warnings come from the airspace data above.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · imagerie de carte optionnelle. Les alertes viennent des données d’espace aérien ci-dessus."
+          }
+        }
+      }
+    },
+    "PPR: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PPR : %@"
+          }
+        }
+      }
+    },
+    "Plan|Build your route on the map, with airspace and terrain in view.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifier|Construisez votre route sur la carte, avec les espaces aériens et le relief en vue."
+          }
+        }
+      }
+    },
+    "Prior permission required: call ahead": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisation préalable requise : appelez à l'avance"
+          }
+        }
+      }
+    },
+    "Route forecast (opens MeteoSwiss)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévision de route (ouvre MeteoSwiss)"
+          }
+        }
+      }
+    },
+    "Some stations have no mass, so this is not a valid check": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains postes n'ont pas de masse : ce n'est donc pas une vérification valable"
+          }
+        }
+      }
+    },
     "Subscription": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Abonnement"
+          }
+        }
+      }
+    },
+    "Switches to the high-contrast palette when the screen is near full brightness. The app can't measure ambient light, so it goes by the screen brightness.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passe à la palette à contraste élevé lorsque l'écran est proche de la luminosité maximale. L'app ne peut pas mesurer la lumière ambiante : elle se fie donc à la luminosité de l'écran."
+          }
+        }
+      }
+    },
+    "These are the same values, in your logbook's column order. Scroll sideways for the other columns, and use Edit to correct them.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce sont les mêmes valeurs, dans l'ordre des colonnes de votre carnet. Faites défiler latéralement pour les autres colonnes, et utilisez Modifier pour les corriger."
+          }
+        }
+      }
+    },
+    "These figures come from the aircraft's weighing report and AFM. The app does not include them.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces valeurs viennent de la fiche de pesée et du manuel de vol. L'app ne les fournit pas."
+          }
+        }
+      }
+    },
+    "This data comes from the community, so keep it up to date. It is not official aeronautical information: always check that it is current before flight.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces données viennent de la communauté : gardez-les à jour. Ce ne sont pas des informations aéronautiques officielles ; vérifiez toujours qu’elles sont à jour avant le vol."
+          }
+        }
+      }
+    },
+    "Updates & offline storage": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mises à jour et stockage hors ligne"
+          }
+        }
+      }
+    },
+    "Used for the PIC column and for the holder's name on the logbook PDF.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisé pour la colonne PIC et pour le nom du titulaire sur le PDF du carnet."
+          }
+        }
+      }
+    },
+    "Your ATC flight plan for %@ is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre plan de vol ATC pour %@ n'est pas marqué comme clôturé. Si la tour ne l'a pas clôturé pour vous, le RCC de Zurich est alerté 30 min après votre ETA."
           }
         }
       }
@@ -154,13 +524,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Where each stands, read when the app opens. The e-mails tell you too, and a tap opens the request’s page, with its history."
+            "value": "The status of each request is updated when you open the app. Our e-mails tell you too, and tapping a request opens its page, with its history."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Où chacune en est, lu à l’ouverture de l’app. Les e-mails vous le disent aussi, et un toucher ouvre la page de la demande, avec son historique."
+            "value": "Le statut de chaque demande est mis à jour à l’ouverture de l’app. Nos e-mails vous l’indiquent aussi, et toucher une demande ouvre sa page, avec son historique."
           }
         }
       }
@@ -511,13 +881,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Someone already asked for this aircraft: that request carries on, this one is closed."
+            "value": "Someone has already asked for this aircraft. That request carries on, and this one is closed."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelqu’un a déjà demandé cet avion : cette demande-là continue, celle-ci est close."
+            "value": "Quelqu’un a déjà demandé cet avion. Cette demande-là continue, et celle-ci est close."
           }
         }
       }
@@ -664,7 +1034,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This becomes an update: send the club’s new revision, and it replaces the checklist the app has."
+            "value": "This becomes an update: send the club’s new revision, and it replaces the checklist in the app."
           }
         },
         "fr": {
@@ -817,13 +1187,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The club’s other aircraft of this type, if the same document covers them: HB-KFI, HB-KFO. Up to 10 registrations in all."
+            "value": "Add the club’s other aircraft of this type if the same document covers them, for example HB-KFI, HB-KFO. Up to 10 registrations in all."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les autres avions du club de ce type, si le même document les couvre : HB-KFI, HB-KFO. Jusqu’à 10 immatriculations en tout."
+            "value": "Ajoutez les autres avions du club de ce type si le même document les couvre, par exemple HB-KFI, HB-KFO. Jusqu’à 10 immatriculations en tout."
           }
         }
       }
@@ -1010,7 +1380,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une personne qui peut parler pour le club au sujet de ses documents (le président, le chef-instructeur, le responsable technique). Nous lui envoyons un lien pour confirmer ou refuser, rien d’autre."
+            "value": "Une personne qui peut parler au nom du club au sujet de ses documents (le président, le chef-instructeur, le responsable technique). Nous lui envoyons un lien pour confirmer ou refuser, rien d’autre."
           }
         }
       }
@@ -1157,13 +1527,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A scan becomes one PDF, its pages in the order you took them."
+            "value": "A scan becomes one PDF, with the pages in the order you took them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une numérisation devient un PDF, ses pages dans l’ordre où vous les avez prises."
+            "value": "Une numérisation devient un seul PDF, avec les pages dans l’ordre où vous les avez prises."
           }
         }
       }
@@ -1242,13 +1612,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The language the document is written in. The checklist keeps it: it doesn’t follow the app’s language (English or French), so a German checklist reads in German in both."
+            "value": "The language the document is written in. The checklist stays in that language whatever the app’s language (English or French): a German checklist reads in German in both."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La langue dans laquelle le document est écrit. La checklist la garde : elle ne suit pas la langue de l’app (anglais ou français), une checklist en allemand se lit donc en allemand dans les deux."
+            "value": "La langue dans laquelle le document est écrit. La checklist reste dans cette langue, quelle que soit celle de l’app (anglais ou français) : une checklist en allemand se lit en allemand dans les deux."
           }
         }
       }
@@ -1276,13 +1646,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Type it if it isn’t above, in any form (Japanese, Swiss German…); several, separated by commas."
+            "value": "If it isn’t listed above, type it in any form (Japanese, Swiss German…). Separate several with commas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saisissez-la si elle ne figure pas ci-dessus, sous n’importe quelle forme (japonais, suisse allemand…) ; plusieurs, séparées par des virgules."
+            "value": "Si elle ne figure pas ci-dessus, saisissez-la sous n’importe quelle forme (japonais, suisse allemand…). Séparez-en plusieurs par des virgules."
           }
         }
       }
@@ -1395,13 +1765,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Which pages are the checklist, what changed in this revision, an aircraft that differs from the others."
+            "value": "For example: which pages are the checklist, what changed in this revision, or an aircraft that differs from the others."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelles pages sont la checklist, ce qui change dans cette révision, un avion qui diffère des autres."
+            "value": "Par exemple : quelles pages sont la checklist, ce qui a changé dans cette révision, ou un avion qui diffère des autres."
           }
         }
       }
@@ -1701,13 +2071,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The upload stopped at %@. Try again: the files already sent stay."
+            "value": "The upload stopped at %@. Try again to resume from that file."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’envoi s’est arrêté sur %@. Réessayez : les fichiers déjà envoyés restent."
+            "value": "L’envoi s’est arrêté sur %@. Réessayez pour reprendre à partir de ce fichier."
           }
         }
       }
@@ -1752,13 +2122,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "These don’t read as registrations: %@."
+            "value": "These don’t look like registrations: %@."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce ne sont pas des immatriculations lisibles : %@."
+            "value": "Ces entrées ne ressemblent pas à des immatriculations : %@."
           }
         }
       }
@@ -1786,13 +2156,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Say what aircraft it is."
+            "value": "Enter the aircraft type."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dites de quel avion il s’agit."
+            "value": "Indiquez le type d’avion."
           }
         }
       }
@@ -1803,13 +2173,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Say whether you send it for the club or as a pilot."
+            "value": "Choose whether you’re sending it for the club or as a pilot."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dites si vous l’envoyez pour le club ou en tant que pilote."
+            "value": "Indiquez si vous l’envoyez pour le club ou en tant que pilote."
           }
         }
       }
@@ -1843,7 +2213,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’adresse e-mail du club ne semble pas juste."
+            "value": "L’adresse e-mail du club ne semble pas valide."
           }
         }
       }
@@ -1854,13 +2224,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The club’s contact is your own address: it has to be someone else at the club, who confirms for it."
+            "value": "The club’s contact can’t be your own address: someone else at the club has to confirm."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le contact du club est votre propre adresse : ce doit être quelqu’un d’autre au club, qui confirme pour lui."
+            "value": "Le contact du club ne peut pas être votre propre adresse : c’est quelqu’un d’autre au club qui doit confirmer."
           }
         }
       }
@@ -1871,13 +2241,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Give your e-mail: it’s where we tell you what happens."
+            "value": "Enter your e-mail address: it’s where we tell you how your request is going."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indiquez votre e-mail : c’est là que nous vous disons ce qui se passe."
+            "value": "Indiquez votre adresse e-mail : c’est là que nous vous tenons au courant de votre demande."
           }
         }
       }
@@ -1894,7 +2264,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre adresse e-mail ne semble pas juste."
+            "value": "Votre adresse e-mail ne semble pas valide."
           }
         }
       }
@@ -1922,13 +2292,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A language is letters, spaces and dashes, 2 to 35 characters: “%@” isn’t."
+            "value": "“%@” isn’t a language name: use 2 to 35 letters, spaces or dashes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une langue s’écrit en lettres, espaces et tirets, de 2 à 35 caractères : « %@ » ne convient pas."
+            "value": "« %@ » n’est pas un nom de langue : utilisez de 2 à 35 lettres, espaces ou tirets."
           }
         }
       }
@@ -2007,13 +2377,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The files come to %@: 25 MB at most in all."
+            "value": "The files come to %@: the limit is 25 MB in all."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les fichiers font %@ en tout : 25 Mo au plus."
+            "value": "Les fichiers font %@ en tout : la limite est de 25 Mo."
           }
         }
       }
@@ -2030,7 +2400,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restez à 1000 caractères."
+            "value": "Limitez-vous à 1000 caractères."
           }
         }
       }
@@ -2041,13 +2411,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tick that you may share this document."
+            "value": "Confirm that you may share this document."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cochez que vous pouvez transmettre ce document."
+            "value": "Confirmez que vous pouvez transmettre ce document."
           }
         }
       }
@@ -2058,13 +2428,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tick that you have read how what you send is kept."
+            "value": "Confirm that you have read how AéroCheck keeps and uses what you send."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cochez que vous avez lu comment ce que vous envoyez est conservé."
+            "value": "Confirmez que vous avez lu comment AéroCheck conserve et utilise ce que vous envoyez."
           }
         }
       }
@@ -2092,13 +2462,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "That doesn’t read as a registration. Type it as it’s painted on the aircraft: HB-KFD, F-HVXA, D-EABC."
+            "value": "That doesn’t look like a registration. Type it as it’s painted on the aircraft: HB-KFD, F-HVXA, D-EABC."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce n’est pas une immatriculation lisible. Tapez-la comme elle est peinte sur l’avion : HB-KFD, F-HVXA, D-EABC."
+            "value": "Cela ne ressemble pas à une immatriculation. Tapez-la comme elle est peinte sur l’avion : HB-KFD, F-HVXA, D-EABC."
           }
         }
       }
@@ -2115,7 +2485,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette adresse e-mail ne semble pas juste."
+            "value": "Cette adresse e-mail ne semble pas valide."
           }
         }
       }
@@ -2177,13 +2547,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AéroCheck already has this registration, so this is an update. The form has switched to it: check, then send again."
+            "value": "AéroCheck already has this registration, so the form now sends it as an update. Check it, then send again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "AéroCheck a déjà cette immatriculation : c’est donc une mise à jour. Le formulaire est passé en mise à jour : vérifiez, puis envoyez à nouveau."
+            "value": "AéroCheck a déjà cette immatriculation : le formulaire l’envoie donc maintenant comme une mise à jour. Vérifiez-le, puis envoyez à nouveau."
           }
         }
       }
@@ -2194,13 +2564,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove from the other registrations: %@ (already in AéroCheck; a new revision is a request of its own)."
+            "value": "Remove from the other registrations: %@ (already in AéroCheck). To update one, send a separate request."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "À retirer des autres immatriculations : %@ (déjà dans AéroCheck ; une nouvelle révision fait l’objet d’une demande à part)."
+            "value": "À retirer des autres immatriculations : %@ (déjà dans AéroCheck). Pour en mettre une à jour, envoyez une demande à part."
           }
         }
       }
@@ -2262,13 +2632,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This sending has expired (files wait 24 hours at most). Send the request again."
+            "value": "This upload has expired (files are kept for 24 hours at most). Send the request again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet envoi a expiré (les fichiers attendent 24 heures au plus). Envoyez la demande à nouveau."
+            "value": "Cet envoi a expiré (les fichiers sont conservés 24 heures au plus). Envoyez la demande à nouveau."
           }
         }
       }
@@ -2421,7 +2791,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelque chose s’est mal passé. Réessayez dans un moment."
+            "value": "Une erreur s’est produite. Réessayez dans un moment."
           }
         }
       }
@@ -2449,13 +2819,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We have your request, and we sent its link to %@: it’s how you follow it. The Aircraft tab lists it too, with where it stands."
+            "value": "We have your request and sent its link to %@: use it to follow your request. It’s also in the Aircraft tab, with its status."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nous avons votre demande, et nous avons envoyé son lien à %@ : c’est ainsi que vous la suivez. L’onglet Avions la liste aussi, avec où elle en est."
+            "value": "Nous avons bien reçu votre demande et en avons envoyé le lien à %@ : il vous permet de la suivre. Elle figure aussi dans l’onglet Avions, avec son statut."
           }
         }
       }
@@ -2483,13 +2853,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We look at it, then prepare it, which takes as long as it takes (one person, spare time, no promised date). You get an e-mail at each step that needs one."
+            "value": "We look at it, then prepare it. That takes as long as it takes: one person does it in their spare time, with no promised date. You get an e-mail at each step that needs one."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nous la regardons, puis nous la préparons, ce qui prend le temps qu’il faut (une seule personne, sur son temps libre, sans date promise). Vous recevez un e-mail à chaque étape qui en demande un."
+            "value": "Nous la regardons, puis nous la préparons. Cela prend le temps qu’il faut : une seule personne s’en occupe sur son temps libre, sans date promise. Vous recevez un e-mail à chaque étape qui en demande un."
           }
         }
       }
@@ -2670,7 +3040,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This flight is set for circuits, which skip Cruise and Descent. The touch-and-goes and full stops so far stay in the flight."
+            "value": "This flight is set for circuits, which skip Cruise and Descent. The touch-and-goes and full stops flown so far stay in the flight."
           }
         },
         "fr": {
@@ -2721,13 +3091,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touch-and-go loop, climb check to landing check"
+            "value": "Touch-and-go loop, from the climb check to the landing check"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Boucle du posé-décollé, de la montée à l'atterrissage"
+            "value": "Boucle du posé-décollé, de la vérification de montée à la vérification d'atterrissage"
           }
         }
       }
@@ -2738,13 +3108,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Full-stop loop, check before departure to after landing check"
+            "value": "Full-stop loop, from the check before departure to the after landing check"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Boucle de l'atterrissage complet, de l'avant départ à l'après atterrissage"
+            "value": "Boucle de l'atterrissage complet, de la vérification avant départ à la vérification après atterrissage"
           }
         }
       }
@@ -2874,13 +3244,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Starts the next circuit at the check before departure. The full stop is counted if it wasn't yet."
+            "value": "Starts the next circuit at the check before departure, and counts the full stop if it isn't counted yet."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reprend au tour suivant, à la vérification avant départ. L'atterrissage complet est compté s'il ne l'était pas encore."
+            "value": "Démarre le tour suivant à la vérification avant départ, et compte l'atterrissage complet s'il ne l'est pas encore."
           }
         }
       }
@@ -8318,6 +8688,16 @@
         }
       }
     },
+    "swisstopo has released a new version of the ICAO Aeronautical Chart. The chart is updated every year in April. Update your saved chart to keep your navigation data accurate.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "swisstopo a publié une nouvelle version de la carte aéronautique OACI. La carte est mise à jour chaque année en avril. Mettez à jour votre carte enregistrée pour garder des données de navigation exactes."
+          }
+        }
+      }
+    },
     "thread.debrief.optional": {
       "extractionState": "manual",
       "localizations": {
@@ -8681,26 +9061,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajouter la carte de chaque étape"
-          }
-        }
-      }
-    },
-    "%lld images: this card first, then each leg's own": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld images : cette carte d’abord, puis celle de chaque étape"
-          }
-        }
-      }
-    },
-    "Leaves out the first leg's first 300 m and the last leg's last 300 m": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retire les 300 premiers mètres de la première étape et les 300 derniers de la dernière"
           }
         }
       }
@@ -9117,13 +9477,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indicated, at the power you cruise at. Every leg is timed with it, as a true airspeed at the leg's altitude. Your figure wins; otherwise what your flights in this aircraft show (from 5 flights), then the aircraft's data, then 100 kt."
+            "value": "The indicated airspeed at your cruise power. AéroCheck converts it to a true airspeed at each leg's altitude to time the leg. A figure you enter is used first. Otherwise AéroCheck uses the speed learned from your flights in this aircraft (from 5 flights), then the aircraft's data, then 100 kt."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indiquée, à la puissance de croisière. Le temps de chaque branche en est calculé, en vitesse propre à l'altitude de la branche. Votre valeur prime ; sinon ce que montrent vos vols sur cet avion (dès 5 vols), puis les données de l'avion, puis 100 kt."
+            "value": "La vitesse indiquée à votre puissance de croisière. AéroCheck la convertit en vitesse propre à l'altitude de chaque branche pour en calculer le temps. Une valeur que vous saisissez est utilisée en priorité. Sinon, AéroCheck utilise la vitesse apprise de vos vols sur cet avion (dès 5 vols), puis les données de l'avion, puis 100 kt."
           }
         }
       }
@@ -9253,13 +9613,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empty: the aircraft's cruise speed at this leg's altitude"
+            "value": "Leave empty to use the aircraft's cruise speed at the leg's altitude."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vide : la vitesse de croisière de l'avion à l'altitude de la branche"
+            "value": "Laissez vide pour utiliser la vitesse de croisière de l'avion à l'altitude de la branche."
           }
         }
       }
@@ -9304,13 +9664,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A check flown from memory, its items hidden. Confirm it on the checklist, or leave it on the deferred list."
+            "value": "This check is flown from memory, so its items are hidden. Confirm it on the checklist, or move it to the deferred list."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une vérification faite de mémoire, ses éléments masqués. Confirmez-la sur la checklist, ou laissez-la dans les éléments reportés."
+            "value": "Cette vérification se fait de mémoire, ses éléments sont donc masqués. Confirmez-la sur la checklist, ou placez-la dans les éléments reportés."
           }
         }
       }
@@ -9321,13 +9681,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The check moves to the deferred list, whole, and stays there until you confirm it."
+            "value": "The whole check moves to the deferred list and stays there until you confirm it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification passe entière dans les éléments reportés, et y reste jusqu'à ce que vous la confirmiez."
+            "value": "La vérification entière passe dans les éléments reportés et y reste jusqu'à ce que vous la confirmiez."
           }
         }
       }
@@ -9526,13 +9886,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Records the check done from memory"
+            "value": "Records the check as done from memory"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistre la vérification faite de mémoire"
+            "value": "Enregistre la vérification comme faite de mémoire"
           }
         }
       }
@@ -9560,7 +9920,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Owed"
+            "value": "Late"
           }
         },
         "fr": {
@@ -9611,7 +9971,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed · you took off with it open"
+            "value": "late · not done before take-off"
           }
         },
         "fr": {
@@ -9628,7 +9988,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed · you levelled off with it open"
+            "value": "late · not done before level-off"
           }
         },
         "fr": {
@@ -9645,7 +10005,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed · the descent began with it open"
+            "value": "late · not done before the descent"
           }
         },
         "fr": {
@@ -9662,7 +10022,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed · the approach began with it open"
+            "value": "late · not done before the approach"
           }
         },
         "fr": {
@@ -9679,7 +10039,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed · you reached the circuit with it open"
+            "value": "late · not done before joining the circuit"
           }
         },
         "fr": {
@@ -9696,7 +10056,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed"
+            "value": "late"
           }
         },
         "fr": {
@@ -9713,13 +10073,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goes on to this check and records it done from memory"
+            "value": "Goes on to this check and records it as done from memory"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passe à cette vérification et l'enregistre faite de mémoire"
+            "value": "Passe à cette vérification et l'enregistre comme faite de mémoire"
           }
         }
       }
@@ -10070,7 +10430,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed, never done"
+            "value": "late, never done"
           }
         },
         "fr": {
@@ -10189,7 +10549,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "you took off with it open"
+            "value": "still open at take-off"
           }
         },
         "fr": {
@@ -10206,7 +10566,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "you levelled off with it open"
+            "value": "still open at level-off"
           }
         },
         "fr": {
@@ -10223,7 +10583,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the descent began with it open"
+            "value": "still open when the descent began"
           }
         },
         "fr": {
@@ -10240,7 +10600,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the approach began with it open"
+            "value": "still open when the approach began"
           }
         },
         "fr": {
@@ -10257,7 +10617,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "you reached the circuit with it open"
+            "value": "still open on joining the circuit"
           }
         },
         "fr": {
@@ -10274,13 +10634,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the flight moved on with it open"
+            "value": "still open later in the flight"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "le vol a continué"
+            "value": "encore ouverte plus tard dans le vol"
           }
         }
       }
@@ -10291,7 +10651,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed %lld times"
+            "value": "late %lld times"
           }
         },
         "fr": {
@@ -10478,7 +10838,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "owed on %lld of %lld flights"
+            "value": "late on %lld of %lld flights"
           }
         },
         "fr": {
@@ -10637,13 +10997,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Records FREDA done"
+            "value": "Records FREDA as done"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistre le FREDA fait"
+            "value": "Enregistre le FREDA comme fait"
           }
         }
       }
@@ -10722,13 +11082,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ is in the Logbook. A name goes above its route; leave it empty to keep the route alone."
+            "value": "%@ is now in the Logbook. A name shows above its route. Leave it empty to show only the route."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ est dans le carnet de vol. Un nom s'affiche au-dessus de sa route ; laissez vide pour garder la route seule."
+            "value": "%@ est maintenant dans le carnet de vol. Un nom s'affiche au-dessus de sa route. Laissez vide pour n'afficher que la route."
           }
         }
       }
@@ -11396,13 +11756,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The airport data isn't loaded, so the aerodromes can't be checked: the flight is created without a route, which you can draw later."
+            "value": "The airport data isn't loaded, so the aerodromes can't be checked. The flight is created without a route, which you can draw later."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les données aéroports ne sont pas chargées : les aérodromes ne peuvent pas être vérifiés, et le vol est créé sans route, à tracer plus tard."
+            "value": "Les données des aéroports ne sont pas chargées, les aérodromes ne peuvent donc pas être vérifiés. Le vol est créé sans route, que vous pourrez tracer plus tard."
           }
         }
       }
@@ -11413,13 +11773,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Back to %@: a local flight, or add a stop to land on the way."
+            "value": "Back to %@: this is a local flight. To land on the way, add a stop."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retour à %@ : un vol local, ou ajoutez une escale pour atterrir en chemin."
+            "value": "Retour à %@ : c'est un vol local. Pour atterrir en chemin, ajoutez une escale."
           }
         }
       }
@@ -11634,13 +11994,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No aerodrome within 5 NM of this route. Land somewhere else to split it."
+            "value": "No aerodrome within 5 NM of this route. To split it, tap Land somewhere else…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun aérodrome à moins de 5 NM de cette route. Atterrissez ailleurs pour la diviser."
+            "value": "Aucun aérodrome à moins de 5 NM de cette route. Pour la diviser, touchez « Atterrir ailleurs… »."
           }
         }
       }
@@ -11736,13 +12096,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Each leg keeps its part of the route and is its own flight: nav log, ATC flight plan and logbook line. Weather, NOTAM and DABS are prepared once for the trip."
+            "value": "Each leg keeps its part of the route and becomes a separate flight, with its own nav log, ATC flight plan and logbook line. Weather, NOTAM and DABS are prepared once for the whole trip."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chaque étape garde sa part de la route et est un vol à part entière : log de navigation, plan de vol ATC et ligne de carnet de vol. Météo, NOTAM et DABS se préparent une seule fois pour le voyage."
+            "value": "Chaque étape garde sa part de la route et devient un vol distinct, avec son log de navigation, son plan de vol ATC et sa ligne dans le carnet de vol. Météo, NOTAM et DABS se préparent une seule fois pour tout le voyage."
           }
         }
       }
@@ -11906,13 +12266,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leaves at %@, the time you chose. A new time on the ground estimates it again."
+            "value": "Leaves at %@, the time you chose. If you change the time on the ground, it is estimated again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Départ à %@, l’heure que vous avez choisie. Un nouveau temps au sol la réestime."
+            "value": "Départ à %@, l’heure que vous avez choisie. Si vous changez le temps au sol, elle est réestimée."
           }
         }
       }
@@ -13385,13 +13745,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Any name you like, whatever its ends. Leave it empty to show the route again."
+            "value": "Give it any name you like. Leave it empty to show the route again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le nom de votre choix, quelles que soient ses extrémités. Laissez vide pour réafficher la route."
+            "value": "Donnez-lui le nom de votre choix. Laissez vide pour réafficher la route."
           }
         }
       }
@@ -13402,13 +13762,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A name for the whole trip; each leg keeps its own. Leave it empty to show its aerodromes again."
+            "value": "This name is for the whole trip. Each leg keeps its own name. Leave it empty to show the trip's aerodromes again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un nom pour tout le voyage ; chaque étape garde le sien. Laissez vide pour réafficher ses aérodromes."
+            "value": "Ce nom vaut pour tout le voyage. Chaque étape garde le sien. Laissez vide pour réafficher les aérodromes du voyage."
           }
         }
       }
@@ -13436,13 +13796,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This route names these aerodromes after their place. AéroCheck can use their ICAO codes instead: PPR, landing fees, fuel and frequencies are looked up by code."
+            "value": "This route uses place names for these aerodromes. AéroCheck can replace them with their ICAO codes, which it uses to look up PPR, landing fees, fuel and frequencies."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette route désigne ces aérodromes par leur lieu. AéroCheck peut utiliser leurs codes OACI à la place : PPR, taxes d'atterrissage, carburant et fréquences sont cherchés par code."
+            "value": "Cette route désigne ces aérodromes par un nom de lieu. AéroCheck peut les remplacer par leurs codes OACI, qui servent à rechercher PPR, taxes d'atterrissage, carburant et fréquences."
           }
         }
       }
@@ -13691,13 +14051,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every route is archived: they're under Archived."
+            "value": "All your routes are archived. You'll find them under Archived."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toutes les routes sont archivées : elles sont sous Archivées."
+            "value": "Toutes vos routes sont archivées. Vous les trouverez sous Archivées."
           }
         }
       }
@@ -13776,13 +14136,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Any name you like, whatever the route's ends. Leave it empty to show the ends instead."
+            "value": "Give the route any name you like. Leave it empty to show where it starts and ends instead."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le nom de votre choix, quelles que soient les extrémités de la route. Laissez vide pour afficher les extrémités."
+            "value": "Donnez à la route le nom de votre choix. Laissez le champ vide pour afficher son départ et son arrivée."
           }
         }
       }
@@ -13963,13 +14323,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usable fuel with full tanks for %@, in litres (from the POH). Kept for this aircraft."
+            "value": "Usable fuel with full tanks for %@, in litres (from the POH). It is saved for this aircraft."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carburant utilisable avec les pleins pour %@, en litres (selon le manuel de vol). Conservé pour cet avion."
+            "value": "Carburant utilisable avec les pleins pour %@, en litres (selon le manuel de vol). La valeur est enregistrée pour cet avion."
           }
         }
       }
@@ -14116,13 +14476,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What Full tanks sets fuel on board to, on a flight's fuel. From the aircraft's data when it gives one; otherwise yours, from the POH."
+            "value": "The Full tanks button sets a flight's fuel on board to this amount. It comes from the aircraft's data when they give one, otherwise from your own figure taken from the POH."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce que « Pleins » inscrit comme carburant à bord, dans le carburant d'un vol. Selon les données de l'avion quand elles le donnent ; sinon votre valeur, selon le manuel de vol."
+            "value": "Le bouton « Pleins » règle le carburant à bord d'un vol sur cette quantité. Elle provient des données de l'avion quand elles l'indiquent, sinon de votre valeur, selon le manuel de vol."
           }
         }
       }
@@ -14190,7 +14550,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La check-list de %@ n'a pas pu être téléchargée, et cet appareil n'en a pas encore de copie. Vérifiez votre connexion et réessayez."
+            "value": "La checklist de %@ n'a pas pu être téléchargée, et cet appareil n'en a pas encore de copie. Vérifiez votre connexion et réessayez."
           }
         }
       }
@@ -14700,13 +15060,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opens this item again, on its own"
+            "value": "Unchecks this item only"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rouvre cet élément, seul"
+            "value": "Décoche uniquement cet élément"
           }
         }
       }
@@ -15885,13 +16245,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plans the next leg of this trip from %1$@, rejoining your route to %2$@. Weather and NOTAM come back unticked: you turned away from something."
+            "value": "Plans the next leg of this trip from %1$@, rejoining your route to %2$@. Weather and NOTAM are unticked again: check them after this diversion."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prépare l’étape suivante de ce voyage depuis %1$@, en rejoignant votre route vers %2$@. Météo et NOTAM sont à revoir : vous vous êtes dérouté pour une raison."
+            "value": "Prépare l’étape suivante de ce voyage depuis %1$@, en rejoignant votre route vers %2$@. Météo et NOTAM sont de nouveau décochés : revoyez-les après ce déroutement."
           }
         }
       }
@@ -16259,13 +16619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not listed: glacier and mountain landing sites, heliports, closed fields."
+            "value": "Glacier and mountain landing sites, heliports and closed fields aren't listed."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non listés : glaciers et altisurfaces, héliports, terrains fermés."
+            "value": "Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés."
           }
         }
       }
@@ -16350,7 +16710,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol ATC déposé : annoncez votre déroutement vers %@"
+            "value": "Plan de vol ATC déposé : annoncez au FIS votre déroutement vers %@"
           }
         }
       }
@@ -16956,13 +17316,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "† %1$@ is taken from %2$@: the airspace itself publishes no frequency in OpenAIP. Verify."
+            "value": "† %1$@ is taken from %2$@: OpenAIP gives no frequency for the airspace itself. Verify."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "† %1$@ est repris de %2$@ : l'espace aérien lui-même n'a pas de fréquence dans OpenAIP. À vérifier."
+            "value": "† %1$@ est repris de %2$@ : OpenAIP ne donne aucune fréquence pour l'espace aérien lui-même. À vérifier."
           }
         }
       }
@@ -17751,17 +18111,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "HORS enveloppe à l'atterrissage"
-          }
-        }
-      }
-    },
-    "Not every station has a mass — this is not a check" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toutes les stations n'ont pas de masse — ce n'est pas une vérification"
+            "value" : "HORS du domaine à l'atterrissage"
           }
         }
       }
@@ -17799,36 +18149,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vérifié le %@"
-          }
-        }
-      }
-    },
-    "Not checked for this country yet — open the AIP and the national customs authority" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pas encore vérifié pour ce pays — consultez l'AIP et la douane nationale"
-          }
-        }
-      }
-    },
-    "A reminder, not a clearance — the authority's own page is the source" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un rappel, pas une autorisation — la page de l'autorité fait foi"
-          }
-        }
-      }
-    },
-    "Treat an unestablished requirement as one that applies until you have checked" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Considérez une exigence non établie comme applicable jusqu'à vérification"
           }
         }
       }
@@ -18103,16 +18423,6 @@
         }
       }
     },
-    "Everything ticked — ready to fly" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tout est coché — prêt à voler"
-          }
-        }
-      }
-    },
     "Next: %@" : {
       "localizations" : {
         "fr" : {
@@ -18243,16 +18553,6 @@
         }
       }
     },
-    "The same values, in the order your logbook prints them. Scroll sideways for the remaining columns; corrections go in Edit." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les mêmes valeurs, dans l'ordre des colonnes de votre carnet. Faites défiler latéralement pour les colonnes suivantes ; les corrections se font dans Modifier."
-          }
-        }
-      }
-    },
     "Export CSV" : {
       "localizations" : {
         "fr" : {
@@ -18313,22 +18613,12 @@
         }
       }
     },
-    "A draft for your logbook — AeroCheck is not a logbook of record" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un brouillon pour votre carnet — AéroCheck n'est pas un carnet de vol officiel"
-          }
-        }
-      }
-    },
     "Times are UTC, from block off and block on" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Heures en UTC, depuis block off et block on"
+            "value" : "Heures en UTC, d'après le block off et le block on"
           }
         }
       }
@@ -18373,16 +18663,6 @@
         }
       }
     },
-    "Night and IFR time are yours to enter — the app does not compute twilight" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le temps de nuit et IFR est à saisir — l'app ne calcule pas le crépuscule"
-          }
-        }
-      }
-    },
     "Flight cost" : {
       "localizations" : {
         "fr" : {
@@ -18398,7 +18678,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Temps block"
+            "value" : "Temps bloc"
           }
         }
       }
@@ -18713,16 +18993,6 @@
         }
       }
     },
-    "No envelope entered — mass and CG only" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun domaine saisi — masse et centrage seulement"
-          }
-        }
-      }
-    },
     "OVER MTOW" : {
       "localizations" : {
         "fr" : {
@@ -18759,26 +19029,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Configurer cet avion"
-          }
-        }
-      }
-    },
-    "Advisory only — check against the load sheet and the AFM" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "À titre indicatif — à vérifier avec la fiche de charge et le manuel de vol"
-          }
-        }
-      }
-    },
-    "From the aircraft's weighing report and AFM — nothing here is shipped with the app" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Depuis la fiche de pesée et le manuel de vol — rien n'est fourni par l'app"
           }
         }
       }
@@ -19070,7 +19320,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Écriture carnet de vol"
+            "value" : "Inscription au carnet de vol"
           }
         }
       }
@@ -19081,36 +19331,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Débriefing"
-          }
-        }
-      }
-    },
-    "PPR — %@" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PPR — %@"
-          }
-        }
-      }
-    },
-    "Border crossing — %@" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Passage de frontière — %@"
-          }
-        }
-      }
-    },
-    "Fees — %@" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Taxes — %@"
           }
         }
       }
@@ -19191,16 +19411,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vers"
-          }
-        }
-      }
-    },
-    "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivez un vol de la planification au carnet — carburant, météo, douane, puis les chiffres"
           }
         }
       }
@@ -19345,32 +19555,12 @@
         }
       }
     },
-    "Used for the PIC column and the logbook PDF's holder line." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utilisé pour la colonne PIC et la ligne « titulaire » du PDF du carnet."
-          }
-        }
-      }
-    },
     "Track flight costs" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Suivre les coûts de vol"
-          }
-        }
-      }
-    },
-    "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Désactivé, masque les tâches de taxes d'atterrissage et la fiche de coûts. Votre ligne de carnet n'est pas affectée."
           }
         }
       }
@@ -19415,16 +19605,6 @@
         }
       }
     },
-    "Switches to the high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so brightness is the signal." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Passe à la palette à contraste élevé lorsque l'écran est proche de la luminosité maximale — l'app ne peut pas mesurer la lumière ambiante, la luminosité sert donc de signal."
-          }
-        }
-      }
-    },
     "Leg %lld of %lld" : {
       "localizations" : {
         "fr" : {
@@ -19441,26 +19621,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "VOYAGE · %1$lld sur %2$lld"
-          }
-        }
-      }
-    },
-    "Checked %@ — re-check for this leg" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vérifié à %@ — à revérifier pour cette étape"
-          }
-        }
-      }
-    },
-    "Circuits — %@" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tours de piste — %@"
           }
         }
       }
@@ -19491,16 +19651,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily Airspace Bulletin Switzerland"
-          }
-        }
-      }
-    },
-    "Route forecast — opens MeteoSwiss" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prévision de route — ouvre MeteoSwiss"
           }
         }
       }
@@ -19541,16 +19691,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exporté ou imprimé pour le cockpit"
-          }
-        }
-      }
-    },
-    "Prior permission required — call ahead" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autorisation préalable requise — appeler avant"
           }
         }
       }
@@ -19731,32 +19871,12 @@
         }
       }
     },
-    "%@ — not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ — non marqué comme clôturé. Si la tour ne l'a pas clôturé pour vous, le RCC de Zurich est alerté 30 min après votre ETA."
-          }
-        }
-      }
-    },
     "Flight tomorrow" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vol demain"
-          }
-        }
-      }
-    },
-    "%@ — time to check the weather, DABS and any PPR." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ — il est temps de vérifier la météo, le DABS et les éventuels PPR."
           }
         }
       }
@@ -20675,16 +20795,6 @@
       }
     },
     "AéroCheck": {},
-    "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AéroCheck est entièrement fonctionnelle dès le départ, avec le WT9 Dynamic inclus gratuitement. AéroCheck Pro débloque tous les autres avions — la flotte complète des deux aéroclubs, listée sur aerocheck.app."
-          }
-        }
-      }
-    },
     "Baseline": {
       "localizations": {
         "fr": {
@@ -20750,16 +20860,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Langue des checklists"
-          }
-        }
-      }
-    },
-    "AeroCheck follows a flight end to end — plan it, prepare it, fly it, close it out.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AéroCheck suit un vol de bout en bout — planifiez-le, préparez-le, volez, clôturez-le."
           }
         }
       }
@@ -20830,16 +20930,6 @@
       "comment": "A label for the circuit pattern, describing the pattern of the circuit.",
       "isCommentAutoGenerated": true
     },
-    "Community-sourced data — keep it current. This is not official aeronautical information; always verify currency before flight.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Données issues de la communauté — gardez-les à jour. Ce ne sont pas des informations aéronautiques officielles ; vérifiez toujours leur actualité avant le vol."
-          }
-        }
-      }
-    },
     "Compulsory": {
       "localizations": {
         "fr": {
@@ -20876,16 +20966,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couverture : %@"
-          }
-        }
-      }
-    },
-    "Currency & offline storage": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualité et stockage hors ligne"
           }
         }
       }
@@ -21051,16 +21131,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Télécharger les données pour cette route"
-          }
-        }
-      }
-    },
-    "Download what you'll fly over — offline-ready.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Téléchargez ce que vous survolerez — prêt hors ligne."
           }
         }
       }
@@ -21658,7 +21728,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Forcer la carte ICAO"
+            "value": "Forcer la carte OACI"
           }
         }
       }
@@ -21828,7 +21898,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ICAO + planeur · jusqu'à ≈ 250 Mo"
+            "value": "OACI + planeur · jusqu'à ≈ 250 Mo"
           }
         }
       }
@@ -21859,16 +21929,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "En vol et fonctionnalités"
-          }
-        }
-      }
-    },
-    "Interactive checklists for all 16 flight phases — set how you run them.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Des checklists interactives pour les 16 phases de vol — choisissez comment les utiliser."
           }
         }
       }
@@ -21968,16 +22028,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les journaux apparaîtront ici lorsque vous synchroniserez avec le serveur ou effectuerez des opérations d'abonnement."
-          }
-        }
-      }
-    },
-    "Log|Every flight recorded automatically — times, track and landings.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistrer|Chaque vol enregistré automatiquement — heures, trace et atterrissages."
           }
         }
       }
@@ -22088,16 +22138,6 @@
     "Max crosswind": {
       "comment": "A label displayed under the V-speeds, indicating the maximum crosswind limits.",
       "isCommentAutoGenerated": true
-    },
-    "MeteoSwiss wind estimate — experimental (Switzerland)": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estimation du vent MeteoSwiss — expérimental (Suisse)"
-          }
-        }
-      }
     },
     "Airspace data missing near your route": {
       "localizations": {
@@ -22313,16 +22353,6 @@
         }
       }
     },
-    "One aircraft free — unlock the rest": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un avion gratuit — débloquez les autres"
-          }
-        }
-      }
-    },
     "OpenAIP map tiles": {
       "localizations": {
         "fr": {
@@ -22359,16 +22389,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "OpenAIP · espace aérien contrôlé, secteurs et fréquences"
-          }
-        }
-      }
-    },
-    "OpenAIP · optional chart imagery — airspace data above is what powers warnings": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "OpenAIP · imagerie de carte optionnelle — ce sont les données d’espace aérien ci-dessus qui génèrent les alertes"
           }
         }
       }
@@ -22460,16 +22480,6 @@
     "Planned altitude in feet": {
       "comment": "A label for the altitude of a waypoint.",
       "isCommentAutoGenerated": true
-    },
-    "Plan|Build your route on the map — airspace and terrain in view.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Planifier|Construisez votre route sur la carte — espaces aériens et relief en vue."
-          }
-        }
-      }
     },
     "Position: %@, %@": {
       "localizations": {
@@ -22910,22 +22920,12 @@
         }
       }
     },
-    "Swiss & worldwide layers on the moving map — pick what's drawn.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calques suisses et mondiaux sur la carte mobile — choisissez ce qui s'affiche."
-          }
-        }
-      }
-    },
     "Swiss ICAO chart": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte ICAO suisse"
+            "value": "Carte OACI suisse"
           }
         }
       }
@@ -22936,16 +22936,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cartes suisses"
-          }
-        }
-      }
-    },
-    "SwissTopo has released a new version of the ICAO Aeronautical Chart. The chart is updated yearly in April. Update your cached chart to ensure accurate navigation data.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SwissTopo a publié une nouvelle version de la carte aéronautique OACI. La carte est mise à jour chaque année en avril. Mettez à jour votre carte en cache pour garantir des données de navigation exactes."
           }
         }
       }
@@ -23770,13 +23760,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This will save the flight to your log and stop GPS recording."
+            "value": "This saves the flight to your logbook and stops the GPS recording."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cela sauvegardera le vol dans votre journal et arrêtera l'enregistrement GPS."
+            "value": "Le vol est enregistré dans votre carnet de vol et l'enregistrement GPS s'arrête."
           }
         }
       }
@@ -25065,13 +25055,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d item%@ hidden — hold to reveal"
+            "value": "%d item%@ hidden: hold to reveal"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d élément%@ masqué(s) — maintenir pour révéler"
+            "value": "%d élément%@ masqué(s) : maintenir pour révéler"
           }
         }
       }
@@ -25122,7 +25112,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voulez-vous mettre à jour l'heure de %@ à maintenant ?"
+            "value": "Voulez-vous remplacer l'heure de %@ par l'heure actuelle ?"
           }
         }
       }
@@ -25365,10 +25355,6 @@
           }
         }
       }
-    },
-    "circuits": {
-      "comment": "A label for the number of circuits.",
-      "isCommentAutoGenerated": true
     },
     "companion.allowControl": {
       "extractionState": "manual",
@@ -25767,13 +25753,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Data stale — values may be frozen"
+            "value": "Data stale: values may be frozen"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Données obsolètes — valeurs possiblement figées"
+            "value": "Données obsolètes : les valeurs sont peut-être figées"
           }
         }
       }
@@ -25903,13 +25889,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPad — drives (advertises)"
+            "value": "iPad: drives (advertises)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPad — pilote (diffuse)"
+            "value": "iPad : pilote (diffuse)"
           }
         }
       }
@@ -25920,13 +25906,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone — connects (browses)"
+            "value": "iPhone: connects (browses)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone — se connecte (recherche)"
+            "value": "iPhone : se connecte (recherche)"
           }
         }
       }
@@ -26039,13 +26025,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Developer-only. Share this if pairing fails — it shows whether Wi-Fi Aware is available and logs connection events."
+            "value": "Developer-only. Share this if pairing fails: it shows whether Wi-Fi Aware is available and logs connection events."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réservé aux développeurs. Partagez ceci en cas d’échec de l’appairage — indique si le Wi-Fi Aware est disponible et journalise les événements de connexion."
+            "value": "Réservé aux développeurs. Partagez ceci si l’appairage échoue : on y voit si le Wi-Fi Aware est disponible, et le journal des événements de connexion."
           }
         }
       }
@@ -26192,13 +26178,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The iPad has not taken it. Check the iPad."
+            "value": "The iPad hasn’t confirmed the diversion. Check the iPad."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’iPad ne l’a pas pris en compte. Vérifiez sur l’iPad."
+            "value": "L’iPad n’a pas confirmé le déroutement. Vérifiez sur l’iPad."
           }
         }
       }
@@ -26243,13 +26229,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connect your iPhone as a companion to your iPad for real-time navigation log display during flight."
+            "value": "Connect your iPhone to your iPad as a companion, to follow the navigation log and the checklist live during the flight."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connectez votre iPhone comme compagnon à votre iPad pour un affichage en temps réel du log de navigation pendant le vol."
+            "value": "Connectez votre iPhone à votre iPad comme compagnon, pour suivre le log de navigation et la checklist en direct pendant le vol."
           }
         }
       }
@@ -26464,13 +26450,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Wi-Fi network required — devices communicate directly."
+            "value": "No Wi-Fi network required: the devices communicate directly."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun réseau Wi-Fi requis — les appareils communiquent directement."
+            "value": "Aucun réseau Wi-Fi requis : les appareils communiquent directement."
           }
         }
       }
@@ -26589,7 +26575,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Associer votre iPhone"
+            "value": "Appairer votre iPhone"
           }
         }
       }
@@ -26634,7 +26620,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPad is the main screen. To pair, start here: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open while the iPhone scans for it."
+            "value": "This iPad is the main screen. To pair, start here: \"Pair New Device\", then \"Make discoverable\", and keep that window open while the iPhone scans for it."
           }
         },
         "fr": {
@@ -26651,7 +26637,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This iPhone connects to your iPad. To pair, start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open. Then, here: \"Pair New Device\", then \"Scan for Devices\"."
+            "value": "This iPhone connects to your iPad. To pair, start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that window open. Then, here: \"Pair New Device\", then \"Scan for Devices\"."
           }
         },
         "fr": {
@@ -26668,7 +26654,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start here: tap \"Make discoverable\" and keep the sheet that opens on screen. Then, on the iPhone, tap \"Pair New Device\", then \"Scan for Devices\", choose this iPad and confirm the code on both."
+            "value": "Start here: tap \"Make discoverable\" and keep the window that opens on screen. Then, on the iPhone, tap \"Pair New Device\", then \"Scan for Devices\", choose this iPad and confirm the code on both."
           }
         },
         "fr": {
@@ -26702,7 +26688,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that sheet open. Then tap \"Scan for Devices\" below, choose the iPad and confirm the code on both."
+            "value": "Start on the iPad: \"Pair New Device\", then \"Make discoverable\", and keep that window open. Then tap \"Scan for Devices\" below, choose the iPad and confirm the code on both."
           }
         },
         "fr": {
@@ -26820,13 +26806,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This device will receive flight data from a primary device and display the navigation log."
+            "value": "This device receives the flight from the iPad and shows its navigation log and checklist."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cet appareil recevra les données de vol d'un appareil principal et affichera le log de navigation."
+            "value": "Cet appareil reçoit le vol depuis l'iPad et affiche son log de navigation et sa checklist."
           }
         }
       }
@@ -27064,7 +27050,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Télécharger les listes manquantes (%d)"
+            "value": "Télécharger les checklists manquantes (%d)"
           }
         }
       }
@@ -27712,13 +27698,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Server is throttling downloads — this may take longer."
+            "value": "The server is limiting downloads, so this may take longer."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le serveur limite les téléchargements — cela peut prendre plus de temps."
+            "value": "Le serveur limite les téléchargements, cela peut donc prendre plus de temps."
           }
         }
       }
@@ -28357,7 +28343,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entrez le nom du vol (ex: Circuits 2)"
+            "value": "Entrez le nom du vol (p. ex. Circuits 2)"
           }
         }
       }
@@ -28555,13 +28541,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not parse the flight file. Supported formats: GPX, JSON, ZIP"
+            "value": "Could not read the flight file. Supported formats: GPX, JSON, ZIP"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'analyser le fichier de vol. Formats supportés : GPX, JSON, ZIP"
+            "value": "Impossible de lire le fichier de vol. Formats pris en charge : GPX, JSON, ZIP"
           }
         }
       }
@@ -28845,13 +28831,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Location access turned off — re-enable it in Settings"
+            "value": "Location access turned off: re-enable it in Settings"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Accès à la position désactivé — réactivez-le dans Réglages"
+            "value": "Accès à la position désactivé : réactivez-le dans Réglages"
           }
         }
       }
@@ -28902,7 +28888,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS Refusé"
+            "value": "GPS refusé"
           }
         }
       }
@@ -28936,7 +28922,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS Non configuré"
+            "value": "GPS non configuré"
           }
         }
       }
@@ -29151,13 +29137,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Precise Location is off — enable it in Settings for accurate tracking"
+            "value": "Precise Location is off: enable it in Settings for accurate tracking"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Localisation précise désactivée — activez-la dans Réglages pour un suivi précis"
+            "value": "Localisation précise désactivée : activez-la dans Réglages pour un suivi précis"
           }
         }
       }
@@ -29174,7 +29160,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS Prêt"
+            "value": "GPS prêt"
           }
         }
       }
@@ -29208,7 +29194,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS Restreint"
+            "value": "GPS restreint"
           }
         }
       }
@@ -29752,7 +29738,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veuillez entrer un relevé d'heures valide (ex: 1234.5 ou 1234:30)"
+            "value": "Veuillez entrer un relevé d'heures valide (p. ex. 1234.5 ou 1234:30)"
           }
         }
       }
@@ -29985,7 +29971,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ a été armé il y a plus de trois jours et n’a jamais été volé."
+            "value": "%@ a été armé il y a plus de trois jours et n’a pas été utilisé en vol."
           }
         }
       }
@@ -30130,13 +30116,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limit in ft AGL, terrain not known here: the route may be inside. Verify."
+            "value": "The route may be in this airspace: its limit is in ft AGL and the terrain here is unknown."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limite en ft AGL, relief inconnu ici : la route est peut-être dedans. À vérifier."
+            "value": "La route est peut-être dans cet espace : sa limite est en ft AGL et le relief est inconnu ici."
           }
         }
       }
@@ -30147,29 +30133,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limit is a flight level, QNH not known: the route may be inside. Verify."
+            "value": "The route may be in this airspace: its limit is a flight level and the QNH is unknown."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limite en niveau de vol, QNH inconnu : la route est peut-être dedans. À vérifier."
+            "value": "La route est peut-être dans cet espace : sa limite est un niveau de vol et le QNH est inconnu."
           }
         }
       }
     },
     "nav.airspaceNoData": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No airspace data downloaded — the layer will stay empty."
+            "value": "No airspace data is downloaded, so the layer stays empty."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune donnée d'espace aérien téléchargée — la couche restera vide."
+            "value": "Aucune donnée d'espace aérien n'est téléchargée, la couche reste donc vide."
           }
         }
       }
@@ -30365,13 +30352,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Charts are being served from your local cache for faster loading."
+            "value": "The charts load from the copy saved on this device, which is faster."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les cartes sont servies depuis votre cache local pour un chargement plus rapide."
+            "value": "Les cartes se chargent depuis la copie enregistrée sur cet appareil, ce qui est plus rapide."
           }
         }
       }
@@ -30382,13 +30369,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tiles load instantly from cache; uncached tiles fetch from the network."
+            "value": "Areas saved on this device load at once. The others are downloaded from the network."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les tuiles se chargent instantanément depuis le cache ; les tuiles non mises en cache sont récupérées depuis le réseau."
+            "value": "Les zones enregistrées sur cet appareil se chargent tout de suite. Les autres sont téléchargées depuis le réseau."
           }
         }
       }
@@ -30455,7 +30442,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entrez les coordonnées en degrés décimaux (ex: 46.9481 pour la latitude)"
+            "value": "Entrez les coordonnées en degrés décimaux (p. ex. 46.9481 pour la latitude)"
           }
         }
       }
@@ -30737,13 +30724,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Download Segelflugkarte for seamless zoom transitions in offline mode."
+            "value": "Download the Segelflugkarte too, so the map can switch to it when you zoom in offline."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Téléchargez la Segelflugkarte pour des transitions de zoom fluides en mode hors ligne."
+            "value": "Téléchargez aussi la Segelflugkarte pour que la carte puisse y passer quand vous zoomez hors ligne."
           }
         }
       }
@@ -31229,7 +31216,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Niveau du sol : %d ft"
+            "value": "Altitude du sol : %d ft"
           }
         }
       }
@@ -31246,7 +31233,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Niveau du sol : N/A (hors de Suisse)"
+            "value": "Altitude du sol : n.d. (hors de Suisse)"
           }
         }
       }
@@ -31797,13 +31784,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ground speed and wind are used to calculate EET. MC and distance are computed automatically."
+            "value": "True airspeed and wind are used to calculate EET. MC and distance are calculated automatically."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vitesse sol et le vent sont utilisés pour calculer l'EET. Le CM et la distance sont calculés automatiquement."
+            "value": "La vitesse propre et le vent servent à calculer l'EET. Le CM et la distance sont calculés automatiquement."
           }
         }
       }
@@ -31843,6 +31830,7 @@
       }
     },
     "nav.noConflicts": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -31853,7 +31841,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun conflit d'espace ou de terrain"
+            "value": "Aucun conflit d'espace ou de relief"
           }
         }
       }
@@ -31949,13 +31937,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app is in offline mode. Both ICAO Chart and Segelflugkarte are available from cache with seamless zoom switching."
+            "value": "The app is in offline mode. The ICAO Chart and the Segelflugkarte are both saved on this device, and the map switches between them as you zoom."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'application est en mode hors ligne. Les cartes OACI et Segelflugkarte sont disponibles depuis le cache avec changement de zoom fluide."
+            "value": "L'application est en mode hors ligne. La carte OACI et la Segelflugkarte sont toutes deux enregistrées sur cet appareil, et la carte passe de l'une à l'autre selon le zoom."
           }
         }
       }
@@ -32229,6 +32217,7 @@
       }
     },
     "nav.resumeLeg": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -32239,12 +32228,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reprendre l'étape"
+            "value": "Reprendre la branche"
           }
         }
       }
     },
     "nav.resumeLegMessage": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -32255,12 +32245,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Efface le passage de ce point et des suivants, et redémarre le chrono de l'étape."
+            "value": "Efface le passage de ce point et des suivants, et redémarre le chrono de la branche."
           }
         }
       }
     },
     "nav.resumeLegTitle": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -32271,7 +32262,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revenir à cette étape ?"
+            "value": "Revenir à cette branche ?"
           }
         }
       }
@@ -32553,13 +32544,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "SIGMET only — not a substitute for a full weather briefing."
+            "value": "SIGMET only: not a substitute for a full weather briefing."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "SIGMET uniquement — ne remplace pas un briefing météo complet."
+            "value": "SIGMET uniquement : ne remplace pas un briefing météo complet."
           }
         }
       }
@@ -32777,12 +32768,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune marge par rapport au relief n'a été calculée pour cette route. Les données d'altitude couvrent uniquement la Suisse, et chaque point de report doit avoir une altitude planifiée. Cette route n'a pas été vérifiée par rapport au relief."
+            "value": "Aucune marge par rapport au relief n'a été calculée pour cette route. Les données d'altitude couvrent uniquement la Suisse, et chaque point de la route doit avoir une altitude prévue. Cette route n'a pas été vérifiée par rapport au relief."
           }
         }
       }
     },
     "nav.terrainProximity": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -32793,12 +32785,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Proximité du terrain"
+            "value": "Proximité du relief"
           }
         }
       }
     },
     "nav.terrainProximityDetail": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -32809,7 +32802,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Altitude prévue à moins de 150 m du terrain"
+            "value": "Altitude prévue à moins de 150 m du relief"
           }
         }
       }
@@ -33165,7 +33158,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nom (ex: LSZQ, JORAT)"
+            "value": "Nom (p. ex. LSZQ, JORAT)"
           }
         }
       }
@@ -33369,6 +33362,7 @@
       }
     },
     "onboarding.navigation.title": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -33379,7 +33373,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Navigation en Vol"
+            "value": "Navigation en vol"
           }
         }
       }
@@ -33406,7 +33400,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iOS asks next. You can change your answer at any time in Settings."
+            "value": "iOS will ask you next. You can change your answer at any time in Settings."
           }
         },
         "fr": {
@@ -34829,13 +34823,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The recorded track was re-analyzed after the flight. Review what it shows before it reaches your logbook — nothing changes unless you apply."
+            "value": "The recorded track was re-analyzed after the flight. Review what it shows before it reaches your logbook. Nothing changes unless you apply it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La trace enregistrée a été réanalysée après le vol. Vérifiez ce qu'elle montre avant l'inscription au carnet de vol — rien ne change sans votre accord."
+            "value": "La trace enregistrée a été réanalysée après le vol. Vérifiez ce qu'elle montre avant l'inscription au carnet de vol. Rien ne change sans votre accord."
           }
         }
       }
@@ -34965,13 +34959,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Replay onboarding"
+            "value": "Replay introduction"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revoir l'intégration"
+            "value": "Revoir l'introduction"
           }
         }
       }
@@ -35101,7 +35095,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Premium Aircrafts"
+            "value": "Premium Aircraft"
           }
         },
         "fr": {
@@ -35243,7 +35237,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Donnees aeroports"
+            "value": "Données aéroports"
           }
         }
       }
@@ -35260,7 +35254,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprimer les donnees"
+            "value": "Supprimer les données"
           }
         }
       }
@@ -35277,7 +35271,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Telecharger les donnees"
+            "value": "Télécharger les données"
           }
         }
       }
@@ -35294,7 +35288,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Telechargement..."
+            "value": "Téléchargement des aéroports..."
           }
         }
       }
@@ -35305,13 +35299,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Airport data from OurAirports.com. Used for navigation map display and flight planning. Updates recommended every 90 days."
+            "value": "Airport data from OurAirports.com, used for the map and for flight planning. Updating it every 90 days is recommended."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Donnees des aeroports de OurAirports.com. Utilisees pour l'affichage sur la carte et la planification de vol. Mise a jour recommandee tous les 90 jours."
+            "value": "Données des aéroports de OurAirports.com, utilisées pour la carte et la planification de vol. Une mise à jour tous les 90 jours est recommandée."
           }
         }
       }
@@ -35328,7 +35322,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Derniere mise a jour : %@"
+            "value": "Dernière mise à jour : %@"
           }
         }
       }
@@ -35345,7 +35339,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d aeroports charges"
+            "value": "%d aéroports chargés"
           }
         }
       }
@@ -35362,7 +35356,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher les aeroports sur la carte"
+            "value": "Afficher les aéroports sur la carte"
           }
         }
       }
@@ -35379,7 +35373,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mettre a jour"
+            "value": "Mettre à jour"
           }
         }
       }
@@ -35396,7 +35390,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mise a jour disponible (donnees > 90 jours)"
+            "value": "Mise à jour disponible (données > 90 jours)"
           }
         }
       }
@@ -35849,13 +35843,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Always Use UTC Times: When enabled, all times in the app are displayed in UTC with a (UTC) suffix."
+            "value": "When on, every time in the app is shown in UTC, with a (UTC) suffix."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toujours utiliser l'heure UTC : Lorsqu'activé, toutes les heures dans l'application sont affichées en UTC avec un suffixe (UTC)."
+            "value": "Si activé, toutes les heures de l'application sont affichées en UTC, avec le suffixe (UTC)."
           }
         }
       }
@@ -35934,13 +35928,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auto follows your device appearance. Sunlight is high-contrast for bright cockpits. Night dims to red to protect your night vision."
+            "value": "Auto follows your device appearance. Night dims to red to protect your night vision."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auto suit l'apparence de l'appareil. Plein soleil offre un contraste élevé pour les cockpits lumineux. Nuit passe au rouge pour préserver la vision nocturne."
+            "value": "Auto suit l'apparence de l'appareil. Nuit passe au rouge pour préserver la vision nocturne."
           }
         }
       }
@@ -36087,13 +36081,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terrain Altitude Unit: Unit for displaying terrain profile elevation."
+            "value": "The unit for the elevations in the terrain profile."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unité d'altitude du terrain : Unité pour afficher l'élévation du profil du terrain."
+            "value": "L'unité des altitudes affichées dans le profil du terrain."
           }
         }
       }
@@ -36573,13 +36567,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in."
+            "value": "When on, the ICAO Chart (1:500,000) stays at every zoom level. When off, the map switches to the Segelflugkarte (1:300,000) as you zoom in."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lorsque activé, la carte OACI (1:500 000) reste à tous les niveaux de zoom. Lorsque désactivé, bascule automatiquement vers la Segelflugkarte (1:300 000) lors du zoom."
+            "value": "Si activé, la carte OACI (1:500 000) reste affichée à tous les niveaux de zoom. Si désactivé, la carte passe à la Segelflugkarte (1:300 000) quand vous zoomez."
           }
         }
       }
@@ -36607,13 +36601,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Charts cached for faster loading. Updated yearly by swisstopo in April."
+            "value": "The charts are cached so they load faster. swisstopo updates them every year in April."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cartes en cache pour un chargement plus rapide. Mises à jour annuellement par swisstopo en avril."
+            "value": "Les cartes sont en cache pour se charger plus vite. swisstopo les met à jour chaque année en avril."
           }
         }
       }
@@ -36658,13 +36652,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Download charts for offline navigation. ICAO Chart is required; Segelflugkarte is optional for detailed zooming."
+            "value": "Download the charts to navigate offline. The ICAO Chart is required. The Segelflugkarte is optional and adds detail when you zoom in."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Téléchargez les cartes pour la navigation hors ligne. La carte OACI est requise ; la Segelflugkarte est optionnelle pour un zoom détaillé."
+            "value": "Téléchargez les cartes pour naviguer hors ligne. La carte OACI est requise. La Segelflugkarte est facultative et ajoute du détail quand vous zoomez."
           }
         }
       }
@@ -36692,13 +36686,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Offline mode active. Both ICAO Chart and Segelflugkarte are available from cache."
+            "value": "Offline mode is on. The ICAO Chart and the Segelflugkarte are both available from the cache."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mode hors ligne actif. La carte OACI et la Segelflugkarte sont disponibles en cache."
+            "value": "Le mode hors ligne est activé. La carte OACI et la Segelflugkarte sont toutes deux disponibles en cache."
           }
         }
       }
@@ -36726,13 +36720,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Offline mode active. Only ICAO Chart is cached. Download Segelflugkarte for seamless zooming in offline mode."
+            "value": "Offline mode is on, but only the ICAO Chart is cached. Download the Segelflugkarte to zoom in smoothly offline."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mode hors ligne actif. Seule la carte OACI est en cache. Téléchargez la Segelflugkarte pour un zoom fluide en mode hors ligne."
+            "value": "Le mode hors ligne est activé, mais seule la carte OACI est en cache. Téléchargez la Segelflugkarte pour un zoom fluide hors ligne."
           }
         }
       }
@@ -37100,13 +37094,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The data (≈%1$@) is what powers AéroCheck. Map tiles add ≈%2$@ of raster chart imagery — a heavy, secondary layer. Downloading data only is recommended."
+            "value": "The data (≈%1$@) is what AéroCheck needs. Map tiles add ≈%2$@ of raster chart imagery, a heavy and secondary layer. Downloading the data only is recommended."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les données (≈%1$@) sont l'essentiel pour AéroCheck. Les tuiles ajoutent ≈%2$@ d'imagerie raster — une couche lourde et secondaire. Il est recommandé de ne télécharger que les données."
+            "value": "Les données (≈%1$@) sont l'essentiel pour AéroCheck. Les tuiles ajoutent ≈%2$@ d'imagerie raster, une couche lourde et secondaire. Il est recommandé de ne télécharger que les données."
           }
         }
       }
@@ -37219,13 +37213,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No airspace data downloaded yet — the overlay will stay empty on the map. Download countries below."
+            "value": "No airspace data downloaded yet, so the overlay stays empty on the map. Download countries below."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune donnée d'espace aérien téléchargée — la couche restera vide sur la carte. Téléchargez des pays ci-dessous."
+            "value": "Aucune donnée d'espace aérien n'est encore téléchargée, la couche reste donc vide sur la carte. Téléchargez des pays ci-dessous."
           }
         }
       }
@@ -37242,7 +37236,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tout sélectionner %@"
+            "value": "Tout sélectionner (%@)"
           }
         }
       }
@@ -37270,13 +37264,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selection changed — download to apply"
+            "value": "Selection changed: download to apply"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sélection modifiée — téléchargez pour appliquer"
+            "value": "Sélection modifiée : téléchargez pour appliquer"
           }
         }
       }
@@ -37395,7 +37389,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Période de grâce termine le %@"
+            "value": "Période de grâce jusqu'au %@"
           }
         }
       }
@@ -37763,13 +37757,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your purchase is waiting for approval. You'll get access as soon as it's approved — there's no need to buy again."
+            "value": "Your purchase is waiting for approval. You'll get access as soon as it's approved. There's no need to buy again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre achat est en attente d'approbation. L'accès sera activé dès qu'il sera approuvé — inutile de racheter."
+            "value": "Votre achat est en attente d'approbation. L'accès sera activé dès qu'il sera approuvé. Inutile de racheter."
           }
         }
       }
@@ -37797,13 +37791,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your purchases couldn't be restored. Check your connection and try again — restoring is free and never charges you."
+            "value": "Your purchases couldn't be restored. Check your connection and try again. Restoring is free and never charges you."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vos achats n'ont pas pu être restaurés. Vérifiez votre connexion et réessayez — la restauration est gratuite et ne vous débite jamais."
+            "value": "Vos achats n'ont pas pu être restaurés. Vérifiez votre connexion et réessayez. La restauration est gratuite et ne vous débite jamais."
           }
         }
       }

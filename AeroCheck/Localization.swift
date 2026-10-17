@@ -27,7 +27,7 @@ enum L10n {
     // localization pass (xcstrings), like other newly-introduced UI strings.
     enum DataStorage {
         static let title = String(localized: "Data & Storage")
-        static let subtitle = String(localized: "Currency & offline storage")
+        static let subtitle = String(localized: "Updates & offline storage")
         static let aeronauticalSection = String(localized: "Aeronautical data")
         static let chartsSection = String(localized: "Offline charts")
         static let storageSection = String(localized: "Storage")
@@ -43,7 +43,7 @@ enum L10n {
         static let updateAll = String(localized: "Update all on Wi-Fi")
         static let removeAll = String(localized: "Remove all downloads")
         static func totalStorage(_ size: String) -> String { String(localized: "Total storage: \(size)") }
-        static let caveat = String(localized: "Community-sourced data — keep it current. This is not official aeronautical information; always verify currency before flight.")
+        static let caveat = String(localized: "This data comes from the community, so keep it up to date. It is not official aeronautical information: always check that it is current before flight.")
         static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
         static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
@@ -58,7 +58,7 @@ enum L10n {
         static let swissChartName = String(localized: "Swiss ICAO chart")
         static let swissChartDetail = String(localized: "swisstopo · official VFR chart (imagery)")
         static let openAIPTilesName = String(localized: "OpenAIP map tiles")
-        static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery — airspace data above is what powers warnings")
+        static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery. Warnings come from the airspace data above.")
         static let openAIPAttribution = String(localized: "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)")
         static let checklistsSection = String(localized: "Checklists")
         static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
@@ -178,9 +178,9 @@ enum L10n {
         static func reviewed(_ date: String) -> String {
             String(localized: "Checked \(date)")
         }
-        static let notCurated = String(localized: "Not checked for this country yet — open the AIP and the national customs authority")
-        static let advisory = String(localized: "A reminder, not a clearance — the authority's own page is the source")
-        static let unknownWarning = String(localized: "Treat an unestablished requirement as one that applies until you have checked")
+        static let notCurated = String(localized: "Not checked for this country yet: see the AIP and the national customs authority")
+        static let advisory = String(localized: "A reminder, not a clearance: the authority's page is the reference")
+        static let unknownWarning = String(localized: "If a requirement is not established, assume it applies until you have checked")
     }
 
     enum ThreadBadge {
@@ -195,7 +195,7 @@ enum L10n {
     enum Flights {
         static let title = String(localized: "Flights")
         static func circuitsAt(_ ident: String) -> String {
-            String(localized: "Circuits — \(ident)")
+            String(localized: "Circuits at \(ident)")
         }
 
         // Plan new flight
@@ -219,11 +219,11 @@ enum L10n {
             String(localized: "TRIP · \(done) of \(total)")
         }
         static func recheckForThisLeg(_ when: String) -> String {
-            String(localized: "Checked \(when) — re-check for this leg")
+            String(localized: "Checked \(when), re-check for this leg")
         }
 
         // Home
-        static let homeExplainer = String(localized: "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers")
+        static let homeExplainer = String(localized: "Follow a flight from planning to logbook: fuel, weather, customs, then the numbers")
         static func savedPlans(_ count: Int) -> String {
             String(localized: "\(count) saved plans")
         }
@@ -285,19 +285,19 @@ enum L10n {
         static let copyLine = String(localized: "Copy line")
         static let lineCopied = String(localized: "Logbook line copied")
         static let showRow = String(localized: "Logbook row")
-        static let showRowHint = String(localized: "The same values, in the order your logbook prints them. Scroll sideways for the remaining columns; corrections go in Edit.")
+        static let showRowHint = String(localized: "These are the same values, in your logbook's column order. Scroll sideways for the other columns, and use Edit to correct them.")
         static let exportCSV = String(localized: "Export CSV")
         static let picName = String(localized: "PIC name")
         static let function = String(localized: "Function")
         static let nightTime = String(localized: "Night")
         static let ifrTime = String(localized: "IFR")
         static let remarks = String(localized: "Remarks")
-        static let notALogbook = String(localized: "A draft for your logbook — AeroCheck is not a logbook of record")
+        static let notALogbook = String(localized: "A draft for your logbook: AeroCheck is not a logbook of record")
         static let timesAreUTC = String(localized: "Times are UTC, from block off and block on")
         static let nightLandings = String(localized: "Night landings")
         /// The PIC-column fallback when no pilot name is set.
         static let picSelf = String(localized: "logbook.pic.self")
-        static let nightNotComputed = String(localized: "Night and IFR time are yours to enter — the app does not compute twilight")
+        static let nightNotComputed = String(localized: "Enter night and IFR time yourself: the app does not compute twilight")
 
         // PDF extract
         static let exportPDF = String(localized: "Export logbook PDF")
@@ -353,10 +353,10 @@ enum L10n {
         static let centreOfGravity = String(localized: "CG")
         static let insideEnvelope = String(localized: "Inside the envelope")
         static let outsideEnvelope = String(localized: "OUTSIDE the envelope")
-        static let envelopeUnknown = String(localized: "No envelope entered — mass and CG only")
+        static let envelopeUnknown = String(localized: "No envelope entered: mass and CG only")
         static let overweight = String(localized: "OVER MTOW")
         // review F22 / F23 — an incomplete load sheet and the landing case.
-        static let incomplete = String(localized: "Not every station has a mass — this is not a check")
+        static let incomplete = String(localized: "Some stations have no mass, so this is not a valid check")
         static func stationsUnset(_ names: String) -> String {
             String(localized: "No mass entered for: \(names)")
         }
@@ -368,8 +368,8 @@ enum L10n {
         static let remainingPayload = String(localized: "Remaining payload")
         static let notConfigured = String(localized: "Enter this aircraft's figures to use the calculator")
         static let setup = String(localized: "Set up this aircraft")
-        static let advisory = String(localized: "Advisory only — check against the load sheet and the AFM")
-        static let fromWeighingReport = String(localized: "From the aircraft's weighing report and AFM — nothing here is shipped with the app")
+        static let advisory = String(localized: "Advisory only: check against the load sheet and the AFM")
+        static let fromWeighingReport = String(localized: "These figures come from the aircraft's weighing report and AFM. The app does not include them.")
         static let envelope = String(localized: "Envelope")
         static let addEnvelopePoint = String(localized: "Add envelope point")
         static let envelopeHint = String(localized: "Corners of the AFM envelope, in order around it")
@@ -431,20 +431,20 @@ enum L10n {
         static let taskDebrief = String(localized: "Debrief")
         static let debriefOptional = String(localized: "thread.debrief.optional")
         static let debriefPlaceholder = String(localized: "thread.debrief.placeholder")
-        static func taskPPR(_ ident: String) -> String { String(localized: "PPR — \(ident)") }
-        static func taskCustoms(_ country: String) -> String { String(localized: "Border crossing — \(country)") }
-        static func taskFees(_ ident: String) -> String { String(localized: "Fees — \(ident)") }
+        static func taskPPR(_ ident: String) -> String { String(localized: "PPR: \(ident)") }
+        static func taskCustoms(_ country: String) -> String { String(localized: "Border crossing: \(country)") }
+        static func taskFees(_ ident: String) -> String { String(localized: "Fees: \(ident)") }
 
         // Task subtitles
         static let hintFuel = String(localized: "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry.")
         static let hintMassBalance = String(localized: "Check the load sheet against the envelope in the POH")
         static let hintDabs = String(localized: "Daily Airspace Bulletin Switzerland")
-        static let hintGafor = String(localized: "Route forecast — opens MeteoSwiss")
+        static let hintGafor = String(localized: "Route forecast (opens MeteoSwiss)")
         static let hintFlightPlanFiled = String(localized: "Copy the ICAO plan, then file it on skybriefing")
         static let hintFlightPlanClose = String(localized: "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA")
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
-        static let hintPPR = String(localized: "Prior permission required — call ahead")
+        static let hintPPR = String(localized: "Prior permission required: call ahead")
 
         // Actions
         static let markDone = String(localized: "Mark done")
@@ -481,11 +481,11 @@ enum L10n {
         // Notifications
         static let closeFlightPlanTitle = String(localized: "Close your flight plan")
         static func closeFlightPlanBody(_ route: String) -> String {
-            String(localized: "\(route) — not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
+            String(localized: "Your ATC flight plan for \(route) is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
         }
         static let prepareReminderTitle = String(localized: "Flight tomorrow")
         static func prepareReminderBody(_ route: String) -> String {
-            String(localized: "\(route) — time to check the weather, DABS and any PPR.")
+            String(localized: "\(route): time to check the weather, DABS and any PPR.")
         }
 
         // Banner
@@ -522,7 +522,7 @@ enum L10n {
         static let reviewFlight = String(localized: "Review")
         static let flyWithoutAPlan = String(localized: "Fly without a plan")
         static let today = String(localized: "Today")
-        static let readyToFly = String(localized: "Everything ticked — ready to fly")
+        static let readyToFly = String(localized: "Everything ticked, ready to fly")
         static func nextOnly(_ task: String) -> String {
             String(localized: "Next: \(task)")
         }
@@ -856,16 +856,16 @@ enum L10n {
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
         static let sunlightBoost = String(localized: "High contrast in sunlight")
-        static let sunlightBoostFooter = String(localized: "Switches to the high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so brightness is the signal.")
+        static let sunlightBoostFooter = String(localized: "Switches to the high-contrast palette when the screen is near full brightness. The app can't measure ambient light, so it goes by the screen brightness.")
         static let pilot = String(localized: "Pilot")
         static let pilotName = String(localized: "Your name")
         static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")
         static let studentPilot = String(localized: "Student pilot")
         static let studentPilotSubtitle = String(localized: "Log flights as dual, with your instructor as PIC")
         static let instructorNamePlaceholder = String(localized: "Instructor's name")
-        static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
+        static let pilotNameFooter = String(localized: "Used for the PIC column and for the holder's name on the logbook PDF.")
         static let costTracking = String(localized: "Track flight costs")
-        static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")
+        static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks. Your logbook line is unaffected.")
         static let terrainAltitudeUnit = String(localized: "settings.flightPlanning.terrainAltitudeUnit")
         static let flightPlanningFooter = String(localized: "settings.flightPlanning.planFlightRoutes")
         static let terrainUnitFooter = String(localized: "settings.flightPlanning.terrainUnitDesc")
@@ -1623,10 +1623,10 @@ enum L10n {
         static let shareTrip = String(localized: "Share trip")
         static let eachLeg = String(localized: "Add each leg's card")
         static func eachLegHint(_ images: Int) -> String {
-            String(localized: "\(images) images: this card first, then each leg's own")
+            String(localized: "\(images) images: this card first, then one for each leg")
         }
         /// "Hide where I parked" on a journey: the day's first departure and last arrival only.
-        static let hideParkingJourneyHint = String(localized: "Leaves out the first leg's first 300 m and the last leg's last 300 m")
+        static let hideParkingJourneyHint = String(localized: "Leaves out the first 300 m of the first leg and the last 300 m of the last leg")
 
         // The Logbook's stats card (6.2: English in French until then). Its tiles take a `String`, which
         // `Text` shows as it is, so the lookup happens here.

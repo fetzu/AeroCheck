@@ -81,7 +81,7 @@ final class LocalizationCatalogTests: XCTestCase {
         let missing = "\u{1}missing"
         let expected = [
             "Share Stats": "Partager les statistiques",
-            "COLOR THEME": "THÈME DE COULEUR",
+            "COLOUR THEME": "THÈME DE COULEUR",
             "ACCENT": "COULEUR D’ACCENTUATION",
             "Gold": "Or",
             "Blue": "Bleu",

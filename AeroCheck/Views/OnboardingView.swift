@@ -255,7 +255,7 @@ struct OnboardingView: View {
                 welcomePhase("point.3.connected.trianglepath.dotted",
                              String(localized: "Plan|Build your route on the map, with airspace and terrain in view."))
                 welcomePhase("checklist",
-                             String(localized: "Fly|Work the checklists through all 16 phases, preflight to shutdown."))
+                             String(localized: "Fly|Work the checklists through all 16 phases, pre-flight to shutdown."))
                 welcomePhase("location.north.line",
                              String(localized: "Navigate|A moving map with airspace, frequencies and your live track."))
                 welcomePhase("book.closed",

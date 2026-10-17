@@ -293,7 +293,7 @@ enum L10n {
         static let ifrTime = String(localized: "IFR")
         static let remarks = String(localized: "Remarks")
         static let notALogbook = String(localized: "A draft for your logbook: AeroCheck is not a logbook of record")
-        static let timesAreUTC = String(localized: "Times are UTC, from block off and block on")
+        static let timesAreUTC = String(localized: "Times are UTC, from off-block and on-block times")
         static let nightLandings = String(localized: "Night landings")
         /// The PIC-column fallback when no pilot name is set.
         static let picSelf = String(localized: "logbook.pic.self")
@@ -344,7 +344,7 @@ enum L10n {
         static let title = String(localized: "Mass & balance")
         static let emptyWeight = String(localized: "Empty mass")
         static let emptyArm = String(localized: "Empty arm")
-        static let mtow = String(localized: "MTOW")
+        static let mtow = String(localized: "MTOM")
         static let stations = String(localized: "Stations")
         static let addStation = String(localized: "Add station")
         static let stationName = String(localized: "Station")
@@ -354,7 +354,7 @@ enum L10n {
         static let insideEnvelope = String(localized: "Inside the envelope")
         static let outsideEnvelope = String(localized: "OUTSIDE the envelope")
         static let envelopeUnknown = String(localized: "No envelope entered: mass and CG only")
-        static let overweight = String(localized: "OVER MTOW")
+        static let overweight = String(localized: "OVER MTOM")
         // review F22 / F23 — an incomplete load sheet and the landing case.
         static let incomplete = String(localized: "Some stations have no mass, so this is not a valid check")
         static func stationsUnset(_ names: String) -> String {
@@ -1544,8 +1544,8 @@ enum L10n {
         // The tuned card (6.1): its tiles, its row of times and the note under it.
         static let maxAltitudeTile = String(localized: "MAX ALTITUDE")
         static let maxGroundSpeed = String(localized: "MAX GROUND SPEED")
-        static let blockOff = String(localized: "BLOCK OFF")
-        static let blockOn = String(localized: "BLOCK ON")
+        static let blockOff = String(localized: "OFF-BLOCK")
+        static let blockOn = String(localized: "ON-BLOCK")
         /// Under the row of times: "Local time · UTC+2".
         static func localTimeNote(_ offset: String) -> String {
             String(localized: "Local time · \(offset)", comment: "Under the times on the flight share card; the argument is the offset, UTC+2.")
@@ -1586,7 +1586,7 @@ enum L10n {
         // The Logbook's stats sheet (6.2: English in French until then). Its section labels, toggles,
         // accents and layouts took a `String`, which `Text` shows as it is, so the lookup happens here.
         static let shareStats = String(localized: "Share Stats")
-        static let colorTheme = String(localized: "COLOR THEME")
+        static let colorTheme = String(localized: "COLOUR THEME")
         static let accent = String(localized: "ACCENT", comment: "Logbook stats sheet: the card's accent colour.")
         static let accentGold = String(localized: "Gold", comment: "An accent colour of the Logbook stats card.")
         static let accentBlue = String(localized: "Blue", comment: "An accent colour of the Logbook stats card.")

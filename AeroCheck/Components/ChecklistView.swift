@@ -521,7 +521,7 @@ struct ChecklistView: View {
                 }
             }
             
-            // Completion text — the checklist's closing call ("PREFLIGHT CHECK COMPLETED"). Dim until
+            // Completion text — the checklist's closing call ("PRE-FLIGHT CHECK COMPLETE"). Dim until
             // it is true: drawn green from the start, it claimed a phase done before any item was.
             // (v6.0 · B3)
             if !phase.completionText.isEmpty {
@@ -537,6 +537,8 @@ struct ChecklistView: View {
                     }
                     Text(phase.completionText)
                         .font(.aero(size: 18, weight: .bold, design: .monospaced))
+                        // On two lines in French on a phone (« VÉRIFICATION AVANT MISE EN MARCHE TERMINÉE »).
+                        .multilineTextAlignment(.center)
                     Spacer()
                 }
                 .foregroundColor(isDone ? theme.onTarget : theme.textDim)

@@ -396,7 +396,7 @@ class FlightPlanExportService {
         let blockOnStr = plan.blockOn.map { timeFormatter.string(from: $0) } ?? ""
         let counterStopStr = plan.counterStop.map { String(format: "%.1f", $0) } ?? ""
 
-        // Fuel header row: Fuel calculation | Fuel flow l/h | Time hh | mm | Fuel liters | (gap) | Compteur START | [value]
+        // Fuel header row: Fuel calculation | Fuel flow l/h | Time hh | mm | Fuel litres | (gap) | Hour meter START | [value]
         xml += """
         <Row ss:Height="16">
             <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Fuel calculation</Data></Cell>
@@ -404,7 +404,7 @@ class FlightPlanExportService {
             <Cell ss:StyleID="Header" ss:MergeAcross="1"><Data ss:Type="String">Time</Data></Cell>
             <Cell ss:StyleID="Header"><Data ss:Type="String">Fuel</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Compteur START</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Hour meter START</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(counterStartStr)</Data></Cell>
         </Row>
         """
@@ -418,7 +418,7 @@ class FlightPlanExportService {
             <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", tripFuel))</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Block OFF</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Off-block</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(blockOffStr)</Data></Cell>
         </Row>
         """
@@ -426,13 +426,13 @@ class FlightPlanExportService {
         // Reserve fuel row
         xml += """
         <Row ss:Height="16">
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Reserve fuel (alt)</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Alternate fuel</Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="DottedRight"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", reserveFuel))</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Time OFF</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Take-off</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(timeOffStr)</Data></Cell>
         </Row>
         """
@@ -440,13 +440,13 @@ class FlightPlanExportService {
         // Additional fuel row
         xml += """
         <Row ss:Height="16">
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Additional (45')</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Final reserve (45')</Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="DottedRight"><Data ss:Type="String">0</Data></Cell>
             <Cell ss:StyleID="DottedLeft"><Data ss:Type="String">45</Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", additionalFuel))</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Time ON</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Landing</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(timeOnStr)</Data></Cell>
         </Row>
         """
@@ -460,7 +460,7 @@ class FlightPlanExportService {
             <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", extraFuel))</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Block ON</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">On-block</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(blockOnStr)</Data></Cell>
         </Row>
         """
@@ -474,7 +474,7 @@ class FlightPlanExportService {
             <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", fuelRequired))</Data></Cell>
             <Cell ss:StyleID="Data"></Cell>
-            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Compteur STOP</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Hour meter STOP</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(counterStopStr)</Data></Cell>
         </Row>
         """
@@ -1177,14 +1177,14 @@ class FlightPlanExportService {
 
             var chx = tableX
             cell(CGRect(x: chx, y: panelTop, width: cLabelW, height: carbHdrH), "Fuel calculation", font: fFuelHdr, fill: shHeader, color: labelInk, grid: gridMed); chx += cLabelW
-            cell(CGRect(x: chx, y: panelTop, width: cFFW, height: carbHdrH), "Fuel flow\nl/h", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed); chx += cFFW
+            cell(CGRect(x: chx, y: panelTop, width: cFFW, height: carbHdrH), "Fuel flow\nL/h", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed); chx += cFFW
             cell(CGRect(x: chx, y: panelTop, width: timeW, height: carbHdrH / 2), "Time", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
             cell(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: timeW, height: carbHdrH / 2), "", fill: shHeader, grid: gridMed)
             dashedV(chx + cHHW, panelTop + carbHdrH / 2, panelTop + carbHdrH)
             drawText(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: cHHW, height: carbHdrH / 2), "hh", font: fFuelHdr, align: .center, color: labelInk)
             drawText(CGRect(x: chx + cHHW, y: panelTop + carbHdrH / 2, width: cMMW, height: carbHdrH / 2), "mm", font: fFuelHdr, align: .center, color: labelInk)
             chx += timeW
-            cell(CGRect(x: chx, y: panelTop, width: cFuelW, height: carbHdrH), "Fuel\nliters", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
+            cell(CGRect(x: chx, y: panelTop, width: cFuelW, height: carbHdrH), "Fuel\nlitres", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
 
             let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
             let tripFuel = plan.tripFuel ?? 0
@@ -1195,8 +1195,8 @@ class FlightPlanExportService {
             func fmtL(_ v: Double) -> String { String(format: "%.1f", v) }
             let carbRows: [(label: String, ff: String, hh: String, mm: String, liters: String, ffGrey: Bool)] = [
                 ("Trip fuel", String(format: "%.0f", fuelFlow), "", "", fmtL(tripFuel), false),
-                ("Reserve fuel (alt)", "", "", "", fmtL(reserveFuel), false),
-                ("Additional (45')", "", "0", "45", fmtL(additionalFuel), false),
+                ("Alternate fuel", "", "", "", fmtL(reserveFuel), false),
+                ("Final reserve (45')", "", "0", "45", fmtL(additionalFuel), false),
                 ("Extra fuel", "", "", "", fmtL(extraFuel), false),
                 ("Fuel required", "", "", "", fmtL(fuelRequired), true)
             ]
@@ -1232,10 +1232,10 @@ class FlightPlanExportService {
                 ty += tcRowH
             }
             tcGroup(L10n.PDF.groupTimes)
-            tcRow("Block OFF", plan.blockOff.map { timeFmt.string(from: $0) } ?? "")
-            tcRow("Time OFF", plan.timeOff.map { timeFmt.string(from: $0) } ?? "")
-            tcRow("Time ON", plan.timeOn.map { timeFmt.string(from: $0) } ?? "")
-            tcRow("Block ON", plan.blockOn.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("Off-block", plan.blockOff.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("Take-off", plan.timeOff.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("Landing", plan.timeOn.map { timeFmt.string(from: $0) } ?? "")
+            tcRow("On-block", plan.blockOn.map { timeFmt.string(from: $0) } ?? "")
             tcGroup(L10n.PDF.groupCounter)
             tcRow(L10n.PDF.counterStart, plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
             tcRow(L10n.PDF.counterStop, plan.counterStop.map { String(format: "%.1f", $0) } ?? "")

@@ -166,7 +166,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "À titre indicatif : à vérifier avec la fiche de charge et le manuel de vol"
+            "value": "À titre indicatif : à vérifier avec le devis de masse et centrage et le manuel de vol"
           }
         }
       }
@@ -197,6 +197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Passage de frontière : %@"
+          }
+        }
+      }
+    },
+    "COLOUR THEME": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "THÈME DE COULEUR"
           }
         }
       }
@@ -261,12 +271,42 @@
         }
       }
     },
+    "FAVOURITES": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FAVORIS"
+          }
+        }
+      }
+    },
+    "Favourite": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favori"
+          }
+        }
+      }
+    },
     "Fees: %@": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Taxes : %@"
+          }
+        }
+      }
+    },
+    "Fly|Work the checklists through all 16 phases, pre-flight to shutdown.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voler|Déroulez les checklists des 16 phases, du prévol à l'arrêt moteur."
           }
         }
       }
@@ -321,6 +361,16 @@
         }
       }
     },
+    "MTOM": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MTOM"
+          }
+        }
+      }
+    },
     "No envelope entered: mass and CG only": {
       "localizations": {
         "fr": {
@@ -337,6 +387,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pas encore vérifié pour ce pays : consultez l'AIP et la douane nationale"
+          }
+        }
+      }
+    },
+    "OFF-BLOCK": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLOC OFF"
+          }
+        }
+      }
+    },
+    "ON-BLOCK": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLOC ON"
+          }
+        }
+      }
+    },
+    "OVER MTOM": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MTOM DÉPASSÉE"
           }
         }
       }
@@ -406,7 +486,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prévision de route (ouvre MeteoSwiss)"
+            "value": "Prévision de route (ouvre MétéoSuisse)"
           }
         }
       }
@@ -467,6 +547,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ces données viennent de la communauté : gardez-les à jour. Ce ne sont pas des informations aéronautiques officielles ; vérifiez toujours qu’elles sont à jour avant le vol."
+          }
+        }
+      }
+    },
+    "Times are UTC, from off-block and on-block times": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures en UTC, d'après les heures bloc (bloc OFF et bloc ON)"
+          }
+        }
+      }
+    },
+    "Unfavourite": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer des favoris"
           }
         }
       }
@@ -3108,7 +3208,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Full-stop loop, from the check before departure to the after landing check"
+            "value": "Full-stop loop, from the before take-off check to the after landing check"
           }
         },
         "fr": {
@@ -3244,7 +3344,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Starts the next circuit at the check before departure, and counts the full stop if it isn't counted yet."
+            "value": "Starts the next circuit at the before take-off check, and counts the full stop if it isn't counted yet."
           }
         },
         "fr": {
@@ -3539,7 +3639,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET"
+            "value": "COMPLET"
           }
         }
       }
@@ -4100,7 +4200,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "tour de piste à gauche à %@ ft"
+            "value": "tour de piste main gauche à %@ ft"
           }
         }
       }
@@ -4117,7 +4217,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "tour de piste à droite à %@ ft"
+            "value": "tour de piste main droite à %@ ft"
           }
         }
       }
@@ -4485,7 +4585,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crosswind."
+            "value": "Crosswind leg."
           }
         },
         "fr": {
@@ -4763,7 +4863,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Montée dans l'axe."
+            "value": "Montée initiale."
           }
         }
       }
@@ -4831,7 +4931,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Démarrez le vol avant le moteur : l'app chronomètre tout à partir de ce moment."
+            "value": "Démarrez le vol avant la mise en marche : l'app chronomètre tout à partir de ce moment."
           }
         }
       }
@@ -4848,7 +4948,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le premier bouton montre toujours la prochaine vérification, et rien de ce que vous différez n'est perdu."
+            "value": "Le premier bouton montre toujours la prochaine vérification, et rien de ce que vous reportez n'est perdu."
           }
         }
       }
@@ -5301,13 +5401,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through the after engine start check, then tap NEXT."
+            "value": "Work through the after start check, then tap NEXT."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites la vérification après démarrage, puis touchez SUIVANT."
+            "value": "Faites la vérification après mise en marche, puis touchez SUIVANT."
           }
         }
       }
@@ -5318,13 +5418,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The after engine start check"
+            "value": "The after start check"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification après le démarrage"
+            "value": "La vérification après mise en marche"
           }
         }
       }
@@ -5919,7 +6019,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un élément impossible à faire maintenant ? DIFFÉRER le met de côté, et l'app le garde pour plus tard. Essayez maintenant."
+            "value": "Un élément impossible à faire maintenant ? REPORTER le met de côté, et l'app le garde pour plus tard. Essayez maintenant."
           }
         }
       }
@@ -5953,7 +6053,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tout ce que vous avez différé attend ici, en ambre. Touchez-le à tout moment pour le terminer."
+            "value": "Tout ce que vous avez reporté attend ici, en ambre. Touchez-le à tout moment pour le terminer."
           }
         }
       }
@@ -6157,7 +6257,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRAGE MOTEUR"
+            "value": "MISE EN MARCHE"
           }
         }
       }
@@ -6174,7 +6274,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ses éléments viennent avant le démarrage. Faites-les, puis appuyez sur DÉMARRAGE MOTEUR."
+            "value": "Ses éléments viennent avant la mise en marche. Faites-les, puis appuyez sur MISE EN MARCHE."
           }
         }
       }
@@ -6191,7 +6291,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites la vérification de démarrage, puis appuyez sur DÉMARRAGE MOTEUR."
+            "value": "Faites la vérification de mise en marche, puis appuyez sur MISE EN MARCHE."
           }
         }
       }
@@ -6208,7 +6308,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification de démarrage"
+            "value": "La vérification de mise en marche"
           }
         }
       }
@@ -6429,7 +6529,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET est déjà choisi : l'avion se pose. En courte finale, touchez la vérification d'atterrissage et faites ses éléments."
+            "value": "COMPLET est déjà choisi : l'avion se pose. En courte finale, touchez la vérification d'atterrissage et faites ses éléments."
           }
         }
       }
@@ -6463,7 +6563,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET est déjà choisi : l'avion se pose. En courte finale, récitez la vérification d'atterrissage de mémoire, puis touchez-la une fois pour l'enregistrer."
+            "value": "COMPLET est déjà choisi : l'avion se pose. En courte finale, récitez la vérification d'atterrissage de mémoire, puis touchez-la une fois pour l'enregistrer."
           }
         }
       }
@@ -6599,7 +6699,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saisissez à nouveau la lecture du compteur horaire. Avec les deux lectures, le carnet de vol et le coût calculent le temps de vol."
+            "value": "Saisissez à nouveau la lecture de l'horamètre. Avec les deux lectures, le carnet de vol et le coût calculent le temps de vol."
           }
         }
       }
@@ -6633,7 +6733,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avant de démarrer, saisissez la lecture du compteur horaire. Le carnet de vol et le coût s'en servent pour calculer le temps de vol. En vol à blanc, n'importe quel nombre convient, ou touchez Passer."
+            "value": "Avant la mise en marche, saisissez la lecture de l'horamètre. Le carnet de vol et le coût s'en servent pour calculer le temps de vol. En vol à blanc, n'importe quel nombre convient, ou touchez Passer."
           }
         }
       }
@@ -6763,7 +6863,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through the line up check."
+            "value": "Work through the line-up check."
           }
         },
         "fr": {
@@ -6780,7 +6880,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The line up check"
+            "value": "The line-up check"
           }
         },
         "fr": {
@@ -7007,7 +7107,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification de démarrage contient des éléments à lire et des éléments à connaître par cœur : ses éléments mémoire. Le Menu peut les masquer, pour que vous les récitiez de mémoire. Ouvrez le Menu."
+            "value": "La vérification de mise en marche contient des éléments à lire et des éléments à connaître par cœur : ses éléments mémoire. Le Menu peut les masquer, pour que vous les récitiez de mémoire. Ouvrez le Menu."
           }
         }
       }
@@ -7528,13 +7628,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tap NEXT to open the after engine start check."
+            "value": "Tap NEXT to open the after start check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touchez SUIVANT pour ouvrir la vérification après démarrage."
+            "value": "Touchez SUIVANT pour ouvrir la vérification après mise en marche."
           }
         }
       }
@@ -7551,7 +7651,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Après le démarrage"
+            "value": "Après la mise en marche"
           }
         }
       }
@@ -7562,7 +7662,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The aircraft waits here. Work through the checks up to the one before departure; when it is complete, press READY FOR LINE UP."
+            "value": "The aircraft waits here. Work through the checks up to the before take-off check; when it is complete, press READY FOR LINE UP."
           }
         },
         "fr": {
@@ -7613,7 +7713,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the checks up to the one before departure, at the holding point"
+            "value": "the checks up to the before take-off check, at the holding point"
           }
         },
         "fr": {
@@ -7687,7 +7787,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touchez COCHER pour chaque élément. Quand une vérification est terminée, SUIVANT ouvre la suivante. Faites les vérifications jusqu'à celle de démarrage."
+            "value": "Touchez COCHER pour chaque élément. Quand une vérification est terminée, SUIVANT ouvre la suivante. Faites les vérifications jusqu'à celle de mise en marche."
           }
         }
       }
@@ -7704,7 +7804,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Continuez les vérifications jusqu'à celle de démarrage."
+            "value": "Continuez les vérifications jusqu'à celle de mise en marche."
           }
         }
       }
@@ -8231,7 +8331,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrêt-décollé"
+            "value": "Stop-and-go"
           }
         }
       }
@@ -9095,26 +9195,6 @@
         }
       }
     },
-    "BLOCK OFF": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BLOC OFF"
-          }
-        }
-      }
-    },
-    "BLOCK ON": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BLOC ON"
-          }
-        }
-      }
-    },
     "Local time · %@": {
       "comment": "Under the times on the flight share card; the argument is the offset, UTC+2.",
       "localizations": {
@@ -9920,7 +10000,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Late"
+            "value": "Overdue"
           }
         },
         "fr": {
@@ -9971,13 +10051,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late · not done before take-off"
+            "value": "overdue · not done before take-off"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "en retard · après le décollage"
+            "value": "en retard · pas faite avant le décollage"
           }
         }
       }
@@ -9988,13 +10068,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late · not done before level-off"
+            "value": "overdue · not done before level-off"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "en retard · mise en palier"
+            "value": "en retard · pas faite avant la mise en palier"
           }
         }
       }
@@ -10005,13 +10085,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late · not done before the descent"
+            "value": "overdue · not done before the descent"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "en retard · début de la descente"
+            "value": "en retard · pas faite avant la descente"
           }
         }
       }
@@ -10022,13 +10102,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late · not done before the approach"
+            "value": "overdue · not done before the approach"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "en retard · début de l'approche"
+            "value": "en retard · pas faite avant l'approche"
           }
         }
       }
@@ -10039,13 +10119,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late · not done before joining the circuit"
+            "value": "overdue · not done before joining the circuit"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "en retard · entrée dans le circuit"
+            "value": "en retard · pas faite avant l'intégration"
           }
         }
       }
@@ -10056,7 +10136,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late"
+            "value": "overdue"
           }
         },
         "fr": {
@@ -10368,7 +10448,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "fait"
+            "value": "faite"
           }
         }
       }
@@ -10385,7 +10465,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "fait de mémoire"
+            "value": "faite de mémoire"
           }
         }
       }
@@ -10402,7 +10482,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "confirmé après l'atterrissage"
+            "value": "confirmée après l'atterrissage"
           }
         }
       }
@@ -10419,7 +10499,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "fait en retard"
+            "value": "faite en retard"
           }
         }
       }
@@ -10430,13 +10510,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late, never done"
+            "value": "overdue, never done"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "en retard, jamais fait"
+            "value": "en retard, jamais faite"
           }
         }
       }
@@ -10470,7 +10550,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ignoré"
+            "value": "non effectuée"
           }
         }
       }
@@ -10487,7 +10567,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ignoré, action non effectuée"
+            "value": "non effectuée, action manquante"
           }
         }
       }
@@ -10521,7 +10601,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ouvert à la fin du vol"
+            "value": "ouverte à la fin du vol"
           }
         }
       }
@@ -10538,7 +10618,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "pas atteint"
+            "value": "pas atteinte"
           }
         }
       }
@@ -10555,7 +10635,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "après le décollage"
+            "value": "encore ouverte au décollage"
           }
         }
       }
@@ -10572,7 +10652,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "mise en palier"
+            "value": "encore ouverte à la mise en palier"
           }
         }
       }
@@ -10589,7 +10669,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "début de la descente"
+            "value": "encore ouverte au début de la descente"
           }
         }
       }
@@ -10606,7 +10686,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "début de l'approche"
+            "value": "encore ouverte au début de l'approche"
           }
         }
       }
@@ -10623,7 +10703,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "entrée dans le circuit"
+            "value": "encore ouverte à l'intégration dans le circuit"
           }
         }
       }
@@ -10651,7 +10731,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late %lld times"
+            "value": "overdue %lld times"
           }
         },
         "fr": {
@@ -10691,7 +10771,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ignoré à %@"
+            "value": "non effectuée à %@"
           }
         }
       }
@@ -10793,7 +10873,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "✕ dû à %@"
+            "value": "✕ prévu à %@"
           }
         }
       }
@@ -10810,7 +10890,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "manqué, dû à %@"
+            "value": "manqué, prévu à %@"
           }
         }
       }
@@ -10838,7 +10918,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "late on %lld of %lld flights"
+            "value": "overdue on %lld of %lld flights"
           }
         },
         "fr": {
@@ -10861,7 +10941,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ignoré sur %lld des %lld vols"
+            "value": "non effectuée sur %lld des %lld vols"
           }
         }
       }
@@ -13173,7 +13253,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Débit carburant"
+            "value": "Consommation"
           }
         }
       }
@@ -13626,13 +13706,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block and flight times, counters, landings"
+            "value": "Block and flight times, hour meter, landings"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Temps bloc et de vol, compteurs, atterrissages"
+            "value": "Temps bloc et de vol, horamètre, atterrissages"
           }
         }
       }
@@ -14431,7 +14511,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carburant et horaires : débit, réserves, supplément"
+            "value": "Carburant et horaires : consommation, réserves, supplément"
           }
         }
       }
@@ -14601,7 +14681,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les vitesses de %@ viennent avec sa check-list, qui nécessite un abonnement AéroCheck Pro actif."
+            "value": "Les vitesses de %@ viennent avec sa checklist, qui nécessite un abonnement AéroCheck Pro actif."
           }
         }
       }
@@ -15043,7 +15123,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goes on to the line up check. The first time, it also records the take-off time, two minutes from now."
+            "value": "Goes on to the line-up check. The first time, it also records the take-off time, two minutes from now."
           }
         },
         "fr": {
@@ -15780,7 +15860,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compteur horaire avant démarrage"
+            "value": "Horamètre avant mise en marche"
           }
         }
       }
@@ -15797,7 +15877,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compteur horaire après l'arrêt"
+            "value": "Horamètre après l'arrêt"
           }
         }
       }
@@ -18215,37 +18295,19 @@
     },
     "%lld touch-and-go" : {
       "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld touch-and-go"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld touch-and-goes"
-                }
-              }
-            }
-          }
-        },
         "fr" : {
           "variations" : {
             "plural" : {
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld touch-and-go"
+                  "value" : "%lld posé-décollé"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld touch-and-go"
+                  "value" : "%lld posés-décollés"
                 }
               }
             }
@@ -18508,7 +18570,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enregistrer les vols en double commande, avec votre instructeur comme PIC"
+            "value" : "Enregistrer les vols en double commande, avec votre instructeur comme commandant de bord"
           }
         }
       }
@@ -18568,7 +18630,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nom du PIC"
+            "value" : "Nom du commandant de bord"
           }
         }
       }
@@ -18609,16 +18671,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Remarques"
-          }
-        }
-      }
-    },
-    "Times are UTC, from block off and block on" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heures en UTC, d'après le block off et le block on"
           }
         }
       }
@@ -18903,16 +18955,6 @@
         }
       }
     },
-    "MTOW" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MTOW"
-          }
-        }
-      }
-    },
     "Stations" : {
       "localizations" : {
         "fr" : {
@@ -18989,16 +19031,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "HORS du domaine"
-          }
-        }
-      }
-    },
-    "OVER MTOW" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AU-DESSUS DE LA MTOW"
           }
         }
       }
@@ -19340,7 +19372,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "REQ = navigation + dégagement + réserve finale 45 min + supplément. FOB = ce que vous prévoyez d'emporter."
+            "value" : "REQ = étape + dégagement + réserve finale 45 min + supplément. FOB = ce que vous prévoyez d'emporter."
           }
         }
       }
@@ -19640,7 +19672,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vérifier la fiche de charge avec le domaine de centrage du manuel de vol"
+            "value" : "Vérifier le devis de masse et centrage avec le domaine de centrage du manuel de vol"
           }
         }
       }
@@ -19780,7 +19812,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrir MeteoSwiss"
+            "value" : "Ouvrir MétéoSuisse"
           }
         }
       }
@@ -20806,18 +20838,6 @@
       }
     },
     "CACHED": {},
-    "COLOR THEME": {
-      "comment": "A label above the color scheme picker in the share card customization view.",
-      "isCommentAutoGenerated": true,
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "THÈME DE COULEUR"
-          }
-        }
-      }
-    },
     "COMPANION": {
       "comment": "The name of the companion app.",
       "isCommentAutoGenerated": true,
@@ -20925,10 +20945,6 @@
           }
         }
       }
-    },
-    "Circuit pattern repeats from climb to landing": {
-      "comment": "A label for the circuit pattern, describing the pattern of the circuit.",
-      "isCommentAutoGenerated": true
     },
     "Compulsory": {
       "localizations": {
@@ -21229,10 +21245,6 @@
         }
       }
     },
-    "FAVORITES": {
-      "comment": "The title of the favorites section of the flight log.",
-      "isCommentAutoGenerated": true
-    },
     "FLIGHT LOG": {
       "comment": "The title of the Flight Log stats share card.",
       "isCommentAutoGenerated": true,
@@ -21372,7 +21384,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT-DÉCOLLÉ"
+            "value": "STOP-AND-GO"
           }
         }
       }
@@ -21382,7 +21394,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊTS-DÉCOLLÉS"
+            "value": "STOP-AND-GO"
           }
         }
       }
@@ -21675,10 +21687,6 @@
       "comment": "An abbreviation for feet.",
       "isCommentAutoGenerated": true
     },
-    "Favorite": {
-      "comment": "A star icon that can be tapped to mark a flight as a favorite.",
-      "isCommentAutoGenerated": true
-    },
     "Fit route": {
       "comment": "A button that fits the map view to the route.",
       "isCommentAutoGenerated": true
@@ -21709,16 +21717,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vols et réglages sur tous vos appareils"
-          }
-        }
-      }
-    },
-    "Fly|Work the checklists through all 16 phases, preflight to shutdown.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voler|Déroulez les checklists des 16 phases, du prévol à l'arrêt moteur."
           }
         }
       }
@@ -22260,7 +22258,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune liste de vérification en cache"
+            "value": "Aucune checklist en cache"
           }
         }
       }
@@ -22500,7 +22498,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demander le compteur horaire"
+            "value": "Demander l'horamètre"
           }
         }
       }
@@ -22915,7 +22913,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vent en surface (Suisse) · © MeteoSwiss"
+            "value": "Vent en surface (Suisse) · © MétéoSuisse"
           }
         }
       }
@@ -23145,10 +23143,6 @@
           }
         }
       }
-    },
-    "Unfavorite": {
-      "comment": "A label for unfavoriting a flight.",
-      "isCommentAutoGenerated": true
     },
     "Unit": {
       "comment": "A label for a picker that lets the user select the unit of measurement for altitude in the terrain profile view.",
@@ -23524,7 +23518,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ignorée, une action requise n'a pas été effectuée"
+            "value": "non effectuée, une action requise n'a pas été faite"
           }
         }
       }
@@ -23575,7 +23569,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ignorée"
+            "value": "non effectuée"
           }
         }
       }
@@ -23613,7 +23607,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Liste de vérification disponible en %@ uniquement"
+            "value": "Checklist disponible en %@ uniquement"
           }
         }
       }
@@ -24514,7 +24508,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "N/D"
+            "value": "n.d."
           }
         }
       }
@@ -24992,13 +24986,12 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRAGE MOTEUR"
+            "value": "MISE EN MARCHE"
           }
         }
       }
     },
     "checklist.engineStart.short": {
-      "comment": "ENGINE START on the iPhone. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -25010,7 +25003,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRAGE"
+            "value": "MISE EN M."
           }
         }
       }
@@ -25266,7 +25259,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Démarré"
+            "value": "Mise en marche"
           }
         }
       }
@@ -27997,7 +27990,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block Off"
+            "value": "Off-block"
           }
         },
         "fr": {
@@ -28014,7 +28007,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block On"
+            "value": "On-block"
           }
         },
         "fr": {
@@ -28105,7 +28098,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Démarrage moteur"
+            "value": "Mise en marche"
           }
         }
       }
@@ -29358,7 +29351,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS signal is weak. Position accuracy exceeds 100 meters, or no satellite fix has been received for more than 20 seconds (the position may then come from Wi-Fi or cell towers). Your location may be approximate."
+            "value": "GPS signal is weak. Position accuracy exceeds 100 metres, or no satellite fix has been received for more than 20 seconds (the position may then come from Wi-Fi or cell towers). Your location may be approximate."
           }
         },
         "fr": {
@@ -29375,7 +29368,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GPS is working normally: a satellite fix within 100 meters was received in the last 20 seconds."
+            "value": "GPS is working normally: a satellite fix within 100 metres was received in the last 20 seconds."
           }
         },
         "fr": {
@@ -29579,13 +29572,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enter the tachometer reading after stopping the engine"
+            "value": "Enter the hour meter reading after stopping the engine"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entrez le relevé du compteur horaire après l'arrêt du moteur"
+            "value": "Entrez le relevé de l'horamètre après l'arrêt du moteur"
           }
         }
       }
@@ -29613,13 +29606,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enter the tachometer reading before starting the engine"
+            "value": "Enter the hour meter reading before starting the engine"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entrez le relevé du compteur horaire avant de démarrer le moteur"
+            "value": "Entrez le relevé de l'horamètre avant la mise en marche du moteur"
           }
         }
       }
@@ -29636,7 +29629,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Heures moteur - Avant démarrage"
+            "value": "Heures moteur - Avant mise en marche"
           }
         }
       }
@@ -30301,7 +30294,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block OFF"
+            "value": "Off-block"
           }
         },
         "fr": {
@@ -30318,7 +30311,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block ON"
+            "value": "On-block"
           }
         },
         "fr": {
@@ -30470,7 +30463,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Counter Start"
+            "value": "Hour meter start"
           }
         },
         "fr": {
@@ -30487,7 +30480,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Counter Stop"
+            "value": "Hour meter stop"
           }
         },
         "fr": {
@@ -30981,7 +30974,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Extra (L)"
+            "value": "Supplément (L)"
           }
         }
       }
@@ -32813,13 +32806,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Time OFF"
+            "value": "Take-off"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Heure OFF"
+            "value": "Décollage"
           }
         }
       }
@@ -32830,13 +32823,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Time ON"
+            "value": "Landing"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Heure ON"
+            "value": "Atterrissage"
           }
         }
       }
@@ -32971,7 +32964,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carburant voyage (L)"
+            "value": "Carburant d'étape (L)"
           }
         }
       }
@@ -33524,33 +33517,35 @@
       }
     },
     "pdf.counterStart": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Counter START"
+            "value": "Hour meter START"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compteur START"
+            "value": "Horamètre START"
           }
         }
       }
     },
     "pdf.counterStop": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Counter STOP"
+            "value": "Hour meter STOP"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compteur STOP"
+            "value": "Horamètre STOP"
           }
         }
       }
@@ -33572,17 +33567,18 @@
       }
     },
     "pdf.groupCounter": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Counter · Landings"
+            "value": "Hour meter · Landings"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compteur · Atterrissages"
+            "value": "Horamètre · Atterrissages"
           }
         }
       }
@@ -33700,17 +33696,18 @@
       }
     },
     "pdf.sectionFuel": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fuel · Times · Counter"
+            "value": "Fuel · Times · Hour meter"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carburant · Temps · Compteur"
+            "value": "Carburant · Temps · Horamètre"
           }
         }
       }
@@ -33732,17 +33729,18 @@
       }
     },
     "pdf.totalEET": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Total time EET"
+            "value": "Total EET"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Durée totale EET"
+            "value": "EET total"
           }
         }
       }
@@ -33753,13 +33751,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK AFTER ENGINE START"
+            "value": "AFTER START CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "VÉRIFICATION APRÈS DÉMARRAGE MOTEUR"
+            "value": "APRÈS MISE EN MARCHE"
           }
         }
       }
@@ -33804,13 +33802,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK BEFORE DEPARTURE"
+            "value": "BEFORE TAKE-OFF CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "VÉRIFICATION AVANT DÉPART"
+            "value": "AVANT DÉPART"
           }
         }
       }
@@ -33821,13 +33819,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK BEFORE ENGINE START"
+            "value": "BEFORE START CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "VÉRIFICATION AVANT DÉMARRAGE MOTEUR"
+            "value": "AVANT MISE EN MARCHE"
           }
         }
       }
@@ -33855,13 +33853,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ COMPLETED"
+            "value": "%@ COMPLETE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ TERMINÉ"
+            "value": "VÉRIFICATION %@ TERMINÉE"
           }
         }
       }
@@ -33912,7 +33910,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRAGE MOTEUR"
+            "value": "MISE EN MARCHE"
           }
         }
       }
@@ -33957,7 +33955,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "LINE UP CHECK"
+            "value": "LINE-UP CHECK"
           }
         },
         "fr": {
@@ -33974,13 +33972,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PREFLIGHT CHECK"
+            "value": "PRE-FLIGHT CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "VÉRIFICATION PRÉ-VOL"
+            "value": "PRÉVOL"
           }
         }
       }
@@ -33991,7 +33989,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "RUNUP"
+            "value": "RUN-UP"
           }
         },
         "fr": {
@@ -34008,13 +34006,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK AFTER ENGINE START"
+            "value": "AFTER START CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "APRÈS DÉMARRAGE"
+            "value": "APRÈS MISE EN MARCHE"
           }
         }
       }
@@ -34059,7 +34057,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK BEFORE DEPARTURE"
+            "value": "BEFORE TAKE-OFF CHECK"
           }
         },
         "fr": {
@@ -34076,13 +34074,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK BEFORE ENGINE START"
+            "value": "BEFORE START CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "AVANT DÉMARRAGE"
+            "value": "AVANT MISE EN MARCHE"
           }
         }
       }
@@ -34150,7 +34148,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRAGE"
+            "value": "MISE EN MARCHE"
           }
         }
       }
@@ -34195,7 +34193,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "LINE UP CHECK"
+            "value": "LINE-UP CHECK"
           }
         },
         "fr": {
@@ -34212,13 +34210,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PREFLIGHT CHECK"
+            "value": "PRE-FLIGHT CHECK"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PRÉ-VOL"
+            "value": "PRÉVOL"
           }
         }
       }
@@ -34229,7 +34227,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "RUNUP"
+            "value": "RUN-UP"
           }
         },
         "fr": {
@@ -34309,25 +34307,23 @@
       }
     },
     "phase.word.preflight": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PREFLIGHT"
+            "value": "PRE-FLIGHT"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PRÉ-VOL"
+            "value": "PRÉVOL"
           }
         }
       }
     },
     "phase.word.beforeEngineStart": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -34339,13 +34335,12 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "AVANT DÉM."
+            "value": "AV. MARCHE"
           }
         }
       }
     },
     "phase.word.engineStart": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -34357,13 +34352,12 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRAGE"
+            "value": "MISE EN M."
           }
         }
       }
     },
     "phase.word.afterEngineStart": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -34375,7 +34369,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "APRÈS DÉM."
+            "value": "AP. MARCHE"
           }
         }
       }
@@ -34399,13 +34393,12 @@
       }
     },
     "phase.word.runup": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "RUNUP"
+            "value": "RUN-UP"
           }
         },
         "fr": {
@@ -34417,31 +34410,29 @@
       }
     },
     "phase.word.beforeDeparture": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "DEPARTURE"
+            "value": "BEFORE T/O"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉPART"
+            "value": "AVANT DÉPART"
           }
         }
       }
     },
     "phase.word.lineUp": {
-      "comment": "The check slot on the iPhone: the check's name, without CHECK. The iPhone's act band: one line in a slot about 90 pt wide. Keep it short.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "LINE UP"
+            "value": "LINE-UP"
           }
         },
         "fr": {
@@ -34823,7 +34814,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The recorded track was re-analyzed after the flight. Review what it shows before it reaches your logbook. Nothing changes unless you apply it."
+            "value": "The recorded track was re-analysed after the flight. Review what it shows before it reaches your logbook. Nothing changes unless you apply it."
           }
         },
         "fr": {
@@ -36013,13 +36004,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, prompts for tachometer/hour meter readings at engine start and stop. Useful for maintenance tracking."
+            "value": "When enabled, prompts for hour meter readings at engine start and stop. Useful for maintenance tracking."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Si activé, demande les relevés tachymètre/horamètre au démarrage et à l'arrêt du moteur. Utile pour le suivi de maintenance."
+            "value": "Si activé, demande les relevés de l'horamètre à la mise en marche et à l'arrêt du moteur. Utile pour le suivi de maintenance."
           }
         }
       }
@@ -38083,7 +38074,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Démarrage moteur"
+            "value": "Mise en marche"
           }
         }
       }

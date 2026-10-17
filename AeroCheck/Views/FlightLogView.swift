@@ -793,7 +793,7 @@ struct FlightLogView: View {
         Button {
             withAnimation { appState.toggleFavorite(flight) }
         } label: {
-            Label(flight.isFavorite ? "Unfavorite" : "Favorite",
+            Label(flight.isFavorite ? "Unfavourite" : "Favourite",
                   systemImage: flight.isFavorite ? "star.slash.fill" : "star.fill")
         }
         .tint(.aviationGold)
@@ -807,7 +807,7 @@ struct FlightLogView: View {
     private func favoritesHeader(count: Int) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "star.fill").scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.aviationGold)
-            Text("FAVORITES")
+            Text("FAVOURITES")
                 .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .tracking(0.6)
                 .foregroundColor(.aviationGold)
@@ -1841,7 +1841,7 @@ struct FlightRowView: View {
                         Image(systemName: "star.fill")
                             .scaledFont(size: 10, relativeTo: .caption2)
                             .foregroundColor(.aviationGold)
-                            .accessibilityLabel("Favorite")
+                            .accessibilityLabel("Favourite")
                     }
                     Text(flight.formattedDuration)
                         .scaledFont(size: 15, weight: .bold, design: .monospaced, relativeTo: .subheadline)

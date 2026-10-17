@@ -102,10 +102,11 @@ private struct DryRunGroundCoachLayer: View {
             if let step = coach.step, step.screen == screen, step.kind == .partEnd {
                 DryRunPartEndPage(coach: coach, session: session, step: step)
             } else if let step = coach.step, step.screen == screen {
-                if coach.resolvedTarget(of: step) == .logbookTab {
-                    // The tab bar is UIKit's: looked for twice a second, as it may come after the card.
+                if Self.isSystemBarItem(coach.resolvedTarget(of: step)) {
+                    // The tab bar and a sheet's navigation bar are UIKit's: looked for twice a second, as they
+                    // may come after the card.
                     TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-                        content(step, target: Self.tabFrame(L10n.Ground.logbook, in: proxy), proxy: proxy)
+                        content(step, target: Self.systemFrame(of: coach.resolvedTarget(of: step), in: proxy), proxy: proxy)
                     }
                 } else {
                     content(step, target: coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] },
@@ -132,17 +133,26 @@ private struct DryRunGroundCoachLayer: View {
         }
     }
 
-    /// The system tab bar's item `title`, in the layer's own coordinates.
-    static func tabFrame(_ title: String, in proxy: GeometryProxy) -> CGRect? {
-        guard let global = SystemTabItemLocator.frame(of: title) else { return nil }
+    /// Whether the target is drawn by UIKit, where the anchors don't reach: the Logbook tab, a sheet's Done.
+    static func isSystemBarItem(_ target: DryRunCoachStep.Target?) -> Bool {
+        target == .logbookTab || target == .sheetDone
+    }
+
+    /// The system bar's item, in the layer's own coordinates: the Logbook tab by its word; a sheet's Done as its
+    /// navigation bar's trailing item (iOS 26 draws the bar's buttons with SwiftUI, no label to find).
+    static func systemFrame(of target: DryRunCoachStep.Target?, in proxy: GeometryProxy) -> CGRect? {
+        let global = target == .sheetDone ? SystemTabItemLocator.trailingBarItemFrame()
+                                          : SystemTabItemLocator.frame(of: L10n.Ground.logbook)
+        guard let global else { return nil }
         let origin = proxy.frame(in: .global).origin
         return global.offsetBy(dx: -origin.x, dy: -origin.y)
     }
 }
 
-/// A tab of the system tab bar, which SwiftUI's anchors don't reach: the visible UIKit view VoiceOver names
-/// `title`, its frame in the window (SwiftUI's global space). Nil when there is none. For the coach's ring on
-/// Logbook only. (6.4.0, the author's second dry run checks, st-19)
+/// An item of a system bar, which SwiftUI's anchors don't reach: the visible UIKit label reading `title` in
+/// the screen on top, and the item around it, its frame in the window (SwiftUI's global space). Nil when there
+/// is none. For the coach's ring on the Logbook tab and on a sheet's Done. (6.4.0, the author's second dry run
+/// checks, st-19, and sixth, r6-1)
 @MainActor
 enum SystemTabItemLocator {
     static func frame(of title: String) -> CGRect? {
@@ -161,6 +171,30 @@ enum SystemTabItemLocator {
             return item.convert(item.bounds, to: window)
         }
         return nil
+    }
+
+    /// The trailing item of the navigation bar of the screen on top (a sheet's Done), its frame in the window.
+    static func trailingBarItemFrame() -> CGRect? {
+        for window in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap(\.windows)
+        where window.isKeyWindow {
+            guard var top = window.rootViewController else { continue }
+            while let presented = top.presentedViewController { top = presented }
+            guard let bar = first(UINavigationBar.self, in: top.view) else { continue }
+            let items = all(in: bar) { "\(type(of: $0))".hasPrefix("UIKitBarItemHost") && !$0.isHidden }
+            let frames = items.map { $0.convert($0.bounds, to: window) }.filter { $0.width > 0 }
+            if let trailing = frames.max(by: { $0.midX < $1.midX }) { return trailing }
+        }
+        return nil
+    }
+
+    private static func first<T: UIView>(_ type: T.Type, in view: UIView) -> T? {
+        if let match = view as? T { return match }
+        for subview in view.subviews { if let match = first(type, in: subview) { return match } }
+        return nil
+    }
+
+    private static func all(in view: UIView, where test: (UIView) -> Bool) -> [UIView] {
+        (test(view) ? [view] : []) + view.subviews.flatMap { all(in: $0, where: test) }
     }
 
     private static func label(titled title: String, in view: UIView) -> UILabel? {

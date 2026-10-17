@@ -2806,13 +2806,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The climb check, once airborne"
+            "value": "Climb check after take-off"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification de montée, une fois en l'air"
+            "value": "Vérification de montée après le décollage"
           }
         }
       }
@@ -2823,13 +2823,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ recorded by the app"
+            "value": "%@ detected and recorded"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : enregistré par l'app"
+            "value": "%@ : détecté et enregistré"
           }
         }
       }
@@ -2908,13 +2908,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The dry run's own card: a real flight has none."
+            "value": "This card controls the flight in a dry run. It doesn't appear in a real flight."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'encadré du vol à blanc : un vrai vol n'en a pas."
+            "value": "Cet encadré pilote le vol à blanc. Il n'apparaît pas en vrai vol."
           }
         }
       }
@@ -2932,6 +2932,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "en pause"
+          }
+        }
+      }
+    },
+    "dryRun.pausedTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DRY RUN PAUSED"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VOL À BLANC EN PAUSE"
+          }
+        }
+      }
+    },
+    "dryRun.typeCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type the aerodrome's ICAO code."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez le code OACI de l'aérodrome."
           }
         }
       }
@@ -3231,13 +3265,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nothing was saved: no logbook entry, no iCloud."
+            "value": "Nothing was saved: no logbook entry, nothing sent to iCloud."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rien n'a été enregistré : ni carnet de vol, ni iCloud."
+            "value": "Rien n'a été enregistré : aucune entrée de carnet, rien envoyé à iCloud."
           }
         }
       }
@@ -3282,13 +3316,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next time: a go-around, chosen on final."
+            "value": "Next time, try a go-around, chosen on final."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine fois : une remise de gaz, choisie en finale."
+            "value": "La prochaine fois, essayez une remise de gaz, choisie en finale."
           }
         }
       }
@@ -3299,13 +3333,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next time: a touch-and-go, chosen on final."
+            "value": "Next time, try a touch-and-go, chosen on final."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine fois : un posé-décollé, choisi en finale."
+            "value": "La prochaine fois, essayez un posé-décollé, choisi en finale."
           }
         }
       }
@@ -3316,13 +3350,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next time: a route you planned, from its menu in Plan."
+            "value": "Next time, fly a route you planned, from its menu in Plan."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine fois : une route que vous avez préparée, depuis son menu dans Planifier."
+            "value": "La prochaine fois, faites une route que vous avez planifiée, depuis son menu dans Planifier."
           }
         }
       }
@@ -3333,13 +3367,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next time: circuits, with a go-around."
+            "value": "Next time, try circuits with a go-around."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine fois : des tours de piste, avec une remise de gaz."
+            "value": "La prochaine fois, essayez des tours de piste avec une remise de gaz."
           }
         }
       }
@@ -3350,13 +3384,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next time: a divert on the way, from DIVERT."
+            "value": "Next time, try diverting on the way, with Divert."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine fois : un déroutement en route, avec DÉROUTER."
+            "value": "La prochaine fois, essayez un déroutement en route, avec Dérouter."
           }
         }
       }
@@ -3469,13 +3503,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app flies the aircraft on the ground, through the real Cockpit: try anything, at any pace. Nothing is saved."
+            "value": "The aircraft is flown for you on the ground, in the real Cockpit, so you can try anything at any pace. Nothing is saved."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app fait voler l'avion au sol, dans le vrai cockpit : essayez tout, à la cadence voulue. Rien n'est enregistré."
+            "value": "L'avion est piloté pour vous au sol, dans le vrai cockpit, pour que vous puissiez tout essayer, à n'importe quel rythme. Rien n'est enregistré."
           }
         }
       }
@@ -3571,13 +3605,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No runway for %@ in the app's data."
+            "value": "No runway found for %@ in the airport data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune piste pour %@ dans les données de l'app."
+            "value": "Aucune piste trouvée pour %@ dans les données d'aérodromes."
           }
         }
       }
@@ -3605,13 +3639,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The airport data isn't on this device yet: only LSZQ can be flown until it is downloaded (Settings, Data & Storage)."
+            "value": "The airport data isn't on this device yet, so only LSZQ is available until you download it (Settings › Data)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les données des aérodromes ne sont pas encore sur cet appareil : seul LSZQ peut être volé avant leur téléchargement (Réglages, Données et stockage)."
+            "value": "Les données d'aérodromes ne sont pas encore sur cet appareil : seul LSZQ est disponible jusqu'à leur téléchargement (Réglages › Données)."
           }
         }
       }
@@ -3656,13 +3690,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pause, the pace and Next check are in the band on the iPad, in the Menu on the iPhone. Leaving the app pauses the dry run."
+            "value": "On the iPad, Pause, the pace and NEXT CHECK are in the band at the top; on the iPhone, they are in the Menu. Leaving the app pauses the dry run."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pause, cadence et vérification suivante sont dans le bandeau sur l'iPad, dans le Menu sur l'iPhone. Quitter l'app met le vol à blanc en pause."
+            "value": "Sur l'iPad, Pause, le rythme et VÉRIF. SUIVANTE sont dans le bandeau en haut ; sur l'iPhone, dans le Menu. Quitter l'app met le vol à blanc en pause."
           }
         }
       }
@@ -3741,13 +3775,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This aircraft's checklist can't be had right now: AéroCheck Pro, or a connection, is needed."
+            "value": "This aircraft's checklist isn't available right now: it needs AéroCheck Pro or a connection."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La checklist de cet avion n'est pas disponible pour l'instant : il faut AéroCheck Pro, ou une connexion."
+            "value": "La checklist de cet avion n'est pas disponible pour l'instant : il faut AéroCheck Pro ou une connexion."
           }
         }
       }
@@ -3809,13 +3843,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app flies a flight on the ground through the real Cockpit, for trying anything. Nothing is saved."
+            "value": "A simulated flight on the ground, in the real Cockpit, to try anything you like. Nothing is saved."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app fait voler un vol au sol dans le vrai cockpit, pour tout essayer. Rien n'est enregistré."
+            "value": "Un vol simulé au sol, dans le vrai cockpit, pour essayer ce que vous voulez. Rien n'est enregistré."
           }
         }
       }
@@ -3962,13 +3996,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A chapter on its own: the flight taken there in a few seconds, the checks before it done as you would."
+            "value": "Starts the dry run at one chapter of the flight. Getting there takes a few seconds, with the earlier checks done for you."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un chapitre seul : le vol mené jusque-là en quelques secondes, les vérifications d'avant faites comme vous les feriez."
+            "value": "Commence le vol à blanc à un chapitre du vol. Y arriver prend quelques secondes, les vérifications précédentes faites pour vous."
           }
         }
       }
@@ -3979,13 +4013,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The flight is flown to where this chapter starts, the checks before it done as you would. A few seconds."
+            "value": "The dry run is flying to where this chapter starts and doing the earlier checks for you. This takes a few seconds."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le vol est mené jusqu'au début de ce chapitre, les vérifications d'avant faites comme vous les feriez. Quelques secondes."
+            "value": "Le vol à blanc vole jusqu'au début de ce chapitre et fait les vérifications précédentes pour vous. Cela prend quelques secondes."
           }
         }
       }
@@ -4234,13 +4268,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lining up: the aircraft takes off by itself."
+            "value": "Lining up: in a dry run, the aircraft takes off automatically."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alignement : l'avion décolle tout seul."
+            "value": "Alignement : en vol à blanc, l'avion décolle automatiquement."
           }
         }
       }
@@ -4421,13 +4455,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start the flight before the engine: the app times everything from there."
+            "value": "Start the flight before the engine: the app times everything from that moment."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lancez le vol avant le moteur : l'app chronomètre tout à partir de là."
+            "value": "Démarrez le vol avant le moteur : l'app chronomètre tout à partir de ce moment."
           }
         }
       }
@@ -4438,13 +4472,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The first button always shows the next check; nothing deferred is lost."
+            "value": "The first button always shows the next check, and nothing you defer is lost."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le premier bouton montre toujours la vérification suivante ; rien de reporté ne se perd."
+            "value": "Le premier bouton montre toujours la prochaine vérification, et rien de ce que vous différez n'est perdu."
           }
         }
       }
@@ -4455,13 +4489,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One tap at the holding point, then hands on the aircraft."
+            "value": "One tap at the holding point, then both hands on the aircraft."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un geste au point d'attente, puis les mains sur l'avion."
+            "value": "Un appui au point d'attente, puis les deux mains sur l'avion."
           }
         }
       }
@@ -4472,13 +4506,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In flight the app follows you: tap only when it asks."
+            "value": "In flight, the app follows along: you only tap when it asks you to."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En vol, l'app vous suit : ne touchez que quand elle le demande."
+            "value": "En vol, l'app suit : vous ne touchez que lorsqu'elle vous le demande."
           }
         }
       }
@@ -4489,13 +4523,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A glance, not a session: the top of the screen holds what matters."
+            "value": "A quick glance is enough: what matters is at the top of the screen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un coup d'œil, pas une séance : le haut de l'écran dit l'essentiel."
+            "value": "Un coup d'œil suffit : l'essentiel est en haut de l'écran."
           }
         }
       }
@@ -4506,13 +4540,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fly first: a check can wait, and the app keeps the order."
+            "value": "Fly first: a check can wait, and the app keeps them in order."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilotez d'abord : une vérification peut attendre, l'app garde l'ordre."
+            "value": "Pilotez d'abord : une vérification peut attendre, et l'app les garde dans l'ordre."
           }
         }
       }
@@ -4523,13 +4557,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The logbook entry is made for you: read it over on the ground."
+            "value": "The app prepares the logbook entry: read it over once you are on the ground."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'entrée du carnet est faite pour vous : relisez-la au sol."
+            "value": "L'app prépare l'entrée de carnet : relisez-la une fois au sol."
           }
         }
       }
@@ -4540,13 +4574,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A filed flight plan is closed first; the rest can wait for the evening."
+            "value": "Close a filed flight plan first; the rest can wait until the evening."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un plan de vol déposé se ferme d'abord ; le reste peut attendre le soir."
+            "value": "Clôturez d'abord un plan de vol déposé ; le reste peut attendre le soir."
           }
         }
       }
@@ -4557,13 +4591,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The entry is a draft: read it over, then copy it to your logbook."
+            "value": "The entry is a draft: read it over, then copy it into your logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'entrée est un brouillon : relisez-la, puis recopiez-la dans votre carnet."
+            "value": "L'entrée est un brouillon : relisez-la, puis reportez-la dans votre carnet."
           }
         }
       }
@@ -4574,13 +4608,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One page per flight: the next thing to do is always on top."
+            "value": "One page per flight, with the next thing to do always at the top."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une page par vol : la prochaine chose à faire est toujours en haut."
+            "value": "Une page par vol, avec la prochaine chose à faire toujours en haut."
           }
         }
       }
@@ -4642,13 +4676,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Its items are hidden as memory items: say them from memory, then one tap on the check."
+            "value": "Its items are hidden as memory items: say them from memory, then tap the check once."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ses éléments sont masqués comme éléments mémoire : récitez-les de mémoire, puis un appui sur la vérification."
+            "value": "Ses éléments sont masqués comme éléments mémoire : récitez-les de mémoire, puis touchez la vérification une fois."
           }
         }
       }
@@ -4659,13 +4693,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next, closing the flight out: the logbook line, the cost, the debrief."
+            "value": "Next, closing out the flight: the logbook line, the cost and the debrief."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ensuite, la clôture du vol : la ligne du carnet, le coût, le débriefing."
+            "value": "Ensuite, la clôture du vol : la ligne de carnet, le coût et le débriefing."
           }
         }
       }
@@ -4676,13 +4710,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next, the flight itself: START FLIGHT, then the Cockpit, the checks, a go-around and a full stop."
+            "value": "Next, the flight itself: START FLIGHT, the Cockpit, the checks, a go-around and a full stop."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ensuite, le vol lui-même : DÉMARRER LE VOL, puis le cockpit, les vérifications, une remise de gaz et un atterrissage complet."
+            "value": "Ensuite, le vol lui-même : DÉMARRER LE VOL, le cockpit, les vérifications, une remise de gaz et un atterrissage complet."
           }
         }
       }
@@ -4693,13 +4727,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next for you: %@."
+            "value": "Your next step: %@."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ensuite pour vous : %@."
+            "value": "Votre prochaine étape : %@."
           }
         }
       }
@@ -4710,13 +4744,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next, your logbook: the flight just flown, its track and its checks."
+            "value": "Next, your logbook: the flight you just flew, with its track and its checks."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ensuite, votre carnet : le vol que vous venez de faire, sa trace et ses vérifications."
+            "value": "Ensuite, votre carnet : le vol que vous venez de faire, avec sa trace et ses vérifications."
           }
         }
       }
@@ -4846,13 +4880,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A part on its own: the flight it needs flown to it in a few seconds, the steps before it done as you would."
+            "value": "Starts the dry run at one part. Getting there takes a few seconds, with the earlier steps done for you."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une partie seule : le vol dont elle a besoin y est mené en quelques secondes, les étapes d'avant faites comme vous les feriez."
+            "value": "Commence le vol à blanc à une partie. Y arriver prend quelques secondes, les étapes précédentes faites pour vous."
           }
         }
       }
@@ -4880,13 +4914,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through it, then NEXT. The aircraft taxis once you are on the taxi check."
+            "value": "Work through it, then tap NEXT. The aircraft starts taxiing once you reach the taxi check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites-la, puis SUIVANT. L'avion roule une fois la vérification de roulage ouverte."
+            "value": "Faites-la, puis touchez SUIVANT. L'avion commence à rouler quand vous arrivez à la vérification de roulage."
           }
         }
       }
@@ -4897,13 +4931,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through the after engine start check, then NEXT."
+            "value": "Work through the after engine start check, then tap NEXT."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites la vérification après le démarrage, puis SUIVANT."
+            "value": "Faites la vérification après démarrage, puis touchez SUIVANT."
           }
         }
       }
@@ -4931,13 +4965,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It wrote the take-off time by itself. In flight the app follows you: tap only when it asks."
+            "value": "The app detected the take-off and recorded its time. In flight it follows along: you only tap when it asks you to."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elle a noté l'heure de décollage toute seule. En vol, l'app vous suit : ne touchez que quand elle le demande."
+            "value": "L'app a détecté le décollage et enregistré son heure. En vol, elle suit : vous ne touchez que lorsqu'elle vous le demande."
           }
         }
       }
@@ -4948,13 +4982,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app saw the take-off"
+            "value": "Take-off detected"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app a vu le décollage"
+            "value": "Décollage détecté"
           }
         }
       }
@@ -4965,7 +4999,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On a circuit it comes on the downwind, once the turn onto it is flown. Tap its button and work through it."
+            "value": "In a circuit, it comes on the downwind, once you have turned onto it. Tap its button and work through it."
           }
         },
         "fr": {
@@ -5033,13 +5067,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "About to join the circuit: the approach check, before the downwind. Tap its button and work through it."
+            "value": "You are about to join the circuit: the approach check comes before the downwind. Tap its button and work through it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bientôt dans le tour de piste : la vérification d'approche, avant le vent arrière. Touchez son bouton et faites-la."
+            "value": "Vous allez rejoindre le tour de piste : la vérification d'approche vient avant le vent arrière. Touchez son bouton et faites-la."
           }
         }
       }
@@ -5101,13 +5135,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK ticks the item shown and moves to the next one. Tap it once."
+            "value": "CHECK ticks off the highlighted item and moves to the next one. Tap it once."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "COCHER valide l'élément affiché et passe au suivant. Touchez-le une fois."
+            "value": "COCHER valide l'élément en surbrillance et passe au suivant. Touchez-le une fois."
           }
         }
       }
@@ -5129,87 +5163,19 @@
         }
       }
     },
-    "dryRunCoach.step.checks.body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Done, from memory, deferred and found again: your checks, flight by flight."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Faite, de mémoire, reportée puis retrouvée : vos vérifications, vol après vol."
-          }
-        }
-      }
-    },
-    "dryRunCoach.step.checks.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "How each check ended"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comment chaque vérification s'est terminée"
-          }
-        }
-      }
-    },
-    "dryRunCoach.step.chip.body": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap PREPARE: the page goes to it."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez PRÉPARER : la page y va."
-          }
-        }
-      }
-    },
-    "dryRunCoach.step.chip.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A chapter"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un chapitre"
-          }
-        }
-      }
-    },
     "dryRunCoach.step.climbAgain.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After a go-around where the flight was going, the app flies it as a circuit: the climb check again, then the approach check on the downwind, no cruise or descent check. Do the climb check on the way round."
+            "value": "After a go-around near your destination, the app continues as a circuit: the climb check again, then the approach check on the downwind, with no cruise or descent check. Work through the climb check on the way round."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Après une remise de gaz là où le vol allait, l'app le vole comme un tour de piste : la vérification de montée à nouveau, puis celle d'approche en vent arrière, ni croisière ni descente. Faites celle de montée pendant le tour."
+            "value": "Après une remise de gaz près de votre destination, l'app continue en tour de piste : la vérification de montée à nouveau, puis celle d'approche en vent arrière, sans croisière ni descente. Faites la vérification de montée pendant le tour."
           }
         }
       }
@@ -5271,13 +5237,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Once established in a positive, trimmed climb, usually 400 to 500 ft above the ground: tap its button, then work through it."
+            "value": "Once you are established in a positive, trimmed climb (usually 400 to 500 ft above the ground), tap its button and work through it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une fois établi en montée positive et compensée, en général à 400 ou 500 ft sol : touchez son bouton, puis faites-la."
+            "value": "Une fois établi en montée positive et compensée (en général à 400 ou 500 ft sol), touchez son bouton et faites-la."
           }
         }
       }
@@ -5339,13 +5305,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "END FLIGHT put the flight in CLOSE-OUT: what is left to close. Had you filed a flight plan, closing it would come first, in red, with the number to call."
+            "value": "END FLIGHT moved the flight to CLOSE-OUT, where you find what is left to close. If you had filed a flight plan, closing it would come first, in red, with the number to call."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TERMINER LE VOL a mis le vol en CLÔTURE : ce qui reste à clore. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
+            "value": "TERMINER LE VOL a mis le vol en CLÔTURE, où vous trouvez ce qui reste à clore. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
           }
         }
       }
@@ -5373,13 +5339,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is the Cockpit you fly with. In a real flight, START FLIGHT on Today opens it; this dry run did it for you. The aircraft waits for you at each step."
+            "value": "This is the Cockpit you fly with. In a real flight, you open it with START FLIGHT on Today; here the dry run opened it for you. The aircraft waits for you at each step."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voici le cockpit avec lequel vous volez. Dans un vrai vol, DÉMARRER LE VOL sur Aujourd'hui l'ouvre ; ce vol à blanc l'a fait pour vous. L'avion vous attend à chaque étape."
+            "value": "Voici le cockpit avec lequel vous volez. En vrai vol, vous l'ouvrez avec DÉMARRER LE VOL sur Aujourd'hui ; ici, le vol à blanc l'a ouvert pour vous. L'avion vous attend à chaque étape."
           }
         }
       }
@@ -5407,13 +5373,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is the Cockpit START FLIGHT opened. The aircraft waits for you at each step."
+            "value": "This is the Cockpit, opened by START FLIGHT. The aircraft waits for you at each step."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voici le cockpit que DÉMARRER LE VOL a ouvert. L'avion vous attend à chaque étape."
+            "value": "Voici le cockpit, ouvert par DÉMARRER LE VOL. L'avion vous attend à chaque étape."
           }
         }
       }
@@ -5441,13 +5407,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Level at the cruise: the cruise check is due. Tap its button and work through it now."
+            "value": "You are level at the cruise, so the cruise check is due. Tap its button and work through it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En palier de croisière : la vérification est due. Touchez son bouton et faites-la maintenant."
+            "value": "Vous êtes en palier de croisière : la vérification de croisière est due. Touchez son bouton et faites-la."
           }
         }
       }
@@ -5509,13 +5475,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The hours, flights and landings, the hours by aircraft, what you spent, how your checks went. The dry run's logbook has five made-up flights before yours."
+            "value": "Your hours, flights and landings, the hours per aircraft, what you spent and how your checks went. The dry run's logbook has five made-up flights before yours."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les heures, les vols et les atterrissages, les heures par avion, ce que vous avez dépensé, comment vos vérifications se sont passées. Le carnet du vol à blanc a cinq vols inventés avant le vôtre."
+            "value": "Vos heures, vols et atterrissages, les heures par avion, ce que vous avez dépensé et comment vos vérifications se sont passées. Le carnet du vol à blanc a cinq vols inventés avant le vôtre."
           }
         }
       }
@@ -5543,13 +5509,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A word on what went well and what to change, if you like: optional, and the flight's notes in your logbook."
+            "value": "If you like, write down what went well and what to change. It's optional, and it becomes the flight's notes in your logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un mot sur ce qui s'est bien passé et ce qu'il faut changer, si vous le voulez : facultatif, ce sont les notes du vol dans votre carnet."
+            "value": "Si vous le souhaitez, notez ce qui s'est bien passé et ce qu'il faut changer. C'est facultatif, et cela devient les notes du vol dans votre carnet."
           }
         }
       }
@@ -5577,13 +5543,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Something you can't do now? DEFER sets it aside, and the app keeps it. Try it now."
+            "value": "Can't do an item right now? DEFER puts it aside, and the app keeps it for later. Try it now."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelque chose à faire plus tard ? REPORTER le met de côté, et l'app le garde. Essayez maintenant."
+            "value": "Un élément impossible à faire maintenant ? DIFFÉRER le met de côté, et l'app le garde pour plus tard. Essayez maintenant."
           }
         }
       }
@@ -5611,13 +5577,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What you deferred waits here, in amber. Tap it any time to finish it."
+            "value": "Everything you deferred waits here, in amber. Tap it at any time to finish it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce que vous avez reporté attend ici, en orange. Touchez-le quand vous voulez pour le terminer."
+            "value": "Tout ce que vous avez différé attend ici, en ambre. Touchez-le à tout moment pour le terminer."
           }
         }
       }
@@ -5645,13 +5611,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The descent has begun: the descent check is due. Tap its button and work through it."
+            "value": "The descent has started, so the descent check is due. Tap its button and work through it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La descente a commencé : la vérification est due. Touchez son bouton et faites-la."
+            "value": "La descente a commencé : la vérification de descente est due. Touchez son bouton et faites-la."
           }
         }
       }
@@ -5713,13 +5679,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It closes the flight and makes its logbook entry, with the times from the GPS track. This is a dry run: nothing of it is kept."
+            "value": "It closes the flight and creates its logbook entry, with the times from the GPS track. This is a dry run, so none of it is kept."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il clôt le vol et fait son entrée au carnet, avec les heures tirées de la trace GPS. C'est un vol à blanc : rien n'en est gardé."
+            "value": "Il clôt le vol et crée son entrée de carnet, avec les heures de la trace GPS. C'est un vol à blanc : rien n'en est gardé."
           }
         }
       }
@@ -5747,13 +5713,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The engine has stopped: tap it, and the app notes the time."
+            "value": "The engine has stopped: tap it, and the app records the time."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le moteur est arrêté : touchez-le, et l'app note l'heure."
+            "value": "Le moteur est arrêté : touchez-le, et l'app enregistre l'heure."
           }
         }
       }
@@ -5798,13 +5764,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Once the engine runs, tap it: the app notes the time, and the flight's times count from there."
+            "value": "Tap it once the engine is running: the app records the time, and the flight times start from there."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une fois le moteur lancé, touchez-le : l'app note l'heure, et les temps du vol partent de là."
+            "value": "Touchez-le une fois le moteur en marche : l'app enregistre l'heure, et les temps du vol partent de là."
           }
         }
       }
@@ -5815,13 +5781,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now ENGINE START"
+            "value": "ENGINE START"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Maintenant DÉMARRAGE MOTEUR"
+            "value": "DÉMARRAGE MOTEUR"
           }
         }
       }
@@ -5832,13 +5798,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Its items come before the start: work through them, then press ENGINE START."
+            "value": "Its items come before the start. Work through them, then press ENGINE START."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ses éléments viennent avant le démarrage : faites-les, puis appuyez sur DÉMARRAGE MOTEUR."
+            "value": "Ses éléments viennent avant le démarrage. Faites-les, puis appuyez sur DÉMARRAGE MOTEUR."
           }
         }
       }
@@ -5849,13 +5815,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through the engine start check's items, then ENGINE START."
+            "value": "Work through the engine start check, then press ENGINE START."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites les éléments de la vérification de démarrage, puis DÉMARRAGE MOTEUR."
+            "value": "Faites la vérification de démarrage, puis appuyez sur DÉMARRAGE MOTEUR."
           }
         }
       }
@@ -5883,13 +5849,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Export makes a GPX or a JSON of the flight; the logbook's own Export makes the EASA logbook PDF. Plan this again, a swipe to the right on a flight, starts the next one from it."
+            "value": "Export creates a GPX or JSON file of the flight; Export in the logbook creates the EASA logbook PDF. To plan the same flight again, swipe right on it in the logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exporter fait un GPX ou un JSON du vol ; celui du carnet fait le PDF du carnet EASA. Planifier à nouveau, en glissant un vol vers la droite, prépare le suivant à partir de lui."
+            "value": "Exporter crée un fichier GPX ou JSON du vol ; Exporter dans le carnet crée le PDF du carnet de vol EASA. Pour planifier à nouveau le même vol, balayez-le vers la droite dans le carnet."
           }
         }
       }
@@ -5917,13 +5883,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Finish closes the flight's page; the flight stays in the logbook."
+            "value": "Finish closes the flight's page; the flight stays in your logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terminer clôt la page du vol ; le vol reste dans le carnet."
+            "value": "Terminer ferme la page du vol ; le vol reste dans votre carnet."
           }
         }
       }
@@ -5951,13 +5917,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Everything for this flight, from the plan to the logbook, in four chapters: Plan, Prepare, Fly, Close. The circle at the top counts what is done."
+            "value": "Each flight has its own page, from the plan to the logbook: the flight thread. Its four chapters (Plan, Prepare, Fly and Close) follow the stages of every flight, and a tap on one takes you there. The circle at the top shows how much is done."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tout ce vol, du plan au carnet, en quatre chapitres : Planifier, Préparer, Voler, Clôturer. Le cercle en haut compte ce qui est fait."
+            "value": "Chaque vol a sa page, du plan au carnet : le fil du vol. Ses quatre chapitres (Planifier, Préparer, Voler et Clôturer) suivent les étapes de chaque vol, et un appui sur l'un d'eux vous y mène. Le cercle en haut montre ce qui est fait."
           }
         }
       }
@@ -5985,13 +5951,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Done, at the top right, keeps the fuel on board for this flight and closes the sheet."
+            "value": "Tap Done, at the top right, to keep this fuel on board for the flight and close the sheet."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terminé, en haut à droite, garde le carburant à bord pour ce vol et ferme la feuille."
+            "value": "Touchez Terminé, en haut à droite, pour garder ce carburant à bord pour le vol et fermer la feuille."
           }
         }
       }
@@ -6002,13 +5968,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kept for the flight"
+            "value": "Save it"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gardé pour le vol"
+            "value": "Enregistrer"
           }
         }
       }
@@ -6019,13 +5985,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AUTO rows fill themselves from the route and the aircraft. Tap the fuel plan."
+            "value": "AUTO rows are filled in automatically from the route and the aircraft. Tap the fuel plan."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les lignes AUTO se remplissent d'elles-mêmes avec la route et l'avion. Touchez le plan carburant."
+            "value": "Les lignes AUTO se remplissent automatiquement à partir de la route et de l'avion. Touchez le plan carburant."
           }
         }
       }
@@ -6036,13 +6002,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Worked out for you"
+            "value": "Worked out automatically"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Calculé pour vous"
+            "value": "Calculé automatiquement"
           }
         }
       }
@@ -6053,13 +6019,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What the route needs, and what you put in. Tap Full tanks: the tanks filled for this flight. With no figure for them yet, type the usable fuel with full tanks from the POH (any will do in a dry run), then Save · full tanks."
+            "value": "This shows what the route needs and what you have on board. Tap Full tanks. If no full-tanks figure is known for this aircraft yet, type the usable fuel from the POH (any figure will do in a dry run), then tap Save · full tanks."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce que la route demande, et ce que vous mettez. Touchez Pleins : les réservoirs remplis pour ce vol. Sans chiffre encore, tapez le carburant utilisable avec les pleins selon le manuel de vol (n'importe lequel en vol à blanc), puis Enregistrer · pleins."
+            "value": "Vous voyez ce que la route demande et ce que vous avez à bord. Touchez Pleins. Si aucun chiffre n'est encore connu pour cet avion, saisissez le carburant utilisable selon le manuel de vol (n'importe lequel en vol à blanc), puis touchez Enregistrer · pleins."
           }
         }
       }
@@ -6087,13 +6053,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FULL STOP is lit already; the aircraft lands. On short final, tap the landing check and work through its items."
+            "value": "FULL STOP is already selected, so the aircraft lands. On short final, tap the landing check and work through its items."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET est déjà allumé ; l'avion se pose. En courte finale, touchez la vérification d'atterrissage et faites ses éléments."
+            "value": "ARRÊT COMPLET est déjà choisi : l'avion se pose. En courte finale, touchez la vérification d'atterrissage et faites ses éléments."
           }
         }
       }
@@ -6121,13 +6087,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FULL STOP is lit already; the aircraft lands. On short final, the landing check from memory: one tap on it records it."
+            "value": "FULL STOP is already selected, so the aircraft lands. On short final, say the landing check from memory, then tap it once to record it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET est déjà allumé ; l'avion se pose. En courte finale, la vérification d'atterrissage de mémoire : un appui l'enregistre."
+            "value": "ARRÊT COMPLET est déjà choisi : l'avion se pose. En courte finale, récitez la vérification d'atterrissage de mémoire, puis touchez-la une fois pour l'enregistrer."
           }
         }
       }
@@ -6172,13 +6138,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On this final, choose GO AROUND on the card: the aircraft climbs away, and the app sees it. That card is the dry run's own; in a real flight you fly the go-around."
+            "value": "On this final, choose GO AROUND on the card: the aircraft climbs away and the app detects the go-around. The card only exists to steer the dry run; in a real flight, you fly the go-around yourself."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte, et l'app le voit. Cet encadré est celui du vol à blanc ; en vrai vol, c'est vous qui remettez les gaz."
+            "value": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte et l'app détecte la remise de gaz. L'encadré sert seulement à piloter le vol à blanc ; en vrai vol, c'est vous qui remettez les gaz."
           }
         }
       }
@@ -6223,13 +6189,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app took the go-around by itself: the checks went back to the climb check. For a few seconds Undo takes it back if it wasn't one; after a real flight, the Flight review asks you to confirm it."
+            "value": "The app detected the go-around and recorded it automatically: the checks went back to the climb check. If it wasn't one, Undo takes it back for a few seconds. After a real flight, you confirm it in the Flight review."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app a pris la remise de gaz d'elle-même : les vérifications sont revenues à celle de montée. Pendant quelques secondes, Annuler la reprend si ce n'en était pas une ; après un vrai vol, la Revue du vol vous demande de la confirmer."
+            "value": "L'app a détecté la remise de gaz et l'a enregistrée automatiquement : les vérifications sont revenues à celle de montée. Si ce n'en était pas une, Annuler revient en arrière pendant quelques secondes. Après un vrai vol, vous la confirmez dans la Revue du vol."
           }
         }
       }
@@ -6240,13 +6206,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app saw the go-around"
+            "value": "Go-around detected"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app a vu la remise de gaz"
+            "value": "Remise de gaz détectée"
           }
         }
       }
@@ -6257,13 +6223,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The counter again, as it reads now. From the two, the logbook and the cost take the time flown."
+            "value": "Enter the hour meter reading again. From the two readings, the logbook and the cost work out the time flown."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le compteur à nouveau, tel qu'il se lit maintenant. Des deux, le carnet de vol et le coût tirent le temps de vol."
+            "value": "Saisissez à nouveau la lecture du compteur horaire. Avec les deux lectures, le carnet de vol et le coût calculent le temps de vol."
           }
         }
       }
@@ -6291,13 +6257,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Before the start, type the engine's hour counter as it reads. The logbook and the cost take the time flown from it. In a dry run any number will do, or Skip."
+            "value": "Before starting the engine, enter the hour meter reading. The logbook and the cost use it to work out the time flown. In a dry run any number will do, or tap Skip."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avant le démarrage, entrez le compteur horaire tel qu'il se lit. Le carnet de vol et le coût en tirent le temps de vol. Dans un vol à blanc, n'importe quel nombre convient, ou Passer."
+            "value": "Avant de démarrer, saisissez la lecture du compteur horaire. Le carnet de vol et le coût s'en servent pour calculer le temps de vol. En vol à blanc, n'importe quel nombre convient, ou touchez Passer."
           }
         }
       }
@@ -6325,13 +6291,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On short final comes the landing check: it shows here, dashed. A tap opens it; work through its items."
+            "value": "On short final comes the landing check. It appears here, dashed: tap it to open it, then work through its items."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En courte finale vient la vérification d'atterrissage : elle s'affiche ici en pointillé. Un appui l'ouvre ; faites ses éléments."
+            "value": "En courte finale vient la vérification d'atterrissage. Elle apparaît ici en pointillé : touchez-la pour l'ouvrir, puis faites ses éléments."
           }
         }
       }
@@ -6342,13 +6308,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On short final, the landing check, from memory: it shows here, dashed, with nothing to press."
+            "value": "On short final comes the landing check, said from memory. It appears here, dashed, with nothing to press."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En courte finale, la vérification d'atterrissage, de mémoire : elle s'affiche ici en pointillé, rien à toucher."
+            "value": "En courte finale vient la vérification d'atterrissage, à réciter de mémoire. Elle apparaît ici en pointillé, sans rien à toucher."
           }
         }
       }
@@ -6376,13 +6342,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "START LEG starts the leg's timer; MARK writes the turning point's time over when you tap it. Neither is needed: the app marks each point as you pass abeam of it, within 2.5 NM of the route. It misses one you pass further off (a detour, a clearance) or skip: mark it yourself then, or to note the time as you report it."
+            "value": "MARK records the time over the next waypoint when you tap it, and the leg timer under it starts again. You don't have to: the app marks each waypoint automatically when you pass abeam of it, within 2.5 NM of the route. Mark it yourself for a waypoint passed further away (a detour, a clearance), or to note the exact time you report it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TOP CHRONO lance le chrono de la branche ; MARQUER note l'heure de passage du point quand vous touchez. Rien d'obligatoire : l'app marque chaque point quand vous passez par son travers, à 2,5 NM de la route au plus. Elle manque un point passé plus loin (un détour, une clairance) ou sauté : marquez-le alors vous-même, ou pour noter l'heure quand vous l'annoncez."
+            "value": "MARQUER enregistre l'heure de passage du prochain point quand vous le touchez, et le chrono de branche en dessous repart. Ce n'est pas obligatoire : l'app marque automatiquement chaque point quand vous passez par son travers, à 2,5 NM de la route au plus. Marquez-le vous-même pour un point passé plus loin (un détour, une clairance), ou pour noter l'heure exacte où vous l'annoncez."
           }
         }
       }
@@ -6393,13 +6359,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "START LEG and MARK"
+            "value": "MARK and the leg timer"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TOP CHRONO et MARQUER"
+            "value": "MARQUER et le chrono de branche"
           }
         }
       }
@@ -6410,7 +6376,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through it. The aircraft lines up once you are done."
+            "value": "Work through it. The aircraft lines up once you have finished."
           }
         },
         "fr": {
@@ -6461,13 +6427,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gold buttons stay in the app; blue ones open a site. Tap Open NOTAM briefing: a dry run only says where it would go."
+            "value": "Gold buttons stay in the app; blue ones open a website. Tap Open NOTAM briefing: in a dry run, the app only tells you where it would go."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site. Touchez Ouvrir le briefing NOTAM : un vol à blanc dit seulement où il irait."
+            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site. Touchez Ouvrir le briefing NOTAM : en vol à blanc, l'app indique seulement où il mènerait."
           }
         }
       }
@@ -6495,13 +6461,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tap Logbook line: the line for your logbook, its times taken from the GPS track."
+            "value": "Tap Logbook line: it shows the line for your logbook, with its times taken from the GPS track."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touchez Ligne de carnet de vol : la ligne pour votre carnet de vol, ses heures tirées de la trace GPS."
+            "value": "Touchez Ligne de carnet de vol : elle montre la ligne pour votre carnet, avec ses heures tirées de la trace GPS."
           }
         }
       }
@@ -6563,13 +6529,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The last turning point: open MAP again, to see the way home and the circuit ahead."
+            "value": "That was the last turning point. Open MAP again to see the way home and the circuit ahead."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le dernier point de virage : rouvrez CARTE, pour voir le retour et le tour de piste devant."
+            "value": "C'était le dernier point de virage. Rouvrez CARTE pour voir le retour et le tour de piste devant vous."
           }
         }
       }
@@ -6597,13 +6563,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open MAP. The aircraft lines up and takes off by itself; your next step is the climb check, once airborne."
+            "value": "Open MAP. In a dry run, the aircraft lines up and takes off automatically; your next step is the climb check, once airborne."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul ; votre prochaine étape est la vérification de montée, une fois en l'air."
+            "value": "Ouvrez CARTE. En vol à blanc, l'avion s'aligne et décolle automatiquement ; votre prochaine étape est la vérification de montée, une fois en l'air."
           }
         }
       }
@@ -6631,13 +6597,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On, the checks show only the items to read; the rest you say from memory, with one tap when done. Turn it on once you know them; close the Menu to go on."
+            "value": "When it is on, the checks only show the items to read; you say the others from memory and confirm them with one tap. Turn it on once you know them, then close the Menu to continue."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activé, les vérifications ne montrent que les éléments à lire ; le reste se récite de mémoire, d'un appui une fois fait. Activez-le quand vous les savez ; fermez le Menu pour continuer."
+            "value": "Activé, les vérifications n'affichent que les éléments à lire ; vous récitez les autres de mémoire et les confirmez d'un appui. Activez-le quand vous les connaissez, puis fermez le Menu pour continuer."
           }
         }
       }
@@ -6665,13 +6631,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The engine start check mixes items to read and items to know by heart: its memory items. The Menu can hide them, so you say them from memory. Open the Menu."
+            "value": "The engine start check has items you read and items you should know by heart: its memory items. The Menu can hide them, so you practise saying them from memory. Open the Menu."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification de démarrage mêle des éléments à lire et des éléments à connaître par cœur : ses éléments mémoire. Le Menu peut les masquer, pour les réciter de mémoire. Ouvrez le Menu."
+            "value": "La vérification de démarrage contient des éléments à lire et des éléments à connaître par cœur : ses éléments mémoire. Le Menu peut les masquer, pour que vous les récitiez de mémoire. Ouvrez le Menu."
           }
         }
       }
@@ -6699,7 +6665,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What to do next is always on top of the page, and on Today."
+            "value": "What to do next is always at the top of the page, and on Today."
           }
         },
         "fr": {
@@ -6733,13 +6699,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A local flight files no flight plan: long-press Flight plan filed, then Not applicable."
+            "value": "A local flight doesn't need a flight plan: long-press Flight plan filed, then choose Not applicable."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un vol local ne dépose pas de plan de vol : touchez longuement Plan de vol ATC déposé, puis Non applicable."
+            "value": "Un vol local n'a pas besoin de plan de vol : touchez longuement Plan de vol ATC déposé, puis choisissez Non applicable."
           }
         }
       }
@@ -6767,13 +6733,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Block and flight time, the landings, the engine hours, and the cost from the aircraft's rate. Copy line puts the line on the clipboard. Close it when you have read it."
+            "value": "Block and flight time, the landings, the engine hours, and the cost at the aircraft's rate. Copy line puts the line on the clipboard. Close the sheet when you have read it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Temps bloc et temps de vol, les atterrissages, les heures moteur, et le coût selon le tarif de l'avion. Copier la ligne la met dans le presse-papiers. Fermez quand vous l'avez lu."
+            "value": "Temps bloc et temps de vol, les atterrissages, les heures moteur, et le coût au tarif de l'avion. Copier la ligne la met dans le presse-papiers. Fermez la feuille quand vous l'avez lue."
           }
         }
       }
@@ -6801,7 +6767,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On Today, tap the flight: its page is in CLOSE-OUT now."
+            "value": "On Today, tap the flight: its page is now in CLOSE-OUT."
           }
         },
         "fr": {
@@ -6869,13 +6835,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "From, to, the stops, the day, the aircraft. The dry run chose its route for you: your aerodrome, two turning points, back. A flight planned for another day gets a reminder the day before. Tap Create flight."
+            "value": "Here you choose the departure, the destination, any stops, the day and the aircraft. For this dry run the route is ready: your aerodrome, two turning points and back. A flight planned for another day gets a reminder the day before. Tap Create flight."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Départ, arrivée, escales, le jour, l'avion. Le vol à blanc a choisi la route pour vous : votre aérodrome, deux points de virage, retour. Un vol prévu un autre jour a un rappel la veille. Touchez Créer le vol."
+            "value": "Ici, vous choisissez le départ, la destination, les escales, le jour et l'avion. Pour ce vol à blanc, la route est prête : votre aérodrome, deux points de virage et retour. Un vol prévu un autre jour reçoit un rappel la veille. Touchez Créer le vol."
           }
         }
       }
@@ -6903,13 +6869,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "GS, ALT and TRK come from the GPS. Under them, where the leg goes and when you get there, then who to talk to: NOW and NEXT."
+            "value": "GS, ALT and TRK come from the GPS. Below them, you find where the current leg leads and when you get there, then who to call: NOW and NEXT."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "GS, ALT et TRK viennent du GPS. Dessous, où va la branche et quand vous y serez, puis à qui parler : ACT et SUIV."
+            "value": "GS, ALT et TRK viennent du GPS. En dessous, vous trouvez où mène la branche en cours et quand vous y serez, puis qui appeler : ACT et SUIV."
           }
         }
       }
@@ -6937,13 +6903,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tap it. The app takes the take-off time from this tap and times the route from it."
+            "value": "Tap it. The app uses this moment as the take-off time and times the route from it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touchez-le. L'app en tire l'heure de décollage et chronomètre la route à partir de là."
+            "value": "Touchez-le. L'app prend ce moment comme heure de décollage et chronomètre la route à partir de là."
           }
         }
       }
@@ -6971,13 +6937,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open ROUTE: the legs with their times, and every frequency in the order you will use them."
+            "value": "Open ROUTE: it lists the legs with their times, and every frequency in the order you will use them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez ROUTE : les branches avec leurs heures, et chaque fréquence dans l'ordre où vous l'utiliserez."
+            "value": "Ouvrez ROUTE : la liste des branches avec leurs heures, et chaque fréquence dans l'ordre où vous l'utiliserez."
           }
         }
       }
@@ -7005,13 +6971,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The engine shutdown check: work through it. As the engine stops, at the magnetos (or the ignition) off, press ENGINE SHUTDOWN; the rest of the check comes after."
+            "value": "Work through the engine shutdown check. When the engine stops (magnetos or ignition off), press ENGINE SHUTDOWN, then finish the check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification d'arrêt moteur : faites-la. Quand le moteur s'arrête, magnétos (ou allumage) sur OFF, appuyez sur ARRÊT MOTEUR ; le reste de la vérification vient ensuite."
+            "value": "Faites la vérification d'arrêt moteur. Quand le moteur s'arrête (magnétos ou allumage sur OFF), appuyez sur ARRÊT MOTEUR, puis terminez la vérification."
           }
         }
       }
@@ -7022,13 +6988,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Work through the engine shutdown check to the magnetos, then ENGINE SHUTDOWN."
+            "value": "Work through the engine shutdown check up to the magnetos, then press ENGINE SHUTDOWN."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faites la vérification d'arrêt moteur jusqu'aux magnétos, puis ARRÊT MOTEUR."
+            "value": "Faites la vérification d'arrêt moteur jusqu'aux magnétos, puis appuyez sur ARRÊT MOTEUR."
           }
         }
       }
@@ -7056,13 +7022,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "START FLIGHT, in the Fly chapter: the Cockpit opens. Here the rest of Plan and Prepare is ticked for you; in a real flight, START FLIGHT asks first when something isn't."
+            "value": "START FLIGHT, in the Fly chapter, opens the Cockpit. For this dry run, the rest of Plan and Prepare has been ticked for you. In a real flight, START FLIGHT first lists anything still open."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "DÉMARRER LE VOL, dans le chapitre Voler : le cockpit s'ouvre. Ici, le reste de Planifier et Préparer est coché pour vous ; en vol réel, DÉMARRER LE VOL demande d'abord si quelque chose ne l'est pas."
+            "value": "DÉMARRER LE VOL, dans le chapitre Voler, ouvre le cockpit. Pour ce vol à blanc, le reste de Planifier et Préparer a été coché pour vous. En vrai vol, DÉMARRER LE VOL liste d'abord ce qui reste ouvert."
           }
         }
       }
@@ -7090,13 +7056,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Once the line is in your logbook, tick its row: nothing is left to close."
+            "value": "Once you have copied the line into your logbook, tick its row: the close-out is complete."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une fois la ligne reportée dans votre carnet, cochez sa ligne : il ne reste rien à clore."
+            "value": "Une fois la ligne reportée dans votre carnet, cochez sa ligne : la clôture est terminée."
           }
         }
       }
@@ -7158,13 +7124,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passing it, the app wrote its time over on ROUTE and went on to the next leg, by itself. Undo, here, takes it back if it was too early."
+            "value": "The app detected the passage of this turning point: it recorded the time over on ROUTE and moved to the next leg automatically. If that was too early, Undo here takes it back."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En le passant, l'app a noté son heure de passage sur ROUTE et est passée à la branche suivante, toute seule. Annuler, ici, la reprend si c'était trop tôt."
+            "value": "L'app a détecté le passage de ce point de virage : elle a noté l'heure de passage sur ROUTE et est passée automatiquement à la branche suivante. Si c'était trop tôt, Annuler ici revient en arrière."
           }
         }
       }
@@ -7192,13 +7158,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NEXT goes on to the after engine start check."
+            "value": "Tap NEXT to open the after engine start check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "SUIVANT passe à la vérification après le démarrage."
+            "value": "Touchez SUIVANT pour ouvrir la vérification après démarrage."
           }
         }
       }
@@ -7226,13 +7192,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The aircraft waits here. Work through the checks to the one before departure; at its end, press READY FOR LINE UP."
+            "value": "The aircraft waits here. Work through the checks up to the one before departure; when it is complete, press READY FOR LINE UP."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'avion attend ici. Faites les vérifications jusqu'à celle avant le départ ; à sa fin, appuyez sur PRÊT POUR L'ALIGNEMENT."
+            "value": "L'avion attend ici. Faites les vérifications jusqu'à celle avant le départ ; une fois terminée, appuyez sur PRÊT POUR L'ALIGNEMENT."
           }
         }
       }
@@ -7243,7 +7209,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keep going through the checks to READY FOR LINE UP."
+            "value": "Keep working through the checks up to READY FOR LINE UP."
           }
         },
         "fr": {
@@ -7277,7 +7243,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "the checks to the one before departure, at the holding point"
+            "value": "the checks up to the one before departure, at the holding point"
           }
         },
         "fr": {
@@ -7294,13 +7260,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Finish the engine shutdown check, then the last checks to the end, and press END FLIGHT."
+            "value": "Finish the engine shutdown check and the last checks, then press END FLIGHT."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terminez la vérification d'arrêt moteur, puis les dernières jusqu'au bout, et appuyez sur TERMINER LE VOL."
+            "value": "Terminez la vérification d'arrêt moteur et les dernières vérifications, puis appuyez sur TERMINER LE VOL."
           }
         }
       }
@@ -7345,13 +7311,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "CHECK ticks each item; at the end of a check, NEXT goes on to the next one. Work through them to the engine start check."
+            "value": "Tap CHECK for each item. When a check is complete, NEXT opens the following one. Work through the checks up to the engine start check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "COCHER valide chaque élément ; à la fin d'une vérification, SUIVANT passe à la suivante. Avancez ainsi jusqu'à la vérification de démarrage."
+            "value": "Touchez COCHER pour chaque élément. Quand une vérification est terminée, SUIVANT ouvre la suivante. Faites les vérifications jusqu'à celle de démarrage."
           }
         }
       }
@@ -7362,7 +7328,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keep going through the checks to the engine start check."
+            "value": "Keep working through the checks up to the engine start check."
           }
         },
         "fr": {
@@ -7379,13 +7345,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Through the checks"
+            "value": "Work through the checks"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les vérifications"
+            "value": "Faire les vérifications"
           }
         }
       }
@@ -7396,13 +7362,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app saw the full stop and opened the after landing check by itself: work through it while the aircraft taxis in. At its end, PARKING CHECK goes on to the engine shutdown."
+            "value": "The app detected the full stop and opened the after landing check automatically. Work through it while the aircraft taxis in; when it is complete, PARKING CHECK moves on to the engine shutdown."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app a vu l'atterrissage complet et ouvert d'elle-même la vérification après l'atterrissage : faites-la pendant que l'avion roule. À sa fin, ARRÊT MOTEUR mène à l'arrêt du moteur."
+            "value": "L'app a détecté l'atterrissage complet et ouvert automatiquement la vérification après l'atterrissage. Faites-la pendant que l'avion roule ; une fois terminée, ARRÊT MOTEUR mène à l'arrêt du moteur."
           }
         }
       }
@@ -7481,13 +7447,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Its track, and the chart under it: slide along the chart to move along the flight."
+            "value": "Everything about this flight is here: its track on the map, the altitude and speed chart (slide along it to replay the flight), the timeline, how each check ended, the engine hours and the plan compared with what you flew. Have a look around, then tap Next."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sa trace, et le graphique en dessous : glissez sur le graphique pour suivre le vol."
+            "value": "Tout ce vol est ici : sa trace sur la carte, le graphique d'altitude et de vitesse (glissez dessus pour rejouer le vol), la chronologie, comment chaque vérification s'est terminée, les heures moteur et le plan comparé au vol. Regardez à votre guise, puis touchez Suivant."
           }
         }
       }
@@ -7498,13 +7464,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The flight, again"
+            "value": "The flight's page"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le vol, à nouveau"
+            "value": "La page du vol"
           }
         }
       }
@@ -7532,13 +7498,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The rest waits in Settings, Learn and practice."
+            "value": "You'll find the rest in Settings, under Learn and practice."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La suite attend dans Réglages, Apprendre et s'exercer."
+            "value": "Vous trouverez la suite dans Réglages, sous Apprendre et s'exercer."
           }
         }
       }
@@ -7549,13 +7515,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nothing of it was kept: the dry run's logbook is gone, yours is as it was."
+            "value": "Nothing from the dry run was kept: its logbook is gone, and yours is unchanged."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rien n'en est gardé : le carnet du vol à blanc a disparu, le vôtre est tel qu'il était."
+            "value": "Rien du vol à blanc n'a été gardé : son carnet a disparu, et le vôtre n'a pas changé."
           }
         }
       }
@@ -7583,13 +7549,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan a flight, fly it, close it out, read it in the logbook, a coach at each step. About 15 minutes."
+            "value": "Plan a flight, fly it, close it out and look at it in your logbook, with a guide at each step. About 15 minutes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Préparer un vol, le voler, le clôturer, le relire dans le carnet, un guide à chaque étape. Environ 15 minutes."
+            "value": "Planifiez un vol, faites-le, clôturez-le et retrouvez-le dans votre carnet, avec un guide à chaque étape. Environ 15 minutes."
           }
         }
       }
@@ -7600,13 +7566,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan a flight, fly it with the WT9, close it out and read it in the logbook, a coach at each step. About 15 minutes; nothing of it is kept."
+            "value": "Plan a flight, fly it with the WT9, close it out and look at it in your logbook, with a guide at each step. It takes about 15 minutes, and none of it is kept."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Préparer un vol, le voler avec le WT9, le clôturer et le relire dans le carnet, un guide à chaque étape. Environ 15 minutes ; rien n'en est gardé."
+            "value": "Planifiez un vol, faites-le avec le WT9, clôturez-le et retrouvez-le dans votre carnet, avec un guide à chaque étape. Cela prend environ 15 minutes, et rien n'en est gardé."
           }
         }
       }
@@ -7736,13 +7702,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Next time: free practice, from Settings › About."
+            "value": "Next time, try free practice, from Settings › About."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine fois : l'entraînement libre, depuis Réglages › À propos."
+            "value": "La prochaine fois, essayez la pratique libre, depuis Réglages › À propos."
           }
         }
       }
@@ -8307,13 +8273,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "recorded by the app"
+            "value": "detected in flight"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "enregistré par l'app"
+            "value": "détecté en vol"
           }
         }
       }
@@ -8341,13 +8307,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On, a card asks you to confirm each go-around, touch-and-go and full stop the app sees. Off, the app takes them as it sees them: the checks follow, Undo takes one back for a few seconds, and the Flight review after END FLIGHT asks you to confirm them."
+            "value": "On: a card asks you to confirm each one the app detects. Off: they are recorded automatically, with Undo for a few seconds, and you confirm them in the Flight review."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activé, un encadré vous demande de confirmer chaque remise de gaz, posé-décollé et atterrissage complet que l'app voit. Désactivé, l'app les prend comme elle les voit : les vérifications suivent, Annuler en reprend un pendant quelques secondes, et la Revue du vol, après TERMINER LE VOL, vous demande de les confirmer."
+            "value": "Activé : un encadré vous demande de confirmer chacun de ceux que l'app détecte. Désactivé : ils sont enregistrés automatiquement, avec Annuler pendant quelques secondes, et vous les confirmez dans la Revue du vol."
           }
         }
       }
@@ -8375,13 +8341,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What went well, what to change. The flight's notes in the logbook."
+            "value": "What went well, what to change. This becomes the flight's notes in the logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce qui s'est bien passé, ce qu'il faut changer. Les notes du vol dans le carnet."
+            "value": "Ce qui s'est bien passé, ce qu'il faut changer. Cela devient les notes du vol dans le carnet."
           }
         }
       }
@@ -15533,13 +15499,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hides the memory items, the checks you should know by heart, so you say them from memory. Hold the banner in the checklist to show them."
+            "value": "Hides the memory items (the items you should know by heart), so you say them from memory. Hold the banner in the checklist to show them again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masque les éléments mémoire, les vérifications à connaître par cœur, pour les réciter de mémoire. Maintenez le bandeau dans la checklist pour les afficher."
+            "value": "Masque les éléments mémoire (ceux que vous devez connaître par cœur), pour que vous les récitiez de mémoire. Maintenez le bandeau dans la checklist pour les afficher à nouveau."
           }
         }
       }

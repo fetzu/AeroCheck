@@ -126,7 +126,6 @@ final class DryRunAutopilot {
             case .screen(let screen): Self.taps.send(.open(screen))
             case .screenClosed(let screen): Self.taps.send(.close(screen))
             case .threadCreated: Self.taps.send(.createFlight)
-            case .chipTapped: coach.noteChip(.prepare)
             case .linkTapped: coach.noteLink()
             case .fullTanksTapped: coach.noteFullTanks()
             case .threadFinished:

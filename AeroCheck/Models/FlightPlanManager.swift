@@ -891,7 +891,7 @@ class FlightPlanManager: ObservableObject {
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[index] = plan }
         saveFlightPlans()
         saveActiveFlightPlan()
-        resetChronometer(from: plan.waypoints[lastPassed].actualTimeOver)
+        beginLeg(at: plan.waypoints[lastPassed].actualTimeOver, takingOff: marked.contains(0))
 
         // Said out loud, except for the departure: its time is the take-off (LINE UP's estimate until
         // the track shows it, `followTakeoff`), not a passage to dispute, and a toast at the holding point would only sit over the
@@ -947,6 +947,15 @@ class FlightPlanManager: ObservableObject {
     }
 
     // MARK: - Chronometer
+
+    /// A passage the track shows begins the next leg: its timer from that time. At the take-off (the departure
+    /// marked), a timer that never ran starts, START LEG pressed or not: idle, START LEG stayed in the band all
+    /// the way while the waypoints were marked on ROUTE (the author's sixth dry run checks, 17 Oct), and the
+    /// band now offers to MARK the next one. A timer the pilot paused stays paused, at zero. (6.4.0)
+    private func beginLeg(at legStart: Date?, takingOff: Bool) {
+        if takingOff, activeFlightPlan?.chronometerStartTime == nil, chronometerAccumulated == 0 { startChronometer() }
+        resetChronometer(from: legStart)
+    }
 
     /// Start — or resume from pause — the leg timer. No-op if already running. (v4 UI/UX Revamp)
     func startChronometer() {

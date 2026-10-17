@@ -165,7 +165,8 @@ struct DryRunStartSheet: View {
     private var circuitsText: String {
         guard loaded else { return L10n.DryRun.looking }
         let code = ident.trimmingCharacters(in: .whitespaces).uppercased()
-        guard let field = circuitsField else { return L10n.DryRun.noRunway(code.isEmpty ? "?" : code) }
+        guard !code.isEmpty else { return L10n.DryRun.typeCode }
+        guard let field = circuitsField else { return L10n.DryRun.noRunway(code) }
         return Self.describe(field)
     }
 

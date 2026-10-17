@@ -196,7 +196,7 @@ final class DryRunGenerator {
         // Parked; after ENGINE START, the taxi to the holding point, the run-up, the line-up the pilot calls.
         actions = [.hold(.engineStart), .park(45), .doing(.taxiing),
                    .goTo(.taxi(to: departure.holdingPoint, speed: performance.taxi)), .doing(.holding),
-                   .park(30), .hold(.lineUp), .park(20)] + lineUpAndTakeOff()
+                   .park(30), .hold(.lineUp), .park(2)] + lineUpAndTakeOff()
     }
 
     /// A Direct To: from now on the leg to waypoint `index` (the route's count: the destination).
@@ -325,7 +325,9 @@ final class DryRunGenerator {
     }
 
     private func lineUpAndTakeOff() -> [Action] {
-        [.mark("lineUp"), .goTo(.taxi(to: aerodrome.lineUpPoint, speed: 6)), .alignWithRunway, .park(8),
+        // Onto the runway briskly once READY FOR LINE UP is pressed: the pilot waited long enough at the holding
+        // point (the author's sixth round, 17 Oct: a long wait before the take-off, at 4× or even 10×).
+        [.mark("lineUp"), .goTo(.taxi(to: aerodrome.lineUpPoint, speed: 12)), .alignWithRunway, .park(3),
          .mark("takeoffRoll"), .roll(toSpeed: performance.vr + 6), .mark("liftoff"),
          .steps(count: 20, speed: performance.vy, accel: 1.2, verticalSpeed: 550), .afterTakeOff]
     }

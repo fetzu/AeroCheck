@@ -2153,12 +2153,8 @@ struct FlightDetailView: View {
             flightHeader
             mapSection
             altitudeGraphSection
-                .coachTarget(.flightTrack)
-                .id(DryRunCoachStep.Target.flightTrack.rawValue)
             timelineCard
             checksSection
-                .coachTarget(.flightChecks)
-                .id(DryRunCoachStep.Target.flightChecks.rawValue)
             engineHoursCard
             planVsActualSection
             nameField

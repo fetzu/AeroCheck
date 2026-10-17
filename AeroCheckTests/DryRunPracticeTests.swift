@@ -84,6 +84,25 @@ final class DryRunPracticeTests: XCTestCase {
         XCTAssertLessThan(DryRunGeo.distance(made.runwayCentre, made.reference), 5)
     }
 
+    /// Bellechasse (LSTB): OurAirports gives 08/26 and a length, no ends and no heading, and open flightmaps no
+    /// thresholds. The designator lays it out, as for some 16,000 aerodromes in the data.
+    func testOnlyADesignatorLaysTheRunwayOutOnTheReferencePoint() throws {
+        let field = airport("LSTB", 46.979, 7.081, elevation: 1421)
+        let made = try XCTUnwrap(DryRunAerodrome.make(airport: field, runways: [runway("08", "26", lengthFt: 1608)]))
+        XCTAssertEqual(made.runwayHeading, 80, accuracy: 0.5)
+        XCTAssertEqual(made.runwayLengthM, 490, accuracy: 2)
+        XCTAssertLessThan(DryRunGeo.distance(made.runwayCentre, made.reference), 5)
+
+        XCTAssertEqual(DryRunAerodrome.designatorHeading("26L"), 260)
+        XCTAssertEqual(DryRunAerodrome.designatorHeading("36"), 0)
+        XCTAssertEqual(DryRunAerodrome.designatorHeading("7"), 70)
+        XCTAssertNil(DryRunAerodrome.designatorHeading("H1"))
+        XCTAssertNil(DryRunAerodrome.designatorHeading("N"))
+        XCTAssertNil(DryRunAerodrome.designatorHeading("37"))
+        // A helipad's "H1" never makes a runway, however long the data says it is.
+        XCTAssertNil(DryRunAerodrome.make(airport: field, runways: [runway("H1", "H1", lengthFt: 600)]))
+    }
+
     func testNoOpenRunwayNoDryRunButOpenFlightmapsThresholdsWillDo() throws {
         let field = airport("LSXZ", 47, 7, elevation: 1500)
         XCTAssertNil(DryRunAerodrome.make(airport: field, runways: [runway("09", "27", lengthFt: 2000, closed: true,
@@ -135,7 +154,11 @@ final class DryRunPracticeTests: XCTestCase {
         flight.takeOff()
         XCTAssertTrue(flight.fly(until: { flight.session.isOnFinal }, within: 900), "on final")
         XCTAssertEqual(flight.session.finalChoice, .fullStop)
+        // The flight waits for the pilot's pick (r6-19: at 30× the card came and went before a tap).
+        XCTAssertTrue(flight.session.awaitsFinalChoice)
+        XCTAssertTrue(flight.session.isWaiting)
         flight.session.finalChoice = .touchAndGo
+        XCTAssertFalse(flight.session.awaitsFinalChoice)
         XCTAssertTrue(flight.fly(until: { flight.session.generator.mark("touchdown") != nil }, within: 300))
         flight.wait(40)
         XCTAssertTrue(flight.session.generator.isAirborne, "a touch-and-go: away again")
@@ -170,6 +193,29 @@ final class DryRunPracticeTests: XCTestCase {
     }
 
     // MARK: - A route
+
+    /// A MARK ahead of the aircraft is the pilot's record, not where to fly: the aircraft flies on to the point;
+    /// a DIRECT TO, which leaves the points it skips without a time, is flown (the author's sixth round, r6-4).
+    /// The leg timer runs from the take-off, START LEG pressed or not (17 Oct: START LEG stayed all the way).
+    func testAMarkAheadIsARecordADirectToIsFlown() throws {
+        let plan = FlightPlan(name: "Dry", waypoints: [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: DryRunAerodrome.lszq.reference),
+            FlightPlanWaypoint(name: "INS", coordinate: ins),
+            FlightPlanWaypoint(name: "MID", coordinate: CLLocationCoordinate2D(latitude: 47.06, longitude: 6.98)),
+            FlightPlanWaypoint(name: "LSGC", coordinate: lsgc.reference)])
+        let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: lsgc), rate: 0)
+        let flight = try DryRunHeadless(self, setup: setup, plan: plan)
+        flight.takeOff()
+        flight.wait(60)
+        XCTAssertTrue(flight.world.plans.isChronometerRunning, "the first leg timed from the take-off")
+        XCTAssertEqual(flight.session.generator.legIndex, 0, "on the way to INS")
+        flight.world.plans.markWaypoint()
+        flight.wait(5)
+        XCTAssertEqual(flight.session.generator.legIndex, 0, "INS marked early: still on the way to it")
+        flight.world.plans.directTo(waypointAt: 3)
+        flight.wait(5)
+        XCTAssertEqual(flight.session.generator.legIndex, 2, "DIRECT TO LSGC, MID skipped: flown")
+    }
 
     /// A go-around at a route's end, from a cruise far above the circuit: the final still comes down past
     /// 250 ft, the app sees the go-around, and with no card in a dry run the checks go back to the climb check,

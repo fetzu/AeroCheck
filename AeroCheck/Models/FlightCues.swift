@@ -294,6 +294,13 @@ struct FlightCueState: Equatable, Codable {
     /// The detector has a field near the aircraft to anchor the take-off to, so the next take-off
     /// roll will start a leg (`noteCueSource`). Optional: a checkpoint written before 6.1.0 has none.
     private var cueSource: Bool?
+    /// The leg's course as it climbed away (along the runway), and whether it has since turned onto the
+    /// downwind: within `downwindDegrees` of the reverse. In circuits the approach check waits for that turn
+    /// (the author's fifth round, 17 Oct: after a go-around it fell due at the level-off, on the crosswind).
+    /// Optional: a checkpoint written before 6.4.0 has neither.
+    private var climbOutCourse: Double?
+    private var onDownwind: Bool?
+    static let downwindDegrees = 45.0
 
     /// Something times the checks this flight: a leg already, or a field the next take-off starts one
     /// from. Without it (no airport data, a strip not in it) an open check is due as before 6.1.
@@ -319,6 +326,27 @@ struct FlightCueState: Equatable, Codable {
         owed = [:]
         escalated = []
         legs += 1
+        climbOutCourse = nil
+        onDownwind = nil
+    }
+
+    /// The GPS course in the air: the leg's first is its climb-out's; one within `downwindDegrees` of its
+    /// reverse after it is the downwind.
+    mutating func noteCourse(_ course: Double) {
+        guard legs > 0 else { return }
+        guard let climbOut = climbOutCourse else {
+            climbOutCourse = course
+            return
+        }
+        let reverse = (climbOut + 180).truncatingRemainder(dividingBy: 360)
+        let off = abs((course - reverse + 540).truncatingRemainder(dividingBy: 360) - 180)
+        if onDownwind != true, off <= Self.downwindDegrees { onDownwind = true }
+    }
+
+    /// In circuits the level-off makes the approach check due on the downwind, not before the turn onto it
+    /// (with no course known, at the level-off as before).
+    private func waitsForDownwind(_ phase: ChecklistPhase, circuitMode: Bool) -> Bool {
+        circuitMode && phase == .approach && owed[phase] == nil && climbOutCourse != nil && onDownwind != true
     }
 
     /// When the slot shows `phase`'s check: not yet, due, or owed.
@@ -326,14 +354,16 @@ struct FlightCueState: Equatable, Codable {
         if owed[phase] != nil { return .owed }
         guard hasCueSource, Self.isCued(phase) else { return .due }
         let due = fired.keys.contains { $0.phase(circuitMode: circuitMode) == phase }
-        return due ? .due : .notYet
+        return due && !waitsForDownwind(phase, circuitMode: circuitMode) ? .due : .notYet
     }
 
     /// The flight itself says `phase`'s check is due (or owed): its cue came this leg. Not the "due as
     /// before" of a flight with no cue source, so a check comes to the slot early only on the flight's word.
     func cueHasCome(for phase: ChecklistPhase, circuitMode: Bool) -> Bool {
         guard legs > 0, Self.isCued(phase) else { return false }
-        return owed[phase] != nil || fired.keys.contains { $0.phase(circuitMode: circuitMode) == phase }
+        if owed[phase] != nil { return true }
+        return fired.keys.contains { $0.phase(circuitMode: circuitMode) == phase }
+            && !waitsForDownwind(phase, circuitMode: circuitMode)
     }
 
     /// The landing check is shown: circuit height near the field (or, in circuits, the descent onto base).

@@ -128,22 +128,115 @@ final class DryRunGuidedTests: XCTestCase {
 
     // MARK: - The second round of device checks (16 Oct)
 
-    /// A pilot ahead of the cards: the climb check worked through on the runway, before it fell due. Its card
-    /// has nothing to ask and goes; the story goes on to the go-around and the landing (the author's second
+    /// A pilot ahead of the cards: the climb check worked through as soon as airborne, before it fell due. Its
+    /// card has nothing to ask and goes; the story goes on to the go-around and the landing (the author's second
     /// run: the card waited for a check never due again, and came after the landing).
     func testAPilotAheadOfTheCardsIsNotHeldBack() throws {
         let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
-            guard step.id == "lineUpCheck" else { return false }
+            guard step.id == "airborne" else { return false }
             let appState = session.world.appState
-            DryRunCoach.workThroughCurrentCheck(appState)
             appState.nextPhase()
             DryRunCoach.workThroughCurrentCheck(appState)
+            session.coach?.next()
             return true
         })
         XCTAssertFalse(record.shown.contains("climbCheck"), "\(record.shown)")
         XCTAssertTrue(record.shown.contains("goAround"))
         XCTAssertNotNil(record.session.generator.mark("goAround"))
         XCTAssertTrue(record.shown.contains("endFlight"))
+    }
+
+    /// Close out and Your logbook on their own, whatever flight the dry run flies to them behind the cover:
+    /// each opens on its first card (the author's fifth round, pt-3: Your logbook ended on the dry run's page).
+    func testEveryPartOnItsOwnOpensOnItsFirstCardWhateverTheFlight() throws {
+        for seed: UInt64 in [3, 7, 19, 42, 101, 2026] {
+            for (part, first) in [(DryRunPart.closeOut, "openFlightPage"), (.logbook, "logbookTab")] {
+                let record = try flyTheStory(DryRunStart(part: part), stopAt: first, seed: seed)
+                XCTAssertEqual(record.shown.first, first, "\(part), seed \(seed)")
+            }
+        }
+    }
+
+    /// ENGINE SHUTDOWN as the engine stops: once the shutdown check's magnetos item is ticked, not at the
+    /// check's end (the author's fifth round, 17 Oct). The WT9's check names them; a check that names neither
+    /// the magnetos nor the ignition asks for it at its end.
+    func testEngineShutdownComesAtTheMagnetosItem() throws {
+        let appState = makeTestAppState()
+        let item = try XCTUnwrap(DryRunCoach.engineStopItem(appState), "the WT9's check names the magnetos")
+        appState.startFlight()
+        appState.goToPhase(.shutdown)
+        XCTAssertFalse(DryRunCoach.engineHasStopped(appState))
+        for _ in 0...item { DryRunCoach.checkItem(appState) }
+        XCTAssertTrue(DryRunCoach.engineHasStopped(appState), "the magnetos off")
+        XCTAssertFalse(appState.currentCheckIsDone, "the rest of the check after it")
+        XCTAssertTrue(DryRunCoach.shows(.engineShutdown, appState))
+    }
+
+    /// A card that speaks of the landing check says it as the pilot flies it: its items to work through, or,
+    /// hidden as memory items, from memory (the author's fifth round: "from memory" with the items on the page).
+    func testTheLandingCardsSayTheLandingCheckAsItIsFlown() throws {
+        let appState = makeTestAppState()
+        let step = try XCTUnwrap(DryRunChapters.steps.first { $0.id == "fullStop" })
+        appState.settings.learningMode = true
+        XCTAssertEqual(step.text(appState), step.body)
+        XCTAssertEqual(step.foldText(appState), step.fold)
+        appState.settings.learningMode = false
+        XCTAssertTrue(appState.isMemoryCheck(.landing))
+        XCTAssertEqual(step.text(appState), step.memoryBody)
+        XCTAssertEqual(step.foldText(appState), step.memoryFold)
+        XCTAssertNotEqual(step.body, step.memoryBody)
+    }
+
+    /// No word of a ring on any card: the cards say what to press (the author's fifth round, 17 Oct).
+    func testNoCardSpeaksOfARing() {
+        for step in DryRunStory.steps {
+            for text in [step.body, step.memoryBody, step.fold, step.memoryFold].compactMap({ $0 }) {
+                XCTAssertNil(text.range(of: "\\bring\\b", options: [.regularExpression, .caseInsensitive]),
+                             "\(step.id): \(text)")
+            }
+        }
+    }
+
+    /// The climb check waits for the take-off: on the runway, the line up check done, NEXT goes nowhere and the
+    /// slot opens the checklist, whose NEXT says AFTER TAKE-OFF; once airborne it goes on (the author's fifth
+    /// round, 17 Oct: the climb check done before the aircraft took off).
+    func testTheClimbCheckWaitsForTheTakeoff() throws {
+        var tried = false
+        let record = try flyTheStory(DryRunStart(part: .fly), answer: { step, session in
+            guard step.id == "lineUpCheck", !tried else { return false }
+            tried = true
+            let appState = session.world.appState
+            DryRunCoach.workThroughCurrentCheck(appState)
+            XCTAssertTrue(appState.waitsForTakeoff)
+            appState.nextPhase()
+            appState.goToPhase(.climb)
+            XCTAssertEqual(appState.currentPhase, .lineUp, "no climb check on the runway")
+            XCTAssertEqual(CockpitCheckSlot.slot(for: appState).action, .showChecklist)
+            return true
+        })
+        XCTAssertTrue(tried)
+        XCTAssertTrue(record.shown.contains("climbCheck"), "\(record.shown)")
+        XCTAssertTrue(record.shown.contains("endFlight"))
+    }
+
+    /// A real flight's climb check waits for the take-off too, and never traps the pilot: only with a field to
+    /// see the take-off from, and not once rolling at 40 kt (the author's answer, 17 Oct).
+    func testARealFlightsClimbCheckWaitsButNeverTraps() {
+        let appState = makeTestAppState()
+        appState.startFlight()
+        addTeardownBlock { @MainActor in appState.cancelFlight() }
+        appState.goToPhase(.lineUp, skipped: .alreadyDone)
+        XCTAssertFalse(appState.waitsForTakeoff, "no field to see the take-off from: as before")
+        appState.noteCueSourceReady()
+        XCTAssertTrue(appState.waitsForTakeoff)
+        appState.noteGroundSpeed(45)
+        XCTAssertFalse(appState.waitsForTakeoff, "rolling: the take-off roll")
+        appState.noteGroundSpeed(5)
+        XCTAssertTrue(appState.waitsForTakeoff)
+        appState.noteFlightCue(FlightCueEvent(kind: .leg, time: Date(), implied: false, aerodrome: "LSZQ"))
+        XCTAssertFalse(appState.waitsForTakeoff, "the take-off seen")
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .climb)
     }
 
     /// The ATC flight plan ticked rather than set aside: either answers its card (st-7).
@@ -394,11 +487,11 @@ final class DryRunGuidedTests: XCTestCase {
     /// here on that page. Each stretch between two steps is timed in the pilot's seconds: a second of the flight
     /// at pace p is 1/p of the pilot's.
     /// `answer`: the test's own answer to a step, in place of the pilot's (true: answered).
-    private func flyTheStory(_ start: DryRunStart, stopAt: String? = nil,
+    private func flyTheStory(_ start: DryRunStart, stopAt: String? = nil, seed: UInt64 = 11,
                              answer: ((DryRunCoachStep, DryRunSession) -> Bool)? = nil) throws -> Record {
         let plan = DryRunChapters.route(from: .lszq)
         let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: .lszq), rate: 0, guided: start)
-        let flight = try DryRunHeadless(self, setup: setup, plan: plan)
+        let flight = try DryRunHeadless(self, setup: setup, plan: plan, seed: seed)
         let session = flight.session
         let coach = try XCTUnwrap(session.coach)
         let appState = flight.appState
@@ -449,6 +542,7 @@ final class DryRunGuidedTests: XCTestCase {
                 case .screenClosed(let screen): coach.hide(screen)
                 case .chipTapped: coach.noteChip(.prepare)
                 case .linkTapped: coach.noteLink()
+                case .fullTanksTapped: coach.noteFullTanks()
                 case .flightStarted:
                     // START FLIGHT closes the flight's page and the ground, as the app does.
                     coach.actAsPilot(step, session)

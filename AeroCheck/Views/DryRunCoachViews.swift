@@ -287,7 +287,7 @@ struct DryRunCoachCard: View {
     private var folded: some View {
         Button { coach.unfold() } label: {
             HStack(spacing: 10) {
-                Text(step.fold ?? step.title)
+                Text(step.foldText(session.world.appState))
                     .font(.aero(size: compact ? 15 : 16, weight: .bold))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -328,7 +328,7 @@ struct DryRunCoachCard: View {
             }
             Text(step.title)
                 .font(.aero(size: compact ? 17 : 19, weight: .bold))
-            Text(step.body)
+            Text(step.text(session.world.appState))
                 .font(.aero(size: compact ? 15 : 16))
                 .fixedSize(horizontal: false, vertical: true)
             // A check whose items the Menu hides: what the card asks for looks different (the author's third

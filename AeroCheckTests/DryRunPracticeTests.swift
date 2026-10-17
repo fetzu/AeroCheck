@@ -171,6 +171,29 @@ final class DryRunPracticeTests: XCTestCase {
 
     // MARK: - A route
 
+    /// A go-around at a route's end, from a cruise far above the circuit: the final still comes down past
+    /// 250 ft, the app sees the go-around, and with no card in a dry run the checks go back to the climb check,
+    /// circuits taken up (the author's fifth round, a-2: the first one went unseen, the checks stayed on the
+    /// landing check).
+    func testAGoAroundAtARoutesEndFromAHighCruiseIsSeenAndTaken() throws {
+        let plan = FlightPlan(name: "Dry", waypoints: [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: DryRunAerodrome.lszq.reference),
+            FlightPlanWaypoint(name: "INS", coordinate: ins, altitude: 6500),
+            FlightPlanWaypoint(name: "LSGC", coordinate: lsgc.reference)])
+        let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: lsgc), rate: 0)
+        let flight = try DryRunHeadless(self, setup: setup, plan: plan)
+        flight.session.resolveAerodrome = { $0 == "LSGC" ? self.lsgc : $0 == "LSZQ" ? .lszq : nil }
+        flight.takeOff()
+        XCTAssertTrue(flight.fly(until: { flight.session.isOnFinal }, within: 3600), "on final at LSGC")
+        flight.session.finalChoice = .goAround
+        XCTAssertTrue(flight.fly(until: { flight.session.generator.mark("goAround") != nil }, within: 600))
+        XCTAssertTrue(flight.fly(until: { !(flight.appState.currentFlight?.goAroundTimes.isEmpty ?? true) }, within: 120),
+                      "\(flight.world.detector.emittedEvents)")
+        XCTAssertNil(flight.world.detector.pendingGoAround, "no card left to answer")
+        XCTAssertEqual(flight.appState.currentPhase, .climb)
+        XCTAssertTrue(flight.appState.isCircuitMode, "circuits taken up at the route's end")
+    }
+
     /// A route flown from the world's copy of the plan, and a divert made in the Cockpit flown next: back to
     /// LSZQ, where it lands.
     func testARouteFollowsTheCockpitsDivert() throws {
@@ -333,7 +356,7 @@ final class DryRunHeadless {
     let start = Date(timeIntervalSince1970: 1_800_000_000)
     private(set) var seconds = 0
 
-    init(_ test: XCTestCase, setup: DryRunSetup, plan: FlightPlan? = nil) throws {
+    init(_ test: XCTestCase, setup: DryRunSetup, plan: FlightPlan? = nil, seed: UInt64 = 11) throws {
         airports = AirportDataService(openAIPAirports: test.makeTestOpenAIPAirportLayer { _ in [] },
                                       rootDirectory: test.makeTestDirectory())
         airports.injectForReplay(setup.aerodromes.map(\.airport))
@@ -350,7 +373,7 @@ final class DryRunHeadless {
             }
             world.appState.addMadeUpFlights(DryRunLogbook.flights(at: setup.departure, before: start))
         }
-        session = DryRunSession(world: world, setup: setup, seed: 11)
+        session = DryRunSession(world: world, setup: setup, seed: seed)
         guard session.begin(airports: airports, now: start) else { throw XCTSkip("the flight didn't start") }
         let session = self.session
         test.addTeardownBlock { @MainActor in session.end() }

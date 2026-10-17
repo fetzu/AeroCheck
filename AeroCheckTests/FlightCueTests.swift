@@ -290,6 +290,39 @@ final class FlightCueStateTests: XCTestCase {
         XCTAssertTrue(state.landingShown(circuitMode: false))
     }
 
+    /// In circuits the level-off makes the approach check due on the downwind, once the turn onto it is flown:
+    /// not on the crosswind, where the level-off comes first (the author's fifth round, 17 Oct).
+    func testInCircuitsTheApproachCheckWaitsForTheTurnOntoTheDownwind() {
+        var state = FlightCueState()
+        state.startLeg()
+        state.noteCourse(70)    // the climb-out, along runway 07
+        _ = state.fire(.takeoff, at: t0, circuitMode: true) { _ in false }
+        state.noteCourse(160)   // the crosswind
+        _ = state.fire(.levelOff, at: t0 + 60, circuitMode: true) { _ in false }
+        XCTAssertEqual(state.timing(for: .approach, circuitMode: true), .notYet, "on the crosswind")
+        XCTAssertFalse(state.cueHasCome(for: .approach, circuitMode: true))
+        state.noteCourse(190)   // still turning, 60° off the reverse
+        XCTAssertEqual(state.timing(for: .approach, circuitMode: true), .notYet)
+        state.noteCourse(230)   // the downwind, 20° off the reverse
+        XCTAssertEqual(state.timing(for: .approach, circuitMode: true), .due)
+        XCTAssertTrue(state.cueHasCome(for: .approach, circuitMode: true))
+        // A route's cruise check comes at the level-off as before, and a new leg waits again.
+        XCTAssertEqual(state.timing(for: .cruise, circuitMode: false), .due)
+        state.startLeg()
+        state.noteCourse(70)
+        _ = state.fire(.levelOff, at: t0 + 400, circuitMode: true) { _ in false }
+        XCTAssertEqual(state.timing(for: .approach, circuitMode: true), .notYet)
+    }
+
+    /// With no course known (an older checkpoint, a GPS without one), the approach check is due at the
+    /// level-off, as before.
+    func testWithoutACourseTheCircuitsApproachCheckIsDueAtTheLevelOff() {
+        var state = FlightCueState()
+        state.startLeg()
+        _ = state.fire(.levelOff, at: t0, circuitMode: true) { _ in false }
+        XCTAssertEqual(state.timing(for: .approach, circuitMode: true), .due)
+    }
+
     func testANewLegForgetsWhatWasDueAndOwed() {
         var state = FlightCueState()
         state.startLeg()

@@ -94,10 +94,13 @@ final class DryRunSession: ObservableObject, Identifiable {
     static let landingRate = 12.0
     /// The guided flight's paces (the proposal's Q3, "Plan to Logbook", tuned on the headless flight so that no
     /// stretch is longer than 13 s without a card or a tap, `DryRunGuidedTests`): what is worth seeing move at
-    /// 5× (the taxi's first seconds, the take-off roll and the lift-off, a turning point, the start of the
-    /// downwind, the last of a final), the line-up at 10× and the landing roll at 6×, everything else at 30×.
-    /// At 20× the legs out and back ran 16 to 22 s without anything for the pilot.
+    /// 5× (the taxi's first seconds, the take-off roll and the lift-off), a turning point's turn and the line-up
+    /// at 10×, the last of a final and the landing roll at 12×, everything else at 30×. At 20× the legs out and
+    /// back ran 16 to 22 s without anything for the pilot. Slowed only where something moves, and into it by
+    /// steps: slowed 15 s ahead of a turning point and on the turn onto the downwind, it read as the app lagging
+    /// (the author's fifth round, 17 Oct).
     static let watchRate = 5.0
+    static let turnRate = 10.0
     static let flyOnRate = 30.0
     /// Fixes fed per tick of the timer while the guided flight is taken to its chapter, behind the cover.
     nonisolated static let fastForwardBudget = 400
@@ -267,6 +270,7 @@ final class DryRunSession: ObservableObject, Identifiable {
             if onFinal { finalChoice = .fullStop }
             isOnFinal = onFinal
         }
+        takeDetectedEvents()
         checksDone = ChecklistPhase.allCases.filter { appState.getPhaseStatus($0) == .completed }.count
         followRoute()
         stepSkip()
@@ -302,6 +306,12 @@ final class DryRunSession: ObservableObject, Identifiable {
         if FlightClock.virtual?.rate != pace { FlightClock.setVirtualRate(pace) }
     }
 
+    /// No card in a dry run, whatever the pilot's setting (the author's fifth round, 17 Oct): what the app saw
+    /// is taken at once, with UNDO, as a flight takes it by default.
+    private func takeDetectedEvents() {
+        world.appState.takeDetectedEvents(from: world.detector)
+    }
+
     /// The guided flight's pace for what the aircraft is doing.
     static func guidedPace(_ generator: DryRunGenerator) -> Double {
         let since = generator.t - generator.activitySince
@@ -312,13 +322,16 @@ final class DryRunSession: ObservableObject, Identifiable {
         case .takeoffRoll: return watchRate
         // The lift-off, until the card that says the app saw it.
         case .climbingOut: return firstCircuit && since < 12 ? watchRate : flyOnRate
-        case .downwind: return firstCircuit && since < 15 ? 10 : flyOnRate
         // Not much slower for the landing: slowed down more, it read as the app stuttering (st-15).
         case .final: return generator.heightAboveFieldFt < 100 ? landingRate : flyOnRate
         case .landing: return landingRate
         case .climbing, .cruising, .descending:
-            let near = (generator.secondsToWaypoint ?? .infinity) < 15 || (generator.secondsSinceWaypoint ?? .max) < 15
-            return near ? watchRate : flyOnRate
+            // The turn after a turning point at 10×, and into it from 7 s before the point, 30× to 10× by 2 s.
+            if (generator.secondsSinceWaypoint ?? .max) < 60, generator.turnDegreesPerSecond > 0.5 { return turnRate }
+            if let toGo = generator.secondsToWaypoint, toGo < 7 {
+                return max(turnRate, min(flyOnRate, turnRate + (toGo - 2) * 4))
+            }
+            return flyOnRate
         default: return flyOnRate
         }
     }

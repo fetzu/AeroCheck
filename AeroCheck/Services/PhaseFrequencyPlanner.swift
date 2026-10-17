@@ -248,6 +248,9 @@ enum PhaseFrequencyPlanner {
             let current = nearActive ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
 
             var next: Entry?
+            // At the route's end: the field flown to is NOW, nothing after it. No CTR around is the next call
+            // (on final at Bressaucourt, NEXT read Les Eplatures, 20 NM off). (6.4.0)
+            var atRouteEnd = false
             // Diverting: the field the aircraft is going to is the next call, whatever the route says. (v5.1)
             if let diversion = plan?.diversion {
                 next = PhaseFrequencyPlanner.contact(labelled(diversion.ident))
@@ -257,10 +260,13 @@ enum PhaseFrequencyPlanner {
                 // The field flown to is the next call, until it is NOW (within its 10 NM); then the field
                 // after it. Until 6.2 the field flown to was always passed over: 15 NM out from Les
                 // Eplatures, NEXT read Bressaucourt.
-                if plan.waypoints.indices.contains(index),
-                   let flownTo = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[index])),
-                   flownTo != current {
+                let flownTo = plan.waypoints.indices.contains(index)
+                    ? PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[index])) : nil
+                let fieldAhead = plan.waypoints.indices.contains { $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty }
+                if let flownTo, flownTo != current {
                     next = flownTo
+                } else if flownTo != nil, !fieldAhead, index == plan.waypoints.count - 1 {
+                    atRouteEnd = true
                 } else if let ahead = plan.waypoints.indices.first(where: {
                     $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty
                 }) {
@@ -277,6 +283,7 @@ enum PhaseFrequencyPlanner {
                     }
                 }
             }
+            if atRouteEnd { return (current, nil) }
             if next == nil, let ctr = ctrs.first, let frequency = ctr.frequency {
                 next = Entry(station: ctr.station, freq: frequency)
             }

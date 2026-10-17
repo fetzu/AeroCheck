@@ -366,6 +366,10 @@ struct AppSettings: Codable, Equatable {
 
     // Flight logging
     var logEngineHours: Bool = true // When true, prompts for hour meter reading at engine start and stop (ON by default)
+    /// A card asks to confirm each go-around, touch-and-go and full stop the app sees. Off (the default since
+    /// 6.4.0, the author's fifth dry run checks: a pilot going around has no hand for it), the app takes them as
+    /// it sees them, offers UNDO for a few seconds, and the Flight review asks after END FLIGHT.
+    var confirmFlightEvents: Bool = false
 
     // Onboarding
     var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
@@ -450,6 +454,7 @@ struct AppSettings: Codable, Equatable {
         case showTrackVector
         case showVFRCircuitsOnMap, showVFRRoutesOnMap, showNonPoweredCircuitsOnMap
         case logEngineHours
+        case confirmFlightEvents
         case hasCompletedOnboarding
         case gpsPriority
         case shareCardColorScheme
@@ -533,6 +538,7 @@ struct AppSettings: Codable, Equatable {
         showVFRRoutesOnMap = (try? container.decodeIfPresent(Bool.self, forKey: .showVFRRoutesOnMap)) ?? false
         showNonPoweredCircuitsOnMap = (try? container.decodeIfPresent(Bool.self, forKey: .showNonPoweredCircuitsOnMap)) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
+        confirmFlightEvents = try container.decodeIfPresent(Bool.self, forKey: .confirmFlightEvents) ?? false
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
@@ -776,6 +782,62 @@ struct ActiveFlightState: Codable {
             language: checklistLanguage ?? appState.settings.checklistLanguage.resolvedLanguage,
             checklist: nil
         )
+    }
+}
+
+/// What taking a detected event changes, as it stood before: UNDO puts it back (`AppState.undoTakenEvent`).
+/// Without the track, which keeps the fixes recorded since. (6.4.0)
+fileprivate struct FlightEventSnapshot {
+    let flight: Flight
+    let currentPhase: ChecklistPhase
+    let landingTime: Date?
+    let phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus]
+    let highestCompletedPhase: ChecklistPhase
+    let currentHighlightedItem: [ChecklistPhase: Int]
+    let deferredItems: [ChecklistPhase: [String]]
+    let deferredChecks: [ChecklistPhase]
+    let flightCues: FlightCueState
+    let freda: FredaSchedule
+    let circuitLaps: CircuitLaps
+    let hasLandingBeenDetected: Bool
+    let isCircuitMode: Bool
+
+    @MainActor
+    init(_ appState: AppState) {
+        var flight = appState.currentFlight ?? Flight()
+        flight.gpsTrack = []
+        self.flight = flight
+        currentPhase = appState.currentPhase
+        landingTime = appState.landingTime
+        phaseCompletionStatus = appState.phaseCompletionStatus
+        highestCompletedPhase = appState.highestCompletedPhase
+        currentHighlightedItem = appState.currentHighlightedItem
+        deferredItems = appState.deferredItems
+        deferredChecks = appState.deferredChecks
+        flightCues = appState.flightCues
+        freda = appState.freda
+        circuitLaps = appState.circuitLaps
+        hasLandingBeenDetected = appState.hasLandingBeenDetected
+        isCircuitMode = appState.isCircuitMode
+    }
+
+    @MainActor
+    func restore(to appState: AppState) {
+        var flight = self.flight
+        flight.gpsTrack = appState.currentFlight?.gpsTrack ?? []
+        appState.currentFlight = flight
+        appState.currentPhase = currentPhase
+        appState.landingTime = landingTime
+        appState.phaseCompletionStatus = phaseCompletionStatus
+        appState.highestCompletedPhase = highestCompletedPhase
+        appState.currentHighlightedItem = currentHighlightedItem
+        appState.deferredItems = deferredItems
+        appState.deferredChecks = deferredChecks
+        appState.flightCues = flightCues
+        appState.freda = freda
+        appState.circuitLaps = circuitLaps
+        appState.hasLandingBeenDetected = hasLandingBeenDetected
+        appState.isCircuitMode = isCircuitMode
     }
 }
 
@@ -2110,6 +2172,8 @@ class AppState {
         // The after landing check of a circuits flight ends on a choice, NEW CIRCUIT or the parking check:
         // ✓ DONE confirms it, and the two follow. (6.3.0)
         if isCircuitMode && currentPhase == .afterLanding { return nil }
+        // The line up check on the runway: the climb check comes once airborne (`waitsForTakeoff`, 6.4.0).
+        if waitsForTakeoff { return nil }
         return currentPhase.nextNavigable(circuitMode: isCircuitMode)
     }
 
@@ -2229,6 +2293,33 @@ class AppState {
             flightCues.withdraw(cue)
         }
         checkpointActiveFlight(force: true)
+    }
+
+    /// The legs (take-off rolls and climb-aways) seen as the line up check opened: one more is the take-off.
+    private var legsAtLineUp = 0
+    /// Moving at 40 kt or more over the ground: the take-off roll, or in the air.
+    private(set) var rollingFast = false
+
+    /// On the line up check, the way on to the climb check (NEXT, the slot, the phase bar) waits until the
+    /// aircraft has taken off: a climb check done on the runway is none (the author's fifth round, 17 Oct). Never
+    /// a trap: it waits only where the app can see the take-off (a field near to anchor it to), and opens at the
+    /// take-off it sees or at 40 kt, whichever comes first.
+    var waitsForTakeoff: Bool {
+        isFlightActive && currentPhase == .lineUp && flightCues.hasCueSource && flightCues.legs <= legsAtLineUp
+            && !rollingFast
+    }
+
+    /// The GPS ground speed of a fix, for the climb check's gate (`waitsForTakeoff`).
+    func noteGroundSpeed(_ knots: Double) {
+        let fast = knots >= 40
+        if fast != rollingFast { rollingFast = fast }
+    }
+
+    /// The GPS course of a fix in the air, for the cues: the leg's climb-out, then in circuits the turn onto
+    /// the downwind, where the approach check falls due (`FlightCueState.noteCourse`). (6.4.0)
+    func noteFlightCourse(_ course: Double, speedKt: Double) {
+        guard isFlightActive, course >= 0, speedKt >= 40 else { return }
+        flightCues.noteCourse(course)
     }
 
     /// The detector has a field near the aircraft to anchor the take-off to: from now on the cued checks
@@ -2394,6 +2485,78 @@ class AppState {
     /// Nothing answered: the next take-off roll, or a landing recorded by hand.
     func dismissLandedCard() {
         landedCard = nil
+    }
+
+    // MARK: Events taken without a card (6.4.0)
+
+    /// A go-around, touch-and-go or full stop the app took as it saw it, with no card to confirm it: offered
+    /// back for six seconds by the undo toast, and listed for the Flight review after END FLIGHT. (6.4.0)
+    struct TakenFlightEvent: Identifiable, Equatable {
+        let id: UUID
+        let type: FlightEventType
+        let aerodrome: String?
+        let takenAt: Date
+        fileprivate let before: FlightEventSnapshot
+
+        static func == (a: TakenFlightEvent, b: TakenFlightEvent) -> Bool { a.id == b.id }
+    }
+
+    /// The last event taken, for its UNDO; nil once taken back or its six seconds are up.
+    private(set) var takenFlightEvent: TakenFlightEvent?
+
+    /// The detector's events taken as they come, with no card: in every dry run, and in a flight unless the
+    /// pilot asked for the cards (`settings.confirmFlightEvents`; the author's fifth dry run checks, 17 Oct:
+    /// going around, a pilot has no hand for a card). Each is recorded as CONFIRM records it, the landed card
+    /// goes on with nothing asked, and the flight keeps it for the Flight review to ask about.
+    func takeDetectedEvents(from detector: FlightEventDetector) {
+        guard isFlightActive else { return }
+        for event in [detector.pendingGoAround, detector.pendingTouchAndGo, detector.pendingFullStop].compactMap({ $0 }) {
+            let before = FlightEventSnapshot(self)
+            switch event.type {
+            case .goAround:
+                recordGoAround(at: event.timestamp)
+                detector.dismissGoAround()
+            case .touchAndGo:
+                recordTouchAndGo(at: event.timestamp)
+                detector.dismissTouchAndGo()
+            case .fullStop:
+                recordFullStop(at: event.timestamp)
+                detector.dismissFullStop()
+            }
+            noteTaken(event.type, at: event.timestamp, aerodrome: event.airport?.ident, before: before)
+        }
+        if let card = landedCard {
+            let before = FlightEventSnapshot(self)
+            answerLandedCard(.next)
+            noteTaken(.fullStop, at: card.touchdown, aerodrome: card.aerodrome, before: before)
+        }
+    }
+
+    private func noteTaken(_ type: FlightEventType, at time: Date, aerodrome: String?, before: FlightEventSnapshot) {
+        // A duplicate the recording refused (the same event within a minute) changed nothing to take back.
+        guard let flight = currentFlight, Self.eventCount(flight) != Self.eventCount(before.flight) else { return }
+        currentFlight?.takenEventTimes = (flight.takenEventTimes ?? []) + [time]
+        let taken = TakenFlightEvent(id: UUID(), type: type, aerodrome: aerodrome, takenAt: FlightClock.now, before: before)
+        takenFlightEvent = taken
+        lastCheckOfferAt = taken.takenAt
+        checkpointActiveFlight(force: true)
+    }
+
+    private static func eventCount(_ flight: Flight) -> Int {
+        flight.goAroundTimes.count + flight.touchAndGoTimes.count + flight.fullStopTimes.count
+    }
+
+    /// UNDO on a taken event's toast: the flight and its checks as they were before it.
+    func undoTakenEvent(_ id: UUID) {
+        guard let taken = takenFlightEvent, taken.id == id else { return }
+        takenFlightEvent = nil
+        taken.before.restore(to: self)
+        checkpointActiveFlight(force: true)
+    }
+
+    /// The toast's six seconds are up.
+    func dismissTakenEvent(_ id: UUID) {
+        if takenFlightEvent?.id == id { takenFlightEvent = nil }
     }
 
     private func settleLandingCheckAfterTouchdown(_ status: PhaseCompletionStatus) {
@@ -2884,6 +3047,12 @@ class AppState {
     func keepRecordedReconciliation() {
         guard let result = pendingReconciliation else { return }
         pendingReconciliation = nil
+        // Kept as recorded: what the app took in flight is confirmed with it.
+        if let index = flights.firstIndex(where: { $0.id == result.flightId }), flights[index].takenEventTimes != nil {
+            flights[index].takenEventTimes = nil
+            flights[index].modifiedAt = Date()
+            _ = saveFlight(flights[index])
+        }
         backfillBlockTimes(result)
     }
 
@@ -3048,7 +3217,8 @@ class AppState {
     // MARK: - Navigation
     
     func nextPhase() {
-        guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
+        guard !waitsForTakeoff,
+              let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
 
         // Every NEXT goes through here: out of the check before departure, it is READY FOR LINE UP.
@@ -3155,6 +3325,7 @@ class AppState {
     /// every item a second time, in the deferred list. (v6.0 review, B1)
     private func enterPhase(_ phase: ChecklistPhase) {
         currentPhase = phase
+        if phase == .lineUp { legsAtLineUp = flightCues.legs }
         // A deferred check you go back to is run where it stands, as the current phase.
         deferredChecks.removeAll { $0 == phase }
         guard settings.stepByStepHighlighting, let ids = deferredItems[phase] else { return }
@@ -3182,6 +3353,8 @@ class AppState {
         if phase.isSkippedInCircuitMode(isCircuitMode) {
             return
         }
+        // Past the line up check only once airborne, where the climb check waits for the take-off.
+        if waitsForTakeoff, phase.rawValue > currentPhase.rawValue { return }
 
         if let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
            let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase),

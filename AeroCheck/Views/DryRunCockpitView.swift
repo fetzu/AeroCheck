@@ -239,7 +239,7 @@ struct DryRunGroundBand: View {
 
     var body: some View {
         ZStack {
-            DryRunHatch()
+            DryRunHatch(bleeds: true)
             HStack(spacing: 10) {
                 if let coach = session.coach {
                     DryRunPartPlate(coach: coach)
@@ -283,13 +283,23 @@ struct DryRunCoachLayer: View {
                     let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }
                     // What it rings where the card would stand, above the act band (the undo toast at the foot of
                     // CHECKLIST and ROUTE): the card at the top, under the read band, not over it (st-3, r3-12).
-                    let cardTop = proxy.size.height - bottom - 200
-                    let atTop = target.map { $0.maxY > cardTop && $0.minY < proxy.size.height - bottom - 4 } ?? false
-                    let top = anchors[.readBand].map { proxy[$0].maxY + 8 } ?? 120
+                    // Folded, it is one line at the foot, and stays there unless that line is over it (i-5: folded
+                    // at the top, it floated mid-screen). Beside it, nothing to move for.
+                    let cardTop = proxy.size.height - bottom - (coach.isFolded ? 52 : 200)
+                    let cardRight = alignment == .bottomLeading ? 12 + metrics.coachCardWidth : .infinity
+                    let atTop = target.map {
+                        $0.maxY > cardTop && $0.minY < proxy.size.height - bottom - 4 && $0.minX < cardRight
+                    } ?? false
+                    // On a phone on its side the read band is in the column: the top of the page instead.
+                    let top = metrics.layout == .columns ? metrics.extraTop + 8
+                        : anchors[.readBand].map { proxy[$0].maxY + 8 } ?? 120
                     ZStack {
                         DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
                         DryRunCoachCard(coach: coach, session: session, step: step, compact: !metrics.isWide)
-                            .frame(maxWidth: metrics.isWide ? 600 : .infinity)
+                            .frame(maxWidth: metrics.coachCardWidth)
+                            // Never taller than the room it has: its words scroll, its buttons stay on the screen
+                            // (i-5: on a phone on its side they went off its foot).
+                            .frame(maxHeight: max(120, proxy.size.height - (atTop ? top + 8 : bottom + metrics.extraTop + 8)))
                             .padding(.horizontal, 12)
                             .padding(atTop ? .top : .bottom, atTop ? top : bottom)
                             .frame(maxWidth: .infinity, maxHeight: .infinity,
@@ -299,7 +309,7 @@ struct DryRunCoachLayer: View {
                 }
             } else if let line = session.foldedLine {
                 DryRunFoldedLine(text: line, chapter: coach.upcoming?.chapter, compact: !metrics.isWide)
-                    .frame(maxWidth: metrics.isWide ? 600 : .infinity)
+                    .frame(maxWidth: metrics.coachCardWidth)
                     .padding(.horizontal, 12)
                     .padding(.bottom, bottom)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
@@ -373,13 +383,22 @@ struct DryRunBandMetrics: Equatable {
     var layout: CockpitLayout
     var safeTop: CGFloat
     var isPad: Bool
+    var width: CGFloat
 
     init(width: CGFloat, height: CGFloat, safeTop: CGFloat,
          isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad) {
         layout = CockpitLayout.make(width: width, height: height)
         self.safeTop = safeTop
         self.isPad = isPad
+        self.width = width
     }
+
+    /// The page beside the column on a phone on its side: the cards stay on it, off the column's read band and
+    /// act band (the author's seventh round, i-5: over both, the card was sent up out of the way of a control
+    /// in the column, and its foot went off the screen).
+    var pageWidth: CGFloat { max(260, width - FlightView.cockpitColumnWidth - 24) }
+    /// How wide the coach's card and its folded line are.
+    var coachCardWidth: CGFloat { isWide ? 600 : (layout == .columns ? pageWidth : .infinity) }
 
     var isWide: Bool { layout == .wide }
     /// A phone upright with the Dynamic Island (or a notch): the band is the room either side of it.
@@ -396,11 +415,15 @@ struct DryRunBandMetrics: Equatable {
         return band.height + (layout == .wide ? 24 : 20)
     }
     var finalCardBottom: CGFloat { layout == .columns ? 12 : actBandHeight + 8 }
-    var finalCardWidth: CGFloat { isWide ? 560 : .infinity }
+    var finalCardWidth: CGFloat { isWide ? 560 : (layout == .columns ? pageWidth : .infinity) }
 }
 
 /// The hatching that says DRY RUN without a word: the same in every theme, unlike anything else in the app.
+/// A band's (`bleeds`) runs under the side safe areas, across the whole screen of a phone on its side (the
+/// author's seventh round, i-5: it stopped short of both edges).
 struct DryRunHatch: View {
+    var bleeds = false
+
     var body: some View {
         Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 0.15, green: 0.16, blue: 0.19)))
@@ -414,6 +437,7 @@ struct DryRunHatch: View {
             }
             context.stroke(stripes, with: .color(Color(red: 0.24, green: 0.25, blue: 0.29)), lineWidth: 7)
         }
+        .ignoresSafeArea(edges: bleeds ? .horizontal : [])
         .accessibilityHidden(true)
     }
 }
@@ -444,7 +468,7 @@ struct DryRunBand: View {
 
     var body: some View {
         ZStack {
-            DryRunHatch()
+            DryRunHatch(bleeds: true)
             if metrics.holdsControls {
                 HStack(spacing: 10) {
                     DryRunPlate(text: "\(L10n.DryRun.band) · \(state)")
@@ -639,7 +663,7 @@ struct DryRunSummaryView: View {
         GeometryReader { geo in
             VStack(spacing: 0) {
                 ZStack {
-                    DryRunHatch()
+                    DryRunHatch(bleeds: true)
                     DryRunPlate(text: "\(L10n.DryRun.band) · \(L10n.DryRun.over)")
                         .padding(.top, max(0, geo.safeAreaInsets.top - 30))
                 }

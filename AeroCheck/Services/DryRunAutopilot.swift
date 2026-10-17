@@ -149,6 +149,8 @@ final class DryRunAutopilot {
         } else if appState.currentPhase.rawValue < ChecklistPhase.lineUp.rawValue {
             appState.goToPhase(.beforeDeparture)
             appState.nextPhase()
+        } else if appState.currentPhase == .lineUp, !appState.currentCheckIsDone {
+            DryRunCoach.workThroughCurrentCheck(appState)
         } else if generator.mark("stopped") != nil, session.setup.isCircuits {
             appState.goToPhase(.beforeDeparture)
         }

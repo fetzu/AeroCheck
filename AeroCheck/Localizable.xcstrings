@@ -41,46 +41,6 @@
         }
       }
     },
-    "%lld touch-and-goes": {
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld touch-and-go"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld touch-and-goes"
-                }
-              }
-            }
-          }
-        },
-        "fr": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld posé-décollé"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld posés-décollés"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "%lld full stops": {
       "localizations": {
         "en": {
@@ -114,6 +74,46 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld atterrissages complets"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld touch-and-goes and go-arounds": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld touch-and-go or go-around"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld touch-and-goes and go-arounds"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld posé-décollé ou remise de gaz"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld posés-décollés et remises de gaz"
                 }
               }
             }

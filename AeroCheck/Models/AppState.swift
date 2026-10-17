@@ -2947,7 +2947,9 @@ class AppState {
     /// The phase bar's loops and the phone's lap, on a circuits flight; nil on any other. (6.3.0)
     var circuitLoopMarks: CircuitLoopMarks? {
         guard isCircuitMode, let flight = currentFlight else { return nil }
-        return CircuitLoopMarks(touchAndGoes: flight.touchAndGoCount, fullStops: flight.fullStopCount,
+        // The loop from the climb check flown again after a go-around as after a touch-and-go: both counted on
+        // it (the author's seventh dry run checks, 17 Oct: the go-arounds never showed there).
+        return CircuitLoopMarks(touchAndGoes: flight.touchAndGoCount + flight.goAroundCount, fullStops: flight.fullStopCount,
                                 current: circuitLaps.currentLoop(at: currentPhase),
                                 lap: circuitLaps.lap(touchAndGoes: flight.touchAndGoCount, goArounds: flight.goAroundCount))
     }

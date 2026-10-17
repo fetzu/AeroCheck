@@ -65,6 +65,7 @@ struct CircuitLaps: Equatable, Codable {
 /// full and the other faint. On the phone, the lap ("↻ 4") in the phase button and marks under the current
 /// loop's segments.
 struct CircuitLoopMarks: Equatable {
+    /// The touch-and-go loop's laps: its touch-and-goes and go-arounds.
     var touchAndGoes: Int
     var fullStops: Int
     var current: CircuitLaps.Loop?
@@ -83,7 +84,7 @@ struct CircuitLoopMarks: Equatable {
         phases.filter { span(of: loop).contains($0.rawValue) }
     }
 
-    /// The count a loop shows: its touch-and-goes, or its full stops.
+    /// The count a loop shows: its touch-and-goes and go-arounds, or its full stops.
     func count(of loop: CircuitLaps.Loop) -> Int {
         loop == .touchAndGo ? touchAndGoes : fullStops
     }

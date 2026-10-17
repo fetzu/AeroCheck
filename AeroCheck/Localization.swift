@@ -241,8 +241,8 @@ enum L10n {
 
     /// A circuits flight's laps and loops, as VoiceOver says them (6.3.0).
     enum Circuits {
-        /// "2 touch-and-goes", "1 full stop".
-        static func touchAndGoes(_ count: Int) -> String { String(localized: "\(count) touch-and-goes") }
+        /// The touch-and-go loop's count, "3 touch-and-goes and go-arounds"; "1 full stop".
+        static func touchAndGoLoopLaps(_ count: Int) -> String { String(localized: "\(count) touch-and-goes and go-arounds") }
         static func fullStops(_ count: Int) -> String { String(localized: "\(count) full stops") }
         /// The phase bar's two brackets.
         static let touchAndGoLoop = String(localized: "circuits.touchAndGoLoop")
@@ -262,7 +262,7 @@ enum L10n {
         /// The phone's phase button: "circuit 4: 2 touch-and-goes, 1 full stop".
         static func lapSpeech(_ lap: Int, touchAndGoes: Int, fullStops: Int) -> String {
             String(format: String(localized: "circuits.lapSpeech"), lap,
-                   [Self.touchAndGoes(touchAndGoes), Self.fullStops(fullStops)].joined(separator: ", "))
+                   [Self.touchAndGoLoopLaps(touchAndGoes), Self.fullStops(fullStops)].joined(separator: ", "))
         }
     }
 

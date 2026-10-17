@@ -285,21 +285,22 @@ final class CircuitsTests: XCTestCase {
         fly(appState, to: .landing)
         appState.recordGoAround(at: t(500))
         XCTAssertEqual(marks?.lap, 3)
+        XCTAssertEqual(marks?.touchAndGoes, 2, "a go-around flies the loop again too (the seventh dry run checks)")
         fly(appState, to: .landing)
         appState.recordFullStop(at: touchdown)
-        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 1, current: .fullStop, lap: 3),
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 2, fullStops: 1, current: .fullStop, lap: 3),
                        "after landing: the full stop's loop, still lap 3")
         completeCurrentCheck(appState)
         at(650)
         appState.startNewCircuit()
-        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 1, current: .fullStop, lap: 4))
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 2, fullStops: 1, current: .fullStop, lap: 4))
         fly(appState, to: .landing)
         completeCurrentCheck(appState)
         appState.nextPhase()
         completeCurrentCheck(appState)
         at(1000)
         appState.nextPhase()                                        // on to the parking check
-        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 1, fullStops: 2, current: .fullStop, lap: 4),
+        XCTAssertEqual(marks, CircuitLoopMarks(touchAndGoes: 2, fullStops: 2, current: .fullStop, lap: 4),
                        "the parking check: no new lap")
 
         XCTAssertNil(flight(circuits: false).circuitLoopMarks, "no loops on any other flight")

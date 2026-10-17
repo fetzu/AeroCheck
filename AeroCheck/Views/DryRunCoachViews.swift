@@ -362,9 +362,11 @@ struct DryRunCoachCard: View {
             }
             Text(step.title)
                 .font(.aero(size: compact ? 17 : 19, weight: .bold))
-            Text(step.text(session.world.appState))
-                .font(.aero(size: compact ? 15 : 16))
-                .fixedSize(horizontal: false, vertical: true)
+            // Its words scroll where the card has less room than they need (a phone on its side, i-5).
+            ViewThatFits(in: .vertical) {
+                bodyText
+                ScrollView { bodyText }
+            }
             // A check whose items the Menu hides: what the card asks for looks different (the author's third
             // round, r3-14: "the app does not seem to display it").
             if step.target == .check, session.world.appState.currentCheckAwaitsConfirmation {
@@ -389,6 +391,13 @@ struct DryRunCoachCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    private var bodyText: some View {
+        Text(step.text(session.world.appState))
+            .font(.aero(size: compact ? 15 : 16))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func button(_ title: String, filled: Bool, action: @escaping () -> Void) -> some View {

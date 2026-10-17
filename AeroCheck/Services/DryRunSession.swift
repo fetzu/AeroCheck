@@ -133,7 +133,9 @@ final class DryRunSession: ObservableObject, Identifiable {
             mayGo: { [weak self] hold in
                 guard let appState = self?.world.appState else { return false }
                 return Self.mayGo(from: hold, engineStarted: appState.engineStartTime != nil,
-                                  phase: appState.currentPhase)
+                                  phase: appState.currentPhase,
+                                  lineUpDone: appState.getPhaseStatus(.lineUp) == .completed
+                                      || (appState.currentPhase == .lineUp && appState.currentCheckIsDone))
             },
             landing: { [weak self] _ in
                 guard let self else { return .fullStop }
@@ -147,11 +149,19 @@ final class DryRunSession: ObservableObject, Identifiable {
 
     // MARK: The pilot's answers
 
-    /// The generator may go on from `hold`: the engine started, or the pilot at the line-up check or past it.
-    static func mayGo(from hold: DryRunGenerator.Hold, engineStarted: Bool, phase: ChecklistPhase) -> Bool {
+    /// The generator may go on from `hold`: the engine started (or the checklist gone past its start), the
+    /// pilot at the line up check or past it, the line up check done before the roll (the author's seventh
+    /// round, r7-14: a pilot who jumped to the line up check waited at the parking for good, and the roll
+    /// began with the line up check still open).
+    static func mayGo(from hold: DryRunGenerator.Hold, engineStarted: Bool, phase: ChecklistPhase,
+                      lineUpDone: Bool = false) -> Bool {
+        let airborneChecks = phase.rawValue > ChecklistPhase.lineUp.rawValue && phase.rawValue < ChecklistPhase.landing.rawValue
         switch hold {
-        case .engineStart: return engineStarted
+        case .engineStart:
+            return engineStarted
+                || (phase.rawValue > ChecklistPhase.engineStart.rawValue && phase.rawValue < ChecklistPhase.landing.rawValue)
         case .lineUp: return phase.rawValue >= ChecklistPhase.lineUp.rawValue && phase.rawValue < ChecklistPhase.landing.rawValue
+        case .takeoff: return airborneChecks || (phase == .lineUp && lineUpDone)
         case .parked: return false
         }
     }

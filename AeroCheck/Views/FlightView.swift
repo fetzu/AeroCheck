@@ -1834,7 +1834,7 @@ struct PhaseProgressBar: View {
     private func loopSpeech(_ loop: CircuitLaps.Loop) -> String {
         let span = loop == .touchAndGo ? L10n.Circuits.touchAndGoLoop : L10n.Circuits.fullStopLoop
         guard let loops else { return span }
-        let count = loop == .touchAndGo ? L10n.Circuits.touchAndGoes(loops.touchAndGoes)
+        let count = loop == .touchAndGo ? L10n.Circuits.touchAndGoLoopLaps(loops.touchAndGoes)
                                         : L10n.Circuits.fullStops(loops.fullStops)
         let parts = [span, count] + (loops.current == loop ? [L10n.Circuits.thisLap] : [])
         return parts.joined(separator: ", ")

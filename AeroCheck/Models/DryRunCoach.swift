@@ -773,6 +773,16 @@ final class DryRunCoach: ObservableObject {
                 index += 1
                 continue
             }
+            // A check the aircraft has flown past before its card could come, or the go-around's card once the
+            // circuit after it is under way: the dry run flies on faster than a pilot works through a check, and
+            // the step gives way rather than have the line name a check behind the aircraft (the author's seventh
+            // round: after the go-around it still named the climb check once the aircraft had landed). Not on the
+            // way to where the story starts, whose checks are done as the pilot would.
+            if candidate.part == .fly, !(isFastForwarding && index < startIndex), !reached(candidate.moment, session),
+               Self.flownPast(candidate, session.generator) {
+                index += 1
+                continue
+            }
             guard reached(candidate.moment, session) else { return false }
             if isFastForwarding {
                 if index < startIndex {
@@ -835,6 +845,24 @@ final class DryRunCoach: ObservableObject {
         case .somethingDeferred: return appState.deferredItemCount + appState.deferredChecks.count > 0
         case .screenOpen(let screen): return isFastForwarding || screens.contains(screen)
         }
+    }
+
+    /// The aircraft past where the step's check belongs: the climb check once on the downwind, cruising or
+    /// later; the approach check once on final; the go-around's card once the circuit after it reaches the
+    /// downwind. Landed, all of them.
+    static func flownPast(_ step: DryRunCoachStep, _ generator: DryRunGenerator) -> Bool {
+        let activity = generator.activity
+        let landed: [DryRunGenerator.Activity] = [.landing, .stopped, .taxiingIn, .parkedEnd]
+        if landed.contains(activity), step.done == .checkDone(.climb) || step.done == .checkDone(.approach)
+            || step.moment == .goneAround {
+            return true
+        }
+        switch step.done {
+        case .checkDone(.climb): return [.downwind, .base, .final, .cruising, .descending, .joining].contains(activity)
+        case .checkDone(.approach): return activity == .final
+        default: break
+        }
+        return step.moment == .goneAround && generator.mark("goAround") != nil && [.downwind, .base, .final].contains(activity)
     }
 
     /// The last check a chapter's steps can still show at: past it, they give way.

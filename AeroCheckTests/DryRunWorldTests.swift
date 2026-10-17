@@ -72,6 +72,10 @@ final class DryRunWorldTests: XCTestCase {
         appState.goToPhase(.beforeDeparture)
         appState.nextPhase()
         XCTAssertEqual(appState.currentPhase, .lineUp)
+        fly(until: { session.generator.waitingAt == .takeoff }, within: 120, "lined up")
+        wait(30)
+        XCTAssertNil(session.generator.mark("takeoffRoll"), "it waits for the line up check")
+        DryRunCoach.workThroughCurrentCheck(appState)
         fly(until: { session.generator.mark("touchdown") != nil }, within: 1800, "round the circuit")
         appState.goToPhase(.afterLanding)
         fly(until: { session.generator.mark("stopped") != nil }, within: 120, "stopped on the runway")
@@ -232,6 +236,18 @@ final class DryRunWorldTests: XCTestCase {
             XCTAssertFalse(DryRunSession.mayGo(from: .lineUp, engineStarted: true, phase: phase), "\(phase)")
         }
         XCTAssertFalse(DryRunSession.mayGo(from: .parked, engineStarted: true, phase: .hangar))
+    }
+
+    /// The author's seventh round (r7-14): a pilot who jumped to the line up check without ENGINE START found
+    /// the aircraft parked for good; another saw the roll begin with the line up check still open.
+    func testTheCheckGoneOnStartsTheEngineAndTheLineUpCheckWaitsForTheRoll() {
+        XCTAssertTrue(DryRunSession.mayGo(from: .engineStart, engineStarted: false, phase: .lineUp))
+        XCTAssertTrue(DryRunSession.mayGo(from: .engineStart, engineStarted: false, phase: .taxi))
+        XCTAssertFalse(DryRunSession.mayGo(from: .engineStart, engineStarted: false, phase: .beforeEngineStart))
+        XCTAssertFalse(DryRunSession.mayGo(from: .takeoff, engineStarted: true, phase: .lineUp))
+        XCTAssertTrue(DryRunSession.mayGo(from: .takeoff, engineStarted: true, phase: .lineUp, lineUpDone: true))
+        XCTAssertTrue(DryRunSession.mayGo(from: .takeoff, engineStarted: true, phase: .climb), "past it with the phase bar")
+        XCTAssertFalse(DryRunSession.mayGo(from: .takeoff, engineStarted: true, phase: .afterLanding))
     }
 
     func testAfterAFullStopItGoesWhereThePilotsChecksSay() {

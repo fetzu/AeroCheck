@@ -66,6 +66,8 @@ final class DryRunGenerator {
         case engineStart
         /// At the holding point, or stopped on the runway after a full stop: the checks to the line-up.
         case lineUp
+        /// Lined up: the line up check worked through before the roll (the author's seventh round, r7-14).
+        case takeoff
         /// Off the runway at the end, for good.
         case parked
     }
@@ -327,8 +329,8 @@ final class DryRunGenerator {
     private func lineUpAndTakeOff() -> [Action] {
         // Onto the runway briskly once READY FOR LINE UP is pressed: the pilot waited long enough at the holding
         // point (the author's sixth round, 17 Oct: a long wait before the take-off, at 4× or even 10×).
-        [.mark("lineUp"), .goTo(.taxi(to: aerodrome.lineUpPoint, speed: 12)), .alignWithRunway, .park(3),
-         .mark("takeoffRoll"), .roll(toSpeed: performance.vr + 6), .mark("liftoff"),
+        [.mark("lineUp"), .goTo(.taxi(to: aerodrome.lineUpPoint, speed: 12)), .alignWithRunway, .hold(.takeoff),
+         .park(2), .mark("takeoffRoll"), .roll(toSpeed: performance.vr + 6), .mark("liftoff"),
          .steps(count: 20, speed: performance.vy, accel: 1.2, verticalSpeed: 550), .afterTakeOff]
     }
 
@@ -442,7 +444,8 @@ final class DryRunGenerator {
             switch answer {
             case .goAgain:
                 // A stop-and-go: the checks to the line-up done again on the runway, then the roll from there.
-                actions.insert(contentsOf: [.hold(.lineUp), .mark("takeoffRoll"), .roll(toSpeed: performance.vr + 6),
+                actions.insert(contentsOf: [.hold(.lineUp), .hold(.takeoff), .park(2), .mark("takeoffRoll"),
+                                          .roll(toSpeed: performance.vr + 6),
                                           .mark("liftoff"),
                                           .steps(count: 20, speed: performance.vy, accel: 1.2, verticalSpeed: 550),
                                           .circuit], at: 0)

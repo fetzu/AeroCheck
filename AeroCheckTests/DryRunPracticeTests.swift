@@ -148,6 +148,20 @@ final class DryRunPracticeTests: XCTestCase {
         XCTAssertNotNil(generator.mark("touchdown"))
     }
 
+    /// The author's seventh round (r7-14): straight to the line up check from the phase bar, ENGINE START never
+    /// pressed, the aircraft stayed parked; once it moved, the roll began with the line up check still open.
+    func testAPilotWhoJumpsToTheLineUpCheckTakesOffOnceItIsDone() throws {
+        let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
+        flight.wait(5)
+        flight.appState.goToPhase(.lineUp)
+        XCTAssertTrue(flight.fly(until: { flight.session.generator.waitingAt == .takeoff }, within: 400), "lined up")
+        flight.wait(30)
+        XCTAssertNil(flight.session.generator.mark("takeoffRoll"), "the line up check first")
+        XCTAssertTrue(flight.session.isWaiting)
+        DryRunCoach.workThroughCurrentCheck(flight.appState)
+        XCTAssertTrue(flight.fly(until: { flight.session.generator.isAirborne }, within: 120), "then the roll")
+    }
+
     /// The card's choice is what the aircraft does, and each final starts on a full stop again.
     func testTheCardOnFinalDecidesAndEachFinalStartsOnAFullStop() throws {
         let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
@@ -184,6 +198,12 @@ final class DryRunPracticeTests: XCTestCase {
 
         flight.appState.goToPhase(.beforeDeparture)
         flight.appState.nextPhase()
+        flight.wait(2)
+        flight.session.skipToNextCheck()
+        XCTAssertTrue(flight.fly(until: { !flight.session.isSkipping }, within: 400), "stops lined up")
+        XCTAssertEqual(flight.session.generator.waitingAt, .takeoff, "the line up check before the roll (r7-14)")
+
+        DryRunCoach.workThroughCurrentCheck(flight.appState)
         flight.wait(2)
         flight.session.skipToNextCheck()
         XCTAssertTrue(flight.session.isSkipping)
@@ -448,13 +468,15 @@ final class DryRunHeadless {
         return done()
     }
 
-    /// ENGINE START, the taxi, and READY FOR LINE UP at the holding point.
+    /// ENGINE START, the taxi, READY FOR LINE UP at the holding point, and the line up check on the runway.
     func takeOff() {
         wait(5)
         appState.recordEngineStart()
         fly(until: { self.session.isWaiting && self.seconds > 60 }, within: 400)
         appState.goToPhase(.beforeDeparture)
         appState.nextPhase()
+        fly(until: { self.session.generator.waitingAt == .takeoff }, within: 120)
+        DryRunCoach.workThroughCurrentCheck(appState)
         fly(until: { self.session.generator.isAirborne }, within: 300)
     }
 }

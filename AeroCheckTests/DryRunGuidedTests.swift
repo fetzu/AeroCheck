@@ -146,6 +146,27 @@ final class DryRunGuidedTests: XCTestCase {
         XCTAssertTrue(record.shown.contains("endFlight"))
     }
 
+    /// The author's seventh round: after the go-around, the folded line still named the climb check once the
+    /// aircraft had landed. A check the aircraft has flown past before its card came gives way.
+    func testACheckTheAircraftHasFlownPastGivesWay() throws {
+        let steps = DryRunStory.steps
+        let climbAgain = try XCTUnwrap(steps.first { $0.id == "climbAgain" })
+        let approachAgain = try XCTUnwrap(steps.first { $0.id == "approachAgain" })
+        let goAroundCard = try XCTUnwrap(steps.first { $0.id == "goAroundCard" })
+        let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.goAround]))
+        flight.takeOff()
+        let generator = flight.session.generator
+        XCTAssertTrue(flight.fly(until: { generator.mark("goAround") != nil && generator.activity == .upwind }, within: 1500))
+        XCTAssertFalse(DryRunCoach.flownPast(climbAgain, generator), "climbing away: the climb check is ahead")
+        XCTAssertFalse(DryRunCoach.flownPast(goAroundCard, generator))
+        XCTAssertTrue(flight.fly(until: { generator.activity == .downwind }, within: 600))
+        XCTAssertTrue(DryRunCoach.flownPast(climbAgain, generator), "on the downwind")
+        XCTAssertTrue(DryRunCoach.flownPast(goAroundCard, generator))
+        XCTAssertFalse(DryRunCoach.flownPast(approachAgain, generator), "the approach check is the downwind's")
+        XCTAssertTrue(flight.fly(until: { generator.activity == .final }, within: 600))
+        XCTAssertTrue(DryRunCoach.flownPast(approachAgain, generator), "on final")
+    }
+
     /// Close out and Your logbook on their own, whatever flight the dry run flies to them behind the cover:
     /// each opens on its first card (the author's fifth round, pt-3: Your logbook ended on the dry run's page).
     func testEveryPartOnItsOwnOpensOnItsFirstCardWhateverTheFlight() throws {

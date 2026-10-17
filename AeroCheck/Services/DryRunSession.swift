@@ -219,6 +219,12 @@ final class DryRunSession: ObservableObject, Identifiable {
     /// over a few ticks rather than in one. Then what the Cockpit did meanwhile.
     func feedDueFixes(upTo now: Date, cap: Int = 50) {
         guard let start, state == .flying else { return }
+        // Each fix at its own time, the clock set to it as behind the cover, then the running clock put back: a
+        // timer firing late hands over several fixes at once, and at the clock's time they shared one instant, so
+        // the detector (which reads the clock) took them as one sample and missed the go-around's dip. The
+        // touch-and-goes and full stops were still counted, the go-arounds neither counted nor taken, the checks
+        // left at the after landing check (the author's eighth round, r8-3 and r8-4, on the iPad at 30×).
+        let running = FlightClock.virtual
         // On the ground (the story before START FLIGHT and after END FLIGHT) there is no flight to feed.
         for _ in 0..<cap where world.appState.isFlightActive {
             let fix = pending ?? generator.nextFix()
@@ -228,8 +234,13 @@ final class DryRunSession: ObservableObject, Identifiable {
                 break
             }
             pending = nil
+            if let running {
+                FlightClock.virtual = FlightClock.Virtual(wallAnchor: Date(), virtualAnchor: due, rate: 0,
+                                                          earlier: running.earlier)
+            }
             world.location.feedDryRunFix(fix.location(at: due))
         }
+        if let running { FlightClock.virtual = running }
         observe()
     }
 

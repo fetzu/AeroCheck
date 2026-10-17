@@ -6608,13 +6608,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On this final, choose GO AROUND on the card: the aircraft climbs away and the app detects the go-around. The card only exists to steer the dry run; in a real flight, you fly the go-around yourself."
+            "value": "On this final, choose GO AROUND on the card: the aircraft climbs away and the app detects the go-around. In a real flight, you fly it yourself."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte et l'app détecte la remise de gaz. L'encadré sert seulement à piloter le vol à blanc ; en vrai vol, c'est vous qui remettez les gaz."
+            "value": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte et l'app détecte la remise de gaz. En vrai vol, c'est vous qui remettez les gaz."
           }
         }
       }
@@ -27803,7 +27803,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go-Around"
+            "value": "Go-around"
           }
         },
         "fr": {
@@ -27820,7 +27820,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touch-and-Go"
+            "value": "Touch-and-go"
           }
         },
         "fr": {
@@ -27837,7 +27837,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Full Stop"
+            "value": "Full stop"
           }
         },
         "fr": {

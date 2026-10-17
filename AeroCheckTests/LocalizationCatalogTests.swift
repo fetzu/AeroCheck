@@ -58,7 +58,7 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(L10n.GPS.reasonNoUpdate(12), "No position update for 12 s")
         XCTAssertEqual(L10n.GPS.reasonNetworkPosition(35), "No satellite fix · network position ± 35 m")
         XCTAssertEqual(L10n.GPS.fixTime, "Fix time")
-        XCTAssertEqual([FlightEventType.goAround, .touchAndGo, .fullStop].map(\.title), ["Go-Around", "Touch-and-Go", "Full Stop"])
+        XCTAssertEqual([FlightEventType.goAround, .touchAndGo, .fullStop].map(\.title), ["Go-around", "Touch-and-go", "Full stop"])
         XCTAssertEqual(SwissCommonFrequency.emergency.name, "Emergency")
         XCTAssertEqual(L10n.FlightLog.allYears, "All")
         XCTAssertEqual(L10n.FlightLog.landingCount(3), "3 ldg")

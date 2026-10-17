@@ -271,6 +271,9 @@ struct DryRunCoachCard: View {
     @ObservedObject var session: DryRunSession
     let step: DryRunCoachStep
     let compact: Bool
+    /// A phone on its side: a little less type and room, so a card of four lines fits above the card on final
+    /// (the author's eighth round, r8-7).
+    var tight = false
 
     private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
     private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
@@ -340,7 +343,7 @@ struct DryRunCoachCard: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: tight ? 4 : 7) {
             HStack(spacing: 8) {
                 Text(header)
                     .font(.aero(size: 11, weight: .semibold, design: .monospaced))
@@ -361,7 +364,7 @@ struct DryRunCoachCard: View {
                 .accessibilityLabel(L10n.DryRunCoach.fold)
             }
             Text(step.title)
-                .font(.aero(size: compact ? 17 : 19, weight: .bold))
+                .font(.aero(size: tight ? 16 : (compact ? 17 : 19), weight: .bold))
             // Its words scroll where the card has less room than they need (a phone on its side, i-5).
             ViewThatFits(in: .vertical) {
                 bodyText
@@ -390,12 +393,12 @@ struct DryRunCoachCard: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, tight ? 9 : 12)
     }
 
     private var bodyText: some View {
         Text(step.text(session.world.appState))
-            .font(.aero(size: compact ? 15 : 16))
+            .font(.aero(size: tight ? 14 : (compact ? 15 : 16)))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -406,7 +409,7 @@ struct DryRunCoachCard: View {
                 .font(.aero(size: 15, weight: .bold))
                 .foregroundColor(filled ? paper : ink)
                 .padding(.horizontal, 14)
-                .frame(minHeight: 40)
+                .frame(minHeight: tight ? 34 : 40)
                 .background(RoundedRectangle(cornerRadius: 9).fill(filled ? ink : Color.clear))
                 .overlay(RoundedRectangle(cornerRadius: 9).stroke(ink, lineWidth: 2))
         }

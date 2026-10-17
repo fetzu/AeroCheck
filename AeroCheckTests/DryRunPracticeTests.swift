@@ -162,6 +162,27 @@ final class DryRunPracticeTests: XCTestCase {
         XCTAssertTrue(flight.fly(until: { flight.session.generator.isAirborne }, within: 120), "then the roll")
     }
 
+    /// The author's eighth round (r8-3, r8-4): on the iPad the go-arounds were neither counted nor taken (the
+    /// checks stayed at the after landing check), while touch-and-goes and full stops were. A device whose timer
+    /// fires late feeds the fixes in batches; each must reach the detector at its own time, or it keeps one fix a
+    /// batch and misses the go-around's dip.
+    func testFixesFedInBatchesStillShowTheGoAround() throws {
+        let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.goAround]))
+        flight.takeOff()
+        let generator = flight.session.generator
+        XCTAssertTrue(flight.fly(until: { flight.session.isOnFinal }, within: 1500))
+        flight.appState.goToPhase(.landing)
+        DryRunCoach.workThroughCurrentCheck(flight.appState)
+        flight.appState.nextPhase()
+        XCTAssertEqual(flight.appState.currentPhase, .afterLanding, "the landing check done before the go-around")
+        flight.waitInBatches(of: 30, count: 12)
+        XCTAssertNotNil(generator.mark("goAround"))
+        XCTAssertEqual(flight.appState.currentFlight?.goAroundCount, 1, "\(flight.world.detector.emittedEvents)")
+        XCTAssertEqual(flight.appState.currentPhase, .climb, "back to the climb check")
+        XCTAssertEqual(flight.appState.circuitLoopMarks?.touchAndGoes, 1, "counted on the loop over the bar")
+        XCTAssertGreaterThan(flight.appState.currentFlight?.gpsTrack.count ?? 0, 100, "the track as dense as fix by fix")
+    }
+
     /// The card's choice is what the aircraft does, and each final starts on a full stop again.
     func testTheCardOnFinalDecidesAndEachFinalStartsOnAFullStop() throws {
         let flight = try DryRunHeadless(self, setup: DryRunSetup(mission: .circuits(.lszq), rate: 0))
@@ -460,6 +481,17 @@ final class DryRunHeadless {
     func fastForward() {
         session.fastForward(budget: 4 * 3600)
         seconds = session.generator.t
+    }
+
+    /// The clock moved `seconds` at a time, the due fixes fed at once, as a timer firing late does.
+    func waitInBatches(of seconds: Int, count: Int) {
+        for _ in 0..<count {
+            self.seconds += seconds
+            FlightClock.virtual = FlightClock.Virtual(wallAnchor: Date(),
+                                                      virtualAnchor: start.addingTimeInterval(TimeInterval(self.seconds)),
+                                                      rate: 0)
+            session.feedDueFixes(upTo: FlightClock.now)
+        }
     }
 
     @discardableResult

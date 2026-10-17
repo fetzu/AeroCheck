@@ -274,7 +274,11 @@ struct DryRunCoachLayer: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let bottom = metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 128 : 112) : 0)
+            // On final, above the card on final as it is drawn (its height varies with the device, the layout and the
+            // language), so the coach's card never covers its buttons (the author's eighth round, r8-7).
+            let finalTop = session.isOnFinal ? anchors[.finalCard].map { proxy[$0].minY } : nil
+            let bottom = finalTop.map { max(metrics.finalCardBottom, proxy.size.height - $0 + 8) }
+                ?? metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 128 : 112) : 0)
             let alignment: Alignment = metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom
             // The Cockpit's own steps: a step for the Menu (a sheet over it) shows there, not here as well.
             if let step = coach.step, step.screen == .cockpit {
@@ -295,11 +299,14 @@ struct DryRunCoachLayer: View {
                         : anchors[.readBand].map { proxy[$0].maxY + 8 } ?? 120
                     ZStack {
                         DryRunCoachVeil(step: step, target: target, pulse: coach.pulse)
-                        DryRunCoachCard(coach: coach, session: session, step: step, compact: !metrics.isWide)
+                        DryRunCoachCard(coach: coach, session: session, step: step, compact: !metrics.isWide,
+                                        tight: metrics.layout == .columns)
                             .frame(maxWidth: metrics.coachCardWidth)
                             // Never taller than the room it has: its words scroll, its buttons stay on the screen
-                            // (i-5: on a phone on its side they went off its foot).
-                            .frame(maxHeight: max(120, proxy.size.height - (atTop ? top + 8 : bottom + metrics.extraTop + 8)))
+                            // (i-5: on a phone on its side they went off its foot). Held at the frame's edge: centred
+                            // in it, the card and its folded line floated mid-screen (r8-7).
+                            .frame(maxHeight: max(120, proxy.size.height - (atTop ? top + 8 : bottom + metrics.extraTop + 8)),
+                                   alignment: atTop ? .top : .bottom)
                             .padding(.horizontal, 12)
                             .padding(atTop ? .top : .bottom, atTop ? top : bottom)
                             .frame(maxWidth: .infinity, maxHeight: .infinity,

@@ -451,6 +451,16 @@ struct FlightPlanningView: View {
                             }
                             .tint(.aviationGold)
                         }
+                        // The route flown on the ground, as from its editor's menu: easier found here (the
+                        // author's fifth dry run checks, 17 Oct). (6.4.0)
+                        if plan.waypoints.count >= 2, !appState.isFlightActive {
+                            Button {
+                                DryRunCenter.shared.requestStart(route: plan)
+                            } label: {
+                                Label(L10n.DryRun.flyRoute, systemImage: "airplane.circle")
+                            }
+                            .tint(.gray)
+                        }
                     }
                     .contextMenu {
                         Button {

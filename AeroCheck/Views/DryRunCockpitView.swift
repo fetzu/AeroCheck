@@ -72,9 +72,6 @@ struct DryRunCockpitView: View {
                     .environment(\.isDryRun, true)
                     .environment(\.dryRunSession, session)
                     .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: metrics.extraTop) }
-                DryRunBand(session: session, metrics: metrics)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .ignoresSafeArea(edges: .top)
                 if session.isOnFinal {
                     DryRunFinalCard(session: session, compact: !metrics.isWide)
                         .coachTarget(.finalCard)
@@ -92,6 +89,12 @@ struct DryRunCockpitView: View {
                 if let coach = session.coach {
                     DryRunCoachLayer(coach: coach, session: session, anchors: anchors, metrics: metrics)
                 }
+            }
+            // The band over everything, the coach's veil included: END is always there to stop the dry run
+            // (the author's fifth round, 17 Oct: no graceful way out of it once a card held the Cockpit).
+            .overlay(alignment: .top) {
+                DryRunBand(session: session, metrics: metrics)
+                    .ignoresSafeArea(edges: .top)
             }
             .onPreferenceChange(CockpitPageKey.self) { page in session.coach?.page = page ?? .checklist }
         }
@@ -175,6 +178,23 @@ struct DryRunGroundView: View {
     }
 }
 
+/// END, in the band over every screen of a dry run: it stops the dry run and shows its page.
+struct DryRunEndButton: View {
+    @ObservedObject var session: DryRunSession
+    var size: CGFloat = 13
+
+    var body: some View {
+        Button { session.stop() } label: {
+            DryRunPlate(text: L10n.DryRunCoach.end, size: size)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.white.opacity(0.85), lineWidth: 1))
+                .frame(minWidth: 44, minHeight: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L10n.DryRun.endDryRun)
+    }
+}
+
 /// The band over the ground's screens in a dry run: DRY RUN and the part, and End.
 struct DryRunGroundBand: View {
     @ObservedObject var session: DryRunSession
@@ -189,11 +209,7 @@ struct DryRunGroundBand: View {
                     DryRunPlate(text: L10n.DryRun.band)
                 }
                 Spacer(minLength: 8)
-                Button { session.stop() } label: {
-                    DryRunPlate(text: L10n.DryRunCoach.end)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L10n.DryRun.endDryRun)
+                DryRunEndButton(session: session)
             }
             .padding(.horizontal, 12)
         }
@@ -220,7 +236,7 @@ struct DryRunCoachLayer: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let bottom = metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 104 : 90) : 0)
+            let bottom = metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 128 : 112) : 0)
             let alignment: Alignment = metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom
             // The Cockpit's own steps: a step for the Menu (a sheet over it) shows there, not here as well.
             if let step = coach.step, step.screen == .cockpit {
@@ -382,7 +398,7 @@ struct DryRunPlate: View {
     }
 }
 
-/// The band: DRY RUN and where it stands on every page, and on the iPad the controls.
+/// The band: DRY RUN and where it stands on every page, END, and on the iPad the controls.
 struct DryRunBand: View {
     @ObservedObject var session: DryRunSession
     let metrics: DryRunBandMetrics
@@ -397,22 +413,28 @@ struct DryRunBand: View {
                     Spacer(minLength: 8)
                     // The guided flight paces itself: its coach has Pause.
                     if session.coach == nil { DryRunControls(session: session, height: 36) }
+                    DryRunEndButton(session: session)
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, max(0, metrics.height - 44))
             } else if metrics.hasIsland {
-                // Either side of the Dynamic Island, on its centre line.
+                // Either side of the Dynamic Island, on its centre line: where it stands, and END.
                 HStack {
-                    DryRunPlate(text: L10n.DryRun.band)
+                    DryRunPlate(text: "\(L10n.DryRun.band) · \(shortState)")
                     Spacer(minLength: 140)
-                    DryRunPlate(text: shortState)
+                    DryRunEndButton(session: session)
                 }
                 .padding(.horizontal, 22)
                 .frame(height: 37)
                 .padding(.top, 11)
                 .frame(maxHeight: .infinity, alignment: .top)
             } else {
-                DryRunPlate(text: "\(L10n.DryRun.band) · \(state)", size: 11)
+                HStack(spacing: 8) {
+                    DryRunPlate(text: "\(L10n.DryRun.band) · \(state)", size: 11)
+                    Spacer(minLength: 8)
+                    DryRunEndButton(session: session, size: 11)
+                }
+                .padding(.horizontal, 12)
             }
         }
         .frame(height: metrics.height)
@@ -506,27 +528,43 @@ struct DryRunControls: View {
 // MARK: - On final
 
 /// How this final ends: a full stop, a touch-and-go or a go-around, the full stop lit until the pilot picks
-/// another. From the start of the final to 250 ft, where the generator takes the choice. (D4, A)
+/// another. From the start of the final to 250 ft, where the generator takes the choice. (D4, A) Light, as the
+/// coach's card, with the band's hatching along its top and a line that says so: the dry run's own control,
+/// never in a real flight (the author's fifth round, 17 Oct).
 struct DryRunFinalCard: View {
     @ObservedObject var session: DryRunSession
     let compact: Bool
-    @Environment(\.cockpitTheme) private var theme
+
+    private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
+    private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
 
     var body: some View {
         VStack(spacing: 8) {
             Text(compact ? L10n.DryRun.onThisFinalShort : L10n.DryRun.onThisFinal)
                 .font(.aero(size: 12, weight: .semibold, design: .monospaced))
                 .tracking(1.2)
-                .foregroundColor(theme.textSecondary)
+                .opacity(0.75)
             HStack(spacing: 8) {
                 choice(.fullStop, L10n.DryRun.fullStop)
                 choice(.touchAndGo, L10n.ChecklistAction.touchAndGo)
                 choice(.goAround, L10n.ChecklistAction.goAround)
             }
+            Text(L10n.DryRun.finalCardOnly)
+                .font(.aero(size: compact ? 12 : 13))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(0.75)
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14).fill(theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.panelStroke, lineWidth: 1))
+        .foregroundColor(ink)
+        .padding(.horizontal, 10)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+        .background(RoundedRectangle(cornerRadius: 14).fill(paper))
+        .overlay(alignment: .top) {
+            DryRunHatch()
+                .frame(height: 6)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14))
+        }
         .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
     }
@@ -538,11 +576,11 @@ struct DryRunFinalCard: View {
                 .font(.aero(size: compact ? 14 : 17, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                .foregroundColor(selected ? theme.actionText : theme.action)
+                .foregroundColor(selected ? paper : ink)
                 .frame(maxWidth: .infinity)
                 .frame(height: compact ? 44 : 52)
-                .background(RoundedRectangle(cornerRadius: 10).fill(selected ? theme.action : Color.clear))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.action, lineWidth: 2))
+                .background(RoundedRectangle(cornerRadius: 10).fill(selected ? ink : Color.clear))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(ink, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])

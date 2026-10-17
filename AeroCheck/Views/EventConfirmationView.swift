@@ -81,7 +81,6 @@ struct EventConfirmationView: View {
                     onConfirm()
                 }
                 .accessibilityIdentifier("eventCard.confirm")
-                .coachTarget(.eventConfirm)
             }
 
             // Auto-dismiss countdown + progress (PR-06: unattended events are dismissed, not confirmed)
@@ -253,7 +252,6 @@ struct LandedCardView: View {
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(theme.panelStroke, lineWidth: 1.5))
         .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
         // The coach's ring on the card itself, inside its margins (st-15: it stood out past the card).
-        .coachTarget(.landedCard)
         .padding(.horizontal, CockpitType.size(kneeboard: 24, phone: 16))
         .accessibilityElement(children: .contain)
     }
@@ -285,8 +283,18 @@ struct LandedCardOverlay: View {
 struct FlightEventConfirmationOverlay: ViewModifier {
     @ObservedObject var flightEventDetector: FlightEventDetector
     var appState: AppState
+    @Environment(\.isDryRun) private var isDryRun
 
     func body(content: Content) -> some View {
+        if isDryRun {
+            // No card in a dry run: the session takes what the app saw (`DryRunSession`, 6.4.0).
+            content
+        } else {
+            cards(content)
+        }
+    }
+
+    private func cards(_ content: Content) -> some View {
         content
             .overlay { overlay(for: flightEventDetector.pendingGoAround) }
             .overlay { overlay(for: flightEventDetector.pendingTouchAndGo) }

@@ -1023,6 +1023,14 @@ struct ActChecklistPrimary: View {
                                horizontalPadding: padding, fitted: true, action: actions.endFlight)
                 .accessibilityIdentifier("cockpit.endFlight")
                 .spokenAs(phone ? L10n.Button.endFlight : nil)
+        } else if appState.waitsForTakeoff {
+            // The line up check done, on the runway: the climb check comes once airborne (a dry run, 6.4.0).
+            CockpitThumbButton(title: L10n.Cockpit.afterTakeoff, subtitle: phone ? nil : L10n.Cockpit.climbCheckOnceAirborne,
+                               icon: phone ? nil : "airplane.departure", style: .outlined(tint: theme.textSecondary),
+                               titleLines: lines.title, subtitleLines: lines.subtitle, horizontalPadding: padding,
+                               fitted: true, action: {})
+                .accessibilityIdentifier("cockpit.afterTakeoff")
+                .accessibilityValue(phone ? L10n.Cockpit.climbCheckOnceAirborne : "")
         } else {
             let label = CockpitNextLabel(
                 leaving: appState.currentPhase,
@@ -1381,6 +1389,7 @@ private struct ActSlotCoachTarget: ViewModifier {
         case .checkSlot, .engineStart, .engineShutdown: content.coachTarget(.first)
         case .checklistPrimary: content.coachTarget(.primary)
         case .deferItem: content.coachTarget(.deferItem)
+        case .mark: content.coachTarget(.legControls)
         default: content
         }
     }

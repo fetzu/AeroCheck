@@ -26,8 +26,9 @@ struct DryRunSetup {
     var isGuided: Bool { guided != nil }
 
     static let defaultRate = 4.0
-    /// The paces offered: as the pilot flies, four times, ten times.
-    static let rates: [Double] = [1, 4, 10]
+    /// The paces offered: as the pilot flies, four times, ten times, and thirty times for a long route run
+    /// through quickly (the author's fifth round, 17 Oct).
+    static let rates: [Double] = [1, 4, 10, 30]
 
     var departure: DryRunAerodrome {
         switch mission {

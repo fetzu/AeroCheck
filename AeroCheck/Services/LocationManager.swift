@@ -1210,6 +1210,7 @@ class LocationManager: NSObject, ObservableObject {
             detector.cueDestination = cueDestination(of: appState)
             appState.routeDestination = detector.cueDestination
             detector.processLocation(location, nearbyAirports: nearbyAirports, baroSample: barometer.currentSample)
+            appState.noteFlightCourse(location.course, speedKt: currentSpeedKnots)
             // A field to anchor the take-off to: the cues will time the checks from the first roll on, so
             // the climb check waits for 500 ft rather than show due on the runway. (6.1.0)
             if !nearbyAirports.isEmpty { appState.noteCueSourceReady() }

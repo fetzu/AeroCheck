@@ -1059,7 +1059,7 @@ struct FlightThreadView: View {
         case .fuelRow?: return row(.fuelPlanned)
         case .notamLink?, .notamTick?: return row(.notamChecked)
         case .flightPlanRow?: return row(.flightPlanFiled)
-        case .logbookRow?: return row(.logbookEntry)
+        case .logbookRow?, .logbookTick?: return row(.logbookEntry)
         case .debriefField?: return AnyHashable(debriefId)
         case .startFlight?: return AnyHashable(ThreadChapter.fly)
         case .finish?: return AnyHashable(footerId)
@@ -1625,6 +1625,7 @@ struct ThreadTaskRow: View {
     static func tickTarget(_ key: ThreadTaskKey) -> DryRunCoachStep.Target? {
         switch key {
         case .notamChecked: return .notamTick
+        case .logbookEntry: return .logbookTick
         default: return nil
         }
     }

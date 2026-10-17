@@ -129,6 +129,22 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                        .init(station: "BALE INFORMATION", freq: "130.900"), "the data's sector at Bressaucourt: Bâle")
     }
 
+    /// Back at the route's end, the field is NOW and nothing is NEXT: no CTR around (on final at Bressaucourt,
+    /// NEXT read Les Eplatures, 20 NM off; 6.4.0, the fifth dry run checks).
+    func testAtTheRoutesEndNothingIsNext() {
+        var local = FlightPlan(name: "Triangle", waypoints: [
+            Self.waypoint("LSZQ"),
+            FlightPlanWaypoint(name: "TP1", coordinate: .init(latitude: 47.42, longitude: 7.17)),
+            FlightPlanWaypoint(name: "TP2", coordinate: .init(latitude: 47.33, longitude: 7.12)),
+            Self.waypoint("LSZQ")])
+        local.currentWaypointIndex = 3
+        var world = Self.world
+        world.ctrs = [(station: "LES EPLATURES", frequency: "118.125")]
+        let plan = PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: world.sources)
+        XCTAssertEqual(plan.current, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertNil(plan.next)
+    }
+
     func testThePanelListsEachStationOnceEmergencyLast() {
         var world = Self.world
         world.ctrs = [(station: "GRENCHEN", frequency: "120.100"), (station: "BERN", frequency: "121.025")]

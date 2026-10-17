@@ -118,6 +118,8 @@ final class DryRunGenerator {
     private(set) var activity: Activity = .parked
     /// When `activity` began, in the flight's seconds.
     private(set) var activitySince = 0
+    /// How fast it turned in its last second, degrees: a turn under way.
+    private(set) var turnDegreesPerSecond = 0.0
 
     /// Feet above the aerodrome flown at (or to).
     var heightAboveFieldFt: Double { altitudeFt - aerodrome.elevationFt }
@@ -407,8 +409,11 @@ final class DryRunGenerator {
                 actions.insert(contentsOf: [.flare, .mark("touchdown"), .afterTouchdown(decided ?? .fullStop)], at: 0)
                 return nil
             }
+            // Down to the touchdown point whatever height the final began at: a final begun high (a route's
+            // arrival) still passes 250 ft before the runway, so a go-around climbs away from where the app
+            // sees one (the author's fifth round, a-2: the first go-around at a route's end went unseen).
             let groundSpeed = max(speedKt * DryRunGeo.metresPerSecondPerKnot, 1)
-            let verticalSpeed = -min(420, max(120, height / max(d / groundSpeed, 1) * 60))
+            let verticalSpeed = -min(900, max(120, height / max(d / groundSpeed, 1) * 60))
             return step(speed: performance.finalApproach, accel: 0.8, verticalSpeed: verticalSpeed,
                         heading: DryRunGeo.bearing(from: position, to: touchdown))
 
@@ -535,7 +540,16 @@ final class DryRunGenerator {
         if arriving, wayIn == nil { wayIn = field.wayIn(from: position) }
         let target = arriving ? wayIn?.points.first ?? field.downwindStart : waypoints[legIndex]
         let d = DryRunGeo.distance(position, target)
-        if arriving, d <= 9 * DryRunGeo.metresPerNM, !descending {
+        // The descent begins 9 NM before the way in. From a cruise far too high to lose after the last
+        // waypoint (half as much again as 550 ft a minute loses there), it begins on the last leg, where 500 ft
+        // a minute gets it down, so the circuit is joined at its altitude (a-2).
+        let mps = performance.descent * DryRunGeo.metresPerSecondPerKnot
+        let toLoseFt = max(0, altitudeFt - field.patternAltitudeFt)
+        let descentNeedsM = toLoseFt / 500 * 60 * mps + 2 * DryRunGeo.metresPerNM
+        let afterLastM = DryRunGeo.distance(target, field.reference)
+        let tooHigh = !arriving && legIndex == waypoints.count - 1
+            && toLoseFt > 1.5 * (afterLastM / mps / 60 * 550) && d + afterLastM <= descentNeedsM
+        if (arriving && d <= max(9 * DryRunGeo.metresPerNM, descentNeedsM)) || tooHigh, !descending {
             descending = true
             marks.append(("topOfDescent", t))
         }
@@ -693,8 +707,11 @@ final class DryRunGenerator {
     private func step(speed target: Double, accel: Double = 1.5, verticalSpeed: Double = 0,
                       heading targetHeading: Double? = nil, turnRate: Double = 3) -> DryRunFix {
         if let targetHeading {
-            let turn = DryRunGeo.angleDifference(from: heading, to: targetHeading)
-            heading = (heading + max(-turnRate, min(turnRate, turn)) + 360).truncatingRemainder(dividingBy: 360)
+            let turn = max(-turnRate, min(turnRate, DryRunGeo.angleDifference(from: heading, to: targetHeading)))
+            heading = (heading + turn + 360).truncatingRemainder(dividingBy: 360)
+            turnDegreesPerSecond = abs(turn)
+        } else {
+            turnDegreesPerSecond = 0
         }
         speedKt = speedKt < target ? min(target, speedKt + accel) : max(target, speedKt - accel)
         altitudeFt += verticalSpeed / 60

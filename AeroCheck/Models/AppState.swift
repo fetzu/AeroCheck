@@ -2231,6 +2231,26 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
+    /// The climb check waits for the take-off (`waitsForTakeoff`). The dry run's world sets it, whose take-off
+    /// the app always sees; a real flight doesn't yet, where a missed take-off would leave the pilot stuck on
+    /// the line up check. (6.4.0)
+    var climbWaitsForTakeoff = false
+    /// The legs (take-off rolls and climb-aways) seen as the line up check opened: one more is the take-off.
+    private var legsAtLineUp = 0
+
+    /// On the line up check, the way on to the climb check (NEXT, the slot, the phase bar) waits until the
+    /// aircraft has taken off: a climb check done on the runway is none (the author's fifth round, 17 Oct).
+    var waitsForTakeoff: Bool {
+        climbWaitsForTakeoff && isFlightActive && currentPhase == .lineUp && flightCues.legs <= legsAtLineUp
+    }
+
+    /// The GPS course of a fix in the air, for the cues: the leg's climb-out, then in circuits the turn onto
+    /// the downwind, where the approach check falls due (`FlightCueState.noteCourse`). (6.4.0)
+    func noteFlightCourse(_ course: Double, speedKt: Double) {
+        guard isFlightActive, course >= 0, speedKt >= 40 else { return }
+        flightCues.noteCourse(course)
+    }
+
     /// The detector has a field near the aircraft to anchor the take-off to: from now on the cued checks
     /// wait for their cue, the first take-off's included (`FlightCueState.hasCueSource`). Called on every
     /// detected fix; writes once. (6.1.0)
@@ -3048,7 +3068,8 @@ class AppState {
     // MARK: - Navigation
     
     func nextPhase() {
-        guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
+        guard !waitsForTakeoff,
+              let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
 
         // Every NEXT goes through here: out of the check before departure, it is READY FOR LINE UP.
@@ -3155,6 +3176,7 @@ class AppState {
     /// every item a second time, in the deferred list. (v6.0 review, B1)
     private func enterPhase(_ phase: ChecklistPhase) {
         currentPhase = phase
+        if phase == .lineUp { legsAtLineUp = flightCues.legs }
         // A deferred check you go back to is run where it stands, as the current phase.
         deferredChecks.removeAll { $0 == phase }
         guard settings.stepByStepHighlighting, let ids = deferredItems[phase] else { return }
@@ -3182,6 +3204,8 @@ class AppState {
         if phase.isSkippedInCircuitMode(isCircuitMode) {
             return
         }
+        // Past the line up check only once airborne, where the climb check waits for the take-off.
+        if waitsForTakeoff, phase.rawValue > currentPhase.rawValue { return }
 
         if let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
            let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase),

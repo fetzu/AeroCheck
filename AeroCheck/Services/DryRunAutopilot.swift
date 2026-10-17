@@ -128,6 +128,7 @@ final class DryRunAutopilot {
             case .threadCreated: Self.taps.send(.createFlight)
             case .chipTapped: coach.noteChip(.prepare)
             case .linkTapped: coach.noteLink()
+            case .fullTanksTapped: coach.noteFullTanks()
             case .threadFinished:
                 coach.actAsPilot(step, session)
                 Self.taps.send(.close(.flightPage))

@@ -19971,13 +19971,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The aircraft's own checklist wins"
+            "value": "The AFM and the approved checklist come first"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La checklist de l'avion fait foi"
+            "value": "L'AFM et la checklist approuvée font foi"
           }
         }
       }
@@ -19988,13 +19988,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Checklists here are transcriptions of club documents, not approved checklists. The AFM/POH and your operator's approved checklist remain authoritative. Compare them before you fly, and carry the paper one."
+            "value": "The checklists in AéroCheck are transcriptions of club documents, not approved checklists. The AFM/POH and your operator's approved checklist remain authoritative: compare them before you fly, and carry the paper checklist."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les checklists sont des transcriptions de documents de club, pas des checklists approuvées. L'AFM/POH et la checklist approuvée de l'exploitant font autorité. Comparez-les avant le vol, et emportez la version papier."
+            "value": "Les checklists d'AéroCheck sont des transcriptions de documents de club, pas des checklists approuvées. L'AFM/POH et la checklist approuvée de l'exploitant font autorité : comparez-les avant le vol, et emportez la checklist papier."
           }
         }
       }

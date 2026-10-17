@@ -2953,6 +2953,23 @@
         }
       }
     },
+    "dryRun.typeCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type the aerodrome's ICAO code."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez le code OACI de l'aérodrome."
+          }
+        }
+      }
+    },
     "dryRun.waiting": {
       "extractionState": "manual",
       "localizations": {

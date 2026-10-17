@@ -84,6 +84,25 @@ final class DryRunPracticeTests: XCTestCase {
         XCTAssertLessThan(DryRunGeo.distance(made.runwayCentre, made.reference), 5)
     }
 
+    /// Bellechasse (LSTB): OurAirports gives 08/26 and a length, no ends and no heading, and open flightmaps no
+    /// thresholds. The designator lays it out, as for some 16,000 aerodromes in the data.
+    func testOnlyADesignatorLaysTheRunwayOutOnTheReferencePoint() throws {
+        let field = airport("LSTB", 46.979, 7.081, elevation: 1421)
+        let made = try XCTUnwrap(DryRunAerodrome.make(airport: field, runways: [runway("08", "26", lengthFt: 1608)]))
+        XCTAssertEqual(made.runwayHeading, 80, accuracy: 0.5)
+        XCTAssertEqual(made.runwayLengthM, 490, accuracy: 2)
+        XCTAssertLessThan(DryRunGeo.distance(made.runwayCentre, made.reference), 5)
+
+        XCTAssertEqual(DryRunAerodrome.designatorHeading("26L"), 260)
+        XCTAssertEqual(DryRunAerodrome.designatorHeading("36"), 0)
+        XCTAssertEqual(DryRunAerodrome.designatorHeading("7"), 70)
+        XCTAssertNil(DryRunAerodrome.designatorHeading("H1"))
+        XCTAssertNil(DryRunAerodrome.designatorHeading("N"))
+        XCTAssertNil(DryRunAerodrome.designatorHeading("37"))
+        // A helipad's "H1" never makes a runway, however long the data says it is.
+        XCTAssertNil(DryRunAerodrome.make(airport: field, runways: [runway("H1", "H1", lengthFt: 600)]))
+    }
+
     func testNoOpenRunwayNoDryRunButOpenFlightmapsThresholdsWillDo() throws {
         let field = airport("LSXZ", 47, 7, elevation: 1500)
         XCTAssertNil(DryRunAerodrome.make(airport: field, runways: [runway("09", "27", lengthFt: 2000, closed: true,

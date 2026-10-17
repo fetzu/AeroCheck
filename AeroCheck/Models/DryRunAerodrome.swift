@@ -319,13 +319,23 @@ extension DryRunAerodrome {
             return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
                         threshold: longest.0, farEnd: longest.1)
         }
-        // Only a heading and a length.
-        if let runway = open.first, let heading = runway.leHeadingDegT ?? runway.heHeadingDegT.map({ ($0 + 180).truncatingRemainder(dividingBy: 360) }),
+        // Only a heading and a length; else only its designator (Bellechasse, Montricher: 08 lies about 080°,
+        // magnetic, a few degrees off true in Europe, near enough for the dry run's runway).
+        if let runway = open.first,
+           let heading = runway.leHeadingDegT ?? runway.heHeadingDegT.map({ ($0 + 180).truncatingRemainder(dividingBy: 360) })
+               ?? designatorHeading(runway.leIdent)
+               ?? designatorHeading(runway.heIdent).map({ ($0 + 180).truncatingRemainder(dividingBy: 360) }),
            let length = runway.lengthMeters, length > 150 {
             return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
                         heading: heading, lengthM: Double(length))
         }
         return nil
+    }
+
+    /// A runway end's designator as a heading: "08" 80°, "26L" 260°, "36" 0°; nil for a helipad's "H1".
+    static func designatorHeading(_ ident: String?) -> Double? {
+        guard let ident, let number = Int(ident.prefix { $0.isNumber }), (1...36).contains(number) else { return nil }
+        return Double(number % 36) * 10
     }
 
     private static func coordinate(_ latitude: Double?, _ longitude: Double?) -> CLLocationCoordinate2D? {

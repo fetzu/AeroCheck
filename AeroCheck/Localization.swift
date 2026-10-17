@@ -3565,6 +3565,7 @@ enum L10n {
         static let aerodrome = String(localized: "dryRun.aerodrome")
         static let looking = String(localized: "dryRun.looking")
         static func noRunway(_ a0: String) -> String { String(format: String(localized: "dryRun.noRunway"), a0) }
+        static let typeCode = String(localized: "dryRun.typeCode")
         static let routeTooShort = String(localized: "dryRun.routeTooShort")
         static let noAirportData = String(localized: "dryRun.noAirportData")
         static let aircraft = String(localized: "dryRun.aircraft")

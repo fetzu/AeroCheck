@@ -7207,11 +7207,23 @@ extension NavUndoOffer {
     }
 }
 
+extension NavUndoOffer {
+    /// "Go-around recorded by the app", taken back with UNDO: a go-around, touch-and-go or full stop the app
+    /// took as it saw it, with no card (6.4.0).
+    @MainActor
+    static func takenEvent(_ taken: AppState.TakenFlightEvent, in appState: AppState) -> NavUndoOffer {
+        NavUndoOffer(id: taken.id, message: L10n.Cockpit.eventTaken(taken.type.title), madeAt: taken.takenAt) {
+            appState.undoTakenEvent(taken.id)
+        }
+    }
+}
+
 extension AppState {
     /// Clears whichever check confirmation `id` is: the toast's six seconds are up.
     func dismissCheckConfirmation(_ id: UUID) {
         dismissMemoryConfirmation(id)
         dismissFredaConfirmation(id)
+        dismissTakenEvent(id)
     }
 }
 
@@ -7359,6 +7371,7 @@ extension NavUndoOffer {
         if inFlight {
             if let memory = appState.memoryConfirmation { offers.append(.memoryConfirmation(memory, in: appState)) }
             if let freda = appState.fredaConfirmation { offers.append(.fredaConfirmation(freda, in: appState)) }
+            if let taken = appState.takenFlightEvent { offers.append(.takenEvent(taken, in: appState)) }
             if let notice = flightPlanManager.autoMarkNotice { offers.append(.autoMark(notice, in: flightPlanManager)) }
         }
         if let band = cockpitNav?.undoOffer { offers.append(band) }
@@ -7412,6 +7425,7 @@ struct UndoOfferFollower: ViewModifier {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.takenFlightEvent?.id)
             .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
                 if id != nil { cockpitNav?.undoOffer = nil }
             }
@@ -7419,6 +7433,9 @@ struct UndoOfferFollower: ViewModifier {
                 if id != nil { cockpitNav?.undoOffer = nil }
             }
             .onChange(of: appState.fredaConfirmation?.id) { _, id in
+                if id != nil { cockpitNav?.undoOffer = nil }
+            }
+            .onChange(of: appState.takenFlightEvent?.id) { _, id in
                 if id != nil { cockpitNav?.undoOffer = nil }
             }
     }

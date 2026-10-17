@@ -64,8 +64,6 @@ final class DryRunWorld {
         plans.isFlightInProgress = { [weak appState] in appState?.isFlightActive ?? false }
         appState.anchorETOsOnLineUp = { [weak plans] in plans?.anchorETOsOnLineUp($0) }
         appState.takeLapFullStop = { [weak detector] in detector?.notifyManualEvent(.fullStop) }
-        // The climb check after the take-off, never on the runway (the author's fifth round, 17 Oct).
-        appState.climbWaitsForTakeoff = true
     }
 
     /// The pilot's settings for a dry run: Companion off (D8), and the aircraft chosen, the WT9 when none

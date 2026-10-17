@@ -109,8 +109,8 @@ struct FlightReconciliationView: View {
 
             Spacer()
 
-            if case .detectedOnly = value.source {
-                // Detected rows can be excluded — the pilot's word beats the track's.
+            if value.source == .detectedOnly || value.source == .taken {
+                // Detected rows, and those the app took in flight, can be excluded: the pilot's word beats the track's.
                 Button {
                     row.wrappedValue.included.toggle()
                 } label: {
@@ -142,6 +142,8 @@ struct FlightReconciliationView: View {
             badgeLabel(L10n.Reconciliation.badgeDetected, color: .aviationAmber)
         case .typeMismatch(let recorded):
             badgeLabel(L10n.Reconciliation.badgeWas(recorded.title), color: .orange)
+        case .taken:
+            badgeLabel(L10n.Reconciliation.badgeTaken, color: .aviationAmber)
         }
     }
 
@@ -226,6 +228,7 @@ struct FlightReconciliationView: View {
         case .confirmed: return Color.white.opacity(0.10)
         case .detectedOnly: return Color.aviationAmber.opacity(0.5)
         case .typeMismatch: return Color.orange.opacity(0.5)
+        case .taken: return Color.aviationAmber.opacity(0.5)
         }
     }
 

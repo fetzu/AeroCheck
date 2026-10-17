@@ -286,8 +286,9 @@ struct FlightEventConfirmationOverlay: ViewModifier {
     @Environment(\.isDryRun) private var isDryRun
 
     func body(content: Content) -> some View {
-        if isDryRun {
-            // No card in a dry run: the session takes what the app saw (`DryRunSession`, 6.4.0).
+        if isDryRun || !appState.settings.confirmFlightEvents {
+            // No card in a dry run, nor unless the pilot asked for them: what the app saw is taken, with UNDO
+            // (`AppState.takeDetectedEvents`, 6.4.0).
             content
         } else {
             cards(content)

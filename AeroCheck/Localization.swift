@@ -997,6 +997,8 @@ enum L10n {
         static let flightLogging = String(localized: "settings.flightLogging")
         static let logEngineHours = String(localized: "settings.flightLogging.logEngineHours")
         static let logEngineHoursFooter = String(localized: "settings.flightLogging.logEngineHoursFooter")
+        static let confirmFlightEvents = String(localized: "settings.flightLogging.confirmFlightEvents")
+        static let confirmFlightEventsFooter = String(localized: "settings.flightLogging.confirmFlightEventsFooter")
 
         // Checklist Language
         static let checklistLanguage = String(localized: "settings.checklistLanguage")
@@ -1659,6 +1661,7 @@ enum L10n {
         static let keepRecorded = String(localized: "reconciliation.keepRecorded")
         static let badgeConfirmed = String(localized: "reconciliation.badge.confirmed")
         static let badgeDetected = String(localized: "reconciliation.badge.detected")
+        static let badgeTaken = String(localized: "reconciliation.badge.taken")
         static func badgeWas(_ type: String) -> String {
             String(format: String(localized: "reconciliation.badge.was"), type)
         }
@@ -2250,6 +2253,10 @@ enum L10n {
             String(format: String(localized: "cockpit.fromMemoryThenNext"), next)
         }
         /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
+        /// "Go-around recorded by the app": taken with no card, UNDO for six seconds. (6.4.0)
+        static func eventTaken(_ event: String) -> String {
+            String(format: String(localized: "cockpit.eventTaken"), event)
+        }
         static func doneFromMemoryToast(_ check: String) -> String {
             String(format: String(localized: "cockpit.doneFromMemoryToast"), check)
         }

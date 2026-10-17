@@ -403,8 +403,9 @@ enum DryRunChapters {
               memoryCheck: .landing, memoryBody: T.landingShownMemoryBody),
             S(id: "goAround", chapter: 6, kind: .act, target: .finalCard, veils: true, holds: true, moment: .final(1),
               done: .finalChoice(.goAround), title: T.goAroundTitle, body: T.goAroundBody, upcoming: T.goAroundUpcoming),
-            // No card to answer in a dry run: the go-around taken as the app saw it, and what a real flight asks.
-            S(id: "goAroundCard", chapter: 6, kind: .look, target: nil, veils: false, holds: true,
+            // No card to answer in a dry run: the go-around taken as the app saw it, its Undo, and what the
+            // Flight review asks after a real flight.
+            S(id: "goAroundCard", chapter: 6, kind: .look, target: .undoToast, veils: false, holds: true,
               moment: .goneAround, done: .next, title: T.goAroundCardTitle, body: T.goAroundCardBody),
             S(id: "climbAgain", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.climb)), done: .checkDone(.climb), title: T.climbAgainTitle,

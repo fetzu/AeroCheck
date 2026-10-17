@@ -217,9 +217,26 @@ final class DryRunGuidedTests: XCTestCase {
         XCTAssertTrue(tried)
         XCTAssertTrue(record.shown.contains("climbCheck"), "\(record.shown)")
         XCTAssertTrue(record.shown.contains("endFlight"))
-        // A real flight's AppState doesn't wait: a missed take-off would leave its pilot on the line up check.
+    }
+
+    /// A real flight's climb check waits for the take-off too, and never traps the pilot: only with a field to
+    /// see the take-off from, and not once rolling at 40 kt (the author's answer, 17 Oct).
+    func testARealFlightsClimbCheckWaitsButNeverTraps() {
         let appState = makeTestAppState()
-        XCTAssertFalse(appState.climbWaitsForTakeoff)
+        appState.startFlight()
+        addTeardownBlock { @MainActor in appState.cancelFlight() }
+        appState.goToPhase(.lineUp, skipped: .alreadyDone)
+        XCTAssertFalse(appState.waitsForTakeoff, "no field to see the take-off from: as before")
+        appState.noteCueSourceReady()
+        XCTAssertTrue(appState.waitsForTakeoff)
+        appState.noteGroundSpeed(45)
+        XCTAssertFalse(appState.waitsForTakeoff, "rolling: the take-off roll")
+        appState.noteGroundSpeed(5)
+        XCTAssertTrue(appState.waitsForTakeoff)
+        appState.noteFlightCue(FlightCueEvent(kind: .leg, time: Date(), implied: false, aerodrome: "LSZQ"))
+        XCTAssertFalse(appState.waitsForTakeoff, "the take-off seen")
+        appState.nextPhase()
+        XCTAssertEqual(appState.currentPhase, .climb)
     }
 
     /// The ATC flight plan ticked rather than set aside: either answers its card (st-7).

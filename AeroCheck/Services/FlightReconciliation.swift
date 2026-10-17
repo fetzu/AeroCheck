@@ -30,6 +30,8 @@ enum FlightReconciliation {
             case detectedOnly
             /// Pilot-confirmed one type, the track reads another (`suggestedType`).
             case typeMismatch(recorded: FlightEventType)
+            /// Recorded by the app as it saw it, with no card, and still to confirm (6.4.0).
+            case taken
         }
 
         let id: UUID
@@ -71,7 +73,7 @@ enum FlightReconciliation {
             events.contains { row in
                 switch row.source {
                 case .confirmed: return false
-                case .detectedOnly, .typeMismatch: return true
+                case .detectedOnly, .typeMismatch, .taken: return true
                 }
             }
         }
@@ -112,6 +114,9 @@ enum FlightReconciliation {
             flight.touchAndGoTimes.map { (.touchAndGo, $0) } +
             flight.fullStopTimes.map { (.fullStop, $0) }
         recorded.sort { $0.time < $1.time }
+        // What the app took in flight with no card is the pilot's to confirm here (6.4.0).
+        let taken = flight.takenEventTimes ?? []
+        func wasTaken(_ time: Date) -> Bool { taken.contains { abs($0.timeIntervalSince(time)) < 5 } }
 
         var rows: [EventRow] = []
         var claimed = Set<Int>()   // indices into `recorded` already matched
@@ -126,9 +131,9 @@ enum FlightReconciliation {
                        abs($1.element.time.timeIntervalSince(event.timestamp)) }
             if let match {
                 claimed.insert(match.offset)
-                let source: EventRow.Source = match.element.type == event.type
-                    ? .confirmed
-                    : .typeMismatch(recorded: match.element.type)
+                let source: EventRow.Source = match.element.type != event.type
+                    ? .typeMismatch(recorded: match.element.type)
+                    : wasTaken(match.element.time) ? .taken : .confirmed
                 rows.append(EventRow(type: event.type, timestamp: event.timestamp,
                                      airportIdent: event.airportIdent, source: source))
             } else {
@@ -151,7 +156,7 @@ enum FlightReconciliation {
             }
             if duplicatesLanding || duplicatesGoAround { continue }
             rows.append(EventRow(type: entry.type, timestamp: entry.time,
-                                 airportIdent: nil, source: .confirmed))
+                                 airportIdent: nil, source: wasTaken(entry.time) ? .taken : .confirmed))
         }
 
         rows.sort { $0.timestamp < $1.timestamp }
@@ -231,6 +236,8 @@ enum FlightReconciliation {
         flight.goAroundCount = flight.goAroundTimes.count
         flight.touchAndGoCount = flight.touchAndGoTimes.count
         flight.fullStopCount = flight.fullStopTimes.count
+        // Reviewed: nothing taken is left to confirm.
+        flight.takenEventTimes = nil
         if let finalStop = flight.fullStopTimes.max() {
             // The final landing is the touchdown the track shows, as END FLIGHT measured it
             // (`TrackTimes`, `AppState.refineTimingFromTrack`), whenever that is this landing. The

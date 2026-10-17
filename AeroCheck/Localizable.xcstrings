@@ -2817,6 +2817,23 @@
         }
       }
     },
+    "cockpit.eventTaken": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ recorded by the app"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : enregistré par l'app"
+          }
+        }
+      }
+    },
     "cockpit.newCircuit": {
       "extractionState": "manual",
       "localizations": {
@@ -6206,13 +6223,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app records it; in a real flight it asks you to confirm it once you end the flight. The checks went back to the climb check."
+            "value": "The app took the go-around by itself: the checks went back to the climb check. For a few seconds Undo takes it back if it wasn't one; after a real flight, the Flight review asks you to confirm it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app l'enregistre ; en vrai vol, elle vous demande de la confirmer une fois le vol terminé. Les vérifications sont revenues à celle de montée."
+            "value": "L'app a pris la remise de gaz d'elle-même : les vérifications sont revenues à celle de montée. Pendant quelques secondes, Annuler la reprend si ce n'en était pas une ; après un vrai vol, la Revue du vol vous demande de la confirmer."
           }
         }
       }
@@ -8280,6 +8297,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "aucun point à venir"
+          }
+        }
+      }
+    },
+    "reconciliation.badge.taken": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "recorded by the app"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enregistré par l'app"
+          }
+        }
+      }
+    },
+    "settings.flightLogging.confirmFlightEvents": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm landings and go-arounds"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmer atterrissages et remises de gaz"
+          }
+        }
+      }
+    },
+    "settings.flightLogging.confirmFlightEventsFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On, a card asks you to confirm each go-around, touch-and-go and full stop the app sees. Off, the app takes them as it sees them: the checks follow, Undo takes one back for a few seconds, and the Flight review after END FLIGHT asks you to confirm them."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activé, un encadré vous demande de confirmer chaque remise de gaz, posé-décollé et atterrissage complet que l'app voit. Désactivé, l'app les prend comme elle les voit : les vérifications suivent, Annuler en reprend un pendant quelques secondes, et la Revue du vol, après TERMINER LE VOL, vous demande de les confirmer."
           }
         }
       }

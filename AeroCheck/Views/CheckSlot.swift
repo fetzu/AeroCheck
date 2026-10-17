@@ -629,8 +629,8 @@ struct CockpitCheckSlot: View {
                                   timing: appState.cueTiming(for: phase), owedBy: appState.owedCue(for: phase),
                                   freda: freda(in: appState, now: now), upcoming: upcoming,
                                   landingShown: appState.landingCheckShown ? check(of: .landing, in: appState) : nil)
-        // The climb check waiting for the take-off (a dry run): the slot opens the checklist, whose NEXT
-        // says so, rather than go on. (6.4.0)
+        // The climb check waiting for the take-off: the slot opens the checklist, whose NEXT says so, rather
+        // than go on. (6.4.0)
         if appState.waitsForTakeoff, slot.action == .advance {
             return CheckSlot(phase: slot.phase, line: slot.line, icon: slot.icon, tone: slot.tone,
                              action: .showChecklist, title: slot.title)

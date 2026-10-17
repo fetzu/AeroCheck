@@ -1211,12 +1211,15 @@ class LocationManager: NSObject, ObservableObject {
             appState.routeDestination = detector.cueDestination
             detector.processLocation(location, nearbyAirports: nearbyAirports, baroSample: barometer.currentSample)
             appState.noteFlightCourse(location.course, speedKt: currentSpeedKnots)
+            appState.noteGroundSpeed(currentSpeedKnots)
             // A field to anchor the take-off to: the cues will time the checks from the first roll on, so
             // the climb check waits for 500 ft rather than show due on the runway. (6.1.0)
             if !nearbyAirports.isEmpty { appState.noteCueSourceReady() }
             // A full stop on a flight that isn't circuits is the landed card's, whatever screen is up:
             // the Companion shows it from the iPad's snapshot. (6.1, M4)
             if appState.takeFullStopForLandedCard(detector.pendingFullStop) { detector.dismissFullStop() }
+            // No card unless the pilot asked for them: what the detector saw is taken, with UNDO. (6.4.0)
+            if !appState.settings.confirmFlightEvents { appState.takeDetectedEvents(from: detector) }
         }
     }
 

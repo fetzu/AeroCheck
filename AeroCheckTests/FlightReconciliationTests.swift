@@ -150,6 +150,29 @@ final class FlightReconciliationTests: XCTestCase {
         XCTAssertTrue(result.events.allSatisfy { $0.source == .confirmed })
     }
 
+    /// What the app took in flight with no card is listed for the pilot to confirm, and the review, applied,
+    /// leaves nothing taken to confirm (6.4.0).
+    func testEventsTheAppTookAreListedToConfirm() throws {
+        let fixture = try loadCircuitFixture()
+        let times = fixture.expectedEvents.map { Date(timeIntervalSince1970: $0.t) }
+        var flight = self.flight(
+            from: fixture,
+            goArounds: fixture.expectedEvents.filter { $0.type == "GA" }.map { Date(timeIntervalSince1970: $0.t) },
+            touchAndGos: fixture.expectedEvents.filter { $0.type == "TG" }.map { Date(timeIntervalSince1970: $0.t) },
+            fullStops: fixture.expectedEvents.filter { $0.type == "FS" }.map { Date(timeIntervalSince1970: $0.t) }
+        )
+        flight.takenEventTimes = times
+        let result = FlightReconciliation.analyze(
+            flight: flight, speeds: speeds(vso: fixture.vso, vr: fixture.vr),
+            stallSpeed: 42, nearbyAirports: nearestQuery(airports(from: fixture))
+        )
+        XCTAssertTrue(result.hasEventDiff, "the review asks about what the app took")
+        XCTAssertTrue(result.events.allSatisfy { $0.source == .taken }, "\(result.events.map(\.source))")
+        FlightReconciliation.apply(result, to: &flight)
+        XCTAssertNil(flight.takenEventTimes)
+        XCTAssertEqual(flight.goAroundTimes.count + flight.touchAndGoTimes.count + flight.fullStopTimes.count, times.count)
+    }
+
     /// A confirmed go-around on what the track reads as a touch surfaces as ONE
     /// type-mismatch row (the <15 ft ambiguity band's human-resolution case).
     func testTypeMismatchSurfacesAsSingleRow() throws {

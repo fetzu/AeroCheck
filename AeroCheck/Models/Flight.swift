@@ -236,6 +236,9 @@ struct Flight: Identifiable, Codable {
     var goAroundTimes: [Date]
     var touchAndGoTimes: [Date]
     var fullStopTimes: [Date]
+    /// The go-arounds, touch-and-goes and full stops the app took as it saw them, with no card to confirm
+    /// them (6.4.0): the Flight review lists them for the pilot to confirm. Optional: older flights have none.
+    var takenEventTimes: [Date]? = nil
 
     // Sync / integrity (v5)
     /// Monotonic last-local-modification timestamp; the CloudKit conflict tiebreaker. (ARCH-02)
@@ -303,6 +306,7 @@ struct Flight: Identifiable, Codable {
         case gpsTrack, notes
         case goAroundCount, touchAndGoCount, fullStopCount
         case goAroundTimes, touchAndGoTimes, fullStopTimes
+        case takenEventTimes
         case modifiedAt, schemaVersion
         case cachedDistanceKm, cachedMaxAltitudeMeters, cachedDurationSeconds
         case isFavorite
@@ -363,6 +367,7 @@ struct Flight: Identifiable, Codable {
         touchAndGoTimes = try container.decodeIfPresent([Date].self, forKey: .touchAndGoTimes) ?? []
         // New in v2 - default to empty for backward compatibility
         fullStopTimes = try container.decodeIfPresent([Date].self, forKey: .fullStopTimes) ?? []
+        takenEventTimes = try container.decodeIfPresent([Date].self, forKey: .takenEventTimes)
 
         // New in v5 - legacy records default modifiedAt to their stop/start time (a reasonable
         // "last touched" proxy) and schema version 1.

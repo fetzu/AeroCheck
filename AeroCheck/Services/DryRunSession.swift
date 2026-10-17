@@ -306,15 +306,10 @@ final class DryRunSession: ObservableObject, Identifiable {
         if FlightClock.virtual?.rate != pace { FlightClock.setVirtualRate(pace) }
     }
 
-    /// No card to answer in a dry run (the author's fifth round, 17 Oct): a go-around, a touch-and-go or a
-    /// full stop the app saw is taken at once, as CONFIRM takes it, and the landed card goes on to the after
-    /// landing check with nothing asked. The coach's card says what a real flight would ask.
+    /// No card in a dry run, whatever the pilot's setting (the author's fifth round, 17 Oct): what the app saw
+    /// is taken at once, with UNDO, as a flight takes it by default.
     private func takeDetectedEvents() {
-        let detector = world.detector, appState = world.appState
-        for event in [detector.pendingGoAround, detector.pendingTouchAndGo, detector.pendingFullStop].compactMap({ $0 }) {
-            FlightEventConfirmationOverlay.confirm(event, appState: appState, detector: detector)
-        }
-        if appState.landedCard != nil { appState.answerLandedCard(.next) }
+        world.appState.takeDetectedEvents(from: world.detector)
     }
 
     /// The guided flight's pace for what the aircraft is doing.

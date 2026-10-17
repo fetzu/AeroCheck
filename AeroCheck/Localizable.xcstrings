@@ -24310,7 +24310,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cap initial"
+            "value": "Route initiale"
           }
         }
       }
@@ -31656,7 +31656,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cap magnétique"
+            "value": "Route magnétique"
           }
         }
       }
@@ -31689,7 +31689,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "CM"
+            "value": "Rm"
           }
         }
       }
@@ -31790,7 +31790,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vitesse propre et le vent servent à calculer l'EET. Le CM et la distance sont calculés automatiquement."
+            "value": "La vitesse propre et le vent servent à calculer l'EET. La Rm et la distance sont calculées automatiquement."
           }
         }
       }

@@ -2357,7 +2357,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             for _ in 0..<600 {
                 if let airports = airportDataService {
                     radio.update(position: locationManager.currentLocation?.coordinate,
-                                 plan: flightPlanManager.activeFlightPlan,
+                                 plan: flightPlanManager.activeFlightPlan, circuits: appState.isCircuitMode,
                                  sources: .live(airports: airports, openAIP: openAIP))
                 }
                 lastReceivedData = createCompanionFlightData(appState: appState, locationManager: locationManager,

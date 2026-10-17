@@ -886,6 +886,7 @@ struct CockpitRadioFollower: ViewModifier {
     /// What the lists are computed again for, besides a move.
     struct Key: Equatable {
         let phase: ChecklistPhase
+        let circuits: Bool
         let planId: UUID?
         let waypointCount: Int
         let nextIndex: Int?
@@ -902,13 +903,14 @@ struct CockpitRadioFollower: ViewModifier {
             .onAppear { start() }
             .onChange(of: key) { _, _ in recompute() }
             .onChange(of: locationManager.currentLocation) { _, location in
-                radio.noteMove(to: location?.coordinate, plan: flightPlanManager.activeFlightPlan, sources: sources)
+                radio.noteMove(to: location?.coordinate, plan: flightPlanManager.activeFlightPlan,
+                               circuits: appState.isCircuitMode, sources: sources)
             }
     }
 
     private var key: Key {
         let plan = flightPlanManager.activeFlightPlan
-        return Key(phase: appState.currentPhase, planId: plan?.id, waypointCount: plan?.waypoints.count ?? 0,
+        return Key(phase: appState.currentPhase, circuits: appState.isCircuitMode, planId: plan?.id, waypointCount: plan?.waypoints.count ?? 0,
                    nextIndex: plan?.currentWaypointIndex, diversion: plan?.diversion?.ident,
                    airports: airportDataService.isDataAvailable, airspace: openAIPDataService.isDataAvailable,
                    airspaceCount: openAIPDataService.airspaceCount,
@@ -921,7 +923,7 @@ struct CockpitRadioFollower: ViewModifier {
 
     private func recompute() {
         radio.update(position: locationManager.currentLocation?.coordinate,
-                     plan: flightPlanManager.activeFlightPlan, sources: sources)
+                     plan: flightPlanManager.activeFlightPlan, circuits: appState.isCircuitMode, sources: sources)
     }
 
     private func start() {

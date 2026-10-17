@@ -2492,6 +2492,7 @@ struct NavigationMapView: View {
         guard chrome == .plan else { return }
         let items = PhaseFrequencyPlanner.plan(
             position: locationManager.currentLocation?.coordinate, plan: flightPlanManager.activeFlightPlan,
+            circuits: appState.isCircuitMode,
             sources: .live(airports: airportDataService, openAIP: openAIPDataService)).panel
         phaseFreqItems = items
         // Mirror this exact list (content + NOW/NEXT + order) to the Apple Watch. (Watch freq sync)

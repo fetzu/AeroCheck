@@ -145,6 +145,31 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertNil(plan.next)
     }
 
+    /// Free practice circuits at Bressaucourt, no route: the field is NOW and nothing is NEXT, not the nearest CTR
+    /// (NEXT read Les Eplatures; 6.4.0, the author's dry run checks, 18 Oct). On a route too.
+    func testCircuitsKeepNothingNext() {
+        var world = Self.world
+        world.ctrs = [(station: "LES EPLATURES", frequency: "118.125")]
+        let circuits = PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: nil, circuits: true,
+                                                  sources: world.sources)
+        XCTAssertEqual(circuits.current, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertNil(circuits.next)
+        XCTAssertFalse(circuits.route.contains { $0.role == .next })
+        let onARoute = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: Self.route(next: 1), circuits: true,
+                                                  sources: world.sources)
+        XCTAssertNil(onARoute.next, "circuits switched on at the end of a cross-country")
+    }
+
+    /// No route near a field: the area's Info is NEXT, before a CTR around (the nearest, in any direction).
+    func testNoRouteNearAFieldHasTheInfoNextBeforeACTR() {
+        var world = Self.world
+        world.ctrs = [(station: "LES EPLATURES", frequency: "118.125")]
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: nil, sources: world.sources).next,
+                       .init(station: "Zürich Info", freq: "124.700"))
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: nil, sources: world.sources).next?.station,
+                       "LES EPLATURES", "away from any field: the nearest CTR, as before")
+    }
+
     func testThePanelListsEachStationOnceEmergencyLast() {
         var world = Self.world
         world.ctrs = [(station: "GRENCHEN", frequency: "120.100"), (station: "BERN", frequency: "121.025")]

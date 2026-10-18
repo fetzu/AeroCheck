@@ -523,7 +523,13 @@ enum PhaseFrequencyPlanner {
                 for zone in timeline.possible where timeline.end(of: zone, departureOver: true) > moment.progressNM {
                     list.add(PhaseFrequencyPlanner.entry(zone.station, kind: .unit), role: .other)
                 }
-                for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
+                // The CTRs around, short of one the timeline already lists under another name (Grenchen's tower as
+                // "GRENCHEN TWR HX", "LSZG TWR" and the CTR "GRENCHEN (HX)": the Grenchen replay).
+                for ctr in ctrs {
+                    guard let frequency = ctr.frequency,
+                          !list.items.contains(where: { RouteRadioPlanner.Station.isSameFrequency($0.freq, frequency) }) else { continue }
+                    list.add(ctr.station, frequency)
+                }
                 list.addEmergency()
                 return list.items
             }

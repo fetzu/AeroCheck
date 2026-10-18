@@ -710,6 +710,16 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(stations.map(\.listen), [false, false, true, false, false])
     }
 
+    /// ROUTE on the route lists a CTR around once: not again under its own name when the timeline has its
+    /// frequency (the destination's tower, 8.33 kHz name or not).
+    func testRouteRadioListsACTRAroundOnlyOnce() {
+        var world = Self.empty
+        world.ctrs = [(station: "XB (HX)", frequency: "118.130"), (station: "BERN (HX)", frequency: "121.025")]
+        let stations = onRoute(longitude: 7.05, next: 1, world: world).route.map(\.station)
+        XCTAssertFalse(stations.contains("XB (HX)"), stations.description)
+        XCTAssertTrue(stations.contains("BERN (HX)"))
+    }
+
     /// The Cockpit's radio reads a timeline only for the route it was built for.
     func testTheRadioReadsATimelineOnlyForItsRoute() {
         let radio = CockpitRadio()

@@ -126,6 +126,9 @@ struct FrequencyInfo: Codable, Identifiable {
     let type: FrequencyType
     /// NOW / NEXT / emergency role, mirroring the phone's FREQ panel. Optional so older payloads decode. (Watch freq sync)
     var role: FrequencyRole? = nil
+    /// Listen-only (the destination's ATIS, an aerodrome on the way): badged LISTEN. A key of its own, not a new
+    /// role, so a Watch app a version behind still reads the row as NEXT. (6.4.2)
+    var listen: Bool? = nil
 
     enum FrequencyType: String, Codable {
         case tower

@@ -107,6 +107,24 @@
         }
       }
     },
+    "freq.listen" : {
+      "comment" : "Frequency badge: listen only (an ATIS, an aerodrome on the way).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LISTEN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ÉCOUTE"
+          }
+        }
+      }
+    },
     "freq.next" : {
       "comment" : "Frequency badge and row: the next station.",
       "extractionState" : "manual",

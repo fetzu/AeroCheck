@@ -31165,6 +31165,22 @@
         }
       }
     },
+    "nav.freqListen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LISTEN"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÉCOUTE"
+          }
+        }
+      }
+    },
     "nav.freqEmergency": {
       "extractionState": "manual",
       "localizations": {

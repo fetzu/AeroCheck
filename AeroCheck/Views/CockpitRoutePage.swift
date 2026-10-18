@@ -898,6 +898,8 @@ struct CockpitRadioFollower: ViewModifier {
         let route: [String]
         /// The level-off came: the departure field gives way on the radio timeline. (6.4.2)
         let departureOver: Bool
+        /// Aerodromes on the way in NEXT (Settings › Checklist & Flight). (6.4.2)
+        let fieldsOnTheWay: Bool
     }
 
     func body(content: Content) -> some View {
@@ -934,7 +936,8 @@ struct CockpitRadioFollower: ViewModifier {
     /// The flight beyond its position: its ground speed, whether its departure is over. (6.4.2)
     private var situation: PhaseFrequencyPlanner.Situation {
         let speed = locationManager.currentLocation.flatMap { $0.speed >= 0 ? $0.speed * 1.943_844 : nil }
-        return PhaseFrequencyPlanner.Situation(groundSpeedKt: speed, departureOver: departureOver)
+        return PhaseFrequencyPlanner.Situation(groundSpeedKt: speed, departureOver: departureOver,
+                                               fieldsOnTheWay: appState.settings.showFieldsOnTheWay)
     }
 
     /// The level-off, or a later cue (which brings it), on this leg.
@@ -950,7 +953,7 @@ struct CockpitRadioFollower: ViewModifier {
                    airports: airportDataService.isDataAvailable, airspace: openAIPDataService.isDataAvailable,
                    airspaceCount: openAIPDataService.airspaceCount,
                    route: plan?.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } ?? [],
-                   departureOver: departureOver)
+                   departureOver: departureOver, fieldsOnTheWay: appState.settings.showFieldsOnTheWay)
     }
 
     private var sources: PhaseFrequencyPlanner.Sources {

@@ -538,6 +538,48 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertFalse(CockpitRadio.movedSignificantly(from: nil, to: nil))
     }
 
+    // MARK: - Without a route (q10), diverting (R7) (6.4.2)
+
+    /// q10: without a route a field is NOW only inside its zone, else within its 3 NM circuit. dr-3 had the
+    /// destination NOW 16 NM out, and Les Eplatures as it passed 4 NM aside.
+    func testWithoutARouteAFieldIsNowOnlyInsideItsZone() {
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearLesEplatures, plan: nil, sources: Self.world.sources).current?.station,
+                       "Geneva Info", "4 NM from Les Eplatures, no zone known: outside its circuit")
+        var world = Self.world
+        world.zones = ["LSGC": 5]
+        let inside = PhaseFrequencyPlanner.plan(position: Self.nearLesEplatures, plan: nil, sources: world.sources)
+        XCTAssertEqual(inside.current, .init(station: "LSGC AFIS", freq: "120.350"), "inside its 5 NM zone")
+        XCTAssertEqual(inside.next?.station, "Geneva Info")
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: nil, sources: Self.world.sources).current?.station,
+                       "LSZQ A/G", "2.5 NM out, in its circuit")
+        let between = PhaseFrequencyPlanner.plan(position: Self.nearLesEplatures, plan: nil, sources: Self.world.sources)
+        XCTAssertEqual(between.next, .init(station: "LSGC AFIS", freq: "120.350"), "the field ahead is the next call")
+    }
+
+    /// R7: diverting, the field diverted to is NEXT, then NOW 5 min before it (8.3 NM at 100 kt) or inside its
+    /// zone, with nothing NEXT.
+    func testDivertingTheFieldIsNowFiveMinutesBeforeIt() {
+        var route = Self.route(next: 2)
+        route.diversion = Self.diversion("LSZQ")
+        let away = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: route, sources: Self.world.sources)
+        XCTAssertEqual(away.next, .init(station: "LSZQ A/G", freq: "123.575"))
+        let sevenOut = CLLocationCoordinate2D(latitude: 47.275, longitude: 7.03)
+        let close = PhaseFrequencyPlanner.plan(position: sevenOut, plan: route,
+                                               situation: .init(groundSpeedKt: 100), sources: Self.world.sources)
+        XCTAssertEqual(close.current, .init(station: "LSZQ A/G", freq: "123.575"))
+        XCTAssertNil(close.next)
+        let slow = PhaseFrequencyPlanner.plan(position: sevenOut, plan: route,
+                                              situation: .init(groundSpeedKt: 60), sources: Self.world.sources)
+        XCTAssertEqual(slow.next?.station, "LSZQ A/G", "at 60 kt, 7 NM is 7 min")
+    }
+
+    /// The aerodromes on the way are a setting, on by default, also for settings saved before 6.4.2.
+    func testAerodromesOnTheWayAreOnByDefault() throws {
+        XCTAssertTrue(AppSettings().showFieldsOnTheWay)
+        let older = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(AppSettings()).replacingKey("showFieldsOnTheWay"))
+        XCTAssertTrue(older.showFieldsOnTheWay)
+    }
+
     // MARK: - On the route: the radio timeline (6.4.2)
 
     /// A route east along 47°N from LSXA (7.0° E) to LSXB (8.2° E), 49 NM, Geneva Info west of 7.75° E and
@@ -629,8 +671,8 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     /// More than 5 NM off the route, or diverting, the timeline is left for the rules without a route.
     func testOffTheRouteOrDivertingTheTimelineIsLeft() {
         XCTAssertEqual(onRoute(longitude: 7.05, next: 1, departureOver: false).current?.station, "LSXA AFIS")
-        XCTAssertNotEqual(onRoute(longitude: 7.05, latitude: 47.1, next: 1, departureOver: false).current?.station,
-                          "LSXA AFIS", "6 NM north")
+        let off = onRoute(longitude: 7.05, latitude: 47.1, next: 1, departureOver: false)
+        XCTAssertEqual(off.current?.station, "Geneva Info", "6 NM north: the area's FIS, the rules without a route")
         var diverting = Self.timelineRoute(next: 2)
         diverting.diversion = Diversion(ident: "LSZG", name: "LSZG", latitude: 47.1816, longitude: 7.4172, leftRouteAt: 2)
         let reading = onRoute(longitude: 7.35, next: 2, plan: diverting, world: Self.world)
@@ -687,6 +729,8 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         var ctrs: [(station: String, frequency: String?)] = []
         var hasAirportData = true
         var fisSectors: (CLLocationCoordinate2D) -> [PhaseFrequencyPlanner.Entry] = { _ in [] }
+        /// Each field's zone, as a centre and a radius (NM): none, its 3 NM circuit counts.
+        var zones: [String: Double] = [:]
 
         var sources: PhaseFrequencyPlanner.Sources {
             let fields = self.fields
@@ -706,7 +750,14 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                 },
                 fieldFrequencies: { ident in fields[ident.uppercased()]?.frequencies ?? [] },
                 nearbyCTRs: { _ in ctrs },
-                fisSectors: fisSectors)
+                fisSectors: fisSectors,
+                isInFieldZone: { [zones] field, point in
+                    zones[field.ident].map {
+                        CLLocation(latitude: point.latitude, longitude: point.longitude)
+                            .distance(from: CLLocation(latitude: field.coordinate.latitude,
+                                                       longitude: field.coordinate.longitude)) / 1852 <= $0
+                    }
+                })
         }
     }
 
@@ -726,8 +777,9 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     private static let enRoute = CLLocationCoordinate2D(latitude: 47.05, longitude: 7.15)
     /// About 4 NM east of Les Eplatures.
     private static let nearLesEplatures = CLLocationCoordinate2D(latitude: 47.10, longitude: 6.88)
-    /// About 3 NM south of Bressaucourt.
-    private static let nearBressaucourt = CLLocationCoordinate2D(latitude: 47.34, longitude: 7.03)
+    /// About 2.5 NM south of Bressaucourt, inside its circuit (until 6.4.2 about 3 NM, just outside it: a field
+    /// was NOW within 10 NM then).
+    private static let nearBressaucourt = CLLocationCoordinate2D(latitude: 47.35, longitude: 7.03)
 
     private static func moved(_ point: CLLocationCoordinate2D, by degrees: Double) -> CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: point.latitude + degrees, longitude: point.longitude)
@@ -762,5 +814,14 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         let field = world.fields[ident]!
         return Diversion(ident: ident, name: ident, latitude: field.coordinate.latitude,
                          longitude: field.coordinate.longitude, leftRouteAt: 2)
+    }
+}
+
+private extension Data {
+    /// The JSON without one key: a save from before that setting.
+    func replacingKey(_ key: String) throws -> Data {
+        var object = try JSONSerialization.jsonObject(with: self) as? [String: Any] ?? [:]
+        object.removeValue(forKey: key)
+        return try JSONSerialization.data(withJSONObject: object)
     }
 }

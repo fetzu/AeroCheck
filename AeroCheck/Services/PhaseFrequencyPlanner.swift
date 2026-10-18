@@ -35,6 +35,9 @@ enum PhaseFrequencyPlanner {
         /// The FIS stations over a point from the downloaded data (`FISSectors.station(of:)`); none where
         /// it has no FIS sector, and the Swiss split built in answers instead.
         var fisSectors: (CLLocationCoordinate2D) -> [Entry] = { _ in [] }
+        /// Whether a point is inside the field's own zone (a CTR, RMZ, FIZ or ATZ around it); nil when the field has
+        /// none, and its 3 NM circuit counts instead (q10, 6.4.2).
+        var isInFieldZone: (Field, CLLocationCoordinate2D) -> Bool? = { _, _ in nil }
     }
 
     /// A station and its frequency.
@@ -86,7 +89,8 @@ enum PhaseFrequencyPlanner {
         let route: [PhaseFrequency]
     }
 
-    /// Within this of a field, the field is NOW (about the size of a CTR or an RMZ).
+    /// On a route whose timeline isn't built yet, within this of a field, the field is NOW (about the size of a
+    /// CTR or an RMZ). Without a route the field's zone decides (`isInFieldZone`).
     static let nearFieldNM = 10.0
     /// A route with a waypoint this far from the field it starts at leaves its circuit (the circuit cue's
     /// 3 NM, `FlightCueTracker.circuitNm`).
@@ -267,6 +271,37 @@ enum PhaseFrequencyPlanner {
         /// Near a field: within `nearFieldNM`.
         var nearActive: Bool { (nearDistanceNM ?? .infinity) <= PhaseFrequencyPlanner.nearFieldNM }
 
+        /// Without a route (q10, the author, 18 Oct): the field is NOW only inside its zone (a CTR, RMZ, FIZ or ATZ
+        /// around it), else within its 3 NM circuit when it has none. Until 6.4.2 any field within 10 NM: the
+        /// destination 16 NM out, Les Eplatures passed aside (dr-3). (6.4.2)
+        var inFieldZone: Bool {
+            guard let nearField, let position else { return false }
+            if let inside = sources.isInFieldZone(nearField, position) { return inside }
+            return (nearDistanceNM ?? .infinity) <= PhaseFrequencyPlanner.circuitRadiusNM
+        }
+
+        /// More than `RadioTimeline.offRouteNM` from the leg flown (before the first leg, from the departure; the
+        /// route flown, from its end): the rules without a route until the aircraft is back on it (R7). (6.4.2)
+        var offRoute: Bool {
+            guard let plan, plan.waypoints.count >= 2, let position else { return plan == nil }
+            let points = plan.waypoints.map(\.coordinate)
+            let index = plan.currentWaypointIndex
+            let distance: Double
+            if index <= 0 {
+                distance = RadioTimeline.distanceNM(position, points[0])
+            } else if index >= points.count {
+                distance = RadioTimeline.distanceNM(position, points[points.count - 1])
+            } else {
+                distance = RadioTimeline.project(position, from: points[index - 1], to: points[index]).across
+            }
+            return distance > RadioTimeline.offRouteNM
+        }
+
+        /// The ground speed for the minutes before a field: GPS from 30 kt, else 100 kt.
+        var speedKt: Double {
+            situation.groundSpeedKt.flatMap { $0 >= RadioTimeline.minimumSpeedKt ? $0 : nil } ?? 100
+        }
+
         private static func frequencies(of ident: String, _ sources: Sources) -> [(type: String, frequency: String)] {
             PhaseFrequencyPlanner.fieldFrequencies(sources.fieldFrequencies(ident))
         }
@@ -359,7 +394,29 @@ enum PhaseFrequencyPlanner {
             let nearEntry = nearField.flatMap { PhaseFrequencyPlanner.contact(labelled($0.ident)) }
             let fisEntry = fisHere.first
 
-            let current = nearActive ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
+            // On a route the timeline isn't built for yet (the second after START FLIGHT or an edit), the rules of
+            // 6.4.1; without a route, off it (its timeline built), diverting or in circuits, a field is NOW only
+            // inside its zone (q10, R7, R8). (6.4.2)
+            let routeRules = plan != nil && plan?.diversion == nil && !circuits
+                && (situation.timeline == nil || !offRoute)
+            let near = routeRules ? nearActive : inFieldZone
+            var current = near ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
+
+            // Diverting (R7): the field diverted to is NEXT, and NOW from 5 min before it or inside its zone; then
+            // nothing NEXT. (v5.1; 6.4.2)
+            if let diversion = plan?.diversion, !circuits {
+                let field = PhaseFrequencyPlanner.contact(labelled(diversion.ident))
+                let point = CLLocationCoordinate2D(latitude: diversion.latitude, longitude: diversion.longitude)
+                let inZone = position.flatMap { sources.isInFieldZone(Field(ident: diversion.ident, coordinate: point), $0) }
+                let close = inZone ?? position.map {
+                    RadioTimeline.distanceNM($0, point) <= speedKt * RadioTimeline.destinationLead / 3600
+                } ?? false
+                if close, let field {
+                    current = field
+                    return (current, nil)
+                }
+                return (current, field.flatMap { $0.isSameStation(as: current) ? nil : $0 })
+            }
 
             var next: Entry?
             // At the route's end: the field flown to is NOW, nothing after it. No CTR around is the next call
@@ -367,11 +424,7 @@ enum PhaseFrequencyPlanner {
             var atRouteEnd = false
             // Arriving: back at, or coming into, the field the route goes to after being away from it. (6.4.1)
             var arriving = false
-            // Diverting: the field the aircraft is going to is the next call, whatever the route says. (v5.1)
-            if let diversion = plan?.diversion {
-                next = PhaseFrequencyPlanner.contact(labelled(diversion.ident))
-            }
-            if next == nil, plan?.diversion == nil, let plan {
+            if routeRules, let plan {
                 let index = plan.currentWaypointIndex
                 // The field flown to is the next call, until it is NOW (within its 10 NM); then the field
                 // after it. Until 6.2 the field flown to was always passed over: 15 NM out from Les
@@ -417,13 +470,13 @@ enum PhaseFrequencyPlanner {
             // No call from the route, near a field: the area's Info, the station called once out of the
             // field's zone, as on a route that leaves the circuit; a CTR around only where no Info is known.
             // The nearest CTR is within 25 NM in any direction, not the one the flight enters.
-            if next == nil, nearActive, let fisEntry, !fisEntry.isSameStation(as: current) {
+            if next == nil, near, let fisEntry, !fisEntry.isSameStation(as: current) {
                 next = fisEntry
             }
             if next == nil, let ctr = ctrs.first, let frequency = ctr.frequency {
                 next = Entry(station: ctr.station, freq: frequency)
             }
-            if next == nil { next = nearActive ? fisEntry : nearEntry }
+            if next == nil { next = near ? fisEntry : nearEntry }
             if let candidate = next, candidate.isSameStation(as: current) { next = nil }
             return (current, next)
         }
@@ -593,6 +646,10 @@ extension PhaseFrequencyPlanner.Sources {
                  // The countries below matter only where sectors overlap.
                  let below = sectors.count > 1 ? CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0) : []
                  return FISSectors.stations(over: sectors, countriesBelow: below)
+             },
+             isInFieldZone: { field, point in
+                 let zones = openAIP.aerodromeZones(containing: field.coordinate)
+                 return zones.isEmpty ? nil : zones.contains { $0.containsPoint(point) }
              })
     }
 }

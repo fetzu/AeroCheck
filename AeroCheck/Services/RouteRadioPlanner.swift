@@ -819,6 +819,7 @@ extension RouteRadioPlanner {
         await airports.ensureLoaded()
 
         let coords = wps.map(\.coordinate)
+        let airspaces = openAIP.airspacesAlongRoute(coords)
         let crossed = countriesInside(coords)
         let downloaded = Set(openAIP.downloadedCountries)
         let covered = crossed.filter { downloaded.contains($0) }
@@ -830,7 +831,7 @@ extension RouteRadioPlanner {
 
         let ctx = Context(
             waypoints: wps,
-            airspaces: openAIP.airspacesAlongRoute(coords),
+            airspaces: airspaces,
             departure: aerodrome(for: wps[0], airports: airports),
             destination: aerodrome(for: wps[wps.count - 1], airports: airports),
             fis: { [fisSectors = openAIP.fisSectors(alongRoute: coords)] coordinate in
@@ -841,7 +842,7 @@ extension RouteRadioPlanner {
             airspaceSource: source,
             checkAreaTag: crossed.contains("CH") ? "DABS" : "NOTAM",
             terrain: await routeTerrain(coords, routeNM: RouteAltitudeProfile(wps).totalNM),
-            fieldsNearby: fieldsNear(coords, airports: airports),
+            fieldsNearby: fieldsNear(coords, airports: airports) + fieldsInZones(airspaces, airports: airports),
             fisAreas: FISAreaService.shared.areas(in: openAIP),
             groundFallbackFt: [wps[0], wps[wps.count - 1]].compactMap { wp in
                 (airports.findAirport(byIdent: wp.name.uppercased()) ?? airports.nearestAirport(to: wp.coordinate, maxDistanceNm: 1.0))?
@@ -873,6 +874,23 @@ extension RouteRadioPlanner {
             }
         }
         return fields
+    }
+
+    /// The aerodrome inside each aerodrome zone near the route (Les Eplatures in its CTR), with its contact: so the walk
+    /// knows its name for the zone's frequency (`Station.preferredName`) when it is further than 2 NM from the route.
+    /// Never one on the way: it has a zone of its own. (6.4.2)
+    @MainActor
+    static func fieldsInZones(_ airspaces: [Airspace], airports: AirportDataService) -> [RadioTimeline.NearbyField] {
+        guard airports.isDataAvailable else { return [] }
+        var seen = Set<String>()
+        return airspaces.filter(isAerodromeZone).compactMap { zone in
+            guard let centre = zone.centroid,
+                  let airport = airports.findNearestAirports(to: centre, limit: 3, maxDistanceNm: 10, types: AirportType.fixedWing)
+                    .first(where: { zone.containsPoint($0.coordinate) }),
+                  seen.insert(airport.ident).inserted,
+                  let contact = contact(of: airport.ident, airports: airports) else { return nil }
+            return RadioTimeline.NearbyField(ident: airport.ident, coordinate: airport.coordinate, contact: contact)
+        }
     }
 
     /// An aerodrome's contact as the nav log prints it: TWR, then AFIS, INFO, A/G… (`fieldContactPriority`),

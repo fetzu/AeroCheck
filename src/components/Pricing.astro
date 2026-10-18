@@ -1,0 +1,44 @@
+---
+// What it costs, in words: App Store prices differ by country and change, so no amounts (6.4.0 site, Q5). Under
+// the tiers, how aircraft get in: clubs and pilots send their checklists, and new ones are added regularly.
+import type { Tier, Link } from '../lib/site';
+interface Props { heading: string; tiers: Tier[]; send: string; links: Link[]; }
+const { heading, tiers, send, links } = Astro.props;
+---
+<section id="pricing" class="pricing reveal">
+  <div class="container">
+    <h2 class="sec-title">{heading}</h2>
+    <div class="tiers">
+      {tiers.map((t) => (
+        <div class:list={['tier', { 'tier--hi': t.highlight }]}>
+          <p class="tier-name">{t.name}</p>
+          <h3 class="tier-title">{t.title}</h3>
+          <p class="tier-text">{t.text}</p>
+        </div>
+      ))}
+    </div>
+    <div class="send">
+      <p>{send}</p>
+      <p class="send-links">{links.map((l) => <a href={l.href}>{l.label} <span aria-hidden="true">→</span></a>)}</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pricing { padding: 72px 0 40px; scroll-margin-top: 72px; }
+  .sec-title { font-size: clamp(26px, 3.4vw, 34px); margin-bottom: 26px; }
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tier { background: var(--panel); border: 1px solid var(--line-2); border-radius: 18px; padding: 22px; }
+  .tier--hi { border-color: var(--gold-fill); box-shadow: inset 0 0 0 1px var(--gold-fill); }
+  .tier-name { margin: 0 0 6px; font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+  .tier-title { font-size: 20px; margin-bottom: 8px; }
+  .tier-text { margin: 0; color: var(--muted); line-height: 1.6; font-size: 15px; }
+  .send { margin-top: 22px; display: grid; grid-template-columns: 1fr auto; gap: 18px 40px; align-items: center; padding: 18px 22px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+  .send p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 15px; max-width: 70ch; }
+  .send-links { display: flex; gap: 18px; flex-wrap: wrap; }
+  .send-links a { color: var(--cyan); font-weight: 700; white-space: nowrap; }
+  @media (max-width: 820px) {
+    .tiers { grid-template-columns: 1fr; }
+    .send { grid-template-columns: 1fr; }
+  }
+</style>

@@ -1,0 +1,111 @@
+---
+// The story page, shared by /flight and /fr/flight (6.4.0 site, Q1 and Q7): one real flight told in order, the
+// evening before to the logbook, each moment a time (words on the ground, the flight's clock in the air, as the
+// Cockpit shows it), a line, a short paragraph and one screenshot from that flight. The dry run as its prologue;
+// no FAQ (that is the landing's).
+import type { SiteData } from '../lib/site';
+import { appStoreHref } from '../lib/site';
+import { STORY } from '../lib/shots';
+import StoreBadge from './StoreBadge.astro';
+import DryRunBand from './DryRunBand.astro';
+interface Props { site: SiteData; }
+const { site } = Astro.props;
+const st = site.story;
+const base = site.lang === 'fr' ? '/fr' : '';
+const local = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? `${base}${href}` : href);
+const prologue = { ...st.prologue, link: { ...st.prologue.link, href: local(st.prologue.link.href) } };
+---
+<section class="s-hero">
+  <div class="container s-hero-inner">
+    <div class="s-hero-copy">
+      <p class="eyebrow">{st.eyebrow}</p>
+      <h1 class="s-title">{st.title}</h1>
+      <p class="s-sub">{st.subtitle}</p>
+      <div class="s-ctas">
+        <StoreBadge store={site.store} lang={site.lang} />
+        <a class="btn btn--ghost" href={local(st.secondary.href)}>{st.secondary.label}</a>
+      </div>
+    </div>
+    <div class="s-hero-dev">
+      <div class="screen"><img src={STORY.alps} alt={st.moments.find((m) => m.shot === 'alps')?.alt ?? ''} width="1112" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
+    </div>
+  </div>
+</section>
+
+<DryRunBand dry={prologue} device="ipad" id="dry-run" />
+
+<section class="timeline">
+  <div class="container">
+    <ol class="moments">
+      {st.moments.map((m) => (
+        <li class:list={['moment', 'reveal', { 'moment--fly': m.fly }]}>
+          <div class="when"><b>{m.when}</b><span>{m.sub}</span></div>
+          <span class="dot" aria-hidden="true"></span>
+          <div class="m-copy">
+            <p class="chapter">{m.chapter}</p>
+            <h2 class="m-title">{m.title}</h2>
+            <p class="m-text">{m.text}</p>
+          </div>
+          <figure class="m-shot">
+            <div class="screen"><img src={STORY[m.shot]} alt={m.alt} width="1112" height="1600" loading="lazy" decoding="async" /></div>
+          </figure>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<section class="s-end reveal">
+  <div class="container s-end-inner">
+    <h2>{st.end.title}</h2>
+    <p>{st.end.text}</p>
+    <div class="s-ctas">
+      <a class="btn btn--primary" href={appStoreHref(site.lang)} aria-label={site.store.alt}>{site.store.cta}</a>
+      <a class="btn btn--ghost" href={local(st.end.secondary.href)}>{st.end.secondary.label}</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .s-hero { padding: 60px 0 24px; }
+  .s-hero-inner { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center; }
+  .s-title { font-size: clamp(36px, 5.4vw, 60px); margin: 14px 0 18px; }
+  .s-sub { font-size: 18px; line-height: 1.6; color: var(--muted); max-width: 40ch; margin: 0 0 26px; }
+  .s-ctas { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .s-hero-dev, .m-shot .screen { background: #0A0A0D; }
+  .s-hero-dev { justify-self: center; width: min(360px, 100%); border-radius: 26px; padding: 10px; box-shadow: 0 30px 70px var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, .07); }
+  .screen { overflow: hidden; border-radius: 17px; line-height: 0; background: #0C0C10; }
+  .screen img { width: 100%; height: auto; display: block; }
+
+  .timeline { padding: 20px 0 30px; }
+  .moments { list-style: none; margin: 0; padding: 0; position: relative; }
+  .moments::before { content: ""; position: absolute; left: 150px; top: 0; bottom: 0; width: 1px; background: var(--line-2); }
+  .moment { display: grid; grid-template-columns: 130px 1fr 360px; gap: 44px; align-items: center; padding: 44px 0; position: relative; }
+  .when { text-align: right; font-family: var(--mono); }
+  .when b { display: block; font-size: 24px; line-height: 1.15; color: var(--text); }
+  .when span { display: block; margin-top: 4px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .dot { position: absolute; left: 144px; top: 50%; width: 13px; height: 13px; margin-top: -6px; border-radius: 50%; background: var(--gold-fill); box-shadow: 0 0 0 5px var(--bg); }
+  .moment--fly .dot { background: var(--cyan-fill); }
+  .chapter { margin: 0 0 8px; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+  .moment--fly .chapter { color: var(--cyan); }
+  .m-title { font-size: 26px; line-height: 1.18; margin-bottom: 12px; }
+  .m-text { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.68; max-width: 46ch; }
+  .m-shot { margin: 0; }
+  .m-shot .screen { border-radius: 20px; padding: 7px; box-shadow: 0 22px 54px var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, .07); }
+  .m-shot .screen img { border-radius: 14px; }
+
+  .s-end { padding: 40px 0 72px; }
+  .s-end-inner { text-align: center; border-top: 1px solid var(--line); padding-top: 48px; }
+  .s-end h2 { font-size: clamp(26px, 3.6vw, 36px); margin-bottom: 10px; }
+  .s-end p { color: var(--muted); margin: 0 0 22px; }
+  .s-end .s-ctas { justify-content: center; }
+
+  @media (max-width: 960px) {
+    .s-hero-inner { grid-template-columns: 1fr; }
+    .moments::before { left: 7px; }
+    .moment { grid-template-columns: 1fr; gap: 16px; padding: 36px 0 36px 32px; }
+    .when { text-align: left; }
+    .dot { left: 1px; top: 46px; margin-top: 0; }
+    .m-shot { max-width: 420px; }
+  }
+</style>

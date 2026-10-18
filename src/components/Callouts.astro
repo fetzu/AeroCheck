@@ -1,0 +1,57 @@
+---
+// An iPad screenshot with labels beside it. Each label sits left or right of the frame at its target's height,
+// and only a thin line crosses into the screenshot, ending where the label points: the author asked for nothing
+// over the screenshot but that line (6.4.0 site, Q3). Below 1000 px the labels can't sit beside the frame, so
+// they go under it as a list, each with its `where` ("At the top"), and the lines are not drawn.
+import type { Callout } from '../lib/site';
+interface Props { src: string; alt: string; callouts: Callout[]; }
+const { src, alt, callouts } = Astro.props;
+---
+<figure class="callouts">
+  <div class="frame">
+    <div class="screen"><img src={src} alt={alt} width="1112" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
+    {callouts.map((c) => (
+      <div class:list={['co', `co--${c.side}`]} style={`--x:${c.x}; --y:${c.y}`} aria-hidden="true">
+        <span class="co-line"></span>
+        <span class="co-label"><b>{c.title}</b>{c.text}</span>
+      </div>
+    ))}
+  </div>
+  <figcaption class="co-list">
+    {callouts.map((c) => (
+      <p><span class="co-where">{c.where}</span><b>{c.title}</b> {c.text}</p>
+    ))}
+  </figcaption>
+</figure>
+
+<style>
+  .callouts { margin: 0; }
+  /* The frame is the positioning box: a target at (x, y) is that far into the screenshot, the bezel aside. */
+  .frame { position: relative; width: min(500px, 100%); margin: 0 auto; background: #0A0A0D; border-radius: 30px; padding: 12px;
+    box-shadow: 0 34px 80px var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, .07); }
+  .screen { position: relative; overflow: hidden; border-radius: 19px; line-height: 0; background: #0C0C10; }
+  .screen img { width: 100%; height: auto; display: block; }
+
+  /* A callout spans from its target to the outside of the frame: the line runs over the bezel and the screen to
+     the target; the label hangs beyond the frame's edge. Coordinates are inside the 12 px bezel. */
+  .co { position: absolute; top: calc(12px + (100% - 24px) * var(--y) / 100); height: 0; pointer-events: none; }
+  .co--left { left: -230px; width: calc(230px + 12px + (100% - 24px) * var(--x) / 100); }
+  .co--right { right: -230px; width: calc(230px + 12px + (100% - 24px) * (100 - var(--x)) / 100); }
+  .co-line { position: absolute; top: 0; height: 1.5px; margin-top: -0.75px; background: var(--cyan-fill); }
+  .co--left .co-line { left: 214px; right: 0; }
+  .co--right .co-line { right: 214px; left: 0; }
+  .co-label { position: absolute; top: 0; transform: translateY(-50%); width: 204px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .co-label b { display: block; color: var(--text); font-size: 14.5px; margin-bottom: 2px; }
+  .co--left .co-label { left: 0; text-align: right; }
+  .co--right .co-label { right: 0; }
+
+  .co-list { display: none; }
+  @media (max-width: 1000px) {
+    .co { display: none; }
+    .co-list { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; max-width: 640px; margin: 28px auto 0; }
+    .co-list p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+    .co-list b { color: var(--text); }
+    .co-where { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 2px; }
+  }
+  @media (max-width: 560px) { .co-list { grid-template-columns: 1fr; } }
+</style>

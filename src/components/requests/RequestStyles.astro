@@ -5,7 +5,7 @@
 // component; Astro emits it once per page.
 ---
 <style is:global>
-  .rq { --rq-error: #F07CC8; padding: 48px 24px 80px; max-width: 760px; }
+  .rq { --rq-error: var(--error); padding: 48px 24px 80px; max-width: 760px; }
   .rq .rq-title { font-size: clamp(26px, 4vw, 36px); margin: 12px 0 10px; }
   .rq .rq-intro { color: var(--muted); margin: 0 0 10px; }
   .rq .rq-aside { color: var(--dim); font-size: 14px; margin: 0 0 28px; }
@@ -133,8 +133,8 @@
   .rq .rq-progress-line { font-weight: 700; margin-bottom: 12px; overflow-wrap: anywhere; }
   .rq progress { width: 100%; height: 10px; border: 0; border-radius: 6px; overflow: hidden; background: var(--panel-2); appearance: none; -webkit-appearance: none; }
   .rq progress::-webkit-progress-bar { background: var(--panel-2); }
-  .rq progress::-webkit-progress-value { background: var(--gold); }
-  .rq progress::-moz-progress-bar { background: var(--gold); }
+  .rq progress::-webkit-progress-value { background: var(--gold-fill); }
+  .rq progress::-moz-progress-bar { background: var(--gold-fill); }
   .rq .rq-progress-files { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
   .rq .rq-progress-file { display: grid; gap: 4px; }
   .rq .rq-progress-file progress { height: 6px; }
@@ -150,9 +150,9 @@
   /* The status page */
   .rq .rq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 12px 0 10px; }
   .rq .rq-head .rq-title { margin: 0; font-family: var(--mono); font-weight: 700; letter-spacing: .02em; }
-  .rq .rq-badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-ink); background: var(--gold); }
-  .rq .rq-badge--live { color: #04210B; background: var(--green); }
-  .rq .rq-badge--attention { color: #241A00; background: var(--amber); }
+  .rq .rq-badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-ink); background: var(--gold-fill); }
+  .rq .rq-badge--live { color: #04210B; background: var(--green-fill); }
+  .rq .rq-badge--attention { color: #241A00; background: var(--amber-fill); }
   .rq .rq-badge--closed { color: var(--muted); background: var(--card); border: 1px solid var(--line-2); }
   .rq .rq-badge--kind { color: var(--chip-text); background: var(--panel); border: 1px solid var(--line-2); }
   .rq .rq-statusline { color: var(--muted); margin: 0 0 22px; }
@@ -163,11 +163,11 @@
   .rq .rq-steps li:last-child::after { display: none; }
   .rq .rq-steps li.is-done::after { background: rgba(217, 166, 51, .55); }
   .rq .rq-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line-2); background: var(--panel); color: var(--gold-ink); font-size: 13px; font-weight: 700; }
-  .rq .is-done .rq-dot { background: var(--gold); border-color: var(--gold); }
+  .rq .is-done .rq-dot { background: var(--gold-fill); border-color: var(--gold-fill); }
   .rq .is-current .rq-dot { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(217, 166, 51, .18); }
-  .rq .is-current .rq-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); }
+  .rq .is-current .rq-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--gold-fill); }
   .rq .is-attention .rq-dot { border-color: var(--amber); box-shadow: 0 0 0 4px rgba(255, 191, 0, .15); }
-  .rq .is-attention .rq-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+  .rq .is-attention .rq-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--amber-fill); }
   .rq .is-skipped .rq-dot { border-style: dashed; }
   .rq .is-closed .rq-dot { border-color: var(--muted); color: var(--muted); font-size: 15px; }
   .rq .rq-step-label { display: block; font-weight: 700; color: var(--text); line-height: 26px; }

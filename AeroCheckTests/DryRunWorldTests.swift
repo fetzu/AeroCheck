@@ -148,6 +148,7 @@ final class DryRunWorldTests: XCTestCase {
             "Services/DataPersistenceManager.swift": ["UserDefaults.standard": (2, "the app's store; the world's is confined")],
             "Services/DryRunSession.swift": ["UserDefaults.standard": (1, "the app's own flag that the guided flight was flown (Today's card), never the world's")],
             "Views/DryRunGuidedViews.swift": ["@AppStorage": (2, "Today's card: the app's own flags, read on the ground, never by the world")],
+            "Services/FISAreaService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],
             "Services/LocationManager.swift": ["CLLocationManager()": (1, "never started by a dry run's (`isDryRun`)")],
             "Services/NotificationService.swift": [

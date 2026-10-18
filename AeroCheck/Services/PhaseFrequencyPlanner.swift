@@ -41,6 +41,11 @@ enum PhaseFrequencyPlanner {
     struct Entry: Equatable {
         let station: String
         let freq: String
+        /// Listen-only, shown in NEXT in its window: the destination's ATIS, an aerodrome on the way (the radio
+        /// timeline, 6.4.2). The read band tags it LISTEN.
+        var listen = false
+        /// An airspace named beside the station: a TMA the FIS clears ("TMA GENEVA"). (6.4.2)
+        var note: String? = nil
 
         /// One frequency is one station: what NOW and NEXT compare. "LSZQ AFIS" from the database and "LSZQ",
         /// the same 122.050 the route builder wrote on the waypoint, are one call, never NOW and NEXT at once
@@ -49,6 +54,19 @@ enum PhaseFrequencyPlanner {
             guard let other else { return false }
             return RouteRadioPlanner.Station.normalized(freq) == RouteRadioPlanner.Station.normalized(other.freq)
         }
+    }
+
+    /// What the Cockpit knows of the flight besides where it is: the radio timeline of its route, its ground
+    /// speed, whether its departure is over. Plan › Map has none of it. (6.4.2)
+    struct Situation {
+        /// The active route's (`RouteRadioPlanner.plan`), when it has been built for it.
+        var timeline: RadioTimeline?
+        /// GPS ground speed; unknown or slow, the leg's planned speed.
+        var groundSpeedKt: Double?
+        /// The level-off came (`FlightCueState`): the departure field is no longer NOW.
+        var departureOver = false
+        /// Aerodromes on the way shown in NEXT (Settings › Checklist & Flight).
+        var fieldsOnTheWay = true
     }
 
     /// What the planner gives.
@@ -95,8 +113,8 @@ enum PhaseFrequencyPlanner {
     /// order: the departure's frequency, then the first waypoint after it that has one. A circuits flight
     /// (`circuits`) stays with its field: nothing is NEXT.
     static func plan(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
-                     sources: Sources) -> Plan {
-        let context = Context(position: position, plan: plan, circuits: circuits, sources: sources)
+                     situation: Situation = Situation(), sources: Sources) -> Plan {
+        let context = Context(position: position, plan: plan, circuits: circuits, situation: situation, sources: sources)
         let (current, next) = context.currentAndNext()
         return Plan(current: current, next: next,
                     panel: context.panel(current: current, next: next),
@@ -122,6 +140,19 @@ enum PhaseFrequencyPlanner {
         return out
     }
 
+    /// A timeline station as the Cockpit names it: a field's as the database has it ("LSZQ AFIS"), an area's or a
+    /// zone's as RADIO always wrote them ("Zürich Info", "Grenchen TWR"), "HX" after a zone active by NOTAM. (6.4.2)
+    static func entry(_ station: RadioTimeline.Station, kind: RadioTimeline.Kind?, listen: Bool = false,
+                      note: String? = nil) -> Entry {
+        var name = station.callSign
+        switch kind {
+        case .fis?, .unit?, .tmaViaFIS?: name = FISSectors.displayName(name)
+        case .departure?, .destination?, nil: break
+        }
+        if station.isHX { name += " HX" }
+        return Entry(station: name, freq: station.frequency, listen: listen, note: note)
+    }
+
     /// The frequency to call on, from a station's list: the first that isn't an ATIS (listen only).
     static func contact(_ list: [(label: String, freq: String)]) -> Entry? {
         (list.first { !$0.label.uppercased().contains("ATIS") } ?? list.first)
@@ -133,15 +164,21 @@ enum PhaseFrequencyPlanner {
         let position: CLLocationCoordinate2D?
         let plan: FlightPlan?
         let circuits: Bool
+        let situation: Situation
         let sources: Sources
         let nearField: Field?
         let nearDistanceNM: Double?
+        /// Where the flight is on its route's radio timeline, when it is on it. (6.4.2)
+        let onTimeline: (timeline: RadioTimeline, moment: RadioTimeline.Moment)?
 
-        init(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool, sources: Sources) {
+        init(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool, situation: Situation,
+             sources: Sources) {
             self.position = position
             self.plan = plan
             self.circuits = circuits
+            self.situation = situation
             self.sources = sources
+            onTimeline = Self.place(position: position, plan: plan, circuits: circuits, situation: situation)
             // The nearest field that has VFR frequencies: a grass strip or a heliport without any is
             // passed over, else the area FIS became NOW beside a towered field. (v4 UI/UX Revamp fix)
             let field = position.flatMap { position in
@@ -157,6 +194,37 @@ enum PhaseFrequencyPlanner {
             } else {
                 nearDistanceNM = nil
             }
+        }
+
+        /// The flight on its route's timeline: a timeline built for this route, a fix, no circuits, no diversion,
+        /// within `RadioTimeline.offRouteNM` of the leg flown. The minutes before a boundary at the GPS ground
+        /// speed from 30 kt, else the leg's planned speed, else 100 kt. (6.4.2)
+        static func place(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool,
+                          situation: Situation) -> (timeline: RadioTimeline, moment: RadioTimeline.Moment)? {
+            guard !circuits, let position, let plan, plan.diversion == nil, let timeline = situation.timeline,
+                  !timeline.isEmpty, timeline.waypointNM.count == plan.waypoints.count else { return nil }
+            let index = plan.currentWaypointIndex
+            guard let progress = timeline.progress(of: position, flyingTo: index, waypoints: plan.waypoints.map(\.coordinate)),
+                  progress.offRouteNM <= RadioTimeline.offRouteNM else { return nil }
+            var speed = situation.groundSpeedKt.flatMap { $0 >= RadioTimeline.minimumSpeedKt ? $0 : nil }
+            if speed == nil, plan.waypoints.indices.contains(index), index > 0,
+               let seconds = plan.waypoints[index - 1].estimatedElapsedTime, seconds > 0 {
+                speed = (timeline.waypointNM[index] - timeline.waypointNM[index - 1]) / seconds * 3600
+            }
+            let moment = RadioTimeline.Moment(progressNM: progress.nm, speedKt: speed ?? 100,
+                                              departureOver: situation.departureOver,
+                                              fieldsOnTheWay: situation.fieldsOnTheWay)
+            return (timeline, moment)
+        }
+
+        /// NOW and NEXT off the timeline. (6.4.2)
+        func fromTimeline(_ timeline: RadioTimeline, _ moment: RadioTimeline.Moment) -> (Entry?, Entry?) {
+            let reading = timeline.reading(moment)
+            let now = reading.now.map { PhaseFrequencyPlanner.entry($0.station, kind: $0.kind, note: $0.note) }
+            let next = reading.next.map {
+                PhaseFrequencyPlanner.entry($0, kind: reading.nextKind, listen: reading.nextIsListen)
+            }
+            return (now, next)
         }
 
         /// Whether a waypoint from the one flown to on lies beyond `circuitRadiusNM` of the field the
@@ -285,6 +353,8 @@ enum PhaseFrequencyPlanner {
                     .compactMap { PhaseFrequencyPlanner.contact(self.waypointFrequencies($0)) }.first
                 return (current, next)
             }
+            // On the route: its radio timeline, the calls in the order the flight makes them. (6.4.2)
+            if let onTimeline { return fromTimeline(onTimeline.timeline, onTimeline.moment) }
             let nearEntry = nearField.flatMap { PhaseFrequencyPlanner.contact(labelled($0.ident)) }
             let fisEntry = fisHere.first
 
@@ -374,11 +444,29 @@ enum PhaseFrequencyPlanner {
             return list.items
         }
 
-        /// ROUTE's RADIO, in the order of use.
+        /// ROUTE's RADIO, in the order of use. On the route, the timeline from NOW on (the LISTEN items in their
+        /// place, the zones it may enter after them), then the CTRs around. (6.4.2)
         func route(current: Entry?, next: Entry?) -> [PhaseFrequency] {
             var list = FrequencyList()
             list.add(current, role: .current)
             list.add(next, role: .next)
+            if let onTimeline {
+                let (timeline, moment) = onTimeline
+                if nearActive, let nearField, moment.progressNM <= 0 {
+                    for frequency in labelled(nearField.ident) { list.add(frequency.label, frequency.freq) }
+                }
+                for item in timeline.ahead(moment) {
+                    let kind = timeline.calls.first { $0.station == item.station }?.kind
+                    list.add(PhaseFrequencyPlanner.entry(item.station, kind: item.listen ? nil : kind, listen: item.listen),
+                             role: .other)
+                }
+                for zone in timeline.possible where timeline.end(of: zone, departureOver: true) > moment.progressNM {
+                    list.add(PhaseFrequencyPlanner.entry(zone.station, kind: .unit), role: .other)
+                }
+                for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
+                list.addEmergency()
+                return list.items
+            }
             // The field the aircraft is at, its ATIS with it: in circuits, the only field there is.
             if nearActive, let nearField {
                 for frequency in labelled(nearField.ident) { list.add(frequency.label, frequency.freq) }
@@ -404,13 +492,15 @@ enum PhaseFrequencyPlanner {
         private var seen = Set<String>()
 
         mutating func add(_ entry: Entry?, role: FreqRole) {
-            if let entry { add(entry.station, entry.freq, role: role) }
+            if let entry { add(entry.station, entry.freq, role: role, listen: entry.listen, note: entry.note) }
         }
 
-        mutating func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false) {
+        mutating func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false,
+                          listen: Bool = false, note: String? = nil) {
             guard seen.insert(freq + "|" + station).inserted else { return }
             items.append(PhaseFrequency(station: station, freq: freq, highlighted: role == .current,
-                                        isEmergency: emergency, role: emergency ? .emergency : role))
+                                        isEmergency: emergency, role: emergency ? .emergency : role,
+                                        listen: listen, note: note))
         }
 
         /// 121.500, always last.
@@ -512,11 +602,11 @@ extension PhaseFrequency {
         let role: FrequencyRole = isEmergency ? .emergency
             : self.role == .current ? .now
             : self.role == .next ? .next : .other
-        return FrequencyInfo(name: station, frequency: freq, type: .common, role: role)
+        return FrequencyInfo(name: station, frequency: freq, type: .common, role: role, listen: listen ? true : nil)
     }
 
     /// Its content, for telling a new list from the last: a list is rebuilt with new ids each time.
-    var contentKey: String { "\(station)|\(freq)|\(role)|\(isEmergency)" }
+    var contentKey: String { "\(station)|\(freq)|\(role)|\(isEmergency)|\(listen)|\(note ?? "")" }
 }
 
 // MARK: - The Cockpit's radio
@@ -561,12 +651,33 @@ final class CockpitRadio {
         return abs(old.latitude - new.latitude) >= threshold || abs(old.longitude - new.longitude) >= threshold
     }
 
+    /// The active route's radio timeline (`CockpitRadioFollower` builds it when the route changes), and the route
+    /// it was built for: a timeline is only read for its own route. (6.4.2)
+    @ObservationIgnored private(set) var timeline: RadioTimeline?
+    @ObservationIgnored private(set) var timelineRoute: [String]?
+
+    /// The key of a route's timeline: its points and typed frequencies.
+    nonisolated static func timelineKey(_ plan: FlightPlan?) -> [String]? {
+        plan.map { [$0.id.uuidString] + $0.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } }
+    }
+
+    /// A timeline for a route, or none (the route changed, the flight ended).
+    func setTimeline(_ timeline: RadioTimeline?, for plan: FlightPlan?) {
+        self.timeline = timeline
+        timelineRoute = timeline == nil ? nil : Self.timelineKey(plan)
+    }
+
     /// Computes the lists now: the phase, the leg, the diversion or the data changed.
     func update(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
-                sources: PhaseFrequencyPlanner.Sources) {
+                situation: PhaseFrequencyPlanner.Situation = .init(), sources: PhaseFrequencyPlanner.Sources) {
         computations += 1
         lastPosition = position
-        let result = PhaseFrequencyPlanner.plan(position: position, plan: plan, circuits: circuits, sources: sources)
+        var situation = situation
+        if situation.timeline == nil, let timeline, timelineRoute == Self.timelineKey(plan) {
+            situation.timeline = timeline
+        }
+        let result = PhaseFrequencyPlanner.plan(position: position, plan: plan, circuits: circuits,
+                                                situation: situation, sources: sources)
         // The pages and the Watch only hear of a list that changed: a recompute every few seconds in
         // cruise would otherwise redraw ROUTE and send the Watch the same list again.
         let keys = result.route.map(\.contentKey)
@@ -582,8 +693,8 @@ final class CockpitRadio {
     /// A new fix: the lists again once the aircraft has moved `moveThresholdDegrees` from where they
     /// were computed.
     func noteMove(to position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
-                  sources: PhaseFrequencyPlanner.Sources) {
+                  situation: PhaseFrequencyPlanner.Situation = .init(), sources: PhaseFrequencyPlanner.Sources) {
         guard Self.movedSignificantly(from: lastPosition, to: position) else { return }
-        update(position: position, plan: plan, circuits: circuits, sources: sources)
+        update(position: position, plan: plan, circuits: circuits, situation: situation, sources: sources)
     }
 }

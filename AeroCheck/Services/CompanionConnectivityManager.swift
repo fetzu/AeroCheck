@@ -2720,6 +2720,6 @@ extension GPSSignalStatus: CustomStringConvertible {
 extension CompanionFrequency {
     /// NOW or NEXT as the Cockpit's radio has it.
     init(_ item: PhaseFrequency) {
-        self.init(station: item.station, frequency: item.freq)
+        self.init(station: item.stationWithNote, frequency: item.freq, listen: item.listen ? true : nil)
     }
 }

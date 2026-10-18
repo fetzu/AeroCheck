@@ -175,13 +175,15 @@ enum CompanionRadio {
     static func stations(flightData: CompanionFlightData?, plan: FlightPlan?) -> [PhaseFrequency] {
         var items: [PhaseFrequency] = []
         var seen = Set<String>()
-        func add(_ station: String, _ frequency: String, role: FreqRole = .other) {
+        func add(_ station: String, _ frequency: String, role: FreqRole = .other, listen: Bool = false) {
             guard !frequency.isEmpty, seen.insert(frequency + "|" + station).inserted else { return }
             items.append(PhaseFrequency(station: station, freq: frequency, highlighted: role == .current,
-                                        isEmergency: false, role: role))
+                                        isEmergency: false, role: role, listen: listen))
         }
         if let now = flightData?.nowFrequency { add(now.station, now.frequency, role: .current) }
-        if let next = flightData?.nextFrequency { add(next.station, next.frequency, role: .next) }
+        if let next = flightData?.nextFrequency {
+            add(next.station, next.frequency, role: .next, listen: next.listen == true)
+        }
         if let plan {
             if let field = plan.diversion, let frequency = field.frequency { add(field.ident, frequency) }
             if plan.currentWaypointIndex < plan.waypoints.count {
@@ -322,7 +324,8 @@ struct CompanionNowLineView: View {
                 case .radio(let now, let next):
                     cell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, station: now?.station, frequency: now?.frequency)
                     Rectangle().fill(theme.panelStroke).frame(width: 1, height: 36)
-                    cell(tag: L10n.Nav.freqNext, tint: theme.info, station: next?.station, frequency: next?.frequency)
+                    cell(tag: next?.listen == true ? L10n.Nav.freqListen : L10n.Nav.freqNext, tint: theme.info,
+                         station: next?.station, frequency: next?.frequency)
                 case .freq(let station, let frequency):
                     cell(tag: "FREQ", tint: theme.textSecondary, station: station, frequency: frequency)
                 }

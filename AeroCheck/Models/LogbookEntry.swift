@@ -348,8 +348,9 @@ enum LogbookLineBuilder {
 
     private static func defaultRemarks(for flight: Flight) -> String {
         var parts: [String] = []
-        if flight.touchAndGoCount > 0 {
-            parts.append(L10n.Logbook.remarkTouchAndGo(flight.touchAndGoCount))
+        let touchAndGoes = flight.landingCounts.touchAndGoes      // one per touchdown (6.4.1)
+        if touchAndGoes > 0 {
+            parts.append(L10n.Logbook.remarkTouchAndGo(touchAndGoes))
         }
         if flight.goAroundCount > 0 {
             parts.append(L10n.Logbook.remarkGoAround(flight.goAroundCount))

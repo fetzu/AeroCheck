@@ -287,6 +287,63 @@ final class ShareCardTests: XCTestCase {
         XCTAssertEqual(flight.stopAndGoCount, 0)
         XCTAssertEqual(ShareCardFigures(flight: flight).counts.stopAndGoes, 0)
         XCTAssertEqual(LogbookLineBuilder.build(flight: flight).remarks, "")
+        // And one landing in every count (6.4.1, F4): the line, its CSV and PDF, the totals, the card.
+        XCTAssertEqual(flight.fullStopCount, 2, "stored as it was logged")
+        XCTAssertEqual(flight.totalLandings, 1)
+        XCTAssertEqual(LogbookLineBuilder.build(flight: flight).landingsDay, 1)
+        XCTAssertEqual(LogbookTotals.forFlight(flight).landingsDay, 1)
+        XCTAssertEqual(ShareCardFigures(flight: flight).counts.landings, 1)
+    }
+
+    /// The demo flight itself (`marketing/flights/vol_dalpes_2026.json`, the author's LSGS → LSZQ of 28 May,
+    /// bundled for the Logbook capture): two full stops 4 s apart, one landing in the logbook. (6.4.1, F4)
+    func testTheDemoVolDAlpesIsOneLandingInTheLogbook() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "vol_dalpes_2026", withExtension: "json",
+                                                subdirectory: "flights"))
+        let flight = try Flight.fromJSON(Data(contentsOf: url))
+        XCTAssertEqual(flight.fullStopCount, 2)
+        XCTAssertEqual(flight.totalLandings, 1)
+        let line = LogbookLineBuilder.build(flight: flight)
+        XCTAssertEqual(line.landingsDay + line.landingsNight, 1)
+        XCTAssertEqual(line.csvRow[try XCTUnwrap(LogbookLine.csvHeader.firstIndex(of: "Ldg day"))], "1", "the CSV")
+        XCTAssertTrue(FlightTimelineEvents.events(of: flight).isEmpty, "no stop-and-go")
+        XCTAssertEqual(ShareCardFigures(flight: flight).counts.landings, 1)
+    }
+
+    /// FULL STOP held minutes after a touchdown the app missed, logged beside the detector's full stop by a
+    /// build before 6.4.1: nothing took off between them, so one landing, at the touchdown, no stop-and-go.
+    func testAFullStopMarkedLateBesideItsTouchdownIsOneLanding() {
+        let flight = makeFlight(at: [("2026-09-23T10:00:00Z", home),
+                                     ("2026-09-23T11:26:06Z", home),
+                                     ("2026-09-23T11:27:30Z", point(eastNM: 0.01, of: home))],
+                                fullStops: ["2026-09-23T11:26:06Z", "2026-09-23T11:33:00Z"],
+                                takeoff: "2026-09-23T10:00:00Z")
+        XCTAssertEqual(flight.landings, [Flight.Landing(time: date("2026-09-23T11:26:06Z"), kind: .fullStop)])
+        XCTAssertEqual(flight.totalLandings, 1)
+        XCTAssertEqual(flight.stopAndGoCount, 0)
+        XCTAssertTrue(FlightTimelineEvents.events(of: flight).isEmpty)
+        XCTAssertEqual(LogbookLineBuilder.build(flight: flight).remarks, "")
+    }
+
+    /// A touch-and-go logged twice seconds apart is one landing too: one row in the timeline, "1 touch-and-go".
+    func testATouchAndGoLoggedTwiceIsOneLanding() {
+        var flight = makeFlight(at: [("2026-04-30T09:09:00Z", home), ("2026-04-30T09:40:00Z", home)],
+                                fullStops: ["2026-04-30T09:40:00Z"], takeoff: "2026-04-30T09:09:00Z")
+        flight.touchAndGoTimes = [date("2026-04-30T09:20:00Z"), date("2026-04-30T09:20:05Z")]
+        flight.touchAndGoCount = 2
+        XCTAssertEqual(flight.totalLandings, 2, "the touch-and-go and the landing")
+        XCTAssertEqual(FlightTimelineEvents.events(of: flight).map(\.kind), [.touchAndGo])
+        XCTAssertEqual(LogbookLineBuilder.build(flight: flight).remarks, "1 touch-and-go")
+        XCTAssertEqual(ShareCardFigures(flight: flight).counts.touchAndGoes, 1)
+    }
+
+    /// A flight from before the times were kept counts as it was stored: nothing to place, nothing merged.
+    func testCountsWithoutTimesStayAsStored() {
+        var flight = Flight(airplane: "wt9-dynamic")
+        flight.touchAndGoCount = 3
+        flight.fullStopCount = 2
+        XCTAssertEqual(flight.totalLandings, 5)
+        XCTAssertEqual(flight.landingCounts.touchAndGoes, 3)
     }
 
     /// A real stop-and-go before a landing logged twice still counts, at its own time.

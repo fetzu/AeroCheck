@@ -256,7 +256,7 @@ struct ShareCardFigures {
     var counts: Counts {
         let split = Self.intermediateFullStops(of: flight)
         return Counts(landings: flight.totalLandings,
-                      touchAndGoes: max(0, flight.touchAndGoCount),
+                      touchAndGoes: max(0, flight.landingCounts.touchAndGoes),
                       goArounds: max(0, flight.goAroundCount),
                       stopAndGoes: split.stopAndGoes,
                       stops: split.stops)

@@ -1,9 +1,13 @@
-6.3.2 revoit la façon dont l'app demande votre position, et permet de voler avec la localisation désactivée.
+6.4.0 apporte le vol à blanc : un vol fait au sol, dans le vrai cockpit, dans un monde à part (rien n'en est conservé). Commencez par le vol guidé, puis essayez la pratique libre.
 
 À regarder :
-- l'intégration (Réglages › À propos › Revoir l'intégration, ou une nouvelle installation) : la page de localisation n'a plus qu'un bouton Continuer, qui affiche la question d'iOS ; plus de Passer ni de Plus tard sur cette page, les pages ne se tournent plus d'un glissement, et Retour se trouve en haut à gauche dès la troisième page ;
-- localisation désactivée pour AéroCheck (Réglages d'iOS › AéroCheck › Position › Jamais), DÉMARRER LE VOL demande désormais : Démarrer sans GPS lance les checklists sans rien enregistrer (le GPS est perdu), Ouvrir Réglages mène à la page d'AéroCheck ; réactivez la localisation pendant ce vol et l'enregistrement commence dès ce moment ;
-- Réglages › iCloud et journal : une ligne Ouvrir Réglages quand la localisation est désactivée, et le statut GPS en français ;
-- la page AéroCheck Pro : la ligne de l'essai gratuit indique ce que coûte ensuite l'abonnement annuel.
+- le vol à blanc guidé : Réglages › À propos › Votre premier vol, du plan au carnet (ou la carte sur Aujourd'hui, sur un appareil dont le carnet est vide). Quatre parties, de la préparation du vol à sa lecture dans le carnet : les cartes doivent être claires, vous attendre quand elles demandent quelque chose, et suivre ce que vous faites, sans prendre d'avance ni de retard ;
+- Une partie à la fois et Le voler, chapitre par chapitre, au même endroit : une partie ou un chapitre seul ;
+- la pratique libre : Réglages › À propos › Faire un vol à blanc pour des tours de piste, ou le glissement vers la droite d'une route dans Planifier › Routes (ou le menu ⋯ de l'éditeur de route) pour voler la route. Essayez d'autres aérodromes et d'autres allures (1×, 4×, 10×, 30×), VÉRIF. SUIVANTE, une remise de gaz et un posé-décollé sur la carte en finale, REPORTER au mauvais moment, et l'iPhone en mode paysage ;
+- en vol, réel ou à blanc : une remise de gaz, un posé-décollé ou un atterrissage complet est enregistré tout de suite, avec Annuler dans le message en bas. Les cartes qui demandaient une confirmation sont devenues un réglage, Réglages › Checklist & Vol › Confirmer atterrissages et remises de gaz, désactivé par défaut ;
+- la vérification de montée attend le décollage : aligné, la vérification d'alignement faite, SUIVANT affiche APRÈS LE DÉCOLLAGE jusqu'au décollage détecté ;
+- une remise de gaz ou un posé-décollé à moins de 5 NM de la fin de la route continue en tours de piste ;
+- les titres des vérifications (PRÉVOL, AVANT MISE EN MARCHE, MISE EN MARCHE, APRÈS MISE EN MARCHE, POINT FIXE, AVANT DÉPART, ALIGNEMENT), « en retard » pour une vérification restée ouverte après son moment, Masquer les éléments mémoire au lieu de Test de mémoire, et les textes de toute l'app, dans les deux langues : dites-nous où un terme sonne faux pour un pilote ;
+- la page du vol : un chapitre touché en haut fait défiler jusqu'à lui, le vol passe à PRÊT une fois tout ce qui le précède coché, et le chapitre Clôturer a un champ Débriefing facultatif.
 
-Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
+Un vol à blanc ne demande jamais votre position : il fonctionne au bureau, localisation désactivée. Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

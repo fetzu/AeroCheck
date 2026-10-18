@@ -88,10 +88,12 @@ struct PlanNewFlightView: View {
     private static let stopControlsWidth: CGFloat = 80
 
     /// `homeAerodrome` (Settings) opens the sheet at home when nothing else seeds it. (6.1)
+    /// `preselectedRoute`: the sheet opens on this saved route, chosen (a dry run's, 6.4.0).
     init(intent: NewFlightIntent,
          aircraft: [AircraftOption],
          savedRoutes: [FlightPlan] = [],
          homeAerodrome: String? = nil,
+         preselectedRoute: FlightPlan? = nil,
          onCreate: @escaping (PlannedFlight) -> Void,
          onCancel: @escaping () -> Void) {
         var seeded = intent
@@ -100,7 +102,14 @@ struct PlanNewFlightView: View {
         // one tap away. (planning proposal B1)
         if seeded.departureTime == nil { seeded.departureTime = Self.defaultDeparture() }
         _intent = State(initialValue: seeded)
-        let opening = PlannedStops.opening(for: intent, home: homeAerodrome)
+        var opening = PlannedStops.opening(for: intent, home: homeAerodrome)
+        if let route = preselectedRoute {
+            // As `choose` sets it, from the start.
+            let idents = route.waypoints.map(\.name).filter { !$0.isEmpty }
+            opening = PlannedStops(from: idents.first ?? "", to: idents.count >= 2 ? idents[idents.count - 1] : "")
+            _selectedRoute = State(initialValue: route)
+            _fromSavedRoute = State(initialValue: true)
+        }
         _stops = State(initialValue: opening)
         openingStops = opening
         _hasDepartureTime = State(initialValue: true)
@@ -992,6 +1001,15 @@ struct PlanNewFlightView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(legCount < 1 || !unknownStops.isEmpty)
+            .coachTarget(.createFlight)
+            #if DEBUG
+            // The dry run's DEBUG autopilot, in place of a tap on Create flight. (6.4.0)
+            .dryRunAutopilotTap { tap in
+                guard tap == .createFlight, legCount >= 1, unknownStops.isEmpty else { return }
+                onCreate(PlannedFlight(stops: stops, intent: normalised(), route: selectedRoute,
+                                       landings: selectedRoute == nil ? [] : routeLandings.landings))
+            }
+            #endif
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)

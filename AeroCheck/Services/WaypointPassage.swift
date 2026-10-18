@@ -74,7 +74,12 @@ enum WaypointPassage {
         for fix in fixes where fix.time >= start && fix.time <= end {
             let p = geometry.xy(fix.coordinate)
             var best: (s: Double, offset: Double, leg: Int)?
-            for k in leg..<min(leg + 3, points.count - 1) {
+            // Near the departure before the first waypoint, the first leg: on a round trip of three legs or
+            // fewer, the last one ends where the first begins, and a fix on the runway matched it better. The
+            // progress then stood at the route's end, and no waypoint was ever passed (a triangle from LSZQ,
+            // found by the dry run's checks, 17 Oct). (6.4.0)
+            let leaving = (previous?.s ?? 0) < cum[1] && geometry.distanceNM(fix.coordinate, route[0]) <= toleranceNM
+            for k in leg..<(leaving ? leg + 1 : min(leg + 3, points.count - 1)) {
                 let (s, offset) = geometry.project(p, onto: k)
                 if best == nil || offset < best!.offset { best = (s, offset, k) }
             }

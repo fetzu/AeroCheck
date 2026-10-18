@@ -452,16 +452,16 @@ final class ShareCardTests: XCTestCase {
         "TOUCH-AND-GOES": "POSÉS-DÉCOLLÉS",
         "GO-AROUND": "REMISE DE GAZ",
         "GO-AROUNDS": "REMISES DE GAZ",
-        "STOP-AND-GO": "ARRÊT-DÉCOLLÉ",
-        "STOP-AND-GOES": "ARRÊTS-DÉCOLLÉS",
+        "STOP-AND-GO": "STOP-AND-GO",
+        "STOP-AND-GOES": "STOP-AND-GO",
         "STOP": "ESCALE",
         "STOPS": "ESCALES",
         "PEAK %@": "PIC %@",
         "ALTITUDE PROFILE": "PROFIL D'ALTITUDE",
         "MAX ALTITUDE": "ALTITUDE MAX",
         "MAX GROUND SPEED": "VITESSE SOL MAX",
-        "BLOCK OFF": "BLOC OFF",
-        "BLOCK ON": "BLOC ON",
+        "OFF-BLOCK": "BLOC OFF",
+        "ON-BLOCK": "BLOC ON",
         "Local time · %@": "Heure locale · %@",
         "Times in UTC": "Heures en UTC",
         "LOCAL TIME": "HEURE LOCALE",
@@ -485,7 +485,7 @@ final class ShareCardTests: XCTestCase {
         "Elevation: Open-Meteo": "Relief : Open-Meteo",
         "Share Card": "Carte de partage",
         "MAP STYLE": "STYLE DE CARTE",
-        "COLOR THEME": "THÈME DE COULEUR",
+        "COLOUR THEME": "THÈME DE COULEUR",
         "TERRAIN": "RELIEF",
         "Share": "Partager",
         "Light": "Clair",
@@ -506,8 +506,8 @@ final class ShareCardTests: XCTestCase {
         "Share day": "Partager la journée",
         "Share trip": "Partager le voyage",
         "Add each leg's card": "Ajouter la carte de chaque étape",
-        "%lld images: this card first, then each leg's own": "%lld images : cette carte d’abord, puis celle de chaque étape",
-        "Leaves out the first leg's first 300 m and the last leg's last 300 m":
+        "%lld images: this card first, then one for each leg": "%lld images : cette carte d’abord, puis celle de chaque étape",
+        "Leaves out the first 300 m of the first leg and the last 300 m of the last leg":
             "Retire les 300 premiers mètres de la première étape et les 300 derniers de la dernière",
         "%lld legs": "%lld étapes",
     ]
@@ -1360,7 +1360,7 @@ final class ShareCardTests: XCTestCase {
         XCTAssertTrue(all[0].filename.hasPrefix("AeroCheck_20260929_"), all[0].filename)
         let open = journey.shareItems(eachLeg: true, hideParking: false)
         XCTAssertFalse(open.contains { $0.trimsStart || $0.trimsEnd })
-        XCTAssertEqual(L10n.ShareCard.eachLegHint(4), "4 images: this card first, then each leg's own")
+        XCTAssertEqual(L10n.ShareCard.eachLegHint(4), "4 images: this card first, then one for each leg")
     }
 
     /// The Logbook's days: grouped by the local day each flight started, in the list's order, a

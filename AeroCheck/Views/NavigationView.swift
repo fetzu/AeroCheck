@@ -2492,6 +2492,7 @@ struct NavigationMapView: View {
         guard chrome == .plan else { return }
         let items = PhaseFrequencyPlanner.plan(
             position: locationManager.currentLocation?.coordinate, plan: flightPlanManager.activeFlightPlan,
+            circuits: appState.isCircuitMode,
             sources: .live(airports: airportDataService, openAIP: openAIPDataService)).panel
         phaseFreqItems = items
         // Mirror this exact list (content + NOW/NEXT + order) to the Apple Watch. (Watch freq sync)
@@ -3755,6 +3756,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // still the region a fit just replaced (`FitRegionSync`). (6.2)
         let regionChanged = !context.coordinator.fitSync.isStale(mapState.region)
             && !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
+        // Unanimated in a dry run faster than real time (`DryRunCameraPace`).
         if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
@@ -3762,7 +3764,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: true)
+            mapView.setCamera(camera, animated: DryRunCameraPace.animates)
         }
 
         // Apply heading changes independently of region (for track-up mode).
@@ -3777,7 +3779,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     pitch: 0,
                     heading: mapState.cameraHeading
                 )
-                mapView.setCamera(camera, animated: true)
+                mapView.setCamera(camera, animated: DryRunCameraPace.animates)
             }
         }
 
@@ -5286,14 +5288,15 @@ struct SwissMapView: UIViewRepresentable {
                 }
             }
         } else if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
-            // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern)
+            // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern); unanimated in
+            // a dry run faster than real time (`DryRunCameraPace`).
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
                 fromDistance: Self.clamped(mapState.cameraDistance, to: mapView.cameraZoomRange),
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: true)
+            mapView.setCamera(camera, animated: DryRunCameraPace.animates)
         }
 
         // Apply heading changes independently of region (for track-up mode).
@@ -5308,7 +5311,7 @@ struct SwissMapView: UIViewRepresentable {
                     pitch: 0,
                     heading: mapState.cameraHeading
                 )
-                mapView.setCamera(camera, animated: true)
+                mapView.setCamera(camera, animated: DryRunCameraPace.animates)
             }
         }
 
@@ -7205,11 +7208,23 @@ extension NavUndoOffer {
     }
 }
 
+extension NavUndoOffer {
+    /// "Go-around detected and recorded", taken back with UNDO: a go-around, touch-and-go or full stop recorded
+    /// as soon as it is detected, with no card (6.4.0).
+    @MainActor
+    static func takenEvent(_ taken: AppState.TakenFlightEvent, in appState: AppState) -> NavUndoOffer {
+        NavUndoOffer(id: taken.id, message: L10n.Cockpit.eventTaken(taken.type), madeAt: taken.takenAt) {
+            appState.undoTakenEvent(taken.id)
+        }
+    }
+}
+
 extension AppState {
     /// Clears whichever check confirmation `id` is: the toast's six seconds are up.
     func dismissCheckConfirmation(_ id: UUID) {
         dismissMemoryConfirmation(id)
         dismissFredaConfirmation(id)
+        dismissTakenEvent(id)
     }
 }
 
@@ -7357,6 +7372,7 @@ extension NavUndoOffer {
         if inFlight {
             if let memory = appState.memoryConfirmation { offers.append(.memoryConfirmation(memory, in: appState)) }
             if let freda = appState.fredaConfirmation { offers.append(.fredaConfirmation(freda, in: appState)) }
+            if let taken = appState.takenFlightEvent { offers.append(.takenEvent(taken, in: appState)) }
             if let notice = flightPlanManager.autoMarkNotice { offers.append(.autoMark(notice, in: flightPlanManager)) }
         }
         if let band = cockpitNav?.undoOffer { offers.append(band) }
@@ -7388,6 +7404,7 @@ struct AutoMarkUndoToast: View {
                     flightPlanManager.dismissAutoMarkNotice(offer.id)
                     appState.dismissCheckConfirmation(offer.id)
                 }
+                .coachTarget(.undoToast)
                 .padding(.horizontal, narrow ? 12 : 16)
                 .padding(.bottom, 8)
             }
@@ -7409,6 +7426,7 @@ struct UndoOfferFollower: ViewModifier {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: flightPlanManager.autoMarkNotice?.id)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.memoryConfirmation?.id)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.fredaConfirmation?.id)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.takenFlightEvent?.id)
             .onChange(of: flightPlanManager.autoMarkNotice?.id) { _, id in
                 if id != nil { cockpitNav?.undoOffer = nil }
             }
@@ -7416,6 +7434,9 @@ struct UndoOfferFollower: ViewModifier {
                 if id != nil { cockpitNav?.undoOffer = nil }
             }
             .onChange(of: appState.fredaConfirmation?.id) { _, id in
+                if id != nil { cockpitNav?.undoOffer = nil }
+            }
+            .onChange(of: appState.takenFlightEvent?.id) { _, id in
                 if id != nil { cockpitNav?.undoOffer = nil }
             }
     }

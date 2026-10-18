@@ -58,7 +58,7 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(L10n.GPS.reasonNoUpdate(12), "No position update for 12 s")
         XCTAssertEqual(L10n.GPS.reasonNetworkPosition(35), "No satellite fix · network position ± 35 m")
         XCTAssertEqual(L10n.GPS.fixTime, "Fix time")
-        XCTAssertEqual([FlightEventType.goAround, .touchAndGo, .fullStop].map(\.title), ["Go-Around", "Touch-and-Go", "Full Stop"])
+        XCTAssertEqual([FlightEventType.goAround, .touchAndGo, .fullStop].map(\.title), ["Go-around", "Touch-and-go", "Full stop"])
         XCTAssertEqual(SwissCommonFrequency.emergency.name, "Emergency")
         XCTAssertEqual(L10n.FlightLog.allYears, "All")
         XCTAssertEqual(L10n.FlightLog.landingCount(3), "3 ldg")
@@ -81,7 +81,7 @@ final class LocalizationCatalogTests: XCTestCase {
         let missing = "\u{1}missing"
         let expected = [
             "Share Stats": "Partager les statistiques",
-            "COLOR THEME": "THÈME DE COULEUR",
+            "COLOUR THEME": "THÈME DE COULEUR",
             "ACCENT": "COULEUR D’ACCENTUATION",
             "Gold": "Or",
             "Blue": "Bleu",
@@ -189,6 +189,50 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(L10n.FlightLog.listHeader(12), "12 FLIGHTS")
         XCTAssertEqual(L10n.FlightLog.monthSummary(1, hours: 1.94), "1 flight · 1.9 h")
         XCTAssertEqual(L10n.FlightLog.monthSummary(4, hours: 6), "4 flights · 6.0 h")
+    }
+
+    /// The terminology pass rewrote "%lld touch-and-go" with its French alone, as a literal key's English is
+    /// its key: the plural's English went with it, and the logbook line's remarks read "3 touch-and-go".
+    /// A key whose French is a plural has an English plural too. (6.4.0)
+    func testEveryFrenchPluralHasItsEnglishPlural() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("AeroCheck/Localizable.xcstrings")
+        let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        let strings = try XCTUnwrap(catalog?["strings"] as? [String: [String: Any]])
+        let plurals = strings.filter { _, entry in
+            let french = (entry["localizations"] as? [String: [String: Any]])?["fr"]
+            return french?["variations"] != nil
+        }
+        XCTAssertGreaterThan(plurals.count, 10, "read the real catalog")
+        let missing = plurals.filter { _, entry in
+            (entry["localizations"] as? [String: [String: Any]])?["en"]?["variations"] == nil
+        }
+        XCTAssertEqual(missing.keys.sorted(), [], "French plural, English singular for every count")
+        for (language, one, three) in [("en", "1 touch-and-go", "3 touch-and-goes"), ("fr", "1 posé-décollé", "3 posés-décollés")] {
+            let format = try languageBundle(language).localizedString(forKey: "%lld touch-and-go", value: nil, table: nil)
+            XCTAssertEqual(String.localizedStringWithFormat(format, 1), one, language)
+            XCTAssertEqual(String.localizedStringWithFormat(format, 3), three, language)
+        }
+    }
+
+    /// French that didn't agree: the toast after an event taken with no card read « Remise de gaz : détecté et
+    /// enregistré » (one key for three events of both genders), and the hidden items « 3 éléments masqué(s) ».
+    /// The onboarding and Data & Storage called the checklists « listes de vérification ». (6.4.0)
+    func testTheFrenchAgreesWithWhatItNames() throws {
+        let french = try frenchBundle()
+        let toasts = ["goAround": "Remise de gaz détectée et enregistrée",
+                      "touchAndGo": "Posé-décollé détecté et enregistré",
+                      "fullStop": "Atterrissage complet détecté et enregistré"]
+        for (event, text) in toasts {
+            XCTAssertEqual(french.localizedString(forKey: "cockpit.eventTaken.\(event)", value: nil, table: nil), text)
+        }
+        XCTAssertEqual(L10n.Cockpit.eventTaken(.goAround), "Go-around detected and recorded")
+        let hidden = french.localizedString(forKey: "checklist.hiddenItems.count", value: nil, table: nil)
+        XCTAssertEqual(String(format: hidden, 1, ""), "1 élément masqué : maintenir pour révéler")
+        XCTAssertEqual(String(format: hidden, 3, "s"), "3 éléments masqués : maintenir pour révéler")
+        XCTAssertEqual(L10n.ChecklistAction.hiddenItemsCount(3, "s"), "3 items hidden: hold to reveal")
+        XCTAssertEqual(french.localizedString(forKey: "Checklists", value: nil, table: nil), "Checklists")
     }
 
     /// The Logbook list, the flight detail and the Cockpit's NEXT column were English in French.

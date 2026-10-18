@@ -456,6 +456,56 @@ final class FlightEventDetectorTests: XCTestCase {
         XCTAssertEqual(snapshot.phaseRawValue, ChecklistPhase.afterLanding.rawValue, "the Companion follows")
     }
 
+    /// The cards are off by default (6.4.0, the author's fifth dry run checks): settings saved before have
+    /// none, and read as off.
+    func testTheCardsAreOffByDefault() throws {
+        XCTAssertFalse(AppSettings().confirmFlightEvents)
+        var old = try JSONSerialization.jsonObject(with: JSONEncoder().encode(AppSettings())) as? [String: Any] ?? [:]
+        old.removeValue(forKey: "confirmFlightEvents")
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONSerialization.data(withJSONObject: old))
+        XCTAssertFalse(decoded.confirmFlightEvents)
+    }
+
+    /// With no card, the full stop is taken as CONFIRM takes it, the flight remembers it for the Flight
+    /// review, and UNDO puts the flight and its checks back as they were (6.4.0).
+    func testWithNoCardTheFullStopIsTakenAndUndoPutsItBack() throws {
+        let d = TrajectoryDriver(field: testField())
+        let touchdown = landAndStop(d)
+        let appState = wt9FlightOnLandingCheck(circuits: true)
+        XCTAssertNotNil(d.detector.pendingFullStop)
+
+        appState.takeDetectedEvents(from: d.detector)
+        XCTAssertNil(d.detector.pendingFullStop, "no card left")
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        XCTAssertEqual(appState.currentFlight?.fullStopCount, 1)
+        XCTAssertEqual(appState.currentFlight?.takenEventTimes?.count, 1)
+        XCTAssertEqual(appState.currentFlight?.takenEventTimes?.first?.timeIntervalSince(touchdown) ?? 99, 0, accuracy: 6)
+        let taken = try XCTUnwrap(appState.takenFlightEvent)
+        XCTAssertEqual(taken.type, .fullStop)
+
+        appState.undoTakenEvent(taken.id)
+        XCTAssertNil(appState.takenFlightEvent)
+        XCTAssertEqual(appState.currentPhase, .landing)
+        XCTAssertEqual(appState.currentFlight?.fullStopCount, 0)
+        XCTAssertTrue(appState.currentFlight?.takenEventTimes?.isEmpty ?? true)
+    }
+
+    /// A flight that isn't circuits: the landed card goes on with nothing asked, and UNDO doesn't bring it back.
+    func testWithNoCardTheLandedCardGoesOnByItself() throws {
+        let d = TrajectoryDriver(field: testField())
+        landAndStop(d)
+        let appState = wt9FlightOnLandingCheck(circuits: false)
+        FlightEventConfirmationOverlay.handOver(d.detector.pendingFullStop, appState: appState, detector: d.detector)
+        XCTAssertNotNil(appState.landedCard)
+
+        appState.takeDetectedEvents(from: d.detector)
+        XCTAssertNil(appState.landedCard)
+        XCTAssertEqual(appState.currentPhase, .afterLanding)
+        appState.undoTakenEvent(try XCTUnwrap(appState.takenFlightEvent).id)
+        XCTAssertEqual(appState.currentPhase, .landing)
+        XCTAssertNil(appState.landedCard, "no card to answer comes back")
+    }
+
     /// Circuits keep the full-stop card, and its CONFIRM goes to AFTER LANDING too since 6.3.0 (it went
     /// to TAXI, with taxi…after landing reset), with the checks before it kept and the same landing.
     func testConfirmingTheCardOnCircuitsGoesToAfterLanding() throws {

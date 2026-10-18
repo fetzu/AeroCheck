@@ -153,6 +153,9 @@ struct HomeView: View {
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
+    /// A dry run's Today (the story's Plan and Close out parts): START FLIGHT starts the dry run's flight, the
+    /// Plan sheet opens on its route, its coach rings the controls. Nil for the app's own Today. (6.4.0)
+    @Environment(\.dryRunSession) private var dryRunSession
     @State private var selectedAircraftIndex: Int = 0
 
     /// The thread being viewed. Presented as a cover in BOTH layouts (the `showFlightPlanning`
@@ -259,6 +262,8 @@ struct HomeView: View {
                                  onOpenLeg: { threadToOpen = $0 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
+                    .environment(\.dryRunSession, dryRunSession)
+                    .dryRunCoachScreen(.flightPage)
             }
         }
         .confirmationDialog(
@@ -315,6 +320,17 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $sendingAircraftRequest) { AircraftRequestSheet() }
+        #if DEBUG
+        // The dry run's DEBUG autopilot, in place of a tap: Plan new flight, the flight's page. (6.4.0)
+        .dryRunAutopilotTap { tap in
+            guard dryRunSession != nil else { return }
+            switch tap {
+            case .open(.planSheet): beginPlanningNewFlight()
+            case .open(.flightPage): threadToOpen = dryRunSession?.storyThread?.id
+            default: break
+            }
+        }
+        #endif
         // Derived binding rather than `item:` — NewFlightIntent is a value the sheet edits, and
         // presenting on `item:` would rebuild the sheet on every keystroke it reports back.
         .sheet(isPresented: Binding(
@@ -327,12 +343,18 @@ struct HomeView: View {
                     aircraft: availableAircraft,
                     savedRoutes: RouteLibrary.activeRoutes(flightPlanManager.flightPlans, threads: threadManager.threads),
                     homeAerodrome: appState.settings.homeAerodromeIdent,
+                    // A dry run's: its route chosen, the flight due in ten minutes. (6.4.0)
+                    preselectedRoute: dryRunSession?.setup.plan.flatMap { route in
+                        flightPlanManager.flightPlans.first { $0.id == route.id }
+                    },
                     onCreate: { planned in
                         planningNewFlight = nil
                         createFlight(planned)
                     },
                     onCancel: { planningNewFlight = nil }
                 )
+                .environment(\.dryRunSession, dryRunSession)
+                .dryRunCoachScreen(.planSheet)
             }
         }
         // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
@@ -497,8 +519,12 @@ struct HomeView: View {
                     unplannedButton(isCompact: isCompact)
                 } else {
                     planFlightButton(isCompact: isCompact)
+                        .coachTarget(.planNewFlight)
                 }
             }
+            // The guided flight on the ground, while the logbook is empty (6.4.0, D7); never in a dry run's own
+            // Today.
+            if dryRunSession == nil { DryRunTodayCard(isCompact: isCompact) }
             sectionLabel(L10n.Ground.recent, isCompact: isCompact)
                 .padding(.top, isCompact ? 4 : 8)
             aircraftStrip(fillsHeight: false)
@@ -534,15 +560,18 @@ struct HomeView: View {
                 tripCard(trip, leg: flight, isCompact: isCompact)
             } else {
                 flightHeroCard(flight, isCompact: isCompact)
+                    .coachTarget(.flightCard)
             }
         } else if let thread = homeThread {
             if let trip = tripOverview(for: thread) {
                 tripCard(trip, leg: thread, isCompact: isCompact)
             } else {
                 flightThreadStripCard(thread, fillsHeight: false)
+                    .coachTarget(.flightCard)
             }
         } else {
             planNewFlightStripCard(fillsHeight: false)
+                .coachTarget(.planNewFlight)
         }
     }
 
@@ -791,8 +820,11 @@ struct HomeView: View {
             Button { appState.groundTab = .aircraft } label: {
                 Label(L10n.Ground.aircraftDetails, systemImage: "speedometer")
             }
-            Button { sendingAircraftRequest = true } label: {
-                Label(L10n.AircraftRequests.menuItem, systemImage: "paperplane")
+            // Not from a dry run's Today: a request leaves the app. (6.4.0)
+            if dryRunSession == nil {
+                Button { sendingAircraftRequest = true } label: {
+                    Label(L10n.AircraftRequests.menuItem, systemImage: "paperplane")
+                }
             }
         } label: {
             HStack(spacing: 10) {
@@ -1382,7 +1414,8 @@ struct HomeView: View {
         planningNewFlight = NewFlightIntent(
             departureIdent: "",
             arrivalIdent: "",
-            departureTime: nil,
+            // A dry run's flight is due now, so START FLIGHT is offered on its page. (6.4.0)
+            departureTime: dryRunSession == nil ? nil : FlightClock.now.addingTimeInterval(10 * 60),
             aircraftTypeId: aircraft?.aircraftType ?? appState.settings.selectedAircraft.rawValue,
             aircraftRegistration: aircraft?.registration ?? appState.settings.selectedAircraft.registration,
             aircraftModelName: aircraft?.modelName ?? appState.settings.selectedAircraft.modelName,
@@ -1478,6 +1511,12 @@ struct HomeView: View {
     private func startUnplannedFlight() { beginFlight(circuitMode: false, unplanned: true) }
 
     private func beginFlight(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false) {
+        // A dry run's Today starts the dry run's flight, never a real one (`FlightLauncher` refuses any during
+        // a dry run). (6.4.0)
+        if let dryRunSession {
+            dryRunSession.startFlightFromGround()
+            return
+        }
         let launcher = FlightLauncher(
             appState: appState,
             locationManager: locationManager,

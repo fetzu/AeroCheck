@@ -103,6 +103,14 @@ struct ThreadTaskPresentation {
             // tick without doing. skybriefing is the Swiss briefing channel, same as for filing.
             return [(L10n.Thread.openNotamBriefing,
                      URL(string: "https://www.skybriefing.com/services/notam-briefing")!)]
+        case .weatherBriefed:
+            // The same: the weather was the one briefing with nowhere to go. skybriefing's weather briefing,
+            // and MeteoSwiss's aviation weather when the flight touches Switzerland. (6.4.0)
+            let skybriefing = [(label: L10n.Thread.openWeatherBriefing,
+                                url: URL(string: "https://www.skybriefing.com/services/weather-briefing")!)]
+            let swiss = [(label: L10n.Thread.openMeteoSwiss,
+                          url: URL(string: "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html")!)]
+            return skybriefing + (touchesSwitzerland ? swiss : [])
         case .dabsChecked:
             return [(L10n.Thread.openDabs, URL(string: "https://www.skybriefing.com/dabs")!)]
         case .gaforChecked:
@@ -160,10 +168,13 @@ struct FlightThreadView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    /// A dry run's: its coach hears the chips, and its card shows over the page. Nil for the app's own. (6.4.0)
+    @Environment(\.dryRunSession) private var dryRunSession
     /// The official-chart registry: a PPR or fee task's chart turns up when it arrives. (6.2.0)
     @ObservedObject private var officialCharts = OfficialChartService.shared
 
-    @State private var expandedChapter: ThreadChapter?
+    /// The chapter whose chip was tapped: the page goes to it.
+    @State private var scrollToChapter: ThreadChapter?
     /// Registration whose mass & balance is open, from the PLAN task. (v5.0.0)
     @State private var weightBalanceRegistration: String?
     /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
@@ -213,9 +224,11 @@ struct FlightThreadView: View {
             Color.cockpitBackground.ignoresSafeArea()
 
             if let thread {
+                ScrollViewReader { scroller in
                 VStack(spacing: 0) {
                     header(thread)
                     chapterBar(thread)
+                        .coachTarget(.chapterBar)
                     Divider().overlay(Color.white.opacity(0.06))
                     ScrollView {
                         VStack(spacing: 16) {
@@ -226,6 +239,7 @@ struct FlightThreadView: View {
                                 openFlightPlanCard(thread)
                             }
                             nextTaskCard(thread)
+                                .coachTarget(.nextCard)
                             if let trip = threadManager.trip(forThreadId: thread.id) {
                                 tripBand(trip, leg: thread)
                             }
@@ -233,13 +247,33 @@ struct FlightThreadView: View {
                             continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
                                 chapterSection(thread, chapter: chapter)
+                                    .id(chapter)
                             }
                             footer(thread)
+                                .id(Self.footerId)
+                            // A dry run's: room under Finish, so the page can bring it above the coach's card.
+                            if dryRunSession != nil {
+                                Color.clear.frame(height: DryRunCoachCard.room)
+                            }
                         }
                         .padding(20)
                         .frame(maxWidth: 760)
                         .frame(maxWidth: .infinity)
                     }
+                }
+                // A chapter's chip takes the page to that chapter, its ticked tasks unfolded when nothing in it is
+                // open. It used to set a state nothing read: a tap did nothing. (6.4.0)
+                // A dry run's coach rings a row lower down the page: the page goes to it first. (6.4.0)
+                .onDryRunCoachStep(dryRunSession) { step in
+                    guard step.screen == .flightPage, let id = Self.scrollTarget(of: step, in: thread) else { return }
+                    withAnimation(.easeInOut(duration: 0.3)) { scroller.scrollTo(id, anchor: UnitPoint(x: 0.5, y: 0.25)) }
+                }
+                .onChange(of: scrollToChapter) { _, chapter in
+                    guard let chapter else { return }
+                    scrollToChapter = nil
+                    if thread.tasks(in: chapter).allSatisfy({ $0.state != .pending }) { unfoldedDone.insert(chapter) }
+                    withAnimation(.easeInOut(duration: 0.25)) { scroller.scrollTo(chapter, anchor: .top) }
+                }
                 }
             } else {
                 // The thread was deleted underneath us (another device, or the pilot). Say so rather
@@ -273,6 +307,8 @@ struct FlightThreadView: View {
         )) {
             if let id = numbersFlightId {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
+                    .environment(\.dryRunSession, dryRunSession)
+                    .dryRunCoachScreen(.numbers)
             }
         }
         .quickLookPreview(.preview($navLogPreview))
@@ -314,12 +350,28 @@ struct FlightThreadView: View {
                     openEditorAfterFuel = true
                     fuelSheetPlanId = nil
                 })
+                .environment(\.dryRunSession, dryRunSession)
+                .dryRunCoachScreen(.fuelSheet)
             }
         }
         .sheet(item: $journeyShare) { request in
             JourneyShareCustomizationView(flights: request.flights, appState: appState,
                                           airports: airportDataService, title: request.title)
         }
+        #if DEBUG
+        // The dry run's DEBUG autopilot, in place of a tap: the fuel sheet, the logbook line, Finish. (6.4.0)
+        .dryRunAutopilotTap { tap in
+            guard dryRunSession != nil, let thread else { return }
+            switch tap {
+            case .open(.fuelSheet): fuelSheetPlanId = thread.flightPlanId
+            case .close(.fuelSheet): fuelSheetPlanId = nil
+            case .open(.numbers): numbersFlightId = thread.flightId
+            case .close(.numbers): numbersFlightId = nil
+            case .close(.flightPage): close()
+            default: break
+            }
+        }
+        #endif
         .sheet(isPresented: $addingStop) {
             AddStopSheet(threadId: threadId) { _ in addingStop = false }
                 .environmentObject(threadManager)
@@ -448,6 +500,7 @@ struct FlightThreadView: View {
             if !usesCompactHeader { stateChip(thread) }
             VStack(spacing: 3) {
                 readinessRing(thread)
+                    .coachTarget(.readiness)
                 // The ring in words, where there is room for them: "3 of 4 done". (v6.0 · D3)
                 if !usesCompactHeader {
                     Text(readinessCaption(thread))
@@ -580,6 +633,8 @@ struct FlightThreadView: View {
             warning: fuelWarning(for: task, in: thread),
             prominent: prominent
         )
+        // A dry run's coach rings the row (the fuel plan, the flight plan, the logbook line). (6.4.0)
+        .coachTarget(ifAny: prominent ? nil : ThreadTaskRow.rowTarget(task.key))
     }
 
     /// Fuel on board short of what the flight requires, said on the flight's page and not only in
@@ -972,9 +1027,7 @@ struct FlightThreadView: View {
             : (isComplete ? .aviationGreen : .aviationGold)
 
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                expandedChapter = (expandedChapter == chapter) ? nil : chapter
-            }
+            scrollToChapter = chapter
         } label: {
             HStack(spacing: 6) {
                 Text(chapterName(chapter))
@@ -993,6 +1046,25 @@ struct FlightThreadView: View {
         .buttonStyle(.plain)
     }
 
+    private static let footerId = "footer"
+    private static let debriefId = "debrief"
+
+    /// Where the page goes for a dry run's step: the row its ring is on, the Fly chapter's START FLIGHT, the
+    /// footer's Finish. (6.4.0)
+    private static func scrollTarget(of step: DryRunCoachStep, in thread: FlightThread) -> AnyHashable? {
+        func row(_ key: ThreadTaskKey) -> AnyHashable? { thread.tasks.first { $0.key == key }.map { AnyHashable($0.id) } }
+        switch step.target {
+        case .fuelRow?: return row(.fuelPlanned)
+        case .notamLink?, .notamTick?: return row(.notamChecked)
+        case .flightPlanRow?: return row(.flightPlanFiled)
+        case .logbookRow?, .logbookTick?: return row(.logbookEntry)
+        case .debriefField?: return AnyHashable(debriefId)
+        case .startFlight?: return AnyHashable(ThreadChapter.fly)
+        case .finish?: return AnyHashable(footerId)
+        default: return nil
+        }
+    }
+
     private func chapterName(_ chapter: ThreadChapter) -> String {
         switch chapter {
         case .plan:    return L10n.Thread.chapterPlan
@@ -1009,7 +1081,7 @@ struct FlightThreadView: View {
         let tasks = thread.tasks(in: chapter)
         if chapter == .fly {
             flyChapterCard(thread)
-        } else if !tasks.isEmpty {
+        } else if !tasks.isEmpty || (chapter == .close && thread.flightId != nil) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text(chapterName(chapter).uppercased())
@@ -1028,6 +1100,7 @@ struct FlightThreadView: View {
                 let closed = tasks.filter { $0.state != .pending }
                 ForEach(open) { task in
                     taskRow(task, in: thread)
+                        .id(task.id)
                     if task.id != open.last?.id || !closed.isEmpty {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
                     }
@@ -1062,6 +1135,13 @@ struct FlightThreadView: View {
                             taskRow(task, in: thread)
                         }
                     }
+                }
+                // The debrief: the flight's notes, optional, never counted. (6.4.0, the author's st-18)
+                if chapter == .close, let flightId = thread.flightId {
+                    if !tasks.isEmpty { Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46) }
+                    ThreadDebriefField(flightId: flightId)
+                        .coachTarget(.debriefField)
+                        .id(Self.debriefId)
                 }
             }
             .background(Color.cardBackground)
@@ -1119,6 +1199,7 @@ struct FlightThreadView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen))
+                .coachTarget(.startFlight)
             }
         }
         }
@@ -1315,6 +1396,7 @@ struct FlightThreadView: View {
                     close()
                 }
                 .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+                .coachTarget(.finish)
                 .frame(maxWidth: .infinity)
             }
             // Asks first: the page, its tasks and the route copied for it go for good, and one tap
@@ -1528,6 +1610,23 @@ private struct FlightInProgressNote: View {
 /// One task. The tick is the whole point: same gesture, same feedback as a checklist item, applied to
 /// admin work instead of an aircraft procedure.
 struct ThreadTaskRow: View {
+    /// Where a dry run's coach rings a task's row, or its tick. (6.4.0)
+    static func rowTarget(_ key: ThreadTaskKey) -> DryRunCoachStep.Target? {
+        switch key {
+        case .fuelPlanned: return .fuelRow
+        case .flightPlanFiled: return .flightPlanRow
+        default: return nil
+        }
+    }
+
+    static func tickTarget(_ key: ThreadTaskKey) -> DryRunCoachStep.Target? {
+        switch key {
+        case .notamChecked: return .notamTick
+        case .logbookEntry: return .logbookTick
+        default: return nil
+        }
+    }
+
     let task: ThreadTask
     let onToggle: () -> Void
     let onDismissTask: () -> Void
@@ -1654,9 +1753,13 @@ struct ThreadTaskRow: View {
                         // Gold rather than blue: this one stays inside the app, where the blue chips
                         // all leave it.
                         chip(toolLabel, color: .aviationGold, strokeOpacity: 0.5) { onOpenTool() }
+                            // The logbook line's button, not its row: the line opens from it (r6-13). (6.4.0)
+                            .coachTarget(ifAny: !prominent && task.key == .logbookEntry ? .logbookRow : nil)
                     }
                     ForEach(links, id: \.label) { link in
                         chip(link.label, color: .altimeterBlue, strokeOpacity: 0.45) { onOpen(link.url) }
+                            .coachTarget(ifAny: !prominent && task.key == .notamChecked && link.url == links.first?.url
+                                         ? .notamLink : nil)
                     }
         }
     }
@@ -1700,6 +1803,7 @@ struct ThreadTaskRow: View {
         }
         .buttonStyle(.plain)
         .disabled(task.kind == .auto)
+        .coachTarget(ifAny: prominent ? nil : Self.tickTarget(task.key))
     }
 
     private var tickColor: Color {
@@ -1708,5 +1812,48 @@ struct ThreadTaskRow: View {
         case .notApplicable: return .dimText.opacity(0.5)
         case .pending:       return task.isUrgent ? .aviationRed : .dimText
         }
+    }
+}
+
+/// The debrief, in the CLOSE chapter: a word on what went well and what to change, if the pilot wants one.
+/// It is the flight's notes, the logbook's NOTES: written here or there, it is the same text. Optional, so
+/// never a task and never counted. (6.4.0, the author's dry run checks, st-18)
+struct ThreadDebriefField: View {
+    let flightId: UUID
+    @Environment(AppState.self) private var appState
+
+    private var flight: Flight? { appState.flights.first { $0.id == flightId } }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "text.bubble")
+                .scaledFont(size: 16, relativeTo: .body)
+                .foregroundColor(.secondaryText)
+                .frame(width: 22)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(L10n.Thread.taskDebrief)
+                        .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                    Text(L10n.Thread.debriefOptional)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                }
+                TextField(L10n.Thread.debriefPlaceholder, text: Binding(
+                    get: { flight?.notes ?? "" },
+                    set: { notes in if let flight { appState.updateFlightNotes(flight, notes: notes) } }
+                ), axis: .vertical)
+                    .lineLimit(2...8)
+                    .scaledFont(size: 15, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .opacity(flight == nil ? 0.5 : 1)
+        .disabled(flight == nil)
     }
 }

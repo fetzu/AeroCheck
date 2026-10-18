@@ -305,6 +305,7 @@ struct FullTanksButtons: View {
     let onFill: (Double) -> Void
 
     @Environment(AppState.self) private var appState
+    @Environment(\.dryRunSession) private var dryRunSession
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @State private var fullTanksText = ""
     @State private var editing = false
@@ -355,7 +356,10 @@ struct FullTanksButtons: View {
         if let fullTanks, !editing {
             fillButton(L10n.FuelOnBoard.fullTanks(FuelEntry.text(fullTanks.litres)), icon: "fuelpump.fill", fill: fill) {
                 onFill(fullTanks.litres)
+                // The dry run's Plan part asks for it (the author's fifth round, 17 Oct).
+                dryRunSession?.coach?.noteFullTanks()
             }
+            .coachTarget(.fullTanks)
         }
         if let required, required > 0 {
             fillButton(L10n.FuelOnBoard.equalsRequired(FuelEntry.text(required.rounded(.up))), icon: "equal", fill: fill) {
@@ -383,12 +387,17 @@ struct FullTanksButtons: View {
                 .padding(.horizontal, 12)
                 .frame(width: 130, height: 44)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.cockpitBackground.opacity(0.6)))
-                Button(L10n.FuelOnBoard.saveAndFill) { save() }
+                Button(L10n.FuelOnBoard.saveAndFill) {
+                    save()
+                    // The figure typed and the tanks filled: what the dry run's card asked for, too.
+                    dryRunSession?.coach?.noteFullTanks()
+                }
                     .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
                     .foregroundColor(.aviationGold)
                     .frame(minHeight: 44)
                     .buttonStyle(.plain)
                     .disabled(!(FuelEntry.litres(from: fullTanksText).map(FullTanks.isPlausible) ?? false))
+                    .coachTarget(.fullTanks)
                 if editing {
                     Button(L10n.Button.cancel) { editing = false }
                         .scaledFont(size: 15, relativeTo: .subheadline)

@@ -535,6 +535,20 @@ struct CockpitPagePicker: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(Self.identifier(page))
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .modifier(PageCoachTarget(page: page))
+    }
+}
+
+/// Where a dry run's coach finds MAP and ROUTE (6.4.0): "Open MAP" rings the tab, not the whole bar.
+private struct PageCoachTarget: ViewModifier {
+    let page: CockpitPage
+
+    func body(content: Content) -> some View {
+        switch page {
+        case .map: content.coachTarget(.pageMap)
+        case .route: content.coachTarget(.pageRoute)
+        case .checklist: content
+        }
     }
 }
 

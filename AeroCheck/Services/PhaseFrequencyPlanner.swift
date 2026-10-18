@@ -62,6 +62,9 @@ enum PhaseFrequencyPlanner {
 
     /// Within this of a field, the field is NOW (about the size of a CTR or an RMZ).
     static let nearFieldNM = 10.0
+    /// A route with a waypoint this far from the field it starts at leaves its circuit (the circuit cue's
+    /// 3 NM, `FlightCueTracker.circuitNm`).
+    static let circuitRadiusNM = 3.0
     static let nearestFieldLimit = 6
     static let nearestFieldRadiusNM = 40.0
     static let ctrRadiusNM = 25.0
@@ -81,9 +84,11 @@ enum PhaseFrequencyPlanner {
     }
 
     /// NOW, NEXT and both lists. With no fix or no airport database, NOW and NEXT follow the plan's
-    /// order: the departure's frequency, then the first waypoint after it that has one.
-    static func plan(position: CLLocationCoordinate2D?, plan: FlightPlan?, sources: Sources) -> Plan {
-        let context = Context(position: position, plan: plan, sources: sources)
+    /// order: the departure's frequency, then the first waypoint after it that has one. A circuits flight
+    /// (`circuits`) stays with its field: nothing is NEXT.
+    static func plan(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
+                     sources: Sources) -> Plan {
+        let context = Context(position: position, plan: plan, circuits: circuits, sources: sources)
         let (current, next) = context.currentAndNext()
         return Plan(current: current, next: next,
                     panel: context.panel(current: current, next: next),
@@ -119,13 +124,15 @@ enum PhaseFrequencyPlanner {
     private struct Context {
         let position: CLLocationCoordinate2D?
         let plan: FlightPlan?
+        let circuits: Bool
         let sources: Sources
         let nearField: Field?
         let nearDistanceNM: Double?
 
-        init(position: CLLocationCoordinate2D?, plan: FlightPlan?, sources: Sources) {
+        init(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool, sources: Sources) {
             self.position = position
             self.plan = plan
+            self.circuits = circuits
             self.sources = sources
             // The nearest field that has VFR frequencies: a grass strip or a heliport without any is
             // passed over, else the area FIS became NOW beside a towered field. (v4 UI/UX Revamp fix)
@@ -141,6 +148,19 @@ enum PhaseFrequencyPlanner {
                                                longitude: field.coordinate.longitude)) / 1852.0
             } else {
                 nearDistanceNM = nil
+            }
+        }
+
+        /// Whether a waypoint from the one flown to on lies beyond `circuitRadiusNM` of the field the
+        /// aircraft is near (of the aircraft, away from any).
+        func leavesTheCircuit(_ plan: FlightPlan, from index: Int) -> Bool {
+            guard let centre = nearField?.coordinate ?? position else { return false }
+            let here = CLLocation(latitude: centre.latitude, longitude: centre.longitude)
+            return plan.waypoints.indices.contains { i in
+                guard i >= index else { return false }
+                let point = plan.waypoints[i].coordinate
+                return here.distance(from: CLLocation(latitude: point.latitude, longitude: point.longitude)) / 1852
+                    > PhaseFrequencyPlanner.circuitRadiusNM
             }
         }
 
@@ -215,8 +235,9 @@ enum PhaseFrequencyPlanner {
         }
 
         /// CURRENT: near a field, the field; else the area's FIS. NEXT: the field diverted to; else the
-        /// next field of the route; else the nearest CTR ahead; else the hand-off between the FIS and the
-        /// field. The contact frequency, not the ATIS. (v4 UI/UX Revamp)
+        /// next field of the route; else, near a field, the area's FIS; else the nearest CTR; else the
+        /// hand-off between the FIS and the field. Nothing in circuits or at the route's end. The contact
+        /// frequency, not the ATIS. (v4 UI/UX Revamp; 6.4.0)
         func currentAndNext() -> (Entry?, Entry?) {
             // No usable position: the plan's order (the departure now, the next field of the route next).
             guard position != nil, sources.hasAirportData else {
@@ -232,6 +253,9 @@ enum PhaseFrequencyPlanner {
             let current = nearActive ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
 
             var next: Entry?
+            // At the route's end: the field flown to is NOW, nothing after it. No CTR around is the next call
+            // (on final at Bressaucourt, NEXT read Les Eplatures, 20 NM off). (6.4.0)
+            var atRouteEnd = false
             // Diverting: the field the aircraft is going to is the next call, whatever the route says. (v5.1)
             if let diversion = plan?.diversion {
                 next = PhaseFrequencyPlanner.contact(labelled(diversion.ident))
@@ -241,15 +265,37 @@ enum PhaseFrequencyPlanner {
                 // The field flown to is the next call, until it is NOW (within its 10 NM); then the field
                 // after it. Until 6.2 the field flown to was always passed over: 15 NM out from Les
                 // Eplatures, NEXT read Bressaucourt.
-                if plan.waypoints.indices.contains(index),
-                   let flownTo = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[index])),
-                   flownTo != current {
+                let flownTo = plan.waypoints.indices.contains(index)
+                    ? PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[index])) : nil
+                let fieldAhead = plan.waypoints.indices.contains { $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty }
+                if let flownTo, flownTo != current {
                     next = flownTo
+                } else if flownTo != nil, !fieldAhead, index == plan.waypoints.count - 1 {
+                    atRouteEnd = true
                 } else if let ahead = plan.waypoints.indices.first(where: {
                     $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty
                 }) {
-                    next = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[ahead]))
+                    let field = PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[ahead]))
+                    // A local flight back to the field it is at: that field is NOW, not NEXT. Once the route
+                    // leaves the circuit, NEXT is the area's Info, the station called once out of the field's
+                    // zone (at Bressaucourt, Bâle Information, not Grenchen's CTR 22 NM off the route); a CTR
+                    // around only where no Info is known. Circuits flown on a plan keep none. (6.4.0, the
+                    // author's dry run checks, st-12 and 17 Oct)
+                    if field != current || !leavesTheCircuit(plan, from: index) {
+                        next = field
+                    } else if let fisEntry, fisEntry != current {
+                        next = fisEntry
+                    }
                 }
+            }
+            // Circuits stay with the field: in free practice circuits at Bressaucourt, with no route, NEXT
+            // read Les Eplatures, the nearest CTR. (6.4.0, the author's dry run checks, 18 Oct)
+            if atRouteEnd || circuits { return (current, nil) }
+            // No call from the route, near a field: the area's Info, the station called once out of the
+            // field's zone, as on a route that leaves the circuit; a CTR around only where no Info is known.
+            // The nearest CTR is within 25 NM in any direction, not the one the flight enters.
+            if next == nil, nearActive, let fisEntry, fisEntry != current {
+                next = fisEntry
             }
             if next == nil, let ctr = ctrs.first, let frequency = ctr.frequency {
                 next = Entry(station: ctr.station, freq: frequency)
@@ -464,10 +510,11 @@ final class CockpitRadio {
     }
 
     /// Computes the lists now: the phase, the leg, the diversion or the data changed.
-    func update(position: CLLocationCoordinate2D?, plan: FlightPlan?, sources: PhaseFrequencyPlanner.Sources) {
+    func update(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
+                sources: PhaseFrequencyPlanner.Sources) {
         computations += 1
         lastPosition = position
-        let result = PhaseFrequencyPlanner.plan(position: position, plan: plan, sources: sources)
+        let result = PhaseFrequencyPlanner.plan(position: position, plan: plan, circuits: circuits, sources: sources)
         // The pages and the Watch only hear of a list that changed: a recompute every few seconds in
         // cruise would otherwise redraw ROUTE and send the Watch the same list again.
         let keys = result.route.map(\.contentKey)
@@ -482,8 +529,9 @@ final class CockpitRadio {
 
     /// A new fix: the lists again once the aircraft has moved `moveThresholdDegrees` from where they
     /// were computed.
-    func noteMove(to position: CLLocationCoordinate2D?, plan: FlightPlan?, sources: PhaseFrequencyPlanner.Sources) {
+    func noteMove(to position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
+                  sources: PhaseFrequencyPlanner.Sources) {
         guard Self.movedSignificantly(from: lastPosition, to: position) else { return }
-        update(position: position, plan: plan, sources: sources)
+        update(position: position, plan: plan, circuits: circuits, sources: sources)
     }
 }

@@ -254,8 +254,8 @@ final class CheckDebriefTests: XCTestCase {
         let missing = "\u{1}missing"
         let expected = [
             "debrief.allDone": "Toutes les vérifications faites",
-            "debrief.status.owed": "en retard, jamais fait",
-            "debrief.cue.levelOff": "mise en palier",
+            "debrief.status.owed": "en retard, jamais faite",
+            "debrief.cue.levelOff": "encore ouverte à la mise en palier",
             "debrief.trend.owed": "en retard sur %lld des %lld vols",
             "debrief.trend.notSure": "« pas sûr » sur %lld des %lld vols",
             "debrief.freda.missed": "manqué %lld×",

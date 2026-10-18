@@ -153,6 +153,12 @@ struct FlightLogView: View {
                             }
                         } else {
                             flightList(twoColumn: false)
+                                #if DEBUG
+                                // The dry run's DEBUG autopilot, in place of a tap on the newest flight. (6.4.0)
+                                .dryRunAutopilotTap { tap in
+                                    if tap == .open(.flightDetail) { selectedFlightID = newestFlightId }
+                                }
+                                #endif
                                 .navigationDestination(item: $selectedFlightID) { id in
                                     if let flight = appState.flights.first(where: { $0.id == id }) {
                                         FlightDetailView(flight: flight).id(flight.id)
@@ -642,10 +648,16 @@ struct FlightLogView: View {
         }
     }
 
+    /// The newest flight: a dry run's coach rings it in the Logbook part (the flight just flown). (6.4.0)
+    private var newestFlightId: UUID? {
+        appState.flights.max { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }?.id
+    }
+
     private func flightList(twoColumn: Bool) -> some View {
         List {
             Section {
                 dashboardHeader
+                    .coachTarget(.logbookDashboard)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
@@ -668,6 +680,7 @@ struct FlightLogView: View {
                     Section {
                         ForEach(favorites) { flight in
                             flightRow(flight, twoColumn: twoColumn)
+                                .coachTarget(ifAny: flight.id == newestFlightId ? .logbookFlight : nil)
                         }
                         .onDelete { offsets in stageDeletion(favorites, at: offsets) }
                     } header: {
@@ -693,11 +706,13 @@ struct FlightLogView: View {
                             }
                             ForEach(day.flights) { flight in
                                 flightRow(flight, twoColumn: twoColumn)
+                                    .coachTarget(ifAny: flight.id == newestFlightId ? .logbookFlight : nil)
                             }
                             .onDelete { offsets in stageDeletion(day.flights, at: offsets) }
                         }
                         ForEach(group.undated) { flight in
                             flightRow(flight, twoColumn: twoColumn)
+                                .coachTarget(ifAny: flight.id == newestFlightId ? .logbookFlight : nil)
                         }
                         .onDelete { offsets in stageDeletion(group.undated, at: offsets) }
                     } header: {
@@ -778,7 +793,7 @@ struct FlightLogView: View {
         Button {
             withAnimation { appState.toggleFavorite(flight) }
         } label: {
-            Label(flight.isFavorite ? "Unfavorite" : "Favorite",
+            Label(flight.isFavorite ? "Unfavourite" : "Favourite",
                   systemImage: flight.isFavorite ? "star.slash.fill" : "star.fill")
         }
         .tint(.aviationGold)
@@ -792,7 +807,7 @@ struct FlightLogView: View {
     private func favoritesHeader(count: Int) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "star.fill").scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.aviationGold)
-            Text("FAVORITES")
+            Text("FAVOURITES")
                 .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .tracking(0.6)
                 .foregroundColor(.aviationGold)
@@ -1826,7 +1841,7 @@ struct FlightRowView: View {
                         Image(systemName: "star.fill")
                             .scaledFont(size: 10, relativeTo: .caption2)
                             .foregroundColor(.aviationGold)
-                            .accessibilityLabel("Favorite")
+                            .accessibilityLabel("Favourite")
                     }
                     Text(flight.formattedDuration)
                         .scaledFont(size: 15, weight: .bold, design: .monospaced, relativeTo: .subheadline)
@@ -2068,6 +2083,8 @@ struct LogbookDayHeader: View {
 
 struct FlightDetailView: View {
     @Environment(AppState.self) private var appState
+    /// A dry run's: its coach's card shows over the detail, which goes to the section it rings. (6.4.0)
+    @Environment(\.dryRunSession) private var dryRunSession
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -2143,17 +2160,32 @@ struct FlightDetailView: View {
             nameField
             notesSection
             actionsRow
+                .coachTarget(.flightExport)
+                .id(DryRunCoachStep.Target.flightExport.rawValue)
         }
     }
 
     var body: some View {
         // No own NavigationStack/Close: pushed (single column) it inherits the nav back button; in the
         // 2-column pane it's a placed pane. Either way the redundant Close is gone. (round 9)
-        ScrollView {
-            sectionsStack
-                .padding(20)
+        ScrollViewReader { scroller in
+            ScrollView {
+                sectionsStack
+                    .padding(20)
+                // A dry run's: room under the actions, so the page can bring them above the coach's card.
+                if dryRunSession != nil {
+                    Color.clear.frame(height: DryRunCoachCard.room)
+                }
+            }
+            // A dry run's coach rings a section lower down: the page goes to it first. (6.4.0)
+            .onDryRunCoachStep(dryRunSession) { step in
+                guard step.screen == .flightDetail, let target = step.target else { return }
+                withAnimation(.easeInOut(duration: 0.3)) { scroller.scrollTo(target.rawValue, anchor: UnitPoint(x: 0.5, y: 0.2)) }
+            }
         }
         .background(Color.cockpitBackground)
+        // A dry run's coach, over the flight's detail in its Logbook part. (6.4.0)
+        .dryRunCoachScreen(.flightDetail)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             flightName = flight.name

@@ -624,11 +624,18 @@ struct CockpitCheckSlot: View {
             return CheckSlot.Upcoming(check: check(of: next, in: appState), timing: appState.cueTiming(for: next),
                                       owedBy: appState.owedCue(for: next))
         }
-        return CheckSlot.make(phase: phase, check: check(in: appState), next: next,
-                              pendingAction: pendingAction(in: appState),
-                              timing: appState.cueTiming(for: phase), owedBy: appState.owedCue(for: phase),
-                              freda: freda(in: appState, now: now), upcoming: upcoming,
-                              landingShown: appState.landingCheckShown ? check(of: .landing, in: appState) : nil)
+        let slot = CheckSlot.make(phase: phase, check: check(in: appState), next: next,
+                                  pendingAction: pendingAction(in: appState),
+                                  timing: appState.cueTiming(for: phase), owedBy: appState.owedCue(for: phase),
+                                  freda: freda(in: appState, now: now), upcoming: upcoming,
+                                  landingShown: appState.landingCheckShown ? check(of: .landing, in: appState) : nil)
+        // The climb check waiting for the take-off: the slot opens the checklist, whose NEXT says so, rather
+        // than go on. (6.4.0)
+        if appState.waitsForTakeoff, slot.action == .advance {
+            return CheckSlot(phase: slot.phase, line: slot.line, icon: slot.icon, tone: slot.tone,
+                             action: .showChecklist, title: slot.title)
+        }
+        return slot
     }
 
     /// FREDA while it runs (cruise, its check done). (6.1)

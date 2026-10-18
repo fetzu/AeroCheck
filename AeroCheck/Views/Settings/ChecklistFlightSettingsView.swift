@@ -8,6 +8,7 @@ struct ChecklistFlightSettingsView: View {
     @State private var checklistLanguage: ChecklistLanguage = .auto
     @State private var sunlightBoost: Bool = false
     @State private var logEngineHours: Bool = false
+    @State private var confirmFlightEvents: Bool = false
     @State private var alwaysUseUTC: Bool = false
     @State private var themePreference: ThemePreference = .day
     @State private var isLoadingSettings: Bool = false
@@ -33,6 +34,8 @@ struct ChecklistFlightSettingsView: View {
             SettingsGroup(title: L10n.Settings.flightLogging, tint: tint) {
                 SettingsToggleRow(icon: "clock.badge.checkmark", title: L10n.Settings.logEngineHours,
                                   subtitle: L10n.Settings.logEngineHoursFooter, tint: tint, isOn: $logEngineHours)
+                SettingsToggleRow(icon: "checkmark.bubble", title: L10n.Settings.confirmFlightEvents,
+                                  subtitle: L10n.Settings.confirmFlightEventsFooter, tint: tint, isOn: $confirmFlightEvents)
             }
 
             SettingsGroup(title: L10n.Settings.display, tint: tint) {
@@ -48,6 +51,7 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: learningMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: checklistLanguage) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: logEngineHours) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: confirmFlightEvents) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: alwaysUseUTC) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: themePreference) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: sunlightBoost) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -95,6 +99,7 @@ struct ChecklistFlightSettingsView: View {
         checklistLanguage = appState.settings.checklistLanguage
         sunlightBoost = appState.settings.sunlightBoost
         logEngineHours = appState.settings.logEngineHours
+        confirmFlightEvents = appState.settings.confirmFlightEvents
         alwaysUseUTC = appState.settings.alwaysUseUTC
         themePreference = appState.settings.themePreference
         DispatchQueue.main.async {
@@ -107,6 +112,7 @@ struct ChecklistFlightSettingsView: View {
         appState.settings.checklistLanguage = checklistLanguage
         appState.settings.sunlightBoost = sunlightBoost
         appState.settings.logEngineHours = logEngineHours
+        appState.settings.confirmFlightEvents = confirmFlightEvents
         appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.settings.themePreference = themePreference
         appState.saveSettings()

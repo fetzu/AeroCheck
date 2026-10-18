@@ -84,6 +84,23 @@ final class WaypointPassageTests: XCTestCase {
         XCTAssertEqual(times[1]?.timeIntervalSince(t0) ?? -1, seconds(from: 7.0, to: 7.3), accuracy: 60)
     }
 
+    /// A triangle back to the departure: its last leg ends where the first begins, and the take-off roll runs
+    /// along that last leg's line. The fixes on the runway matched it, the progress stood at the route's end,
+    /// and the turning points were passed at the take-off, or never (the dry run's triangle from LSZQ, 17 Oct).
+    func testARoundTripsTakeoffRollIsOnTheFirstLegNotTheLast() {
+        let r = route([(47.0, 7.0), (47.2, 7.3), (47.25, 6.85), (47.0, 7.0)])
+        // The roll and the climb-out along the last leg's line, away from the field, then the turn for the first
+        // turning point, and the triangle flown.
+        let fixes = track([(47.0, 7.0), (47.015, 6.991), (47.2, 7.3), (47.25, 6.85), (47.0, 7.0)])
+        for takeoff in [t0, t0.addingTimeInterval(10), nil] as [Date?] {
+            let times = WaypointPassage.timesOver(route: r, track: fixes, takeoff: takeoff, landing: fixes.last!.time)
+            let passed = [times[1], times[2]].compactMap { $0?.timeIntervalSince(t0) }
+            XCTAssertEqual(passed.count, 2, "both turning points, take-off at \(String(describing: takeoff))")
+            XCTAssertGreaterThan(passed.first ?? 0, 300, "not at the take-off")
+            XCTAssertLessThan(passed.first ?? 0, passed.last ?? 0)
+        }
+    }
+
     func testWithoutATakeoffTimeTheFirstFastFixCounts() {
         let r = route([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
         var fixes = track([(47.0, 7.0), (47.0, 7.6)])

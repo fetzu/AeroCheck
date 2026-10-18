@@ -102,6 +102,21 @@ extension FredaSchedule: Codable {
     }
 }
 
+/// When the Cockpit evaluates FREDA: every 5 s of the flight's clock. The timer ticks every half second
+/// of the wall's, so a dry run at 10× is still evaluated every 5 s of its flight, not every 50; a real
+/// flight, every 5 s as before. A class, so a tick with nothing due changes no view state. (6.4.0)
+final class FredaEvaluationCadence {
+    static let interval: TimeInterval = 5
+    private var last: Date?
+
+    /// 5 s of the flight's clock since the last evaluation (or the clock went back): due, and noted.
+    func isDue(at now: Date) -> Bool {
+        if let last, now >= last, now.timeIntervalSince(last) < Self.interval { return false }
+        last = now
+        return true
+    }
+}
+
 /// A waypoint the flight has passed: its name and its ATO.
 struct FredaWaypointPassage: Equatable {
     let name: String

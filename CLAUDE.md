@@ -68,7 +68,7 @@ Classic Xcode groups, not synchronized folders: a new source file needs four `pr
 - iCloud (`SyncManager`, CKSyncEngine) validates inbound records and MERGES them (newer `modifiedAt` for metadata, the richer side for tracks and landings).
 - `FlightLauncher` is the one flight-start sequence (buttons, widget, deep link): never start a flight around it.
 - In flight the checklist is the flight's own aircraft (`AppState.flightAircraft`, taken at START FLIGHT), never the selection, which iCloud can change mid-flight: read `activeChecklist` / `activeAircraftIsPremium`.
-- `learningMode == true` shows every check (default since 6.0); the Settings switch is its inverse, "Memory test".
+- `learningMode == true` shows every check (default since 6.0); the Settings switch is its inverse, "Hide memory items" / "Masquer les éléments mémoire" ("Memory test" until 6.4.0).
 - `AirportType.fixedWing` keeps heliports, seaplane bases, balloonports and closed fields out of planning; the nav map's airport layer has its own list.
 - The Companion iPhone's NAV screen draws the phone Cockpit's ROUTE and act band from the iPad's stream (`CompanionNavScreen.swift`): a new figure goes on the wire as an optional field an older build ignores.
 

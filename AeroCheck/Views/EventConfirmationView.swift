@@ -11,11 +11,17 @@ struct EventConfirmationView: View {
 
     @Environment(\.cockpitTheme) private var theme
     @State private var autoDismissTask: Task<Void, Never>?
-    @State private var countdownTask: Task<Void, Never>?
     @State private var secondsRemaining: Int = Self.autoDismissSeconds
 
-    /// How long a card that goes by itself stays up.
+    /// How long a card that goes by itself stays up, in the pilot's seconds.
     static let autoDismissSeconds = 20
+
+    /// The seconds left before a card shown at `shownAt` (on the flight's clock) goes by itself: counted in
+    /// the pilot's seconds (`FlightClock.pilotSeconds`), so 20 at any pace a dry run flies, and none going
+    /// by while it's paused. (6.4.0)
+    static func secondsLeft(shownAt: Date) -> Int {
+        max(0, autoDismissSeconds - Int(FlightClock.pilotSeconds(since: shownAt).rounded(.down)))
+    }
 
     /// Whether the card goes by itself. A go-around or touch-and-go card comes up in the climb-out,
     /// where it must not cover the Cockpit for long: dismissed after 20 s, never confirmed (PR-06).
@@ -105,7 +111,6 @@ struct EventConfirmationView: View {
         .onAppear {
             guard Self.dismissesByItself(event.type) else { return }
             startAutoDismissTimer()
-            startCountdown()
         }
         .onDisappear {
             cancelTimers()
@@ -152,8 +157,15 @@ struct EventConfirmationView: View {
     /// workload moments. Dismissing discards the unconfirmed event; the pilot can still record it
     /// manually if it was real.
     private func startAutoDismissTimer() {
+        let shownAt = FlightClock.now
         autoDismissTask = Task {
-            try? await Task.sleep(for: .seconds(Self.autoDismissSeconds))
+            // The countdown and the dismissal on the pilot's seconds, a quarter second apart.
+            while !Task.isCancelled {
+                let left = Self.secondsLeft(shownAt: shownAt)
+                await MainActor.run { if secondsRemaining != left { secondsRemaining = left } }
+                if left == 0 { break }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
             if !Task.isCancelled {
                 await MainActor.run {
                     onDismiss()
@@ -162,22 +174,8 @@ struct EventConfirmationView: View {
         }
     }
 
-    private func startCountdown() {
-        countdownTask = Task {
-            while !Task.isCancelled && secondsRemaining > 0 {
-                try? await Task.sleep(for: .seconds(1))
-                if !Task.isCancelled {
-                    await MainActor.run {
-                        secondsRemaining -= 1
-                    }
-                }
-            }
-        }
-    }
-
     private func cancelTimers() {
         autoDismissTask?.cancel()
-        countdownTask?.cancel()
     }
 }
 
@@ -253,6 +251,7 @@ struct LandedCardView: View {
         .background(RoundedRectangle(cornerRadius: 24).fill(theme.card))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(theme.panelStroke, lineWidth: 1.5))
         .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+        // The coach's ring on the card itself, inside its margins (st-15: it stood out past the card).
         .padding(.horizontal, CockpitType.size(kneeboard: 24, phone: 16))
         .accessibilityElement(children: .contain)
     }
@@ -284,8 +283,19 @@ struct LandedCardOverlay: View {
 struct FlightEventConfirmationOverlay: ViewModifier {
     @ObservedObject var flightEventDetector: FlightEventDetector
     var appState: AppState
+    @Environment(\.isDryRun) private var isDryRun
 
     func body(content: Content) -> some View {
+        if isDryRun || !appState.settings.confirmFlightEvents {
+            // No card in a dry run, nor unless the pilot asked for them: what the app saw is taken, with UNDO
+            // (`AppState.takeDetectedEvents`, 6.4.0).
+            content
+        } else {
+            cards(content)
+        }
+    }
+
+    private func cards(_ content: Content) -> some View {
         content
             .overlay { overlay(for: flightEventDetector.pendingGoAround) }
             .overlay { overlay(for: flightEventDetector.pendingTouchAndGo) }

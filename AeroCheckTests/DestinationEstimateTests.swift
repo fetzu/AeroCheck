@@ -551,6 +551,32 @@ final class DestinationEstimateTests: XCTestCase {
         XCTAssertEqual(beyond.flown, 30.0 / 60, accuracy: 1e-12)
     }
 
+    /// Along the leg, as a time over is taken: the ▶ at the fraction of the leg flown, between its two notches.
+    func testTheAircraftIsPlacedAlongTheLegFlown() throws {
+        let half = try XCTUnwrap(RouteTrack.make(legDistanceNM: [nil, 10, 20, 30], nextIndex: 2, remainingNM: 99,
+                                                 legFraction: 0.5, diverting: false))
+        XCTAssertEqual(half.flown, 20.0 / 60, accuracy: 1e-12, "half of B → C, whatever the distance says")
+        let past = try XCTUnwrap(RouteTrack.make(legDistanceNM: [nil, 10, 20, 30], nextIndex: 2, remainingNM: 99,
+                                                 legFraction: 1.4, diverting: false))
+        XCTAssertEqual(past.flown, 30.0 / 60, accuracy: 1e-12, "held at C")
+    }
+
+    /// Past a waypoint not yet marked (overflown, turning on), the distance to it grows again: the ▶ stays
+    /// at the waypoint rather than slide back (the author's dry run checks, 16 Oct).
+    func testPastAWaypointNotYetMarkedTheAircraftStaysAtIt() throws {
+        var plan = juraPlan(departure: t0)
+        plan.currentWaypointIndex = 2
+        let b = plan.waypoints[1].coordinate, c = plan.waypoints[2].coordinate
+        // 0.2 NM or so beyond C, on the leg's line.
+        let beyond = CLLocation(latitude: c.latitude + (c.latitude - b.latitude) * 0.02,
+                                longitude: c.longitude + (c.longitude - b.longitude) * 0.02)
+        let input = DestinationInput(plan: plan, location: beyond, groundSpeedKnots: 100, now: t0)
+        XCTAssertEqual(try XCTUnwrap(input.legFractionFlown), 1, accuracy: 1e-9)
+        let track = try XCTUnwrap(try estimate(input).track)
+        XCTAssertEqual(track.flown, track.notches[2], accuracy: 1e-9)
+        XCTAssertGreaterThan(try XCTUnwrap(input.liveDistanceNM), 0.05, "the distance to C grew again")
+    }
+
     func testTheFlownPartAtEitherEnd() throws {
         let before = try XCTUnwrap(RouteTrack.make(legDistanceNM: [nil, 10, 20, 30], nextIndex: 0,
                                                    remainingNM: 60.4, diverting: false))

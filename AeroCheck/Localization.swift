@@ -27,7 +27,7 @@ enum L10n {
     // localization pass (xcstrings), like other newly-introduced UI strings.
     enum DataStorage {
         static let title = String(localized: "Data & Storage")
-        static let subtitle = String(localized: "Currency & offline storage")
+        static let subtitle = String(localized: "Updates & offline storage")
         static let aeronauticalSection = String(localized: "Aeronautical data")
         static let chartsSection = String(localized: "Offline charts")
         static let storageSection = String(localized: "Storage")
@@ -43,7 +43,7 @@ enum L10n {
         static let updateAll = String(localized: "Update all on Wi-Fi")
         static let removeAll = String(localized: "Remove all downloads")
         static func totalStorage(_ size: String) -> String { String(localized: "Total storage: \(size)") }
-        static let caveat = String(localized: "Community-sourced data — keep it current. This is not official aeronautical information; always verify currency before flight.")
+        static let caveat = String(localized: "This data comes from the community, so keep it up to date. It is not official aeronautical information: always check that it is current before flight.")
         static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
         static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
@@ -58,7 +58,7 @@ enum L10n {
         static let swissChartName = String(localized: "Swiss ICAO chart")
         static let swissChartDetail = String(localized: "swisstopo · official VFR chart (imagery)")
         static let openAIPTilesName = String(localized: "OpenAIP map tiles")
-        static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery — airspace data above is what powers warnings")
+        static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery. Warnings come from the airspace data above.")
         static let openAIPAttribution = String(localized: "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)")
         static let checklistsSection = String(localized: "Checklists")
         static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
@@ -178,9 +178,9 @@ enum L10n {
         static func reviewed(_ date: String) -> String {
             String(localized: "Checked \(date)")
         }
-        static let notCurated = String(localized: "Not checked for this country yet — open the AIP and the national customs authority")
-        static let advisory = String(localized: "A reminder, not a clearance — the authority's own page is the source")
-        static let unknownWarning = String(localized: "Treat an unestablished requirement as one that applies until you have checked")
+        static let notCurated = String(localized: "Not checked for this country yet: see the AIP and the national customs authority")
+        static let advisory = String(localized: "A reminder, not a clearance: the authority's page is the reference")
+        static let unknownWarning = String(localized: "If a requirement is not established, assume it applies until you have checked")
     }
 
     enum ThreadBadge {
@@ -195,7 +195,7 @@ enum L10n {
     enum Flights {
         static let title = String(localized: "Flights")
         static func circuitsAt(_ ident: String) -> String {
-            String(localized: "Circuits — \(ident)")
+            String(localized: "Circuits at \(ident)")
         }
 
         // Plan new flight
@@ -219,11 +219,11 @@ enum L10n {
             String(localized: "TRIP · \(done) of \(total)")
         }
         static func recheckForThisLeg(_ when: String) -> String {
-            String(localized: "Checked \(when) — re-check for this leg")
+            String(localized: "Checked \(when), re-check for this leg")
         }
 
         // Home
-        static let homeExplainer = String(localized: "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers")
+        static let homeExplainer = String(localized: "Follow a flight from planning to logbook: fuel, weather, customs, then the numbers")
         static func savedPlans(_ count: Int) -> String {
             String(localized: "\(count) saved plans")
         }
@@ -241,8 +241,8 @@ enum L10n {
 
     /// A circuits flight's laps and loops, as VoiceOver says them (6.3.0).
     enum Circuits {
-        /// "2 touch-and-goes", "1 full stop".
-        static func touchAndGoes(_ count: Int) -> String { String(localized: "\(count) touch-and-goes") }
+        /// The touch-and-go loop's count, "3 touch-and-goes and go-arounds"; "1 full stop".
+        static func touchAndGoLoopLaps(_ count: Int) -> String { String(localized: "\(count) touch-and-goes and go-arounds") }
         static func fullStops(_ count: Int) -> String { String(localized: "\(count) full stops") }
         /// The phase bar's two brackets.
         static let touchAndGoLoop = String(localized: "circuits.touchAndGoLoop")
@@ -262,7 +262,7 @@ enum L10n {
         /// The phone's phase button: "circuit 4: 2 touch-and-goes, 1 full stop".
         static func lapSpeech(_ lap: Int, touchAndGoes: Int, fullStops: Int) -> String {
             String(format: String(localized: "circuits.lapSpeech"), lap,
-                   [Self.touchAndGoes(touchAndGoes), Self.fullStops(fullStops)].joined(separator: ", "))
+                   [Self.touchAndGoLoopLaps(touchAndGoes), Self.fullStops(fullStops)].joined(separator: ", "))
         }
     }
 
@@ -285,19 +285,19 @@ enum L10n {
         static let copyLine = String(localized: "Copy line")
         static let lineCopied = String(localized: "Logbook line copied")
         static let showRow = String(localized: "Logbook row")
-        static let showRowHint = String(localized: "The same values, in the order your logbook prints them. Scroll sideways for the remaining columns; corrections go in Edit.")
+        static let showRowHint = String(localized: "These are the same values, in your logbook's column order. Scroll sideways for the other columns, and use Edit to correct them.")
         static let exportCSV = String(localized: "Export CSV")
         static let picName = String(localized: "PIC name")
         static let function = String(localized: "Function")
         static let nightTime = String(localized: "Night")
         static let ifrTime = String(localized: "IFR")
         static let remarks = String(localized: "Remarks")
-        static let notALogbook = String(localized: "A draft for your logbook — AeroCheck is not a logbook of record")
-        static let timesAreUTC = String(localized: "Times are UTC, from block off and block on")
+        static let notALogbook = String(localized: "A draft for your logbook: AeroCheck is not a logbook of record")
+        static let timesAreUTC = String(localized: "Times are UTC, from off-block and on-block times")
         static let nightLandings = String(localized: "Night landings")
         /// The PIC-column fallback when no pilot name is set.
         static let picSelf = String(localized: "logbook.pic.self")
-        static let nightNotComputed = String(localized: "Night and IFR time are yours to enter — the app does not compute twilight")
+        static let nightNotComputed = String(localized: "Enter night and IFR time yourself: the app does not compute twilight")
 
         // PDF extract
         static let exportPDF = String(localized: "Export logbook PDF")
@@ -344,7 +344,7 @@ enum L10n {
         static let title = String(localized: "Mass & balance")
         static let emptyWeight = String(localized: "Empty mass")
         static let emptyArm = String(localized: "Empty arm")
-        static let mtow = String(localized: "MTOW")
+        static let mtow = String(localized: "MTOM")
         static let stations = String(localized: "Stations")
         static let addStation = String(localized: "Add station")
         static let stationName = String(localized: "Station")
@@ -353,10 +353,10 @@ enum L10n {
         static let centreOfGravity = String(localized: "CG")
         static let insideEnvelope = String(localized: "Inside the envelope")
         static let outsideEnvelope = String(localized: "OUTSIDE the envelope")
-        static let envelopeUnknown = String(localized: "No envelope entered — mass and CG only")
-        static let overweight = String(localized: "OVER MTOW")
+        static let envelopeUnknown = String(localized: "No envelope entered: mass and CG only")
+        static let overweight = String(localized: "OVER MTOM")
         // review F22 / F23 — an incomplete load sheet and the landing case.
-        static let incomplete = String(localized: "Not every station has a mass — this is not a check")
+        static let incomplete = String(localized: "Some stations have no mass, so this is not a valid check")
         static func stationsUnset(_ names: String) -> String {
             String(localized: "No mass entered for: \(names)")
         }
@@ -368,8 +368,8 @@ enum L10n {
         static let remainingPayload = String(localized: "Remaining payload")
         static let notConfigured = String(localized: "Enter this aircraft's figures to use the calculator")
         static let setup = String(localized: "Set up this aircraft")
-        static let advisory = String(localized: "Advisory only — check against the load sheet and the AFM")
-        static let fromWeighingReport = String(localized: "From the aircraft's weighing report and AFM — nothing here is shipped with the app")
+        static let advisory = String(localized: "Advisory only: check against the load sheet and the AFM")
+        static let fromWeighingReport = String(localized: "These figures come from the aircraft's weighing report and AFM. The app does not include them.")
         static let envelope = String(localized: "Envelope")
         static let addEnvelopePoint = String(localized: "Add envelope point")
         static let envelopeHint = String(localized: "Corners of the AFM envelope, in order around it")
@@ -429,20 +429,22 @@ enum L10n {
         static let taskFlightPlanClose = String(localized: "Close the flight plan")
         static let taskLogbook = String(localized: "Logbook entry")
         static let taskDebrief = String(localized: "Debrief")
-        static func taskPPR(_ ident: String) -> String { String(localized: "PPR — \(ident)") }
-        static func taskCustoms(_ country: String) -> String { String(localized: "Border crossing — \(country)") }
-        static func taskFees(_ ident: String) -> String { String(localized: "Fees — \(ident)") }
+        static let debriefOptional = String(localized: "thread.debrief.optional")
+        static let debriefPlaceholder = String(localized: "thread.debrief.placeholder")
+        static func taskPPR(_ ident: String) -> String { String(localized: "PPR: \(ident)") }
+        static func taskCustoms(_ country: String) -> String { String(localized: "Border crossing: \(country)") }
+        static func taskFees(_ ident: String) -> String { String(localized: "Fees: \(ident)") }
 
         // Task subtitles
         static let hintFuel = String(localized: "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry.")
         static let hintMassBalance = String(localized: "Check the load sheet against the envelope in the POH")
         static let hintDabs = String(localized: "Daily Airspace Bulletin Switzerland")
-        static let hintGafor = String(localized: "Route forecast — opens MeteoSwiss")
+        static let hintGafor = String(localized: "Route forecast (opens MeteoSwiss)")
         static let hintFlightPlanFiled = String(localized: "Copy the ICAO plan, then file it on skybriefing")
         static let hintFlightPlanClose = String(localized: "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA")
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
-        static let hintPPR = String(localized: "Prior permission required — call ahead")
+        static let hintPPR = String(localized: "Prior permission required: call ahead")
 
         // Actions
         static let markDone = String(localized: "Mark done")
@@ -450,6 +452,7 @@ enum L10n {
         static let openSkybriefing = String(localized: "Open skybriefing")
         static let openDabs = String(localized: "Open DABS")
         static let openNotamBriefing = String(localized: "Open NOTAM briefing")
+        static let openWeatherBriefing = String(localized: "Open weather briefing")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
         static let openMeteoSwiss = String(localized: "Open MeteoSwiss")
@@ -478,11 +481,11 @@ enum L10n {
         // Notifications
         static let closeFlightPlanTitle = String(localized: "Close your flight plan")
         static func closeFlightPlanBody(_ route: String) -> String {
-            String(localized: "\(route) — not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
+            String(localized: "Your ATC flight plan for \(route) is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
         }
         static let prepareReminderTitle = String(localized: "Flight tomorrow")
         static func prepareReminderBody(_ route: String) -> String {
-            String(localized: "\(route) — time to check the weather, DABS and any PPR.")
+            String(localized: "\(route): time to check the weather, DABS and any PPR.")
         }
 
         // Banner
@@ -519,7 +522,7 @@ enum L10n {
         static let reviewFlight = String(localized: "Review")
         static let flyWithoutAPlan = String(localized: "Fly without a plan")
         static let today = String(localized: "Today")
-        static let readyToFly = String(localized: "Everything ticked — ready to fly")
+        static let readyToFly = String(localized: "Everything ticked, ready to fly")
         static func nextOnly(_ task: String) -> String {
             String(localized: "Next: \(task)")
         }
@@ -853,16 +856,16 @@ enum L10n {
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
         static let sunlightBoost = String(localized: "High contrast in sunlight")
-        static let sunlightBoostFooter = String(localized: "Switches to the high-contrast palette while the screen is near full brightness — the app cannot read ambient light, so brightness is the signal.")
+        static let sunlightBoostFooter = String(localized: "Switches to the high-contrast palette when the screen is near full brightness. The app can't measure ambient light, so it goes by the screen brightness.")
         static let pilot = String(localized: "Pilot")
         static let pilotName = String(localized: "Your name")
         static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")
         static let studentPilot = String(localized: "Student pilot")
         static let studentPilotSubtitle = String(localized: "Log flights as dual, with your instructor as PIC")
         static let instructorNamePlaceholder = String(localized: "Instructor's name")
-        static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
+        static let pilotNameFooter = String(localized: "Used for the PIC column and for the holder's name on the logbook PDF.")
         static let costTracking = String(localized: "Track flight costs")
-        static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")
+        static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks. Your logbook line is unaffected.")
         static let terrainAltitudeUnit = String(localized: "settings.flightPlanning.terrainAltitudeUnit")
         static let flightPlanningFooter = String(localized: "settings.flightPlanning.planFlightRoutes")
         static let terrainUnitFooter = String(localized: "settings.flightPlanning.terrainUnitDesc")
@@ -994,6 +997,8 @@ enum L10n {
         static let flightLogging = String(localized: "settings.flightLogging")
         static let logEngineHours = String(localized: "settings.flightLogging.logEngineHours")
         static let logEngineHoursFooter = String(localized: "settings.flightLogging.logEngineHoursFooter")
+        static let confirmFlightEvents = String(localized: "settings.flightLogging.confirmFlightEvents")
+        static let confirmFlightEventsFooter = String(localized: "settings.flightLogging.confirmFlightEventsFooter")
 
         // Checklist Language
         static let checklistLanguage = String(localized: "settings.checklistLanguage")
@@ -1539,8 +1544,8 @@ enum L10n {
         // The tuned card (6.1): its tiles, its row of times and the note under it.
         static let maxAltitudeTile = String(localized: "MAX ALTITUDE")
         static let maxGroundSpeed = String(localized: "MAX GROUND SPEED")
-        static let blockOff = String(localized: "BLOCK OFF")
-        static let blockOn = String(localized: "BLOCK ON")
+        static let blockOff = String(localized: "OFF-BLOCK")
+        static let blockOn = String(localized: "ON-BLOCK")
         /// Under the row of times: "Local time · UTC+2".
         static func localTimeNote(_ offset: String) -> String {
             String(localized: "Local time · \(offset)", comment: "Under the times on the flight share card; the argument is the offset, UTC+2.")
@@ -1581,7 +1586,7 @@ enum L10n {
         // The Logbook's stats sheet (6.2: English in French until then). Its section labels, toggles,
         // accents and layouts took a `String`, which `Text` shows as it is, so the lookup happens here.
         static let shareStats = String(localized: "Share Stats")
-        static let colorTheme = String(localized: "COLOR THEME")
+        static let colorTheme = String(localized: "COLOUR THEME")
         static let accent = String(localized: "ACCENT", comment: "Logbook stats sheet: the card's accent colour.")
         static let accentGold = String(localized: "Gold", comment: "An accent colour of the Logbook stats card.")
         static let accentBlue = String(localized: "Blue", comment: "An accent colour of the Logbook stats card.")
@@ -1618,10 +1623,10 @@ enum L10n {
         static let shareTrip = String(localized: "Share trip")
         static let eachLeg = String(localized: "Add each leg's card")
         static func eachLegHint(_ images: Int) -> String {
-            String(localized: "\(images) images: this card first, then each leg's own")
+            String(localized: "\(images) images: this card first, then one for each leg")
         }
         /// "Hide where I parked" on a journey: the day's first departure and last arrival only.
-        static let hideParkingJourneyHint = String(localized: "Leaves out the first leg's first 300 m and the last leg's last 300 m")
+        static let hideParkingJourneyHint = String(localized: "Leaves out the first 300 m of the first leg and the last 300 m of the last leg")
 
         // The Logbook's stats card (6.2: English in French until then). Its tiles take a `String`, which
         // `Text` shows as it is, so the lookup happens here.
@@ -1656,6 +1661,7 @@ enum L10n {
         static let keepRecorded = String(localized: "reconciliation.keepRecorded")
         static let badgeConfirmed = String(localized: "reconciliation.badge.confirmed")
         static let badgeDetected = String(localized: "reconciliation.badge.detected")
+        static let badgeTaken = String(localized: "reconciliation.badge.taken")
         static func badgeWas(_ type: String) -> String {
             String(format: String(localized: "reconciliation.badge.was"), type)
         }
@@ -2222,6 +2228,8 @@ enum L10n {
         /// The strip's column over the next waypoint, on the iPad: "NEXT". (6.2)
         static let nextColumn = String(localized: "cockpit.nextColumn")
         static let allChecked = String(localized: "cockpit.allChecked")
+        static let afterTakeoff = String(localized: "cockpit.afterTakeoff")
+        static let climbCheckOnceAirborne = String(localized: "cockpit.climbCheckOnceAirborne")
         /// Under READY FOR LINE UP: "then LINE UP CHECK". (6.2)
         static func thenCheck(_ check: String) -> String {
             String(format: String(localized: "cockpit.thenCheck"), check)
@@ -2243,6 +2251,15 @@ enum L10n {
         /// Under "✓ CLIMB CHECK DONE" when the same tap goes on: "NEXT: CRUISE CHECK · from memory". (6.1)
         static func fromMemoryThenNext(_ next: String) -> String {
             String(format: String(localized: "cockpit.fromMemoryThenNext"), next)
+        }
+        /// "Go-around detected and recorded": taken with no card, UNDO for six seconds. A key per event, so the
+        /// French agrees with it (« Remise de gaz détectée et enregistrée »). (6.4.0)
+        static func eventTaken(_ type: FlightEventType) -> String {
+            switch type {
+            case .goAround: return String(localized: "cockpit.eventTaken.goAround")
+            case .touchAndGo: return String(localized: "cockpit.eventTaken.touchAndGo")
+            case .fullStop: return String(localized: "cockpit.eventTaken.fullStop")
+            }
         }
         /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
         static func doneFromMemoryToast(_ check: String) -> String {
@@ -3507,6 +3524,314 @@ enum L10n {
                 return (String(localized: "aircraftRequest.status.duplicate"), String(localized: "aircraftRequest.status.duplicateLine"))
             }
         }
+    }
+
+    /// Dry run (6.4.0): the app flown on the ground through the real Cockpit.
+    enum DryRun {
+        static let band = String(localized: "dryRun.band")
+        static let paused = String(localized: "dryRun.paused")
+        static let waiting = String(localized: "dryRun.waiting")
+        static let waitingShort = String(localized: "dryRun.waitingShort")
+        static let skipping = String(localized: "dryRun.skipping")
+        static let over = String(localized: "dryRun.over")
+        static let overTitle = String(localized: "dryRun.overTitle")
+        static let pause = String(localized: "dryRun.pause")
+        static let resume = String(localized: "dryRun.resume")
+        static func paceAccessibility(_ a0: String) -> String { String(format: String(localized: "dryRun.paceAccessibility"), a0) }
+        static let nextCheck = String(localized: "dryRun.nextCheck")
+        static let onThisFinal = String(localized: "dryRun.onThisFinal")
+        static let onThisFinalShort = String(localized: "dryRun.onThisFinalShort")
+        static let finalCardOnly = String(localized: "dryRun.finalCardOnly")
+        static let pausedTitle = String(localized: "dryRun.pausedTitle")
+        static let fullStop = String(localized: "dryRun.fullStop")
+        static let endDryRun = String(localized: "dryRun.endDryRun")
+        static let checks = String(localized: "dryRun.checks")
+        static let landings = String(localized: "dryRun.landings")
+        static let circuitsFigure = String(localized: "dryRun.circuitsFigure")
+        static let time = String(localized: "dryRun.time")
+        static let nothingSaved = String(localized: "dryRun.nothingSaved")
+        static let again = String(localized: "dryRun.again")
+        static let done = String(localized: "dryRun.done")
+        static let nextGoAround = String(localized: "dryRun.nextGoAround")
+        static let nextTouchAndGo = String(localized: "dryRun.nextTouchAndGo")
+        static let nextRoute = String(localized: "dryRun.nextRoute")
+        static let nextCircuits = String(localized: "dryRun.nextCircuits")
+        static let nextDivert = String(localized: "dryRun.nextDivert")
+        static func takeoffAt(_ a0: String) -> String { String(format: String(localized: "dryRun.takeoffAt"), a0) }
+        static func touchAndGoAt(_ a0: String) -> String { String(format: String(localized: "dryRun.touchAndGoAt"), a0) }
+        static func goAroundAt(_ a0: String) -> String { String(format: String(localized: "dryRun.goAroundAt"), a0) }
+        static func fullStopAt(_ a0: String) -> String { String(format: String(localized: "dryRun.fullStopAt"), a0) }
+        static func circuitsAt(_ a0: String) -> String { String(format: String(localized: "dryRun.circuitsAt"), a0) }
+        static let startTitle = String(localized: "dryRun.startTitle")
+        static let startIntro = String(localized: "dryRun.startIntro")
+        static let what = String(localized: "dryRun.what")
+        static let theRoute = String(localized: "dryRun.theRoute")
+        static let circuits = String(localized: "dryRun.circuits")
+        static let aerodrome = String(localized: "dryRun.aerodrome")
+        static let looking = String(localized: "dryRun.looking")
+        static func noRunway(_ a0: String) -> String { String(format: String(localized: "dryRun.noRunway"), a0) }
+        static let typeCode = String(localized: "dryRun.typeCode")
+        static let routeTooShort = String(localized: "dryRun.routeTooShort")
+        static let noAirportData = String(localized: "dryRun.noAirportData")
+        static let aircraft = String(localized: "dryRun.aircraft")
+        static let pace = String(localized: "dryRun.pace")
+        static let startFooter = String(localized: "dryRun.startFooter")
+        static let fly = String(localized: "dryRun.fly")
+        static func leftHand(_ a0: String) -> String { String(format: String(localized: "dryRun.leftHand"), a0) }
+        static func rightHand(_ a0: String) -> String { String(format: String(localized: "dryRun.rightHand"), a0) }
+        static func runway(_ a0: String) -> String { String(format: String(localized: "dryRun.runway"), a0) }
+        static let checklistUnavailable = String(localized: "dryRun.checklistUnavailable")
+        static let busy = String(localized: "dryRun.busy")
+        static let refused = String(localized: "dryRun.refused")
+        static let settingsRow = String(localized: "dryRun.settingsRow")
+        static let settingsRowSubtitle = String(localized: "dryRun.settingsRowSubtitle")
+        static let flyRoute = String(localized: "dryRun.flyRoute")
+    }
+
+    /// Dry run (6.4.0): the guided flight and its coach.
+    enum DryRunCoach {
+        static let chapter1 = String(localized: "dryRunCoach.chapter1")
+        static let chapter2 = String(localized: "dryRunCoach.chapter2")
+        static let chapter3 = String(localized: "dryRunCoach.chapter3")
+        static let chapter4 = String(localized: "dryRunCoach.chapter4")
+        static let chapter5 = String(localized: "dryRunCoach.chapter5")
+        static let chapter6 = String(localized: "dryRunCoach.chapter6")
+        static let chapter7 = String(localized: "dryRunCoach.chapter7")
+        static let habit1 = String(localized: "dryRunCoach.habit1")
+        static let habit2 = String(localized: "dryRunCoach.habit2")
+        static let habit3 = String(localized: "dryRunCoach.habit3")
+        static let habit4 = String(localized: "dryRunCoach.habit4")
+        static let habit5 = String(localized: "dryRunCoach.habit5")
+        static let habit6 = String(localized: "dryRunCoach.habit6")
+        static let habit7 = String(localized: "dryRunCoach.habit7")
+        static func turningPointNumber(_ a0: Int) -> String { String(format: String(localized: "dryRunCoach.turningPointNumber"), a0) }
+        static let flightName = String(localized: "dryRunCoach.flightName")
+        static func chapterOf(_ a0: Int, _ a1: Int) -> String { String(format: String(localized: "dryRunCoach.chapterOf"), a0, a1) }
+        static let next = String(localized: "dryRunCoach.next")
+        static let pause = String(localized: "dryRunCoach.pause")
+        static let goOn = String(localized: "dryRunCoach.goOn")
+        static let showAgain = String(localized: "dryRunCoach.showAgain")
+        static let habitsTitle = String(localized: "dryRunCoach.habitsTitle")
+        static let nextFree = String(localized: "dryRunCoach.nextFree")
+        static let todayTitle = String(localized: "dryRunCoach.todayTitle")
+        static let todayBody = String(localized: "dryRunCoach.todayBody")
+        static let todayStart = String(localized: "dryRunCoach.todayStart")
+        static let todayNotNow = String(localized: "dryRunCoach.todayNotNow")
+        static let onboardingFly = String(localized: "dryRunCoach.onboardingFly")
+        static let chaptersFooter = String(localized: "dryRunCoach.chaptersFooter")
+
+        /// The steps' words, by the step's id (`DryRunChapters.steps`).
+        enum Step {
+            static let todayTitle = String(localized: "dryRunCoach.step.today.title")
+            static let todayBody = String(localized: "dryRunCoach.step.today.body")
+            static let planSheetTitle = String(localized: "dryRunCoach.step.planSheet.title")
+            static let planSheetBody = String(localized: "dryRunCoach.step.planSheet.body")
+            static let flightPageTitle = String(localized: "dryRunCoach.step.flightPage.title")
+            static let flightPageBody = String(localized: "dryRunCoach.step.flightPage.body")
+            static let nextCardTitle = String(localized: "dryRunCoach.step.nextCard.title")
+            static let nextCardBody = String(localized: "dryRunCoach.step.nextCard.body")
+            static let fuelRowTitle = String(localized: "dryRunCoach.step.fuelRow.title")
+            static let fuelRowBody = String(localized: "dryRunCoach.step.fuelRow.body")
+            static let fuelSheetTitle = String(localized: "dryRunCoach.step.fuelSheet.title")
+            static let fuelSheetBody = String(localized: "dryRunCoach.step.fuelSheet.body")
+            static let fuelDoneTitle = String(localized: "dryRunCoach.step.fuelDone.title")
+            static let fuelDoneBody = String(localized: "dryRunCoach.step.fuelDone.body")
+            static let linkTitle = String(localized: "dryRunCoach.step.link.title")
+            static let linkBody = String(localized: "dryRunCoach.step.link.body")
+            static let notApplicableTitle = String(localized: "dryRunCoach.step.notApplicable.title")
+            static let notApplicableBody = String(localized: "dryRunCoach.step.notApplicable.body")
+            static let startFlightTitle = String(localized: "dryRunCoach.step.startFlight.title")
+            static let startFlightBody = String(localized: "dryRunCoach.step.startFlight.body")
+            static let cockpitAfterPlanTitle = String(localized: "dryRunCoach.step.cockpitAfterPlan.title")
+            static let cockpitAfterPlanBody = String(localized: "dryRunCoach.step.cockpitAfterPlan.body")
+            static let closeOutTitle = String(localized: "dryRunCoach.step.closeOut.title")
+            static let closeOutBody = String(localized: "dryRunCoach.step.closeOut.body")
+            static let logbookLineTitle = String(localized: "dryRunCoach.step.logbookLine.title")
+            static let logbookLineBody = String(localized: "dryRunCoach.step.logbookLine.body")
+            static let numbersTitle = String(localized: "dryRunCoach.step.numbers.title")
+            static let numbersBody = String(localized: "dryRunCoach.step.numbers.body")
+            static let tickLogbookTitle = String(localized: "dryRunCoach.step.tickLogbook.title")
+            static let tickLogbookBody = String(localized: "dryRunCoach.step.tickLogbook.body")
+            static let debriefTitle = String(localized: "dryRunCoach.step.debrief.title")
+            static let debriefBody = String(localized: "dryRunCoach.step.debrief.body")
+            static let finishTitle = String(localized: "dryRunCoach.step.finish.title")
+            static let finishBody = String(localized: "dryRunCoach.step.finish.body")
+            static let logbookTabTitle = String(localized: "dryRunCoach.step.logbookTab.title")
+            static let logbookTabBody = String(localized: "dryRunCoach.step.logbookTab.body")
+            static let dashboardTitle = String(localized: "dryRunCoach.step.dashboard.title")
+            static let dashboardBody = String(localized: "dryRunCoach.step.dashboard.body")
+            static let trackTitle = String(localized: "dryRunCoach.step.track.title")
+            static let trackBody = String(localized: "dryRunCoach.step.track.body")
+            static let exportsTitle = String(localized: "dryRunCoach.step.exports.title")
+            static let exportsBody = String(localized: "dryRunCoach.step.exports.body")
+            static let tickNotamTitle = String(localized: "dryRunCoach.step.tickNotam.title")
+            static let tickNotamBody = String(localized: "dryRunCoach.step.tickNotam.body")
+            static let openLoggedFlightTitle = String(localized: "dryRunCoach.step.openLoggedFlight.title")
+            static let openLoggedFlightBody = String(localized: "dryRunCoach.step.openLoggedFlight.body")
+            static let openFlightPageTitle = String(localized: "dryRunCoach.step.openFlightPage.title")
+            static let openFlightPageBody = String(localized: "dryRunCoach.step.openFlightPage.body")
+            static let cockpitTitle = String(localized: "dryRunCoach.step.cockpit.title")
+            static let cockpitBody = String(localized: "dryRunCoach.step.cockpit.body")
+            static let checkOnceTitle = String(localized: "dryRunCoach.step.checkOnce.title")
+            static let checkOnceBody = String(localized: "dryRunCoach.step.checkOnce.body")
+            static let memoryTestTitle = String(localized: "dryRunCoach.step.memoryTest.title")
+            static let memoryTestBody = String(localized: "dryRunCoach.step.memoryTest.body")
+            static let toEngineStartTitle = String(localized: "dryRunCoach.step.toEngineStart.title")
+            static let toEngineStartBody = String(localized: "dryRunCoach.step.toEngineStart.body")
+            static let hoursBeforeTitle = String(localized: "dryRunCoach.step.hoursBefore.title")
+            static let hoursBeforeBody = String(localized: "dryRunCoach.step.hoursBefore.body")
+            static let engineStartTitle = String(localized: "dryRunCoach.step.engineStart.title")
+            static let engineStartBody = String(localized: "dryRunCoach.step.engineStart.body")
+            static let deferTitle = String(localized: "dryRunCoach.step.defer.title")
+            static let deferBody = String(localized: "dryRunCoach.step.defer.body")
+            static let deferredChipTitle = String(localized: "dryRunCoach.step.deferredChip.title")
+            static let deferredChipBody = String(localized: "dryRunCoach.step.deferredChip.body")
+            static let toBeforeDepartureTitle = String(localized: "dryRunCoach.step.toBeforeDeparture.title")
+            static let toBeforeDepartureBody = String(localized: "dryRunCoach.step.toBeforeDeparture.body")
+            static let toBeforeDepartureUpcoming = String(localized: "dryRunCoach.step.toBeforeDeparture.upcoming")
+            static let readyForLineUpTitle = String(localized: "dryRunCoach.step.readyForLineUp.title")
+            static let readyForLineUpBody = String(localized: "dryRunCoach.step.readyForLineUp.body")
+            static let lineUpCheckTitle = String(localized: "dryRunCoach.step.lineUpCheck.title")
+            static let lineUpCheckBody = String(localized: "dryRunCoach.step.lineUpCheck.body")
+            static let mapTakeoffTitle = String(localized: "dryRunCoach.step.mapTakeoff.title")
+            static let mapTakeoffBody = String(localized: "dryRunCoach.step.mapTakeoff.body")
+            static let airborneTitle = String(localized: "dryRunCoach.step.airborne.title")
+            static let airborneBody = String(localized: "dryRunCoach.step.airborne.body")
+            static let climbCheckTitle = String(localized: "dryRunCoach.step.climbCheck.title")
+            static let climbCheckBody = String(localized: "dryRunCoach.step.climbCheck.body")
+            static let climbCheckUpcoming = String(localized: "dryRunCoach.step.climbCheck.upcoming")
+            static let readBandTitle = String(localized: "dryRunCoach.step.readBand.title")
+            static let readBandBody = String(localized: "dryRunCoach.step.readBand.body")
+            static let cruiseCheckTitle = String(localized: "dryRunCoach.step.cruiseCheck.title")
+            static let cruiseCheckBody = String(localized: "dryRunCoach.step.cruiseCheck.body")
+            static let cruiseCheckUpcoming = String(localized: "dryRunCoach.step.cruiseCheck.upcoming")
+            static let routePageTitle = String(localized: "dryRunCoach.step.routePage.title")
+            static let routePageBody = String(localized: "dryRunCoach.step.routePage.body")
+            static let timeOverTitle = String(localized: "dryRunCoach.step.timeOver.title")
+            static let timeOverBody = String(localized: "dryRunCoach.step.timeOver.body")
+            static let legControlsTitle = String(localized: "dryRunCoach.step.legControls.title")
+            static let legControlsBody = String(localized: "dryRunCoach.step.legControls.body")
+            static let mapAgainTitle = String(localized: "dryRunCoach.step.mapAgain.title")
+            static let mapAgainBody = String(localized: "dryRunCoach.step.mapAgain.body")
+            static let descentCheckTitle = String(localized: "dryRunCoach.step.descentCheck.title")
+            static let descentCheckBody = String(localized: "dryRunCoach.step.descentCheck.body")
+            static let descentCheckUpcoming = String(localized: "dryRunCoach.step.descentCheck.upcoming")
+            static let approachCheckTitle = String(localized: "dryRunCoach.step.approachCheck.title")
+            static let approachCheckBody = String(localized: "dryRunCoach.step.approachCheck.body")
+            static let approachCheckUpcoming = String(localized: "dryRunCoach.step.approachCheck.upcoming")
+            static let landingShownTitle = String(localized: "dryRunCoach.step.landingShown.title")
+            static let landingShownBody = String(localized: "dryRunCoach.step.landingShown.body")
+            static let landingShownMemoryBody = String(localized: "dryRunCoach.step.landingShown.memoryBody")
+            static let goAroundTitle = String(localized: "dryRunCoach.step.goAround.title")
+            static let goAroundBody = String(localized: "dryRunCoach.step.goAround.body")
+            static let goAroundUpcoming = String(localized: "dryRunCoach.step.goAround.upcoming")
+            static let goAroundCardTitle = String(localized: "dryRunCoach.step.goAroundCard.title")
+            static let goAroundCardBody = String(localized: "dryRunCoach.step.goAroundCard.body")
+            static let climbAgainTitle = String(localized: "dryRunCoach.step.climbAgain.title")
+            static let climbAgainBody = String(localized: "dryRunCoach.step.climbAgain.body")
+            static let climbAgainUpcoming = String(localized: "dryRunCoach.step.climbAgain.upcoming")
+            static let memorySwitchTitle = String(localized: "dryRunCoach.step.memorySwitch.title")
+            static let memorySwitchBody = String(localized: "dryRunCoach.step.memorySwitch.body")
+            static let toAfterStartTitle = String(localized: "dryRunCoach.step.toAfterStart.title")
+            static let toAfterStartBody = String(localized: "dryRunCoach.step.toAfterStart.body")
+            static let toEngineStartFold = String(localized: "dryRunCoach.step.toEngineStart.fold")
+            static let engineStartCheckFold = String(localized: "dryRunCoach.step.engineStartCheck.fold")
+            static let afterStartFold = String(localized: "dryRunCoach.step.afterStart.fold")
+            static let toBeforeDepartureFold = String(localized: "dryRunCoach.step.toBeforeDeparture.fold")
+            static let lineUpCheckFold = String(localized: "dryRunCoach.step.lineUpCheck.fold")
+            static let climbCheckFold = String(localized: "dryRunCoach.step.climbCheck.fold")
+            static let cruiseCheckFold = String(localized: "dryRunCoach.step.cruiseCheck.fold")
+            static let descentCheckFold = String(localized: "dryRunCoach.step.descentCheck.fold")
+            static let approachCheckFold = String(localized: "dryRunCoach.step.approachCheck.fold")
+            static let climbAgainFold = String(localized: "dryRunCoach.step.climbAgain.fold")
+            static let approachAgainFold = String(localized: "dryRunCoach.step.approachAgain.fold")
+            static let fullStopFold = String(localized: "dryRunCoach.step.fullStop.fold")
+            static let fullStopMemoryFold = String(localized: "dryRunCoach.step.fullStop.memoryFold")
+            static let toShutdownFold = String(localized: "dryRunCoach.step.toShutdown.fold")
+            static let shutdownCheckFold = String(localized: "dryRunCoach.step.shutdownCheck.fold")
+            static let toEndFlightFold = String(localized: "dryRunCoach.step.toEndFlight.fold")
+            static let engineStartCheckTitle = String(localized: "dryRunCoach.step.engineStartCheck.title")
+            static let engineStartCheckBody = String(localized: "dryRunCoach.step.engineStartCheck.body")
+            static let afterStartTitle = String(localized: "dryRunCoach.step.afterStart.title")
+            static let afterStartBody = String(localized: "dryRunCoach.step.afterStart.body")
+            static let shutdownCheckTitle = String(localized: "dryRunCoach.step.shutdownCheck.title")
+            static let shutdownCheckBody = String(localized: "dryRunCoach.step.shutdownCheck.body")
+            static let approachAgainTitle = String(localized: "dryRunCoach.step.approachAgain.title")
+            static let approachAgainBody = String(localized: "dryRunCoach.step.approachAgain.body")
+            static let approachAgainUpcoming = String(localized: "dryRunCoach.step.approachAgain.upcoming")
+            static let fullStopTitle = String(localized: "dryRunCoach.step.fullStop.title")
+            static let fullStopBody = String(localized: "dryRunCoach.step.fullStop.body")
+            static let fullStopMemoryBody = String(localized: "dryRunCoach.step.fullStop.memoryBody")
+            static let toShutdownTitle = String(localized: "dryRunCoach.step.toShutdown.title")
+            static let toShutdownBody = String(localized: "dryRunCoach.step.toShutdown.body")
+            static let engineShutdownTitle = String(localized: "dryRunCoach.step.engineShutdown.title")
+            static let engineShutdownBody = String(localized: "dryRunCoach.step.engineShutdown.body")
+            static let engineShutdownUpcoming = String(localized: "dryRunCoach.step.engineShutdown.upcoming")
+            static let hoursAfterTitle = String(localized: "dryRunCoach.step.hoursAfter.title")
+            static let hoursAfterBody = String(localized: "dryRunCoach.step.hoursAfter.body")
+            static let toEndFlightTitle = String(localized: "dryRunCoach.step.toEndFlight.title")
+            static let toEndFlightBody = String(localized: "dryRunCoach.step.toEndFlight.body")
+            static let endFlightTitle = String(localized: "dryRunCoach.step.endFlight.title")
+            static let endFlightBody = String(localized: "dryRunCoach.step.endFlight.body")
+        }
+
+        /// The folded card: what the aircraft does.
+        enum Doing {
+            static let parked = String(localized: "dryRunCoach.doing.parked")
+            static let taxiing = String(localized: "dryRunCoach.doing.taxiing")
+            static let holding = String(localized: "dryRunCoach.doing.holding")
+            static let liningUp = String(localized: "dryRunCoach.doing.liningUp")
+            static let takeoffRoll = String(localized: "dryRunCoach.doing.takeoffRoll")
+            static let climbingOut = String(localized: "dryRunCoach.doing.climbingOut")
+            static let climbing = String(localized: "dryRunCoach.doing.climbing")
+            static func cruising(_ a0: String) -> String { String(format: String(localized: "dryRunCoach.doing.cruising"), a0) }
+            static let descending = String(localized: "dryRunCoach.doing.descending")
+            static let joining = String(localized: "dryRunCoach.doing.joining")
+            static let upwind = String(localized: "dryRunCoach.doing.upwind")
+            static let crosswind = String(localized: "dryRunCoach.doing.crosswind")
+            static let downwind = String(localized: "dryRunCoach.doing.downwind")
+            static let base = String(localized: "dryRunCoach.doing.base")
+            static let final = String(localized: "dryRunCoach.doing.final")
+            static let goingAround = String(localized: "dryRunCoach.doing.goingAround")
+            static let landing = String(localized: "dryRunCoach.doing.landing")
+            static let stopped = String(localized: "dryRunCoach.doing.stopped")
+            static let taxiingIn = String(localized: "dryRunCoach.doing.taxiingIn")
+            static let parkedEnd = String(localized: "dryRunCoach.doing.parkedEnd")
+        }
+        static func nextForYou(_ a0: String) -> String { String(format: String(localized: "dryRunCoach.nextForYou"), a0) }
+        static func coverTitle(_ a0: Int) -> String { String(format: String(localized: "dryRunCoach.coverTitle"), a0) }
+        static let coverBody = String(localized: "dryRunCoach.coverBody")
+        static let learnGroup = String(localized: "dryRunCoach.learnGroup")
+        static let part1 = String(localized: "dryRunCoach.part1")
+        static let part2 = String(localized: "dryRunCoach.part2")
+        static let part3 = String(localized: "dryRunCoach.part3")
+        static let part4 = String(localized: "dryRunCoach.part4")
+        static let habitPlan = String(localized: "dryRunCoach.habitPlan")
+        static let habitClose = String(localized: "dryRunCoach.habitClose")
+        static let habitLogbook = String(localized: "dryRunCoach.habitLogbook")
+        static func partDone(_ a0: String) -> String { String(format: String(localized: "dryRunCoach.partDone"), a0) }
+        static let nextFly = String(localized: "dryRunCoach.nextFly")
+        static let nextClose = String(localized: "dryRunCoach.nextClose")
+        static let nextLogbook = String(localized: "dryRunCoach.nextLogbook")
+        static func onTo(_ a0: String) -> String { String(format: String(localized: "dryRunCoach.onTo"), a0) }
+        static let stopHere = String(localized: "dryRunCoach.stopHere")
+        static let stopHereNote = String(localized: "dryRunCoach.stopHereNote")
+        static let linkKeptTitle = String(localized: "dryRunCoach.linkKeptTitle")
+        static func linkKept(_ a0: String) -> String { String(format: String(localized: "dryRunCoach.linkKept"), a0) }
+        static let end = String(localized: "dryRunCoach.end")
+        static let coverTitlePart = String(localized: "dryRunCoach.coverTitlePart")
+        static let storyNothingKept = String(localized: "dryRunCoach.storyNothingKept")
+        static let storyRow = String(localized: "dryRunCoach.storyRow")
+        static let storyRowSubtitle = String(localized: "dryRunCoach.storyRowSubtitle")
+        static let partsRow = String(localized: "dryRunCoach.partsRow")
+        static let partsFooter = String(localized: "dryRunCoach.partsFooter")
+        static let flyChapters = String(localized: "dryRunCoach.flyChapters")
+        static func partOf(_ part: Int, _ count: Int) -> String {
+            String(format: String(localized: "dryRunCoach.partOf"), part, count)
+        }
+        static let fold = String(localized: "dryRunCoach.fold")
+        static let memoryCheckNote = String(localized: "dryRunCoach.memoryCheckNote")
+        static let unfold = String(localized: "dryRunCoach.unfold")
     }
 }
 

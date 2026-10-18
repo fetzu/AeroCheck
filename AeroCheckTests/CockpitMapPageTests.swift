@@ -124,7 +124,7 @@ final class CockpitMapPageTests: XCTestCase {
             $0.hasPrefix(L10n.Circuits.touchAndGoLoop) || $0.hasPrefix(L10n.Circuits.fullStopLoop)
         })
         XCTAssertEqual(loops, [
-            [L10n.Circuits.touchAndGoLoop, L10n.Circuits.touchAndGoes(1), L10n.Circuits.thisLap].joined(separator: ", "),
+            [L10n.Circuits.touchAndGoLoop, L10n.Circuits.touchAndGoLoopLaps(1), L10n.Circuits.thisLap].joined(separator: ", "),
             [L10n.Circuits.fullStopLoop, L10n.Circuits.fullStops(0)].joined(separator: ", "),
         ])
 

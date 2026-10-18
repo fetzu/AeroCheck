@@ -150,8 +150,8 @@ enum ThreadTaskEngine {
         for ident in c.tracksCost ? c.feeIdents.sorted() : [] {
             specs.append(Spec(key: .feesPaid, subject: ident, kind: .check))
         }
+        // The debrief is no task since 6.4.0: the flight's notes, optional, in the CLOSE chapter's field.
         specs.append(Spec(key: .logbookEntry, kind: .check))
-        specs.append(Spec(key: .debriefWritten, kind: .check))
 
         return specs
     }
@@ -167,7 +167,6 @@ enum ThreadTaskEngine {
             specs.append(Spec(key: .dabsChecked, kind: .check))
         }
         specs.append(Spec(key: .logbookEntry, kind: .check))
-        specs.append(Spec(key: .debriefWritten, kind: .check))
         return specs
     }
 

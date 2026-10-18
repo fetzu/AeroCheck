@@ -158,7 +158,7 @@ final class CockpitColumnFitTests: XCTestCase {
         case route
         /// The approach on MAP: the check slot, GO AROUND, TOUCH-AND-GO, More.
         case approach
-        /// The longest phase name on the header's row: "CHECK BEFORE ENGINE START", no strip yet.
+        /// The longest phase name on the header's row: "BEFORE START CHECK" (once "CHECK BEFORE ENGINE START"), no strip yet.
         case beforeEngineStart
     }
 
@@ -184,8 +184,8 @@ final class CockpitColumnFitTests: XCTestCase {
 
     /// The header's one row: every phase's name at 17 pt beside Menu, in English and in French, in the
     /// column's width (`FlightView.cockpitColumnWidth`): its 12 pt either side, Menu (the word under its
-    /// icon, 10 pt either side), 8 pt between them, the phase button's 10 pt either side. "CHECK BEFORE
-    /// ENGINE START" sets the width.
+    /// icon, 10 pt either side), 8 pt between them, the phase button's 10 pt either side. "BEFORE TAKE-OFF
+    /// CHECK" sets the width (since the check titles took the English order, 6.4.0).
     func testEveryPhaseNameFitsTheHeadersRowAtTheLabelSize() {
         let label = CockpitType.label(for: .phone)
         let menu = ActBandMetrics.textWidth(localizedString(key: "cockpit.menu", language: "en"), size: label) + 2 * 10
@@ -199,7 +199,7 @@ final class CockpitColumnFitTests: XCTestCase {
                 XCTAssertLessThanOrEqual(width, room, "\(name) at \(label) pt in \(room) pt")
             }
         }
-        XCTAssertEqual(widest.0, "CHECK BEFORE ENGINE START")
+        XCTAssertEqual(widest.0, "BEFORE TAKE-OFF CHECK")
     }
 
     /// The column's rows, added up, within each phone's height (the author's answer to the plan's Q2): 2 pt

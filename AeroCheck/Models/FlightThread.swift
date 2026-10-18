@@ -69,6 +69,8 @@ enum ThreadTaskKey: String, Codable, CaseIterable, Sendable {
     case flightPlanClosed   = "close.fpl"
     case feesPaid           = "close.fees"
     case logbookEntry       = "close.logbook"
+    /// Not emitted since 6.4.0: the debrief is the flight's notes, optional, written in the CLOSE
+    /// chapter (`ThreadDebriefField`) or the logbook. Kept so the threads that have one still decode.
     case debriefWritten     = "close.debrief"
 
     var chapter: ThreadChapter {
@@ -228,6 +230,16 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
             ($0.chapter == .plan || $0.chapter == .prepare) && $0.state != .notApplicable
         }
         return (relevant.filter { $0.state == .done }.count, relevant.count)
+    }
+
+    /// PLANNED until every task before the flight is ticked or set aside, then READY, as the ring beside the
+    /// state already says ("x of y done"); back to PLANNED when one is unticked or a new one appears. Before
+    /// the flight only: FLY, CLOSE-OUT and DONE are the flight's. READY was only ever set when an abandoned
+    /// flight was detached, so a flight with everything ticked still said PLANNED. (6.4.0)
+    mutating func settleReadiness() {
+        guard state == .planned || state == .ready else { return }
+        let progress = preFlightProgress
+        state = progress.total > 0 && progress.done >= progress.total ? .ready : .planned
     }
 
     var closeOutProgress: (done: Int, total: Int) {

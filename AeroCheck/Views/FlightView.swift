@@ -17,6 +17,9 @@ struct FlightView: View {
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
+    /// A dry run's: the guided flight's coach reads the engine hours' prompt, and shows its card over it.
+    /// Nil in a real flight. (6.4.0)
+    @Environment(\.dryRunSession) private var dryRunSession
     @State private var showPhaseSelector = false
     @State private var showEndFlightAlert = false
     @State private var showAbandonFlightAlert = false
@@ -61,8 +64,10 @@ struct FlightView: View {
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
-    /// Stable periodic timer (created once) driving FREDA's evaluation. (v4 UI/UX Revamp fix; FREDA 6.1)
-    @State private var fredaEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    /// Stable periodic timer (created once) driving FREDA's evaluation, every 5 s of the flight's clock
+    /// (`FredaEvaluationCadence`, 6.4.0). (v4 UI/UX Revamp fix; FREDA 6.1)
+    @State private var fredaEvalTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+    @State private var fredaCadence = FredaEvaluationCadence()
     @State private var showHourMeterStop = false
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
@@ -277,7 +282,21 @@ struct FlightView: View {
                 showFlightInfo = false
                 performAbandonFlight()
             })
+            // A dry run's coach over the Menu: its switch for the memory items rung (r3-7). (6.4.0)
+            .environment(\.dryRunSession, dryRunSession)
+            .dryRunCoachScreen(.menu)
         }
+        #if DEBUG
+        // The dry run's DEBUG autopilot, in place of a tap: the Menu. (6.4.0)
+        .dryRunAutopilotTap { tap in
+            guard dryRunSession != nil else { return }
+            switch tap {
+            case .open(.menu): showFlightInfo = true
+            case .close(.menu): showFlightInfo = false
+            default: break
+            }
+        }
+        #endif
         .sheet(item: $openItemsReview) { review in
             OpenItemsReviewSheet(
                 phase: review.phase,
@@ -313,6 +332,7 @@ struct FlightView: View {
                 },
                 initialValue: hourMeterStartInitialValue
             )
+            .dryRunCoachCard(dryRunSession)
         }
         .fullScreenCover(isPresented: $showHourMeterStop) {
             HourMeterInputView(
@@ -325,6 +345,14 @@ struct FlightView: View {
                 initialValue: hourMeterStopInitialValue,
                 startHours: appState.currentFlight?.engineHourStart
             )
+            .dryRunCoachCard(dryRunSession)
+        }
+        // The guided flight's coach reads the prompt: its card asks about the engine hours over it. (6.4.0)
+        .onChange(of: showHourMeterStart) { _, shown in
+            dryRunSession?.coach?.hourMeter = shown ? .beforeStart : nil
+        }
+        .onChange(of: showHourMeterStop) { _, shown in
+            dryRunSession?.coach?.hourMeter = shown ? .afterStop : nil
         }
         .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -350,7 +378,7 @@ struct FlightView: View {
             windDataService.stopFetching()
         }
         .onReceive(fredaEvalTimer) { _ in
-            evaluateFreda()
+            if fredaCadence.isDue(at: FlightClock.now) { evaluateFreda() }
         }
         .onChange(of: appState.currentPhase) { _, phase in
             // A briefing phase is exactly when a stale observation matters most: an approach
@@ -391,89 +419,12 @@ struct FlightView: View {
     }
     
     /// END FLIGHT, from the last phase or from the Menu at any phase: stop the track, settle the times,
-    /// hand the flight over to its thread and the logbook. (v6.0 · P2 — was the alert's action)
+    /// hand the flight over to its thread and the logbook. (v6.0 · P2 — was the alert's action) The sequence is
+    /// `FlightEnder`'s, shared with the dry run's story, which ends its flight headless on the way to a later
+    /// part. (6.4.0)
     private func performEndFlight() {
-        let endedFlightId = appState.currentFlight?.id
-        let checklist = appState.activeChecklist
-        locationManager.stopTracking()
-        // Block off, take-off and block on from the whole track, before the plan's times over
-        // and the thread read them. (v5.2)
-        appState.refineTimingFromTrack()
-        // Then a departure or an arrival the live detection missed (or an arrival it left on an
-        // earlier stop), from those measured positions, before the plan reads where it landed. (v6.1)
-        appState.settleAerodromesAtEndOfFlight(nearestAerodrome: { airportDataService.aerodromeIdent(at: $0) })
-        // The plan this flight flew gets its times (and, landed elsewhere, the diversion), is attached
-        // to it and ends its activation. Only the plan the flight was started with: one left armed
-        // through circuits or a flight started without it is left as it was, still armed. (v5.1, v6.0.1)
-        // Its landings are counted against the home aerodrome: the airport data is loaded at flight start.
-        let flownPlan = appState.currentFlight.flatMap { flight in
-            flightPlanManager.settleFlownPlan(flight, takeoff: appState.lineUpTime, landing: appState.landingTime,
-                                              landedAt: landedAerodrome(flight),
-                                              landings: airportDataService.landingTally(
-                                                for: flight, home: appState.settings.homeAerodromeIdent))
-        }
-        let plannedDestination = flownPlan?.waypoints.last?.name
-        let landedDiversion = flownPlan?.diversion
-        // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
-        // there is no plan left to resolve it from. A flight with no thread resolves to nil
-        // and nothing below changes, which is what "start a flight without a thread" means.
-        // Circuits can be left or taken up in flight (6.3.0): the close-out goes by how the flight began,
-        // the light circuits close-out by whether circuits were flown at the end of it.
-        let wasCircuits = appState.isCircuitMode || appState.startedAsCircuits
-        let closingThreadId = threadManager.threadToCloseOut(
-            flightId: endedFlightId,
-            planId: flightPlanManager.activeFlightPlan?.id,
-            isCircuitMode: appState.startedAsCircuits,
-            isUnplanned: appState.flightIsUnplanned
-        )
-        appState.endFlight(withFlightPlan: flownPlan)
-        if flownPlan != nil { flightPlanManager.deactivateFlightPlan() }
-
-        // Move the thread into close-out. This is what raises the open-flight-plan banner and
-        // arms the reminder, so it must run after the flight is actually over.
-        if let closingThreadId {
-            // Landed elsewhere: the thread says so first, so the banner and the reminder name
-            // the aerodrome the aircraft is actually at. (v5.1)
-            if let landedDiversion, let plannedDestination {
-                threadManager.recordLanding(threadId: closingThreadId, plannedIdent: plannedDestination,
-                                            landedIdent: landedDiversion.ident,
-                                            landedName: landedDiversion.name)
-            }
-            threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
-        } else if wasCircuits, let endedFlightId,
-                  let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
-            // Circuits resolve to no thread by design — they cannot be planned. Offer the
-            // light close-out rather than leaving the session with no logbook line. (v5.x)
-            threadManager.offerCircuitCloseOut(
-                flightId: endedFlightId,
-                departureIdent: flown.departureAirportIdent,
-                aircraftRegistration: flown.aircraftRegistration
-            )
-        }
-
-        // Post-flight reconciliation (D2): re-segment the saved track offline and
-        // build the review diff. Shown only when it would change EVENTS; a pure
-        // block-time back-fill (additive) is applied without ceremony.
-        if let endedFlightId,
-           let flight = appState.flights.first(where: { $0.id == endedFlightId }) {
-            let result = FlightReconciliation.analyze(
-                flight: flight,
-                speeds: checklist.speeds,
-                stallSpeed: checklist.stallSpeed,
-                nearbyAirports: { coordinate in
-                    airportDataService.findNearestAirports(
-                        to: coordinate, limit: 3, maxDistanceNm: 5.0,
-                        types: AirportType.fixedWing
-                    )
-                }
-            )
-            if result.hasEventDiff {
-                appState.pendingReconciliation = result
-            } else {
-                appState.backfillBlockTimes(result)
-            }
-        }
-    
+        FlightEnder(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
+                    flightPlanManager: flightPlanManager, threadManager: threadManager).end()
     }
 
     // MARK: - Main Checklist Area
@@ -917,15 +868,6 @@ struct FlightView: View {
 
     /// Where the flight ended: the aerodrome block-on detection found, else the one nearest the last
     /// fix. Nil when neither is known (no airport data, no track). (v5.1)
-    private func landedAerodrome(_ flight: Flight) -> TripPlanner.Aerodrome? {
-        if let ident = flight.arrivalAirportIdent, let airport = airportDataService.findAirport(byIdent: ident) {
-            return airportDataService.planningAerodrome(airport)
-        }
-        guard let last = flight.gpsTrack.last else { return nil }
-        return airportDataService.nearestAirport(to: last.coordinate, maxDistanceNm: 3, types: AirportType.fixedWing)
-            .map(airportDataService.planningAerodrome)
-    }
-
     // MARK: - Flight Info Panel
     
     private var gpsStatusColor: Color {
@@ -1002,6 +944,8 @@ extension FlightView {
             }
         }
         .background(theme.background)
+        // The page, for a dry run's coach ("Open MAP"); nothing reads it in a real flight. (6.4.0)
+        .preference(key: CockpitPageKey.self, value: cockpitCurrentPage)
         .onChange(of: cockpitDefaultPage) { _, _ in pageChoice.suggestionChanged() }
         // ROUTE opens on LEGS, from the picker too, unless the NOW line asked for RADIO. (6.2.0)
         .onChange(of: cockpitCurrentPage) { _, page in if page != .route { navState.routeList = .legs } }
@@ -1049,6 +993,7 @@ extension FlightView {
             // moves (Taxi to After landing), NEXT with its figures, then NOW | NEXT; on the phone, the
             // strip of three, then the next line and the NOW line. (6.2, the read band)
             SeparateView { cockpitReadRows(layout: narrow ? .narrow : .wide) }
+                .coachTarget(.readBand)
 
             // 4 pt on the phone, whose chart has every point it can get (6.2, PR 4; 6.2.0, device check
             // 11 Oct).
@@ -1134,6 +1079,7 @@ extension FlightView {
             VStack(spacing: 0) {
                 cockpitColumnHead
                 SeparateView { cockpitReadRows(layout: .columns, mergesLines: mergesReadLines) }
+                    .coachTarget(.readBand)
                     .padding(.top, Self.cockpitColumnGap)
                 Spacer(minLength: 0)
                 SeparateView { cockpitActBand(layout: .columns) }
@@ -1169,7 +1115,7 @@ extension FlightView {
     /// BRIEFING alone fits there again on an iPad. (6.2)
     private func cockpitChecklistChips(narrow: Bool) -> some View {
         HStack(spacing: 8) {
-            if appState.hasDeferredWork { deferredChip }
+            if appState.hasDeferredWork { deferredChip.coachTarget(.deferredChip) }
             if narrow || !briefingInBar { cockpitBriefingChip }
             cockpitNextChip
             Spacer(minLength: 0)
@@ -1442,6 +1388,7 @@ extension FlightView {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .coachTarget(.menu)
         .accessibilityIdentifier("cockpit.menu")
         .accessibilityLabel(L10n.Cockpit.menu)
     }
@@ -1887,7 +1834,7 @@ struct PhaseProgressBar: View {
     private func loopSpeech(_ loop: CircuitLaps.Loop) -> String {
         let span = loop == .touchAndGo ? L10n.Circuits.touchAndGoLoop : L10n.Circuits.fullStopLoop
         guard let loops else { return span }
-        let count = loop == .touchAndGo ? L10n.Circuits.touchAndGoes(loops.touchAndGoes)
+        let count = loop == .touchAndGo ? L10n.Circuits.touchAndGoLoopLaps(loops.touchAndGoes)
                                         : L10n.Circuits.fullStops(loops.fullStops)
         let parts = [span, count] + (loops.current == loop ? [L10n.Circuits.thisLap] : [])
         return parts.joined(separator: ", ")
@@ -2209,6 +2156,8 @@ struct FlightInfoSheet: View {
     @State private var confirmEndFlight = false
     @State private var confirmAbandonFlight = false
     @ObservedObject private var companion = CompanionConnectivityManager.shared
+    @Environment(\.isDryRun) private var isDryRun
+    @Environment(\.dryRunSession) private var dryRunSession
     @Environment(\.dismiss) var dismiss
     @State private var detent: PresentationDetent = .large  // open extended
 
@@ -2254,6 +2203,27 @@ struct FlightInfoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
+                    // A dry run's controls first, at the top: on the iPhone its band has no room for them
+                    // (D4), and End is here on both. (6.4.0)
+                    if let dryRunSession {
+                        settingsCard(title: L10n.DryRun.band) {
+                            // The guided flight paces itself: End only.
+                            if dryRunSession.coach == nil {
+                                DryRunControls(session: dryRunSession, height: 44, stacked: true)
+                                rowDivider
+                            }
+                            Button(role: .destructive) {
+                                dismiss()
+                                dryRunSession.stop()
+                            } label: {
+                                Text(L10n.DryRun.endDryRun)
+                                    .font(.aero(size: CockpitType.label, weight: .semibold))
+                                    .foregroundColor(theme.danger)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                     // Display first: it is what the Menu is opened for, in glare or at dusk. (review B7)
                     settingsCard(title: L10n.Cockpit.display) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -2284,13 +2254,17 @@ struct FlightInfoSheet: View {
                             get: { !appState.settings.learningMode },
                             set: { appState.settings.learningMode = !$0; appState.saveSettings() }
                         ))
+                        .coachTarget(.memoryItemsToggle)
                         rowDivider
                         toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
-                        rowDivider
                         // Companion mode only makes sense once a device is paired (pairing happens in
                         // the main Settings, not mid-flight). Show the toggle when paired; otherwise a
-                        // hint pointing to Settings. (companion — HUD gating)
-                        if companion.hasPairedDevices {
+                        // hint pointing to Settings. (companion — HUD gating) Never in a dry run: its
+                        // Companion is off (D8), and the toggle is the real app's. (6.4.0)
+                        if isDryRun {
+                            EmptyView()
+                        } else if companion.hasPairedDevices {
+                            rowDivider
                             // Toggle the second screen on/off without leaving the flight (e.g. the iPad
                             // pilot brings up the iPhone wingman mid-flight). Mirrors the main settings
                             // toggle: enabling auto-connects to a paired device, disabling tears down.
@@ -2304,6 +2278,7 @@ struct FlightInfoSheet: View {
                                 }
                             ))
                         } else {
+                            rowDivider
                             HStack(spacing: 8) {
                                 Image(systemName: "ipad.and.iphone")
                                     .font(.aero(size: 16))

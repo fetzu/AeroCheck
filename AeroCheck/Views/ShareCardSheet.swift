@@ -144,7 +144,7 @@ struct ShareCardThemePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("COLOR THEME")
+            Text("COLOUR THEME")
                 .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .tracking(1.5)

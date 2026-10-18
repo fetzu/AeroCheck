@@ -627,6 +627,7 @@ struct MapStatusSlot: View {
             if let offer = undoOffer {
                 MapUndoSlot(offer: offer, metrics: metrics, language: language) { actions.dismissUndo(offer) }
                     .id(offer.id)
+                    .coachTarget(.undoToast)
             }
         } else {
             MapStatusButton(status: status, metrics: metrics, language: language) {
@@ -1279,7 +1280,7 @@ enum MapChromeSample {
             return String(format: text("nav.markedAutomaticallyAt", "%1$@ marked automatically at %2$@"), waypoint, time)
         case .legTimer: return text("nav.legTimerReset", "Leg timer reset")
         case .memory:
-            let check = text("phase.short.beforeEngineStart", "CHECK BEFORE ENGINE START")
+            let check = text("phase.short.beforeEngineStart", "BEFORE START CHECK")
             return String(format: text("cockpit.doneFromMemoryToast", "%@ done from memory"), check)
         case .freda: return String(format: text("freda.doneToast", "FREDA done at %@"), time)
         }

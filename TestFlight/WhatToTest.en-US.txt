@@ -1,9 +1,13 @@
-6.4.1 fixes how landings are counted and what the radio's NEXT suggests on the way in, all found by replaying a real flight on the ground.
+6.4.2 makes the radio's NOW and NEXT follow your route the way you work the radio: the stations in the order you call them, as on the printed nav log.
 
-What to look at:
-- a flight to an aerodrome higher than the one you left, on an iPhone or a cellular iPad (they have a barometer): the landing is counted when it happens, the after landing check comes by itself and the destination gets its time;
-- FULL STOP LANDING pressed late, minutes after the touchdown: the flight's review and the logbook show one landing, at the touchdown, and the flight time is the measured one;
-- the Logbook: a flight that recorded the same landing twice shows one landing everywhere, its line, its page and the CSV and PDF exports;
-- the radio on the way in: once a waypoint outside the destination's circuit is behind you, NEXT stays empty rather than suggesting the FIS, and stays so after landing. On a local flight, NEXT offers the FIS on the way out, until the first point outside the circuit.
+What to look at, on a route:
+- the departure field stays NOW until you level off (or leave its zone), with the Info or the zone ahead as NEXT;
+- then each Info and each zone in turn: a CTR, RMZ or FIZ becomes NOW 5 minutes before you enter it, the next Info shows as NEXT before its boundary and becomes NOW there;
+- a TMA cleared by the Info (Geneva, Zurich, the Basel sectors) is named beside NOW from 10 minutes before;
+- over the Ajoie and the northern Jura, from 2,000 ft above the ground: Bale Info;
+- the destination becomes NOW 5 minutes before the aerodrome, or 2 minutes before its arrival point if that comes first, and its ATIS shows in NEXT as LISTEN from 10 minutes before;
+- an aerodrome the route passes within 2 NM shows in NEXT as LISTEN from 5 minutes before, NOW staying with the Info (Settings › Checklist & Flight › Aerodromes on the way turns it off).
+
+Without a route, an aerodrome is NOW only inside its zone or within 3 NM, else the Info.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

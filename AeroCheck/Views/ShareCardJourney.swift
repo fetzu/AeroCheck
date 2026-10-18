@@ -227,7 +227,7 @@ struct ShareCardJourney {
         switch (end.departure, end.arrival) {
         case let (departure?, arrival?) where departure == arrival:
             // "· circuits" as the single card's line under its title: B612 has no "↻".
-            return flight.touchAndGoCount > 0
+            return flight.landingCounts.touchAndGoes > 0
                 ? "\(departure) · \(L10n.Flights.circuits.localizedLowercase)" : departure
         case (nil, nil):
             return flight.title

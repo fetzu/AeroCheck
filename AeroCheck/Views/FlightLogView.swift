@@ -2318,8 +2318,11 @@ struct FlightDetailView: View {
                     landingTime: flight.landingTime,
                     engineShutdownTime: flight.engineShutdownTime,
                     goAroundTimes: flight.goAroundTimes,
-                    touchAndGoTimes: flight.touchAndGoTimes,
-                    fullStopTimes: flight.fullStopTimes,
+                    // One mark per touchdown (6.4.1), as the counts beside it.
+                    touchAndGoTimes: flight.touchAndGoTimes.count == flight.touchAndGoCount
+                        ? flight.landings.filter { $0.kind == .touchAndGo }.map(\.time) : flight.touchAndGoTimes,
+                    fullStopTimes: flight.fullStopTimes.count == flight.fullStopCount
+                        ? flight.landings.filter { $0.kind == .fullStop }.map(\.time) : flight.fullStopTimes,
                     selectedTime: $selectedTime
                 )
                 .frame(height: 200)
@@ -4243,7 +4246,10 @@ enum FlightTimelineEvents {
     }
 
     static func events(of flight: Flight) -> [Event] {
-        var events = flight.touchAndGoTimes.map { Event(kind: .touchAndGo, time: $0) }
+        // One per touchdown (6.4.1): a touch-and-go logged twice is one row.
+        let touches = flight.touchAndGoTimes.count == flight.touchAndGoCount
+            ? flight.landings.filter { $0.kind == .touchAndGo }.map(\.time) : flight.touchAndGoTimes
+        var events = touches.map { Event(kind: .touchAndGo, time: $0) }
         events += flight.goAroundTimes.map { Event(kind: .goAround, time: $0) }
         events += (flight.intermediateFullStops ?? []).map {
             Event(kind: $0.kind == .stop ? .stop : .stopAndGo, time: $0.time)

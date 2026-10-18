@@ -79,6 +79,13 @@ final class HomeAerodromeTests: XCTestCase {
         XCTAssertEqual(fromEcuvillens.atHome, 2, "the ident as typed: trimmed, upper-cased")
     }
 
+    /// A landing logged twice seconds apart (before the duplicate guard) is one landing at home too: 1 / 1,
+    /// not 2 / 2, nor unknown. (6.4.1, F4)
+    func testALandingLoggedTwiceCountsOnceAtHome() {
+        let flown = flight(from: "LSGE", fullStops: [("LSZQ", 35), ("LSZQ", 35.07)])
+        XCTAssertEqual(LandingTally.of(flown, home: "LSZQ", aerodromeAt: aerodrome(at:)), LandingTally(total: 1, atHome: 1))
+    }
+
     /// The author's three flights, with LSZQ as home: 0 / 1, 0 / 1, 1 / 1. The old rule printed 1 / 1
     /// on each, a destination's landing counted at base.
     func testTheAuthorsDayReadsZeroZeroOne() {

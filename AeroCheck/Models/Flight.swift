@@ -634,12 +634,15 @@ struct Flight: Identifiable, Codable {
         return bounded
     }
 
-    /// Total landings (touch and go + full stops, which now includes the final landing)
+    /// Total landings (touch and go + full stops, which now includes the final landing), one per touchdown
+    /// (`landingCounts`): a landing logged twice counts once. The logbook line, its CSV and PDF, the flight's
+    /// page, the share card and the plan's landings read it. (6.4.1)
     var totalLandings: Int {
         // Saturating: `+` traps on overflow, and the Logbook row reads this for every flight. The
         // counts are bounded on ingest and load (`withPlausibleValues()`). (S9-10)
-        let (sum, overflow) = touchAndGoCount.addingReportingOverflow(fullStopCount)
-        return overflow ? (touchAndGoCount < 0 ? Int.min : Int.max) : sum
+        let counts = landingCounts
+        let (sum, overflow) = counts.touchAndGoes.addingReportingOverflow(counts.fullStops)
+        return overflow ? (counts.touchAndGoes < 0 ? Int.min : Int.max) : sum
     }
     
     /// Display name: "Custom Name (Registration)" or just "Registration" if no name
@@ -1791,6 +1794,48 @@ extension Flight {
     /// guard); flights logged before the guard carry such pairs, a few seconds apart.
     static let sameLandingSeconds: TimeInterval = 60
 
+    /// One landing: a touchdown, at its first record's time, called as its last record calls it. (6.4.1)
+    struct Landing: Equatable {
+        let time: Date
+        let kind: FlightEventType
+    }
+
+    /// The flight's landings, one per touchdown, in time order: the touch-and-goes and full stops it logged, a
+    /// landing logged twice counted once by the flight review's rule (`TrackTimes.isSameLanding`: within a
+    /// minute, or later with nothing flown between them). The author's Vol d'Alpes logged its landing at LSZQ
+    /// twice, four seconds apart, before the duplicate guard; a FULL STOP held late after a touchdown the app
+    /// missed was logged beside it until 6.4.1. Every count reads these (`landingCounts`); what is stored stays
+    /// as it was logged. A kind whose times don't match its count (a flight from before they were kept) can't
+    /// be placed: it is left out here and counted as stored. (6.4.1, F4)
+    var landings: [Landing] {
+        var records: [Landing] = []
+        if touchAndGoTimes.count == touchAndGoCount {
+            records += touchAndGoTimes.map { Landing(time: $0, kind: .touchAndGo) }
+        }
+        if fullStopTimes.count == fullStopCount {
+            records += fullStopTimes.map { Landing(time: $0, kind: .fullStop) }
+        }
+        var merged: [Landing] = []
+        for record in records.sorted(by: { $0.time < $1.time }) {
+            if let landing = merged.last,
+               TrackTimes.isSameLanding(logged: record.time, as: landing.time, stopped: landing.kind == .fullStop,
+                                        track: gpsTrack) {
+                merged[merged.count - 1] = Landing(time: landing.time, kind: record.kind)
+            } else {
+                merged.append(record)
+            }
+        }
+        return merged
+    }
+
+    /// The touch-and-goes and the full stops, one per touchdown (`landings`); a kind whose times don't match
+    /// its count, as stored. (6.4.1)
+    var landingCounts: (touchAndGoes: Int, fullStops: Int) {
+        let merged = landings
+        return (touchAndGoTimes.count == touchAndGoCount ? merged.filter { $0.kind == .touchAndGo }.count : touchAndGoCount,
+                fullStopTimes.count == fullStopCount ? merged.filter { $0.kind == .fullStop }.count : fullStopCount)
+    }
+
     /// Each full stop before the last one (the last is the flight's landing), in time order, as a
     /// stop-and-go or a stop. Read by the share card's counts, the Logbook's timeline and the logbook
     /// line's remarks, so the three agree (moved from `ShareCardFigures` in 6.3.0).
@@ -1802,18 +1847,15 @@ extension Flight {
     /// stop-and-go, as every non-final full stop was before (decision D1): only the track can show it
     /// was elsewhere.
     ///
-    /// Full stops less than `sameLandingSeconds` apart are one landing, at the later time: the author's
-    /// Vol d'Alpes logged its landing at LSZQ twice, four seconds apart, and 6.3.0's timeline showed the
-    /// first as a stop-and-go (the website's logbook shot).
+    /// A landing logged twice is one (`landings`, since 6.4.1; 6.3.1 merged full stops under a minute apart):
+    /// the author's Vol d'Alpes logged its landing at LSZQ twice, four seconds apart, and 6.3.0's timeline
+    /// showed the first as a stop-and-go (the website's logbook shot).
     ///
     /// Nil when the times don't match the count (a flight from before they were kept): which full stop
     /// was the last can't be told, and every one before it is a stop-and-go without a time.
     var intermediateFullStops: [(time: Date, kind: IntermediateFullStop)]? {
-        let logged = fullStopTimes.sorted()
-        guard logged.count == fullStopCount else { return nil }
-        let times = logged.indices.filter { index in
-            index == logged.count - 1 || logged[index + 1].timeIntervalSince(logged[index]) >= Self.sameLandingSeconds
-        }.map { logged[$0] }
+        guard fullStopTimes.count == fullStopCount else { return nil }
+        let times = landings.filter { $0.kind == .fullStop }.map(\.time)
         guard times.count > 1 else { return [] }
 
         let track = gpsTrack

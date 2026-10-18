@@ -78,8 +78,9 @@ struct LandingTally: Equatable {
         guard let home = HomeAerodrome.normalized(home), let aerodromeAt else {
             return LandingTally(total: total, atHome: nil)
         }
-        // Every landing needs its time to be placed. An import can carry the counts without them.
-        let times = flight.touchAndGoTimes + flight.fullStopTimes
+        // Every landing needs its time to be placed. An import can carry the counts without them. One per
+        // touchdown, as the total counts them (6.4.1).
+        let times = flight.landings.map(\.time)
         guard times.count == total else { return LandingTally(total: total, atHome: nil) }
 
         var atHome = 0

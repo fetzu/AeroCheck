@@ -6,12 +6,24 @@ struct OpenAIPFrequency: Codable, Equatable {
     let name: String?
     let value: String       // MHz as a string, e.g. "121.030"
     let typeRaw: Int
-    var typeLabel: String { OpenAIPFrequencyType.label(for: typeRaw) }
+    /// The aerodrome's own radio without ATS (type 16) under its country's short name where OpenAIP gives one ("AD" in
+    /// Switzerland, "A/A" in France: "LSZQ AD 122.055", as the Swiss radio index writes it), else "RADIO" (the
+    /// German, Austrian and Italian "… RADIO"). Other types by their code. (6.4.2)
+    var typeLabel: String {
+        if typeRaw == 16, let short = name?.trimmingCharacters(in: .whitespaces).uppercased(),
+           OpenAIPFrequencyType.aerodromeRadioNames.contains(short) {
+            return short
+        }
+        return OpenAIPFrequencyType.label(for: typeRaw)
+    }
 }
 
 /// Best-effort mapping of OpenAIP frequency `type` codes onto the short labels the app shows (TWR/GND/…).
 /// The frequency `name` carries the authoritative description, so an imperfect code mapping is harmless.
 enum OpenAIPFrequencyType {
+    /// The short names a country gives an aerodrome's own radio (type 16), kept as its label. (6.4.2)
+    static let aerodromeRadioNames: Set<String> = ["AD", "A/A"]
+
     static func label(for code: Int) -> String {
         switch code {
         case 0: return "APP"

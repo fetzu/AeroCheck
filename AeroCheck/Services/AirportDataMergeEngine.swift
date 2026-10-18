@@ -134,8 +134,13 @@ enum AirportDataMergeEngine {
 
     /// The frequency list of every airport the merge took from OpenAIP, keyed by ident, ready to replace
     /// `frequenciesByAirport[ident]`: OpenAIP's, plus OurAirports' of a type OpenAIP doesn't list (GND or
-    /// ATIS the export omits). Only the records in `foldedOpenAIPIds` contribute, as for `mergedRunways`:
-    /// a same-ICAO field kept apart used to lend the OurAirports one its frequencies.
+    /// ATIS the export omits) on a frequency OpenAIP doesn't list either. Only the records in `foldedOpenAIPIds`
+    /// contribute, as for `mergedRunways`: a same-ICAO field kept apart used to lend the OurAirports one its
+    /// frequencies.
+    ///
+    /// The frequency compared by what a channel name stands for: OurAirports' "AFIS 122.05" at LSZQ is OpenAIP's
+    /// "AD 122.055" (its 8.33 kHz name), and kept beside it, it won as the field's contact with the wrong channel and
+    /// a wrong type. (6.4.2)
     static func mergedFrequencies(
         ourFrequenciesByIdent: [String: [AirportFrequency]],
         openAIP: [OpenAIPAirport],
@@ -145,7 +150,10 @@ enum AirportDataMergeEngine {
         var result: [String: [AirportFrequency]] = [:]
         for (ident, freqs) in Dictionary(grouping: openAIPFrequencies(from: folded), by: { $0.airportIdent }) {
             let openAIPTypes = Set(freqs.map { $0.type })
-            let keptOurAirports = (ourFrequenciesByIdent[ident] ?? []).filter { !openAIPTypes.contains($0.type) }
+            let keptOurAirports = (ourFrequenciesByIdent[ident] ?? []).filter { ours in
+                !openAIPTypes.contains(ours.type)
+                    && !freqs.contains { RouteRadioPlanner.Station.isSameFrequency($0.formattedFrequency, ours.formattedFrequency) }
+            }
             result[ident] = freqs + keptOurAirports
         }
         return result

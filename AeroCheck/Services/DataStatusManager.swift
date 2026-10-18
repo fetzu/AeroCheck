@@ -195,6 +195,8 @@ final class DataStatusManager: ObservableObject {
     private let now: () -> Date
     private let userDefaults: UserDefaults
     private let nudgeSnoozeKey = "dataFreshnessNudgeSnoozeUntil"
+    /// Set once the aerodromes have followed the other layers' countries (`followCountriesWithTheAerodromesOnce`).
+    static let aerodromesFollowedKey = "openAIPAerodromesFollowedLayers"
     private let nudgeSnoozeInterval: TimeInterval = 7 * 24 * 60 * 60
 
     /// Held for the refresh increment (PR 7) and exposed so the hub can show connectivity and refresh
@@ -299,7 +301,7 @@ final class DataStatusManager: ObservableObject {
     /// The per-country layers of the trip top-up, built on the services themselves, in the order the
     /// app registers them: the route builder is a full-screen cover the manager isn't injected into, so
     /// it reads them through this list rather than four hard-coded calls. The OpenAIP aerodromes stay
-    /// out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0)
+    /// out (`OpenAIPAirportProvider.perCountryCoverage`); the builder's download adds them. (6.2.0, 6.4.2)
     ///
     /// No default values: a default argument is evaluated outside the main actor, where the services'
     /// `.shared` instances can't be read (a Swift 6 error, a warning today).
@@ -350,7 +352,25 @@ final class DataStatusManager: ObservableObject {
             guard due else { continue }
             await provider.refresh()
         }
+        await followCountriesWithTheAerodromesOnce()
         recompute()
+    }
+
+    /// Once per install: OpenAIP's aerodromes for the countries the other layers hold. Until 6.4.2 only
+    /// Settings › Navigation & Maps fetched them, so a device set up through onboarding had OurAirports'
+    /// frequencies alone, often their 25 kHz names (LSZQ's 122.050 for 122.055). Once, so an aerodrome layer
+    /// removed in Data & Storage isn't fetched back at every launch: onboarding, the map's update and the
+    /// trip downloads fetch them since. Nothing held yet waits for the first download. (6.4.2)
+    private func followCountriesWithTheAerodromesOnce() async {
+        guard !userDefaults.bool(forKey: Self.aerodromesFollowedKey) else { return }
+        let held = Set(providers.compactMap(\.perCountryCoverage).joined())
+        guard !held.isEmpty else { return }
+        userDefaults.set(true, forKey: Self.aerodromesFollowedKey)
+        for case let aerodromes as OpenAIPAirportProvider in providers {
+            let missing = held.subtracting(aerodromes.service.downloadedCountries)
+            guard !missing.isEmpty else { continue }
+            await aerodromes.prefetch(countries: missing.sorted())
+        }
     }
 }
 
@@ -628,6 +648,14 @@ struct OpenAIPAirportProvider: DataSetProvider {
     /// (the four layers, never this one), with no size to quote (the estimator has no airport layer).
     /// The countries still show in the row (`DataSet.coverage`).
     var perCountryCoverage: [String]? { nil }
+
+    /// Fetched with a trip's other layers all the same, the union, what is on disk skipped: OpenAIP has the
+    /// frequencies as the AIPs write them (8.33 kHz channel names, an aerodrome's AD or A/A), where OurAirports
+    /// often has the old 25 kHz name (the author, 19 Oct 2026: OpenAIP the authority for frequencies). Still no
+    /// gap of its own, for the reasons above. (6.4.2)
+    func prefetch(countries: [String]) async {
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)), skippingCached: true)
+    }
 
     func makeDataSet(now: Date) -> DataSet {
         DataSet(

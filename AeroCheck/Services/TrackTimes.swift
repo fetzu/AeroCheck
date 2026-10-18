@@ -162,8 +162,10 @@ enum TrackTimes {
 
     /// A gap in the recording this long…
     static let recordingGapSeconds: TimeInterval = 60
-    /// …across which the aircraft moved this far: the recording missed movement, a take-off among it maybe.
-    static let recordingGapJumpMetres = 300.0
+    /// …across which the aircraft moved this far: the recording missed movement, a take-off among it maybe. A
+    /// parked aircraft records nothing until it has moved 5 m (the ground filter), so its first fix after a
+    /// stop lands a few metres from its last.
+    static let recordingGapJumpMetres = 50.0
 
     /// Whether a landing logged at `logged` is the one the track shows touching down at `touchdown`: FULL STOP or
     /// LANDED held minutes after a touchdown the live detection missed, a circuits lap's full stop counted at NEW
@@ -182,9 +184,16 @@ enum TrackTimes {
         let after = logged.timeIntervalSince(touchdown)
         guard after >= 0 else { return false }
         if after < Flight.sameLandingSeconds { return true }
-        let fixes = track.sorted { $0.timestamp < $1.timestamp }
+        // The recorder appends in time order: sorted only when it isn't (the logbook reads this for every flight).
+        let fixes = zip(track, track.dropFirst()).allSatisfy({ $0.timestamp <= $1.timestamp })
+            ? track : track.sorted { $0.timestamp < $1.timestamp }
         func offset(_ i: Int) -> TimeInterval { abs(fixes[i].timestamp.timeIntervalSince(touchdown)) }
-        guard let at = fixes.indices.min(by: { offset($0) < offset($1) }),
+        var low = 0, high = fixes.count                       // the first fix at or after the touchdown
+        while low < high {
+            let mid = (low + high) / 2
+            if fixes[mid].timestamp < touchdown { low = mid + 1 } else { high = mid }
+        }
+        guard let at = [low - 1, low].filter(fixes.indices.contains).min(by: { offset($0) < offset($1) }),
               offset(at) <= Flight.placementToleranceSeconds else { return false }   // the track can't tell
         let down = fixes[at]
         var slowed = false, climbedAway = false

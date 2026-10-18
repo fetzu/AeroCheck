@@ -290,8 +290,11 @@ final class TrackTimesTests: XCTestCase {
         var track = Track(time: t0)
         let touchdown = fullStop(into: &track)
         track.stand(400)
+        track.move(6, speed: 1)                                  // off again: the first fix 6 m on, as the 5 m filter has it
         let pressed = track.time
         XCTAssertTrue(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true, track: track.points))
+        XCTAssertTrue(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true,
+                                               track: track.points.reversed()), "in any order")
         XCTAssertTrue(TrackTimes.isSameLanding(logged: touchdown.addingTimeInterval(30), as: touchdown, stopped: true,
                                                track: []), "within a minute, always: no aircraft lands twice in one")
         XCTAssertFalse(TrackTimes.isSameLanding(logged: touchdown.addingTimeInterval(-90), as: touchdown, stopped: true,

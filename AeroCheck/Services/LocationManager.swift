@@ -1288,7 +1288,8 @@ class LocationManager: NSObject, ObservableObject {
                                       horizontalAccuracy: point.horizontalAccuracy ?? 0, verticalAccuracy: 10,
                                       course: point.course, speed: point.speed, timestamp: point.timestamp)
             detector.processLocation(location, nearbyAirports: Self.detectorAirports(near: point.coordinate, in: airports,
-                                                                                     extra: extraDetectorAirports))
+                                                                                     extra: extraDetectorAirports),
+                                     baroSample: BaroAltitudeSample(recordedOn: point))
         }
         AppLog.flightEvents.debugLine("Detector caught up with the restored flight: \(track.count) points")
     }

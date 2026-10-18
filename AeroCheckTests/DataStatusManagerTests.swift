@@ -279,7 +279,7 @@ final class DataStatusManagerTests: XCTestCase {
     }
 
     /// Like the other OpenAIP layers: primary data, the aeronautical thresholds, silent refresh; its
-    /// countries in the row. Not in the trip prefetch (see `OpenAIPAirportProvider.perCountryCoverage`).
+    /// countries in the row. Never a trip gap (see `OpenAIPAirportProvider.perCountryCoverage`).
     func testTheAerodromeRowFollowsTheAeronauticalThresholds() {
         let layer = makeTestOpenAIPAirportLayer { _ in [] }
         let provider = OpenAIPAirportProvider(service: layer)
@@ -303,7 +303,7 @@ final class DataStatusManagerTests: XCTestCase {
         XCTAssertTrue(set.isDownloaded)
         XCTAssertNil(set.updateFailure)
 
-        XCTAssertNil(provider.perCountryCoverage, "kept out of the trip prefetch")
+        XCTAssertNil(provider.perCountryCoverage, "never a trip gap")
         let manager = DataStatusManager(providers: [provider], networkMonitor: NetworkMonitor(stub: .disconnected),
                                         now: { self.now }, userDefaults: makeTestDefaults())
         XCTAssertEqual(manager.tripCountriesNeedingData(routeCountries: ["CH", "FR"]), [])
@@ -326,6 +326,73 @@ final class DataStatusManagerTests: XCTestCase {
         await manager.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
         XCTAssertEqual(fetched, ["CH", "CH"])
         XCTAssertEqual(try row("openaip.airports", in: manager).freshness, .fresh)
+    }
+
+    /// A trip's download fetches the route's aerodromes with the other layers, for the frequencies'
+    /// names (8.33 kHz): added to what is there, what is on disk skipped, and still no gap. (6.4.2)
+    func testATripDownloadAddsTheRouteAerodromes() async throws {
+        var fetched: [String] = []
+        let serve = aerodromes()
+        let layer = makeTestOpenAIPAirportLayer { fetched.append($0); return try serve($0) }
+        await layer.downloadData(for: ["CH"])
+        let manager = DataStatusManager(providers: [OpenAIPAirportProvider(service: layer)],
+                                        networkMonitor: NetworkMonitor(stub: .disconnected), userDefaults: makeTestDefaults())
+
+        await manager.prefetchTripData(countries: ["CH", "DE"])
+        XCTAssertEqual(fetched, ["CH", "DE"], "Switzerland is on disk")
+        XCTAssertEqual(Set(layer.downloadedCountries), ["CH", "DE"])
+        XCTAssertEqual(manager.tripCountriesNeedingData(routeCountries: ["CH", "FR"]), [], "never a gap")
+    }
+
+    /// An install from before 6.4.2 holds the other layers and no aerodromes: the foreground refresh
+    /// fetches the aerodromes of those countries, once. Removed later, they aren't fetched back. (6.4.2)
+    func testTheAerodromesFollowTheOtherLayersOnce() async throws {
+        var fetched: [String] = []
+        let serve = aerodromes()
+        let layer = makeTestOpenAIPAirportLayer { fetched.append($0); return try serve($0) }
+        await layer.downloadData(for: ["CH"])
+        fetched = []
+        let airspace = FakePerCountryProvider(dataSet(id: "asp", urgency: .primary, freshness: .fresh), coverage: ["CH", "DE"])
+        let defaults = makeTestDefaults()
+        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
+        let manager = DataStatusManager(providers: [airspace, OpenAIPAirportProvider(service: layer)],
+                                        networkMonitor: NetworkMonitor(stub: wifi), userDefaults: defaults)
+
+        await manager.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertEqual(fetched, ["DE"], "Switzerland is on disk")
+        XCTAssertEqual(Set(layer.downloadedCountries), ["CH", "DE"])
+
+        layer.deleteData()
+        await manager.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertEqual(fetched, ["DE"], "removed in Data & Storage, not fetched back")
+        XCTAssertTrue(defaults.bool(forKey: DataStatusManager.aerodromesFollowedKey))
+    }
+
+    /// Offline, or nothing downloaded yet: nothing is fetched and the once is kept for later. (6.4.2)
+    func testTheAerodromesWaitForANetworkAndADownload() async throws {
+        var fetched: [String] = []
+        let serve = aerodromes()
+        let layer = makeTestOpenAIPAirportLayer { fetched.append($0); return try serve($0) }
+        let airspace = FakePerCountryProvider(dataSet(id: "asp", urgency: .primary, freshness: .fresh), coverage: [])
+        let defaults = makeTestDefaults()
+        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
+
+        let offline = DataStatusManager(providers: [airspace, OpenAIPAirportProvider(service: layer)],
+                                        networkMonitor: NetworkMonitor(stub: .disconnected), userDefaults: defaults)
+        airspace.coverage = ["CH"]
+        await offline.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertFalse(defaults.bool(forKey: DataStatusManager.aerodromesFollowedKey), "offline")
+
+        airspace.coverage = []
+        let online = DataStatusManager(providers: [airspace, OpenAIPAirportProvider(service: layer)],
+                                       networkMonitor: NetworkMonitor(stub: wifi), userDefaults: defaults)
+        await online.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertFalse(defaults.bool(forKey: DataStatusManager.aerodromesFollowedKey), "nothing downloaded yet")
+        XCTAssertEqual(fetched, [])
+
+        airspace.coverage = ["CH"]
+        await online.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertEqual(fetched, ["CH"])
     }
 
     /// "Remove all downloads" removes the aerodromes, on disk and from the merged airport store.

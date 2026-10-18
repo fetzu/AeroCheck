@@ -254,6 +254,99 @@ final class TrackTimesTests: XCTestCase {
         XCTAssertEqual(appState.currentFlight?.landingTime, measured)
         XCTAssertEqual(appState.landingTime, measured, "END FLIGHT hands this one to the nav log")
         XCTAssertEqual(appState.currentFlight?.fullStopTimes, [measured], "one landing, one time")
+
+        // FULL STOP held seven minutes later, after a touchdown the live detection missed (LSZS, 23 Sep): the
+        // same landing, nothing flew in between. It moves to the touchdown too, and the flight time ends there.
+        track.move(60, speed: 8 * knot)                          // the taxi in
+        track.stand(330)
+        let pressed = track.time
+        let late = makeTestAppState()
+        var lateFlight = Flight(airplane: "wt9-dynamic", startTime: t0, engineStartTime: t0, landingTime: pressed)
+        lateFlight.gpsTrack = track.points
+        lateFlight.fullStopCount = 1
+        lateFlight.fullStopTimes = [pressed]
+        late.currentFlight = lateFlight
+        late.landingTime = pressed
+        XCTAssertGreaterThan(pressed.timeIntervalSince(measured), 6 * 60)
+
+        late.refineTimingFromTrack()
+
+        XCTAssertEqual(late.currentFlight?.fullStopTimes, [measured], "the press is the touchdown's")
+        XCTAssertEqual(late.currentFlight?.landingTime, measured)
+        XCTAssertEqual(late.currentFlight?.intermediateFullStops?.count, 0, "no stop-and-go")
+    }
+
+    // MARK: - The same landing (6.4.1)
+
+    /// A take-off, a circuit and a full stop (the touchdown returned), then the taxi in at 8 kt.
+    private func fullStop(into track: inout Track) -> Date {
+        for height in [0.0, 0, 50, 300, 600, 600, 600] { track.at(height, speed: 55 * knot) }
+        let (_, onRunway) = approach(into: &track)
+        track.move(60, speed: 8 * knot)
+        return onRunway
+    }
+
+    func testAFullStopMarkedLaterWithNothingFlownBetweenIsTheSameLanding() {
+        var track = Track(time: t0)
+        let touchdown = fullStop(into: &track)
+        track.stand(400)
+        track.move(6, speed: 1)                                  // off again: the first fix 6 m on, as the 5 m filter has it
+        let pressed = track.time
+        XCTAssertTrue(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true, track: track.points))
+        XCTAssertTrue(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true,
+                                               track: track.points.reversed()), "in any order")
+        XCTAssertTrue(TrackTimes.isSameLanding(logged: touchdown.addingTimeInterval(30), as: touchdown, stopped: true,
+                                               track: []), "within a minute, always: no aircraft lands twice in one")
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: touchdown.addingTimeInterval(-90), as: touchdown, stopped: true,
+                                                track: track.points), "marked before: the nearest match decides")
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true, track: []),
+                       "without a track nothing tells")
+        let neverSlowed = track.points.filter { $0.timestamp <= touchdown }
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true, track: neverSlowed),
+                       "a roll-out never seen slowing can't be told")
+    }
+
+    func testAStopAndGoIsNeverTheSameLandingAcrossItsTakeOff() {
+        var track = Track(time: t0)
+        let touchdown = fullStop(into: &track)
+        track.stand(60)
+        for height in [0.0, 0, 50, 300] { track.at(height, speed: 55 * knot) }   // the next take-off
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: track.time, as: touchdown, stopped: true, track: track.points))
+    }
+
+    func testAGapWithAJumpOrAnotherAerodromeIsNeverTheSameLanding() {
+        var track = Track(time: t0)
+        let touchdown = fullStop(into: &track)
+        track.stand(300)
+        track.northMetres += 800                                 // the recording missed this
+        track.move(6, speed: 3 * knot)
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: track.time, as: touchdown, stopped: true, track: track.points),
+                       "a gap in the recording with the aircraft elsewhere after it")
+
+        var far = Track(time: t0)
+        let landed = fullStop(into: &far)
+        far.move(1_500, speed: 6 * knot)                         // 4.6 km of slow taxi: beyond 2 NM
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: far.time, as: landed, stopped: true, track: far.points))
+    }
+
+    func testATouchAndGoPressedInTheClimbIsThatTouchAndGo() {
+        var track = Track(time: t0)
+        for height in [0.0, 0, 50, 300, 600, 600] { track.at(height, speed: 55 * knot) }
+        for height in [300.0, 120, 30] { track.at(height, speed: 60 * knot) }
+        track.at(0, speed: 45 * knot)
+        let touch = track.time
+        for height in [0.0, 60, 200, 400, 600, 800, 900, 900, 900, 900, 900, 900] {   // the climb-away, 72 s
+            track.at(height, speed: 65 * knot)
+        }
+        XCTAssertTrue(TrackTimes.isSameLanding(logged: track.time, as: touch, stopped: false, track: track.points))
+        for height in [600.0, 300, 120, 30] { track.at(height, speed: 60 * knot) }   // the next approach
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: track.time, as: touch, stopped: false, track: track.points))
+
+        // In the air a gap is a recording stopped, which can hide a circuit, wherever the next fix is.
+        let climb = track.points.filter { $0.timestamp <= touch.addingTimeInterval(30) }
+        var gapped = Track(points: climb, time: touch.addingTimeInterval(400), northMetres: 0, altitude: 500)
+        gapped.at(0, speed: 45 * knot)
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: gapped.time, as: touch, stopped: false, track: gapped.points))
     }
 
     @MainActor

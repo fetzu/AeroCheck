@@ -158,6 +158,65 @@ enum TrackTimes {
         return crossing(fixes[down - 1], fixes[down], altitudeFt: runway + touchdownFt)
     }
 
+    // MARK: The same landing (6.4.1)
+
+    /// A gap in the recording this long…
+    static let recordingGapSeconds: TimeInterval = 60
+    /// …across which the aircraft moved this far: the recording missed movement, a take-off among it maybe. A
+    /// parked aircraft records nothing until it has moved 5 m (the ground filter), so its first fix after a
+    /// stop lands a few metres from its last.
+    static let recordingGapJumpMetres = 50.0
+
+    /// Whether a landing logged at `logged` is the one the track shows touching down at `touchdown`: FULL STOP or
+    /// LANDED held minutes after a touchdown the live detection missed, a circuits lap's full stop counted at NEW
+    /// CIRCUIT, a touch-and-go pressed late in the climb. The one rule wherever two records of a landing meet:
+    /// the flight review's pairing, END FLIGHT's measured landing, the logbook's counts.
+    ///
+    /// The same landing when nothing on the track between them shows another take-off or touchdown:
+    /// - logged within `Flight.sameLandingSeconds`, always: no aircraft lands twice in a minute;
+    /// - after a full stop (`stopped`), the roll-out seen slowing below a take-off roll's speed (`rollSpeedKt`) and
+    ///   never at it again; after a touch-and-go or a go-around, never back down near the runway, nor slow, once it
+    ///   climbed away (`climbAwayFt`);
+    /// - every fix within `Flight.sameAerodromeRadiusMeters` of the touchdown, and no gap in the recording that can
+    ///   hide a take-off: in the air any (the recorder writes a fix every few seconds while moving), on the ground
+    ///   one the aircraft moved across (standing still, it writes none).
+    /// A landing logged before the touchdown is never taken for it here: the nearest match decides those.
+    static func isSameLanding(logged: Date, as touchdown: Date, stopped: Bool, track: [GPSPoint]) -> Bool {
+        let after = logged.timeIntervalSince(touchdown)
+        guard after >= 0 else { return false }
+        if after < Flight.sameLandingSeconds { return true }
+        // The recorder appends in time order: sorted only when it isn't (the logbook reads this for every flight).
+        let fixes = zip(track, track.dropFirst()).allSatisfy({ $0.timestamp <= $1.timestamp })
+            ? track : track.sorted { $0.timestamp < $1.timestamp }
+        func offset(_ i: Int) -> TimeInterval { abs(fixes[i].timestamp.timeIntervalSince(touchdown)) }
+        var low = 0, high = fixes.count                       // the first fix at or after the touchdown
+        while low < high {
+            let mid = (low + high) / 2
+            if fixes[mid].timestamp < touchdown { low = mid + 1 } else { high = mid }
+        }
+        guard let at = [low - 1, low].filter(fixes.indices.contains).min(by: { offset($0) < offset($1) }),
+              offset(at) <= Flight.placementToleranceSeconds else { return false }   // the track can't tell
+        let down = fixes[at]
+        var slowed = false, climbedAway = false
+        var previous: GPSPoint?
+        for fix in fixes[at...] where fix.timestamp <= logged {
+            if let previous, fix.timestamp.timeIntervalSince(previous.timestamp) >= recordingGapSeconds,
+               !stopped || distance(previous, fix) >= recordingGapJumpMetres { return false }
+            previous = fix
+            guard distance(down, fix) <= Flight.sameAerodromeRadiusMeters else { return false }
+            let fast = knots(fix.speed) >= rollSpeedKt
+            if stopped {
+                if slowed, fast { return false }                 // a take-off roll after the roll-out
+                if !fast { slowed = true }
+            } else {
+                let height = altitudeFt(fix) - altitudeFt(down)
+                if climbedAway, height < climbAwayFt || !fast { return false }   // down again, a new approach
+                if height >= climbAwayFt { climbedAway = true }
+            }
+        }
+        return !stopped || slowed          // a full stop never seen slowing: the track can't tell
+    }
+
     /// When the altitude passed `target` between two fixes, linearly.
     private static func crossing(_ a: GPSPoint, _ b: GPSPoint, altitudeFt target: Double) -> Date {
         let from = altitudeFt(a), to = altitudeFt(b)

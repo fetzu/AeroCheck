@@ -1665,6 +1665,10 @@ enum L10n {
         static func badgeWas(_ type: String) -> String {
             String(format: String(localized: "reconciliation.badge.was"), type)
         }
+        /// A landing marked a while after its touchdown: "you marked it at 13:42". (6.4.1)
+        static func badgeMarkedAt(_ time: String) -> String {
+            String(format: String(localized: "reconciliation.badge.markedAt"), time)
+        }
         static let blockBackfill = String(localized: "reconciliation.blockBackfill")
         static let includedLabel = String(localized: "reconciliation.included")
         static let excludedLabel = String(localized: "reconciliation.excluded")

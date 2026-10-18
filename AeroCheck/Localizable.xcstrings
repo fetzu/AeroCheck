@@ -8771,6 +8771,23 @@
         }
       }
     },
+    "reconciliation.badge.markedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "you marked it at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vous l'avez marqué à %@"
+          }
+        }
+      }
+    },
     "reconciliation.badge.taken": {
       "extractionState": "manual",
       "localizations": {

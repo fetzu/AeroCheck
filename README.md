@@ -2,6 +2,8 @@
 
 AéroCheck walks a pilot through the checklists of a flight on an iPad (or an iPhone), from the preflight to the hangar, while it records the track and keeps the paperwork that comes with it.
 
+[![Download on the App Store](marketing/badges/app-store-badge-en.svg)](https://apps.apple.com/ch/app/a%C3%A9rocheck/id6757646347)
+
 > AéroCheck is a training aid. Its information is not guaranteed to be accurate and must not be used for operational decisions: the aircraft's flight manual (AFM) and its approved checklists always come first.
 
 _This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._

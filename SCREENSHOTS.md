@@ -43,6 +43,7 @@ shot keys; `--as` names a shot that shares a scene with another.
 | `log` | `flightlog` | Vol d'Alpes in the logbook: track, altitude profile | Logbook tab, tap Vol d'Alpes |
 | `landscape` | `cruisemap` | The iPhone on its side: the Cockpit's column, the map at full height | iPhone only: `--orientation landscapeLeft --as landscape` |
 | `circuits` | `circuits` | Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25 | none (since 6.3.0 the scene opens Plan › Map on the national map, Airspace off, Traffic circuits and Arrival & departure routes on, framed on LSZQ about 8 NM across, without a callout) |
+| `dryrun` | none: `AEROCHECK_DRYRUN=guided`, `AEROCHECK_DRYRUN_CHAPTER=6`, `AEROCHECK_DRYRUN_AUTO=1`, `AEROCHECK_DRYRUN_STOP=step:goAround` | The guided dry run held on its first final at LSZQ: the coach's "Try a go-around" card over the card that chooses the landing (6.4.0) | none; about three minutes after launch the autopilot holds there. A flight in progress blocks a dry run: launch a scene that cancels it first (`homeflight`) |
 
 The rules that are not negotiable:
 
@@ -117,6 +118,9 @@ Things that bite:
   the app's window for real (DEBUG hook), whichever way the simulator is held, so nothing needs
   rotating by hand. An iPad refuses it: keep the iPad simulator in portrait.
 - **Without `--mask=ignored`**, a landscape capture can come out with the Dynamic Island drawn in.
+- **The dry run is not a scene**: launch it with the variables in the table (`SIMCTL_CHILD_` before each, and
+  `AEROCHECK_ORIENTATION=portrait` on the iPhone), once, and wait for the hold; the band takes the status bar's place.
+  The script's `--scenes` doesn't drive it, so take and convert the screenshot by hand, as for a gesture.
 - **The status bar override** sets 9:41 and full bars. The app's own clocks (flight time, ETA) use the
   real time: capture in the daytime, or the map's ETA reads 0:50.
 - **A fresh container has no aeronautical data.** Airport data (NOW / NEXT frequencies) and airspace

@@ -12,7 +12,7 @@ export interface Shot { ipad: string; iphone: string; label: string; }
 // The app version the whole set was captured from, or checked against when a release changed none of
 // its screens (6.3.0). Bump it with every recapture: a build warns while the latest release is a newer
 // minor version than this (`warnIfShotsAreOld`).
-export const CAPTURED_FROM = '6.3.0';
+export const CAPTURED_FROM = '6.4.0';
 
 // Each URL carries a hash of the image (`?v=1a2b3c4d`), read at build time, so a recaptured image is
 // a new URL. The file names never change, and Cloudflare lets a browser keep an image for 4 hours:
@@ -42,6 +42,8 @@ export const SHOTS: Record<string, Shot> = {
   closeout:   both('closeout', 'Closing out a flight'),
   route:      both('route', 'The route editor'),
   log:        both('log', 'A flight in the logbook'),
+  // 6.4.0: a guided dry run on its final, the coach's card over the card that chooses the landing.
+  dryrun:     both('dryrun', 'A dry run on the ground'),
   // The iPhone on its side; no iPad counterpart.
   landscape:  { ipad: '', iphone: v6('iphone', 'landscape'), label: 'The iPhone on its side' },
 };

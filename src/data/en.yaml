@@ -78,6 +78,12 @@ flagship:
       chips: ["Close-your-ATC-flight-plan reminder", "Logbook line · AMC1 FCL.050", "CSV & PDF extract", "Cost per flight", "Post-flight review", "Student mode"]
       shot: "closeout"
       iphone_shot: "log"
+    - step: "On the ground · Dry run"
+      anchor: "dryrun"
+      title: "Fly it on the ground first"
+      description: "The app is made for the air, which is the worst place to find out what a button does. The Dry run flies a whole flight on the ground, through the real Cockpit: the aircraft is flown for you, and you answer it as you would in flight. The first one is a guided story in four parts, from planning the flight to reading it in the logbook, with a card at each step. Then free practice: circuits at any aerodrome with a runway, or one of your routes, from 1× to 30×, with a full stop, a touch-and-go or a go-around on each final. Nothing it does is kept."
+      chips: ["Guided: plan, fly, close out, logbook", "Free practice: circuits or a route", "1× · 4× · 10× · 30×", "Full stop · touch-and-go · go-around", "Nothing kept", "No location needed"]
+      shot: "dryrun"
 
 phone:
   step: "03 · Fly · iPhone"

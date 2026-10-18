@@ -78,6 +78,12 @@ flagship:
       chips: ["Rappel de clôture du plan de vol ATC", "Ligne de carnet · AMC1 FCL.050", "CSV & extrait PDF", "Coût par vol", "Revue post-vol", "Mode élève-pilote"]
       shot: "closeout"
       iphone_shot: "log"
+    - step: "Au sol · Vol à blanc"
+      anchor: "dryrun"
+      title: "Volez-le d'abord au sol"
+      description: "L'app est faite pour le vol, le pire endroit pour découvrir ce que fait un bouton. Le vol à blanc fait tout un vol au sol, dans le vrai cockpit : l'avion est piloté pour vous, et vous lui répondez comme en vol. Le premier est une histoire guidée en quatre parties, de la préparation du vol à sa lecture dans le carnet, avec une carte à chaque étape. Ensuite, la pratique libre : des tours de piste sur tout aérodrome doté d'une piste, ou l'une de vos routes, de 1× à 30×, avec à chaque finale un atterrissage complet, un posé-décollé ou une remise de gaz. Rien n'en est conservé."
+      chips: ["Guidé : planifier, voler, clôturer, carnet", "Pratique libre : tours de piste ou route", "1× · 4× · 10× · 30×", "Complet · posé-décollé · remise de gaz", "Rien n'est conservé", "Sans accès à la position"]
+      shot: "dryrun"
 
 phone:
   step: "03 · Voler · iPhone"

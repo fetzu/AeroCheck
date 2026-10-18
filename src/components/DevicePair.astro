@@ -20,7 +20,7 @@ const cycles = ipad.length > 1;
   <div class="dev dev--ipad">
     <div class:list={['screen', { cycle: cycles }]}>
       {ipad.map((src, i) => (
-        <img src={src} alt={`${alts[i]} — ${labels.ipad}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
+        <img src={src} alt={`${alts[i]}, ${labels.ipad}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
           width="1112" height="1600" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
       ))}
     </div>
@@ -28,7 +28,7 @@ const cycles = ipad.length > 1;
   <div class="dev dev--iphone">
     <div class:list={['screen', { cycle: cycles }]}>
       {iphone.map((src, i) => (
-        <img src={src} alt={`${alts[i]} — ${labels.iphone}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
+        <img src={src} alt={`${alts[i]}, ${labels.iphone}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
           width="800" height="1739" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
       ))}
     </div>

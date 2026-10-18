@@ -15,8 +15,8 @@ const [portrait, side] = band.shots.map((k) => shot(k));
     <div class="chips">{band.chips.map((c) => <span class="chip">{c}</span>)}</div>
   </div>
   <div class="phones">
-    <div class="dev"><div class="screen"><img src={portrait.iphone} alt={`${band.title} — ${labels.iphone}`} width="800" height="1739" loading="lazy" decoding="async" /></div></div>
-    <div class="dev dev--side"><div class="screen"><img src={side.iphone} alt={`${side.label} — ${labels.iphone}`} width="1600" height="736" loading="lazy" decoding="async" /></div></div>
+    <div class="dev"><div class="screen"><img src={portrait.iphone} alt={`${band.title}, ${labels.iphone}`} width="800" height="1739" loading="lazy" decoding="async" /></div></div>
+    <div class="dev dev--side"><div class="screen"><img src={side.iphone} alt={`${side.label}, ${labels.iphone}`} width="1600" height="736" loading="lazy" decoding="async" /></div></div>
   </div>
 </div>
 

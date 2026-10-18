@@ -73,6 +73,33 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(near.map(\.ident), ["LSZQ"], "the launch's merge and a later load keep the replay's field")
     }
 
+    /// A scenario that lists no aerodromes keeps the device's own data (a recorded flight replayed on a
+    /// check simulator, where NEXT and the circuits need the real fields); one that lists some replaces it.
+    func testAScenarioWithoutAerodromesKeepsTheDevicesOwn() throws {
+        let store = makeTestAirportStore(openAIPAirports: makeTestOpenAIPAirportLayer { _ in [] })
+        let device = GroundReplayScenario.Aerodrome(ident: "LSZQ", name: nil, lat: 47.3949, lon: 7.0321,
+                                                   elev: 1880, type: "small_airport")
+        store.injectForReplay([GroundReplay.airport(device)])   // stands for the simulator's own data
+        func scenario(_ airports: String) throws -> GroundReplayScenario {
+            try JSONDecoder().decode(GroundReplayScenario.self, from: Data("""
+                {"name": "t", "track": [[0, 47.39, 7.03, 573, 0, 5]], "airports": \(airports)}
+                """.utf8))
+        }
+        func near(_ lat: Double, _ lon: Double) -> [String] {
+            store.findNearestAirports(to: CLLocationCoordinate2D(latitude: lat, longitude: lon), limit: 3,
+                                      maxDistanceNm: 5, types: AirportType.fixedWing).map(\.ident)
+        }
+
+        GroundReplay.useAerodromes(of: try scenario("[]"), in: store)
+        XCTAssertEqual(near(47.395, 7.032), ["LSZQ"], "no aerodromes in the scenario: the device's are kept")
+
+        GroundReplay.useAerodromes(of: try scenario("""
+            [{"ident": "LSGC", "lat": 47.0839, "lon": 6.7929, "elev": 3368, "type": "small_airport"}]
+            """), in: store)
+        XCTAssertEqual(near(47.084, 6.793), ["LSGC"])
+        XCTAssertEqual(near(47.395, 7.032), [], "the scenario's aerodromes replace the store's")
+    }
+
     func testTheReplayWaitsAtEachHoldUntilThePilotReleasesIt() {
         var cursor = GroundReplayCursor(duration: 600, holds: [
             .init(t: 0, condition: .engineStart),

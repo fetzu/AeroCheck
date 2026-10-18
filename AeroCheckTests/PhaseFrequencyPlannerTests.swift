@@ -622,7 +622,8 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                            lowerCeiling: AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
                            geometry: AirspaceGeometry(type: "Polygon", coordinates: [[[7.40, 46.9], [7.40, 47.1], [7.50, 47.1], [7.50, 46.9], [7.40, 46.9]]]),
                            activity: nil, frequencies: [AirspaceFrequency(value: "130.150", name: "ALPHA TOWER", primary: true, unit: nil)])
-        XCTAssertEqual(onRoute(longitude: 7.45, next: 2, airspaces: [ctr]).current?.station, "Alpha TWR HX")
+        XCTAssertEqual(onRoute(longitude: 7.45, next: 2, airspaces: [ctr]).current?.station, "ALPHA TWR HX",
+                       "a zone's station as the nav log prints it")
     }
 
     /// More than 5 NM off the route, or diverting, the timeline is left for the rules without a route.

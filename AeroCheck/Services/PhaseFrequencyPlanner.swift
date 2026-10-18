@@ -140,14 +140,15 @@ enum PhaseFrequencyPlanner {
         return out
     }
 
-    /// A timeline station as the Cockpit names it: a field's as the database has it ("LSZQ AFIS"), an area's or a
-    /// zone's as RADIO always wrote them ("Zürich Info", "Grenchen TWR"), "HX" after a zone active by NOTAM. (6.4.2)
+    /// A timeline station as the Cockpit names it: a field's as the database has it ("LSZQ AFIS"), an Information
+    /// service as RADIO always wrote it ("Zürich Info", "Geneva Info"), a zone's as the nav log prints it ("LES
+    /// EPLATURES TWR": the FIS styling read "LES Eplatures TWR"), "HX" after a zone active by NOTAM. (6.4.2)
     static func entry(_ station: RadioTimeline.Station, kind: RadioTimeline.Kind?, listen: Bool = false,
                       note: String? = nil) -> Entry {
         var name = station.callSign
         switch kind {
-        case .fis?, .unit?, .tmaViaFIS?: name = FISSectors.displayName(name)
-        case .departure?, .destination?, nil: break
+        case .fis?, .tmaViaFIS?: name = FISSectors.displayName(name)
+        case .unit?, .departure?, .destination?, nil: break
         }
         if station.isHX { name += " HX" }
         return Entry(station: name, freq: station.frequency, listen: listen, note: note)

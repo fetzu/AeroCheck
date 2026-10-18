@@ -358,6 +358,8 @@ struct AeroCheckApp: App {
                     // 6.2.0: where each country keeps its official charts (12 KB, weekly, from the
                     // disk when fresh). Not awaited: nothing at launch waits for a link.
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
+                    // 6.4.2: where another FIS works low-level traffic (Bâle Information over AZ4), weekly.
+                    Task { await FISAreaService.shared.refreshIfNeeded() }
                     // The aircraft requests sent from this device: where they stand. (6.3.0)
                     if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
                         Task { await AircraftRequestStore.shared.refreshIfDue() }
@@ -388,6 +390,8 @@ struct AeroCheckApp: App {
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
                     // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
+                    // The FIS areas when a week old. (6.4.2)
+                    Task { await FISAreaService.shared.refreshIfNeeded() }
                     // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
                     // Oct: when the app opens, no background work.) Nor during a dry run. (6.4.0)
                     if !appState.isFlightActive && !DryRunCenter.shared.isRunning {

@@ -378,6 +378,12 @@ class OpenAIPDataService: ObservableObject {
         return (spatialGrid[GridKey(lat: cell.lat.lowerBound, lon: cell.lon.lowerBound)] ?? []).filter { $0.airspaceType == .fisSector && $0.containsPoint(point) }
     }
 
+    /// The airspaces with one of these names, wherever they are: what draws a FIS area (`FISAreaService`). (6.4.2)
+    func airspaces(named names: Set<String>) -> [Airspace] {
+        guard isLoaded, !names.isEmpty else { return [] }
+        return airspaces.filter { names.contains($0.name) }
+    }
+
     /// An aerodrome's own zones, the ones its point sits in (a CTR, an RMZ or FIZ, an ATZ, a TIZ; not a TMA): where
     /// the field is NOW without a route (q10). Empty where it has none. (6.4.2)
     func aerodromeZones(containing point: CLLocationCoordinate2D) -> [Airspace] {

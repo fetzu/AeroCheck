@@ -74,6 +74,12 @@ enum RouteRadioPlanner {
         var atisLeadTime: TimeInterval = 600
         /// Aerodromes near the route with their contact, for the timeline's aerodromes on the way (q7). (6.4.2)
         var fieldsNearby: [RadioTimeline.NearbyField] = []
+        /// Where another FIS works low-level traffic (Bâle Information over AZ4, `FISAreaService`), asked before
+        /// `fis` at each leg's planned cruise. (6.4.2)
+        var fisAreas: [FISArea] = []
+        /// The ground for a FIS area's floor in ft AGL where the terrain is unknown: the higher of the two
+        /// aerodromes. (6.4.2)
+        var groundFallbackFt: Double?
     }
 
     /// One nav-log row's radio column.
@@ -172,8 +178,16 @@ enum RouteRadioPlanner {
         // no FIS at all (device check, 6 Oct).
         let fisStride = max(1, Int((1.0 / ctx.sampleStepNM).rounded()))
         var fisChanges: [(s: Int, station: Station)] = []
+        // A FIS area (q4, 6.4.2) at the leg's planned cruise, the higher of its two ends: in the climb out of
+        // Bressaucourt the flight is bound for Bâle Information's height, not under it.
+        func legCruise(_ leg: Int) -> Double? {
+            [wps[leg].altitude, wps[min(leg + 1, n - 1)].altitude].compactMap { $0 }.max()
+        }
         for s in Swift.stride(from: 0, to: samples.count, by: fisStride) {
-            guard let station = ctx.fis(samples[s].coordinate) else { continue }
+            let fallback = ctx.groundFallbackFt.map { $0...$0 }
+            let area = FISArea.first(of: ctx.fisAreas, at: samples[s].coordinate, altitudeFt: legCruise(samples[s].leg),
+                                     groundFt: ground[s] ?? fallback)
+            guard let station = area?.station ?? ctx.fis(samples[s].coordinate) else { continue }
             if !station.hasSameFrequency(as: fisChanges.last?.station) { fisChanges.append((s, station)) }
         }
         func fis(atSample s: Int) -> Station? { fisChanges.last { $0.s <= s }?.station }
@@ -755,7 +769,12 @@ extension RouteRadioPlanner {
             airspaceSource: source,
             checkAreaTag: crossed.contains("CH") ? "DABS" : "NOTAM",
             terrain: await routeTerrain(coords, routeNM: RouteAltitudeProfile(wps).totalNM),
-            fieldsNearby: fieldsNear(coords, airports: airports))
+            fieldsNearby: fieldsNear(coords, airports: airports),
+            fisAreas: FISAreaService.shared.areas(in: openAIP),
+            groundFallbackFt: [wps[0], wps[wps.count - 1]].compactMap { wp in
+                (airports.findAirport(byIdent: wp.name.uppercased()) ?? airports.nearestAirport(to: wp.coordinate, maxDistanceNm: 1.0))?
+                    .elevation.map(Double.init)
+            }.max())
         return plan(ctx)
     }
 

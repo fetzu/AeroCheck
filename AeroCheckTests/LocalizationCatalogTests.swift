@@ -191,6 +191,31 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(L10n.FlightLog.monthSummary(4, hours: 6), "4 flights · 6.0 h")
     }
 
+    /// The terminology pass rewrote "%lld touch-and-go" with its French alone, as a literal key's English is
+    /// its key: the plural's English went with it, and the logbook line's remarks read "3 touch-and-go".
+    /// A key whose French is a plural has an English plural too. (6.4.0)
+    func testEveryFrenchPluralHasItsEnglishPlural() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("AeroCheck/Localizable.xcstrings")
+        let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        let strings = try XCTUnwrap(catalog?["strings"] as? [String: [String: Any]])
+        let plurals = strings.filter { _, entry in
+            let french = (entry["localizations"] as? [String: [String: Any]])?["fr"]
+            return french?["variations"] != nil
+        }
+        XCTAssertGreaterThan(plurals.count, 10, "read the real catalog")
+        let missing = plurals.filter { _, entry in
+            (entry["localizations"] as? [String: [String: Any]])?["en"]?["variations"] == nil
+        }
+        XCTAssertEqual(missing.keys.sorted(), [], "French plural, English singular for every count")
+        for (language, one, three) in [("en", "1 touch-and-go", "3 touch-and-goes"), ("fr", "1 posé-décollé", "3 posés-décollés")] {
+            let format = try languageBundle(language).localizedString(forKey: "%lld touch-and-go", value: nil, table: nil)
+            XCTAssertEqual(String.localizedStringWithFormat(format, 1), one, language)
+            XCTAssertEqual(String.localizedStringWithFormat(format, 3), three, language)
+        }
+    }
+
     /// The Logbook list, the flight detail and the Cockpit's NEXT column were English in French.
     func testTheLogbookFlightDetailAndCockpitHaveTheirFrench() throws {
         let french = try frenchBundle()

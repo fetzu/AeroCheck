@@ -5095,7 +5095,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Learn and practice"
+            "value": "Learn and practise"
           }
         },
         "fr": {
@@ -7968,7 +7968,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You'll find the rest in Settings, under Learn and practice."
+            "value": "You'll find the rest in Settings, under Learn and practise."
           }
         },
         "fr": {
@@ -18295,6 +18295,24 @@
     },
     "%lld touch-and-go" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-goes"
+                }
+              }
+            }
+          }
+        },
         "fr" : {
           "variations" : {
             "plural" : {

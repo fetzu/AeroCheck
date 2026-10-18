@@ -140,7 +140,7 @@ enum PhaseFrequencyPlanner {
             out.append(atis)
         }
         for type in AirportDataService.fieldContactPriority {
-            if let contact = all.first(where: { $0.type.uppercased().contains(type) }) {
+            if let contact = all.first(where: { AirportDataService.isContactType($0.type, type) }) {
                 out.append(contact)
                 break
             }

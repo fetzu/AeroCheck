@@ -682,7 +682,18 @@ class AirportDataService: ObservableObject {
     /// frequencies (APP, DEP, CNTR) and listen-only ATIS are deliberately NOT field-contact freqs —
     /// an uncontrolled field's AFIS must win over a distant approach controller. (Shared by the HUD
     /// NEAREST strip and the Navigation FREQ panel so they can't drift.)
-    nonisolated static let fieldContactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO"]
+    nonisolated static let fieldContactPriority = ["TWR", "AFIS", "INFO", "A/G", "AD", "A/A", "RADIO", "CTAF", "UNIC", "RDO"]
+
+    /// An aerodrome's own radio without ATS, as OpenAIP labels it ("AD", "A/A", "RADIO": `OpenAIPFrequency.typeLabel`),
+    /// matched whole, so a "RADAR" is never an "AD". Until 6.4.2 none was a contact: LSZQ's "AD 122.055" was passed
+    /// over for OurAirports' "AFIS 122.05".
+    nonisolated static let wholeContactTypes: Set<String> = ["AD", "A/A", "RADIO"]
+
+    /// Whether a frequency's type is the contact type `wanted` (one of `fieldContactPriority`).
+    nonisolated static func isContactType(_ type: String, _ wanted: String) -> Bool {
+        let type = type.uppercased()
+        return wholeContactTypes.contains(wanted) ? type == wanted : type.contains(wanted)
+    }
 
     /// The single most relevant field-contact frequency for an airport, or nil if it has none at all.
     func bestFieldFrequency(for airportIdent: String) -> AirportFrequency? {
@@ -695,7 +706,7 @@ class AirportDataService: ObservableObject {
     nonisolated static func pickFieldContact(from freqs: [AirportFrequency]) -> AirportFrequency? {
         guard !freqs.isEmpty else { return nil }
         for type in fieldContactPriority {
-            if let match = freqs.first(where: { $0.type.uppercased().contains(type) }) { return match }
+            if let match = freqs.first(where: { isContactType($0.type, type) }) { return match }
         }
         return freqs.first(where: { $0.type.uppercased().contains("ATIS") }) ?? freqs.first
     }

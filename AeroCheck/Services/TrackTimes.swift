@@ -174,11 +174,12 @@ enum TrackTimes {
     ///
     /// The same landing when nothing on the track between them shows another take-off or touchdown:
     /// - logged within `Flight.sameLandingSeconds`, always: no aircraft lands twice in a minute;
-    /// - after a full stop (`stopped`), never at a take-off roll's speed (`rollSpeedKt`) again once the roll-out
-    ///   slowed below it; after a touch-and-go or a go-around, never back down near the runway, nor slow, once it
+    /// - after a full stop (`stopped`), the roll-out seen slowing below a take-off roll's speed (`rollSpeedKt`) and
+    ///   never at it again; after a touch-and-go or a go-around, never back down near the runway, nor slow, once it
     ///   climbed away (`climbAwayFt`);
-    /// - every fix within `Flight.sameAerodromeRadiusMeters` of the touchdown, and no gap in the recording across
-    ///   which the aircraft moved.
+    /// - every fix within `Flight.sameAerodromeRadiusMeters` of the touchdown, and no gap in the recording that can
+    ///   hide a take-off: in the air any (the recorder writes a fix every few seconds while moving), on the ground
+    ///   one the aircraft moved across (standing still, it writes none).
     /// A landing logged before the touchdown is never taken for it here: the nearest match decides those.
     static func isSameLanding(logged: Date, as touchdown: Date, stopped: Bool, track: [GPSPoint]) -> Bool {
         let after = logged.timeIntervalSince(touchdown)
@@ -200,7 +201,7 @@ enum TrackTimes {
         var previous: GPSPoint?
         for fix in fixes[at...] where fix.timestamp <= logged {
             if let previous, fix.timestamp.timeIntervalSince(previous.timestamp) >= recordingGapSeconds,
-               distance(previous, fix) >= recordingGapJumpMetres { return false }
+               !stopped || distance(previous, fix) >= recordingGapJumpMetres { return false }
             previous = fix
             guard distance(down, fix) <= Flight.sameAerodromeRadiusMeters else { return false }
             let fast = knots(fix.speed) >= rollSpeedKt
@@ -213,7 +214,7 @@ enum TrackTimes {
                 if height >= climbAwayFt { climbedAway = true }
             }
         }
-        return true
+        return !stopped || slowed          // a full stop never seen slowing: the track can't tell
     }
 
     /// When the altitude passed `target` between two fixes, linearly.

@@ -301,6 +301,9 @@ final class TrackTimesTests: XCTestCase {
                                                 track: track.points), "marked before: the nearest match decides")
         XCTAssertFalse(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true, track: []),
                        "without a track nothing tells")
+        let neverSlowed = track.points.filter { $0.timestamp <= touchdown }
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: pressed, as: touchdown, stopped: true, track: neverSlowed),
+                       "a roll-out never seen slowing can't be told")
     }
 
     func testAStopAndGoIsNeverTheSameLandingAcrossItsTakeOff() {
@@ -338,6 +341,12 @@ final class TrackTimesTests: XCTestCase {
         XCTAssertTrue(TrackTimes.isSameLanding(logged: track.time, as: touch, stopped: false, track: track.points))
         for height in [600.0, 300, 120, 30] { track.at(height, speed: 60 * knot) }   // the next approach
         XCTAssertFalse(TrackTimes.isSameLanding(logged: track.time, as: touch, stopped: false, track: track.points))
+
+        // In the air a gap is a recording stopped, which can hide a circuit, wherever the next fix is.
+        let climb = track.points.filter { $0.timestamp <= touch.addingTimeInterval(30) }
+        var gapped = Track(points: climb, time: touch.addingTimeInterval(400), northMetres: 0, altitude: 500)
+        gapped.at(0, speed: 45 * knot)
+        XCTAssertFalse(TrackTimes.isSameLanding(logged: gapped.time, as: touch, stopped: false, track: gapped.points))
     }
 
     @MainActor

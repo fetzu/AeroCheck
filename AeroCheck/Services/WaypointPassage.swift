@@ -40,6 +40,10 @@ enum WaypointPassage {
     static let corridorNM = 5.0
     /// Without a recorded takeoff, the first fix at this speed or above counts as airborne (~40 kt).
     static let airborneSpeed = 20.0
+    /// Faster than any aircraft the app flies (about 250 kt), in NM a second: how far the progress along the route can
+    /// move from one fix to the next, plus `reachMarginNM`. (6.4.2)
+    static let maxSpeedNMPerSecond = 250.0 / 3600
+    static let reachMarginNM = 1.0
 
     /// One time per waypoint, nil where the passage cannot be established.
     ///
@@ -81,6 +85,14 @@ enum WaypointPassage {
             let leaving = (previous?.s ?? 0) < cum[1] && geometry.distanceNM(fix.coordinate, route[0]) <= toleranceNM
             for k in leg..<(leaving ? leg + 1 : min(leg + 3, points.count - 1)) {
                 let (s, offset) = geometry.project(p, onto: k)
+                // A later leg that takes the progress further than the aircraft can have flown since the fix before
+                // is not the one it is on: out and back along one line (a loop from Grenchen east of Langenthal),
+                // the return leg lies over the outbound one, a fix on the way out matched it, and the turning point
+                // was marked 15 NM early (the 6.4.2 replay). (6.4.2)
+                if let prev = previous, k > leg,
+                   s - prev.s > max(0, fix.time.timeIntervalSince(prev.time)) * maxSpeedNMPerSecond + reachMarginNM {
+                    continue
+                }
                 if best == nil || offset < best!.offset { best = (s, offset, k) }
             }
             guard let match = best, match.offset <= corridorNM else { continue }

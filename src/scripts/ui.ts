@@ -1,5 +1,5 @@
-// Client behaviour: mobile nav, hero auto-cycle (both device frames together), scroll reveal. All
-// Reduce-Motion aware.
+// Client behaviour: mobile nav and scroll reveal, both Reduce-Motion aware. The hero no longer cycles its
+// screens (6.4.0 site: one Cockpit, explained, and nothing that moves by itself).
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Mobile nav menu (hamburger) toggle.
@@ -17,80 +17,6 @@ if (navToggle && navMenu) {
     const t = e.target as Node;
     if (navMenu.classList.contains('is-open') && !navMenu.contains(t) && !navToggle.contains(t)) setNav(false);
   });
-}
-
-// Hero auto-cycle: advance the active screenshot in both device frames (iPad and iPhone) + the dots.
-// Play/pause is driven by visibility + interaction so it behaves on touch as well as mouse:
-//   • IntersectionObserver — only cycles while the hero is on screen, and RESUMES when scrolled back
-//     (fixes touch devices where a scroll-"hover" used to stop it forever).
-//   • Hover-pause is attached ONLY on true-hover devices via `(hover: hover)` — touch fires
-//     pointerenter but not reliably pointerleave, which would otherwise leave it stuck paused.
-//   • Page Visibility pauses when the tab is hidden; keyboard focus pauses for inspection.
-const hero = document.querySelector('[data-hero]');
-const dots = Array.from(document.querySelectorAll<HTMLElement>('[data-dots] [data-dot]'));
-if (hero) {
-  const cycles = Array.from(hero.querySelectorAll<HTMLElement>('.cycle'));
-  const dotsWrap = document.querySelector<HTMLElement>('[data-dots]');
-  const count = dots.length || cycles[0]?.querySelectorAll('img').length || 0;
-  const canCycle = count > 1 && !reduceMotion;
-
-  let idx = 0;
-  let timer: number | undefined;
-  let inView = true;     // set by IntersectionObserver when supported
-  let hovering = false;  // only ever true on hover-capable (mouse/pen) devices
-  let focused = false;   // keyboard focus within the hero or dots
-
-  const show = (i: number): void => {
-    cycles.forEach((c) => {
-      c.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
-        img.classList.toggle('is-active', Number(img.dataset.i) === i);
-      });
-    });
-    dots.forEach((d, di) => {
-      d.classList.toggle('is-active', di === i);
-      d.setAttribute('aria-pressed', String(di === i));
-    });
-  };
-
-  const shouldPlay = (): boolean => canCycle && inView && !hovering && !focused && !document.hidden;
-  const sync = (): void => {
-    if (shouldPlay()) {
-      if (timer === undefined) timer = window.setInterval(() => { idx = (idx + 1) % count; show(idx); }, 4000);
-    } else if (timer !== undefined) {
-      window.clearInterval(timer); timer = undefined;
-    }
-  };
-
-  // Hover-pause: only on devices that truly hover (mouse/pen). Skipped on touch entirely.
-  if (window.matchMedia('(hover: hover)').matches) {
-    [hero, dotsWrap].forEach((el) => {
-      el?.addEventListener('pointerenter', () => { hovering = true; sync(); });
-      el?.addEventListener('pointerleave', () => { hovering = false; sync(); });
-    });
-  }
-  // Keyboard focus pauses (so focused users can read / operate the dots).
-  [hero, dotsWrap].forEach((el) => {
-    el?.addEventListener('focusin', () => { focused = true; sync(); });
-    el?.addEventListener('focusout', () => { focused = false; sync(); });
-  });
-  // Pause when the tab is backgrounded; resume when it returns.
-  document.addEventListener('visibilitychange', sync);
-  // Only cycle while the hero is on screen — and resume when it scrolls back into view.
-  if ('IntersectionObserver' in window) {
-    inView = false;
-    new IntersectionObserver((entries) => { inView = entries[0]?.isIntersecting ?? false; sync(); },
-      { threshold: 0.4 }).observe(hero);
-  }
-
-  // Clicking a dot jumps to that frame and restarts the interval from there.
-  dots.forEach((d, di) => d.addEventListener('click', () => {
-    idx = di; show(idx);
-    if (timer !== undefined) { window.clearInterval(timer); timer = undefined; }
-    sync();
-  }));
-
-  show(0);
-  sync();
 }
 
 // Scroll reveal.

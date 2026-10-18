@@ -1,23 +1,32 @@
 ---
-// The landing page, shared by / and /fr/: the hero, the four chapters, the flight start to finish —
-// the FLY rows and the iPhone together in the FLY band, drawn in the flight-deck colours as the app
-// switches to them at take-off — then everything else. (6.0)
+// The landing page, shared by / and /fr/ (6.4.0 site). Product first: the first screen says what AéroCheck is,
+// for whom, on what and at what cost, and shows the Cockpit with what each part is for. Then the way in (the dry
+// run), the shape of a flight (the four chapters, with the link to one real flight told in order on /flight),
+// the rows, the FLY ones and the iPhone in the flight-deck band, what it costs, the questions, and the long tail.
 import type { SiteData } from '../lib/site';
 import Hero from './Hero.astro';
+import DryRunBand from './DryRunBand.astro';
+import ChapterStrip from './ChapterStrip.astro';
 import FeatureRow from './FeatureRow.astro';
 import PhoneBand from './PhoneBand.astro';
-import FeatureGrid from './FeatureGrid.astro';
-import Pills from './Pills.astro';
-import ChapterStrip from './ChapterStrip.astro';
+import Pricing from './Pricing.astro';
+import Faq from './Faq.astro';
+import AlsoLine from './AlsoLine.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
+const base = site.lang === 'fr' ? '/fr' : '';
+const local = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? `${base}${href}` : href);
 const items = site.flagship.items.map((item, index) => ({ item, index }));
 const before = items.filter(({ item }, i) => !item.fly && items.slice(i).some(({ item: later }) => later.fly));
 const fly = items.filter(({ item }) => item.fly);
 const after = items.filter(({ item }, i) => !item.fly && !before.some((b) => b.index === i));
+const dry = { ...site.dryrun, link: { ...site.dryrun.link, href: local(site.dryrun.link.href) } };
+const story = { ...site.chapters.story, href: local(site.chapters.story.href) };
+const links = site.pricing.links.map((l) => ({ ...l, href: local(l.href) }));
 ---
 <Hero site={site} />
-<ChapterStrip heading={site.chapters.heading} items={site.chapters.items} />
+<DryRunBand dry={dry} />
+<ChapterStrip heading={site.chapters.heading} items={site.chapters.items} story={story} />
 
 <section id="features" class="flagship">
   <div class="container">
@@ -35,21 +44,14 @@ const after = items.filter(({ item }, i) => !item.fly && !before.some((b) => b.i
   </div>
 </section>
 
-<section class="supporting">
-  <div class="container">
-    <div class="section-head"><span class="section-label">{site.supporting.heading}</span></div>
-    <FeatureGrid items={site.supporting.items} />
-    <div class="pills-wrap"><Pills items={site.ecosystem} /></div>
-  </div>
-</section>
+<Pricing heading={site.pricing.heading} tiers={site.pricing.tiers} send={site.pricing.send} links={links} />
+<Faq heading={site.faq.heading} items={site.faq.items} privacyHref={local('/privacy')} />
+<AlsoLine label={site.also.label} items={site.also.items} />
 
 <style>
-  .flagship { padding-top: 24px; }
-  /* FLY, the width of the page: a cyan edge and wash, the rows' labels in cyan (FeatureRow). */
-  .fly-band { border-top: 1px solid rgba(61, 199, 237, .3); border-bottom: 1px solid rgba(61, 199, 237, .18);
-    background: linear-gradient(180deg, rgba(61, 199, 237, .07), rgba(61, 199, 237, .015) 55%, rgba(61, 199, 237, 0)); }
-  /* The band's edges and the next section's border draw the lines; a row's own would double them. */
+  .flagship { padding-top: 24px; padding-bottom: 0; }
+  /* The FLY band: the flight-deck cyan the app switches to at take-off, as a faint wash in either theme. */
+  .fly-band { border-top: 1px solid color-mix(in srgb, var(--cyan-fill) 32%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--cyan-fill) 20%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--cyan-fill) 8%, transparent), color-mix(in srgb, var(--cyan-fill) 2%, transparent) 55%, transparent); }
   .flagship .container > :global(:last-child) { border-bottom: 0; }
-  .supporting { background: var(--bg-band); border-top: 1px solid var(--line); }
-  .pills-wrap { margin-top: 16px; }
 </style>

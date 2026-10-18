@@ -48,6 +48,13 @@ export const SHOTS: Record<string, Shot> = {
   landscape:  { ipad: '', iphone: v6('iphone', 'landscape'), label: 'The iPhone on its side' },
 };
 
+// The story page (/flight): one real flight, Bressaucourt to Samedan in F-HVXA, replayed from its own GPS track on
+// the simulator and captured as it went (6.4.0 site). iPad only, in the order the page tells it.
+export const STORY: Record<string, string> = Object.fromEntries(
+  ['route', 'prepare', 'lineup', 'automark', 'alps', 'approach', 'closeout', 'log']
+    .map((key) => [key, versioned(`/assets/screenshot/v6/story/${key}.jpg`)]),
+);
+
 // The guard rail: put a key in PLACEHOLDERS if its image is ever a stand-in, and `shot()` warns on
 // every build until it is recaptured.
 const PLACEHOLDERS = new Set<string>();

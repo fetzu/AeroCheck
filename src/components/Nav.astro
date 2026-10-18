@@ -1,15 +1,22 @@
 ---
 import type { SiteData, Lang } from '../lib/site';
+import { appStoreHref } from '../lib/site';
 import Icon from './Icon.astro';
 interface Props { site: SiteData; lang: Lang; }
 const { site, lang } = Astro.props;
 const base = lang === 'fr' ? '/fr' : '';
 const links = [
   { label: site.nav.features, href: `${base}/#features` },
+  { label: site.nav.story, href: `${base}/flight` },
   { label: site.nav.aircraft, href: `${base}/aircraft` },
   { label: site.nav.manual, href: `${base}/manual` },
   { label: site.nav.changelog, href: `${base}/changelog` },
 ];
+// The language switch keeps the page: /flight ↔ /fr/flight, not back to the home page. (6.4.0)
+const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
+const enHref = path;
+const frHref = path === '/' ? '/fr' : `/fr${path}`;
+const storeHref = appStoreHref(lang);
 ---
 <header class="site-nav">
   <div class="container nav-inner">
@@ -21,10 +28,19 @@ const links = [
     <!-- Language switcher kept always-visible in the bar on mobile. On desktop the inline copy
          inside .nav-links is used instead (this one is hidden ≥720px). -->
     <span class="lang lang--bar" aria-label="Language">
-      <a href="/" class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
+      <a href={enHref} class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
       <span class="lang-sep" aria-hidden="true">/</span>
-      <a href="/fr" class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
+      <a href={frHref} class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
     </span>
+
+    <!-- Light or dark: the visitor's setting until they tap this; a tap forces the other theme, a second tap goes back
+         to following the setting (src/scripts/theme.ts, which unhides it: without JS it would do nothing). Like the
+         language switch, one copy in the bar for phones, one between EN/FR and Download on wider screens. -->
+    <button class="theme-toggle theme-toggle--bar" type="button" hidden data-theme-toggle
+      data-label-dark={site.theme.to_dark} data-label-light={site.theme.to_light} aria-label={site.theme.to_dark}>
+      <span class="icon-moon"><Icon name="moon" size={19} /></span>
+      <span class="icon-sun"><Icon name="sun" size={19} /></span>
+    </button>
 
     <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu" data-nav-toggle>
       <span class="icon-open"><Icon name="menu-2" size={22} /></span>
@@ -34,17 +50,23 @@ const links = [
     <nav class="nav-links" id="nav-menu" aria-label="Primary">
       {links.map((l) => <a href={l.href}>{l.label}</a>)}
       <span class="lang lang--inline" aria-label="Language">
-        <a href="/" class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
+        <a href={enHref} class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
         <span class="lang-sep" aria-hidden="true">/</span>
-        <a href="/fr" class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
+        <a href={frHref} class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
       </span>
-      <a class="btn btn--primary nav-dl" href={site.hero.primary.href}>{site.nav.download}</a>
+      <button class="theme-toggle theme-toggle--inline" type="button" hidden data-theme-toggle
+        data-label-dark={site.theme.to_dark} data-label-light={site.theme.to_light} aria-label={site.theme.to_dark}>
+        <span class="icon-moon"><Icon name="moon" size={19} /></span>
+        <span class="icon-sun"><Icon name="sun" size={19} /></span>
+      </button>
+      <a class="btn btn--primary nav-dl" href={storeHref} aria-label={site.store.alt}>{site.nav.download}</a>
     </nav>
+
   </div>
 </header>
 
 <style>
-  .site-nav { position: sticky; top: 0; z-index: 50; background: rgba(20,20,25,.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .site-nav { position: sticky; top: 0; z-index: 50; background: var(--nav-bg); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
   .nav-inner { display: flex; align-items: center; gap: 14px; height: 60px; }
   .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; margin-right: auto; }
   .brand-mark { color: var(--gold); }
@@ -56,6 +78,22 @@ const links = [
   .lang-opt:hover { color: var(--text); }
   .lang-sep { color: var(--dim); }
   .nav-dl { color: var(--gold-ink); }
+
+  /* The theme switch shows what a tap gives: the moon on a light page, the sun on a dark one. */
+  .theme-toggle { appearance: none; background: none; border: 1px solid var(--line-2); border-radius: 50%; width: 34px; height: 34px;
+    display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; padding: 0; flex: none; }
+  .theme-toggle[hidden] { display: none; }
+  .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--cyan-fill); outline-offset: 2px; }
+  .theme-toggle span { display: inline-flex; line-height: 0; }
+  .theme-toggle .icon-sun { display: none; }
+  .theme-toggle--bar { display: none; }
+  :global(:root[data-theme="dark"]) .theme-toggle .icon-sun { display: inline-flex; }
+  :global(:root[data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .theme-toggle .icon-sun { display: inline-flex; }
+    :global(:root:not([data-theme="light"])) .theme-toggle .icon-moon { display: none; }
+  }
 
   /* The bar-level language switcher only exists for mobile; desktop uses the inline one. */
   .lang--bar { display: none; }
@@ -70,10 +108,12 @@ const links = [
   @media (max-width: 720px) {
     .nav-toggle { display: inline-flex; }
     .lang--bar { display: inline-flex; }
+    .theme-toggle--bar { display: inline-flex; }
+    .nav-links .theme-toggle--inline { display: none; }
     .nav-links {
       position: absolute; top: 100%; left: 0; right: 0;
       flex-direction: column; align-items: flex-start; gap: 4px;
-      background: rgba(20,20,25,.98); backdrop-filter: blur(10px);
+      background: var(--bg); backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--line);
       padding: 8px 24px 18px;
       display: none;

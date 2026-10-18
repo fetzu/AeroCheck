@@ -5,9 +5,14 @@ import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 // `noindex`: pages opened with a private link (/request, /confirm) stay out of search engines; they
 // are also left out of the sitemap (astro.config.mjs).
-interface Props { site: SiteData; lang: Lang; title?: string; noindex?: boolean; }
-const { site, lang, title, noindex = false } = Astro.props;
+interface Props { site: SiteData; lang: Lang; title?: string; description?: string; noindex?: boolean; }
+const { site, lang, title, description, noindex = false } = Astro.props;
 const pageTitle = title ? `${title} · ${site.brand}` : site.meta.title;
+const pageDescription = description ?? site.meta.description;
+// The same page in the other language (6.4.0): /flight ↔ /fr/flight.
+const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
+const enUrl = `https://aerocheck.app${path}`;
+const frUrl = `https://aerocheck.app${path === '/' ? '/fr/' : `/fr${path}`}`;
 ---
 <!doctype html>
 <html lang={lang}>
@@ -15,23 +20,27 @@ const pageTitle = title ? `${title} · ${site.brand}` : site.meta.title;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{pageTitle}</title>
-  <meta name="description" content={site.meta.description} />
+  <meta name="description" content={pageDescription} />
   {noindex && <meta name="robots" content="noindex" />}
   <link rel="icon" href="/assets/appicon.png" />
-  <meta name="theme-color" content="#141419" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#F4F2EC" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#141419" media="(prefers-color-scheme: dark)" />
+  <!-- A theme the visitor forced with the nav's switch, applied before the first paint (src/scripts/theme.ts). -->
+  <script is:inline>try{var t=localStorage.getItem('aerocheck-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
   <link rel="preload" href="/fonts/b612-regular.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/b612-bold.woff2" as="font" type="font/woff2" crossorigin />
   <meta property="og:title" content={pageTitle} />
-  <meta property="og:description" content={site.meta.description} />
+  <meta property="og:description" content={pageDescription} />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/assets/appicon.png" />
-  <link rel="alternate" hreflang="en" href="https://aerocheck.app/" />
-  <link rel="alternate" hreflang="fr" href="https://aerocheck.app/fr/" />
+  <link rel="alternate" hreflang="en" href={enUrl} />
+  <link rel="alternate" hreflang="fr" href={frUrl} />
 </head>
 <body>
   <Nav site={site} lang={lang} />
   <main><slot /></main>
   <Footer site={site} />
-  <script>import '../scripts/ui.ts';</script>
+  <script>import '../scripts/ui.ts'; import '../scripts/theme.ts';</script>
 </body>
 </html>

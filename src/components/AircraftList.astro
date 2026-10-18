@@ -199,7 +199,7 @@ const ordered = group(aircraft);
   .ac .ac-table th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); padding: 12px 14px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
   .ac .ac-table td { padding: 13px 14px; border-bottom: 1px solid var(--line); color: var(--muted); vertical-align: middle; }
   .ac .ac-table tbody tr:last-child td { border-bottom: none; }
-  .ac .ac-table tbody tr:hover { background: rgba(255,255,255,.02); }
+  .ac .ac-table tbody tr:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
   .ac .c-reg { font-family: var(--mono); font-weight: 600; color: var(--gold); }
   .ac .c-model { color: var(--text); }
   .ac .c-type { font-family: var(--mono); }
@@ -215,7 +215,7 @@ const ordered = group(aircraft);
   .ac .lang-tag { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
   .ac .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
   .ac .badge--free { background: rgba(51,179,77,.16); color: var(--green); }
-  .ac .badge--pro { background: var(--gold); color: var(--gold-ink); }
+  .ac .badge--pro { background: var(--gold-fill); color: var(--gold-ink); }
 
   @media (max-width: 600px) { .ac .ac-stats { grid-template-columns: repeat(2, 1fr); } }
 </style>

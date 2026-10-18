@@ -1,4 +1,4 @@
-/* AéroCheck — the app's own design system on the web (6.0): B612, the app's colour tokens, gold on
+/* AéroCheck: the app's own design system on the web (6.0): B612, the app's colour tokens, gold on
    the ground and the flight-deck contract (cyan, magenta, green) in the FLY chapter, as in the app. */
 
 /* B612 and B612 Mono, the faces designed for Airbus cockpit displays, served from the site itself
@@ -10,6 +10,81 @@
 @font-face { font-family: "B612 Mono"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/b612-mono-bold.woff2") format("woff2"); }
 
 :root {
+  /* Light and dark, following the visitor's setting (6.4.0 site). The page is a light paper by day; the
+     app's screens, always dark, are the only dark objects on it. Fills keep the app's colours in both themes;
+     the text accents darken on paper so they stay readable. */
+  color-scheme: light dark;
+  --bg: #F4F2EC;
+  --bg-band: #ECE9E0;
+  --panel: #FFFFFF;
+  --panel-2: #FAF8F3;
+  --card: #FFFFFF;
+  --line: rgba(20, 22, 28, 0.10);
+  --line-2: rgba(20, 22, 28, 0.18);
+
+  /* Gold: the brand and the ground chapters (aviationGold). `--gold` is for text and lines, `--gold-fill`
+     for what is filled with it (buttons, badges), under `--gold-ink`. */
+  --gold: #8C6106;
+  --gold-hover: #6F4C04;
+  --gold-fill: #D9A633;
+  --gold-fill-hover: #E5B447;
+  --gold-ink: #1B1405;
+  /* The flight-deck contract (CockpitTheme.day): cyan for what you press, magenta for the route,
+     green for on target, amber for caution. Text tones here, fills below. */
+  --cyan: #0A6F8C;
+  --cyan-fill: #3DC7ED;
+  --cyan-ink: #051217;
+  --magenta: #B0307F;
+  --green: #227A38;
+  --green-fill: #33B34D;
+  --amber: #8A6200;
+  --amber-fill: #FFBF00;
+  --error: #B02A80;
+
+  --text: #15171C;
+  --muted: #555A64;
+  --dim: #74787F;
+  --chip-text: #3A3E46;
+  --shadow: rgba(20, 23, 28, 0.22);
+  --nav-bg: rgba(244, 242, 236, 0.88);
+
+  --sans: "B612", "Avenir Next", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "B612 Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 1080px;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+/* Dark: the visitor's setting by default; the nav's switch sets data-theme on <html> to force either theme
+   (src/scripts/theme.ts). The two dark blocks carry the same values. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    /* The app's ground palette (DesignTokens.swift): near-black, panels, cards. */
+    --bg: #141419;
+    --bg-band: #0E0E12;
+    --panel: #1F1F26;
+    --panel-2: #1A1A20;
+    --card: #26262E;
+    --line: rgba(255, 255, 255, 0.08);
+    --line-2: rgba(255, 255, 255, 0.14);
+    --gold: #D9A633;
+    --gold-hover: #E5B447;
+    --cyan: #3DC7ED;
+    --magenta: #E34DB0;
+    --green: #33B34D;
+    --amber: #FFBF00;
+    --error: #F07CC8;
+    --text: #F3F3F6;
+    --muted: #B4B4BC;
+    --dim: #8A8A93;
+    --chip-text: #CFCFD6;
+    --shadow: rgba(0, 0, 0, 0.55);
+    --nav-bg: rgba(20, 20, 25, 0.86);
+  }
+}
+:root[data-theme="dark"] {
   color-scheme: dark;
   /* The app's ground palette (DesignTokens.swift): near-black, panels, cards. */
   --bg: #141419;
@@ -19,31 +94,21 @@
   --card: #26262E;
   --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.14);
-
-  /* Gold: the brand and the ground chapters (aviationGold). */
   --gold: #D9A633;
   --gold-hover: #E5B447;
-  --gold-ink: #1B1405;
-  /* The flight-deck contract (CockpitTheme.day): cyan for what you press, magenta for the route,
-     green for on target, amber for caution. */
   --cyan: #3DC7ED;
-  --cyan-ink: #051217;
   --magenta: #E34DB0;
   --green: #33B34D;
   --amber: #FFBF00;
-
+  --error: #F07CC8;
   --text: #F3F3F6;
   --muted: #B4B4BC;
   --dim: #8A8A93;
   --chip-text: #CFCFD6;
-
-  --sans: "B612", "Avenir Next", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --mono: "B612 Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-
-  --maxw: 1080px;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --shadow: rgba(0, 0, 0, 0.55);
+  --nav-bg: rgba(20, 20, 25, 0.86);
 }
+:root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -98,8 +163,8 @@ h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; line-height: 
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .btn:active { transform: scale(0.98); }
-.btn--primary { background: var(--gold); color: var(--gold-ink); }
-.btn--primary:hover { background: var(--gold-hover); }
+.btn--primary { background: var(--gold-fill); color: var(--gold-ink); }
+.btn--primary:hover { background: var(--gold-fill-hover); }
 .btn--ghost { border-color: var(--line-2); color: var(--text); }
 .btn--ghost:hover { background: var(--panel-2); }
 

@@ -154,42 +154,57 @@ Until 6.2.0 the URLs never changed and Cloudflare let browsers keep an image for
 6.2.0 set went live, a visitor who had seen the page that morning still saw the 6.0 iPhone. Keep the
 file names; the hash does the rest.
 
+## The story page (/flight)
+
+The eight iPad images under `public/assets/screenshot/v6/story/` (`route`, `prepare`, `lineup`, `automark`, `alps`,
+`approach`, `closeout`, `log`, keyed in `STORY` in `src/lib/shots.ts`) come from one real flight, Bressaucourt to Samedan
+in F-HVXA on 23 Sep 2026 (its export, `AeroCheck_20260923_1033_F-HVXA.json`), replayed on the Dev Check iPad through
+the app's ground replay (`AEROCHECK_REPLAY`, 5×) and flown as a pilot would: the flight planned for today, its tasks
+ticked to 10 of 12, every check worked, ENGINE START and the line-up held by the scenario. The scenario lists no
+aerodromes, so the replay keeps the simulator's own airport data and the frequencies show (a DEBUG harness change made
+for these captures). The logbook frame comes from a second, untouched run at 30×. Captured on 18 Oct 2026 for the
+6.4.0 site; the page's times are the Cockpit's flight clock in each frame.
+
 ## App Store
 
-**Different simulators.** App Store Connect matches screenshot dimensions EXACTLY against a device
-size class and rejects anything else with "The dimensions of one or more screenshots are wrong". The
-devices the website uses are not accepted sizes:
+**Exact sizes.** App Store Connect matches screenshot dimensions EXACTLY against a device size class
+and rejects anything else with "The dimensions of one or more screenshots are wrong" (the error lists
+the sizes it wants). Two slots are required, the 13-inch iPad and the iPhone with Dynamic Island
+(medium display); the others are optional and scaled from these. As listed on Apple's
+[screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
+on 18 Oct 2026:
 
 | Purpose | Device | Output |
 |---|---|---|
-| Website | iPad Air 11-inch (M4) | 1640 × 2360 portrait — **not** an App Store size |
-| Website | iPhone 17 | 1206 × 2622 — **not** an App Store size |
-| App Store | iPad Pro 13-inch (M5) | 2752 × 2064 landscape (2064 × 2752 portrait) |
-| App Store | iPhone 14 Plus (6.5") | 1284 × 2778 |
-| App Store | iPhone 17 Pro Max (6.9") | 1320 × 2868 |
+| Website | iPad Air 11-inch (M4) | 1640 × 2360 portrait, not an App Store size |
+| Website | iPhone 17 | 1206 × 2622, also the App Store's medium display when captured `--native` |
+| App Store, required | iPad Pro 13-inch (M5) | 2064 × 2752 portrait (2752 × 2064 landscape) |
+| App Store, required | iPhone 17 or 17 Pro (Dynamic Island, medium display) | 1206 × 2622 (1179 × 2556 also accepted) |
+| App Store, optional | iPhone 17 Pro Max (Dynamic Island, large display, "6.9-inch") | 1320 × 2868 |
 
-> **Check which iPhone slot App Store Connect is actually asking for before capturing.** There are
-> two, and they take different sizes. 6.9" wants 1320 × 2868; 6.5" wants 1242 × 2688 or
-> 1284 × 2778. A 6.9" image is rejected by the 6.5" slot and vice versa, with the same unhelpful
-> "The dimensions of one or more screenshots are wrong" — the error does list the sizes it wants, so
-> read them and match. Do NOT rescale between the two: their aspect ratios differ (0.4603 vs 0.4622)
-> and resampling distorts. Capture on a simulator whose native size is the one you need. The 6.5"
-> devices are old enough that one may not exist yet:
-> `xcrun simctl create "AeroCheck 6.5in" com.apple.CoreSimulator.SimDeviceType.iPhone-14-Plus <runtime>`.
+The 6.1 to 6.4 store sets were captured for the large display (`iphone-6.9`). From the next set on,
+capture the iPhone on an iPhone 17 class simulator (the Dev Check iPhone is one), natively, and keep
+it as `iphone-6.3`. Do NOT rescale between the iPhone classes: their aspect ratios differ (1206 × 2622
+is 0.4600, 1320 × 2868 is 0.4603, 1284 × 2778 is 0.4622) and resampling distorts. From April 2027 an
+app built with the iOS 27.1 SDK or later also needs iPhone Duo screenshots (outer display
+1398 × 2034, inner display 2007 × 2853); check the page again when the version is opened, Apple has
+changed the slots before.
 
 Pass `--native` to write full-resolution PNGs instead of downscaled JPEGs, and `--out` somewhere
 outside `public/` so the website's own images are not overwritten:
 
 ```bash
-scripts/capture-screenshots.sh --app … --device "iPhone 17 Pro Max" \
+scripts/capture-screenshots.sh --app … --device "AeroCheck Dev Check iPhone" \
   --scenes flight,closeout,homeflight,cruise --native --out /tmp/appstore
 scripts/capture-screenshots.sh --app … --device "iPad Pro 13-inch (M5)" \
-  --scenes homeflight,flight,closeout,cruise --rotate 270 --native --out /tmp/appstore
+  --scenes homeflight,flight,closeout,cruise --native --out /tmp/appstore
 ```
 
-Then drive the gesture shots by hand on each device, as above. Re-check the accepted sizes when you
-open the version; Apple has changed them before. The website's iPad is in portrait since 6.0; whether
-the store's iPad set follows is decided when the listing is updated.
+Then drive the gesture shots by hand on each device, as above. The store's iPad set is in portrait
+since 6.1, like the website's. Before handing a set over: PNG without an alpha channel
+(`magick in.png -alpha off -define png:color-type=2 out.png`), JPEG quality 95 for anything over about
+4.8 MB (App Store Connect refuses files around 5 MB), at most 10 per device and language. The sets as
+submitted are kept outside the repos, in `Marketing/AppStore/<version>/`.
 
 **A fresh simulator has no aeronautical data**, which shows as a red "No data" chip on Today and an
 empty map. Downloading it through the app takes minutes; copying it from a simulator that already

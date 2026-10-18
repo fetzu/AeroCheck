@@ -1,13 +1,9 @@
-6.4.0 brings the Dry run: a flight flown on the ground, through the real Cockpit, in a world of its own (nothing it does is kept). Start with the guided one, then try free practice.
+6.4.1 fixes how landings are counted and what the radio's NEXT suggests on the way in, all found by replaying a real flight on the ground.
 
 What to look at:
-- the guided dry run: Settings › About › Your first flight, from plan to logbook (or the card on Today, on a device whose logbook is empty). Four parts, from planning the flight to reading it in the logbook: the cards should make sense, wait for you where they ask for something, and follow what you do rather than run ahead of it or lag behind;
-- One part at a time and Fly it, chapter by chapter, in the same place: a part or a chapter on its own;
-- free practice: Settings › About › Fly a dry run on the ground for circuits, or a route's swipe to the right in Plan › Routes (or the ⋯ menu of the route editor) to fly the route. Try other aerodromes and paces (1×, 4×, 10×, 30×), NEXT CHECK, a go-around and a touch-and-go on the card on final, DEFER at an awkward moment, and the iPhone on its side;
-- in a flight, real or dry: a go-around, touch-and-go or full stop is recorded at once, with UNDO in the message at the foot. The cards that asked to confirm are now a setting, Settings › Checklist & Flight › Confirm landings and go-arounds, off by default;
-- the climb check waits for the take-off: lined up, the line-up check done, NEXT reads AFTER TAKE-OFF until the take-off is detected;
-- a go-around or touch-and-go within 5 NM of the route's end carries on as circuits;
-- the check titles (BEFORE START CHECK, AFTER START CHECK, BEFORE TAKE-OFF CHECK, LINE-UP CHECK, PRE-FLIGHT CHECK, RUN-UP), "overdue" for a check left open past its point, Hide memory items in place of Memory test, and the wording all over the app, in both languages: say where a term reads wrong to a pilot;
-- the flight's page: a chapter chip scrolls to its chapter, the flight reads READY once everything before it is ticked, and the Close chapter has an optional Debrief field.
+- a flight to an aerodrome higher than the one you left, on an iPhone or a cellular iPad (they have a barometer): the landing is counted when it happens, the after landing check comes by itself and the destination gets its time;
+- FULL STOP LANDING pressed late, minutes after the touchdown: the flight's review and the logbook show one landing, at the touchdown, and the flight time is the measured one;
+- the Logbook: a flight that recorded the same landing twice shows one landing everywhere, its line, its page and the CSV and PDF exports;
+- the radio on the way in: once a waypoint outside the destination's circuit is behind you, NEXT stays empty rather than suggesting the FIS, and stays so after landing. On a local flight, NEXT offers the FIS on the way out, until the first point outside the circuit.
 
-A dry run never asks for your location, so it works at a desk with location off. Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.
+Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

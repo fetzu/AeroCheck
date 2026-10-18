@@ -22,7 +22,7 @@ hero:
   title: "Built for the kneeboard."
   subtitle: "AéroCheck is a checklist-led cockpit for VFR pilots. It follows the flight from the pre-flight check to the shutdown, opens the check that is due, and keeps the map, the route and the logbook one tap away. Free with one aircraft."
   secondary: { label: "Follow a real flight", href: "/flight" }
-  facts: "16 phases · {total} aircraft · English and French · open source"
+  facts: "16 phases · {total} aircraft · English, German and French · open source"
   shot: "cockpit"
   shot_alt: "The Cockpit in cruise on an iPad"
   # Positions in percent of the iPad screenshot (cockpit.jpg). A label sits beside the picture; only its line crosses it.

@@ -3,6 +3,7 @@
 // for whom, on what and at what cost, and shows the Cockpit with what each part is for. Then the way in (the dry
 // run), the shape of a flight (the four chapters, with the link to one real flight told in order on /flight),
 // the rows, the FLY ones and the iPhone in the flight-deck band, what it costs, the questions, and the long tail.
+import { langBase } from '../lib/langs';
 import type { SiteData } from '../lib/site';
 import Hero from './Hero.astro';
 import DryRunBand from './DryRunBand.astro';
@@ -14,7 +15,7 @@ import Faq from './Faq.astro';
 import AlsoLine from './AlsoLine.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
-const base = site.lang === 'fr' ? '/fr' : '';
+const base = langBase(site.lang);
 const local = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? `${base}${href}` : href);
 const items = site.flagship.items.map((item, index) => ({ item, index }));
 const before = items.filter(({ item }, i) => !item.fly && items.slice(i).some(({ item: later }) => later.fly));

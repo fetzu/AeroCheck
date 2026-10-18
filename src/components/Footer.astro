@@ -1,5 +1,6 @@
 ---
 import type { SiteData } from '../lib/site';
+import { langBase } from '../lib/langs';
 import { appVersion } from '../lib/version';
 import Icon from './Icon.astro';
 interface Props { site: SiteData; }
@@ -7,10 +8,11 @@ const { site } = Astro.props;
 const f = site.footer;
 // Live version from the latest GitHub release (resolved at build time).
 const version = await appVersion();
-const changelogHref = site.lang === 'fr' ? '/fr/changelog' : '/changelog';
-const privacyHref = site.lang === 'fr' ? '/fr/privacy' : '/privacy';
-const termsHref = site.lang === 'fr' ? '/fr/terms' : '/terms';
-const supportHref = site.lang === 'fr' ? '/fr/support' : '/support';
+const base = langBase(site.lang);
+const changelogHref = `${base}/changelog`;
+const privacyHref = `${base}/privacy`;
+const termsHref = `${base}/terms`;
+const supportHref = `${base}/support`;
 ---
 <footer class="site-footer">
   <div class="container footer-safety"><p>{f.safety}</p></div>

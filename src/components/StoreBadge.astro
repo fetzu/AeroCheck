@@ -12,6 +12,7 @@ const { store, lang } = Astro.props;
 // The artwork's own proportions (viewBox), at 48 px high.
 const BADGES: Record<Lang, { src: string; width: number }> = {
   en: { src: '/assets/badges/app-store-badge-en.svg', width: 144 },
+  de: { src: '/assets/badges/app-store-badge-de.svg', width: 144 },
   fr: { src: '/assets/badges/app-store-badge-fr.svg', width: 152 },
 };
 const badge = BADGES[lang];

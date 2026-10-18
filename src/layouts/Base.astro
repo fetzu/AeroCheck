@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import type { SiteData, Lang } from '../lib/site';
+import { LANGS, DEFAULT_LANG, langBase, pathWithoutLang, pathInLang } from '../lib/langs';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 // `noindex`: pages opened with a private link (/request, /confirm) stay out of search engines; they
@@ -9,10 +10,12 @@ interface Props { site: SiteData; lang: Lang; title?: string; description?: stri
 const { site, lang, title, description, noindex = false } = Astro.props;
 const pageTitle = title ? `${title} · ${site.brand}` : site.meta.title;
 const pageDescription = description ?? site.meta.description;
-// The same page in the other language (6.4.0): /flight ↔ /fr/flight.
-const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
-const enUrl = `https://aerocheck.app${path}`;
-const frUrl = `https://aerocheck.app${path === '/' ? '/fr/' : `/fr${path}`}`;
+// The same page in every language (6.4.0, any number since 6.5.0): /flight, /de/flight, /fr/flight.
+const path = pathWithoutLang(Astro.url.pathname);
+// A home page's alternate ends with a slash (/de/), as the served URL does.
+const url = (l: Lang) => `https://aerocheck.app${path === '/' ? `${langBase(l)}/` : pathInLang(path, l)}`;
+const alternates = LANGS.map((l) => ({ lang: l, href: url(l) }));
+const defaultUrl = url(DEFAULT_LANG);
 ---
 <!doctype html>
 <html lang={lang}>
@@ -34,8 +37,8 @@ const frUrl = `https://aerocheck.app${path === '/' ? '/fr/' : `/fr${path}`}`;
   <meta property="og:description" content={pageDescription} />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/assets/appicon.png" />
-  <link rel="alternate" hreflang="en" href={enUrl} />
-  <link rel="alternate" hreflang="fr" href={frUrl} />
+  {alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={a.href} />)}
+  <link rel="alternate" hreflang="x-default" href={defaultUrl} />
 </head>
 <body>
   <Nav site={site} lang={lang} />

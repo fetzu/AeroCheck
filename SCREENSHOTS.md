@@ -143,7 +143,7 @@ Things that bite:
    (and, until captured, a place in `PLACEHOLDERS`).
 2. Set `CAPTURED_FROM` in `src/lib/shots.ts` to the app version you captured from.
 3. `npm run build` — it must print **no** `[shots]` warning (no PLACEHOLDER, no "captured from").
-4. `npm run dev`, open `/` and `/fr/`, check the hero cycle and every row, at desktop and phone width.
+4. `npm run dev`, open `/`, `/de/` and `/fr/`, check the hero cycle and every row, at desktop and phone width.
 5. Commit with the `website:` prefix. Pushing `website` deploys.
 6. After the deploy (about a minute), `scripts/check-live-screenshots.sh`: every image served as in
    the checkout.

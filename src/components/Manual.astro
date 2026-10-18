@@ -4,10 +4,11 @@ interface Heading { depth: number; slug: string; text: string; }
 interface Props { lang: Lang; headings: Heading[]; }
 const { lang, headings } = Astro.props;
 
-const COPY = {
+const COPY: Record<Lang, { eyebrow: string; heading: string; toc: string }> = {
   en: { eyebrow: 'Manual', heading: 'User manual', toc: 'On this page' },
+  de: { eyebrow: 'Handbuch', heading: 'Benutzerhandbuch', toc: 'Auf dieser Seite' },
   fr: { eyebrow: 'Manuel', heading: 'Manuel d’utilisation', toc: 'Sur cette page' },
-} as const;
+};
 const t = COPY[lang];
 const sections = headings.filter((h) => h.depth === 2);
 ---

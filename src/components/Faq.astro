@@ -5,7 +5,7 @@ interface Props { heading: string; items: Qa[]; privacyHref: string; }
 const { heading, items, privacyHref } = Astro.props;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // The answer that names the privacy policy links it.
-const answer = (t: string) => esc(t).replace(/privacy policy|politique de confidentialité/, (m) => `<a href="${privacyHref}">${m}</a>`);
+const answer = (t: string) => esc(t).replace(/privacy policy|Datenschutzerklärung|politique de confidentialité/, (m) => `<a href="${privacyHref}">${m}</a>`);
 ---
 <section id="faq" class="faq reveal">
   <div class="container">

@@ -22,7 +22,7 @@ hero:
   title: "Conçu pour la planchette."
   subtitle: "AéroCheck est un cockpit guidé par la checklist, pour les pilotes VFR. Il suit le vol de la vérification prévol à l'arrêt moteur, ouvre la vérification qui est à faire, et garde la carte, la route et le carnet à portée de doigt. Gratuit avec un avion."
   secondary: { label: "Suivre un vol réel", href: "/fr/flight" }
-  facts: "16 phases · {total} avions · français et anglais · open source"
+  facts: "16 phases · {total} avions · français, allemand et anglais · open source"
   shot: "cockpit"
   shot_alt: "Le cockpit en croisière sur un iPad"
   callouts:

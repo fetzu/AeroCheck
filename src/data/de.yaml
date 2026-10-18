@@ -1,0 +1,228 @@
+lang: "de"
+meta:
+  title: "AéroCheck · Das checklistengeführte Cockpit für VFR-Piloten"
+  description: "Ein checklistengeführtes Cockpit für VFR-Piloten, auf dem iPad auf dem Kniebrett und auf dem iPhone: Es folgt dem Flug von der Vorflugkontrolle bis zum Abstellen, sagt, welche Kontrolle fällig ist, und hält Karte, Route und Flugbuch einen Fingertipp entfernt. Kostenlos mit einem Flugzeug."
+brand: "AéroCheck"
+
+nav:
+  features: "Funktionen"
+  story: "Ein Flug"
+  aircraft: "Flugzeuge"
+  manual: "Handbuch"
+  changelog: "Versionsverlauf"
+  download: "Download"
+
+# Das App-Store-Badge: Apples Grafik (public/assets/badges), der Link in src/lib/site.ts (APP_STORE_URL).
+store: { alt: "AéroCheck im App Store laden", cta: "AéroCheck laden" }
+# Der Hell/Dunkel-Schalter der Navigation: was ein Tippen bewirkt.
+theme: { to_dark: "Zum dunklen Design wechseln", to_light: "Zum hellen Design wechseln" }
+
+hero:
+  eyebrow: "Für VFR-Piloten · iPad und iPhone"
+  title: "Gebaut fürs Kniebrett."
+  subtitle: "AéroCheck ist ein checklistengeführtes Cockpit für VFR-Piloten. Es folgt dem Flug von der Vorflugkontrolle bis zum Abstellen, öffnet die fällige Kontrolle und hält Karte, Route und Flugbuch einen Fingertipp entfernt. Kostenlos mit einem Flugzeug."
+  secondary: { label: "Einen echten Flug mitverfolgen", href: "/de/flight" }
+  facts: "16 Phasen · {total} Flugzeuge · Deutsch, Englisch und Französisch · Open Source"
+  shot: "cockpit"
+  shot_alt: "Das Cockpit im Reiseflug auf einem iPad"
+  # Positionen in Prozent des iPad-Screenshots (cockpit.jpg). Eine Beschriftung steht neben dem Bild; nur ihre Linie reicht hinein.
+  callouts:
+    - { side: "left", x: 2.5, y: 5.7,  where: "Oben",          title: "Wo Sie stehen",        text: "Die laufende Kontrolle, die Flugzeit und das GPS." }
+    - { side: "right", x: 97, y: 15, where: "Darunter",      title: "Was Sie fliegen",      text: "Geschwindigkeit über Grund, Höhe, Kurs über Grund und der Weg zum nächsten Wegpunkt." }
+    - { side: "left", x: 2.5, y: 27.3, where: "Unter den Werten", title: "Wen Sie rufen",     text: "Die Frequenz für jetzt und die nächste." }
+    - { side: "right", x: 97, y: 67, where: "In der Mitte",  title: "Der laufende Punkt",   text: "Eingerahmt an seinem Platz, der Rest der Kontrolle darum herum." }
+    - { side: "left", x: 2.5, y: 94.3, where: "Ganz unten",    title: "Vier Tasten",          text: "Unter dem Daumen, in jeder Phase am selben Platz." }
+
+dryrun:
+  band: "TROCKENÜBUNG · 4×"
+  title: "Ihr erster Flug mit AéroCheck, am Boden."
+  text: "Ist die App einmal auf Ihrem iPad oder iPhone, führt Sie ihre Trockenübung am Schreibtisch durch einen ganzen Flug: eine geführte Geschichte in vier Teilen, von der Planung bis zum Flugbuch, im echten Cockpit. Danach freies Üben: Platzrunden auf jedem Flugplatz mit einer Piste oder eine Ihrer Routen. Nichts wird gespeichert, und ein Standort ist nicht nötig."
+  link: { label: "So funktioniert die Trockenübung", href: "/manual#trockenübung" }
+  shot: "dryrun"
+  alt: "Eine geführte Trockenübung im ersten Endanflug, auf einem iPhone"
+
+# Die vier Kapitel eines Flugs in der App. FLIEGEN ist der Kern, gefüllt im Cyan des Cockpits.
+chapters:
+  heading: "Ein Flug hat vier Kapitel"
+  items:
+    - { key: "plan",    name: "Planen",       line: "Wohin, wann, welches Flugzeug und eine Route, die sich selbst prüft." }
+    - { key: "prepare", name: "Vorbereiten",  line: "Das Wetter, die NOTAM, der ATC-Flugplan und die Grenzregeln, als Liste zum Abhaken." }
+    - { key: "fly",     name: "Fliegen",      line: "Ein einziger Cockpit-Bildschirm: die fällige Kontrolle, die Karte oder die Route.", core: true }
+    - { key: "close",   name: "Abschliessen", line: "Den ATC-Flugplan schliessen; die Flugbuchzeile ist schon geschrieben." }
+  story: { label: "Einen echten Flug mitverfolgen, von Bressaucourt nach Samedan", href: "/flight" }
+
+# Zeilen mit `fly: true` stehen im FLIEGEN-Band, gefolgt vom iPhone-Band (`phone`).
+flagship:
+  heading: "Ein Flug, von Anfang bis Ende"
+  items:
+    - step: "01 · Planen"
+      anchor: "plan"
+      title: "Ein Flug, nicht nur eine Route"
+      description: "Neuen Flug planen fragt nach dem Wann und dem Woher und baut den Rest darum herum. Der Routeneditor zeichnet das Profil über dem Gelände und listet jeden Luftraum auf, in den die Route führt, auf der geplanten Höhe."
+      facts: ["Gelände und Lufträume beim Zeichnen geprüft", "Reisen mit Zwischenhalten", "Treibstoff an Bord mit einem Tippen"]
+      shot: "route"
+    - step: "02 · Vorbereiten"
+      anchor: "prepare"
+      title: "Alles, was Sie sonst im Kopf behalten müssten"
+      description: "Wetter, NOTAM, der ATC-Flugplan und die Grenzregeln werden zu Aufgaben, die Sie abhaken, jede mit ihrem Link. Erst wenn alle erledigt sind, meldet der Ring: bereit."
+      facts: ["Eine Erinnerung am Vortag", "Grenzregeln für sechs Länder", "Ein Nav-Log in A5 fürs Kniebrett"]
+      shot: "prepare"
+    - step: "03 · Fliegen"
+      anchor: "fly"
+      fly: true
+      title: "Kontrollen, die zu Ihnen kommen"
+      description: "Der Flug sagt, wann eine Kontrolle fällig ist: Steigflug nach dem Start, Reiseflug bei Erreichen der Reiseflughöhe, Anflug fünf Meilen vor dem Ziel. Eine Kontrolle, an der Sie vorbeifliegen, wird als überfällig markiert, nicht verloren, und Durchstarts, Touch-and-gos und Landungen werden von selbst aufgezeichnet und lassen sich widerrufen."
+      facts: ["Aufgeschobene Punkte warten in Sichtweite", "Memory Items ausblenden, um sich selbst zu prüfen", "V-SPEEDS und die Briefings öffnen sich über der Seite"]
+      note: "AéroCheck unterstützt die genehmigte Checkliste Ihres Flugzeugs und das Flughandbuch (AFM) und ersetzt keines von beiden: Die Checkliste auf Papier bleibt an Bord."
+      shot: "vspeeds"
+      iphone_shot: "cockpit"
+    - step: "03 · Fliegen"
+      fly: true
+      title: "Die Karte, mit eingezeichneten Platzrunden"
+      description: "Unterwegs wechselt die Seite zur Karte: das Flugzeug, die Route und die Lufträume, mit ÜBERFLUG und Ausweichen unter dem Daumen. Rund um die Flugplätze die Platzrunden, Anflugsektoren und VFR-Routen von open flightmaps, mit einem Link zur offiziellen Karte."
+      facts: ["Schweizer ICAO- und Segelflugkarten, offline", "Platzrunden und VFR-Routen in 22 Ländern", "Links zu offiziellen Karten in 18 Ländern"]
+      shot: "circuits"
+      iphone_shot: "cockpitmap"
+    - step: "04 · Abschliessen"
+      anchor: "close"
+      title: "Gelandet. Jetzt das Flugbuch."
+      description: "Die Erinnerung, Ihren ATC-Flugplan zu schliessen, kommt nach der Landung, und nur, wenn Sie einen aufgegeben haben. Block- und Flugzeit stammen aus dem Flugweg, und die Flugbuchzeile wird nach den Regeln der EASA entworfen, in den Spalten Ihres eigenen Flugbuchs."
+      facts: ["CSV-Export und PDF-Auszug", "Was der Flug gekostet hat", "Flugschülermodus: Dual, mit dem Fluglehrer als PIC"]
+      shot: "closeout"
+      iphone_shot: "log"
+
+phone:
+  step: "03 · Fliegen · iPhone"
+  title: "Dasselbe Cockpit auf dem iPhone"
+  description: "Ausgelegt für ein iPhone auf Armlänge: dieselben drei Seiten und ein Wort pro Taste unter dem Daumen. Quer gehalten rücken die Bedienelemente in eine Spalte, und die Karte füllt den Rest. Neben einem iPad wird das iPhone zu einem zweiten Bildschirm, der ihm folgt, und gibt einem iPad nur mit Wi-Fi sein GPS."
+  shots: ["cockpitmap", "landscape"]
+
+pricing:
+  heading: "Was es kostet"
+  tiers:
+    - { name: "Kostenlos", title: "Alles, mit einem Flugzeug", text: "Alle Funktionen der App, mit der Checkliste der Aerospool WT9 Dynamic." }
+    - { name: "AéroCheck Pro", title: "Alle Clubflugzeuge", text: "Die Checklisten der übrigen {premium} Flugzeuge: monatlich, oder jährlich mit einer kostenlosen Woche für berechtigte Konten.", highlight: true }
+    - { name: "Lebenslang", title: "Einmal bezahlen", text: "AéroCheck Pro für immer, mit einem einzigen Kauf über Ihren Apple Account." }
+  send: "AéroCheck begann mit drei Schweizer Flugclubs, in Porrentruy, Lausanne und Neuchâtel. Clubs und Piloten senden uns ihre Checklisten, und regelmässig kommen neue Flugzeuge dazu: Fehlt Ihres noch, senden Sie seine Checkliste aus der App oder über diese Website."
+  links:
+    - { label: "Die Flugzeuge ansehen", href: "/aircraft" }
+    - { label: "Eine Checkliste senden", href: "/send" }
+
+faq:
+  heading: "Fragen"
+  items:
+    - q: "Ersetzt die App meine Checkliste auf Papier?"
+      a: "Nein. AéroCheck unterstützt die genehmigte Checkliste Ihres Flugzeugs, das Flughandbuch (AFM) und Ihr eigenes Urteil und ersetzt keines davon. Die Checkliste auf Papier bleibt an Bord."
+    - q: "Ist mein Flugzeug dabei?"
+      a: "Heute {total} Flugzeuge, die meisten aus den Flotten von Schweizer Clubs; die Seite Flugzeuge listet sie auf. Fehlt Ihres, senden Sie seine Checkliste aus der App oder über aerocheck.app/de/send: Neue Flugzeuge kommen regelmässig dazu."
+    - q: "Funktioniert die App ausserhalb der Schweiz?"
+      a: "Ja. Die Lufträume der Länder, in denen Sie fliegen, Platzrunden und VFR-Routen in 22 Ländern, Links zu den offiziellen Karten in 18. Die Schweizer Karten, DABS und GAFOR kommen für die Schweiz dazu."
+    - q: "Funktioniert die App ohne Verbindung?"
+      a: "Ja. Karten, Lufträume und Flugplätze werden auf dem Gerät gespeichert: Laden Sie sie vor dem Flug herunter."
+    - q: "Was bringt das iPhone dazu?"
+      a: "Für sich allein zeigt das iPhone dasselbe Cockpit, auf seinen Bildschirm zugeschnitten. Im Begleitmodus mit einem iPad gekoppelt, wird es zu einem zweiten Bildschirm, der dem Flug des iPad folgt, und Sie können Punkte auf beiden Geräten abhaken. Ist Ihr iPad ein Modell nur mit Wi-Fi, das kein eigenes GPS hat, leiht ihm das iPhone auch seine Position. Der Begleitmodus setzt iOS 26 auf beiden Geräten voraus."
+    - q: "Was geschieht mit meinen Daten?"
+      a: "Ihre Flüge und Flugwege bleiben auf Ihrem Gerät und in Ihrer eigenen iCloud. Kein Konto, keine Werbung, kein Tracking; die Einzelheiten stehen in der Datenschutzerklärung."
+
+also:
+  label: "Ausserdem"
+  items: ["Apple Watch", "Begleitmodus, iPad und iPhone zusammen", "Links zu den Landetaxen von {tariffs} Flugplätzen", "Tag, Nacht und Kontrast bei Sonnenlicht", "Gesetzt in B612, der Schrift der Airbus-Cockpits", "Bedienungshilfen", "Open Source (MIT) auf GitHub"]
+
+# Die Seite des Flugs (/de/flight): ein echter Flug, Bressaucourt nach Samedan mit F-HVXA, aus seinem eigenen Flugweg aufgenommen.
+story:
+  meta:
+    title: "Ein Flug"
+    description: "Ein echter Flug über die Alpen, von Bressaucourt nach Samedan in einer WT9 Dynamic, vom Vorabend bis zur Flugbuchzeile, mit AéroCheck auf dem Kniebrett."
+  eyebrow: "Ein Flug · von Bressaucourt nach Samedan · F-HVXA"
+  title: "Die Checkliste, die Ihrem Flug folgt."
+  subtitle: "Ein echter Flug über die Alpen in einer WT9 Dynamic, vom Vorabend bis zur Flugbuchzeile, mit AéroCheck auf dem Kniebrett."
+  secondary: { label: "Zurück zu den Funktionen", href: "/#features" }
+  prologue:
+    band: "TROCKENÜBUNG · 4×"
+    title: "Vor Ihrem ersten Flug damit: Fliegen Sie einen am Boden."
+    text: "Sobald die App installiert ist: ein geführter Flug in vier Teilen, von der Planung bis zum Flugbuch, durch das echte Cockpit, an Ihrem Schreibtisch. Danach freies Üben: Platzrunden auf jedem Flugplatz, ein Durchstarten im zweiten Endanflug. Nichts wird gespeichert."
+    link: { label: "So funktioniert die Trockenübung", href: "/manual#trockenübung" }
+    shot: "dryrun"
+    alt: "Eine geführte Trockenübung im ersten Endanflug, auf einem iPad"
+  moments:
+    - when: "Am Vorabend"
+      sub: "Zu Hause"
+      chapter: "Planen"
+      title: "Die Route zeichnen, sehen, was sie quert."
+      text: "Von Bressaucourt nach Samedan über die Grimsel und die Furka: 26 Wegpunkte, 173 NM, 1 h 47. Das Profil zeigt das Gelände unter den geplanten Höhen, und der Editor listet jeden Luftraum auf, in den die Route führt."
+      shot: "route"
+      alt: "Der Routeneditor, von Bressaucourt nach Samedan"
+    - when: "Am Morgen"
+      sub: "Vor dem Aufbruch"
+      chapter: "Vorbereiten"
+      title: "Zehn von zwölf, und die NOTAM noch zu lesen."
+      text: "Wetter, DABS, GAFOR, die Grenzregeln für Frankreich und Italien, der ATC-Flugplan: jeweils eine Aufgabe mit ihrem Link, nach und nach abgehakt. Erst wenn alle zwölf erledigt sind, meldet der Ring: bereit."
+      shot: "prepare"
+      alt: "Die Flugseite, 10 von 12 erledigt"
+    - when: "0:16"
+      sub: "Aufgerollt, Piste 07"
+      chapter: "Fliegen"
+      fly: true
+      title: "Kontrolle beim Aufrollen erledigt. Die Steigflugkontrolle wartet auf den Start."
+      text: "Jede Kontrolle seit der Vorflugkontrolle, Punkt für Punkt. Auf der Piste steht DEKAM unter NÄCHSTE, und die Taste zeigt NACH DEM START: Die Steigflugkontrolle erscheint, sobald der Start erkannt ist."
+      shot: "lineup"
+      alt: "Das Cockpit nach dem Aufrollen in Bressaucourt"
+    - when: "0:31"
+      sub: "Über dem Bielersee"
+      chapter: "Fliegen"
+      fly: true
+      title: "Kontrollpunkte markieren sich selbst."
+      text: "BENOT wird beim Überfliegen markiert, mit WIDERRUFEN für sechs Sekunden. Die Funkfrequenz ist auf Geneva Info gewechselt; der Tower von Samedan steht schon unter NÄCHSTE."
+      shot: "automark"
+      alt: "BENOT automatisch markiert, die Reiseflugkontrolle offen"
+    - when: "1:04"
+      sub: "Im Steigflug Richtung Grimsel"
+      chapter: "Fliegen"
+      fly: true
+      title: "Die Karte, die Route und der nächste Pass."
+      text: "Im Reiseflug wechselt die Seite zur Karte: die Route über die Pässe, der nächste Wegpunkt und seine Zeit, ÜBERFLUG und die Teilstrecken-Stoppuhr unter dem Daumen."
+      shot: "alps"
+      alt: "Die Karte des Cockpits über den Alpen"
+    - when: "1:53"
+      sub: "Über St. Moritz"
+      chapter: "Fliegen"
+      fly: true
+      title: "Die Kontrolle im Anflug, ohne zu fragen."
+      text: "Im Sinkflug ins Engadin erscheint die Kontrolle im Anflug von selbst: Das Kontrollfeld wird bernsteinfarben, sechs Punkte offen. Unter AKT. steht der Tower von Samedan, unter NÄCHSTE nichts mehr."
+      shot: "approach"
+      alt: "Die Kontrolle im Anflug bei Samedan"
+    - when: "Motor aus"
+      sub: "Samedan"
+      chapter: "Abschliessen"
+      title: "Den ATC-Flugplan schliessen. Die Flugbuchzeile ist schon geschrieben."
+      text: "Die Erinnerung, den ATC-Flugplan zu schliessen, bleibt rot, bis Sie es tun. Block- und Flugzeit stammen aus dem Flugweg, die Motorstunden aus den beiden Ablesungen, die Sie eingegeben haben."
+      shot: "closeout"
+      alt: "Der Abschluss des Flugs in Samedan"
+    - when: "Später"
+      sub: "Im Flugbuch"
+      chapter: "Abschliessen"
+      title: "Der ganze Flug, im Flugbuch."
+      text: "Der Flugweg über die Alpen, das Höhenprofil, jedes Ereignis der Zeitleiste mit seiner Zeit und die Zeile für Ihr Flugbuch auf Papier."
+      shot: "log"
+      alt: "Der Flug im Flugbuch"
+  end:
+    title: "Ihr nächster Flug, auf Ihrem Kniebrett."
+    text: "Kostenlos mit der WT9 Dynamic, alle Clubflugzeuge mit AéroCheck Pro."
+    secondary: { label: "Das Handbuch lesen", href: "/manual" }
+
+device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Bildschirm wählen" }
+
+
+footer:
+  safety: "AéroCheck ist ein Hilfsmittel, keine zertifizierte Avionik und kein primäres Navigationsmittel."
+  made_by: "Gemacht von"
+  author: "fetzu"
+  author_url: "https://fetzu.ch"
+  with: "mit"
+  in: "in"
+  city: "der Schweiz"
+  privacy: "Datenschutz"
+  terms: "Nutzungsbedingungen"
+  support: "Support"
+  license: "MIT"
+  license_url: "https://github.com/fetzu/AeroCheck/blob/main/LICENSE"

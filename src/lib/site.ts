@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { load } from 'js-yaml';
 
-export type Lang = 'en' | 'fr';
+import type { Lang } from './langs';
+export type { Lang } from './langs';
+export { LANGS, LANG_NAMES, DATE_LOCALES, langBase, pathWithoutLang, pathInLang } from './langs';
 
 export interface CTA { label: string; href: string; icon: string; }
 /** A label beside a screenshot, with a line to what it names. `x` and `y` are the target's position on the

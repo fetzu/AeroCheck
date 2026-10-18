@@ -1,0 +1,9 @@
+---
+import Base from '../../layouts/Base.astro';
+import AircraftList from '../../components/AircraftList.astro';
+import { loadSite } from '../../lib/site';
+const site = loadSite('de');
+---
+<Base site={site} lang="de" title={site.nav.aircraft}>
+  <AircraftList lang="de" />
+</Base>

@@ -19,7 +19,12 @@ Requires Node 20.3+ / 22+.
 
 ## Editing content
 
-All copy lives in **`src/data/en.yaml`** and **`src/data/fr.yaml`**. Top-level sections: `meta`,
+The site speaks English (at `/`), German (`/de/`) and French (`/fr/`); the list, its order in the nav's switch and
+each language's name and date format are in `src/lib/langs.ts`. A new language is its code there, its copy file, its
+pages under `src/pages/<code>/`, its manual and privacy policy, and its entry in each component's copy table (typed by
+`Lang`: a missing entry is a type error in the editor and a failed build). German is Swiss High German (Sie, ss, «…»).
+
+All copy lives in **`src/data/en.yaml`**, **`src/data/de.yaml`** and **`src/data/fr.yaml`**. Top-level sections: `meta`,
 `nav`, `hero`, `chapters` (the four-chapter strip), `flagship` (editorial feature rows, in
 flight-narrative order), `phone`, `supporting` (compact grid), `ecosystem` (pills), `device_labels`,
 `footer`. No code changes needed to reword features, reorder rows, or edit chips.
@@ -33,9 +38,9 @@ changes.
 ## Aircraft requests
 
 `/send` (the form), `/request` (a request's page), `/confirm` (the club's page) and `/clubs`, each with its
-`/fr/` twin, talk from the browser to the intake worker (`intake.aerocheck.app`, AeroCheck-server's
+`/de/` and `/fr/` twins, talk from the browser to the intake worker (`intake.aerocheck.app`, AeroCheck-server's
 `workers/intake/`), never to this site. The pages are in `src/components/requests/`, their scripts in
-`src/scripts/requests/`, the copy (EN and FR) in `src/lib/requests-copy.ts`, and what the pages share with
+`src/scripts/requests/`, the copy in `src/lib/requests-copy.ts` (EN, FR) and `requests-copy.de.ts` (DE), and what the pages share with
 the worker in `src/lib/intake.ts`:
 
 - `INTAKE_URL`: the worker. A build with `PUBLIC_INTAKE_URL=http://localhost:8787` points the pages at a

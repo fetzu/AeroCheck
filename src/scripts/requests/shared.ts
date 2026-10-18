@@ -4,8 +4,9 @@
 import { INTAKE_URL } from '../../lib/intake';
 import type { RequestsCopy } from '../../lib/requests-copy';
 
-export type Lang = 'en' | 'fr';
-export const lang: Lang = document.documentElement.lang === 'fr' ? 'fr' : 'en';
+import { DATE_LOCALES, DEFAULT_LANG, isLang, type Lang } from '../../lib/langs';
+export type { Lang };
+export const lang: Lang = isLang(document.documentElement.lang) ? document.documentElement.lang : DEFAULT_LANG;
 
 /** The page's copy, handed over by its component as JSON (src/lib/requests-copy.ts). */
 export function readCopy(): RequestsCopy {
@@ -170,13 +171,13 @@ export function formatDate(value: unknown, withTime = false): string {
   if (typeof value === 'number') date = new Date(value < 1e12 ? value * 1000 : value);
   else date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-CH' : 'en-GB', withTime
+  return new Intl.DateTimeFormat(DATE_LOCALES[lang], withTime
     ? { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }
     : { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
 export function formatSize(bytes: number, copy: RequestsCopy): string {
-  const nf = (n: number, digits: number) => new Intl.NumberFormat(lang === 'fr' ? 'fr-CH' : 'en-US', { maximumFractionDigits: digits }).format(n);
+  const nf = (n: number, digits: number) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : DATE_LOCALES[lang], { maximumFractionDigits: digits }).format(n);
   if (bytes < 1_000_000) return `${nf(Math.max(1, Math.round(bytes / 1000)), 0)} ${copy.units.kB}`;
   return `${nf(bytes / 1_000_000, 1)} ${copy.units.MB}`;
 }

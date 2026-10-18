@@ -371,6 +371,12 @@ struct AppSettings: Codable, Equatable {
     /// it sees them, offers UNDO for a few seconds, and the Flight review asks after END FLIGHT.
     var confirmFlightEvents: Bool = false
 
+    // Radio
+    /// An aerodrome the route passes within 2 NM shows in NEXT, tagged LISTEN, from 5 min before it, NOW staying
+    /// with the Info: the author's practice beside the published one (q7 and its note, 18 Oct). On by default.
+    /// (6.4.2)
+    var showFieldsOnTheWay: Bool = true
+
     // Onboarding
     var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
 
@@ -455,6 +461,7 @@ struct AppSettings: Codable, Equatable {
         case showVFRCircuitsOnMap, showVFRRoutesOnMap, showNonPoweredCircuitsOnMap
         case logEngineHours
         case confirmFlightEvents
+        case showFieldsOnTheWay
         case hasCompletedOnboarding
         case gpsPriority
         case shareCardColorScheme
@@ -539,6 +546,8 @@ struct AppSettings: Codable, Equatable {
         showNonPoweredCircuitsOnMap = (try? container.decodeIfPresent(Bool.self, forKey: .showNonPoweredCircuitsOnMap)) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         confirmFlightEvents = try container.decodeIfPresent(Bool.self, forKey: .confirmFlightEvents) ?? false
+        // New in 6.4.2: absent on every older save, which reads as on, the default.
+        showFieldsOnTheWay = (try? container.decodeIfPresent(Bool.self, forKey: .showFieldsOnTheWay)) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue

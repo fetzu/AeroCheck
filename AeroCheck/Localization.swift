@@ -999,6 +999,10 @@ enum L10n {
         static let logEngineHoursFooter = String(localized: "settings.flightLogging.logEngineHoursFooter")
         static let confirmFlightEvents = String(localized: "settings.flightLogging.confirmFlightEvents")
         static let confirmFlightEventsFooter = String(localized: "settings.flightLogging.confirmFlightEventsFooter")
+        /// The radio's settings: the aerodromes on the way (q7). (6.4.2)
+        static let radio = String(localized: "settings.radio")
+        static let fieldsOnTheWay = String(localized: "settings.radio.fieldsOnTheWay")
+        static let fieldsOnTheWayFooter = String(localized: "settings.radio.fieldsOnTheWayFooter")
 
         // Checklist Language
         static let checklistLanguage = String(localized: "settings.checklistLanguage")

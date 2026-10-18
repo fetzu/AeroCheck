@@ -754,8 +754,47 @@ extension RouteRadioPlanner {
             missingAirspaceCountries: crossed.filter { !downloaded.contains($0) },
             airspaceSource: source,
             checkAreaTag: crossed.contains("CH") ? "DABS" : "NOTAM",
-            terrain: await routeTerrain(coords, routeNM: RouteAltitudeProfile(wps).totalNM))
+            terrain: await routeTerrain(coords, routeNM: RouteAltitudeProfile(wps).totalNM),
+            fieldsNearby: fieldsNear(coords, airports: airports))
         return plan(ctx)
+    }
+
+    /// The aerodromes within a little more than 2 NM of the route that have a contact frequency, for the
+    /// timeline's aerodromes on the way (q7): the route walked every NM. (6.4.2)
+    @MainActor
+    static func fieldsNear(_ coords: [CLLocationCoordinate2D], airports: AirportDataService) -> [RadioTimeline.NearbyField] {
+        guard airports.isDataAvailable, coords.count >= 2 else { return [] }
+        var seen = Set<String>()
+        var fields: [RadioTimeline.NearbyField] = []
+        for (a, b) in zip(coords, coords.dropFirst()) {
+            let steps = max(1, Int(RadioTimeline.distanceNM(a, b).rounded(.up)))
+            for step in 0...steps {
+                let t = Double(step) / Double(steps)
+                let point = CLLocationCoordinate2D(latitude: a.latitude + (b.latitude - a.latitude) * t,
+                                                   longitude: a.longitude + (b.longitude - a.longitude) * t)
+                for airport in airports.findNearestAirports(to: point, limit: 4,
+                                                            maxDistanceNm: RadioTimeline.fieldOnTheWayNM + 0.5,
+                                                            types: [.largeAirport, .mediumAirport, .smallAirport])
+                where seen.insert(airport.ident).inserted {
+                    guard let contact = contact(of: airport.ident, airports: airports) else { continue }
+                    fields.append(.init(ident: airport.ident, coordinate: airport.coordinate, contact: contact))
+                }
+            }
+        }
+        return fields
+    }
+
+    /// An aerodrome's contact as the nav log prints it: TWR, then AFIS, INFO, A/G… (`fieldContactPriority`),
+    /// "LSGC TWR".
+    @MainActor
+    static func contact(of ident: String, airports: AirportDataService) -> Station? {
+        let freqs = airports.getFrequencies(for: ident)
+        for type in AirportDataService.fieldContactPriority {
+            if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
+                return Station(frequency: f.formattedFrequency, callSign: "\(ident) \(type)")
+            }
+        }
+        return nil
     }
 
     /// The last route whose terrain was fetched, so the editor's preview, which re-plans on every

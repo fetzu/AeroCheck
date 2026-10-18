@@ -115,6 +115,8 @@ final class RadioTimelineTests: XCTestCase {
         let t = timeline([ctr])
         XCTAssertEqual(read(t, at: 5, departureOver: false).now?.station.callSign, "LSXA AFIS")
         XCTAssertEqual(read(t, at: 5, departureOver: true).now?.station.frequency, "122.050")
+        XCTAssertEqual(read(t, at: 5, departureOver: true).now?.station.callSign, "LSXA AFIS",
+                       "the aerodrome's own zone under its name after the level-off too")
         XCTAssertEqual(read(t, at: 9.5, departureOver: true).now?.station, geneva)
     }
 

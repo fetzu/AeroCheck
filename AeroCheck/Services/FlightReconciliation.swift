@@ -32,6 +32,10 @@ enum FlightReconciliation {
             case typeMismatch(recorded: FlightEventType)
             /// Recorded by the app as it saw it, with no card, and still to confirm (6.4.0).
             case taken
+            /// Marked by the pilot a while after the touchdown the track shows, with nothing between them
+            /// (`TrackTimes.isSameLanding`): FULL STOP held late, a lap's full stop at NEW CIRCUIT. The row
+            /// has the track's time and the pilot's type; `at` is when it was marked. (6.4.1)
+            case markedLater(at: Date)
         }
 
         let id: UUID
@@ -73,7 +77,7 @@ enum FlightReconciliation {
             events.contains { row in
                 switch row.source {
                 case .confirmed: return false
-                case .detectedOnly, .typeMismatch, .taken: return true
+                case .detectedOnly, .typeMismatch, .taken, .markedLater: return true
                 }
             }
         }
@@ -140,6 +144,24 @@ enum FlightReconciliation {
                 rows.append(EventRow(type: event.type, timestamp: event.timestamp,
                                      airportIdent: event.airportIdent, source: .detectedOnly))
             }
+        }
+
+        // A landing marked a while after the touchdown the track shows, with nothing between them that shows another
+        // take-off (FULL STOP held minutes later, a lap's full stop counted at NEW CIRCUIT, a touch-and-go pressed
+        // in the climb), is that touchdown's: one row, at the track's time, as the pilot called it. Only for the
+        // last event detected before it; a press before the touchdown keeps the nearest match above. (6.4.1)
+        for (i, event) in detected.enumerated() {
+            let next = i + 1 < detected.count ? detected[i + 1].timestamp : .distantFuture
+            let marked = recorded.enumerated().filter { index, entry in
+                !claimed.contains(index) && entry.type != .goAround
+                    && entry.time > event.timestamp && entry.time < next
+                    && TrackTimes.isSameLanding(logged: entry.time, as: event.timestamp,
+                                                stopped: event.type == .fullStop, track: flight.gpsTrack)
+            }
+            guard let last = marked.last else { continue }
+            marked.forEach { claimed.insert($0.offset) }
+            rows[i] = EventRow(type: last.element.type, timestamp: event.timestamp, airportIdent: event.airportIdent,
+                               source: .markedLater(at: last.element.time))
         }
 
         // Recorded events the track has no opinion on: the pilot's manual knowledge wins,
@@ -246,9 +268,12 @@ enum FlightReconciliation {
             // (`TrackTimes`, `AppState.refineTimingFromTrack`), whenever that is this landing. The
             // rows carry the detector's stamp, the first fix on the runway, 3 to 10 s after the
             // touchdown: taking it back undid the measurement, and could move the logged minute. (6.1)
+            // A full stop marked after the measured touchdown, with no take-off between them, is that touchdown too:
+            // never a landing time later than the wheels touched. (6.4.1)
             let measured = TrackTimes.analyze(track: flight.gpsTrack, engineStart: flight.engineStartTime,
                                               engineShutdown: flight.engineShutdownTime).landing
-            if let measured, abs(measured.timeIntervalSince(finalStop)) < matchWindow,
+            if let measured, abs(measured.timeIntervalSince(finalStop)) < matchWindow
+                || TrackTimes.isSameLanding(logged: finalStop, as: measured, stopped: true, track: flight.gpsTrack),
                let index = flight.fullStopTimes.firstIndex(of: finalStop) {
                 flight.fullStopTimes[index] = measured
                 flight.landingTime = measured

@@ -2640,10 +2640,15 @@ class AppState {
         }
         if let landing = times.landing, landing > (flight.lineUpTime ?? .distantPast) {
             // The full stop recorded for this touchdown (by the detector, or a LANDED tap) moves with
-            // it, so the chart and the landing list show one time for one landing.
+            // it, so the chart and the landing list show one time for one landing. So does one marked minutes
+            // later with no take-off since, FULL STOP held after a touchdown the live detection missed: it was
+            // listed as a second landing, and the flight time ran to the press. (6.4.1)
             let gaps = flight.fullStopTimes.map { abs($0.timeIntervalSince(landing)) }
-            if let closest = gaps.indices.min(by: { gaps[$0] < gaps[$1] }), gaps[closest] < 180 {
-                flight.fullStopTimes[closest] = landing
+            let closest = gaps.indices.min(by: { gaps[$0] < gaps[$1] }).flatMap { gaps[$0] < 180 ? $0 : nil }
+            if let marked = closest ?? flight.fullStopTimes.indices.last(where: {
+                TrackTimes.isSameLanding(logged: flight.fullStopTimes[$0], as: landing, stopped: true, track: flight.gpsTrack)
+            }) {
+                flight.fullStopTimes[marked] = landing
             }
             landingTime = landing
             flight.landingTime = landing

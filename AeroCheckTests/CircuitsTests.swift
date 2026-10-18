@@ -171,6 +171,44 @@ final class CircuitsTests: XCTestCase {
         XCTAssertEqual(appState.currentFlight?.fullStopCount, 1, "once per lap")
     }
 
+    /// The last lap's full stop counted at the parking check, minutes after a touchdown the detector never told of
+    /// (6.4.1, F2): END FLIGHT takes it to the touchdown the track shows, nothing having flown since. Until then it
+    /// stayed at the choice, a second landing beside the track's in the review, and the flight time ran to it.
+    func testALapsFullStopCountedLateIsItsTouchdownAtEndFlight() throws {
+        let appState = flight()
+        appState.takeLapFullStop = { nil }
+        landedWithNext(appState)
+        completeCurrentCheck(appState)
+        at(900)
+        CockpitCheckSlot.perform(CockpitCheckSlot.slot(for: appState).action, appState: appState, onShowChecklist: {})
+        XCTAssertEqual(appState.currentFlight?.fullStopTimes, [t(900)], "counted at the choice")
+
+        // The track: the take-off at 130 s, the circuit, the touchdown near 580 s, the taxi in.
+        let knot = 0.514444
+        var points: [GPSPoint] = []
+        var time = t(100)
+        func fix(_ heightFt: Double, _ kt: Double, after seconds: TimeInterval = 6) {
+            time = time.addingTimeInterval(seconds)
+            points.append(GPSPoint(latitude: 47.39 + Double(points.count) * 0.0003, longitude: 7.03,
+                                   altitude: 573 + heightFt * 0.3048, timestamp: time, speed: kt * knot,
+                                   horizontalAccuracy: 3.5))
+        }
+        for kt in [10.0, 30, 50] { fix(0, kt) }
+        for height in [50.0, 300, 600, 900, 1000] { fix(height, 65) }
+        fix(1000, 75, after: 360)
+        for height in [600.0, 300, 120, 30] { fix(height, 60) }
+        fix(1, 40)
+        for kt in [30.0, 15, 6, 8, 8] { fix(0, kt) }
+        appState.currentFlight?.gpsTrack = points
+        let measured = try XCTUnwrap(TrackTimes.analyze(track: points, engineStart: nil, engineShutdown: nil).landing)
+        XCTAssertGreaterThan(t(900).timeIntervalSince(measured), 4 * 60)
+
+        appState.refineTimingFromTrack()
+
+        XCTAssertEqual(appState.currentFlight?.fullStopTimes, [measured], "the lap's full stop is the touchdown's")
+        XCTAssertEqual(appState.landingTime, measured)
+    }
+
     /// The parking check, the other way on (the check slot's tap, or NEXT from the Companion): it counts the
     /// lap's full stop as NEW CIRCUIT does, once, and the circuits end there.
     func testTheParkingCheckCountsTheFullStopOnce() {

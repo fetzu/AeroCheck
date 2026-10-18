@@ -144,6 +144,8 @@ struct FlightReconciliationView: View {
             badgeLabel(L10n.Reconciliation.badgeWas(recorded.title), color: .orange)
         case .taken:
             badgeLabel(L10n.Reconciliation.badgeTaken, color: .aviationAmber)
+        case .markedLater(let at):
+            badgeLabel(L10n.Reconciliation.badgeMarkedAt(Self.shortTimeFormatter.string(from: at)), color: .aviationGreen)
         }
     }
 
@@ -225,7 +227,7 @@ struct FlightReconciliationView: View {
 
     private func borderColor(for source: FlightReconciliation.EventRow.Source) -> Color {
         switch source {
-        case .confirmed: return Color.white.opacity(0.10)
+        case .confirmed, .markedLater: return Color.white.opacity(0.10)
         case .detectedOnly: return Color.aviationAmber.opacity(0.5)
         case .typeMismatch: return Color.orange.opacity(0.5)
         case .taken: return Color.aviationAmber.opacity(0.5)
@@ -235,6 +237,13 @@ struct FlightReconciliationView: View {
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .medium
+        return formatter
+    }()
+
+    /// The badge's "you marked it at 13:42": the minute is enough beside the row's time. (6.4.1)
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
         return formatter
     }()
 }

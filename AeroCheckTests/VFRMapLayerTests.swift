@@ -588,6 +588,22 @@ final class VFRMapLayerTests: XCTestCase {
 
     // MARK: - Sectors, badges and the approach view (6.2.0, the author's design "C with E")
 
+    /// A sector's letter is a point a route snaps to, where its badge is drawn: "E" of LSZQ, an open flightmaps
+    /// point of LSZQ. A circuit, drawn with its altitude, has none. (6.4.2, the author's device check r3-2)
+    func testASectorsLetterIsAPointOfItsAerodrome() throws {
+        let lszq = CLLocationCoordinate2D(latitude: 47.3925, longitude: 7.0286)
+        let item = VFRMapItem.drawn(try procedure(named: "ARR SECTOR EAST"), field: lszq, country: "CH", region: "LSAS", airac: "2610")
+        let point = try XCTUnwrap(item.sectorPoint)
+        XCTAssertEqual(point.name, "E")
+        XCTAssertEqual(point.aerodromeICAO, "LSZQ")
+        XCTAssertEqual(point.source, .openFlightmaps)
+        XCTAssertEqual(point.latitude, item.labelAnchor.latitude)
+        XCTAssertEqual(point.longitude, item.labelAnchor.longitude)
+        XCTAssertTrue(point.id.hasPrefix("ofm-sector:"))
+        let circuit = try XCTUnwrap(try procedures().first { $0.kind == .circuit })
+        XCTAssertNil(VFRMapItem.drawn(circuit, field: lszq, country: "CH", region: "LSAS", airac: "2610").sectorPoint)
+    }
+
     /// LSZQ's east arrival, as the server's file gives it (`dir`, `offCircuit`, the sector's `label`):
     /// drawn from where it leaves its sector to where it meets the circuit (its third vertex, the
     /// north-east corner), not round the circuit; its letter in a badge at the sector's label point; the

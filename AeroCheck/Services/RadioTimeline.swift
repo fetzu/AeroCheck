@@ -191,18 +191,20 @@ struct RadioTimeline: Equatable {
             best = (call, start)
         }
         guard let chosen = best?.call else { return nil }
-        // The aerodrome and its own zone on one frequency: the aerodrome's name with the zone's frequency, as the
-        // airspace data writes it (Grenchen's tower 120.105, the 8.33 kHz name the airport database writes 120.100).
+        // The aerodrome and its own zone on one frequency: the aerodrome's name, on the 8.33 kHz channel's name of
+        // the two (Grenchen's tower 120.105 where the airport database writes 120.100, Bern's 121.030 where its CTR
+        // writes 121.025: `Station.preferredName`).
         let isField = { (call: Call) in call.kind == .departure || call.kind == .destination }
         let isZone = { (call: Call) in call.kind == .unit || call.kind == .tmaViaFIS }
         if isZone(chosen), var field = held.first(where: { isField($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
-            field.station = Station(frequency: chosen.station.frequency, callSign: field.station.callSign,
-                                    isHX: chosen.station.isHX)
+            field.station = Station(frequency: Station.preferredName(chosen.station.frequency, field.station.frequency),
+                                    callSign: field.station.callSign, isHX: chosen.station.isHX)
             return field
         }
         if isField(chosen), let zone = held.first(where: { isZone($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
             var field = chosen
-            field.station = Station(frequency: zone.station.frequency, callSign: chosen.station.callSign, isHX: zone.station.isHX)
+            field.station = Station(frequency: Station.preferredName(zone.station.frequency, chosen.station.frequency),
+                                    callSign: chosen.station.callSign, isHX: zone.station.isHX)
             return field
         }
         return chosen
@@ -367,7 +369,8 @@ extension RadioTimeline {
                let contact = aerodromes.first(where: { end in
                    end.0?.contact?.hasSameFrequency(as: zone.station) == true && zone.airspace.containsPoint(end.1)
                })?.0?.contact {
-                station = Station(frequency: zone.station.frequency, callSign: contact.callSign, isHX: zone.station.isHX)
+                station = Station(frequency: Station.preferredName(zone.station.frequency, contact.frequency),
+                                  callSign: contact.callSign, isHX: zone.station.isHX)
             }
             for run in runs(zone.inside) {
                 let from = run.lowerBound == 0 ? 0 : samples[run.lowerBound].d

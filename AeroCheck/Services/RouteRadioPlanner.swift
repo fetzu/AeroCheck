@@ -44,6 +44,21 @@ enum RouteRadioPlanner {
             return normalized(a) == normalized(b)
         }
 
+        /// Whether a channel name is one of the 8.33 kHz plan's own (x.x05, x.x10, x.x15, x.x30…), not a 25 kHz
+        /// channel's (x.x00, x.x25, x.x50, x.x75). (6.4.2)
+        static func isEightThirtyThreeName(_ frequency: String) -> Bool {
+            guard let mhz = Double(frequency.trimmingCharacters(in: .whitespaces)) else { return false }
+            return Int((mhz * 1000).rounded()) % 25 != 0
+        }
+
+        /// Of two names for one frequency, the 8.33 kHz channel's, else the first. Switzerland and most of Europe
+        /// work 8.33 kHz channels, and where two sources disagree the 25 kHz name is the one not brought up to date:
+        /// Grenchen 120.100 / 120.105, Bern 121.025 / 121.030, Les Eplatures 118.125 / 118.130, LSZQ 122.050 /
+        /// 122.055, the second each time (the author, 19 Oct 2026). (6.4.2)
+        static func preferredName(_ a: String, _ b: String) -> String {
+            isEightThirtyThreeName(b) && !isEightThirtyThreeName(a) ? b : a
+        }
+
         /// The frequency a channel name stands for, in Hz. In the 8.33 kHz plan each 25 kHz block "x.x00" has the
         /// channels x.x05 (its own frequency), x.x10 and x.x15 (8.33 and 16.67 kHz above it): 120.105 is 120.1000 MHz,
         /// as 120.100 is. Nil for text that isn't a number.
@@ -213,13 +228,46 @@ enum RouteRadioPlanner {
             guard let station = area?.station ?? ctx.fis(samples[s].coordinate) else { continue }
             if !station.hasSameFrequency(as: fisChanges.last?.station) { fisChanges.append((s, station)) }
         }
+
+        // One name per frequency across the flight: of the names the aerodromes, the zones, the FIS and the
+        // aerodromes on the way give one frequency, the 8.33 kHz channel's (`Station.preferredName`). OpenAIP's CTR
+        // BERN says 121.025, its airport file and the AIP 121.030; the airport database says 120.100 for Grenchen's
+        // tower, its CTR 120.105. (6.4.2)
+        var names: [Int: String] = [:]
+        func learn(_ frequency: String?) {
+            guard let frequency, let hz = Station.hertz(frequency) else { return }
+            names[hz] = names[hz].map { Station.preferredName($0, frequency) } ?? frequency
+        }
+        for aerodrome in [ctx.departure, ctx.destination].compactMap({ $0 }) {
+            learn(aerodrome.contact?.frequency); learn(aerodrome.atis); learn(aerodrome.ground)
+        }
+        ctx.fieldsNearby.forEach { learn($0.contact.frequency) }
+        (units + maybeUnits).forEach { learn(unitStation($0.airspace, among: ctx.airspaces).frequency) }
+        fisChanges.forEach { learn($0.station.frequency) }
+        // Only a 25 kHz name gives way, to the 8.33 kHz one: "124.700" stays as written beside another's "124.70".
+        func canon(_ frequency: String) -> String {
+            guard let best = Station.hertz(frequency).flatMap({ names[$0] }),
+                  Station.isEightThirtyThreeName(best), !Station.isEightThirtyThreeName(frequency) else { return frequency }
+            return best
+        }
+        func canon(_ station: Station) -> Station {
+            let name = canon(station.frequency)
+            guard name != station.frequency else { return station }
+            return Station(frequency: name, callSign: station.callSign, inferredFrom: station.inferredFrom, isHX: station.isHX)
+        }
+        func canon(_ aerodrome: Aerodrome?) -> Aerodrome? {
+            aerodrome.map { Aerodrome(ident: $0.ident, contact: $0.contact.map(canon), atis: $0.atis.map(canon),
+                                      ground: $0.ground.map(canon)) }
+        }
+        fisChanges = fisChanges.map { (s: $0.s, station: canon($0.station)) }
+        let departure = canon(ctx.departure), destination = canon(ctx.destination)
         func fis(atSample s: Int) -> Station? { fisChanges.last { $0.s <= s }?.station }
 
         // Each unit's station. A Swiss class C TMA is crossed on the FIS's clearance ("First RDO contact MNM 10min
         // prior entry TMA", INFO 124.700 or 126.350: swisstopo's ICAO chart legend): where the data gives it another
         // station (TMA ZUERICH, ZUERICH TERMINAL 127.755), the FIS where the route enters it. (6.4.2)
         let unitStations = units.map { track -> Station in
-            let own = unitStation(track.airspace, among: ctx.airspaces)
+            let own = canon(unitStation(track.airspace, among: ctx.airspaces))
             guard isSwissClassCTMA(track.airspace), !isInformation(own),
                   let entry = track.vertical.firstIndex(of: true), let area = fis(atSample: entry) else { return own }
             return Station(frequency: area.frequency, callSign: area.callSign, isHX: own.isHX)
@@ -318,7 +366,7 @@ enum RouteRadioPlanner {
                 guard let s = legRange.first(where: {
                     t.possible[$0] && ($0 == 0 || !(t.possible[$0 - 1] || t.vertical[$0 - 1]))
                 }) else { continue }
-                let st = unitStation(t.airspace, among: ctx.airspaces)
+                let st = canon(unitStation(t.airspace, among: ctx.airspaces))
                 remarks.append("▸? \(label(t.airspace)) \(offset(s)) · \(st.callSign) \(st.frequency)"
                                + (st.isHX ? " · HX" : ""))
                 remarks.append("\(compactLimit(t.airspace.lowerCeiling))–\(compactLimit(t.airspace.upperCeiling))")
@@ -365,7 +413,7 @@ enum RouteRadioPlanner {
         }
 
         // Departure: the field's own contact.
-        if let contact = ctx.departure?.contact {
+        if let contact = departure?.contact {
             plan.rows[0].station = contact
         } else if let u = active.first ?? nil {
             plan.rows[0].station = stationOf(unit: u)
@@ -374,17 +422,17 @@ enum RouteRadioPlanner {
         // Destination: its contact on the last leg unless an airspace already governs it. A last leg
         // under three minutes moves the call one leg earlier.
         let lastLeg = n - 2
-        if let dest = ctx.destination, let contact = dest.contact, !unitRow[n - 1] {
+        if let dest = destination, let contact = dest.contact, !unitRow[n - 1] {
             if n >= 3, legSeconds[lastLeg] < 3 * 60, !unitRow[n - 2] {
                 plan.rows[n - 2].station = contact
                 plan.rows[n - 2].remarks.insert("▸ call \(dest.ident) before \(displayName(wps[n - 2], index: n - 2, form: .navLog))", at: 0)
             }
             plan.rows[n - 1].station = contact
         }
-        if let ground = ctx.destination?.ground { plan.rows[n - 1].remarks.append("GND \(ground)") }
+        if let ground = destination?.ground { plan.rows[n - 1].remarks.append("GND \(ground)") }
 
         // Destination ATIS on the last row reached at least `atisLeadTime` before arrival.
-        if let dest = ctx.destination, let atis = dest.atis {
+        if let dest = destination, let atis = dest.atis {
             var reached: [TimeInterval] = [0]
             for k in 0..<(n - 1) { reached.append(reached[k] + legSeconds[k]) }
             let arrival = reached[n - 1]
@@ -401,7 +449,7 @@ enum RouteRadioPlanner {
 
         applyManual(wps, to: &plan.rows)
         markChanges(&plan.rows)
-        plan.stations = listings(plan, departure: ctx.departure, destination: ctx.destination, fisByRow: fisByRow)
+        plan.stations = listings(plan, departure: departure, destination: destination, fisByRow: fisByRow)
         plan.notes = notes(plan, ctx)
         if anyPossible { plan.notes.append(L10n.Export.verticalLimitUncertain) }
 
@@ -412,11 +460,12 @@ enum RouteRadioPlanner {
             zones: units.indices.map { RadioTimeline.Zone(airspace: units[$0].airspace, station: unitStations[$0],
                                                           inside: units[$0].vertical) },
             possible: maybeUnits.map { RadioTimeline.Zone(airspace: $0.airspace,
-                                                          station: unitStation($0.airspace, among: ctx.airspaces),
+                                                          station: canon(unitStation($0.airspace, among: ctx.airspaces)),
                                                           inside: $0.possible) },
             fisChanges: fisChanges.map { (nm: samples[$0.s].d, station: $0.station) },
-            airspaces: ctx.airspaces, departure: ctx.departure, destination: ctx.destination,
-            fieldsNearby: ctx.fieldsNearby)
+            airspaces: ctx.airspaces, departure: departure, destination: destination,
+            fieldsNearby: ctx.fieldsNearby.map { RadioTimeline.NearbyField(ident: $0.ident, coordinate: $0.coordinate,
+                                                                           contact: canon($0.contact)) })
         return plan
     }
 

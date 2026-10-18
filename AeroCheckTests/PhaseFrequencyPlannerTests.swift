@@ -573,6 +573,21 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(slow.next?.station, "LSZQ A/G", "at 60 kt, 7 NM is 7 min")
     }
 
+    /// q4 without a route: a FIS area at the aircraft's altitude is NOW's FIS (Bâle Information over AZ4 above
+    /// 2,000 ft AGL), else the sectors; with no altitude, the sectors.
+    func testWithoutARouteAFISAreaAtTheAircraftsAltitude() {
+        var world = Self.world
+        world.fisArea = { _, altitude in altitude >= 3_840 ? .init(station: "Bale Info", freq: "130.900") : nil }
+        let high = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: nil, situation: .init(altitudeFt: 4_500),
+                                              sources: world.sources)
+        XCTAssertEqual(high.current, .init(station: "Bale Info", freq: "130.900"))
+        let low = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: nil, situation: .init(altitudeFt: 3_000),
+                                             sources: world.sources)
+        XCTAssertEqual(low.current?.station, "Geneva Info")
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: nil, sources: world.sources).current?.station,
+                       "Geneva Info")
+    }
+
     /// The aerodromes on the way are a setting, on by default, also for settings saved before 6.4.2.
     func testAerodromesOnTheWayAreOnByDefault() throws {
         XCTAssertTrue(AppSettings().showFieldsOnTheWay)
@@ -731,6 +746,7 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         var fisSectors: (CLLocationCoordinate2D) -> [PhaseFrequencyPlanner.Entry] = { _ in [] }
         /// Each field's zone, as a centre and a radius (NM): none, its 3 NM circuit counts.
         var zones: [String: Double] = [:]
+        var fisArea: (CLLocationCoordinate2D, Double) -> PhaseFrequencyPlanner.Entry? = { _, _ in nil }
 
         var sources: PhaseFrequencyPlanner.Sources {
             let fields = self.fields
@@ -757,7 +773,8 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                             .distance(from: CLLocation(latitude: field.coordinate.latitude,
                                                        longitude: field.coordinate.longitude)) / 1852 <= $0
                     }
-                })
+                },
+                fisArea: fisArea)
         }
     }
 

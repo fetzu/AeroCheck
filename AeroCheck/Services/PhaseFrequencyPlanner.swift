@@ -38,6 +38,9 @@ enum PhaseFrequencyPlanner {
         /// Whether a point is inside the field's own zone (a CTR, RMZ, FIZ or ATZ around it); nil when the field has
         /// none, and its 3 NM circuit counts instead (q10, 6.4.2).
         var isInFieldZone: (Field, CLLocationCoordinate2D) -> Bool? = { _, _ in nil }
+        /// The FIS of a FIS area at a point and an altitude (ft MSL), asked before the sectors: Bâle Information
+        /// over AZ4 from 2,000 ft AGL (`FISAreaService`, q4). (6.4.2)
+        var fisArea: (CLLocationCoordinate2D, Double) -> Entry? = { _, _ in nil }
     }
 
     /// A station and its frequency.
@@ -70,6 +73,8 @@ enum PhaseFrequencyPlanner {
         var departureOver = false
         /// Aerodromes on the way shown in NEXT (Settings › Checklist & Flight).
         var fieldsOnTheWay = true
+        /// GPS altitude, ft MSL: a FIS area without a route (q4).
+        var altitudeFt: Double?
     }
 
     /// What the planner gives.
@@ -330,16 +335,18 @@ enum PhaseFrequencyPlanner {
             return []
         }
 
-        /// The FIS over a point: the data's sectors, else the Swiss split built in (none outside it).
-        func fis(at point: CLLocationCoordinate2D) -> [Entry] {
+        /// The FIS over a point: a FIS area at that altitude (6.4.2), else the data's sectors, else the Swiss split
+        /// built in (none outside it).
+        func fis(at point: CLLocationCoordinate2D, altitudeFt: Double? = nil) -> [Entry] {
+            if let altitudeFt, let area = sources.fisArea(point, altitudeFt) { return [area] }
             let fromData = sources.fisSectors(point)
             if !fromData.isEmpty { return fromData }
             return FISSectors.swiss(at: point).map { [$0] } ?? []
         }
 
-        /// The FIS where the aircraft is.
+        /// The FIS where the aircraft is, at its altitude.
         var fisHere: [Entry] {
-            position.map(fis(at:)) ?? []
+            position.map { fis(at: $0, altitudeFt: situation.altitudeFt) } ?? []
         }
 
         /// The FIS of every sector on the way, in the order they come, each FIS once: the aircraft's,
@@ -650,6 +657,14 @@ extension PhaseFrequencyPlanner.Sources {
              isInFieldZone: { field, point in
                  let zones = openAIP.aerodromeZones(containing: field.coordinate)
                  return zones.isEmpty ? nil : zones.contains { $0.containsPoint(point) }
+             },
+             fisArea: { point, altitudeFt in
+                 // The ground under a floor in ft AGL: the nearest aerodrome's elevation, the best the device knows
+                 // without a route's terrain.
+                 let ground = airports.findNearestAirports(to: point, limit: 1, maxDistanceNm: 20).first?.elevation
+                 return FISArea.first(of: FISAreaService.shared.areas(in: openAIP), at: point, altitudeFt: altitudeFt,
+                                      groundFt: ground.map { Double($0)...Double($0) })
+                     .map { PhaseFrequencyPlanner.entry($0.station, kind: .fis) }
              })
     }
 }

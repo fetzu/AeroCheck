@@ -191,10 +191,18 @@ struct RadioTimeline: Equatable {
             best = (call, start)
         }
         guard let chosen = best?.call else { return nil }
-        if chosen.kind == .unit || chosen.kind == .tmaViaFIS,
-           let field = held.first(where: {
-               ($0.kind == .departure || $0.kind == .destination) && $0.station.hasSameFrequency(as: chosen.station)
-           }) {
+        // The aerodrome and its own zone on one frequency: the aerodrome's name with the zone's frequency, as the
+        // airspace data writes it (Grenchen's tower 120.105, the 8.33 kHz name the airport database writes 120.100).
+        let isField = { (call: Call) in call.kind == .departure || call.kind == .destination }
+        let isZone = { (call: Call) in call.kind == .unit || call.kind == .tmaViaFIS }
+        if isZone(chosen), var field = held.first(where: { isField($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
+            field.station = Station(frequency: chosen.station.frequency, callSign: field.station.callSign,
+                                    isHX: chosen.station.isHX)
+            return field
+        }
+        if isField(chosen), let zone = held.first(where: { isZone($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
+            var field = chosen
+            field.station = Station(frequency: zone.station.frequency, callSign: chosen.station.callSign, isHX: zone.station.isHX)
             return field
         }
         return chosen

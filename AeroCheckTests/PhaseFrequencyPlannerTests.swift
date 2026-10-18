@@ -256,6 +256,14 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(toLSGC.next, .init(station: "LSGC AFIS", freq: "120.350"))
     }
 
+    /// 122.055 is the 8.33 kHz name of 122.050: one station for NOW and NEXT. (6.4.2)
+    func testAnEightThirtyThreeChannelNameIsTheSameStation() {
+        XCTAssertTrue(PhaseFrequencyPlanner.Entry(station: "LSZQ AFIS", freq: "122.050")
+            .isSameStation(as: .init(station: "LSZQ AD", freq: "122.055")))
+        XCTAssertFalse(PhaseFrequencyPlanner.Entry(station: "A", freq: "118.125")
+            .isSameStation(as: .init(station: "B", freq: "118.135")))
+    }
+
     /// ROUTE's radio lists a field's contact once, under the database's name; a frequency the pilot typed that
     /// the database doesn't have stays as typed.
     func testTheWaypointsCopyOfTheContactIsListedOnce() {

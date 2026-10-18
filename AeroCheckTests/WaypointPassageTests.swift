@@ -101,6 +101,21 @@ final class WaypointPassageTests: XCTestCase {
         }
     }
 
+    /// Out and back along one line (a loop from Grenchen to a point east of Langenthal and back): the return leg
+    /// lies over the outbound one, and a fix on the way out that sat a hair nearer the return leg's line took the
+    /// progress past the turning point, marked 15 NM early (the 6.4.2 replay). The progress never jumps further
+    /// than the aircraft can have flown since the fix before.
+    func testAnOutAndBackNeverPassesItsTurnOnTheWayOut() {
+        // Back to a point 0.4 NM north of the departure, so the return leg's line is a little north of the outbound
+        // one; the aircraft flies out 0.25 NM north of the outbound line, nearer the return leg's.
+        let r = route([(47.0, 7.0), (47.0, 7.6), (47.0 + 0.4 / 60, 7.0)])
+        let north = 47.0 + 0.25 / 60
+        let fixes = track([(47.0, 7.0), (north, 7.02), (north, 7.6), (47.0 + 0.4 / 60, 7.0)])
+        let times = WaypointPassage.timesOver(route: r, track: fixes, takeoff: t0, landing: nil)
+        XCTAssertEqual(times[1]?.timeIntervalSince(t0) ?? -1, seconds(from: 7.0, to: 7.6), accuracy: 30,
+                       "the turn when the aircraft is there, not on the way out")
+    }
+
     func testWithoutATakeoffTimeTheFirstFastFixCounts() {
         let r = route([(47.0, 7.0), (47.0, 7.3), (47.0, 7.6)])
         var fixes = track([(47.0, 7.0), (47.0, 7.6)])

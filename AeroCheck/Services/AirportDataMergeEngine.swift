@@ -148,7 +148,17 @@ enum AirportDataMergeEngine {
     ) -> [String: [AirportFrequency]] {
         let folded = openAIP.filter { foldedOpenAIPIds.contains($0.id) }
         var result: [String: [AirportFrequency]] = [:]
-        for (ident, freqs) in Dictionary(grouping: openAIPFrequencies(from: folded), by: { $0.airportIdent }) {
+        for (ident, found) in Dictionary(grouping: openAIPFrequencies(from: folded), by: { $0.airportIdent }) {
+            // OpenAIP's row, on OurAirports' name for the same frequency where only that one is an 8.33 kHz channel's
+            // (`Station.preferredName`): the 25 kHz name is the one not brought up to date. (6.4.2)
+            let freqs = found.map { row -> AirportFrequency in
+                guard let newer = (ourFrequenciesByIdent[ident] ?? []).first(where: {
+                    RouteRadioPlanner.Station.isSameFrequency($0.formattedFrequency, row.formattedFrequency)
+                        && RouteRadioPlanner.Station.preferredName(row.formattedFrequency, $0.formattedFrequency) != row.formattedFrequency
+                }) else { return row }
+                return AirportFrequency(id: row.id, airportRef: row.airportRef, airportIdent: row.airportIdent, type: row.type,
+                                        description: row.description, frequencyMhz: newer.frequencyMhz)
+            }
             let openAIPTypes = Set(freqs.map { $0.type })
             let keptOurAirports = (ourFrequenciesByIdent[ident] ?? []).filter { ours in
                 !openAIPTypes.contains(ours.type)

@@ -711,6 +711,23 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertEqual(contact.formattedFrequency, "122.055")
     }
 
+    /// OpenAIP's airport row on OurAirports' name for the same frequency where only that one is an 8.33 kHz channel's.
+    func testTheMergeKeepsTheEightThirtyThreeName() throws {
+        let field = try OpenAIPAirport.parse(geoJSON: Data("""
+        {"type":"FeatureCollection","features":[{"type":"Feature",
+          "properties":{"_id":"oaip-lsxx","name":"XX","icaoCode":"LSXX","type":2,"country":"CH",
+            "frequencies":[{"name":"XX TOWER","value":"121.025","type":14}]},
+          "geometry":{"type":"Point","coordinates":[7.5,46.9]}}]}
+        """.utf8))
+        let ours = [ourAirport(id: 7, ident: "LSXX", lat: 46.9, lon: 7.5, name: "Xx")]
+        let ourFreqs = ["LSXX": [AirportFrequency(id: 1, airportRef: 7, airportIdent: "LSXX", type: "TWR", description: nil, frequencyMhz: 121.03)]]
+        let outcome = AirportDataMergeEngine.mergeOutcome(ourAirports: ours, openAIP: field)
+        let merged = try XCTUnwrap(AirportDataMergeEngine.mergedFrequencies(
+            ourFrequenciesByIdent: ourFreqs, openAIP: field, foldedOpenAIPIds: outcome.foldedOpenAIPIds)["LSXX"])
+        XCTAssertEqual(merged.map(\.formattedFrequency), ["121.030"])
+        XCTAssertEqual(merged.first?.description, "XX TOWER", "OpenAIP's row, its name")
+    }
+
     /// Type 16 under its country's short name: "AD" (CH), "A/A" (FR), else "RADIO" (DE, AT, IT: "AACHEN RADIO").
     func testAnAerodromesOwnRadioIsNamedAsItsCountryDoes() {
         XCTAssertEqual(OpenAIPFrequency(name: "AD", value: "122.055", typeRaw: 16).typeLabel, "AD")

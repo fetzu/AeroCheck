@@ -172,8 +172,9 @@ enum FlightReconciliation {
     }
 
     /// Offline replay of the saved track through the v2 detector — the same core as live
-    /// detection, fed at the recorded cadence with the clock pinned to each sample, plus
-    /// the end-of-flight flush. Physically-impossible duplicates are dropped (keep-first).
+    /// detection, fed at the recorded cadence with the clock pinned to each sample, with the
+    /// barometer each fix recorded, plus the end-of-flight flush. Physically-impossible
+    /// duplicates are dropped (keep-first).
     @MainActor
     static func detectEvents(
         track: [GPSPoint],
@@ -198,7 +199,9 @@ enum FlightReconciliation {
                 speed: point.speed,
                 timestamp: point.timestamp
             )
-            detector.processLocation(location, nearbyAirports: nearbyAirports(point.coordinate))
+            // The barometer the fix recorded, as the live detector had it: live and review agree. (6.4.1)
+            detector.processLocation(location, nearbyAirports: nearbyAirports(point.coordinate),
+                                     baroSample: BaroAltitudeSample(recordedOn: point))
         }
         _ = detector.flushEndOfFlight()
 

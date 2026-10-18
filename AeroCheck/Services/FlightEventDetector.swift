@@ -42,6 +42,15 @@ struct BaroAltitudeSample {
     let timestamp: Date
 }
 
+extension BaroAltitudeSample {
+    /// The reading a recorded fix carries (`GPSPoint.baroAltitude`, metres), for the detector's offline runs: the
+    /// flight review and the catch-up after a relaunch see the barometer the live detector saw. (6.4.1)
+    init?(recordedOn point: GPSPoint) {
+        guard let metres = point.baroAltitude else { return nil }
+        self.init(relativeAltitudeFt: metres * 3.28084, timestamp: point.timestamp)
+    }
+}
+
 /// Internal state for the v2 detection state machine (port of detector_v2.py)
 private enum DetectorState {
     case ground     // parked / taxiing
@@ -119,6 +128,14 @@ struct AircraftSpeedConfig {
 ///    touchdown), ground evidence → T&G, neither → GA.
 /// 5. Go-around = descended into the <400 ft / 1.5 nm window then climbed 150 ft off the
 ///    minimum without touchdown evidence — stamped at the lowest point (decision D4).
+///
+/// The barometer only ADDS ground-contact evidence (6.4.1): GPS decides every height and every state
+/// change, as validated; the barometer's own reading, flat below 15 ft above the aerodrome its zero was
+/// taken at, counts as wheels on, which a GPS bias can hide. Until 6.4.0 it also stood in for the GPS
+/// height: a zero taken at the departure read a higher field as thousands of feet below (its landings
+/// were never detected live), and a rolling touch reads 11–38 ft high on a cabin barometer (lag in the
+/// descent, static error at speed), so touch-and-goes read as go-arounds. Referee: the 16 flights
+/// recorded with one (`baro_score.py`).
 @MainActor
 class FlightEventDetector: ObservableObject {
     // MARK: - Published Properties
@@ -226,10 +243,14 @@ class FlightEventDetector: ObservableObject {
 
     /// Latest median-filtered relative baro altitude, fed by LocationManager per fix.
     private var latestBaroSample: BaroAltitudeSample?
-    /// Relative baro altitude at the last detected ground contact — the zero for baro AGL.
-    /// Re-zeroed at every parked calibration sample and every confirmed touch, so weather
-    /// drift (~28 ft/h) never accumulates. The baro is NEVER used as absolute altitude.
+    /// Relative baro altitude at the last ground contact — the zero for the barometer's height.
+    /// Taken on the ground only (parked, a full stop, a touch-and-go's lowest reading), so
+    /// weather drift (~28 ft/h) never accumulates. The baro is NEVER used as absolute altitude.
     private var baroGroundZeroFt: Double?
+    /// The aerodrome that zero was taken at: anywhere else the barometer says nothing. (6.4.1)
+    private var baroGroundZeroIdent: String?
+    /// The lowest reading of the approach and rollout in progress: a touch-and-go's zero. (6.4.1)
+    private var touchBaroFt: Double?
     /// Baro relative altitude at the previous processed fix (for the flat-pair Δ test).
     private var prevBaroRelFt: Double?
     private var prevBaroTimestamp: Date?
@@ -310,9 +331,10 @@ class FlightEventDetector: ObservableObject {
         guard let anchor else { return }
 
         let distNm = distanceNm(from: location, to: anchor)
-        // Bias-corrected GPS AGL (uncorrected until the parked calibration lands).
-        let gpsAgl = altFt - Double(anchor.elevation ?? 0) - (altBiasFt ?? 0)
-        let agl: Double? = effectiveAgl(gpsAgl: gpsAgl, now: now)
+        // Bias-corrected GPS AGL (uncorrected until the parked calibration lands): every height test.
+        let agl: Double? = altFt - Double(anchor.elevation ?? 0) - (altBiasFt ?? 0)
+        // The barometer's own height, for ground-contact evidence only (nil away from its zero's field).
+        let baroAgl = barometerAgl(anchor: anchor, now: now)
 
         guard let raw = rawSpeedKts else {
             trackPrevBaro(now: now)
@@ -321,6 +343,7 @@ class FlightEventDetector: ObservableObject {
         let spd = medianOf3(raw)
         let prevAlt = lastAltFt
         lastAltFt = altFt
+        noteTouchBaro(now: now)
 
         switch state {
         case .ground:
@@ -330,9 +353,10 @@ class FlightEventDetector: ObservableObject {
         case .airborne:
             handleAirborne(now: now, raw: raw, spd: spd, agl: agl, distNm: distNm)
         case .approach:
-            handleApproach(now: now, raw: raw, altFt: altFt, prevAlt: prevAlt, agl: agl, distNm: distNm)
+            handleApproach(now: now, raw: raw, altFt: altFt, prevAlt: prevAlt, agl: agl, baroAgl: baroAgl,
+                           distNm: distNm)
         case .rollout:
-            handleRollout(now: now, raw: raw, spd: spd, altFt: altFt, agl: agl)
+            handleRollout(now: now, raw: raw, spd: spd, altFt: altFt, agl: agl, baroAgl: baroAgl)
         }
 
         trackPrevBaro(now: now)
@@ -423,7 +447,8 @@ class FlightEventDetector: ObservableObject {
         }
     }
 
-    private func handleApproach(now: Date, raw: Double, altFt: Double, prevAlt: Double?, agl: Double?, distNm: Double) {
+    private func handleApproach(now: Date, raw: Double, altFt: Double, prevAlt: Double?, agl: Double?,
+                                baroAgl: Double?, distNm: Double) {
         if let agl, let minAgl = minAglInApproach, agl < minAgl {
             minAglInApproach = agl
             minAglTime = now
@@ -432,10 +457,13 @@ class FlightEventDetector: ObservableObject {
         // ground level. High-speed rolling touches (roulés at 45–60 kt GS) never drop below
         // the touchdown speed threshold, yet their altitude flatlines on the runway.
         // Requires a calibrated bias, so an uncalibrated GPS day cannot fake touches.
-        // The Δ prefers baro (±1 ft @1 Hz) over GPS when a fresh sample exists.
-        if altBiasFt != nil, let agl, agl < flatAglBarFt, distNm < 0.6,
-           let delta = verticalDelta(altFt: altFt, prevAlt: prevAlt, now: now),
-           abs(delta) < flatPairMaxDeltaFt {
+        let gpsFlat = altBiasFt != nil && distNm < 0.6 && (agl.map { $0 < flatAglBarFt } ?? false)
+            && (prevAlt.map { abs(altFt - $0) < flatPairMaxDeltaFt } ?? false)
+        // The barometer adds what GPS can't see (a rolling touch its bias hides): its own flat pair
+        // (±1 ft) below 15 ft. (6.4.1)
+        let baroFlat = distNm < 0.6 && (baroAgl.map { $0 < flatAglBarFt } ?? false)
+            && (barometerDelta(now: now).map { abs($0) < flatPairMaxDeltaFt } ?? false)
+        if gpsFlat || baroFlat {
             approachFlatPairs += 1
             flatAltSamples.append(altFt)
         }
@@ -466,7 +494,7 @@ class FlightEventDetector: ObservableObject {
         }
     }
 
-    private func handleRollout(now: Date, raw: Double, spd: Double, altFt: Double, agl: Double?) {
+    private func handleRollout(now: Date, raw: Double, spd: Double, altFt: Double, agl: Double?, baroAgl: Double?) {
         minRawSpeedInRollout = min(minRawSpeedInRollout ?? raw, raw)
         if rolloutMinAgl == nil || (agl != nil && agl! < rolloutMinAgl!) {
             rolloutMinAgl = agl
@@ -475,8 +503,10 @@ class FlightEventDetector: ObservableObject {
         // touchdown speed. A go-around's altitude is V-shaped and never lingers there; a
         // rolling wheel's does. (The prototype's per-sample Δalt term self-compares after
         // the history update and is identically zero — the validated behaviour is this
-        // level test alone, preserved exactly. The corpus numbers depend on it.)
-        let flat = raw < speedConfig.touchdownSpeedKts + 5 && (agl == nil || agl! < flatAglBarFt)
+        // level test alone, preserved exactly. The corpus numbers depend on it.) The barometer's own
+        // height below 15 ft is ground level too. (6.4.1)
+        let flat = raw < speedConfig.touchdownSpeedKts + 5
+            && (agl == nil || agl! < flatAglBarFt || (baroAgl.map { $0 < flatAglBarFt } ?? false))
         flatRun = flat ? flatRun + 1 : 0
         if flat { flatAltSamples.append(altFt) }
         flatPeak = max(flatPeak, flatRun)
@@ -574,6 +604,8 @@ class FlightEventDetector: ObservableObject {
         speedConfig = .defaults
         latestBaroSample = nil
         baroGroundZeroFt = nil
+        baroGroundZeroIdent = nil
+        touchBaroFt = nil
         prevBaroRelFt = nil
         prevBaroTimestamp = nil
         lastManualLandingTime = nil
@@ -717,29 +749,33 @@ class FlightEventDetector: ObservableObject {
 
     // MARK: - Helpers (barometer fusion)
 
-    /// The vertical reference for the ground-contact and descend/climb tests: baro AGL
-    /// (relative altitude re-zeroed at the last detected ground contact) when a fresh
-    /// sample exists and a zero is established, bias-corrected GPS AGL otherwise. The
-    /// baro is never used as absolute altitude — weather drift makes that meaningless.
-    private func effectiveAgl(gpsAgl: Double, now: Date) -> Double {
-        if let sample = latestBaroSample, let zero = baroGroundZeroFt,
-           now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds {
-            return sample.relativeAltitudeFt - zero
-        }
-        return gpsAgl
+    /// The barometer's height above `anchor`: the relative altitude minus the zero taken on the ground,
+    /// when the sample is fresh and that zero was taken at this aerodrome. Anywhere else nil: a zero from
+    /// the departure says nothing about a field 3,700 ft higher. Never an absolute altitude. (6.4.1)
+    private func barometerAgl(anchor: Airport, now: Date) -> Double? {
+        guard let sample = latestBaroSample, let zero = baroGroundZeroFt, baroGroundZeroIdent == anchor.ident,
+              now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds else { return nil }
+        return sample.relativeAltitudeFt - zero
     }
 
-    /// Per-sample vertical delta for the approach flat-pair test. Prefers consecutive baro
-    /// samples (±1 ft) over consecutive GPS altitudes; falls back to GPS when either end of
-    /// the pair lacks fresh baro.
-    private func verticalDelta(altFt: Double, prevAlt: Double?, now: Date) -> Double? {
-        if let sample = latestBaroSample, let prevRel = prevBaroRelFt, let prevAt = prevBaroTimestamp,
-           now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds,
-           now.timeIntervalSince(prevAt) < 15 {
-            return sample.relativeAltitudeFt - prevRel
+    /// The barometer's change since the previous fix (±1 ft), when both readings are fresh.
+    private func barometerDelta(now: Date) -> Double? {
+        guard let sample = latestBaroSample, let prevRel = prevBaroRelFt, let prevAt = prevBaroTimestamp,
+              now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds,
+              now.timeIntervalSince(prevAt) < 15 else { return nil }
+        return sample.relativeAltitudeFt - prevRel
+    }
+
+    /// The lowest reading from the approach to the climb-away (the state the last fix left): where the
+    /// wheels were, the zero a touch-and-go takes. (6.4.1)
+    private func noteTouchBaro(now: Date) {
+        guard state == .approach || state == .rollout else {
+            touchBaroFt = nil
+            return
         }
-        guard let prevAlt else { return nil }
-        return altFt - prevAlt
+        if let sample = latestBaroSample, now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds {
+            touchBaroFt = min(touchBaroFt ?? sample.relativeAltitudeFt, sample.relativeAltitudeFt)
+        }
     }
 
     private func trackPrevBaro(now: Date) {
@@ -749,11 +785,17 @@ class FlightEventDetector: ObservableObject {
         }
     }
 
-    /// Re-zero the relative-baro ground reference at a known ground contact.
-    private func zeroBaroReference(now: Date) {
-        if let sample = latestBaroSample, now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds * 2 {
+    /// Re-zero the relative-baro ground reference at a known ground contact, at the anchor: `reading`, or
+    /// the latest sample while fresh.
+    private func zeroBaroReference(now: Date, reading: Double? = nil) {
+        if let reading {
+            baroGroundZeroFt = reading
+        } else if let sample = latestBaroSample, now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds * 2 {
             baroGroundZeroFt = sample.relativeAltitudeFt
+        } else {
+            return
         }
+        baroGroundZeroIdent = anchor?.ident
     }
 
     // MARK: - Event Emission
@@ -784,7 +826,11 @@ class FlightEventDetector: ObservableObject {
             let sorted = flatAltSamples.sorted()
             altBiasFt = sorted[sorted.count / 2] - Double(anchor.elevation ?? 0)
         }
-        if kind != .goAround {
+        // On the ground only: a touch-and-go's lowest reading, never the climb-away's (120 ft or more up,
+        // where it emits); a full stop's at the stop. (6.4.1)
+        if kind == .touchAndGo, let touch = touchBaroFt {
+            zeroBaroReference(now: now, reading: touch)
+        } else if kind == .fullStop {
             zeroBaroReference(now: now)
         }
         flatAltSamples = []

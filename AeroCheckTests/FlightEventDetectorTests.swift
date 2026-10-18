@@ -6,11 +6,12 @@ import CoreLocation
 /// (CLAUDE/review/flight-events/detector_v2.py, 19/20 labeled flights, 43/49 exact landing
 /// counts vs the club's billing export).
 ///
-/// The heart of the suite is the CORPUS REPLAY: 17 real flights (the 10 pilot-labeled
-/// flights, the circuit sessions, and the ground-effect / slow-flight / strong-wind
-/// ambiguity cases) committed as downsampled fixtures, each carrying the full event
-/// sequence the authoritative Python detector produced on exactly that data. The Swift
-/// port must reproduce every sequence — event types in order, timestamps within ±90 s.
+/// The heart of the suite is the CORPUS REPLAY: 20 real flights (the 10 pilot-labeled
+/// flights, the circuit sessions, the ground-effect / slow-flight / strong-wind ambiguity
+/// cases, and three recorded with a barometer) committed as downsampled fixtures, each
+/// carrying the full event sequence the authoritative Python detector produced on exactly
+/// that data. The Swift port must reproduce every sequence — event types in order,
+/// timestamps within ±90 s.
 /// Any change to the detector that shifts these sequences must be re-validated against
 /// the Python harness (the referee) before the fixtures are regenerated.
 @MainActor
@@ -46,8 +47,10 @@ final class FlightEventDetectorTests: XCTestCase {
         let vso: Double
         let vr: Double
         let airports: [FixtureAirport]
-        /// [epochSeconds, lat, lon, altitudeM, speedMS, horizontalAccuracy]
-        let track: [[Double]]
+        /// [epochSeconds, lat, lon, altitudeM, speedMS, horizontalAccuracy], and on a flight recorded with
+        /// a barometer, as a ground-replay scenario has them, the course (null) and the relative altitude it
+        /// recorded (m, or null): `GPSPoint.baroAltitude`. (6.4.1)
+        let track: [[Double?]]
         let expectedEvents: [FixtureEvent]
         let expectedTakeoffs: [Double]
         let expectedCues: [FixtureCue]?
@@ -84,36 +87,51 @@ final class FlightEventDetectorTests: XCTestCase {
                        scheduledService: false, gpsCode: nil, iataCode: nil, localCode: nil)
     }
 
+    /// A fixture's track as the app records it, the barometer column on `baroAltitude` (or left out).
+    private func gpsTrack(_ fixture: CorpusFixture, barometer: Bool = true) -> [GPSPoint] {
+        fixture.track.compactMap { row in
+            guard row.count >= 6, let t = row[0], let lat = row[1], let lon = row[2], let altM = row[3],
+                  let speedMS = row[4], let hacc = row[5] else { return nil }
+            return GPSPoint(latitude: lat, longitude: lon, altitude: altM, timestamp: Date(timeIntervalSince1970: t),
+                            speed: speedMS, horizontalAccuracy: hacc,
+                            baroAltitude: barometer && row.count > 7 ? row[7] : nil)
+        }
+    }
+
     /// Replays a fixture through the detector exactly the way the harness replays it
     /// through the Python prototype: every valid fix in order, clock pinned to the
-    /// sample's timestamp, end-of-flight flush at the last sample.
+    /// sample's timestamp, with its barometer reading if it has one, end-of-flight flush
+    /// at the last sample.
     private func replay(_ fixture: CorpusFixture) -> FlightEventDetector {
         let detector = FlightEventDetector()
         detector.configure(vsoKts: fixture.vso, vrKts: fixture.vr)
         let airports = fixture.airports.enumerated().map { airport(from: $1, id: $0) }
         var now = Date()
         detector.clock = { now }
-        for sample in fixture.track {
-            let (t, lat, lon, altM, speedMS, hacc) = (sample[0], sample[1], sample[2], sample[3], sample[4], sample[5])
-            if hacc < 0 { continue }   // unusable fix, mirrors PR-37 and the harness
-            now = Date(timeIntervalSince1970: t)
+        for point in gpsTrack(fixture) {
+            if let hacc = point.horizontalAccuracy, hacc < 0 { continue }   // unusable fix, mirrors PR-37 and the harness
+            now = point.timestamp
             let location = CLLocation(
-                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
-                altitude: altM, horizontalAccuracy: hacc, verticalAccuracy: 10,
-                course: 0, speed: speedMS, timestamp: now
+                coordinate: point.coordinate,
+                altitude: point.altitude, horizontalAccuracy: point.horizontalAccuracy ?? 0, verticalAccuracy: 10,
+                course: 0, speed: point.speed, timestamp: now
             )
-            detector.processLocation(location, nearbyAirports: nearestAirports(lat: lat, lon: lon, in: airports))
+            detector.processLocation(location, nearbyAirports: nearestAirports(lat: point.latitude, lon: point.longitude,
+                                                                                in: airports),
+                                     baroSample: BaroAltitudeSample(recordedOn: point))
         }
         _ = detector.flushEndOfFlight()
         return detector
     }
 
     /// The pinned score: every fixture's full event SEQUENCE (type + time ±90 s), not
-    /// just counts. 17 real flights: labels, circuits, and the ambiguity-band cases.
+    /// just counts. 20 real flights: labels, circuits, the ambiguity-band cases, the barometer.
     func testCorpusFixturesReproduceValidatedEventSequences() throws {
         let fixtures = try loadFixtures()
-        // 17 from the referee corpus, and the proposal's LSGN → LSZQ leg of 29.09.2026 for the cues (6.1).
-        XCTAssertEqual(fixtures.count, 18, "Expected the 18 committed corpus fixtures")
+        // 17 from the referee corpus, the proposal's LSGN → LSZQ leg of 29.09.2026 for the cues (6.1, with its
+        // barometer since 6.4.1), and two more recorded with a barometer (6.4.1): LSZQ → LSZS of 23.09, its
+        // landing 3,734 ft higher, and the circuits of 24.09 whose second touch-and-go only the barometer sees.
+        XCTAssertEqual(fixtures.count, 20, "Expected the 20 committed corpus fixtures")
         for fixture in fixtures {
             let detector = replay(fixture)
             let got = detector.emittedEvents
@@ -189,21 +207,30 @@ final class FlightEventDetectorTests: XCTestCase {
 
     // MARK: - Full-corpus referee (dev machine only)
 
-    /// Replays ALL 53 corpus flights against the Python referee's expected sequences.
-    /// The full corpus lives outside the repo (BUFFER is never committed); regenerate the
-    /// local fixtures with CLAUDE/review/flight-events/make_fixtures.py. Sequence equality
-    /// on all 53 is what transitively pins the validated scores (19/20 labels, 43/49 exact
-    /// vs club billing): the Python harness is the referee, this test is the handshake.
-    /// Skips cleanly on any machine without the local corpus (CI, other checkouts).
+    /// Replays ALL 53 corpus flights, and the 16 recorded with a barometer (6.4.1), against the
+    /// Python referee's expected sequences. The full corpus lives outside the repo (BUFFER is
+    /// never committed); regenerate the local fixtures with
+    /// CLAUDE/review/flight-events/make_fixtures.py. Sequence equality on all 53 is what
+    /// transitively pins the validated scores (19/20 labels, 43/49 exact vs club billing), on
+    /// the 16 the logged events (32/32, `baro_score.py`): the Python harness is the referee,
+    /// this test is the handshake. Skips cleanly on any machine without the local corpus (CI,
+    /// other checkouts).
     func testFullCorpusMatchesPythonReferee() throws {
-        let corpusDir = URL(fileURLWithPath: "/Users/fetzu/Dev/AeroCheck/CLAUDE/review/flight-events/fixtures-all")
+        let referee = "/Users/fetzu/Dev/AeroCheck/CLAUDE/review/flight-events/"
+        let corpusDir = URL(fileURLWithPath: referee + "fixtures-all")
         guard FileManager.default.fileExists(atPath: corpusDir.path) else {
             throw XCTSkip("Local referee corpus not present — regenerate with make_fixtures.py")
         }
-        let urls = try FileManager.default.contentsOfDirectory(at: corpusDir, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "json" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        XCTAssertGreaterThanOrEqual(urls.count, 50, "Corpus should hold the 53 flights")
+        func fixtures(in directory: URL) throws -> [URL] {
+            try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension == "json" }
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        }
+        let corpus = try fixtures(in: corpusDir)
+        XCTAssertGreaterThanOrEqual(corpus.count, 50, "Corpus should hold the 53 flights")
+        let barometer = try fixtures(in: URL(fileURLWithPath: referee + "fixtures-baro"))
+        XCTAssertEqual(barometer.count, 16, "The 16 flights recorded with a barometer")
+        let urls = corpus + barometer
         let decoder = JSONDecoder()
         for url in urls {
             let fixture = try decoder.decode(CorpusFixture.self, from: Data(contentsOf: url))
@@ -239,11 +266,14 @@ final class FlightEventDetectorTests: XCTestCase {
     private final class TrajectoryDriver {
         let detector = FlightEventDetector()
         let field: Airport
+        /// More aerodromes: then the feed is the fields within 5 NM, nearest first, as LocationManager's.
+        let others: [Airport]
         private(set) var now = Date(timeIntervalSince1970: 1_000_000)
         private let interval: TimeInterval = 5
 
-        init(field: Airport) {
+        init(field: Airport, others: [Airport] = []) {
             self.field = field
+            self.others = others
             detector.configure(vsoKts: 33, vrKts: 40)
             detector.clock = { [weak self] in self?.now ?? Date() }
         }
@@ -265,7 +295,11 @@ final class FlightEventDetectorTests: XCTestCase {
                 // Baro rides on a CMAltimeter-style relative datum offset by −500 ft, so a
                 // test can never pass by conflating relative baro with absolute altitude.
                 let baro = baroAglFt.map { BaroAltitudeSample(relativeAltitudeFt: $0 - 500, timestamp: now) }
-                detector.processLocation(location, nearbyAirports: [field], baroSample: baro)
+                let nearby = others.isEmpty ? [field] : ([field] + others)
+                    .map { (airport: $0, nm: location.distance(from: CLLocation(latitude: $0.latitude,
+                                                                                longitude: $0.longitude)) / 1852) }
+                    .filter { $0.nm <= 5 }.sorted { $0.nm < $1.nm }.map(\.airport)
+                detector.processLocation(location, nearbyAirports: nearby, baroSample: baro)
                 now = now.addingTimeInterval(interval)
             }
         }
@@ -340,6 +374,114 @@ final class FlightEventDetectorTests: XCTestCase {
         baro.fly(altFt: 250, speedKts: 70, count: 3, baroAglFt: 260)
         XCTAssertEqual(baro.detector.emittedEvents.map(\.type), [.touchAndGo],
                        "A baro flat run below 15 ft is ground contact regardless of GPS altitude")
+    }
+
+    // MARK: - The barometer adds ground contact, never a height (6.4.1)
+
+    /// An aerodrome `nm` north of the test field, `elevationFt` high.
+    private func field(_ ident: String, nm: Double, elevationFt: Int) -> Airport {
+        Airport(id: ident.hashValue, ident: ident, type: .smallAirport, name: ident,
+                latitude: 47.0 + nm / 60.0, longitude: 8.0, elevation: elevationFt, continent: "EU",
+                isoCountry: "CH", isoRegion: "CH-ZH", municipality: nil,
+                scheduledService: false, gpsCode: nil, iataCode: nil, localCode: nil)
+    }
+
+    /// A field 3,700 ft above the departure (LSZQ → LSZS, 23 Sep 2026): the zero taken parked at the departure
+    /// read its runway 3,700 ft below, so until 6.4.0 the landing was never detected live. The barometer counts
+    /// only at the field its zero was taken at, GPS decides the heights: one full stop, at the touchdown.
+    func testALandingAtAHigherFieldIsAFullStopAtTheTouchdown() {
+        let d = TrajectoryDriver(field: testField(), others: [field("HIGH", nm: 15, elevationFt: 3700)])
+        d.takeoffAndClimb(baro: true)
+        d.fly(altFt: 4500, speedKts: 90, count: 20, offsetNm: 8, baroAglFt: 4520)   // no field within 5 NM
+        d.fly(altFt: 4300, speedKts: 70, count: 2, offsetNm: 15, baroAglFt: 4320)   // over the higher field
+        d.fly(altFt: 3980, speedKts: 65, count: 2, offsetNm: 15, baroAglFt: 4000)   // GPS: 300 ft above it
+        d.fly(altFt: 3720, speedKts: 55, count: 2, offsetNm: 15, baroAglFt: 3740)
+        let touchdown = d.now
+        d.fly(altFt: 3680, speedKts: 40, count: 2, offsetNm: 15, baroAglFt: 3705)   // the barometer: 3,705 ft "up"
+        d.fly(altFt: 3680, speedKts: 3, count: 4, offsetNm: 15, baroAglFt: 3700)
+
+        XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.fullStop])
+        XCTAssertEqual(d.detector.emittedEvents.first?.airportIdent, "HIGH")
+        XCTAssertEqual(d.detector.emittedEvents.first?.timestamp.timeIntervalSince(touchdown) ?? .infinity, 0,
+                       accuracy: 6, "stamped at the touchdown")
+    }
+
+    /// A field 4,000 ft below the departure (LSZS → LSZE, 23 Sep): the departure's zero read the circuit
+    /// thousands of feet below the runway, and the climb to circuit height made the landing a go-around. GPS
+    /// decides the heights there: one full stop, no go-around.
+    func testALandingAtALowerFieldIsAFullStopNotAGoAround() {
+        let d = TrajectoryDriver(field: field("UP", nm: 0, elevationFt: 4000), others: [field("LOW", nm: 15, elevationFt: 0)])
+        // Parked at 4,000 ft (GPS 20 ft low), the barometer zeroed; the take-off and climb.
+        d.fly(altFt: 3980, speedKts: 0, count: 6, baroAglFt: 0)
+        d.fly(altFt: 3980, speedKts: 30, count: 1, baroAglFt: 0)
+        d.fly(altFt: 3990, speedKts: 55, count: 2, baroAglFt: 5)
+        d.fly(altFt: 4400, speedKts: 70, count: 14, baroAglFt: 420)
+        d.fly(altFt: 5000, speedKts: 90, count: 20, offsetNm: 8, baroAglFt: 1020)
+        // Over the lower field, descending into its circuit, then up to circuit height (the barometer: −2,480 ft).
+        d.fly(altFt: 2000, speedKts: 80, count: 2, offsetNm: 15, baroAglFt: -1980)
+        d.fly(altFt: 1500, speedKts: 75, count: 2, offsetNm: 15, baroAglFt: -2480)
+        d.fly(altFt: 1700, speedKts: 75, count: 3, offsetNm: 15, baroAglFt: -2280)
+        d.fly(altFt: 1000, speedKts: 75, count: 6, offsetNm: 15, baroAglFt: -2980)
+        // Final, the touchdown, the stop.
+        d.fly(altFt: 300, speedKts: 70, count: 2, offsetNm: 15, baroAglFt: -3680)
+        d.fly(altFt: 150, speedKts: 65, count: 2, offsetNm: 15, baroAglFt: -3830)
+        d.fly(altFt: 40, speedKts: 55, count: 2, offsetNm: 15, baroAglFt: -3940)
+        d.fly(altFt: -20, speedKts: 40, count: 2, offsetNm: 15, baroAglFt: -3995)
+        d.fly(altFt: -20, speedKts: 3, count: 4, offsetNm: 15, baroAglFt: -4000)
+
+        XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.fullStop])
+        XCTAssertEqual(d.detector.emittedEvents.first?.airportIdent, "LOW")
+    }
+
+    /// A rolling touch the cabin barometer reads 25 ft high (lag in the descent, static error at speed: the
+    /// 24 Sep circuits read 11–38 ft at 40–50 kt): GPS shows the wheels on, a touch-and-go. Until 6.4.0 the
+    /// barometer stood in for the GPS height and made it a go-around.
+    func testARollingTouchTheBarometerReadsHighIsATouchAndGo() {
+        let d = TrajectoryDriver(field: testField())
+        d.takeoffAndClimb(baro: true)
+        d.fly(altFt: 300, speedKts: 70, count: 2, baroAglFt: 340)
+        d.fly(altFt: 150, speedKts: 65, count: 2, baroAglFt: 195)
+        d.fly(altFt: -20, speedKts: 50, count: 3, baroAglFt: 25)    // on the runway at 50 kt, the barometer 25 ft up
+        d.fly(altFt: 250, speedKts: 70, count: 3, baroAglFt: 270)
+        XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.touchAndGo])
+    }
+
+    /// After a touch-and-go the barometer's zero is the touch's lowest reading. Until 6.4.0 it was taken where
+    /// the touch-and-go is decided, at the climb-away (120 ft or more up), so the next low pass read below the
+    /// runway and a go-around at 100 ft became a touch-and-go.
+    func testATouchAndGosZeroIsTheTouchNotTheClimbAway() {
+        let d = TrajectoryDriver(field: testField())
+        d.takeoffAndClimb(baro: true)
+        d.fly(altFt: 300, speedKts: 70, count: 2, baroAglFt: 320)
+        d.fly(altFt: 150, speedKts: 65, count: 2, baroAglFt: 170)
+        d.fly(altFt: -20, speedKts: 50, count: 3, baroAglFt: 2)      // the touch, both sensors on the runway
+        d.fly(altFt: 250, speedKts: 70, count: 3, baroAglFt: 272)    // the climb-away decides it
+        d.fly(altFt: 980, speedKts: 75, count: 14, baroAglFt: 1002)  // the circuit
+        d.fly(altFt: 300, speedKts: 70, count: 2, baroAglFt: 322)
+        d.fly(altFt: 150, speedKts: 65, count: 2, baroAglFt: 172)
+        d.fly(altFt: 80, speedKts: 60, count: 3, baroAglFt: 102)     // a low pass, level at 100 ft
+        d.fly(altFt: 330, speedKts: 70, count: 3, baroAglFt: 352)
+        XCTAssertEqual(d.detector.emittedEvents.map(\.type), [.touchAndGo, .goAround])
+    }
+
+    /// The flight review runs the detector on the saved track with the barometer each fix recorded, so it finds
+    /// what the live detector found: the 24 Sep circuits' second touch-and-go, which GPS alone calls a go-around.
+    func testTheReviewSeesTheBarometerTheLiveDetectorSaw() throws {
+        let fixture = try XCTUnwrap(try loadFixtures().first { $0.name.hasSuffix("Circuits_prolongés_solo") })
+        let live = replay(fixture).emittedEvents
+        XCTAssertEqual(live.map(\.type), [.touchAndGo, .touchAndGo, .goAround, .fullStop])
+        let airports = fixture.airports.enumerated().map { airport(from: $1, id: $0) }
+        let speeds = [SpeedReference(name: "Vso", description: "", value: "\(Int(fixture.vso))"),
+                      SpeedReference(name: "Vr", description: "", value: "\(Int(fixture.vr))")]
+        func review(barometer: Bool) -> [EmittedFlightEvent] {
+            FlightReconciliation.detectEvents(track: gpsTrack(fixture, barometer: barometer), speeds: speeds,
+                                              stallSpeed: 0) { [self] in
+                nearestAirports(lat: $0.latitude, lon: $0.longitude, in: airports)
+            }
+        }
+        XCTAssertEqual(review(barometer: true), live, "the review and the live detector agree")
+        XCTAssertEqual(review(barometer: false).map(\.type), [.touchAndGo, .goAround, .goAround, .fullStop],
+                       "without the barometer, GPS alone misses the second touch-and-go")
     }
 
     /// Manual-event dedupe: after the pilot presses TOUCH AND GO, the detector's own

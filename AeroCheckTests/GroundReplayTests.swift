@@ -250,6 +250,18 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(flight.endedFlight).fullStopCount, 1)
     }
 
+    /// LSZQ → LSZS of 23 Sep, recorded with a barometer: Samedan is 3,734 ft above Bressaucourt, and until 6.4.0
+    /// the zero the barometer took at the departure kept its landing from being detected live (the review found
+    /// it). Through the whole chain, the barometer fed as a device feeds it: the landed card at LSZS. (6.4.1)
+    func testALandingAtAHigherFieldIsCountedLive() throws {
+        let flight = try HeadlessFlight(test: self, fixture: "AeroCheck_20260923_1033_F-HVXA")
+        XCTAssertNotNil(flight.fixes.first?.baroRelativeM, "the fixture carries its barometer")
+        flight.fly()
+        XCTAssertEqual(flight.events.map(\.type.code), ["FS"])
+        XCTAssertEqual(flight.landedCards.map(\.aerodrome), ["LSZS"])
+        XCTAssertEqual(try XCTUnwrap(flight.endedFlight).fullStopCount, 1)
+    }
+
     /// flight-12's landing at LSGC, the route's end: from the fix after the landed card's answer, LSGC's ATO
     /// is the landing, MARK has nothing left to offer and the leg timer stands at the last leg's time. MAP's
     /// band holds what AFTER LANDING has with the route flown: MARK dimmed, Divert off. Until 6.2 the

@@ -15,7 +15,7 @@ AéroCheck is **not certified avionics**. It is not approved by EASA, the FOCA, 
 
 Treat it the way you would treat a well-meaning passenger with a tablet: possibly helpful, never authoritative.
 
-### 1.2 The aircraft's own documents are authoritative
+### 1.2 The official documents are authoritative
 
 The checklists in AéroCheck are **transcriptions** of documents belonging to flying clubs and aircraft operators. They are not approved checklists, they are not maintained by the aircraft manufacturer, and they may be incomplete, out of date, or simply wrong.
 
@@ -37,7 +37,7 @@ METAR, TAF, SIGMET and wind data are relayed from third-party providers as-is. T
 
 Positions, ground speed, estimated airspeed, altitude and barometric readings are derived from consumer-grade device sensors. They are not a certified altimeter, airspeed indicator or position source. The device may lose its fix, drift, or continue to display a stale value.
 
-Automatic detection of takeoffs, landings, go-arounds and touch-and-goes is a convenience for your logbook. It gets things wrong. Review your flight log before relying on it for currency, licensing or billing purposes.
+Automatic detection of take-offs, landings, go-arounds and touch-and-goes is a convenience for your logbook. It gets things wrong. Review your flight log before relying on it for currency, licensing or billing purposes.
 
 ### 1.6 It is a tablet, and tablets fail
 

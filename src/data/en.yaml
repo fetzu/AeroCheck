@@ -1,6 +1,6 @@
 lang: "en"
 meta:
-  title: "AéroCheck — Plan, prepare, fly and close every flight"
+  title: "AéroCheck · Plan, prepare, fly and close every flight"
   description: "A cockpit screen you can read from the kneeboard, and the whole flight around it: plan the route, prepare the admin, fly the 16-phase checklist, close out the logbook. For student and private pilots, on iPad and iPhone."
 brand: "AéroCheck"
 
@@ -25,7 +25,7 @@ hero:
 chapters:
   heading: "A flight has four chapters"
   items:
-    - { key: "plan",    name: "Plan",    line: "Where, when, which aircraft — and a route that checks itself." }
+    - { key: "plan",    name: "Plan",    line: "Where, when, which aircraft, and a route that checks itself." }
     - { key: "prepare", name: "Prepare", line: "Weather, NOTAMs, the ATC flight plan, the border pack, the nav log." }
     - { key: "fly",     name: "Fly",     line: "One cockpit screen: the checklist, the map or the route, at full height.", core: true }
     - { key: "close",   name: "Close",   line: "Close the ATC flight plan, write the logbook line, know what it cost." }
@@ -37,20 +37,20 @@ flagship:
     - step: "01 · Plan"
       anchor: "plan"
       title: "A flight, not just a route"
-      description: "Plan new flight asks for the two things you know first — when, and where from — and builds the rest around them. Routes are a library you draw from. The route editor draws the profile over the terrain, keeps a leg table you edit in place, and lists every airspace the route enters at the altitude you planned. Fuel on board is one tap: full tanks, or exactly what is required."
+      description: "Plan new flight asks for the two things you know first (when, and where from) and builds the rest around them. Routes are a library you draw from. The route editor draws the profile over the terrain, keeps a leg table you edit in place, and lists every airspace the route enters at the altitude you planned. Fuel on board is one tap: full tanks, or exactly what is required."
       chips: ["Flights · Routes · Map", "Plan new flight", "Profile over terrain", "Leg table", "Airspace & terrain conflicts", "Fuel on board in one tap", "Multi-leg trips"]
       shot: "route"
     - step: "02 · Prepare"
       anchor: "prepare"
       title: "Everything you would otherwise keep in your head"
-      description: "Weather, DABS and GAFOR, NOTAMs, the ATC flight plan copied and ready to file, PPR raised from the airfield data, a border pack for the neighbouring countries, an A5 nav log for the kneeboard — as a checklist you tick, each item with its link. A reminder the day before, and a readiness ring that only says ready when everything is."
+      description: "Weather, DABS and GAFOR, NOTAMs, the ATC flight plan copied and ready to file, PPR raised from the airfield data, a border pack for the neighbouring countries, an A5 nav log for the kneeboard: a checklist you tick, each item with its link. A reminder the day before, and a readiness ring that only says ready when everything is."
       chips: ["Weather · DABS · GAFOR · NOTAM", "ATC flight plan → skybriefing", "PPR from openAIP", "Border pack CH · FR · DE · AT · IT · GB", "A5 nav log", "T−24 h reminder"]
       shot: "prepare"
     - step: "03 · Fly"
       anchor: "fly"
       fly: true
       title: "One screen in the cockpit"
-      description: "The Cockpit keeps everything where the hand learns it: the phase and flight time on top, then ground speed, altitude, track and the next waypoint, and the frequencies to call now and next; three pages at full height, CHECKLIST, MAP and ROUTE; and four buttons at the bottom that never move. The item you are on is framed where it stands; CHECK names it, DEFER keeps it for later, and NEXT shows what is still open before you move on. Take-offs, go-arounds, touch-and-goes and landings are detected and logged by themselves."
+      description: "The Cockpit keeps everything where the hand learns it: the phase and flight time on top, then ground speed, altitude, track and the next waypoint, and the frequencies to call now and next; three pages at full height, CHECKLIST, MAP and ROUTE; and four buttons at the bottom that never move. The item you are on is framed where it stands; CHECK names it, DEFER keeps it for later, and NEXT shows what is still open before you move on. Take-offs, go-arounds, touch-and-goes and landings are detected and logged by themselves, with an undo."
       chips: ["Kneeboard-sized, portrait", "CHECKLIST · MAP · ROUTE", "CHECK · DEFER · NEXT", "Deferred items", "GS · ALT · TRK · NEXT", "The page follows the flight", "Auto go-around · touch-and-go · landing", "Day · Night · sunlight contrast"]
       shot: "cockpit"
     - step: "03 · Fly"
@@ -68,13 +68,13 @@ flagship:
     - step: "03 · Fly"
       fly: true
       title: "Every speed, at a glance"
-      description: "V-SPEEDS opens over the Cockpit and leaves the strip in view: stall and glide, take-off and climb, the approach speeds by flap setting, the limits with VA by mass, and the crosswind limits — from the aircraft's own data. The departure and approach briefings open the same way, with the wind and the runway from where you are."
+      description: "V-SPEEDS opens over the Cockpit and leaves the strip in view: stall and glide, take-off and climb, the approach speeds by flap setting, the limits with VA by mass, and the crosswind limits, all from the aircraft's own data. The departure and approach briefings open the same way, with the wind and the runway from where you are."
       chips: ["V-SPEEDS", "VA by mass", "Crosswind limits", "Departure & approach briefings", "{total} aircraft"]
       shot: "vspeeds"
     - step: "04 · Close"
       anchor: "close"
       title: "Landed. Now the logbook."
-      description: "The one reminder with a search-and-rescue consequence — close your ATC flight plan — arrives after landing, and only if you filed one. Then the logbook line, drafted to AMC1 FCL.050 with the times in UTC and laid out in your logbook's own columns, exportable as CSV or a PDF extract; what the flight cost; and a post-flight review of what the track saw. Student pilots log dual, with the instructor named as PIC."
+      description: "The one reminder with a search-and-rescue consequence (close your ATC flight plan) arrives after landing, and only if you filed one. Then the logbook line, drafted to AMC1 FCL.050 with the times in UTC and laid out in your logbook's own columns, exportable as CSV or a PDF extract; what the flight cost; and a post-flight review of what the track saw. Student pilots log dual, with the instructor named as PIC."
       chips: ["Close-your-ATC-flight-plan reminder", "Logbook line · AMC1 FCL.050", "CSV & PDF extract", "Cost per flight", "Post-flight review", "Student mode"]
       shot: "closeout"
       iphone_shot: "log"
@@ -90,7 +90,7 @@ supporting:
   heading: "Everything else"
   items:
     - title: "AéroCheck Pro"
-      description: "The WT9 Dynamic is free; the other {premium} aircraft unlock with AéroCheck Pro — a subscription with a 7-day free trial, or a one-time Lifetime purchase."
+      description: "The WT9 Dynamic is free; the other {premium} aircraft unlock with AéroCheck Pro: a subscription with a 7-day free trial, or a one-time Lifetime purchase."
       icon: "sparkles"
     - title: "Companion mode"
       description: "Pair an iPad and an iPhone over Wi-Fi Aware for a synced second screen, each able to drive the other. A Wi-Fi-only iPad can fly on the iPhone's GPS."
@@ -101,8 +101,8 @@ supporting:
     - title: "The logbook"
       description: "Hours, flights, landings, distance and spend by year; every flight with its track, altitude profile and timeline, exportable as CSV, GPX or a PDF extract."
       icon: "notebook"
-    - title: "Memory test & circuits"
-      description: "Memory test hides the checks you should know by heart, so you say them from memory. Circuits are one tap on Today: touch-and-goes, go-arounds and full stops counted, NEW CIRCUIT at the end of the after landing check, and a light close-out afterwards."
+    - title: "Memory items & circuits"
+      description: "Hide memory items takes the items you should know by heart off the list, so you say them from memory. Circuits are one tap on Today: touch-and-goes, go-arounds and full stops counted, NEW CIRCUIT at the end of the after landing check, and a light close-out afterwards."
       icon: "school"
     - title: "Set in B612"
       description: "The typeface designed for Airbus cockpit displays, where text has to be read fast and without error. The whole app is set in it, and so is this page."

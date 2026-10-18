@@ -7,7 +7,7 @@ import Footer from '../components/Footer.astro';
 // are also left out of the sitemap (astro.config.mjs).
 interface Props { site: SiteData; lang: Lang; title?: string; noindex?: boolean; }
 const { site, lang, title, noindex = false } = Astro.props;
-const pageTitle = title ? `${title} — ${site.brand}` : site.meta.title;
+const pageTitle = title ? `${title} · ${site.brand}` : site.meta.title;
 ---
 <!doctype html>
 <html lang={lang}>

@@ -41,6 +41,14 @@ enum PhaseFrequencyPlanner {
     struct Entry: Equatable {
         let station: String
         let freq: String
+
+        /// One frequency is one station: what NOW and NEXT compare. "LSZQ AFIS" from the database and "LSZQ",
+        /// the same 122.050 the route builder wrote on the waypoint, are one call, never NOW and NEXT at once
+        /// (the author's device check dr-3, 6.4.1). Numbers compare to the kHz ("122.05" is "122.050").
+        func isSameStation(as other: Entry?) -> Bool {
+            guard let other else { return false }
+            return RouteRadioPlanner.Station.normalized(freq) == RouteRadioPlanner.Station.normalized(other.freq)
+        }
     }
 
     /// What the planner gives.
@@ -200,10 +208,16 @@ enum PhaseFrequencyPlanner {
         }
 
         /// A waypoint's frequencies: the one typed for it, else, when its name is a field's ident, that
-        /// field's ATIS and contact from the database.
+        /// field's ATIS and contact from the database. The contact the route builder wrote on an aerodrome's
+        /// waypoint is the database's, under its name ("LSZQ AFIS", not "LSZQ"). (6.4.1)
         func waypointFrequencies(_ waypoint: FlightPlanWaypoint) -> [(label: String, freq: String)] {
             let name = waypoint.name.isEmpty ? nil : waypoint.name
             if let typed = waypoint.frequency, !typed.isEmpty {
+                if let ident = name, sources.hasAirportData {
+                    let field = labelled(ident)
+                    let same = RouteRadioPlanner.Station.normalized(typed)
+                    if field.contains(where: { RouteRadioPlanner.Station.normalized($0.freq) == same }) { return field }
+                }
                 return [(label: name ?? "WPT", freq: typed)]
             }
             if let ident = name, sources.hasAirportData {
@@ -294,7 +308,7 @@ enum PhaseFrequencyPlanner {
                 let flownTo = plan.waypoints.indices.contains(index)
                     ? PhaseFrequencyPlanner.contact(waypointFrequencies(plan.waypoints[index])) : nil
                 let fieldAhead = plan.waypoints.indices.contains { $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty }
-                if let flownTo, flownTo != current {
+                if let flownTo, !flownTo.isSameStation(as: current) {
                     next = flownTo
                 } else if flownTo != nil, !fieldAhead, index == plan.waypoints.count - 1 {
                     atRouteEnd = true
@@ -312,7 +326,7 @@ enum PhaseFrequencyPlanner {
                     // zone (at Bressaucourt, Bâle Information, not Grenchen's CTR 22 NM off the route); a CTR
                     // around only where no Info is known. Circuits flown on a plan keep none. (6.4.0, the
                     // author's dry run checks, st-12 and 17 Oct)
-                    if field != current || !leavesTheCircuit(plan, from: index) {
+                    if field.map({ !$0.isSameStation(as: current) }) ?? true || !leavesTheCircuit(plan, from: index) {
                         next = field
                     } else if hasBeenAway(plan, before: index) {
                         // Arriving, rule A (the author, 18 Oct): the field NOW names is the next aerodrome of the
@@ -321,7 +335,7 @@ enum PhaseFrequencyPlanner {
                         // ahead, NEXT read Zürich Info; coming home from a local flight's turn points, Bâle Info. The
                         // way out keeps the area's Info, even on a leg heading further out. (6.4.1)
                         arriving = true
-                    } else if let fisEntry, fisEntry != current {
+                    } else if let fisEntry, !fisEntry.isSameStation(as: current) {
                         next = fisEntry
                     }
                 }
@@ -332,14 +346,14 @@ enum PhaseFrequencyPlanner {
             // No call from the route, near a field: the area's Info, the station called once out of the
             // field's zone, as on a route that leaves the circuit; a CTR around only where no Info is known.
             // The nearest CTR is within 25 NM in any direction, not the one the flight enters.
-            if next == nil, nearActive, let fisEntry, fisEntry != current {
+            if next == nil, nearActive, let fisEntry, !fisEntry.isSameStation(as: current) {
                 next = fisEntry
             }
             if next == nil, let ctr = ctrs.first, let frequency = ctr.frequency {
                 next = Entry(station: ctr.station, freq: frequency)
             }
             if next == nil { next = nearActive ? fisEntry : nearEntry }
-            if let current, let candidate = next, current == candidate { next = nil }
+            if let candidate = next, candidate.isSameStation(as: current) { next = nil }
             return (current, next)
         }
 

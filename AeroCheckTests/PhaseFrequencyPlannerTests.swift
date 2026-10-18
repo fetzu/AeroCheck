@@ -211,6 +211,65 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertNil(back.next, "TP1 flown, outside the circuit: coming home")
     }
 
+    // MARK: One frequency, one station (6.4.1)
+
+    /// A route as the builder writes it: each aerodrome's waypoint carries its contact frequency, named with the
+    /// bare ident (`RoutePoint.apply`).
+    private static func asBuilt(_ plan: FlightPlan, _ world: World) -> FlightPlan {
+        var built = plan
+        for i in built.waypoints.indices {
+            guard let field = world.fields[built.waypoints[i].name],
+                  let contact = PhaseFrequencyPlanner.fieldFrequencies(field.frequencies).last else { continue }
+            built.waypoints[i].frequency = contact.frequency
+        }
+        return built
+    }
+
+    /// The author's dr-3: NOW "LSZQ AFIS" and NEXT "LSZQ" on one frequency, because the waypoint's copy of the
+    /// contact had another name. One frequency is one station: never NOW and NEXT at once, and the arriving rule
+    /// works on a route built in the app.
+    func testOneFrequencyIsNeverNowAndNext() {
+        let world = Self.engadine
+        let arriving = PhaseFrequencyPlanner.plan(position: Self.westOfJulier,
+                                                  plan: Self.asBuilt(Self.toSamedan(next: 1), world), sources: world.sources)
+        XCTAssertEqual(arriving.current, .init(station: "LSZS TWR", freq: "135.325"))
+        XCTAssertNil(arriving.next, "the waypoint's 135.325 is the tower NOW names")
+
+        var local = FlightPlan(name: "Triangle", waypoints: [
+            Self.waypoint("LSZQ"),
+            FlightPlanWaypoint(name: "TP1", coordinate: .init(latitude: 47.42, longitude: 7.17)),
+            FlightPlanWaypoint(name: "TP2", coordinate: .init(latitude: 47.33, longitude: 7.12)),
+            Self.waypoint("LSZQ")])
+        local = Self.asBuilt(local, Self.world)
+        local.currentWaypointIndex = 1
+        XCTAssertEqual(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: Self.world.sources).next,
+                       .init(station: "Zürich Info", freq: "124.700"), "out to TP1: the area's Info")
+        local.currentWaypointIndex = 2
+        XCTAssertNil(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: Self.world.sources).next,
+                     "coming home")
+        local.currentWaypointIndex = 3
+        XCTAssertNil(PhaseFrequencyPlanner.plan(position: Self.nearBressaucourt, plan: local, sources: Self.world.sources).next)
+
+        // Still the next field while it isn't NOW, under the database's name.
+        let toLSGC = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: Self.asBuilt(Self.route(next: 2), Self.world),
+                                                sources: Self.world.sources)
+        XCTAssertEqual(toLSGC.next, .init(station: "LSGC AFIS", freq: "120.350"))
+    }
+
+    /// ROUTE's radio lists a field's contact once, under the database's name; a frequency the pilot typed that
+    /// the database doesn't have stays as typed.
+    func testTheWaypointsCopyOfTheContactIsListedOnce() {
+        let route = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: Self.asBuilt(Self.route(next: 1), Self.world),
+                                               sources: Self.world.sources).route
+        let atLSZQ = route.filter { $0.freq == "123.575" }
+        XCTAssertEqual(atLSZQ.map(\.station), ["LSZQ A/G"])
+
+        var typed = Self.route(next: 3)
+        typed.waypoints[3].frequency = "119.175"
+        let plan = PhaseFrequencyPlanner.plan(position: Self.enRoute, plan: typed, sources: Self.world.sources)
+        XCTAssertEqual(plan.next, .init(station: "LSZQ", freq: "119.175"), "what the pilot typed wins")
+    }
+
     /// Free practice circuits at Bressaucourt, no route: the field is NOW and nothing is NEXT, not the nearest CTR
     /// (NEXT read Les Eplatures; 6.4.0, the author's dry run checks, 18 Oct). On a route too.
     func testCircuitsKeepNothingNext() {

@@ -16,7 +16,8 @@ import Foundation
 // - The holds: the replay waits on its first fix until the pilot has pressed ENGINE START, and at any
 //   further hold the scenario names (at the holding point until LINE UP, say), re-sending the fix
 //   about once a virtual second, so the UI test sets the pace of the ground work.
-// - The aerodromes come with the scenario (a fresh simulator has none), and so does the route, armed
+// - The aerodromes come with the scenario (a fresh simulator has none; a scenario that lists none keeps
+//   the device's own), and so does the route, armed
 //   as a pilot arms one, so START FLIGHT flies it: a route, or with `planned` a flight planned for today
 //   (its own copy of the route, followed by a flight thread, as Plan new flight makes it).
 //
@@ -312,7 +313,7 @@ final class GroundReplay {
             appState.settings.learningMode = memoryTest != "1"
         }
 
-        airportDataService.injectForReplay(scenario.airports.map(airport))
+        useAerodromes(of: scenario, in: airportDataService)
 
         let holds = (scenario.holds ?? [.init(t: 0, until: "engineStart")]).compactMap { hold in
             GroundReplayCursor.Condition(hold.until).map { GroundReplayCursor.Hold(t: hold.t, condition: $0) }
@@ -355,6 +356,14 @@ final class GroundReplay {
             arm(route, name: scenario.name, in: flightPlanManager)
         }
         return true
+    }
+
+    /// The scenario's aerodromes in place of the store's (a fresh simulator has none). A scenario that
+    /// lists none keeps the device's own data, frequencies and runways included: a recorded flight
+    /// replayed on a check simulator, where NEXT and the circuits need the real fields.
+    static func useAerodromes(of scenario: GroundReplayScenario, in store: AirportDataService) {
+        guard !scenario.airports.isEmpty else { return }
+        store.injectForReplay(scenario.airports.map(airport))
     }
 
     static func airport(_ row: GroundReplayScenario.Aerodrome) -> Airport {

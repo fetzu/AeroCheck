@@ -118,6 +118,33 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: 9.5, departureOver: true).now?.station, geneva)
     }
 
+    // MARK: - 8.33 kHz channel names (R6)
+
+    /// 120.105 is the 8.33 kHz name of 120.100 MHz: the airport database writes Grenchen's tower 120.100, OpenAIP
+    /// 120.105; LSZQ's 122.050 is the radio index's 122.055. One frequency, one station (the Grenchen replay).
+    func testAnEightThirtyThreeChannelNameIsItsFrequency() {
+        XCTAssertTrue(Station.isSameFrequency("120.100", "120.105"))
+        XCTAssertTrue(Station.isSameFrequency("122.050", "122.055"))
+        XCTAssertTrue(Station.isSameFrequency("118.125", "118.130"))
+        XCTAssertTrue(Station.isSameFrequency("124.7", "124.700"))
+        XCTAssertFalse(Station.isSameFrequency("118.125", "118.135"), "8.33 kHz above it")
+        XCTAssertFalse(Station.isSameFrequency("118.135", "118.140"))
+        XCTAssertFalse(Station.isSameFrequency("120.100", "120.125"))
+        XCTAssertEqual(Station.hertz("118.135"), 118_133_333)
+        XCTAssertNil(Station.hertz("Bern Info"))
+        XCTAssertTrue(Station.isSameFrequency("Bern Info", "Bern Info"))
+    }
+
+    /// The aerodrome in its own CTR, written two ways: NOW is the aerodrome under its name, on the zone's channel.
+    func testAnAerodromeAndItsZoneWrittenTwoWaysAreOneStation() {
+        let ctr = airspace("CTR XA", type: 4, icaoClass: 3, lon: 6.9...7.2, frequency: ("122.055", "XA TOWER"))
+        let t = timeline([ctr])
+        let now = read(t, at: 5, departureOver: false).now
+        XCTAssertEqual(now?.station.callSign, "LSXA AFIS")
+        XCTAssertEqual(now?.station.frequency, "122.055")
+        XCTAssertEqual(read(t, at: 5, departureOver: false).next, geneva, "never the zone's 122.055 after the field's 122.050")
+    }
+
     // MARK: - FIS (q4, q5)
 
     func testTheNextFISIsNextAndNowChangesAtItsBoundary() {

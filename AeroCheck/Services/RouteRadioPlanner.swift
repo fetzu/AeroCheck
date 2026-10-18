@@ -33,7 +33,30 @@ enum RouteRadioPlanner {
 
         func hasSameFrequency(as other: Station?) -> Bool {
             guard let other else { return false }
-            return Self.normalized(frequency) == Self.normalized(other.frequency)
+            return Self.isSameFrequency(frequency, other.frequency)
+        }
+
+        /// Whether two frequencies as written are one: "122.05" and "122.050", and "120.100" (a 25 kHz channel, as
+        /// the airport database writes Grenchen's tower) and "120.105" (its 8.33 kHz channel name, as OpenAIP and the
+        /// AIP write it: LSZQ's 122.050 is the radio index's 122.055). (6.4.2, the Grenchen replay)
+        static func isSameFrequency(_ a: String, _ b: String) -> Bool {
+            if let ha = hertz(a), let hb = hertz(b) { return ha == hb }
+            return normalized(a) == normalized(b)
+        }
+
+        /// The frequency a channel name stands for, in Hz. In the 8.33 kHz plan each 25 kHz block "x.x00" has the
+        /// channels x.x05 (its own frequency), x.x10 and x.x15 (8.33 and 16.67 kHz above it): 120.105 is 120.1000 MHz,
+        /// as 120.100 is. Nil for text that isn't a number.
+        static func hertz(_ frequency: String) -> Int? {
+            guard let mhz = Double(frequency.trimmingCharacters(in: .whitespaces)), mhz > 0, mhz < 1000 else { return nil }
+            let khz = Int((mhz * 1000).rounded())
+            let block = khz / 25 * 25
+            switch khz - block {
+            case 0, 5: return block * 1000
+            case 10: return block * 1000 + 8_333
+            case 15: return block * 1000 + 16_667
+            default: return khz * 1000
+            }
         }
 
         /// "121.03" and "121.025" style differences collapse to one three-decimal form.
@@ -442,7 +465,7 @@ enum RouteRadioPlanner {
                                  fisByRow: [[Station]] = []) -> [Listing] {
         var out: [Listing] = []
         func add(_ l: Listing) {
-            if !out.contains(where: { $0.label == l.label && Station.normalized($0.frequency) == Station.normalized(l.frequency) }) {
+            if !out.contains(where: { $0.label == l.label && Station.isSameFrequency($0.frequency, l.frequency) }) {
                 out.append(l)
             }
         }

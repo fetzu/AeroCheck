@@ -72,6 +72,8 @@ enum RouteRadioPlanner {
         var leadTime: TimeInterval = 120
         /// When the destination ATIS is placed: the last row reached at least this long before arrival.
         var atisLeadTime: TimeInterval = 600
+        /// Aerodromes near the route with their contact, for the timeline's aerodromes on the way (q7). (6.4.2)
+        var fieldsNearby: [RadioTimeline.NearbyField] = []
     }
 
     /// One nav-log row's radio column.
@@ -102,6 +104,8 @@ enum RouteRadioPlanner {
         var source: String?
         /// "DABS" on Swiss routes, else "NOTAM".
         var checkAreaTag = "NOTAM"
+        /// The same walk as the flight's radio timeline, for the Cockpit's NOW and NEXT. (6.4.2)
+        var timeline = RadioTimeline.empty
 
         static let empty = Plan()
     }
@@ -160,9 +164,6 @@ enum RouteRadioPlanner {
             }
             active.append(stack.last)
         }
-        func stationOf(unit u: Int) -> Station {
-            unitStation(units[u].airspace, among: ctx.airspaces)
-        }
 
         // The FIS along the route, where it changes (every NM is enough for a boundary): a leg flown
         // outside controlled airspace calls the FIS it starts in, a remark gives the next where it takes
@@ -176,6 +177,17 @@ enum RouteRadioPlanner {
             if !station.hasSameFrequency(as: fisChanges.last?.station) { fisChanges.append((s, station)) }
         }
         func fis(atSample s: Int) -> Station? { fisChanges.last { $0.s <= s }?.station }
+
+        // Each unit's station. A Swiss class C TMA is crossed on the FIS's clearance ("First RDO contact MNM 10min
+        // prior entry TMA", INFO 124.700 or 126.350: swisstopo's ICAO chart legend): where the data gives it another
+        // station (TMA ZUERICH, ZUERICH TERMINAL 127.755), the FIS where the route enters it. (6.4.2)
+        let unitStations = units.map { track -> Station in
+            let own = unitStation(track.airspace, among: ctx.airspaces)
+            guard isSwissClassCTMA(track.airspace), !isInformation(own),
+                  let entry = track.vertical.firstIndex(of: true), let area = fis(atSample: entry) else { return own }
+            return Station(frequency: area.frequency, callSign: area.callSign, isHX: own.isHX)
+        }
+        func stationOf(unit u: Int) -> Station { unitStations[u] }
         var fisByRow = [[Station]](repeating: [], count: n)
         var fisListed: [Station] = []
         for change in fisChanges where !fisListed.contains(where: { $0.hasSameFrequency(as: change.station) }) {
@@ -355,6 +367,19 @@ enum RouteRadioPlanner {
         plan.stations = listings(plan, departure: ctx.departure, destination: ctx.destination, fisByRow: fisByRow)
         plan.notes = notes(plan, ctx)
         if anyPossible { plan.notes.append(L10n.Export.verticalLimitUncertain) }
+
+        // The radio timeline, from the same walk: the zones at the planned altitude with the rows' stations, the FIS
+        // where it changes, the two aerodromes. (6.4.2)
+        plan.timeline = RadioTimeline.build(
+            waypoints: wps, cum: cum, samples: samples,
+            zones: units.indices.map { RadioTimeline.Zone(airspace: units[$0].airspace, station: unitStations[$0],
+                                                          inside: units[$0].vertical) },
+            possible: maybeUnits.map { RadioTimeline.Zone(airspace: $0.airspace,
+                                                          station: unitStation($0.airspace, among: ctx.airspaces),
+                                                          inside: $0.possible) },
+            fisChanges: fisChanges.map { (nm: samples[$0.s].d, station: $0.station) },
+            airspaces: ctx.airspaces, departure: ctx.departure, destination: ctx.destination,
+            fieldsNearby: ctx.fieldsNearby)
         return plan
     }
 
@@ -532,6 +557,32 @@ enum RouteRadioPlanner {
             return .check
         default:
             return .ignore
+        }
+    }
+
+    /// A TMA or CTA whose clearance the FIS gives, called on its Information station from 10 min before (q6, 6.4.2):
+    /// one whose station is an Information service (TMA GENEVA's GENEVA INFORMATION 126.350, the Basel sectors'
+    /// BALE INFORMATION), or a Swiss class C TMA (its station is then the FIS, `plan`).
+    static func isClearedByFIS(_ airspace: Airspace, station: Station) -> Bool {
+        guard airspace.airspaceType == .tma || airspace.airspaceType == .cta else { return false }
+        return isInformation(station) || isSwissClassCTMA(airspace)
+    }
+
+    static func isSwissClassCTMA(_ airspace: Airspace) -> Bool {
+        (airspace.airspaceType == .tma || airspace.airspaceType == .cta)
+            && airspace.country.uppercased() == "CH" && airspace.airspaceClass == .classC
+    }
+
+    /// "GENEVA INFO", "BALE INFO": an Information service, not a tower or an approach.
+    static func isInformation(_ station: Station) -> Bool {
+        station.callSign.uppercased().split(separator: " ").contains { $0 == "INFO" || $0 == "INFORMATION" }
+    }
+
+    /// An aerodrome's own zone, the one it sits in: a CTR, an RMZ or FIZ, an ATZ, a TIZ. Not a TMA.
+    static func isAerodromeZone(_ airspace: Airspace) -> Bool {
+        switch airspace.airspaceType {
+        case .ctr, .mctr, .rmz, .atz, .matz, .tiz: return true
+        default: return false
         }
     }
 

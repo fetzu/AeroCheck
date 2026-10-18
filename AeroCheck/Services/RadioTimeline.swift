@@ -355,14 +355,24 @@ extension RadioTimeline {
             timeline.calls.append(Call(station: change.station, kind: .fis, fromNM: i == 0 ? 0 : change.nm, toNM: to))
         }
 
-        // Each stretch of each zone at the planned altitude.
+        // Each stretch of each zone at the planned altitude. An aerodrome's own zone on its frequency is called by
+        // the aerodrome's name, on the zone's channel: "LSZG TWR HX 120.105" from the ground to the CTR's exit,
+        // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came.
         var zoneCalls: [Call] = []
+        let aerodromes = [(departure, waypoints[0].coordinate), (destination, waypoints[waypoints.count - 1].coordinate)]
         for zone in zones {
             let viaFIS = RouteRadioPlanner.isClearedByFIS(zone.airspace, station: zone.station)
+            var station = zone.station
+            if RouteRadioPlanner.isAerodromeZone(zone.airspace),
+               let contact = aerodromes.first(where: { end in
+                   end.0?.contact?.hasSameFrequency(as: zone.station) == true && zone.airspace.containsPoint(end.1)
+               })?.0?.contact {
+                station = Station(frequency: zone.station.frequency, callSign: contact.callSign, isHX: zone.station.isHX)
+            }
             for run in runs(zone.inside) {
                 let from = run.lowerBound == 0 ? 0 : samples[run.lowerBound].d
                 let to = run.upperBound + 1 < samples.count ? samples[run.upperBound + 1].d : .infinity
-                zoneCalls.append(Call(station: zone.station, kind: viaFIS ? .tmaViaFIS : .unit, fromNM: from, toNM: to,
+                zoneCalls.append(Call(station: station, kind: viaFIS ? .tmaViaFIS : .unit, fromNM: from, toNM: to,
                                       lead: viaFIS ? tmaLead : zoneLead,
                                       note: viaFIS ? "TMA " + RouteRadioPlanner.baseName(zone.airspace.name) : nil))
             }

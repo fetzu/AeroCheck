@@ -803,12 +803,36 @@ struct FlightPlanMapBuilderView: View {
     }
 
     /// Nearest reporting point eligible for snap — only when the RP layer is shown, within a tighter
-    /// radius than airports/navaids (they're dense, so snap should be deliberate). (v4.1.0 ③)
+    /// radius than airports/navaids (they're dense, so snap should be deliberate) — or nearer still, an
+    /// arrival sector's letter while the VFR procedures show (`sectorPointsNear`). (v4.1.0 ③; 6.4.2)
     private func reportingPointSnapCandidate(near coordinate: CLLocationCoordinate2D) -> ReportingPoint? {
-        guard appState.settings.showReportingPointsOnMap else { return nil }
-        return ReportingPointCatalog.shared
+        var candidates = sectorPointsNear(coordinate)
+        if appState.settings.showReportingPointsOnMap,
+           let point = ReportingPointCatalog.shared
             .pointsNear(to: coordinate, maxDistanceNm: rpSnapRadiusNm, limit: 1,
-                        includingNonPowered: appState.settings.showsNonPoweredReportingPoints).first
+                        includingNonPowered: appState.settings.showsNonPoweredReportingPoints).first {
+            candidates.append(point)
+        }
+        return candidates.min { $0.distanceNM(from: coordinate) < $1.distanceNM(from: coordinate) }
+    }
+
+    /// The arrival and departure letters drawn within `rpSnapRadiusNm` of a point, as points of their aerodrome
+    /// (`VFRMapItem.sectorPoint`), while the VFR procedures layer shows them. (6.4.2, the author's device check
+    /// r3-2: LSGN's N)
+    private func sectorPointsNear(_ coordinate: CLLocationCoordinate2D) -> [ReportingPoint] {
+        let selection = VFRLayerSelection(settings: appState.settings)
+        let service = OFMDataService.shared
+        guard selection.isAnyOn, service.isLoaded else { return [] }
+        let latitudeSpan = rpSnapRadiusNm / 60 * 2
+        let region = MKCoordinateRegion(center: coordinate, span: MKCoordinateSpan(
+            latitudeDelta: latitudeSpan, longitudeDelta: latitudeSpan / max(0.1, cos(coordinate.latitude * .pi / 180))))
+        return service.procedures(in: region, kinds: [.arrival, .departure]).filter(selection.includes).compactMap { procedure in
+            let country = VFRMapItem.country(ofProcedureId: procedure.id)
+            return VFRMapItem.drawn(procedure, field: airportDataService.findAirport(byIdent: procedure.aerodrome)?.coordinate,
+                                    country: country, region: service.region(forCountry: country),
+                                    airac: service.cycles[country]?.airac).sectorPoint
+        }
+        .filter { $0.distanceNM(from: coordinate) <= rpSnapRadiusNm }
     }
 
     private func swapEndpoints() {

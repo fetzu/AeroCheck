@@ -77,11 +77,21 @@ enum RoutePoint {
         return waypoint
     }
 
-    /// Which of the three a dropped point snaps to. By kind first, each already within its own
-    /// radius: an aerodrome, then a navaid (an aerodrome wins a tie by distance), and a reporting
-    /// point only when neither is in range, not merely because it is closer. (review #3)
+    /// Which of the three a dropped point snaps to, each already within its own radius (a reporting
+    /// point's is the tightest). A reporting point, or an arrival sector's letter drawn as one, nearer
+    /// the drop than the aerodrome and the navaid in range: the pilot aimed at its symbol. Else by kind:
+    /// an aerodrome, then a navaid (an aerodrome wins a tie by distance), then the point. Until 6.4.2 an
+    /// aerodrome in range always won: LSGN's sector N, its badge 1.2 NM out, became LSGN itself (the
+    /// author's device check r3-2). (review #3; 6.4.2)
     static func snapTarget(near coordinate: CLLocationCoordinate2D, aerodrome: Airport?, navaid: Navaid?,
                            reportingPoint: (ReportingPoint, ReportingPointLabel)?) -> RoutePoint? {
+        if let (point, label) = reportingPoint {
+            let distance = point.distanceNM(from: coordinate)
+            if distance < (aerodrome?.distance(from: coordinate) ?? .infinity),
+               distance < (navaid?.distanceNM(from: coordinate) ?? .infinity) {
+                return .reportingPoint(point, label)
+            }
+        }
         if let aerodrome, aerodrome.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
             return .aerodrome(aerodrome)
         }

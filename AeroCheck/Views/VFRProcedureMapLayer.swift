@@ -284,6 +284,17 @@ struct VFRMapItem: Identifiable, Equatable {
     }
 
     var id: String { procedure.id }
+
+    /// An arrival's or departure's letter as a point a route snaps to, where its badge is drawn: "N" of LSGN's
+    /// ARR SECTOR NORTH, an open flightmaps point of its aerodrome ("N (LSGN)" on the nav log). Nil for an item
+    /// drawn without a badge. (6.4.2, the author's device check r3-2)
+    var sectorPoint: ReportingPoint? {
+        guard case .badge = labelStyle else { return nil }
+        return ReportingPoint(id: "ofm-sector:\(procedure.id)", name: labelText, compulsory: false,
+                              latitude: labelAnchor.latitude, longitude: labelAnchor.longitude, airports: [],
+                              source: .openFlightmaps, aerodromeICAO: procedure.aerodrome, airac: airac)
+    }
+
     /// Changes when the shape would be drawn differently.
     var drawKey: String { "\(procedure.id)|\(arrow.rawValue)|\(line.count)" }
     /// Changes when the label or its callout would read differently.

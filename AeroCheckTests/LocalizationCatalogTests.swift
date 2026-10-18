@@ -216,6 +216,25 @@ final class LocalizationCatalogTests: XCTestCase {
         }
     }
 
+    /// French that didn't agree: the toast after an event taken with no card read « Remise de gaz : détecté et
+    /// enregistré » (one key for three events of both genders), and the hidden items « 3 éléments masqué(s) ».
+    /// The onboarding and Data & Storage called the checklists « listes de vérification ». (6.4.0)
+    func testTheFrenchAgreesWithWhatItNames() throws {
+        let french = try frenchBundle()
+        let toasts = ["goAround": "Remise de gaz détectée et enregistrée",
+                      "touchAndGo": "Posé-décollé détecté et enregistré",
+                      "fullStop": "Atterrissage complet détecté et enregistré"]
+        for (event, text) in toasts {
+            XCTAssertEqual(french.localizedString(forKey: "cockpit.eventTaken.\(event)", value: nil, table: nil), text)
+        }
+        XCTAssertEqual(L10n.Cockpit.eventTaken(.goAround), "Go-around detected and recorded")
+        let hidden = french.localizedString(forKey: "checklist.hiddenItems.count", value: nil, table: nil)
+        XCTAssertEqual(String(format: hidden, 1, ""), "1 élément masqué : maintenir pour révéler")
+        XCTAssertEqual(String(format: hidden, 3, "s"), "3 éléments masqués : maintenir pour révéler")
+        XCTAssertEqual(L10n.ChecklistAction.hiddenItemsCount(3, "s"), "3 items hidden: hold to reveal")
+        XCTAssertEqual(french.localizedString(forKey: "Checklists", value: nil, table: nil), "Checklists")
+    }
+
     /// The Logbook list, the flight detail and the Cockpit's NEXT column were English in French.
     func testTheLogbookFlightDetailAndCockpitHaveTheirFrench() throws {
         let french = try frenchBundle()

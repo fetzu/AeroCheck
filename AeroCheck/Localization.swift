@@ -2252,11 +2252,16 @@ enum L10n {
         static func fromMemoryThenNext(_ next: String) -> String {
             String(format: String(localized: "cockpit.fromMemoryThenNext"), next)
         }
-        /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
-        /// "Go-around recorded by the app": taken with no card, UNDO for six seconds. (6.4.0)
-        static func eventTaken(_ event: String) -> String {
-            String(format: String(localized: "cockpit.eventTaken"), event)
+        /// "Go-around detected and recorded": taken with no card, UNDO for six seconds. A key per event, so the
+        /// French agrees with it (« Remise de gaz détectée et enregistrée »). (6.4.0)
+        static func eventTaken(_ type: FlightEventType) -> String {
+            switch type {
+            case .goAround: return String(localized: "cockpit.eventTaken.goAround")
+            case .touchAndGo: return String(localized: "cockpit.eventTaken.touchAndGo")
+            case .fullStop: return String(localized: "cockpit.eventTaken.fullStop")
+            }
         }
+        /// The undo toast after a confirmation: "CLIMB CHECK done from memory". (6.1)
         static func doneFromMemoryToast(_ check: String) -> String {
             String(format: String(localized: "cockpit.doneFromMemoryToast"), check)
         }

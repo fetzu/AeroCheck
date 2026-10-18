@@ -3287,19 +3287,53 @@
         }
       }
     },
-    "cockpit.eventTaken": {
+    "cockpit.eventTaken.fullStop": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ detected and recorded"
+            "value": "Full stop detected and recorded"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : détecté et enregistré"
+            "value": "Atterrissage complet détecté et enregistré"
+          }
+        }
+      }
+    },
+    "cockpit.eventTaken.goAround": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go-around detected and recorded"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remise de gaz détectée et enregistrée"
+          }
+        }
+      }
+    },
+    "cockpit.eventTaken.touchAndGo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch-and-go detected and recorded"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posé-décollé détecté et enregistré"
           }
         }
       }
@@ -20839,7 +20873,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mise à jour automatique · listes de vérification des aéronefs depuis aerocheck.app"
+            "value": "Mise à jour automatique · checklists des avions depuis aerocheck.app"
           }
         }
       }
@@ -20959,7 +20993,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listes de vérification"
+            "value": "Checklists"
           }
         }
       }
@@ -25072,7 +25106,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d élément%@ masqué(s) : maintenir pour révéler"
+            "value": "%1$d élément%2$@ masqué%2$@ : maintenir pour révéler"
           }
         }
       }

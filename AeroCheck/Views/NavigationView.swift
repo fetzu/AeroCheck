@@ -7209,11 +7209,11 @@ extension NavUndoOffer {
 }
 
 extension NavUndoOffer {
-    /// "Go-around recorded by the app", taken back with UNDO: a go-around, touch-and-go or full stop the app
-    /// took as it saw it, with no card (6.4.0).
+    /// "Go-around detected and recorded", taken back with UNDO: a go-around, touch-and-go or full stop recorded
+    /// as soon as it is detected, with no card (6.4.0).
     @MainActor
     static func takenEvent(_ taken: AppState.TakenFlightEvent, in appState: AppState) -> NavUndoOffer {
-        NavUndoOffer(id: taken.id, message: L10n.Cockpit.eventTaken(taken.type.title), madeAt: taken.takenAt) {
+        NavUndoOffer(id: taken.id, message: L10n.Cockpit.eventTaken(taken.type), madeAt: taken.takenAt) {
             appState.undoTakenEvent(taken.id)
         }
     }

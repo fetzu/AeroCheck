@@ -164,6 +164,29 @@ enum PhaseFrequencyPlanner {
             }
         }
 
+        /// Whether a waypoint already flown (before `index`) lies beyond `circuitRadiusNM` of the field the
+        /// aircraft is near: the flight has been away from it, and is coming back or arriving. The mirror of
+        /// `leavesTheCircuit`. (6.4.1)
+        func hasBeenAway(_ plan: FlightPlan, before index: Int) -> Bool {
+            guard let centre = nearField?.coordinate ?? position else { return false }
+            let here = CLLocation(latitude: centre.latitude, longitude: centre.longitude)
+            return plan.waypoints.indices.contains { i in
+                guard i < index else { return false }
+                let point = plan.waypoints[i].coordinate
+                return here.distance(from: CLLocation(latitude: point.latitude, longitude: point.longitude)) / 1852
+                    > PhaseFrequencyPlanner.circuitRadiusNM
+            }
+        }
+
+        /// Whether the field the aircraft is near is where the route ends: its ident, or within its circuit.
+        func nearFieldEnds(_ plan: FlightPlan) -> Bool {
+            guard let nearField, let last = plan.waypoints.last else { return false }
+            if last.name.uppercased() == nearField.ident.uppercased() { return true }
+            return CLLocation(latitude: nearField.coordinate.latitude, longitude: nearField.coordinate.longitude)
+                .distance(from: CLLocation(latitude: last.coordinate.latitude, longitude: last.coordinate.longitude)) / 1852
+                <= PhaseFrequencyPlanner.circuitRadiusNM
+        }
+
         /// Near a field: within `nearFieldNM`.
         var nearActive: Bool { (nearDistanceNM ?? .infinity) <= PhaseFrequencyPlanner.nearFieldNM }
 
@@ -236,8 +259,9 @@ enum PhaseFrequencyPlanner {
 
         /// CURRENT: near a field, the field; else the area's FIS. NEXT: the field diverted to; else the
         /// next field of the route; else, near a field, the area's FIS; else the nearest CTR; else the
-        /// hand-off between the FIS and the field. Nothing in circuits or at the route's end. The contact
-        /// frequency, not the ATIS. (v4 UI/UX Revamp; 6.4.0)
+        /// hand-off between the FIS and the field. Nothing in circuits, at the route's end, or arriving (rule
+        /// A: the field NOW names is the next aerodrome of the route, and a waypoint already flown lies outside
+        /// its circuit). The contact frequency, not the ATIS. (v4 UI/UX Revamp; 6.4.0; 6.4.1)
         func currentAndNext() -> (Entry?, Entry?) {
             // No usable position: the plan's order (the departure now, the next field of the route next).
             guard position != nil, sources.hasAirportData else {
@@ -256,6 +280,8 @@ enum PhaseFrequencyPlanner {
             // At the route's end: the field flown to is NOW, nothing after it. No CTR around is the next call
             // (on final at Bressaucourt, NEXT read Les Eplatures, 20 NM off). (6.4.0)
             var atRouteEnd = false
+            // Arriving: back at, or coming into, the field the route goes to after being away from it. (6.4.1)
+            var arriving = false
             // Diverting: the field the aircraft is going to is the next call, whatever the route says. (v5.1)
             if let diversion = plan?.diversion {
                 next = PhaseFrequencyPlanner.contact(labelled(diversion.ident))
@@ -272,6 +298,11 @@ enum PhaseFrequencyPlanner {
                     next = flownTo
                 } else if flownTo != nil, !fieldAhead, index == plan.waypoints.count - 1 {
                     atRouteEnd = true
+                } else if index >= plan.waypoints.count, nearActive, nearFieldEnds(plan) {
+                    // The route flown: landed at its end (`followLanding` takes the index past the last waypoint),
+                    // or still near it in the air. Until 6.4.1 the empty NEXT took the area's Info (after landing at
+                    // Samedan, Zürich Info). Beyond its 10 NM, a flight with no route's rules. (6.4.1)
+                    atRouteEnd = true
                 } else if let ahead = plan.waypoints.indices.first(where: {
                     $0 > index && !waypointFrequencies(plan.waypoints[$0]).isEmpty
                 }) {
@@ -283,6 +314,13 @@ enum PhaseFrequencyPlanner {
                     // author's dry run checks, st-12 and 17 Oct)
                     if field != current || !leavesTheCircuit(plan, from: index) {
                         next = field
+                    } else if hasBeenAway(plan, before: index) {
+                        // Arriving, rule A (the author, 18 Oct): the field NOW names is the next aerodrome of the
+                        // route and a waypoint already flown lies outside its circuit. Nothing is NEXT, whatever the
+                        // route still has ahead in the field's zone: 8 NM out from Samedan, Julier and Silvaplana
+                        // ahead, NEXT read Zürich Info; coming home from a local flight's turn points, Bâle Info. The
+                        // way out keeps the area's Info, even on a leg heading further out. (6.4.1)
+                        arriving = true
                     } else if let fisEntry, fisEntry != current {
                         next = fisEntry
                     }
@@ -290,7 +328,7 @@ enum PhaseFrequencyPlanner {
             }
             // Circuits stay with the field: in free practice circuits at Bressaucourt, with no route, NEXT
             // read Les Eplatures, the nearest CTR. (6.4.0, the author's dry run checks, 18 Oct)
-            if atRouteEnd || circuits { return (current, nil) }
+            if atRouteEnd || arriving || circuits { return (current, nil) }
             // No call from the route, near a field: the area's Info, the station called once out of the
             // field's zone, as on a route that leaves the circuit; a CTR around only where no Info is known.
             // The nearest CTR is within 25 NM in any direction, not the one the flight enters.

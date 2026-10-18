@@ -103,7 +103,7 @@ A dry run is a flight flown on the ground, in the real Cockpit: the aircraft is 
 
 - **The introduction's last page**: **Fly my first flight on the ground** starts the guided dry run.
 - **Today**: while your logbook is empty, a card offers **Fly your first flight on the ground**, with **Start the dry run** and **Not now** (which puts the card away for good on this device). It also goes once you have flown the guided dry run, or a real flight.
-- **Settings › About**, under **LEARN AND PRACTICE** (between ABOUT and LEGAL): **Replay introduction**, **Your first flight, from plan to logbook** (the guided dry run, about 15 minutes), **One part at a time**, and **Fly a dry run on the ground** (free practice).
+- **Settings › About**, under **LEARN AND PRACTISE** (between ABOUT and LEGAL): **Replay introduction**, **Your first flight, from plan to logbook** (the guided dry run, about 15 minutes), **One part at a time**, and **Fly a dry run on the ground** (free practice).
 - **A route**: **Fly a dry run**, in the route editor's **…** menu or in the route's swipe to the right in **Plan › Routes**, flies that route in free practice.
 
 ### The Guided Dry Run
@@ -119,7 +119,7 @@ A card guides each step: what to look at, and what to do. The control it speaks 
 
 In the Cockpit, the flight waits at each card (the band reads **DRY RUN · waiting for you**) and runs on between them at a pace that follows the aircraft: slower for what is worth watching (the take-off, the landing), fast along the legs. There is no pace to choose here; the card's **Pause** stops it, and **END** in the band stops the dry run.
 
-Each part ends on a page of its own ("Close out: done"), with **On to** the next part, or **Stop here**: the rest waits in Settings, under Learn and practice. **One part at a time** starts any of the four parts on its own, and **Fly it, chapter by chapter** any of the seven chapters. Getting there takes a few seconds behind a cover, the earlier steps done for you.
+Each part ends on a page of its own ("Close out: done"), with **On to** the next part, or **Stop here**: the rest waits in Settings, under Learn and practise. **One part at a time** starts any of the four parts on its own, and **Fly it, chapter by chapter** any of the seven chapters. Getting there takes a few seconds behind a cover, the earlier steps done for you.
 
 ### Free Practice
 
@@ -972,4 +972,4 @@ Pair an iPhone and iPad as a synced second screen (Wi-Fi Aware; requires iOS 26 
 
 ### About
 
-App version, website, author and open-source information; **LEARN AND PRACTICE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources; and hidden **Developer Options** (tap the version number five times to unlock).
+App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources; and hidden **Developer Options** (tap the version number five times to unlock).

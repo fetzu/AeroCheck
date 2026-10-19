@@ -52,6 +52,10 @@ enum PhaseFrequencyPlanner {
         var listen = false
         /// An airspace named beside the station: a TMA the FIS clears ("TMA GENEVA"). (6.4.2)
         var note: String? = nil
+        /// NEXT is due: the pilot is expected to switch to it now (the frequency handover, 6.4.3).
+        var due = false
+        /// While due, the share still to go before the app switches by itself, 1 to 0. (6.4.3)
+        var dueLeft: Double? = nil
 
         /// One frequency is one station: what NOW and NEXT compare. "LSZQ AFIS" from the database and "LSZQ",
         /// the same 122.050 the route builder wrote on the waypoint, are one call, never NOW and NEXT at once
@@ -75,6 +79,9 @@ enum PhaseFrequencyPlanner {
         var fieldsOnTheWay = true
         /// GPS altitude, ft MSL: a FIS area without a route (q4).
         var altitudeFt: Double?
+        /// Where the pilot is on the timeline (the frequency handover, 6.4.3): NOW is their station, NEXT comes due.
+        /// Nil: 6.4.2's NOW, which moves by itself at each call point.
+        var handover: RadioHandover?
     }
 
     /// What the planner gives.
@@ -92,6 +99,18 @@ enum PhaseFrequencyPlanner {
         /// waypoint flown to onward (the fields passed are dropped); the FIS of each sector on the way
         /// (`fisAlongTheWay`); the CTRs around.
         let route: [PhaseFrequency]
+        /// The handover after this reading (the situation's, advanced), on the route's timeline; nil without one.
+        /// (6.4.3)
+        var handover: RadioHandover? = nil
+        /// The app's own switch at a latest point, in this reading. (6.4.3)
+        var switched: RadioHandover.Switch? = nil
+    }
+
+    /// Where a flight is on its route's timeline, for a tap on NEXT: nil off it (no route, circuits, diverting, more
+    /// than 5 NM off). (6.4.3)
+    static func placement(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool,
+                          situation: Situation) -> (timeline: RadioTimeline, moment: RadioTimeline.Moment)? {
+        Context.place(position: position, plan: plan, circuits: circuits, situation: situation)
     }
 
     /// On a route whose timeline isn't built yet, within this of a field, the field is NOW (about the size of a
@@ -127,7 +146,8 @@ enum PhaseFrequencyPlanner {
         let (current, next) = context.currentAndNext()
         return Plan(current: current, next: next,
                     panel: context.panel(current: current, next: next),
-                    route: context.route(current: current, next: next))
+                    route: context.route(current: current, next: next),
+                    handover: context.handover?.state, switched: context.handover?.switched)
     }
 
     /// A field's VFR frequencies: its ATIS first when it has one (the first to listen to), then its
@@ -180,6 +200,8 @@ enum PhaseFrequencyPlanner {
         let nearDistanceNM: Double?
         /// Where the flight is on its route's radio timeline, when it is on it. (6.4.2)
         let onTimeline: (timeline: RadioTimeline, moment: RadioTimeline.Moment)?
+        /// The pilot's place on it, advanced to this moment, when the Cockpit keeps one. (6.4.3)
+        let handover: (state: RadioHandover, reading: RadioHandover.Reading, switched: RadioHandover.Switch?)?
 
         init(position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool, situation: Situation,
              sources: Sources) {
@@ -189,6 +211,7 @@ enum PhaseFrequencyPlanner {
             self.situation = situation
             self.sources = sources
             onTimeline = Self.place(position: position, plan: plan, circuits: circuits, situation: situation)
+            handover = onTimeline.flatMap { on in situation.handover.map { $0.advanced(on: on.timeline, at: on.moment) } }
             // The nearest field that has VFR frequencies: a grass strip or a heliport without any is
             // passed over, else the area FIS became NOW beside a towered field. (v4 UI/UX Revamp fix)
             let field = position.flatMap { position in
@@ -227,8 +250,18 @@ enum PhaseFrequencyPlanner {
             return (timeline, moment)
         }
 
-        /// NOW and NEXT off the timeline. (6.4.2)
+        /// NOW and NEXT off the timeline (6.4.2): the pilot's NOW and the due NEXT where the Cockpit keeps the
+        /// handover (6.4.3).
         func fromTimeline(_ timeline: RadioTimeline, _ moment: RadioTimeline.Moment) -> (Entry?, Entry?) {
+            if let reading = handover?.reading {
+                let now = reading.now.map { PhaseFrequencyPlanner.entry($0.station, kind: $0.kind, note: $0.note) }
+                var next = reading.next.map {
+                    PhaseFrequencyPlanner.entry($0, kind: reading.nextKind, listen: reading.nextIsListen)
+                }
+                next?.due = reading.nextIsDue
+                next?.dueLeft = reading.dueLeft
+                return (now, next)
+            }
             let reading = timeline.reading(moment)
             let now = reading.now.map { PhaseFrequencyPlanner.entry($0.station, kind: $0.kind, note: $0.note) }
             let next = reading.next.map {
@@ -559,15 +592,19 @@ enum PhaseFrequencyPlanner {
         private var seen = Set<String>()
 
         mutating func add(_ entry: Entry?, role: FreqRole) {
-            if let entry { add(entry.station, entry.freq, role: role, listen: entry.listen, note: entry.note) }
+            if let entry {
+                add(entry.station, entry.freq, role: role, listen: entry.listen, note: entry.note,
+                    due: entry.due, dueLeft: entry.dueLeft)
+            }
         }
 
         mutating func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false,
-                          listen: Bool = false, note: String? = nil, nearby: Bool = false) {
+                          listen: Bool = false, note: String? = nil, nearby: Bool = false, due: Bool = false,
+                          dueLeft: Double? = nil) {
             guard seen.insert(freq + "|" + station).inserted else { return }
             items.append(PhaseFrequency(station: station, freq: freq, highlighted: role == .current,
                                         isEmergency: emergency, role: emergency ? .emergency : role,
-                                        listen: listen, note: note, nearby: nearby))
+                                        listen: listen, note: note, nearby: nearby, due: due, dueLeft: dueLeft))
         }
 
         /// 121.500, always last.
@@ -695,7 +732,11 @@ extension PhaseFrequency {
     }
 
     /// Its content, for telling a new list from the last: a list is rebuilt with new ids each time.
-    var contentKey: String { "\(station)|\(freq)|\(role)|\(isEmergency)|\(listen)|\(note ?? "")|\(nearby)" }
+    var contentKey: String {
+        // The share left to the twentieth: the line along a due NEXT redrawn as it runs out, not at every fix. (6.4.3)
+        let left = dueLeft.map { String(Int(($0 * 20).rounded())) } ?? ""
+        return "\(station)|\(freq)|\(role)|\(isEmergency)|\(listen)|\(note ?? "")|\(nearby)|\(due)|\(left)"
+    }
 }
 
 // MARK: - The Cockpit's radio

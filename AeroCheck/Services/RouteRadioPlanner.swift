@@ -22,7 +22,7 @@ import CoreLocation
 enum RouteRadioPlanner {
 
     /// A radio station as printed: frequency + call sign.
-    struct Station: Equatable, Hashable {
+    struct Station: Equatable, Hashable, Codable {
         let frequency: String
         let callSign: String
         /// The sibling airspace whose frequency was borrowed because this one publishes none. The

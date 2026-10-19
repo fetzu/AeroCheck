@@ -643,6 +643,35 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                                           situation: situation, sources: world.sources)
     }
 
+    /// With the Cockpit's handover (6.4.3): at the level-off NOW stays the departure and NEXT comes due, its line full;
+    /// the plan gives the state back for the Cockpit to keep; without the handover, 6.4.2's NOW moves by itself.
+    func testWithTheHandoverNowWaitsAndNextComesDue() {
+        let plan = Self.timelineRoute(next: 1)
+        let situation = PhaseFrequencyPlanner.Situation(timeline: Self.timeline(for: plan), groundSpeedKt: 100,
+                                                        departureOver: false, handover: RadioHandover())
+        let ground = PhaseFrequencyPlanner.plan(position: .init(latitude: 47.0, longitude: 7.0), plan: plan,
+                                                situation: situation, sources: Self.empty.sources)
+        XCTAssertEqual(ground.current?.station, "LSXA AFIS")
+        XCTAssertEqual(ground.next?.due, false)
+        let kept = try? XCTUnwrap(ground.handover)
+        XCTAssertEqual(kept?.station?.callSign, "LSXA AFIS")
+
+        var levelled = situation
+        levelled.departureOver = true
+        levelled.handover = kept
+        let level = PhaseFrequencyPlanner.plan(position: .init(latitude: 47.0, longitude: 7.05), plan: plan,
+                                               situation: levelled, sources: Self.empty.sources)
+        XCTAssertEqual(level.current?.station, "LSXA AFIS", "NOW waits for the pilot's tap")
+        XCTAssertEqual(level.next?.station, "Geneva Info")
+        XCTAssertEqual(level.next?.due, true)
+        XCTAssertEqual(level.next?.dueLeft ?? 0, 1, accuracy: 0.01)
+        let route = level.route
+        XCTAssertEqual(route.first { $0.role == .next }?.due, true, "ROUTE's NEXT due as well")
+        XCTAssertNil(level.switched)
+
+        XCTAssertEqual(onRoute(longitude: 7.05, next: 1).current?.station, "Geneva Info", "no handover: as in 6.4.2")
+    }
+
     /// dr-3's first stretch: the departure field until the level-off, the Info it climbs into NEXT; then that
     /// Info, the next one NEXT.
     func testOnTheRouteNowAndNextFollowTheTimeline() {

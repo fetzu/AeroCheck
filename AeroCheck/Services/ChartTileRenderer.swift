@@ -211,8 +211,8 @@ final class ChartTileLoader: @unchecked Sendable {
     // MARK: Network
 
     /// Fetches `spec` unless it is on its way already; `done` once it has come (on the loader's thread). `urgency` is
-    /// asked each time a place frees: the lowest goes first; nil from every map that asked, and the tile isn't fetched
-    /// (`passedBy`).
+    /// asked each time a place frees: the lowest goes first, infinity waits (asked again when a map moves,
+    /// `reconsider()`); nil from every map that asked, and the tile isn't fetched (`passedBy`).
     func load(_ spec: ChartTileSpec, urgency: @escaping @Sendable () -> Double?,
               done: @escaping @Sendable (ChartTileOutcome) -> Void) {
         guard spec.fetch != nil else {
@@ -255,6 +255,7 @@ final class ChartTileLoader: @unchecked Sendable {
                     unwanted.append(job)
                     continue
                 }
+                guard urgency.isFinite else { continue }
                 let rank = urgency - Double(job.order) * 1e-9
                 if best == nil || rank < best!.rank { best = (job, rank) }
             }
@@ -535,9 +536,10 @@ class ChartTileRenderer: MKOverlayRenderer {
         }
     }
 
-    /// How soon `tile` is wanted (lower sooner), nil when no longer. MapKit asks for about three screens' width around
-    /// the one in view: on screen first, the coarse before the sharp, nearest the middle first; then the rest, nearest
-    /// first, which a pan or the aircraft moving on brings in.
+    /// How soon `tile` is wanted (lower sooner), nil when no longer, infinity for later. MapKit asks for about three
+    /// screens' width around the one in view: on screen first, the coarse before the sharp, nearest the middle first;
+    /// then the tiles within a quarter of a screen of it, which a pan or the aircraft moving on brings in; the rest
+    /// waits until the map comes near it (about two thirds of what MapKit asks for, never fetched on a map that stays).
     /// A tile of the zoom next to the one in view (MapKit passing through it, the camera settling) comes after all of it.
     func urgency(of tile: ChartTile, coarse: Bool) -> Double? {
         let (wanted, visible) = state.withLock { state -> (Int?, MKMapRect?) in
@@ -550,10 +552,14 @@ class ChartTileRenderer: MKOverlayRenderer {
         return other + Self.urgency(of: tile.mapRect, coarse: coarse, visible: visible)
     }
 
+    /// How far off the screen tiles are fetched before the map comes near them: a quarter of its size.
+    static let marginShare = 0.25
+
     nonisolated static func urgency(of rect: MKMapRect, coarse: Bool, visible: MKMapRect) -> Double {
         let size = max(visible.width, visible.height)
         let gap = hypot(max(0, max(visible.minX - rect.maxX, rect.minX - visible.maxX)),
                         max(0, max(visible.minY - rect.maxY, rect.minY - visible.maxY))) / size
+        guard gap <= marginShare else { return .infinity }
         let centre = hypot(rect.midX - visible.midX, rect.midY - visible.midY) / size
         return (gap > 0 ? 10 + gap * 10 : 0) + (coarse ? 0 : 1) + centre * 0.1
     }

@@ -4489,7 +4489,9 @@ struct MapSheet: View {
     @State private var showCacheInfo = false
 
     /// Aeronautical first: the chart a VFR pilot navigates on, then the swisstopo maps, then Apple's.
-    private static let baseCharts: [MapLayerType] = [.icao, .landeskarten, .swissimage, .satellite, .standard]
+    /// The route builder's order: the charts, the National Map, SWISSIMAGE, then Apple's maps (the author's device
+    /// check mp-1, 6.4.2).
+    private static let baseCharts: [MapLayerType] = [.icao, .landeskarten, .swissimage, .standard, .satellite]
 
     var body: some View {
         NavigationStack {
@@ -4556,16 +4558,11 @@ struct MapSheet: View {
                     .font(.aero(size: 20))
                     .foregroundColor(selected ? theme.action : theme.textSecondary)
                     .frame(width: 32)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Self.name(of: layer))
-                        .font(.aero(size: CockpitType.label, weight: selected ? .bold : .medium))
-                        .foregroundColor(theme.textPrimary)
-                    if layer == .icao && !appState.settings.forceICAOChartLayer {
-                        Text(L10n.MapLayer.icaoHint)
-                            .font(.aero(size: 15))
-                            .foregroundColor(theme.textSecondary)
-                    }
-                }
+                // The ICAO chart with the glider chart it gives way to, in its name: "ICAO chart/Glider map", no
+                // line under it (the author's device check mp-1, 6.4.2). The ICAO chart alone when forced.
+                Text(layer == .icao && !appState.settings.forceICAOChartLayer ? L10n.MapLayer.icaoGlider : Self.name(of: layer))
+                    .font(.aero(size: CockpitType.label, weight: selected ? .bold : .medium))
+                    .foregroundColor(theme.textPrimary)
                 Spacer()
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.aero(size: 24))

@@ -836,24 +836,38 @@ final class CockpitRadio {
     enum NextTap {
         /// Switched, or the LISTEN heard: offered back.
         case taken(Taken)
-        /// A second tap within `doubleTapInterval` of a switch: nothing, so a bounce in turbulence never takes
-        /// the call after it too.
+        /// Nothing: a second tap within `doubleTapInterval` of a switch (a bounce in turbulence never takes the call
+        /// after it too), a tap within `autoSwitchGrace` of the app's own switch (NEXT changed under the finger:
+        /// the tap was for the call the app just took), or nothing NEXT.
         case ignored
-        /// Off a route's timeline, or nothing NEXT: the band opens ROUTE, as before 6.4.3.
+        /// Off a route's timeline: the band opens ROUTE, as before 6.4.3.
         case offTimeline
     }
 
     /// A tap this soon after a switch from NEXT is the same tap.
     nonisolated static let doubleTapInterval: TimeInterval = 1
+    /// A tap this soon after the app's own switch was meant for the call it took (the late-tap replay of dr-3 took
+    /// Geneva Info, past LSGC TWR, the app having switched as the finger came down).
+    nonisolated static let autoSwitchGrace: TimeInterval = 2
     @ObservationIgnored private var lastNextTapAt: Date?
+    @ObservationIgnored private var lastAutoSwitchAt: Date?
 
-    /// A tap on NEXT, `doubleTapInterval` after the last switch from it at the earliest.
-    func tapNext(at time: Date = FlightClock.now) -> NextTap {
-        if let last = lastNextTapAt, time.timeIntervalSince(last) < Self.doubleTapInterval, time >= last {
+    /// Pilot's seconds from `date` to `time` (a test's), or to now on the flight's clock, whatever pace it runs at.
+    private static func seconds(since date: Date, to time: Date?) -> TimeInterval {
+        time.map { $0.timeIntervalSince(date) } ?? FlightClock.pilotSeconds(since: date)
+    }
+
+    /// A tap on NEXT. `time`: a test's; nil, now.
+    func tapNext(at time: Date? = nil) -> NextTap {
+        if let last = lastNextTapAt, (0..<Self.doubleTapInterval).contains(Self.seconds(since: last, to: time)) {
             return .ignored
         }
-        guard let taken = switchToNext() else { return .offTimeline }
-        lastNextTapAt = time
+        if let last = lastAutoSwitchAt, (0..<Self.autoSwitchGrace).contains(Self.seconds(since: last, to: time)) {
+            return .ignored
+        }
+        guard readHandover() != nil else { return .offTimeline }
+        guard let taken = switchToNext() else { return .ignored }
+        lastNextTapAt = time ?? FlightClock.now
         return .taken(taken)
     }
 
@@ -865,19 +879,19 @@ final class CockpitRadio {
     /// A tap on NEXT on the Companion iPhone, by the frequency it showed there: the iPad's own tap, offered back
     /// here too, while NEXT is still that frequency. (6.4.3, q9 B)
     @discardableResult
-    func tapNext(fromPhone frequency: String, at time: Date = FlightClock.now) -> Bool {
+    func tapNext(fromPhone frequency: String, at time: Date? = nil) -> Bool {
         guard let next, RadioTimeline.Station.isSameFrequency(next.freq, frequency),
               case .taken(let taken) = tapNext(at: time) else { return false }
-        phoneSwitch = (frequency, handover, taken.undo, time)
+        phoneSwitch = (frequency, handover, taken.undo, time ?? FlightClock.now)
         onTaken(taken)
         return true
     }
 
     /// The phone's UNDO: its own last switch, within UNDO's window, while nothing changed since.
     @discardableResult
-    func undoPhoneSwitch(_ frequency: String, at time: Date = FlightClock.now) -> Bool {
+    func undoPhoneSwitch(_ frequency: String, at time: Date? = nil) -> Bool {
         guard let last = phoneSwitch, last.frequency == frequency, last.after == handover,
-              time.timeIntervalSince(last.at) <= UndoOfferRule.window else { return false }
+              Self.seconds(since: last.at, to: time) <= UndoOfferRule.window else { return false }
         phoneSwitch = nil
         last.undo()
         return true
@@ -956,6 +970,7 @@ final class CockpitRadio {
             handover = advanced
             onHandover(advanced)
             if let switched = result.switched {
+                lastAutoSwitchAt = FlightClock.now
                 let name = PhaseFrequencyPlanner.entry(switched.to, kind: advanced.kind).station
                 // Undone, it stays NEXT, due, until the pilot switches: the app doesn't switch again.
                 onSwitched(L10n.Read.switchedAutomatically(name)) { [weak self] in

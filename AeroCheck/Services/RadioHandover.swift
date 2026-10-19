@@ -71,6 +71,10 @@ struct RadioHandover: Codable, Equatable {
 
     /// A LISTEN heard is this close to the one in NEXT: the same window, whatever the speed did to its end since.
     static let heardMatchNM = 1.0
+    /// The app's own switch never goes to an Info whose stretch is shorter than this at the ground speed: the pilot
+    /// stays where they are until the next one. Bâle Info held 20 s before LSZQ in the dr-3 replay with no tap. A
+    /// zone is always taken, however briefly crossed: its tower must be called. (6.4.3)
+    static let shortestStretch: TimeInterval = 60
 
     /// The reading at a moment, and the state after it: the app's own switch at a latest point, the first reading, a
     /// rebase. Pure.
@@ -144,7 +148,8 @@ struct RadioHandover: Codable, Equatable {
         if switched == nil,
            let latest = timeline.now(atNM: p, speedKt: v, departureOver: true, rules: .latest),
            !latest.station.hasSameFrequency(as: pilot),
-           timeline.segmentStart(at: p, speedKt: v, departureOver: true, rules: .latest) > taken {
+           timeline.segmentStart(at: p, speedKt: v, departureOver: true, rules: .latest) > taken,
+           !(latest.kind == .fis && Self.isBrief(latest.station, on: timeline, at: p, speedKt: v)) {
             state.station = latest.station
             state.kind = latest.kind
             state.takenAtNM = p
@@ -190,8 +195,11 @@ struct RadioHandover: Codable, Equatable {
                 reading.dueLeft = Self.left(from: dueStart.isFinite ? dueStart : nil, at: p, to: latest?.nm)
             }
         }
+        // From the pilot's stretch on: switched ahead (an early release, inside a zone), the station just left is
+        // behind them, not NEXT (the Grenchen replay read LSZG TWR HX in NEXT after an early tap to Zürich Info).
         if reading.next == nil,
-           let next = timeline.nextChange(from: current, after: p, speedKt: v, departureOver: true, rules: .due) {
+           let next = timeline.nextChange(from: current, after: max(p, takenNow), speedKt: v, departureOver: true,
+                                          rules: .due) {
             reading.next = next.station
             reading.nextKind = next.kind
         }
@@ -211,6 +219,17 @@ struct RadioHandover: Codable, Equatable {
         reading.nextKind = nil
         reading.nextIsListen = true
         reading.listenEndsNM = listen.ends
+    }
+
+    /// The latest rules leave `station` again within `shortestStretch` of `progress`.
+    static func isBrief(_ station: Station, on timeline: RadioTimeline, at progress: Double, speedKt: Double) -> Bool {
+        let horizon = progress + shortestStretch * max(speedKt, RadioTimeline.minimumSpeedKt) / 3600
+        for point in timeline.changePoints(speedKt: speedKt, departureOver: true, rules: .latest)
+        where point > progress && point <= horizon {
+            let after = timeline.now(atNM: point + 1e-6, speedKt: speedKt, departureOver: true, rules: .latest)
+            if !(after?.station.hasSameFrequency(as: station) ?? false) { return true }
+        }
+        return false
     }
 
     /// The share still to go between where NEXT came due (`from`, else now) and the latest point (`to`).

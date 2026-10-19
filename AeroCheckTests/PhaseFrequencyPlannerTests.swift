@@ -815,6 +815,9 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         fly(7.27)   // 11 NM out, no tap: the app leaves the field by itself
         XCTAssertEqual(reported, [L10n.Read.switchedAutomatically("Geneva Info")])
         XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(radio.tapNext(at: Date()).isIgnored, true,
+                       "NEXT changed under the finger: the tap was for the call the app took")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
         undoReported?()
         XCTAssertEqual(radio.now?.station, "LSXA AFIS")
         XCTAssertEqual(radio.next?.station, "Geneva Info")
@@ -888,6 +891,19 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                                                from: JSONEncoder().encode(CompanionCommand.switchRadio(frequency: "120.105")))
         guard case .switchRadio(let frequency) = command else { return XCTFail("the switch on the wire") }
         XCTAssertEqual(frequency, "120.105")
+    }
+
+    /// On the timeline with nothing NEXT (the destination's tower NOW, its ATIS behind), a tap on NEXT does nothing.
+    func testATapOnAnEmptyNextDoesNothing() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        let plan = Self.timelineRoute(next: 4)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        radio.update(position: .init(latitude: 47.0, longitude: 8.19), plan: plan,
+                     situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
+        XCTAssertTrue(radio.onTimeline)
+        XCTAssertNil(radio.next?.freq)
+        XCTAssertEqual(radio.tapNext(at: Date()).isIgnored, true)
     }
 
     /// Off a route's timeline the handover stays out: NEXT's tap opens ROUTE.

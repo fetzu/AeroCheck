@@ -336,6 +336,44 @@ final class RadioHandoverTests: XCTestCase {
         XCTAssertEqual(read(&handover, t, at: d - lead + 0.1).switched?.to.callSign, "LSXB TWR")
     }
 
+    /// An early release inside the departure's own zone: the FIS is NOW, and NEXT is what comes after it, never the
+    /// field just left (the Grenchen replay read LSZG TWR HX in NEXT after an early tap to Zürich Info).
+    func testAnEarlyTapInsideAZoneLooksPastIt() {
+        let own = ctr(6.9...7.1, name: "CTR XA", frequency: ("122.050", "XA TOWER"))
+        let t = timeline([own])
+        var handover = RadioHandover()
+        read(&handover, t, at: 0, departureOver: false)
+        tapNext(&handover, t, at: 2)
+        XCTAssertEqual(handover.station, geneva)
+        let after = read(&handover, t, at: 2.1).reading
+        XCTAssertEqual(after.now?.station, geneva)
+        XCTAssertEqual(after.next, zurich)
+        XCTAssertFalse(after.nextIsDue)
+    }
+
+    /// The app never switches to a stretch under a minute: a FIS boundary 0.4 NM before the destination's latest
+    /// point is passed by, and the app goes from Geneva Info to the destination in one switch (Bâle Info held 20 s
+    /// before LSZQ in the dr-3 replay with no tap).
+    func testTheAppSkipsAStretchUnderAMinute() {
+        var wps = waypoints()
+        wps[3].aerodromeICAO = "LSXB"
+        let tower = Station(frequency: "118.125", callSign: "LSXB TWR")
+        let t = RouteRadioPlanner.plan(.init(
+            waypoints: wps, airspaces: [],
+            departure: RouteRadioPlanner.Aerodrome(ident: "LSXA", contact: lsxa, atis: nil, ground: nil),
+            destination: RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: tower, atis: nil, ground: nil),
+            fis: { [geneva, zurich] point in point.longitude < 7.87 ? geneva : zurich })).timeline
+        let boundary = t.calls.first { $0.kind == .fis && $0.station == zurich }!.fromNM
+        let latest = t.waypointNM[3] - RadioTimeline.pointLatestLead * 100 / 3600
+        XCTAssertLessThan(latest - boundary, 1.0, "the fixture: Zürich Info's stretch under 1.67 NM")
+        var handover = onGeneva(t)
+        for nm in stride(from: 10.0, through: boundary - 0.1, by: 1) { XCTAssertNil(read(&handover, t, at: nm).switched) }
+        let passed = read(&handover, t, at: boundary + 0.1)
+        XCTAssertNil(passed.switched, "Zürich Info's stretch is too short")
+        XCTAssertEqual(passed.reading.now?.station, geneva)
+        XCTAssertEqual(read(&handover, t, at: latest + 0.1).switched, RadioHandover.Switch(from: geneva, to: tower))
+    }
+
     /// The app's own switch undone: the pilot stays on the FIS, the tower stays due in NEXT without the line, and the
     /// app doesn't switch again; the pilot's tap takes it.
     func testAnUndoneSwitchStaysDueAndIsNotMadeAgain() {

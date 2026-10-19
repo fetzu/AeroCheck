@@ -359,19 +359,23 @@ extension RadioTimeline {
 
         // Each stretch of each zone at the planned altitude. An aerodrome's own zone on its frequency is called by
         // the aerodrome's name, on the zone's channel: "LSZG TWR HX 120.105" from the ground to the CTR's exit,
-        // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came.
+        // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came. Since 6.4.2's device checks an
+        // aerodrome on the way too: "GRENCHEN TWR HX" was too wide for NOW and showed no name at all (zn-3).
         var zoneCalls: [Call] = []
-        let aerodromes = [(departure, waypoints[0].coordinate), (destination, waypoints[waypoints.count - 1].coordinate)]
+        var aerodromes: [(contact: Station, at: CLLocationCoordinate2D)] = fieldsNearby.map { ($0.contact, $0.coordinate) }
+        if let contact = destination?.contact { aerodromes.insert((contact, waypoints[waypoints.count - 1].coordinate), at: 0) }
+        if let contact = departure?.contact { aerodromes.insert((contact, waypoints[0].coordinate), at: 0) }
+        func named(_ zone: Zone) -> Station {
+            guard RouteRadioPlanner.isAerodromeZone(zone.airspace),
+                  let contact = aerodromes.first(where: {
+                      $0.contact.hasSameFrequency(as: zone.station) && zone.airspace.containsPoint($0.at)
+                  })?.contact else { return zone.station }
+            return Station(frequency: Station.preferredName(zone.station.frequency, contact.frequency),
+                           callSign: contact.callSign, isHX: zone.station.isHX)
+        }
         for zone in zones {
             let viaFIS = RouteRadioPlanner.isClearedByFIS(zone.airspace, station: zone.station)
-            var station = zone.station
-            if RouteRadioPlanner.isAerodromeZone(zone.airspace),
-               let contact = aerodromes.first(where: { end in
-                   end.0?.contact?.hasSameFrequency(as: zone.station) == true && zone.airspace.containsPoint(end.1)
-               })?.0?.contact {
-                station = Station(frequency: Station.preferredName(zone.station.frequency, contact.frequency),
-                                  callSign: contact.callSign, isHX: zone.station.isHX)
-            }
+            let station = named(zone)
             for run in runs(zone.inside) {
                 let from = run.lowerBound == 0 ? 0 : samples[run.lowerBound].d
                 let to = run.upperBound + 1 < samples.count ? samples[run.upperBound + 1].d : .infinity
@@ -383,7 +387,7 @@ extension RadioTimeline {
         timeline.calls += merged(zoneCalls)
         for zone in possible {
             guard let run = runs(zone.inside).first else { continue }
-            timeline.possible.append(Call(station: zone.station, kind: .unit, fromNM: samples[run.lowerBound].d,
+            timeline.possible.append(Call(station: named(zone), kind: .unit, fromNM: samples[run.lowerBound].d,
                                           toNM: run.upperBound + 1 < samples.count ? samples[run.upperBound + 1].d : .infinity,
                                           lead: zoneLead))
         }

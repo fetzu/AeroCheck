@@ -225,6 +225,24 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: zone.fromNM).now?.station.callSign, "ALPHA TWR")
     }
 
+    /// A CTR crossed on the way is called by the aerodrome inside it, on its 8.33 kHz name: "GRENCHEN TWR HX"
+    /// was too wide for NOW, which showed no name at all (the author's device check zn-3, 19 Oct 2026).
+    func testAZoneOnTheWayIsCalledByItsAerodrome() {
+        let inside = RadioTimeline.NearbyField(ident: "LSXC", coordinate: .init(latitude: 47.05, longitude: 7.45),
+                                               contact: Station(frequency: "130.155", callSign: "LSXC TWR"))
+        let t = timeline([alphaCTR("CTR ALPHA (HX)")], fields: [inside])
+        let zone = t.calls.first { $0.kind == .unit }!
+        let now = read(t, at: zone.fromNM).now?.station
+        XCTAssertEqual(now?.callSign, "LSXC TWR")
+        XCTAssertEqual(now?.frequency, "130.155")
+        XCTAssertEqual(now?.isHX, true)
+        XCTAssertFalse(t.listens.contains { $0.station.callSign == "LSXC TWR" }, "in a zone, never a field on the way")
+        // An aerodrome on another frequency leaves the zone its own name.
+        let other = RadioTimeline.NearbyField(ident: "LSXC", coordinate: inside.coordinate,
+                                              contact: Station(frequency: "123.605", callSign: "LSXC A/G"))
+        XCTAssertEqual(timeline([alphaCTR()], fields: [other]).calls.first { $0.kind == .unit }?.station.callSign, "ALPHA TWR")
+    }
+
     /// TMA GENEVA: the clearance comes from Geneva Information. NOW stays the Info, named with the TMA from
     /// 10 min before.
     func testATMAClearedByTheFISKeepsTheInfoWithTheTMABeside() {

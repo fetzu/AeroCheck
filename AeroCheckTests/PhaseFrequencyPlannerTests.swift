@@ -833,6 +833,63 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertFalse(CockpitRadio.picks(.emergency))
     }
 
+    /// The Companion iPhone's tap (6.4.3, q9 B): the iPad switches while its NEXT is still the frequency the phone
+    /// showed, and offers it back there too; a tap for another does nothing; the phone's UNDO takes back that switch
+    /// only, once, within its six seconds.
+    func testThePhoneSwitchesByTheFrequencyItShowed() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var offered: [String] = []
+        radio.onTaken = { offered.append($0.message) }
+        let plan = Self.timelineRoute(next: 1)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        func fly(_ longitude: Double, departureOver: Bool = true) {
+            radio.update(position: .init(latitude: 47.0, longitude: longitude), plan: plan,
+                         situation: .init(groundSpeedKt: 100, departureOver: departureOver), sources: Self.empty.sources)
+        }
+        fly(7.0, departureOver: false)
+        fly(7.05)
+        let t = Date()
+        XCTAssertFalse(radio.tapNext(fromPhone: "124.700", at: t), "NEXT is Geneva Info: a late tap does nothing")
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+        XCTAssertTrue(radio.tapNext(fromPhone: "126.35", at: t), "the same frequency, however it is written")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(offered, [L10n.Read.switched("Geneva Info")], "offered back on the iPad too")
+        XCTAssertFalse(radio.undoPhoneSwitch("124.700", at: t.addingTimeInterval(1)), "another switch's UNDO")
+        XCTAssertTrue(radio.undoPhoneSwitch("126.35", at: t.addingTimeInterval(2)))
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+        XCTAssertFalse(radio.undoPhoneSwitch("126.35", at: t.addingTimeInterval(3)), "once")
+
+        let later = t.addingTimeInterval(10)
+        XCTAssertTrue(radio.tapNext(fromPhone: "126.350", at: later))
+        XCTAssertFalse(radio.undoPhoneSwitch("126.350", at: later.addingTimeInterval(UndoOfferRule.window + 1)),
+                       "past UNDO's six seconds")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+    }
+
+    /// The due state reaches the Companion iPhone and the Watch, the share kept to 0...1 whatever the wire says;
+    /// an older iPad sends neither, nor the switch. (6.4.3)
+    func testTheDueStateReachesThePhoneAndTheWatch() throws {
+        let item = PhaseFrequency(station: "LSZG TWR HX", freq: "120.105", highlighted: true, isEmergency: false,
+                                  role: .next, due: true, dueLeft: 0.4)
+        XCTAssertEqual(item.watchInfo.due, true)
+        let read = try JSONDecoder().decode(CompanionFrequency.self, from: JSONEncoder().encode(CompanionFrequency(item)))
+        XCTAssertEqual(read.due, true)
+        XCTAssertEqual(read.dueLeft ?? 0, 0.4, accuracy: 1e-9)
+        let wild = try JSONDecoder().decode(CompanionFrequency.self,
+                                            from: Data(#"{"station":"X","frequency":"120.105","due":true,"dueLeft":7}"#.utf8))
+        XCTAssertEqual(wild.dueLeft, 1)
+        let older = try JSONDecoder().decode(CompanionFrequency.self, from: Data(#"{"station":"X","frequency":"120.105"}"#.utf8))
+        XCTAssertNil(older.due)
+        XCTAssertNil(older.dueLeft)
+        XCTAssertNil(try JSONDecoder().decode(CompanionFlightData.self, from: Data("{}".utf8)).radioSwitch)
+        XCTAssertEqual(try JSONDecoder().decode(CompanionFlightData.self, from: Data(#"{"radioSwitch":true}"#.utf8)).radioSwitch, true)
+        let command = try JSONDecoder().decode(CompanionCommand.self,
+                                               from: JSONEncoder().encode(CompanionCommand.switchRadio(frequency: "120.105")))
+        guard case .switchRadio(let frequency) = command else { return XCTFail("the switch on the wire") }
+        XCTAssertEqual(frequency, "120.105")
+    }
+
     /// Off a route's timeline the handover stays out: NEXT's tap opens ROUTE.
     func testWithoutATimelineNextOpensRoute() {
         let radio = CockpitRadio()

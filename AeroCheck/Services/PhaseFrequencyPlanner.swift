@@ -728,7 +728,8 @@ extension PhaseFrequency {
         let role: FrequencyRole = isEmergency ? .emergency
             : self.role == .current ? .now
             : self.role == .next ? .next : .other
-        return FrequencyInfo(name: station, frequency: freq, type: .common, role: role, listen: listen ? true : nil)
+        return FrequencyInfo(name: station, frequency: freq, type: .common, role: role, listen: listen ? true : nil,
+                             due: due ? true : nil)
     }
 
     /// Its content, for telling a new list from the last: a list is rebuilt with new ids each time.
@@ -854,6 +855,32 @@ final class CockpitRadio {
         guard let taken = switchToNext() else { return .offTimeline }
         lastNextTapAt = time
         return .taken(taken)
+    }
+
+    /// Where a switch made from the Companion iPhone is offered back on the iPad: the Cockpit's status slot.
+    @ObservationIgnored var onTaken: (Taken) -> Void = { _ in }
+    /// The phone's last switch, for its UNDO: to which frequency, the state it left, how to take it back, when.
+    @ObservationIgnored private var phoneSwitch: (frequency: String, after: RadioHandover?, undo: () -> Void, at: Date)?
+
+    /// A tap on NEXT on the Companion iPhone, by the frequency it showed there: the iPad's own tap, offered back
+    /// here too, while NEXT is still that frequency. (6.4.3, q9 B)
+    @discardableResult
+    func tapNext(fromPhone frequency: String, at time: Date = FlightClock.now) -> Bool {
+        guard let next, RadioTimeline.Station.isSameFrequency(next.freq, frequency),
+              case .taken(let taken) = tapNext(at: time) else { return false }
+        phoneSwitch = (frequency, handover, taken.undo, time)
+        onTaken(taken)
+        return true
+    }
+
+    /// The phone's UNDO: its own last switch, within UNDO's window, while nothing changed since.
+    @discardableResult
+    func undoPhoneSwitch(_ frequency: String, at time: Date = FlightClock.now) -> Bool {
+        guard let last = phoneSwitch, last.frequency == frequency, last.after == handover,
+              time.timeIntervalSince(last.at) <= UndoOfferRule.window else { return false }
+        phoneSwitch = nil
+        last.undo()
+        return true
     }
 
     /// NEXT's call becomes NOW, NEXT's LISTEN is heard. Nil off a route's timeline or with nothing NEXT.

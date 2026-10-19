@@ -949,6 +949,8 @@ struct CockpitRadioFollower: ViewModifier {
             .onChange(of: key) { _, _ in recompute() }
             // Another flight (a trip's next leg): its own handover, none yet. (6.4.3)
             .onChange(of: appState.currentFlight?.id) { _, _ in radio.resume(appState.radioHandover) }
+            // NEXT due, for the dry run's card. (6.4.3)
+            .onChange(of: radio.next?.due == true) { _, due in appState.radioNextIsDue = due }
             .onChange(of: locationManager.currentLocation) { _, location in
                 radio.noteMove(to: location?.coordinate, plan: flightPlanManager.activeFlightPlan,
                                circuits: appState.isCircuitMode, situation: situation, sources: sources)
@@ -1026,6 +1028,8 @@ struct CockpitRadioFollower: ViewModifier {
         radio.onSwitched = { message, undo in
             cockpitNav.offerUndo(message, in: manager, style: .outlined, undo: undo)
         }
+        // A switch made on the Companion iPhone, offered back here as the iPad's own.
+        radio.onTaken = { taken in cockpitNav.offerUndo(taken.message, in: manager, undo: taken.undo) }
         recompute()
         let airports = airportDataService
         let openAIP = openAIPDataService

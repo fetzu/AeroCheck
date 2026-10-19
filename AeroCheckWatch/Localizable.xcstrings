@@ -107,6 +107,24 @@
         }
       }
     },
+    "freq.due" : {
+      "comment" : "Read after a NEXT frequency the pilot is expected to switch to now.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "due"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "à contacter"
+          }
+        }
+      }
+    },
     "freq.listen" : {
       "comment" : "Frequency badge: listen only (an ATIS, an aerodrome on the way).",
       "extractionState" : "manual",

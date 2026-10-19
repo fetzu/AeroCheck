@@ -1512,7 +1512,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // master's own code.
         if debugLoopback, let flightPlanManager {
             Self.apply(command, appState: appState, flightPlanManager: flightPlanManager,
-                       airports: airportDataService)
+                       airports: airportDataService, radio: cockpitRadio)
             return
         }
         #endif
@@ -2149,14 +2149,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
 
         Self.apply(command, appState: appState, flightPlanManager: flightPlanManager,
-                   airports: airportDataService)
+                   airports: airportDataService, radio: cockpitRadio)
     }
 
     /// What a command does on the master once it is allowed: the iPad's own action, as a tap there
     /// would do it. Apart from the checks above, so the debug viewer scene and the tests run exactly
     /// this. (v6.0 review, decision 2) `airports`: this iPad's store, for a field the phone diverts to.
+    /// `radio`: the Cockpit's, for the phone's switch (6.4.3).
     static func apply(_ command: CompanionCommand, appState: AppState?, flightPlanManager: FlightPlanManager,
-                      airports: AirportDataService? = nil) {
+                      airports: AirportDataService? = nil, radio: CockpitRadio? = nil) {
         switch command {
         case .recordATO(let waypointIndex):
             flightPlanManager.recordATO(forWaypointAt: waypointIndex)
@@ -2288,6 +2289,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .newCircuit:
             guard let appState, appState.offersNewCircuit else { return }
             appState.startNewCircuit()
+
+        // NEXT tapped on the phone: the iPad's own tap, while its NEXT is still that frequency; its UNDO, of
+        // that switch only. (6.4.3)
+        case .switchRadio(let frequency):
+            guard let appState, appState.isFlightActive else { return }
+            radio?.tapNext(fromPhone: frequency)
+
+        case .undoRadioSwitch(let frequency):
+            radio?.undoPhoneSwitch(frequency)
         }
     }
 
@@ -2558,7 +2568,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             timestamp: Date(),
             // The Cockpit's NOW and NEXT, the phone's NOW line. (6.2.0)
             nowFrequency: cockpitRadio?.now.map(CompanionFrequency.init),
-            nextFrequency: cockpitRadio?.next.map(CompanionFrequency.init)
+            nextFrequency: cockpitRadio?.next.map(CompanionFrequency.init),
+            // A tap on the phone's NEXT switches. (6.4.3)
+            radioSwitch: cockpitRadio?.onTimeline == true ? true : nil
         )
     }
 
@@ -2720,6 +2732,7 @@ extension GPSSignalStatus: CustomStringConvertible {
 extension CompanionFrequency {
     /// NOW or NEXT as the Cockpit's radio has it.
     init(_ item: PhaseFrequency) {
-        self.init(station: item.stationWithNote, frequency: item.freq, listen: item.listen ? true : nil)
+        self.init(station: item.stationWithNote, frequency: item.freq, listen: item.listen ? true : nil,
+                  due: item.due ? true : nil, dueLeft: item.due ? item.dueLeft : nil)
     }
 }

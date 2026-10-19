@@ -908,6 +908,8 @@ class AppState {
     /// Where the pilot is on the radio timeline (the frequency handover): kept by the Cockpit's radio, saved with the
     /// flight, nil between flights. (6.4.3)
     var radioHandover: RadioHandover?
+    /// NEXT is due on the Cockpit's radio: for the dry run's card. Not saved; the Cockpit says it again. (6.4.3)
+    var radioNextIsDue = false
 
     /// The landed card, up after a full-stop landing on a flight that isn't circuits, until answered or
     /// the next take-off roll. (6.1, M4)
@@ -1659,6 +1661,7 @@ class AppState {
         fredaConfirmation = nil
         flightCues = FlightCueState()
         radioHandover = nil
+        radioNextIsDue = false
         landedCard = nil
         deferredItems = [:]
         deferredChecks = []
@@ -1739,6 +1742,7 @@ class AppState {
         fredaConfirmation = nil
         flightCues = FlightCueState()
         radioHandover = nil
+        radioNextIsDue = false
         landedCard = nil
         deferredItems = [:]
         deferredChecks = []
@@ -1766,6 +1770,7 @@ class AppState {
         fredaConfirmation = nil
         flightCues = FlightCueState()
         radioHandover = nil
+        radioNextIsDue = false
         landedCard = nil
         currentFlight = nil
         flightAircraft = nil

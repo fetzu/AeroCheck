@@ -90,6 +90,8 @@ enum WatchText {
                                  comment: "Frequency badge and row: the next station.")
     static let freqListen = String(localized: "freq.listen", defaultValue: "LISTEN",
                                    comment: "Frequency badge: listen only (an ATIS, an aerodrome on the way).")
+    static let freqDue = String(localized: "freq.due", defaultValue: "due",
+                                comment: "Read after a NEXT frequency the pilot is expected to switch to now.")
     static let localTime = String(localized: "LOCAL", comment: "Under the clock when it shows local time, not UTC.")
 }
 
@@ -439,7 +441,8 @@ struct FrequencyRow: View {
     }
 }
 
-/// A row mirroring the phone FREQ panel: optional NOW/NEXT badge + station + frequency.
+/// A row mirroring the phone FREQ panel: optional NOW/NEXT badge + station + frequency. A due NEXT is
+/// outlined, as on the iPad; the Watch only shows it (the switch is the iPad's or the phone's). (6.4.3)
 struct FreqPanelRow: View {
     let freq: FrequencyInfo
 
@@ -466,6 +469,15 @@ struct FreqPanelRow: View {
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundColor(accent)
         }
+        .overlay {
+            if freq.role == .next, freq.due == true {
+                RoundedRectangle(cornerRadius: 6).strokeBorder(Color.altimeterBlue, lineWidth: 1.5)
+                    .padding(.horizontal, -4)
+                    .padding(.vertical, -2)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(freq.role == .next && freq.due == true ? WatchText.freqDue : "")
     }
 
     private func badge(_ text: String, _ color: Color) -> some View {

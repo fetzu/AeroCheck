@@ -6857,6 +6857,57 @@
         }
       }
     },
+    "dryRunCoach.step.radioDue.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed frequency? Tap NEXT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changé de fréquence ? Touchez SUIV"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.radioDue.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEXT is outlined: it is time to change to it, and the line along its foot runs out where the app changes by itself. When you change frequency, tap NEXT (on a phone, the NOW line) and it becomes NOW. Undo takes it back."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SUIV est encadré : c'est le moment d'y passer, et la ligne à son pied s'épuise jusqu'à l'endroit où l'app change d'elle-même. Quand vous changez de fréquence, touchez SUIV (sur un téléphone, la ligne ACT) et il devient ACT. Annuler revient en arrière."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.radioDue.fold": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap NEXT when you change frequency."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez SUIV en changeant de fréquence."
+          }
+        }
+      }
+    },
     "dryRunCoach.step.legControls.title": {
       "extractionState": "manual",
       "localizations": {

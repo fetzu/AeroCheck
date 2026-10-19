@@ -385,13 +385,13 @@ enum ChartAvailability {
 
     /// The chart on screen, as the map picks it (`mapContent`, `ICAOSegelflugkarteTileOverlay.layerInfo`):
     /// strict mode draws the ICAO layer whatever was picked; the ICAO layer turns to the glider chart
-    /// above zoom 11, unless the ICAO chart is forced (the setting, or strict mode without a glider cache).
+    /// from zoom 11 (`ICAOSegelflugkarteTileOverlay.gliderMinZoom`, 6.4.2), unless the ICAO chart is forced (the setting, or strict mode without a glider cache).
     static func chartOnScreen(_ input: Input) -> Chart {
         let strict = isStrictOffline(input)
         let layer = strict ? MapLayerType.icao : input.selectedLayer
         guard layer == .icao else { return .uncached(layer) }
         let forceICAO = input.forceICAOChartLayer || (strict && !input.gliderCached)
-        return !forceICAO && input.zoom > CacheableLayer.icao.maxZoom ? .glider : .icao
+        return !forceICAO && input.zoom >= ICAOSegelflugkarteTileOverlay.gliderMinZoom ? .glider : .icao
     }
 
     /// Whether the offline cache can draw the chart on screen: that chart cached, the zoom in its
@@ -413,9 +413,10 @@ enum ChartAvailability {
     }
 
     /// The map's zoom level from its region's latitude span, as `NavigationMapView.estimatedZoomLevel`
-    /// takes it: the world is 360° at zoom 0, each level halves it.
+    /// takes it: the world is 360° at zoom 0, each level halves it. No span yet: the ICAO chart's closest zoom
+    /// (11 until the glider chart came from there, 6.4.2).
     static func zoom(latitudeDelta: Double) -> Int {
-        guard latitudeDelta > 0, latitudeDelta.isFinite else { return 11 }
+        guard latitudeDelta > 0, latitudeDelta.isFinite else { return ICAOSegelflugkarteTileOverlay.gliderMinZoom - 1 }
         return Int(log2(360.0 / latitudeDelta).rounded())
     }
 

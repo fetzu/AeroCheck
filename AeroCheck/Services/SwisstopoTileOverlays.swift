@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import MapKit
 import os
 
@@ -49,17 +50,40 @@ enum SwisstopoTiles {
     }
 
     /// `MKTileOverlay.loadTile` for a network tile: the data of a 200, nil for any other status, the
-    /// error when it fails, as the ICAO overlay's own `URLSession` task answered before.
-    static func load(_ url: URL, session: URLSession = ExternalRequest.session,
+    /// error when it fails, as the ICAO overlay's own `URLSession` task answered before. `dropsBlank`:
+    /// nil for a plain white tile too (`isBlank`).
+    static func load(_ url: URL, session: URLSession = ExternalRequest.session, dropsBlank: Bool = false,
                      result: @escaping (Data?, Error?) -> Void) {
         Task {
             do {
                 let (data, response) = try await fetch(url, session: session)
-                result(response.statusCode == 200 ? data : nil, nil)
+                result(response.statusCode == 200 && !(dropsBlank && isBlank(data)) ? data : nil, nil)
             } catch {
                 result(nil, error)
             }
         }
+    }
+
+    /// Outside Switzerland, past its small scales, the National Map's server answers a plain white JPEG
+    /// (668 bytes, measured 19 Oct 2026 at Lyon and Besançon, z12 to z17), where the charts answer a
+    /// transparent PNG and both answer 400 further out. Taken as no tile, so Apple's map shows through
+    /// (the route builder, 6.4.2). A tile that small and white everywhere; any drawing is larger.
+    static let blankTileMaxBytes = 2_048
+
+    static func isBlank(_ data: Data) -> Bool {
+        guard data.count <= blankTileMaxBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return false }
+        let side = 8
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                          bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        return drawn && pixels.allSatisfy { $0 >= 250 }
     }
 }
 
@@ -198,8 +222,9 @@ protocol LateTileRedrawing: MKTileOverlay {
 // MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)
 
 /// Custom tile overlay for Swiss ICAO aeronautical chart with seamless Segelflugkarte switching
-/// - ICAO Chart (ch.bazl.luftfahrtkarten-icao): zoom 7-11, scale 1:500,000
+/// - ICAO Chart (ch.bazl.luftfahrtkarten-icao): zoom 7-10, scale 1:500,000 (7-11 when forced)
 /// - Segelflugkarte (ch.bazl.segelflugkarte): zoom 11-12, scale 1:300,000
+/// - With `continuesToNationalMap` (the route builder), the National Map from zoom 13 to 18
 /// When forceICAO is true, always use ICAO layer even at higher zoom levels
 /// When offlineMapManager is provided, use cached tiles from disk (cache-first in online mode)
 /// When isStrictOfflineMode is true, only use cached tiles (no network requests)
@@ -214,19 +239,33 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
     /// The session network tiles come over; a stub in tests.
     var tileSession = ExternalRequest.session
 
+    /// Past the glider chart's last zoom, the National Map (the route builder's chart). (6.4.2)
+    let continuesToNationalMap: Bool
+
     // Zoom level where we switch from ICAO to Segelflugkarte
-    // ICAO: zoom 7-11 (1:500,000)
+    // ICAO: zoom 7-11 (1:500,000), 7-10 unless forced
     // Segelflugkarte: zoom 11-12 (1:300,000) - swisstopo only provides up to zoom 12
     private let icaoMinZoom = 7
     private let icaoMaxZoom = 11
-    private let segelflugkarteMinZoom = 11
+    private let segelflugkarteMinZoom = ICAOSegelflugkarteTileOverlay.gliderMinZoom
     private let segelflugkarteMaxZoom = 12
 
-    init(forceICAO: Bool = false, offlineMapManager: OfflineMapManager? = nil, isStrictOfflineMode: Bool = false, hasSegelflugCache: Bool = false) {
+    /// The glider chart from this zoom: its 1:300,000 at z11 is sharper than the 1:500,000 ICAO chart enlarged
+    /// to it, and both are cached there (`CacheableLayer`). Until 6.4.2 from z12, which the maps' closest zoom
+    /// seldom reached: the author never saw the glider chart in the route builder or the Cockpit's MAP (device
+    /// check, 19 Oct 2026). CHART OFFLINE reads the same (`ChartAvailability`).
+    static let gliderMinZoom = 11
+    /// The National Map after the glider chart, with `continuesToNationalMap`. (6.4.2)
+    static let nationalMapMinZoom = 13
+    static let nationalMapLayerIdentifier = "ch.swisstopo.pixelkarte-farbe"
+
+    init(forceICAO: Bool = false, offlineMapManager: OfflineMapManager? = nil, isStrictOfflineMode: Bool = false,
+         hasSegelflugCache: Bool = false, continuesToNationalMap: Bool = false) {
         self.forceICAO = forceICAO
         self.offlineMapManager = offlineMapManager
         self.isStrictOfflineMode = isStrictOfflineMode
         self.hasSegelflugCache = hasSegelflugCache
+        self.continuesToNationalMap = continuesToNationalMap && !forceICAO && !isStrictOfflineMode
         // Use a placeholder URL template - we override loadTile(at:result:) for cache-first loading
         let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
@@ -242,16 +281,20 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
         } else if isStrictOfflineMode {
             self.maximumZ = hasSegelflugCache ? segelflugkarteMaxZoom : icaoMaxZoom
         } else {
-            self.maximumZ = segelflugkarteMaxZoom
+            self.maximumZ = self.continuesToNationalMap ? 18 : segelflugkarteMaxZoom
         }
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
         // This is called as fallback - loadTile handles cache-first logic
         let (layerIdentifier, finalZ) = layerInfo(for: path)
-        return SwisstopoTiles.url(layer: layerIdentifier, z: finalZ, x: path.x, y: path.y, fileExtension: "png")
+        return SwisstopoTiles.url(layer: layerIdentifier, z: finalZ, x: path.x, y: path.y,
+                                  fileExtension: Self.fileExtension(of: layerIdentifier))
             ?? URL(string: "about:blank")!
     }
+
+    /// The charts are PNG, the National Map JPEG.
+    private static func fileExtension(of layer: String) -> String { layer == nationalMapLayerIdentifier ? "jpeg" : "png" }
 
     /// Override loadTile to implement cache-first loading strategy
     /// This provides instant loading from cache while falling back to network when needed
@@ -263,8 +306,8 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
         // Determine if this tile should come from ICAO or Segelflug based on the layer
         let isICAOTile = layerIdentifier == icaoLayerIdentifier
 
-        // Try cache first when we have a cache manager
-        if let manager = offlineMapManager {
+        // Try cache first when we have a cache manager (the charts; the National Map isn't cached)
+        if let manager = offlineMapManager, layerIdentifier != Self.nationalMapLayerIdentifier {
             if isICAOTile {
                 // Check for cached ICAO tile
                 if let cachedURL = manager.cachedTileURL(z: finalZ, x: path.x, y: path.y, layer: .icao),
@@ -292,13 +335,16 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
 
         // Cache miss - fetch from network, through ExternalRequest (cap, timeout, host allow-list).
         // This was a bare URLSession.shared dataTask with none of them.
+        let isNationalMap = layerIdentifier == Self.nationalMapLayerIdentifier
         guard let url = SwisstopoTiles.url(layer: layerIdentifier, z: finalZ, x: path.x, y: path.y,
-                                           fileExtension: "png") else {
+                                           fileExtension: Self.fileExtension(of: layerIdentifier)) else {
             result(nil, nil)
             return
         }
-        // MapKit may drop a tile that arrives this late: redraw after the burst. (6.1.0)
-        SwisstopoTiles.load(url, session: tileSession, result: redraw.handingOver(result, answering: answersRedraw))
+        // MapKit may drop a tile that arrives this late: redraw after the burst. (6.1.0) The National Map's white
+        // tiles outside Switzerland are none, for Apple's map to show through. (6.4.2)
+        SwisstopoTiles.load(url, session: tileSession, dropsBlank: isNationalMap,
+                            result: redraw.handingOver(result, answering: answersRedraw))
     }
 
     /// Determine which layer and zoom to use for a given tile path
@@ -316,10 +362,12 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
         } else {
             // Seamless switching between ICAO and Segelflugkarte
             // Works in both online mode and offline mode with both caches
-            if z <= icaoMaxZoom {
+            if z < segelflugkarteMinZoom {
                 // Use ICAO chart for lower zoom levels
                 let finalZ = min(max(z, icaoMinZoom), icaoMaxZoom)
                 return (icaoLayerIdentifier, finalZ)
+            } else if continuesToNationalMap && z >= Self.nationalMapMinZoom {
+                return (Self.nationalMapLayerIdentifier, min(z, 18))
             } else {
                 // Use Segelflugkarte for higher zoom levels
                 let finalZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
@@ -337,13 +385,18 @@ class SwisstopoTileOverlay: MKTileOverlay, LateTileRedrawing {
     let tileExtension: String
     let validMinZoom: Int
     let validMaxZoom: Int
+    /// A plain white tile is none (`SwisstopoTiles.isBlank`): the National Map's outside Switzerland, where the
+    /// route builder shows Apple's map instead. (6.4.2)
+    let dropsBlankTiles: Bool
     let redraw = LateTileRedraw()
     /// The session tiles come over; a stub in tests.
     var tileSession = ExternalRequest.session
 
-    init(layerIdentifier: String, tileExtension: String = "png", minimumZ: Int = 7, maximumZ: Int = 18) {
+    init(layerIdentifier: String, tileExtension: String = "png", minimumZ: Int = 7, maximumZ: Int = 18,
+         dropsBlankTiles: Bool = false) {
         self.layerIdentifier = layerIdentifier
         self.tileExtension = tileExtension
+        self.dropsBlankTiles = dropsBlankTiles
         self.validMinZoom = minimumZ
         self.validMaxZoom = maximumZ
 
@@ -371,7 +424,7 @@ class SwisstopoTileOverlay: MKTileOverlay, LateTileRedrawing {
     /// which had no size cap. Same URL, same tile. (6.1) MapKit may drop it on arrival, as it does the
     /// ICAO chart's: redraw after the burst. (6.1.0)
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
-        SwisstopoTiles.load(url(forTilePath: path), session: tileSession,
+        SwisstopoTiles.load(url(forTilePath: path), session: tileSession, dropsBlank: dropsBlankTiles,
                             result: redraw.handingOver(result, answering: redraw.tileAsked()))
     }
 }

@@ -855,7 +855,7 @@ struct FlightPlanMapBuilderView: View {
         Menu {
             Picker("Map layer", selection: $selectedLayer) {
                 ForEach(WaypointPickerMapLayer.allCases) { layer in
-                    Label(layer.rawValue, systemImage: layer.icon).tag(layer)
+                    Label(layer.title, systemImage: layer.icon).tag(layer)
                 }
             }
         } label: {
@@ -2308,8 +2308,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         mapView.showsUserLocation = true
         mapView.showsCompass = true
         mapView.showsScale = true
-        configureLayer(mapView)
-        mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
+        mapLayer.apply(to: mapView, atBottom: true)
+        mapView.cameraZoomRange = mapLayer.cameraZoomRange
 
         // One press-and-hold gesture drives ALL route editing: grab a waypoint to move it, grab the
         // route line to insert mid-route (both at the short grab threshold for a responsive feel), or
@@ -2333,8 +2333,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         if context.coordinator.isDragging { return }
         if context.coordinator.currentLayer != mapLayer {
             context.coordinator.currentLayer = mapLayer
-            configureLayer(mapView)
-            mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
+            mapLayer.apply(to: mapView, atBottom: true)
+            mapView.cameraZoomRange = mapLayer.cameraZoomRange
         }
 
         updateAirportAnnotations(mapView, context: context)
@@ -2377,36 +2377,6 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
     // MARK: Layer
 
-    private func cameraZoomRange(for layer: WaypointPickerMapLayer) -> MKMapView.CameraZoomRange? {
-        switch layer {
-        case .apple:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)
-        case .icao:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)
-        case .swissimage:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)
-        }
-    }
-
-    private func configureLayer(_ mapView: MKMapView) {
-        let existingTiles = mapView.overlays.compactMap { $0 as? MKTileOverlay }
-        mapView.removeOverlays(existingTiles)
-
-        switch mapLayer {
-        case .apple:
-            mapView.mapType = .standard
-        case .icao:
-            mapView.mapType = .standard
-            let overlay = ICAOSegelflugkarteTileOverlay()
-            overlay.canReplaceMapContent = true
-            mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
-        case .swissimage:
-            mapView.mapType = .standard
-            let overlay = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
-            overlay.canReplaceMapContent = true
-            mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
-        }
-    }
 
     // MARK: Airports
 

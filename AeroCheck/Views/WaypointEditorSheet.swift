@@ -546,7 +546,7 @@ struct CoordinatePickerView: View {
                         Spacer()
                         Picker(L10n.Nav.layer, selection: $selectedLayer) {
                             ForEach(WaypointPickerMapLayer.allCases) { layer in
-                                Label(layer.rawValue, systemImage: layer.icon)
+                                Label(layer.title, systemImage: layer.icon)
                                     .tag(layer)
                             }
                         }

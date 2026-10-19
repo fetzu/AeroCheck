@@ -15,11 +15,13 @@ final class CockpitMapPageTests: XCTestCase {
 
     // MARK: - The chart and its chrome
 
-    /// Plan › Map, on an iPad with the ICAO chart cached: the labelled controls row (Map, North up | Track
-    /// up, Centre, zoom), CACHED, the legs toggle. None of the Cockpit's chrome.
+    /// Plan › Map, on an iPad with the charts cached: the labelled controls row (Map, North up | Track
+    /// up, Centre, zoom), CACHED, the legs toggle. None of the Cockpit's chrome. Both charts: since 6.4.2 the map
+    /// comes close enough for the glider chart, cached on its own.
     func testPlanMapKeepsEveryPieceOfItsChrome() throws {
         let services = makeServices()
         services.offlineMapManager.isCacheAvailable = true
+        services.offlineMapManager.isSegelflugCacheAvailable = true
         armRoute(services.flightPlanManager)
         let seen = accessibility(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .plan,
                                                    onShowRoutes: {}),

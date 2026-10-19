@@ -449,10 +449,9 @@ struct NavigationMapView: View {
         if appState.settings.forceICAOChartLayer {
             return true
         }
-        // Otherwise, check if current zoom is within cached ICAO range (7-11)
-        // At higher zoom levels, Segelflugkarte is used which is not cached
+        // Otherwise, the ICAO chart's zooms, or the glider chart's with its own cache (from z11 since 6.4.2)
         let currentZoom = estimatedZoomLevel
-        return currentZoom <= 11
+        return currentZoom < ICAOSegelflugkarteTileOverlay.gliderMinZoom || offlineMapManager.isSegelflugCacheAvailable
     }
 
     /// Estimate current zoom level from map region span
@@ -5077,6 +5076,9 @@ struct SwissMapView: UIViewRepresentable {
     /// Adjust minCenterCoordinateDistance to change max zoom-in level.
     /// Adjust maxCenterCoordinateDistance to change max zoom-out level.
     ///
+    /// The ICAO layer's closest camera, the glider chart in view. (6.4.2)
+    static let icaoGliderClosestDistance: CLLocationDistance = 30_000
+
     private func cameraZoomRange(for layer: MapLayerType, forceICAO: Bool) -> MKMapView.CameraZoomRange {
         // Camera zoom range uses centerCoordinateDistance (meters from camera to ground center)
         // Lower distance = more zoomed in, higher distance = more zoomed out
@@ -5106,9 +5108,11 @@ struct SwissMapView: UIViewRepresentable {
                 // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
                 return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 135_000, maxCenterCoordinateDistance: 600_000)!
             } else {
-                // ICAO + Segelflugkarte: zoom 7-12
-                // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)!
+                // ICAO + Segelflugkarte: zoom 7-12. At 65 km the map stopped about z10 to z11 and the glider chart,
+                // then from z12, never showed (the author's device check, 19 Oct 2026): 30 km reaches z12 on an
+                // iPad's map, z11 on a phone's, where the glider chart starts since 6.4.2.
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: Self.icaoGliderClosestDistance,
+                                                 maxCenterCoordinateDistance: 600_000)!
             }
 
         case .landeskarten:

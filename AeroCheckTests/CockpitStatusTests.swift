@@ -519,8 +519,8 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 360), 0)
         XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0.1), 12)
         XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0.7), 9)
-        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0), 11)
-        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: .infinity), 11)
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: 0), 10, "no span yet: the ICAO chart's closest zoom")
+        XCTAssertEqual(ChartAvailability.zoom(latitudeDelta: .infinity), 10)
         XCTAssertEqual(CockpitChartChrome.sigmetSummary(hazard("TURB", crossesRoute: true)), "TURB · " + L10n.Nav.sigmetOnRoute)
         XCTAssertEqual(CockpitChartChrome.sigmetSummary(hazard("TS", inside: true, distance: 0)), "TS · " + L10n.Nav.sigmetOverhead)
     }
@@ -595,11 +595,13 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertTrue(offline(chart(connected: false, icao: false)), "nothing downloaded")
     }
 
-    /// Above zoom 11 the ICAO layer is the glider chart, cached on its own.
+    /// From zoom 11 the ICAO layer is the glider chart, cached on its own (from z12 until 6.4.2, which the map's
+    /// closest zoom seldom reached).
     func testTheGliderChartNeedsItsOwnCache() {
-        let zoomedIn = CacheableLayer.icao.maxZoom + 1
+        let zoomedIn = ICAOSegelflugkarteTileOverlay.gliderMinZoom
+        XCTAssertEqual(zoomedIn, CacheableLayer.segelflug.minZoom, "drawn where it is cached")
         XCTAssertEqual(ChartAvailability.chartOnScreen(chart(zoom: zoomedIn)), .glider)
-        XCTAssertEqual(ChartAvailability.chartOnScreen(chart(zoom: CacheableLayer.icao.maxZoom)), .icao)
+        XCTAssertEqual(ChartAvailability.chartOnScreen(chart(zoom: zoomedIn - 1)), .icao)
         XCTAssertTrue(offline(chart(connected: false, glider: false, zoom: zoomedIn)))
         XCTAssertFalse(offline(chart(connected: false, glider: true, zoom: zoomedIn)))
         // Forced, the ICAO chart stays, and its cache covers.
@@ -608,7 +610,7 @@ final class CockpitStatusTests: XCTestCase {
 
     /// Strict mode draws the glider chart only with its cache; without it the ICAO chart is forced.
     func testStrictOfflineModeTurnsToTheGliderChartOnlyWithItsCache() {
-        let zoomedIn = CacheableLayer.icao.maxZoom + 1
+        let zoomedIn = ICAOSegelflugkarteTileOverlay.gliderMinZoom
         XCTAssertEqual(ChartAvailability.chartOnScreen(chart(offlineMode: true, glider: true, zoom: zoomedIn)), .glider)
         XCTAssertFalse(offline(chart(offlineMode: true, glider: true, zoom: zoomedIn)))
         XCTAssertEqual(ChartAvailability.chartOnScreen(chart(offlineMode: true, glider: false, zoom: zoomedIn)), .icao)

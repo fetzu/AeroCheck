@@ -479,6 +479,25 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertTrue(timeline(fields: [field("LSXB", latitude: 47.0, longitude: 8.2)]).listens.allSatisfy { $0.kind == .atis })
     }
 
+    /// An out-and-back passes an aerodrome twice: a LISTEN each way (LSPL on the Grenchen loop, the author's device
+    /// check ls-1, 19 Oct 2026, had it on the way out only).
+    func testAnAerodromePassedTwiceIsListenEachWay() {
+        var loop = FlightPlan(waypoints: [7.0, 7.6, 7.02].enumerated().map { i, lon in
+            FlightPlanWaypoint(name: ["LSXA", "TP", "LSXB"][i], coordinate: .init(latitude: 47.0, longitude: lon),
+                               altitude: i == 1 ? 5000 : 1500, plannedGroundSpeed: 100)
+        })
+        loop.calculateRouteData()
+        let noATIS = RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: destination.contact, atis: nil, ground: nil)
+        let t = timeline(waypoints: loop.waypoints, destination: .some(noATIS),
+                         fields: [field("LSXC", latitude: 47.02, longitude: 7.3)])
+        let passes = t.listens.filter { $0.kind == .fieldOnTheWay }.map(\.atNM)
+        XCTAssertEqual(passes.count, 2, passes.description)
+        XCTAssertEqual(passes.first ?? 0, t.waypointNM[1] / 2, accuracy: 1)
+        XCTAssertEqual(passes.last ?? 0, t.waypointNM[1] + (t.totalNM - t.waypointNM[1]) / 2 - 0.4, accuracy: 1.5)
+        XCTAssertEqual(read(t, at: passes.last! - 1).next?.callSign, "LSXC A/G")
+        XCTAssertTrue(read(t, at: passes.last! - 1).nextIsListen)
+    }
+
     /// The destination's ATIS and an aerodrome on the way, one after the other: the one whose window ends first,
     /// the field passed, then the ATIS (the author's device check ls-1, 19 Oct 2026: LSPL abeam on the way back to
     /// Grenchen, where the ATIS used to win and LSPL never showed). ROUTE lists both.

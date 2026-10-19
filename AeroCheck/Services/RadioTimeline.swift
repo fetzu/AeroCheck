@@ -475,11 +475,23 @@ extension RadioTimeline {
 
         // Aerodromes on the way: within 2 NM of the route, with no zone of their own, not either end, not called at
         // their reporting points.
+        // Each pass its own, abeam where it comes closest: an out-and-back passes one twice, and had it on the way
+        // out only (LSPL on the Grenchen loop, the author's device check ls-1, 19 Oct 2026).
+        var listed = Set<String>()
         for field in fieldsNearby where !ends.contains(field.ident.uppercased()) && !calledAtPoints.contains(field.ident.uppercased()) {
-            guard !airspaces.contains(where: { RouteRadioPlanner.isAerodromeZone($0) && $0.containsPoint(field.coordinate) }),
-                  let nearest = samples.min(by: { distanceNM($0.coordinate, field.coordinate) < distanceNM($1.coordinate, field.coordinate) }),
-                  distanceNM(nearest.coordinate, field.coordinate) <= fieldOnTheWayNM else { continue }
-            timeline.listens.append(Listen(station: field.contact, kind: .fieldOnTheWay, atNM: nearest.d))
+            guard listed.insert(field.ident.uppercased()).inserted,
+                  !airspaces.contains(where: { RouteRadioPlanner.isAerodromeZone($0) && $0.containsPoint(field.coordinate) })
+            else { continue }
+            var pass: [RouteRadioPlanner.Sample] = []
+            for (i, sample) in samples.enumerated() {
+                let near = distanceNM(sample.coordinate, field.coordinate) <= fieldOnTheWayNM
+                if near { pass.append(sample) }
+                guard !pass.isEmpty, !near || i == samples.count - 1 else { continue }
+                if let abeam = pass.min(by: { distanceNM($0.coordinate, field.coordinate) < distanceNM($1.coordinate, field.coordinate) }) {
+                    timeline.listens.append(Listen(station: field.contact, kind: .fieldOnTheWay, atNM: abeam.d))
+                }
+                pass = []
+            }
         }
         timeline.listens.sort { ($0.kind == .atis ? -1 : $0.atNM) < ($1.kind == .atis ? -1 : $1.atNM) }
         return timeline

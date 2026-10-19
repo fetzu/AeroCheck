@@ -51,17 +51,67 @@ enum SwisstopoTiles {
 
     /// `MKTileOverlay.loadTile` for a network tile: the data of a 200, nil for any other status, the
     /// error when it fails, as the ICAO overlay's own `URLSession` task answered before. `dropsBlank`:
-    /// nil for a plain white tile too (`isBlank`).
+    /// nil for a plain white tile too (`isBlank`). Through `gate`, newest first, and kept in `memory`.
+    ///
+    /// `stillWanted`, asked when its turn comes: false for a zoom the map has left, which isn't fetched and goes to
+    /// `passedBy` as failed (for MapKit to ask again if the map comes back to it), not through `result` and its
+    /// redraw, which would only blank the zoom in view for a frame. (6.4.2)
     static func load(_ url: URL, session: URLSession = ExternalRequest.session, dropsBlank: Bool = false,
-                     result: @escaping (Data?, Error?) -> Void) {
+                     gate: TileGate = .shared, while stillWanted: @escaping () -> Bool = { true },
+                     result: @escaping (Data?, Error?) -> Void,
+                     passedBy: ((Data?, Error?) -> Void)? = nil) {
         Task {
-            do {
-                let (data, response) = try await fetch(url, session: session)
-                result(response.statusCode == 200 && !(dropsBlank && isBlank(data)) ? data : nil, nil)
-            } catch {
-                result(nil, error)
+            guard let (tile, error) = await fetchTile(url, session: session, dropsBlank: dropsBlank, gate: gate,
+                                                      while: stillWanted) else {
+                (passedBy ?? result)(nil, URLError(.cancelled))
+                return
             }
+            result(tile, error)
         }
+    }
+
+    /// One tile through `gate`, kept in `memory`; nil when `stillWanted` said no before its turn came.
+    private static func fetchTile(_ url: URL, session: URLSession, dropsBlank: Bool, gate: TileGate,
+                                  while stillWanted: @escaping () -> Bool = { true }) async -> (Data?, Error?)? {
+        guard await gate.enter(while: stillWanted) else { return nil }
+        do {
+            let (data, response) = try await fetch(url, session: session)
+            let tile = response.statusCode == 200 && !(dropsBlank && isBlank(data)) ? data : nil
+            // A client error is for good (a tile past the layer's edge): kept as no tile, as a blank one is.
+            if response.statusCode == 200 || (400..<500).contains(response.statusCode) { remember(tile, for: url) }
+            await gate.leave()
+            return (tile, nil)
+        } catch {
+            await gate.leave()
+            return (nil, error)
+        }
+    }
+
+    // MARK: Tiles kept in memory (6.4.2)
+
+    /// The on-screen tiles fetched this session, by URL; an empty one is no tile. MapKit asks again for
+    /// tiles it already drew, or dropped on arrival, at every redraw (`LateTileRedraw`), pan or zoom back:
+    /// answered from here at once, they always draw (MapKit draws every tile handed over synchronously,
+    /// as from the offline cache). Fetched again over the network, they came in one by one, the map
+    /// showing Apple's underneath between them: the "flashing" of the author's device check mp-2.
+    static let memory: NSCache<NSURL, NSData> = {
+        let cache = NSCache<NSURL, NSData>()
+        cache.totalCostLimit = memoryBytes
+        return cache
+    }()
+
+    /// About 400 chart tiles at their median, 1,500 National Map tiles.
+    static let memoryBytes = 64 * 1024 * 1024
+
+    /// The tile kept for `url`: nil when none is kept, `.some(nil)` when it is kept as no tile.
+    static func remembered(_ url: URL) -> Data?? {
+        guard let kept = memory.object(forKey: url as NSURL) else { return nil }
+        return .some(kept.length == 0 ? nil : kept as Data)
+    }
+
+    static func remember(_ tile: Data?, for url: URL) {
+        let data = (tile ?? Data()) as NSData
+        memory.setObject(data, forKey: url as NSURL, cost: max(data.length, 64))
     }
 
     /// Outside Switzerland, past its small scales, the National Map's server answers a plain white JPEG
@@ -87,6 +137,64 @@ enum SwisstopoTiles {
     }
 }
 
+/// The zoom MapKit asked an overlay's tiles for last: where the map is now. A tile two zooms or more from it is
+/// one a pinch passed through. The next zoom up or down is not: MapKit asks for both at once between two zooms,
+/// and the first load left holes when they were passed by (the simulator, 19 Oct 2026). (6.4.2)
+final class ZoomInView: Sendable {
+    private let latest = OSAllocatedUnfairLock(initialState: -1)
+
+    /// MapKit asks for a tile at `z`.
+    func asked(_ z: Int) { latest.withLock { $0 = z } }
+
+    /// Whether `z` is within a zoom of the one asked for last.
+    func isCurrent(_ z: Int) -> Bool { latest.withLock { $0 < 0 || abs($0 - z) <= 1 } }
+}
+
+/// The on-screen tiles' network requests, `limit` at a time and the newest first. A long pinch asks MapKit for
+/// every zoom it passes through, hundreds of tiles it never takes back; in the order asked, the zoom the pinch
+/// ended at came last, after the levels it had passed, and its last tiles could time out into holes (the
+/// author's device check mp-2, 19 Oct 2026). The newest are where the map is now. (6.4.2)
+actor TileGate {
+    static let shared = TileGate(limit: 8)
+
+    let limit: Int
+    private var running = 0
+    private struct Waiter {
+        let wanted: () -> Bool
+        let resume: CheckedContinuation<Bool, Never>
+    }
+    private var waiting: [Waiter] = []
+
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    /// Waits for a place: at once under `limit`, else after every request asked since. False, without a place,
+    /// when `wanted` says no by its turn: a zoom the map has left.
+    func enter(while wanted: @escaping () -> Bool = { true }) async -> Bool {
+        if running < limit {
+            running += 1
+            return true
+        }
+        return await withCheckedContinuation { waiting.append(Waiter(wanted: wanted, resume: $0)) }
+    }
+
+    /// The place goes to the newest still wanted; the ones no longer wanted on the way are let go.
+    func leave() {
+        while let newest = waiting.popLast() {
+            if newest.wanted() {
+                newest.resume.resume(returning: true)
+                return
+            }
+            newest.resume.resume(returning: false)
+        }
+        running -= 1
+    }
+
+    /// For the tests: requests waiting.
+    var waitingCount: Int { waiting.count }
+}
+
 // MARK: - Tiles MapKit drops
 
 /// Redraws a tile overlay once tiles have come in over the network, so MapKit asks again for the
@@ -108,6 +216,12 @@ enum SwisstopoTiles {
 /// next. When a redraw gets no answer at all by `followUp`, MapKit has stopped listening (5 of 76
 /// warm-cache relaunches: the map blank, a second redraw ignored too) and `reloadData` brings the
 /// tiles back (it did, all three times it ran). `maxRedraws` per `window` is the backstop. (6.1.0)
+///
+/// The tiles a redraw asks for again come from `SwisstopoTiles.memory`, at once, and the reload comes only
+/// while MapKit has never answered a redraw: after every zoom it blanked the map for a frame, every tile at once,
+/// when nothing was missing (nothing to ask for is no answer), the second of the author's "flashes" (device check
+/// mp-2, measured on the simulator 19 Oct 2026). Repainting a burst's tiles alone (`setNeedsDisplay(_:)`) left
+/// the dropped ones holes: MapKit asks again only on a whole redraw. (6.4.2)
 @MainActor
 final class LateTileRedraw {
     /// Quiet time after the last tile before the redraw.
@@ -138,6 +252,8 @@ final class LateTileRedraw {
         var askedSince = 0
     }
     private nonisolated let ledger = OSAllocatedUnfairLock(initialState: Ledger())
+    /// MapKit answered a redraw once: it listens, and a later redraw it doesn't answer had nothing missing. (6.4.2)
+    private var everAnswered = false
 
     nonisolated init() {}
 
@@ -154,12 +270,14 @@ final class LateTileRedraw {
 
     /// MapKit's `result` for a tile fetched over the network, wrapped: it hands the tile over, then
     /// asks for a redraw after the burst, unless the tile came back empty (a redraw would only ask for
-    /// it again) or answers a redraw (`tileAsked()`).
+    /// it again) or answers a redraw (`tileAsked()`). A tile that failed asks for one too: the redraw
+    /// asks for it again, where it stayed a hole until the next pan (the author's device check mp-2,
+    /// 6.4.2).
     nonisolated func handingOver(_ result: @escaping (Data?, Error?) -> Void,
                                  answering answersRedraw: Bool) -> (Data?, Error?) -> Void {
         { [self] data, error in
             result(data, error)
-            if data != nil, !answersRedraw { tileArrived() }
+            if data != nil || error != nil, !answersRedraw { tileArrived() }
         }
     }
 
@@ -212,7 +330,13 @@ final class LateTileRedraw {
                 guard !Task.isCancelled, redraw.redraw(reload: false) else { return }
             }
             try? await Task.sleep(nanoseconds: UInt64(followUpDelay * 1_000_000_000))
-            guard !Task.isCancelled, let self, self.ledger.withLock({ $0.askedSince }) == 0 else { return }
+            guard !Task.isCancelled, let self else { return }
+            if self.ledger.withLock({ $0.askedSince }) > 0 {
+                self.everAnswered = true
+                return
+            }
+            // Unanswered, from a MapKit that answers redraws: nothing was missing. (6.4.2)
+            guard !self.everAnswered else { return }
             self.redraw(reload: true)
         }
     }
@@ -252,6 +376,8 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
     let isStrictOfflineMode: Bool
     let hasSegelflugCache: Bool
     let redraw = LateTileRedraw()
+    /// The zoom MapKit asks for now: a tile of another one, still waiting its turn, isn't fetched. (6.4.2)
+    let zoom = ZoomInView()
     /// The session network tiles come over; a stub in tests.
     var tileSession = ExternalRequest.session
 
@@ -357,10 +483,17 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay, LateTileRedrawing {
             result(nil, nil)
             return
         }
+        // Fetched already this session: at once, so it draws. (6.4.2)
+        if let kept = SwisstopoTiles.remembered(url) {
+            result(kept, nil)
+            return
+        }
         // MapKit may drop a tile that arrives this late: redraw after the burst. (6.1.0) The National Map's white
         // tiles outside Switzerland are none, for Apple's map to show through. (6.4.2)
-        SwisstopoTiles.load(url, session: tileSession, dropsBlank: isNationalMap,
-                            result: redraw.handingOver(result, answering: answersRedraw))
+        zoom.asked(path.z)
+        let zoom = zoom, z = path.z
+        SwisstopoTiles.load(url, session: tileSession, dropsBlank: isNationalMap, while: { zoom.isCurrent(z) },
+                            result: redraw.handingOver(result, answering: answersRedraw), passedBy: result)
     }
 
     /// Determine which layer and zoom to use for a given tile path
@@ -405,6 +538,8 @@ class SwisstopoTileOverlay: MKTileOverlay, LateTileRedrawing {
     /// route builder shows Apple's map instead. (6.4.2)
     let dropsBlankTiles: Bool
     let redraw = LateTileRedraw()
+    /// The zoom MapKit asks for now: a tile of another one, still waiting its turn, isn't fetched. (6.4.2)
+    let zoom = ZoomInView()
     /// The session tiles come over; a stub in tests.
     var tileSession = ExternalRequest.session
 
@@ -440,7 +575,16 @@ class SwisstopoTileOverlay: MKTileOverlay, LateTileRedrawing {
     /// which had no size cap. Same URL, same tile. (6.1) MapKit may drop it on arrival, as it does the
     /// ICAO chart's: redraw after the burst. (6.1.0)
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
-        SwisstopoTiles.load(url(forTilePath: path), session: tileSession, dropsBlank: dropsBlankTiles,
-                            result: redraw.handingOver(result, answering: redraw.tileAsked()))
+        let answersRedraw = redraw.tileAsked()
+        let url = url(forTilePath: path)
+        // Fetched already this session: at once, so it draws. (6.4.2)
+        if let kept = SwisstopoTiles.remembered(url) {
+            result(kept, nil)
+            return
+        }
+        zoom.asked(path.z)
+        let zoom = zoom, z = path.z
+        SwisstopoTiles.load(url, session: tileSession, dropsBlank: dropsBlankTiles, while: { zoom.isCurrent(z) },
+                            result: redraw.handingOver(result, answering: answersRedraw), passedBy: result)
     }
 }

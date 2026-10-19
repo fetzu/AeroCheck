@@ -180,6 +180,13 @@ final class LateTileRedraw {
         previous.filter { now.timeIntervalSince($0) < window }.count < maxRedraws
     }
 
+    /// How long until the cap frees a redraw: the oldest in the window leaving it. Nil when one fits now.
+    nonisolated static func waitForRedraw(after previous: [Date], at now: Date) -> TimeInterval? {
+        guard !mayRedraw(after: previous, at: now),
+              let oldest = previous.filter({ now.timeIntervalSince($0) < window }).min() else { return nil }
+        return window - now.timeIntervalSince(oldest) + 0.05
+    }
+
     /// A renderer for `overlay`, hooked to its redraw when it has one. Every map delegate that draws a
     /// swisstopo or OpenAIP overlay makes its tile renderers here.
     static func renderer(for overlay: MKTileOverlay) -> MKTileOverlayRenderer {
@@ -194,7 +201,16 @@ final class LateTileRedraw {
         pending?.cancel()
         pending = Task { [weak self, settleDelay, followUpDelay] in
             try? await Task.sleep(nanoseconds: UInt64(settleDelay * 1_000_000_000))
-            guard !Task.isCancelled, self?.redraw(reload: false) == true else { return }
+            guard !Task.isCancelled, let redraw = self else { return }
+            if !redraw.redraw(reload: false) {
+                // Over the cap, the redraw waits for the window to free one rather than never coming: a long
+                // pinch through several zooms spends the cap, and the route builder's chart kept its last
+                // dropped tiles as holes until the next pan (device check, 19 Oct 2026). (6.4.2)
+                guard redraw.renderer != nil,
+                      let wait = Self.waitForRedraw(after: redraw.redraws, at: Date()) else { return }
+                try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+                guard !Task.isCancelled, redraw.redraw(reload: false) else { return }
+            }
             try? await Task.sleep(nanoseconds: UInt64(followUpDelay * 1_000_000_000))
             guard !Task.isCancelled, let self, self.ledger.withLock({ $0.askedSince }) == 0 else { return }
             self.redraw(reload: true)

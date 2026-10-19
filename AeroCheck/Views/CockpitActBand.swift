@@ -690,11 +690,12 @@ final class CockpitNavState {
     }
 
     /// A mis-tap in turbulence is taken back with one tap, for a few seconds. One undo at a time: this one
-    /// is newer than a waypoint the flight marked on its own.
-    func offerUndo(_ message: String, in manager: FlightPlanManager, animated: Bool = true,
-                   undo: @escaping () -> Void) {
+    /// is newer than a waypoint the flight marked on its own. Outlined: what the app did by itself (the
+    /// radio's switch at a latest point, 6.4.3).
+    func offerUndo(_ message: String, in manager: FlightPlanManager, style: NavUndoToast.Style = .filled,
+                   animated: Bool = true, undo: @escaping () -> Void) {
         manager.dismissAutoMarkNotice()
-        let offer = NavUndoOffer(message: message, undo: undo)
+        let offer = NavUndoOffer(message: message, style: style, undo: undo)
         lastOfferAt = offer.madeAt
         withAnimation(animated ? .easeOut(duration: 0.2) : nil) {
             undoOffer = offer

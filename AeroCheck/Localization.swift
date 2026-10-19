@@ -2667,6 +2667,30 @@ enum L10n {
             text("nav.legsAndFrequencies", "Legs and frequencies", language)
         }
 
+        // The frequency handover (6.4.3)
+
+        /// The pilot's switch, offered back: "LSZG TWR HX now".
+        static func switched(_ station: String, language: String? = nil) -> String {
+            String(format: text("read.switched", "%@ now", language), station)
+        }
+        /// The app's own switch at a latest point: "LSZG TWR HX now, automatically".
+        static func switchedAutomatically(_ station: String, language: String? = nil) -> String {
+            String(format: text("read.switchedAutomatically", "%@ now, automatically", language), station)
+        }
+        /// A LISTEN tapped: "LSZG ATIS heard".
+        static func heard(_ station: String, language: String? = nil) -> String {
+            String(format: text("read.heard", "%@ heard", language), station)
+        }
+        /// After a NEXT that is due, for VoiceOver: "NEXT, 120.105, LSZG TWR HX, due".
+        static func due(language: String? = nil) -> String { text("read.a11y.due", "due", language) }
+        /// What a tap on NEXT does: "Switches to this frequency", "Marks it heard".
+        static func switchHint(language: String? = nil) -> String {
+            text("read.a11y.switchHint", "Switches to this frequency", language)
+        }
+        static func heardHint(language: String? = nil) -> String {
+            text("read.a11y.heardHint", "Marks it heard", language)
+        }
+
         private static func text(_ key: String, _ english: String, _ language: String?) -> String {
             guard let language else { return Bundle.main.localizedString(forKey: key, value: english, table: nil) }
             return localizedString(key: key, language: language, defaultValue: english)

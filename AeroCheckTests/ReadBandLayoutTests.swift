@@ -339,6 +339,14 @@ final class ReadBandLayoutTests: XCTestCase {
         XCTAssertEqual(ReadBandSpeech.distance(10, language: "en"), "10 nautical miles")
     }
 
+    /// A due NEXT says so, and the phone's NOW line reads both it and NOW. (6.4.3)
+    func testADueNextSaysSo() {
+        XCTAssertEqual(ReadBandSpeech.due(now: Sample.nowField, next: Sample.due, language: "en"),
+                       "NOW, 120.375, LSZQ AFIS, NEXT, 120.105, LSZG TWR HX, due")
+        XCTAssertEqual(ReadBandSpeech.due(now: Sample.nowField, next: Sample.due, language: "fr"),
+                       "ACT, 120.375, LSZQ AFIS, SUIV, 120.105, LSZG TWR HX, à contacter")
+    }
+
     // MARK: - Stack
 
     func testTheBandRendersWithinHalfTheDeviceStack() {
@@ -402,7 +410,7 @@ final class ReadBandLayoutTests: XCTestCase {
                       merges: Bool = false, onLayout: ((ReadBandPart, CGRect) -> Void)? = nil) -> some View {
         CockpitReadRows(layout: layout, mergesLines: merges, scale: layout == .wide ? .kneeboard : .phone, strip: state.strip,
                         next: state.next, now: state.now, nextFrequency: state.nextFrequency, onShowRoute: {},
-                        onSpeedTap: {}, language: language, onLayout: onLayout)
+                        onNextTap: {}, onSpeedTap: {}, language: language, onLayout: onLayout)
             .frame(width: width)
             .environment(\.cockpitTheme, CockpitTheme.resolve(.day))
     }

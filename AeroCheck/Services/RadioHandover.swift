@@ -37,6 +37,9 @@ struct RadioHandover: Codable, Equatable {
     /// The timeline was built again (an edit, a Direct To, the data arriving): the next reading takes the changes
     /// before the aircraft as done, the pilot's station kept.
     var rebase = false
+    /// The app's own switch to this station was undone: NEXT shows it due, without the line (the app won't switch
+    /// again), until the pilot switches or its stretch ends.
+    var declined: Station?
 
     struct Heard: Codable, Equatable {
         let frequency: String
@@ -76,7 +79,10 @@ struct RadioHandover: Codable, Equatable {
         var state = self
         var switched: Switch?
 
-        if state.station == nil, let first = timeline.now(atNM: p, speedKt: v, departureOver: false, rules: .due) {
+        // First read: the station the pilot must be on by now. On the ground, the departure; mid-route (a relaunch
+        // without the state), where the latest rules put them, a call due from there.
+        if state.station == nil,
+           let first = timeline.now(atNM: p, speedKt: v, departureOver: moment.departureOver, rules: .latest) {
             state.station = first.station
             state.kind = first.kind
             state.takenAtNM = p
@@ -95,7 +101,8 @@ struct RadioHandover: Codable, Equatable {
             // The departure: due at the level-off, left by itself 10 NM out (or out of its zone), or into a zone at its
             // boundary.
             if let latest = timeline.now(atNM: p, speedKt: v, departureOver: false, rules: .latest),
-               latest.kind != .departure, !latest.station.hasSameFrequency(as: mine) {
+               latest.kind != .departure, !latest.station.hasSameFrequency(as: mine),
+               !(state.declined?.hasSameFrequency(as: latest.station) ?? false) {
                 state.departureLeft = true
                 state.station = latest.station
                 state.kind = latest.kind
@@ -103,9 +110,16 @@ struct RadioHandover: Codable, Equatable {
                 switched = Switch(from: mine, to: latest.station)
             } else {
                 let here = timeline.now(atNM: p, speedKt: v, departureOver: moment.departureOver, rules: .due)
-                reading.now = here.flatMap { $0.station.hasSameFrequency(as: mine) ? $0 : nil }
-                    ?? timeline.now(atNM: p, speedKt: v, departureOver: false, rules: .due)
-                if let here, !here.station.hasSameFrequency(as: mine) {
+                // NOW is the pilot's station, past its latest point too (the app's switch undone).
+                reading.now = [here, timeline.now(atNM: p, speedKt: v, departureOver: false, rules: .due)]
+                    .compactMap { $0 }.first { $0.station.hasSameFrequency(as: mine) }
+                    ?? timeline.calls.first { $0.station.hasSameFrequency(as: mine) }
+                    ?? RadioTimeline.Call(station: mine, kind: state.kind ?? .departure, fromNM: p, toNM: .infinity)
+                if let declined = state.declined {
+                    reading.next = declined
+                    reading.nextKind = timeline.calls.first { $0.station.hasSameFrequency(as: declined) }?.kind
+                    reading.nextIsDue = true
+                } else if let here, !here.station.hasSameFrequency(as: mine) {
                     if state.departureDueAtNM == nil { state.departureDueAtNM = p }
                     // The latest point: the departure's end, or a zone's boundary in the climb, whichever comes first.
                     let end = timeline.calls.first { $0.kind == .departure }
@@ -150,10 +164,21 @@ struct RadioHandover: Codable, Equatable {
             reading.now = RadioTimeline.Call(station: current, kind: state.kind ?? .unit, fromNM: p, toNM: .infinity)
         }
 
+        // An undone switch of the app's: its station due in NEXT while it is the due one, without the line.
+        if let declined = state.declined {
+            if let due, due.station.hasSameFrequency(as: declined), !declined.hasSameFrequency(as: current) {
+                reading.next = declined
+                reading.nextKind = due.kind
+                reading.nextIsDue = true
+            } else {
+                state.declined = nil
+            }
+        }
+
         // NEXT: the due station when it isn't the pilot's and its stretch began after the pilot's last switch, or its
         // change is still to come under the latest rules (a station picked off the route meanwhile); else the next
         // change ahead.
-        if let due, !due.station.hasSameFrequency(as: current) {
+        if reading.next == nil, let due, !due.station.hasSameFrequency(as: current) {
             let dueStart = timeline.segmentStart(at: p, speedKt: v, departureOver: true, rules: .due)
             let latest = latestHere?.station.hasSameFrequency(as: due.station) == true ? nil
                 : timeline.firstChange(to: due.station, after: p, speedKt: v, departureOver: true, rules: .latest)
@@ -207,6 +232,7 @@ struct RadioHandover: Codable, Equatable {
         state.station = station
         state.kind = kind ?? timeline.calls.first { $0.station.hasSameFrequency(as: station) }?.kind
         state.departureLeft = true
+        state.declined = nil
         let dueHere = timeline.now(atNM: p, speedKt: v, departureOver: true, rules: .due)
         if dueHere?.station.hasSameFrequency(as: station) == true {
             state.takenAtNM = p
@@ -214,6 +240,15 @@ struct RadioHandover: Codable, Equatable {
             let comes = timeline.firstChange(to: station, after: p, speedKt: v, departureOver: true, rules: .due)?.nm
             state.takenAtNM = max(p, comes ?? p)
         }
+        return state
+    }
+
+    /// The app's own switch to `station` undone: the pilot stays where they were, the changes before `progress` taken
+    /// as done, and `station` stays due in NEXT without the app switching again.
+    func declining(_ station: Station, at progress: Double?) -> RadioHandover {
+        var state = self
+        state.declined = station
+        if let progress { state.takenAtNM = max(takenAtNM ?? progress, progress) }
         return state
     }
 

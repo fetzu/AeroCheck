@@ -332,6 +332,9 @@ struct RouteRadioColumn: View {
     var showsHeader = true
 
     @Environment(CockpitRadio.self) private var radio
+    @Environment(CockpitNavState.self) private var cockpitNav: CockpitNavState?
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @Environment(\.cockpitTheme) private var theme
 
     var body: some View {
         // The CTRs around that the route doesn't enter come last, under their own heading: without it they read
@@ -345,11 +348,37 @@ struct RouteRadioColumn: View {
                         .padding(.top, 12)
                         .accessibilityIdentifier("route.radio.nearby")
                 }
-                FrequencyRow(item: item, large: true)
+                row(item)
             }
         }
         // The column's width, whatever it lists: Emergency under it is as wide.
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A row, outlined while it is NEXT and due; on the route's timeline a tap makes it NOW, offered back with
+    /// UNDO: "contact Emmen Tower", off the route. (6.4.3, q7)
+    @ViewBuilder
+    private func row(_ item: PhaseFrequency) -> some View {
+        let row = FrequencyRow(item: item, large: true)
+            .overlay {
+                if item.due {
+                    RoundedRectangle(cornerRadius: 8).strokeBorder(theme.info, lineWidth: 2)
+                        .padding(.horizontal, -6)
+                        .accessibilityHidden(true)
+                }
+            }
+        if radio.onTimeline, CockpitRadio.picks(item) {
+            Button {
+                guard let taken = radio.select(item) else { return }
+                cockpitNav?.offerUndo(taken.message, in: flightPlanManager, undo: taken.undo)
+            } label: {
+                row.contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(L10n.Read.switchHint())
+        } else {
+            row
+        }
     }
 }
 
@@ -882,11 +911,13 @@ struct FramedLegBar: View {
 /// the airport and airspace data arriving, and the aircraft moving 0.01°. On the Cockpit's frame, so
 /// NOW and NEXT follow the flight on CHECKLIST too, where the map's recompute never ran. Loads the
 /// airport database as the map did on appearing (and downloads it once if it was never downloaded):
-/// NOW and NEXT need it. (6.2, ROUTE)
+/// NOW and NEXT need it. (6.2, ROUTE) Keeps the radio's handover with the flight, and offers the app's own
+/// switch back in the status slot. (6.4.3)
 struct CockpitRadioFollower: ViewModifier {
     let radio: CockpitRadio
 
     @Environment(AppState.self) private var appState
+    @Environment(CockpitNavState.self) private var cockpitNav
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @EnvironmentObject private var airportDataService: AirportDataService
@@ -916,6 +947,8 @@ struct CockpitRadioFollower: ViewModifier {
         content
             .onAppear { start() }
             .onChange(of: key) { _, _ in recompute() }
+            // Another flight (a trip's next leg): its own handover, none yet. (6.4.3)
+            .onChange(of: appState.currentFlight?.id) { _, _ in radio.resume(appState.radioHandover) }
             .onChange(of: locationManager.currentLocation) { _, location in
                 radio.noteMove(to: location?.coordinate, plan: flightPlanManager.activeFlightPlan,
                                circuits: appState.isCircuitMode, situation: situation, sources: sources)
@@ -981,6 +1014,18 @@ struct CockpitRadioFollower: ViewModifier {
     private func start() {
         // The Companion iPhone's NOW and NEXT are these. (6.2.0)
         companion.cockpitRadio = radio
+        // The station the pilot is on, kept with the flight: a relaunch mid-flight takes it back. (6.4.3)
+        radio.resume(appState.radioHandover)
+        let appState = appState
+        radio.onHandover = { handover in
+            appState.radioHandover = handover
+            appState.checkpointActiveFlight(force: true)
+        }
+        let cockpitNav = cockpitNav
+        let manager = flightPlanManager
+        radio.onSwitched = { message, undo in
+            cockpitNav.offerUndo(message, in: manager, style: .outlined, undo: undo)
+        }
         recompute()
         let airports = airportDataService
         let openAIP = openAIPDataService

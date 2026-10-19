@@ -791,10 +791,122 @@ final class CockpitRadio {
         plan.map { [$0.id.uuidString] + $0.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } }
     }
 
-    /// A timeline for a route, or none (the route changed, the flight ended).
+    /// A timeline for a route, or none (the route changed, the flight ended). A new one keeps the pilot's station,
+    /// the changes before the aircraft taken as done (`RadioHandover.rebase`). (6.4.2, 6.4.3)
     func setTimeline(_ timeline: RadioTimeline?, for plan: FlightPlan?) {
+        if timeline != nil, timeline != self.timeline, var handover, handover.station != nil {
+            handover.rebase = true
+            self.handover = handover
+            onHandover(handover)
+        }
         self.timeline = timeline
         timelineRoute = timeline == nil ? nil : Self.timelineKey(plan)
+    }
+
+    // MARK: The frequency handover (6.4.3)
+
+    /// Where the pilot is on the timeline: their station, the LISTENs heard. Kept with the flight (`onHandover`,
+    /// `AppState.radioHandover`); nil until the radio is first read on a route.
+    @ObservationIgnored private(set) var handover: RadioHandover?
+    /// NOW and NEXT are read from the route's timeline: a tap on NEXT switches, a row of ROUTE › RADIO is picked.
+    /// Off it (no route, circuits, the timeline not built yet), both open ROUTE, as before.
+    private(set) var onTimeline = false
+    /// Where a new handover goes: the flight. The tests catch it instead.
+    @ObservationIgnored var onHandover: (RadioHandover?) -> Void = { _ in }
+    /// The app's own switch at a latest point, offered back by the Cockpit with `undo`.
+    @ObservationIgnored var onSwitched: (_ message: String, _ undo: @escaping () -> Void) -> Void = { _, _ in }
+    /// The last inputs, for a tap between two fixes.
+    @ObservationIgnored private var lastInputs: (position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool,
+                                                 situation: PhaseFrequencyPlanner.Situation,
+                                                 sources: PhaseFrequencyPlanner.Sources)?
+
+    /// The flight's handover, as saved with it (a restored flight), or a new one.
+    func resume(_ handover: RadioHandover?) {
+        self.handover = handover
+    }
+
+    /// A switch the pilot made, and how to take it back: the band's UNDO.
+    struct Taken {
+        let message: String
+        let undo: () -> Void
+    }
+
+    /// What a tap on NEXT did.
+    enum NextTap {
+        /// Switched, or the LISTEN heard: offered back.
+        case taken(Taken)
+        /// A second tap within `doubleTapInterval` of a switch: nothing, so a bounce in turbulence never takes
+        /// the call after it too.
+        case ignored
+        /// Off a route's timeline, or nothing NEXT: the band opens ROUTE, as before 6.4.3.
+        case offTimeline
+    }
+
+    /// A tap this soon after a switch from NEXT is the same tap.
+    nonisolated static let doubleTapInterval: TimeInterval = 1
+    @ObservationIgnored private var lastNextTapAt: Date?
+
+    /// A tap on NEXT, `doubleTapInterval` after the last switch from it at the earliest.
+    func tapNext(at time: Date = FlightClock.now) -> NextTap {
+        if let last = lastNextTapAt, time.timeIntervalSince(last) < Self.doubleTapInterval, time >= last {
+            return .ignored
+        }
+        guard let taken = switchToNext() else { return .offTimeline }
+        lastNextTapAt = time
+        return .taken(taken)
+    }
+
+    /// NEXT's call becomes NOW, NEXT's LISTEN is heard. Nil off a route's timeline or with nothing NEXT.
+    func switchToNext() -> Taken? {
+        guard let (state, reading, place) = readHandover(), let next = reading.next else { return nil }
+        let name = PhaseFrequencyPlanner.entry(next, kind: reading.nextKind).station
+        if reading.nextIsListen {
+            return take(state.hearing(next, endsNM: reading.listenEndsNM ?? place.moment.progressNM), from: state,
+                        message: L10n.Read.heard(name))
+        }
+        return take(state.switching(to: next, kind: reading.nextKind, on: place.timeline, at: place.moment), from: state,
+                    message: L10n.Read.switched(name))
+    }
+
+    /// The rows of ROUTE › RADIO a tap makes NOW: all but NOW itself, a LISTEN and the emergency frequency.
+    nonisolated static func picks(_ item: PhaseFrequency) -> Bool {
+        !item.isEmergency && item.role != .current && !item.listen
+    }
+
+    /// A row of ROUTE › RADIO picked (the controller sent the pilot there): it is NOW from here. Nil off a route's
+    /// timeline, or for a row it doesn't pick (`picks`).
+    func select(_ item: PhaseFrequency) -> Taken? {
+        guard Self.picks(item), let (state, _, place) = readHandover() else { return nil }
+        let hx = item.station.hasSuffix(" HX")
+        let station = RouteRadioPlanner.Station(frequency: item.freq,
+                                                callSign: hx ? String(item.station.dropLast(3)) : item.station, isHX: hx)
+        return take(state.switching(to: station, kind: nil, on: place.timeline, at: place.moment), from: state,
+                    message: L10n.Read.switched(item.station))
+    }
+
+    /// The handover read at the last inputs, with where the flight is on its timeline.
+    private func readHandover() -> (RadioHandover, RadioHandover.Reading,
+                                    (timeline: RadioTimeline, moment: RadioTimeline.Moment))? {
+        guard let inputs = lastInputs, inputs.situation.timeline != nil,
+              let place = PhaseFrequencyPlanner.placement(position: inputs.position, plan: inputs.plan,
+                                                          circuits: inputs.circuits, situation: inputs.situation) else { return nil }
+        let advanced = (handover ?? RadioHandover()).advanced(on: place.timeline, at: place.moment)
+        return (advanced.state, advanced.reading, place)
+    }
+
+    private func take(_ after: RadioHandover, from before: RadioHandover, message: String) -> Taken {
+        apply(after)
+        return Taken(message: message) { [weak self] in self?.apply(before) }
+    }
+
+    /// A new handover: kept, saved with the flight, the lists read again at once.
+    private func apply(_ state: RadioHandover) {
+        handover = state
+        onHandover(state)
+        guard let inputs = lastInputs else { return }
+        lastKeys = nil
+        update(position: inputs.position, plan: inputs.plan, circuits: inputs.circuits, situation: inputs.situation,
+               sources: inputs.sources)
     }
 
     /// Computes the lists now: the phase, the leg, the diversion or the data changed.
@@ -806,8 +918,25 @@ final class CockpitRadio {
         if situation.timeline == nil, let timeline, timelineRoute == Self.timelineKey(plan) {
             situation.timeline = timeline
         }
+        lastInputs = (position, plan, circuits, situation, sources)
+        // The pilot's station on the route's timeline: NOW waits for their switch, NEXT comes due. (6.4.3)
+        if situation.timeline != nil { situation.handover = handover ?? RadioHandover() }
         let result = PhaseFrequencyPlanner.plan(position: position, plan: plan, circuits: circuits,
                                                 situation: situation, sources: sources)
+        if onTimeline != (result.handover != nil) { onTimeline = result.handover != nil }
+        if let advanced = result.handover, advanced != handover {
+            let before = handover
+            handover = advanced
+            onHandover(advanced)
+            if let switched = result.switched {
+                let name = PhaseFrequencyPlanner.entry(switched.to, kind: advanced.kind).station
+                // Undone, it stays NEXT, due, until the pilot switches: the app doesn't switch again.
+                onSwitched(L10n.Read.switchedAutomatically(name)) { [weak self] in
+                    guard let self, let before else { return }
+                    self.apply(before.declining(switched.to, at: advanced.takenAtNM))
+                }
+            }
+        }
         // The pages and the Watch only hear of a list that changed: a recompute every few seconds in
         // cruise would otherwise redraw ROUTE and send the Watch the same list again.
         let keys = result.route.map(\.contentKey)

@@ -1171,7 +1171,8 @@ extension FlightView {
 
     /// The read band's rows under the phase bar (`CockpitReadRows`): the strip, NEXT and its figures (the
     /// leg's ETE is the DEST line's first term, `NextLegLive`), NOW and NEXT from the Cockpit's one radio.
-    /// A tap on NEXT or on a frequency opens ROUTE, where every leg and frequency is. (6.2)
+    /// A tap on NEXT or on a frequency opens ROUTE, where every leg and frequency is (6.2); on the route's
+    /// radio timeline a tap on NEXT's frequency switches to it, offered back with UNDO (6.4.3).
     private func cockpitReadRows(layout: CockpitLayout, mergesLines: Bool = false) -> some View {
         CockpitReadRows(
             layout: layout,
@@ -1184,8 +1185,21 @@ extension FlightView {
             onShowRoute: { showRoute(.legs) },
             // The NOW line: ROUTE on its RADIO list, where a phone shows one list at a time. (6.2.0)
             onShowRadio: { showRoute(.radio) },
+            onNextTap: radio.onTimeline ? { tapNextFrequency() } : nil,
             // V-SPEEDS from GS, where the phone's picker row has no room for its chip. (6.2, Q8)
             onSpeedTap: { openReference(.vSpeeds) })
+    }
+
+    /// NEXT's frequency tapped: NOW from here (a LISTEN heard), offered back; off the timeline, ROUTE. (6.4.3)
+    private func tapNextFrequency() {
+        switch radio.tapNext() {
+        case .taken(let taken):
+            navState.offerUndo(taken.message, in: flightPlanManager, undo: taken.undo)
+        case .ignored:
+            break
+        case .offTimeline:
+            showRoute(.radio)
+        }
     }
 
     // MARK: Header

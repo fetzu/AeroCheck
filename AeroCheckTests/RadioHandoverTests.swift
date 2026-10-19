@@ -281,6 +281,81 @@ final class RadioHandoverTests: XCTestCase {
         XCTAssertEqual(rebased.reading.next, alpha, "the zone still ahead")
     }
 
+    /// The app's own switch undone: the pilot stays on the FIS, the tower stays due in NEXT without the line, and the
+    /// app doesn't switch again; the pilot's tap takes it.
+    func testAnUndoneSwitchStaysDueAndIsNotMadeAgain() {
+        let t = timeline([ctr()])
+        let zone = t.calls.first { $0.kind == .unit }!
+        var handover = onGeneva(t)
+        read(&handover, t, at: zone.fromNM - 8.0)
+        let before = handover
+        XCTAssertEqual(read(&handover, t, at: zone.fromNM + 0.1).switched?.to, alpha)
+        handover = before.declining(alpha, at: handover.takenAtNM)
+        let undone = read(&handover, t, at: zone.fromNM + 0.2)
+        XCTAssertNil(undone.switched, "the app doesn't switch again")
+        XCTAssertEqual(undone.reading.now?.station, geneva)
+        XCTAssertEqual(undone.reading.next, alpha)
+        XCTAssertTrue(undone.reading.nextIsDue)
+        XCTAssertNil(undone.reading.dueLeft, "no line: the app won't switch")
+        XCTAssertNil(read(&handover, t, at: zone.fromNM + 2).switched)
+        tapNext(&handover, t, at: zone.fromNM + 2)
+        XCTAssertEqual(handover.station, alpha)
+        XCTAssertNil(handover.declined)
+    }
+
+    /// The departure left by itself 10 NM out, undone: NOW stays the field, Geneva Info due without the line, no
+    /// second switch.
+    func testAnUndoneDepartureSwitchKeepsTheField() {
+        let t = timeline()
+        var handover = RadioHandover()
+        read(&handover, t, at: 0, departureOver: false)
+        read(&handover, t, at: 9.9)
+        let before = handover
+        XCTAssertEqual(read(&handover, t, at: 10.1).switched?.to, geneva)
+        handover = before.declining(geneva, at: handover.takenAtNM)
+        let undone = read(&handover, t, at: 10.5)
+        XCTAssertNil(undone.switched)
+        XCTAssertEqual(undone.reading.now?.station, lsxa, "the pilot's station, past its latest point")
+        XCTAssertEqual(undone.reading.next, geneva)
+        XCTAssertTrue(undone.reading.nextIsDue)
+        XCTAssertNil(undone.reading.dueLeft)
+        XCTAssertNil(read(&handover, t, at: 14).switched)
+    }
+
+    /// Read first past the level-off (a relaunch without the state): on the station the latest rules put the pilot
+    /// on, not back on the departure.
+    func testAFirstReadingMidRouteStartsWhereThePilotMustBe() {
+        let t = timeline([ctr()])
+        var handover = RadioHandover()
+        let first = read(&handover, t, at: 12)
+        XCTAssertNil(first.switched)
+        XCTAssertEqual(first.reading.now?.station, geneva)
+        XCTAssertEqual(first.reading.next, alpha)
+        XCTAssertTrue(first.reading.nextIsDue, "the zone 4.4 NM ahead, due")
+    }
+
+    /// A relaunch mid-flight finds the pilot's station as it was left; the flight's end clears it.
+    @MainActor
+    func testARelaunchKeepsThePilotsStation() throws {
+        let datastore = makeTestDatastore()
+        let defaults = makeTestDefaults()
+        let appState = makeTestAppState(datastore: datastore, defaults: defaults)
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9", circuitMode: false)
+        addTeardownBlock { @MainActor in if appState.isFlightActive { appState.cancelFlight() } }
+        appState.radioHandover = onGeneva(timeline([ctr()]))
+        appState.checkpointActiveFlight(force: true)
+        appState.flushPendingCheckpoint()
+
+        let restored = makeTestAppState(datastore: datastore, defaults: defaults)
+        XCTAssertTrue(restored.restoreActiveFlightState())
+        addTeardownBlock { @MainActor in if restored.isFlightActive { restored.cancelFlight() } }
+        XCTAssertEqual(restored.radioHandover?.station, geneva)
+        restored.cancelFlight()
+        XCTAssertNil(restored.radioHandover)
+    }
+
     /// Kept with the flight: the state survives its encoding.
     func testTheStateIsKeptWithTheFlight() throws {
         let t = timeline([ctr()])

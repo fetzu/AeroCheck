@@ -15,7 +15,9 @@ import SwiftUI
 //          and its ETE on one line (`ReadBandColumnNextLine`) over the NOW line; under 400 pt tall, the
 //          waypoint, its ETE and NOW on one line (`ReadBandMergedLine`)
 //
-// A tap on NEXT, on NOW | NEXT or on either line opens ROUTE. Until 6.2 the next waypoint was a card
+// A tap on NEXT, on NOW | NEXT or on either line opens ROUTE; on a route's radio timeline a tap on NEXT's
+// frequency switches to it instead, and the phone's NOW line does while NEXT is due (6.4.3, the frequency
+// handover: `RadioHandover`). Until 6.2 the next waypoint was a card
 // over the chart (a line on the phone) and NOW | NEXT a card at its foot: they were on MAP only, and NOW
 // and NEXT followed the map's region rather than the flight.
 //
@@ -43,6 +45,9 @@ struct CockpitReadRows: View {
     /// ROUTE on its RADIO list, from a tap on the phone's NOW line (`RouteListSwitch`); nil, `onShowRoute`.
     /// (6.2.0)
     var onShowRadio: (() -> Void)? = nil
+    /// A tap on NEXT's frequency, and on the phone's NOW line while NEXT is due: the switch (a LISTEN heard).
+    /// Nil off a route's timeline: ROUTE, as before. (6.4.3)
+    var onNextTap: (() -> Void)? = nil
     /// V-SPEEDS, from a tap on GS.
     var onSpeedTap: (() -> Void)? = nil
     /// The language the band reads in, "fr"; nil, the app's. For the French previews and tests.
@@ -72,7 +77,7 @@ struct CockpitReadRows: View {
             switch layout {
             case .wide:
                 ReadBandFrequencies(now: now, next: nextFrequency, scale: scale, onTap: onShowRoute,
-                                    language: language)
+                                    onNowTap: onShowRadio, onNextTap: onNextTap, language: language)
             case .narrow:
                 phoneCard
             case .columns:
@@ -96,10 +101,22 @@ struct CockpitReadRows: View {
                 Rectangle().fill(theme.glassStroke).frame(height: 0.5)
                     .padding(.horizontal, metrics.cellPadding)
             }
-            ReadBandNowLine(now: now, scale: scale, onTap: onShowRadio ?? onShowRoute, language: language)
+            nowLine
         }
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
         .overlay(RoundedRectangle(cornerRadius: metrics.cornerRadius).strokeBorder(theme.glassStroke, lineWidth: 0.5))
+    }
+
+    /// NEXT while it is due and a tap switches to it: the phone's NOW line shows it beside NOW. (6.4.3, q8)
+    private var dueNext: PhaseFrequency? {
+        guard onNextTap != nil, let nextFrequency, nextFrequency.due else { return nil }
+        return nextFrequency
+    }
+
+    /// The phone's NOW line: a tap opens ROUTE › RADIO, or switches while NEXT is due beside NOW.
+    private var nowLine: some View {
+        ReadBandNowLine(now: now, dueNext: dueNext, scale: scale,
+                        onTap: (dueNext == nil ? nil : onNextTap) ?? onShowRadio ?? onShowRoute, language: language)
     }
 
     /// The phone's column on its side: the next line and the NOW line one line each, or merged into one
@@ -108,15 +125,16 @@ struct CockpitReadRows: View {
     private var columnCard: some View {
         VStack(spacing: 0) {
             if mergesLines {
-                ReadBandMergedLine(figures: strip == nil ? nil : next, now: now, scale: scale, onTap: onShowRoute,
-                                   onNowTap: onShowRadio, language: language)
+                ReadBandMergedLine(figures: strip == nil ? nil : next, now: now, dueNext: dueNext, scale: scale,
+                                   onTap: onShowRoute, onNowTap: (dueNext == nil ? nil : onNextTap) ?? onShowRadio,
+                                   language: language)
             } else {
                 if strip != nil {
                     ReadBandColumnNextLine(figures: next, scale: scale, onTap: onShowRoute, language: language)
                     Rectangle().fill(theme.glassStroke).frame(height: 0.5)
                         .padding(.horizontal, metrics.cellPadding)
                 }
-                ReadBandNowLine(now: now, scale: scale, onTap: onShowRadio ?? onShowRoute, language: language)
+                nowLine
             }
         }
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
@@ -588,6 +606,9 @@ struct ReadBandColumnNextLine: View {
 struct ReadBandMergedLine: View {
     let figures: NextFigures?
     let now: PhaseFrequency?
+    /// NEXT, due: in NOW's half in its place, "› 120.105", outlined, and the half's tap switches to it. The line
+    /// has no room for both frequencies, nor for a wider tag. (6.4.3)
+    var dueNext: PhaseFrequency? = nil
     var scale: CockpitScale = .current
     let onTap: () -> Void
     /// NOW's half: ROUTE on RADIO; nil, `onTap`. (6.2.0)
@@ -625,17 +646,21 @@ struct ReadBandMergedLine: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// NOW and the frequency to dial, in the room of the widest it can show.
+    /// NOW and the frequency to dial, in the room of the widest it can show; NEXT in its place while due.
     private var nowHalf: some View {
-        let shown = ReadBandFrequencyText(now)
+        let shown = ReadBandFrequencyText(dueNext ?? now)
         let title = L10n.Read.now(language: language)
         return Button(action: onNowTap ?? onTap) {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(verbatim: title)
-                    .font(.aero(size: metrics.labelSize, weight: .bold))
-                    .foregroundColor(theme.onTarget)
-                    .lineLimit(1)
-                    .fixedSize()
+                ZStack(alignment: .leading) {
+                    // NOW's room: the frequency stays put when NEXT comes due, the name beside keeps its room.
+                    tag(title).foregroundColor(theme.onTarget).opacity(dueNext == nil ? 1 : 0)
+                    if dueNext != nil {
+                        Text(verbatim: "›")
+                            .font(metrics.figureFont)
+                            .foregroundColor(theme.info)
+                    }
+                }
                 DestinationFigureCell(text: shown.frequency, widest: ReadBandMergedLine.frequencyTemplates,
                                       font: metrics.figureFont, color: theme.textPrimary)
             }
@@ -643,18 +668,27 @@ struct ReadBandMergedLine: View {
             .padding(.vertical, ReadBandMetrics.mergedVerticalPadding)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
+            .overlay { if let dueNext { ReadBandDueCue(left: dueNext.dueLeft, cornerRadius: metrics.cornerRadius) } }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(ReadBandSpeech.frequency(title: title, item: now))
+        .accessibilityLabel(dueNext.map { ReadBandSpeech.due(now: now, next: $0, language: language) }
+                            ?? ReadBandSpeech.frequency(title: title, item: now))
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint(L10n.Read.routeHint(language: language))
+        .accessibilityHint(dueNext == nil ? L10n.Read.routeHint(language: language) : L10n.Read.switchHint(language: language))
         .accessibilityIdentifier("read.now")
         .readBandPart(.nowLine)
     }
 
     /// A frequency at its widest, "121.500" as "000.000", and none.
     static let frequencyTemplates = ["000.000", "—"]
+
+    private func tag(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.aero(size: metrics.labelSize, weight: .bold))
+            .lineLimit(1)
+            .fixedSize()
+    }
 }
 
 /// The waypoint's name in the column's lines: in magenta, at the name's size where it fits, down to the
@@ -713,6 +747,10 @@ struct ReadBandFrequencies: View {
     let next: PhaseFrequency?
     var scale: CockpitScale = .current
     let onTap: () -> Void
+    /// NOW: ROUTE › RADIO; nil, `onTap`. (6.4.3, q4)
+    var onNowTap: (() -> Void)? = nil
+    /// NEXT: the switch; nil, `onTap`. (6.4.3)
+    var onNextTap: (() -> Void)? = nil
     var language: String? = nil
 
     @Environment(\.cockpitTheme) private var theme
@@ -721,11 +759,12 @@ struct ReadBandFrequencies: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ReadBandFrequencyCell(role: .now, item: now, scale: scale, onTap: onTap, language: language)
+            ReadBandFrequencyCell(role: .now, item: now, scale: scale, onTap: onNowTap ?? onTap, language: language)
                 .readBandPart(.now)
             Rectangle().fill(theme.glassStroke).frame(width: 0.5)
                 .padding(.vertical, metrics.verticalPadding)
-            ReadBandFrequencyCell(role: .next, item: next, scale: scale, onTap: onTap, language: language)
+            ReadBandFrequencyCell(role: .next, item: next, scale: scale, onTap: onNextTap ?? onTap,
+                                  switches: onNextTap != nil, language: language)
                 .readBandPart(.nextFrequency)
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -740,12 +779,15 @@ struct ReadBandFrequencies: View {
 /// The phone's NOW, the line under its next line.
 struct ReadBandNowLine: View {
     let now: PhaseFrequency?
+    /// NEXT, due, beside NOW: "NOW 124.700 › 120.105 LSZG TWR HX", and the tap switches. (6.4.3, q8)
+    var dueNext: PhaseFrequency? = nil
     var scale: CockpitScale = .current
     let onTap: () -> Void
     var language: String? = nil
 
     var body: some View {
-        ReadBandFrequencyCell(role: .now, item: now, scale: scale, onTap: onTap, language: language)
+        ReadBandFrequencyCell(role: .now, item: now, dueNext: dueNext, scale: scale, onTap: onTap,
+                              switches: dueNext != nil, alignsTags: false, language: language)
             .readBandPart(.nowLine)
     }
 }
@@ -760,8 +802,15 @@ struct ReadBandFrequencyCell: View {
 
     let role: Role
     let item: PhaseFrequency?
+    /// NOW's line on the phone: NEXT, due, after NOW's frequency, and its station in NOW's. (6.4.3)
+    var dueNext: PhaseFrequency? = nil
     var scale: CockpitScale = .current
     let onTap: () -> Void
+    /// The tap switches (or marks a LISTEN heard) rather than open ROUTE: what VoiceOver says it does. (6.4.3)
+    var switches = false
+    /// The tag in the room of the widest of the three, so NOW's and NEXT's frequencies line up on the iPad. The
+    /// phone's NOW line, NOW's tag alone, gives that room to the station of a due NEXT beside it. (6.4.3)
+    var alignsTags = true
     var language: String? = nil
 
     @Environment(\.cockpitTheme) private var theme
@@ -774,41 +823,83 @@ struct ReadBandFrequencyCell: View {
                 ZStack(alignment: .leading) {
                     // The widest of the three tags, whichever shows: NOW's and NEXT's frequencies line up and
                     // never move when LISTEN comes. (6.4.2)
-                    tagText(L10n.Read.now(language: language)).hidden()
-                    tagText(L10n.Read.next(language: language)).hidden()
-                    tagText(L10n.Read.listen(language: language)).hidden()
+                    if alignsTags {
+                        tagText(L10n.Read.now(language: language)).hidden()
+                        tagText(L10n.Read.next(language: language)).hidden()
+                        tagText(L10n.Read.listen(language: language)).hidden()
+                    }
                     tagText(title).foregroundColor(tint)
                 }
                 .accessibilityHidden(true)
+                // NOW's frequency stays where it is when a due NEXT comes beside it, smaller and in grey: the one
+                // to leave, and the room the due station needs to show whole on a phone.
                 FrequencyLineText(text: shown.frequency,
-                                  font: .aero(size: metrics.frequencySize, weight: .bold, design: .monospaced),
-                                  color: theme.textPrimary)
+                                  font: dueNext == nil ? frequencyFont
+                                      : .aero(size: metrics.labelSize, weight: .regular, design: .monospaced),
+                                  color: dueNext == nil ? theme.textPrimary : theme.textSecondary)
                     .layoutPriority(1)
-                ViewThatFits(in: .horizontal) {
-                    // A TMA the FIS clears beside the station where it fits, then the station alone. (6.4.2)
-                    if let note = item?.note {
-                        stationText(shown.station + " · " + note)
+                if let dueNext {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(verbatim: "›")
+                            .font(.aero(size: metrics.frequencySize, weight: .bold))
+                            .foregroundColor(theme.info)
+                            .accessibilityHidden(true)
+                        FrequencyLineText(text: ReadBandFrequencyText(dueNext).frequency, font: frequencyFont,
+                                          color: theme.textPrimary)
                     }
-                    stationText(shown.station)
-                    Text(verbatim: shown.station)
-                        .font(.aero(size: metrics.labelSize))
-                        .foregroundColor(theme.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                    .layoutPriority(1)
                 }
+                station(of: dueNext ?? item)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, metrics.cellPadding)
             .padding(.vertical, metrics.verticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
+            .overlay { if let due { ReadBandDueCue(left: due.dueLeft, cornerRadius: metrics.cornerRadius) } }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(ReadBandSpeech.frequency(title: title, item: item))
+        .accessibilityLabel(label)
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint(L10n.Read.routeHint(language: language))
+        .accessibilityHint(hint)
         .accessibilityIdentifier(role == .now ? "read.now" : "read.next")
+    }
+
+    /// The due call this cell shows: NEXT's own, or the one beside NOW on the phone.
+    private var due: PhaseFrequency? {
+        role == .now ? dueNext : (item?.due == true ? item : nil)
+    }
+
+    private var frequencyFont: Font { .aero(size: metrics.frequencySize, weight: .bold, design: .monospaced) }
+
+    /// The station after the frequency where it fits whole: with a TMA the FIS clears beside it, alone, then
+    /// down to three quarters of its size. (6.4.2)
+    private func station(of item: PhaseFrequency?) -> some View {
+        let shown = ReadBandFrequencyText(item)
+        return ViewThatFits(in: .horizontal) {
+            if let note = item?.note {
+                stationText(shown.station + " · " + note)
+            }
+            stationText(shown.station)
+            Text(verbatim: shown.station)
+                .font(.aero(size: metrics.labelSize))
+                .foregroundColor(theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+    }
+
+    private var label: String {
+        if let dueNext { return ReadBandSpeech.due(now: item, next: dueNext, language: language) }
+        let read = ReadBandSpeech.frequency(title: title, item: item)
+        return item?.due == true ? read + ", " + L10n.Read.due(language: language) : read
+    }
+
+    private var hint: String {
+        guard switches else { return L10n.Read.routeHint(language: language) }
+        return item?.listen == true && role == .next ? L10n.Read.heardHint(language: language)
+            : L10n.Read.switchHint(language: language)
     }
 
     private var title: String {
@@ -833,6 +924,35 @@ struct ReadBandFrequencyCell: View {
             .font(.aero(size: metrics.labelSize, weight: .bold))
             .lineLimit(1)
             .fixedSize()
+    }
+}
+
+/// A due NEXT (6.4.3, the author's q3 B): an outline in NEXT's colour, and a line along its foot that runs out
+/// where the app switches by itself (`left`, 1 to 0; none when it won't). Over the cell, so nothing moves.
+struct ReadBandDueCue: View {
+    let left: Double?
+    let cornerRadius: CGFloat
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .strokeBorder(theme.info, lineWidth: 2)
+            .overlay(alignment: .bottom) {
+                if let left {
+                    Capsule().fill(theme.glassStroke)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(theme.info)
+                                .scaleEffect(x: max(0, min(1, left)), anchor: .leading)
+                        }
+                        .frame(height: 3)
+                        // Clear of the outline's rounded corners.
+                        .padding(.horizontal, max(8, cornerRadius * 0.75))
+                        .padding(.bottom, 5)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
@@ -916,6 +1036,14 @@ enum ReadBandSpeech {
         return [title, item.freq, item.station].filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
+    /// The phone's NOW line with NEXT due beside it: "NOW, 124.700, Zürich Info, NEXT, 120.105, LSZG TWR HX,
+    /// due". (6.4.3)
+    static func due(now: PhaseFrequency?, next: PhaseFrequency, language: String?) -> String {
+        [frequency(title: L10n.Read.now(language: language), item: now),
+         frequency(title: L10n.Read.next(language: language), item: next),
+         L10n.Read.due(language: language)].joined(separator: ", ")
+    }
+
     /// "12.4 nautical miles", "12,4 milles marins": to the tenth, as the band writes it.
     static func distance(_ nauticalMiles: Double, language: String?) -> String {
         let shown = Double(NextWaypointReadout.distance(nauticalMiles)) ?? nauticalMiles
@@ -994,6 +1122,11 @@ enum ReadBandSample {
     /// What a pilot typed for a waypoint.
     static let typed = PhaseFrequency(station: "SAIGNELÉGIER", freq: "119.175 Bern Information", highlighted: true,
                                       isEmergency: false, role: .current)
+    /// NEXT due, its line a third gone; and due with no line (the app's switch undone). (6.4.3)
+    static let due = PhaseFrequency(station: "LSZG TWR HX", freq: "120.105", highlighted: true, isEmergency: false,
+                                    role: .next, due: true, dueLeft: 0.65)
+    static let dueNoLine = PhaseFrequency(station: "LSZG TWR HX", freq: "120.105", highlighted: true, isEmergency: false,
+                                          role: .next, due: true)
 
     /// Every state the band must hold still through, with its name.
     static var states: [(name: String, strip: StripReading, next: NextFigures, now: PhaseFrequency?, nextFrequency: PhaseFrequency?)] {
@@ -1016,6 +1149,9 @@ enum ReadBandSample {
             ("SAIGNELÉGIER", strip, next(ident: "SAIGNELÉGIER"), nowField, nextField),
             ("diverting to SAIGNELÉGIER", strip, next(ident: "SAIGNELÉGIER", diverting: true, distance: 105), nowField, nextField),
             ("NOW typed", strip, next(), typed, nextField),
+            ("NEXT due", strip, next(), nowField, due),
+            ("NEXT due, no line", strip, next(), nowField, dueNoLine),
+            ("NOW typed, NEXT due", strip, next(ident: "SAIGNELÉGIER"), typed, due),
         ]
     }
 }
@@ -1031,7 +1167,8 @@ private struct ReadBandPreview: View {
                 ForEach(ReadBandSample.states, id: \.name) { state in
                     Text(verbatim: state.name).font(.caption).foregroundColor(.gray).padding(.horizontal)
                     CockpitReadRows(layout: layout, scale: scale, strip: state.strip, next: state.next, now: state.now,
-                                    nextFrequency: state.nextFrequency, onShowRoute: {}, language: language)
+                                    nextFrequency: state.nextFrequency, onShowRoute: {}, onNextTap: {},
+                                    language: language)
                 }
             }
             .padding(.vertical, 16)

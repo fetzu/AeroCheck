@@ -102,18 +102,19 @@ class OpenAIPCacheManager: ObservableObject {
     /// Look up a cached tile file on disk
     /// nonisolated for thread safety (called from MKTileOverlay background threads)
     nonisolated func cachedTileURL(z: Int, x: Int, y: Int) -> URL? {
-        // Compute path directly to avoid referencing MainActor-isolated properties
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let tilePath = documentsPath
-            .appendingPathComponent("MapData", isDirectory: true)
-            .appendingPathComponent("OpenAIP", isDirectory: true)
-            .appendingPathComponent("\(z)", isDirectory: true)
-            .appendingPathComponent("\(x)", isDirectory: true)
-            .appendingPathComponent("\(y).png")
-
+        let tilePath = Self.tileFileURL(z: z, x: x, y: y)
         guard FileManager.default.fileExists(atPath: tilePath.path) else { return nil }
         return tilePath
     }
+
+    /// Where a downloaded tile lies, whether it is there or not: Documents/MapData/OpenAIP/z/x/y.png. The folder found
+    /// once: every tile drawn asks. (6.4.2)
+    nonisolated static func tileFileURL(z: Int, x: Int, y: Int) -> URL {
+        folder.appendingPathComponent("\(z)/\(x)/\(y).png")
+    }
+
+    private nonisolated static let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("MapData/OpenAIP", isDirectory: true)
 
     // MARK: - Download
 

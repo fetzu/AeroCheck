@@ -60,6 +60,9 @@ struct RadioTimeline: Equatable {
         /// The destination's arrival point (the route's last point of that aerodrome): NOW 2 min before it at the
         /// latest.
         var arrivalPointNM: Double? = nil
+        /// An aerodrome called at its reporting points, not a zone to enter: it waits for the departure's stretch to
+        /// end, where a zone takes NOW from it in the climb (r3-2). (6.4.2)
+        var yieldsToDeparture = false
     }
 
     /// Listen-only, shown in NEXT in its window.
@@ -169,13 +172,13 @@ struct RadioTimeline: Equatable {
     }
 
     /// Which call wins where several hold a point: the destination, then the zone called last, then the departure,
-    /// then the FIS.
-    private static func rank(_ kind: Kind) -> Int {
-        switch kind {
+    /// then an aerodrome at its reporting points, then the FIS.
+    private static func rank(_ call: Call) -> Int {
+        switch call.kind {
         case .fis: return 0
-        case .departure: return 1
-        case .unit, .tmaViaFIS: return 2
-        case .destination: return 3
+        case .departure: return 2
+        case .unit, .tmaViaFIS: return call.yieldsToDeparture ? 1 : 3
+        case .destination: return 4
         }
     }
 
@@ -189,12 +192,20 @@ struct RadioTimeline: Equatable {
         for call in held {
             let start = start(of: call, speedKt: speedKt)
             if let chosen = best {
-                let rank = Self.rank(call.kind), chosenRank = Self.rank(chosen.call.kind)
+                let rank = Self.rank(call), chosenRank = Self.rank(chosen.call)
                 if rank < chosenRank || (rank == chosenRank && start <= chosen.start) { continue }
             }
             best = (call, start)
         }
-        guard let chosen = best?.call else { return nil }
+        guard var chosen = best?.call else { return nil }
+        // On the ground the departure is NOW, whatever call holds the field already: a zone or reporting point a few
+        // miles out, whose 5 min start before the take-off at the leg's planned speed. LSGN read LSGC TWR on the
+        // ground in the dr-3 replay, its V 6.7 NM out. (6.4.2)
+        if progress <= 0, chosen.kind != .departure,
+           let departure = held.first(where: { $0.kind == .departure }),
+           !departure.station.hasSameFrequency(as: chosen.station) {
+            chosen = departure
+        }
         // The aerodrome and its own zone on one frequency: the aerodrome's name, on the 8.33 kHz channel's name of
         // the two (Grenchen's tower 120.105 where the airport database writes 120.100, Bern's 121.030 where its CTR
         // writes 121.025: `Station.preferredName`).
@@ -221,11 +232,19 @@ struct RadioTimeline: Equatable {
         var reading = Reading(now: now)
 
         // NEXT: NOW once the departure is over, then just after each change ahead, the first on another frequency.
-        var ahead: [Call?] = []
-        if now?.kind == .departure { ahead.append(self.now(atNM: progress, speedKt: speed, departureOver: true)) }
+        // While the departure is NOW, a call that starts before its stretch ends comes first, ahead of the FIS: the
+        // level-off may come after it (LSGC at V, 6.7 NM out of LSGN, where NEXT read Geneva Info in the climb and
+        // LSGC TWR took NOW at the level-off: the dr-3 replay of 19 Oct). (6.4.2)
         let changes = calls.flatMap { [start(of: $0, speedKt: speed), end(of: $0, departureOver: true)] }
             .filter { $0.isFinite && $0 > progress }
             .sorted()
+        var ahead: [Call?] = []
+        if let departure = now, departure.kind == .departure {
+            let duringIt = [progress] + changes.filter { $0 + 1e-6 < departure.toNM }.map { $0 + 1e-6 }
+            ahead.append(duringIt.lazy.compactMap { self.now(atNM: $0, speedKt: speed, departureOver: true) }
+                .first { $0.kind != .fis && !$0.station.hasSameFrequency(as: departure.station) })
+            ahead.append(self.now(atNM: progress, speedKt: speed, departureOver: true))
+        }
         for change in changes { ahead.append(self.now(atNM: change + 1e-6, speedKt: speed, departureOver: true)) }
         if let next = ahead.lazy.compactMap({ $0 }).first(where: { !$0.station.hasSameFrequency(as: now?.station) }) {
             reading.next = next.station
@@ -403,7 +422,8 @@ extension RadioTimeline {
                   let first = points.min(), let last = points.max() else { continue }
             calledAtPoints.insert(icao)
             zoneCalls.append(Call(station: field.contact, kind: .unit, fromNM: cum[first],
-                                  toNM: min(cum[last] + reportingPointPastNM, total), lead: zoneLead))
+                                  toNM: min(cum[last] + reportingPointPastNM, total), lead: zoneLead,
+                                  yieldsToDeparture: true))
         }
         timeline.calls += merged(zoneCalls)
         for zone in possible {
@@ -471,6 +491,7 @@ extension RadioTimeline {
                 $0.kind == call.kind && $0.station.hasSameFrequency(as: call.station) && call.fromNM <= $0.toNM + 0.5
             }) {
                 out[i].toNM = max(out[i].toNM, call.toNM)
+                out[i].yieldsToDeparture = out[i].yieldsToDeparture && call.yieldsToDeparture
             } else {
                 out.append(call)
             }

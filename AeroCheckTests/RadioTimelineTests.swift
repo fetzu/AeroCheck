@@ -239,10 +239,36 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: point - 8.0).now?.station.callSign, "LSXC TWR")
         XCTAssertEqual(read(t, at: point + 1.8).now?.station.callSign, "LSXC TWR")
         XCTAssertEqual(read(t, at: point + 2.2).now?.station, geneva)
+        // A point a few miles out (V, 6.7 NM from LSGN): the departure stays NOW on the ground and to the level-off,
+        // the aerodrome NEXT; then the aerodrome (the dr-3 replay of 19 Oct read LSGC TWR on the ground at LSGN).
+        var nearPlan = FlightPlan(waypoints: waypoints())
+        nearPlan.waypoints[1] = FlightPlanWaypoint(name: "V", coordinate: .init(latitude: 47.0, longitude: 7.09),
+                                                   altitude: 5000, plannedGroundSpeed: 100)
+        nearPlan.waypoints[1].aerodromeICAO = "LSXC"
+        nearPlan.calculateRouteData()
+        let early = timeline(waypoints: nearPlan.waypoints, fields: [lsxc])
+        let ground = read(early, at: 0, speed: 100, departureOver: false)
+        XCTAssertEqual(ground.now?.station.callSign, "LSXA AFIS")
+        XCTAssertEqual(ground.next?.callSign, "LSXC TWR")
+        XCTAssertEqual(read(early, at: 1.5, departureOver: false).now?.station.callSign, "LSXA AFIS", "climbing")
+        XCTAssertEqual(read(early, at: 0.5, speed: 30, departureOver: false).next?.callSign, "LSXC TWR",
+                       "NEXT in the climb, before its 5 min have begun: the level-off may come after them")
+        XCTAssertEqual(read(early, at: 1.5, departureOver: true).now?.station.callSign, "LSXC TWR", "levelled off")
         // Not the departure's or the destination's points: those have their own calls.
         var own = waypoints()
         own[2].aerodromeICAO = "LSXA"
         XCTAssertFalse(timeline(waypoints: own, fields: [lsxc]).calls.contains { $0.kind == .unit })
+    }
+
+    /// On the ground the departure is NOW, a zone a few miles out notwithstanding; in the climb the zone takes NOW
+    /// 5 min before its boundary, as it must be called before entry.
+    func testOnTheGroundTheDepartureIsNowBeforeAZoneNearby() {
+        let ctr = airspace("CTR ALPHA", type: 4, icaoClass: 3, lon: 7.08...7.2, frequency: ("130.150", "ALPHA TOWER"))
+        let t = timeline([ctr])
+        let ground = read(t, at: 0, speed: 100, departureOver: false)
+        XCTAssertEqual(ground.now?.station.callSign, "LSXA AFIS")
+        XCTAssertEqual(ground.next?.callSign, "ALPHA TWR")
+        XCTAssertEqual(read(t, at: 1, departureOver: false).now?.station.callSign, "ALPHA TWR")
     }
 
     /// A CTR crossed on the way is called by the aerodrome inside it, on its 8.33 kHz name: "GRENCHEN TWR HX"

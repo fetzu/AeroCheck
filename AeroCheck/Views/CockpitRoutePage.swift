@@ -334,9 +334,19 @@ struct RouteRadioColumn: View {
     @Environment(CockpitRadio.self) private var radio
 
     var body: some View {
+        // The CTRs around that the route doesn't enter come last, under their own heading: without it they read
+        // as the route's next calls (the author's device check r3-6, 6.4.2).
+        let firstNearby = radio.stations.first(where: \.nearby)?.id
         VStack(alignment: .leading, spacing: 0) {
             if showsHeader { RouteColumnHeader(title: L10n.Route.radio) }
-            ForEach(radio.stations) { FrequencyRow(item: $0, large: true) }
+            ForEach(radio.stations) { item in
+                if item.id == firstNearby {
+                    RouteColumnHeader(title: L10n.Route.nearby)
+                        .padding(.top, 12)
+                        .accessibilityIdentifier("route.radio.nearby")
+                }
+                FrequencyRow(item: item, large: true)
+            }
         }
         // The column's width, whatever it lists: Emergency under it is as wide.
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -2211,6 +2211,8 @@ enum L10n {
         static let legs = String(localized: "route.legs")
         /// Over the frequencies: "RADIO".
         static let radio = String(localized: "route.radio")
+        /// Over the CTRs around that the route doesn't enter, after its calls. (6.4.2)
+        static let nearby = String(localized: "route.nearby")
         /// MAP showing a leg: back to the aircraft, followed again.
         static let backToAircraft = String(localized: "map.backToAircraft")
         /// "Direct LSGC": the leg's waypoint, flown to straight away.

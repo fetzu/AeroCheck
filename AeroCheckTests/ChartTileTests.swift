@@ -132,6 +132,25 @@ final class ChartTileTests: XCTestCase {
         XCTAssertLessThan(rank(edge, false), rank(beside, false))
         XCTAssertLessThan(rank(beside, false), rank(further, false))
         XCTAssertLessThan(rank(beside, true), rank(beside, false))
+        XCTAssertEqual(rank(further, false), .infinity, "a screen away: not before the map comes near")
+    }
+
+    /// A tile wanted later stays queued, unfetched, until a map wants it sooner.
+    func testATileWantedLaterWaits() async {
+        let loader = ChartTileLoader(limit: 8)
+        let network = Network()
+        network.answers["far"] = Self.ok()
+        final class Rank: @unchecked Sendable { var value = Double.infinity }
+        let rank = Rank()
+        let outcomes = Outcomes()
+        loader.load(network.spec("far"), urgency: { rank.value }) { outcomes.add($0) }
+        await wait(0.1)
+        XCTAssertEqual(network.fetched, [])
+        XCTAssertEqual(loader.queuedCount, 1)
+        rank.value = 1   // the map came near
+        loader.reconsider()
+        await waitUntil { outcomes.list.count == 1 }
+        XCTAssertEqual(network.fetched, ["far"])
     }
 
     // MARK: - Loader

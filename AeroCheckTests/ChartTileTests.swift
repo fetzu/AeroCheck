@@ -335,7 +335,8 @@ final class ChartTileTests: XCTestCase {
         // The coarse one was asked for too, and came after.
         network.release(key(coarse))
         await waitUntil { renderer.redrawn.count == 2 }
-        XCTAssertTrue((renderer.redrawn.last?.0).map { MKMapRectEqualToRect($0, coarse.mapRect) } ?? false, "its whole rectangle")
+        XCTAssertTrue((renderer.redrawn.last?.0).map { MKMapRectEqualToRect($0, coarse.mapRect) } ?? false,
+                      "its whole rectangle")
     }
 
     /// With the coarse tile in hand, a missing sharp tile is drawn from it: MapKit draws at once.
@@ -422,5 +423,42 @@ final class ChartTileTests: XCTestCase {
         XCTAssertEqual(network.fetched, [key(tile), key(tile)], "asked again after 2 s")
         await waitUntil { renderer.redrawn.count == 2 }
         XCTAssertTrue((renderer.redrawn.last?.0).map { MKMapRectEqualToRect($0, tile.mapRect) } ?? false)
+    }
+
+    // MARK: - OpenAIP
+
+    /// OpenAIP's tiles drawn by the renderer as the charts are: the downloaded copy first, the key in a header, never
+    /// a request offline, its fills stripped, and none of its labels enlarged past its last zoom. (the review's F8)
+    func testOpenAIPsTilesComeThroughTheRenderer() throws {
+        let overlay = OpenAIPTileOverlay()
+        XCTAssertTrue(ChartTileRenderer.renderer(for: overlay, on: nil) is ChartTileRenderer)
+        XCTAssertEqual(overlay.enlargesPastLastZoom, 0)
+        XCTAssertEqual(ICAOSegelflugkarteTileOverlay().enlargesPastLastZoom, 6)
+        let tile = ChartTile(z: 9, x: 268, y: 179)
+        let spec = try XCTUnwrap(overlay.spec(for: tile))
+        XCTAssertEqual(spec.key, "openaip/9/268/179", "one key whatever the subdomain")
+        XCTAssertEqual(spec.disk?.path.hasSuffix("MapData/OpenAIP/9/268/179.png"), true)
+        XCTAssertNotNil(spec.fetch)
+        XCTAssertNil(OpenAIPTileOverlay(isStrictOfflineMode: true).spec(for: tile)?.fetch, "offline: no request")
+        let renderer = ChartTileRenderer(source: overlay, loader: ChartTileLoader(limit: 1))
+        XCTAssertTrue(renderer.canDraw(ChartTile(z: 16, x: 34330, y: 22960).mapRect,
+                                       zoomScale: MKZoomScale(pow(2.0, -4.0))), "past z14: nothing to wait for")
+    }
+
+    /// The fills (alpha under 64) go, the labels and lines stay, and the image stays decoded.
+    func testOpenAIPsFillsAreStripped() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 256, height: 256), format: format).image { context in
+            UIColor(red: 1, green: 0, blue: 0, alpha: 0.1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 256, height: 256))
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 96, y: 96, width: 64, height: 64))
+        }
+        let stripped = try XCTUnwrap(OpenAIPTileOverlay.strippingFills(of: try XCTUnwrap(image.cgImage)))
+        let data = try XCTUnwrap(stripped.dataProvider?.data as Data?)
+        let alpha = { (x: Int, y: Int) in data[y * stripped.bytesPerRow + x * 4 + 3] }
+        XCTAssertEqual(alpha(10, 10), 0, "the fill is gone")
+        XCTAssertEqual(alpha(128, 128), 255, "the label stays")
     }
 }

@@ -7,11 +7,11 @@ import os
 
 // MapKit's `MKTileOverlayRenderer` dropped some of the tiles handed to it after `loadTile` returned, and asked for them
 // again only when it redrew by itself: a still map kept its holes (Plan › Map after a relaunch, the route builder).
-// Six releases of workarounds (`LateTileRedraw`, 6.1.0 to 6.4.2) each traded one symptom for another: holes, a blank
-// frame, flashing, a wait of 8 to 15 s. It also chose the zoom alone, from the screen's scale and the view's size, and
-// asked for nothing past the overlay's `maximumZ`: the ICAO chart drew blank at its closest zoom on the iPad, where it
-// wanted zoom 13 of a chart that stops at 12 (the map tile review, 19 Oct 2026). This renderer draws the tiles itself,
-// from `ChartTileLoader`'s caches:
+// Six releases of workarounds (`LateTileRedraw`, 6.1.0 to 6.4.2, gone since) each traded one symptom for another:
+// holes, a blank frame, flashing, a wait of 8 to 15 s. It also chose the zoom alone, from the screen's scale and the
+// view's size, and asked for nothing past the overlay's `maximumZ`: the ICAO chart drew blank at its closest zoom on
+// the iPad, where it wanted zoom 13 of a chart that stops at 12 (the map tile review, 19 Oct 2026). This renderer draws
+// the tiles itself, from `ChartTileLoader`'s caches:
 // - it draws what it has: the tile, else the nearest zoom out it has, enlarged, else the four zoom in, reduced;
 // - a tile that comes redraws its own rectangle, at the zoom that wanted it (MapKit's documented path for content that
 //   comes late), and nothing else;
@@ -89,6 +89,13 @@ struct ChartTileSpec: @unchecked Sendable {
 /// comes from; nil when there is none.
 protocol ChartTileSource: MKTileOverlay {
     func spec(for tile: ChartTile) -> ChartTileSpec?
+    /// How many zooms past `maximumZ` its last zoom is drawn enlarged; nothing further in.
+    var enlargesPastLastZoom: Int { get }
+}
+
+extension ChartTileSource {
+    /// The charts: as far in as the camera goes (the glider chart at the ICAO layer's closest zoom, q3 B).
+    var enlargesPastLastZoom: Int { 6 }
 }
 
 // MARK: - Loader and caches
@@ -339,7 +346,8 @@ final class ChartTileLoader: @unchecked Sendable {
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
               width > 0, height > 0, width <= Self.maxTileDimension, height <= Self.maxTileDimension,
-              let image = CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+              let image = CGImageSourceCreateImageAtIndex(source, 0,
+                                                          [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
         else { return nil }
         if let process = spec.process { return process(image) }
         return image
@@ -398,8 +406,7 @@ class ChartTileRenderer: MKOverlayRenderer {
         super.init(overlay: source)
     }
 
-    /// The renderer for a tile overlay on `mapView`: this one for the app's sources, MapKit's for any other (OpenAIP's,
-    /// with its redraw).
+    /// The renderer for a tile overlay on `mapView`: this one for the app's sources, MapKit's for any other.
     @MainActor
     static func renderer(for overlay: MKTileOverlay, on mapView: MKMapView?) -> MKOverlayRenderer {
         if let source = overlay as? ChartTileSource {
@@ -407,7 +414,7 @@ class ChartTileRenderer: MKOverlayRenderer {
             renderer.mapView = mapView
             return renderer
         }
-        return LateTileRedraw.renderer(for: overlay)
+        return MKTileOverlayRenderer(tileOverlay: overlay)
     }
 
     /// The zoom drawn at `zoomScale`: the screen's, within the layer's zooms.
@@ -416,9 +423,10 @@ class ChartTileRenderer: MKOverlayRenderer {
         return (wanted, min(max(wanted, source.minimumZ), source.maximumZ))
     }
 
-    /// Two zooms or more under the layer's first, too many tiles to draw: nothing (Apple's map, or the grid).
+    /// Two zooms or more under the layer's first, too many tiles to draw, or further in than the layer enlarges:
+    /// nothing (Apple's map, or the grid).
     private func draws(_ zooms: (wanted: Int, drawn: Int)) -> Bool {
-        zooms.drawn - zooms.wanted < 2
+        zooms.drawn - zooms.wanted < 2 && zooms.wanted - zooms.drawn <= source.enlargesPastLastZoom
     }
 
     // MARK: MapKit
@@ -444,8 +452,9 @@ class ChartTileRenderer: MKOverlayRenderer {
             }
         }
         #if DEBUG
-        TileLog.line("canDraw z\(zooms.wanted)→\(zooms.drawn) scale=\(zoomScale) \(ready ? "ready" : "waits") main=\(Thread.isMainThread) "
-                     + "r\(ObjectIdentifier(self).hashValue & 0xfff) rect=\(Int(mapRect.minX)),\(Int(mapRect.minY)) \(Int(mapRect.width * zoomScale))pt")
+        TileLog.line("canDraw z\(zooms.wanted)→\(zooms.drawn) scale=\(zoomScale) \(ready ? "ready" : "waits") "
+                     + "main=\(Thread.isMainThread) r\(ObjectIdentifier(self).hashValue & 0xfff) "
+                     + "rect=\(Int(mapRect.minX)),\(Int(mapRect.minY)) \(Int(mapRect.width * zoomScale))pt")
         #endif
         return ready
     }
@@ -521,7 +530,8 @@ class ChartTileRenderer: MKOverlayRenderer {
         }
         guard first else { return }
         #if DEBUG
-        TileLog.line("ask \(tile)\(coarse ? " coarse" : "") \(spec.key.split(separator: "/").suffix(5).joined(separator: "/"))")
+        TileLog.line("ask \(tile)\(coarse ? " coarse" : "") "
+                     + spec.key.split(separator: "/").suffix(5).joined(separator: "/"))
         #endif
         loader.load(spec, urgency: { [weak self] in self?.urgency(of: tile, coarse: coarse) }) { [weak self] outcome in
             DispatchQueue.main.async { self?.arrived(tile, outcome) }
@@ -540,7 +550,8 @@ class ChartTileRenderer: MKOverlayRenderer {
     /// screens' width around the one in view: on screen first, the coarse before the sharp, nearest the middle first;
     /// then the tiles within a quarter of a screen of it, which a pan or the aircraft moving on brings in; the rest
     /// waits until the map comes near it (about two thirds of what MapKit asks for, never fetched on a map that stays).
-    /// A tile of the zoom next to the one in view (MapKit passing through it, the camera settling) comes after all of it.
+    /// A tile of the zoom next to the one in view (MapKit passing through it, the camera settling) comes after all of
+    /// it.
     func urgency(of tile: ChartTile, coarse: Bool) -> Double? {
         let (wanted, visible) = state.withLock { state -> (Int?, MKMapRect?) in
             let away = state.wanted[tile]?.map { abs(ChartTile.zoom(for: $0) - state.zoom) }.min()
@@ -625,8 +636,8 @@ class ChartTileRenderer: MKOverlayRenderer {
 /// runs (CLAUDE/review/2026-10-19-map-tiles); inert without them. (6.4.2)
 enum TileLog {
     static let isOn = ProcessInfo.processInfo.environment["AEROCHECK_TILE_LOG"] == "1"
-    static let delayNanoseconds = UInt64(ProcessInfo.processInfo.environment["AEROCHECK_TILE_DELAY_MS"].flatMap(Int.init) ?? 0)
-        * 1_000_000
+    static let delayNanoseconds = UInt64(ProcessInfo.processInfo.environment["AEROCHECK_TILE_DELAY_MS"]
+        .flatMap(Int.init) ?? 0) * 1_000_000
     private static let start = Date()
 
     static func line(_ text: @autoclosure () -> String) {

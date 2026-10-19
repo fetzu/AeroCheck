@@ -21,6 +21,8 @@ import CoreLocation
 // |                          | arrival point if that comes first; to the end and after         |        |
 // | Its ATIS                 | in NEXT, LISTEN, from 10 min before that call point             | q9     |
 // | An aerodrome on the way  | in NEXT, LISTEN, from 5 min before abeam to 2 NM past           | q7     |
+// | An aerodrome whose       | 5 min before the first of its points on the route, to 2 NM past | r3-2   |
+// | reporting points it flies| the last, its zone entered or not                               |        |
 //
 // NEXT is NOW at the next change ahead on another frequency, unless a LISTEN item is in its window. Minutes are
 // turned into miles at the aircraft's ground speed, so a slow aircraft gets its calls earlier on the map.
@@ -103,6 +105,8 @@ struct RadioTimeline: Equatable {
     static let fieldOnTheWayLead: TimeInterval = 300
     /// …until this far past it.
     static let fieldOnTheWayPastNM = 2.0
+    /// An aerodrome whose reporting points the route flies is called until this far past the last (r3-2).
+    static let reportingPointPastNM = 2.0
     /// Within this of the route, an aerodrome is on the way (q7).
     static let fieldOnTheWayNM = 2.0
     /// The departure is NOW to the level-off, and this far at most (a climb that never levels off).
@@ -228,25 +232,25 @@ struct RadioTimeline: Equatable {
             reading.nextKind = next.kind
         }
 
-        // LISTEN: the destination's ATIS from 10 min before its call point; else an aerodrome on the way.
+        // LISTEN: the destination's ATIS from 10 min before its call point, an aerodrome on the way from 5 min before
+        // abeam to 2 NM past. Of two in their windows, the one whose window ends first, then the other: the field
+        // passed, then the ATIS (the author's device check ls-1: LSPL abeam on the way back to Grenchen, where the
+        // ATIS used to win and LSPL never showed).
         let v = Self.milesPerSecond(speed)
-        if let destination = calls.last(where: { $0.kind == .destination }) {
+        var windows: [(station: Station, ends: Double)] = []
+        if let destination = calls.last(where: { $0.kind == .destination }),
+           let atis = listens.first(where: { $0.kind == .atis }) {
             let call = start(of: destination, speedKt: speed)
-            if let atis = listens.first(where: { $0.kind == .atis }),
-               call - Self.atisLead * v <= progress, progress < call,
-               !atis.station.hasSameFrequency(as: now?.station) {
-                reading.next = atis.station
-                reading.nextIsListen = true
-                reading.nextKind = nil
+            if call - Self.atisLead * v <= progress, progress < call { windows.append((atis.station, call)) }
+        }
+        if moment.fieldsOnTheWay {
+            for field in listens where field.kind == .fieldOnTheWay
+                && field.atNM - Self.fieldOnTheWayLead * v <= progress && progress < field.atNM + Self.fieldOnTheWayPastNM {
+                windows.append((field.station, field.atNM + Self.fieldOnTheWayPastNM))
             }
         }
-        if !reading.nextIsListen, moment.fieldsOnTheWay,
-           let field = listens.first(where: {
-               $0.kind == .fieldOnTheWay
-                   && $0.atNM - Self.fieldOnTheWayLead * v <= progress && progress < $0.atNM + Self.fieldOnTheWayPastNM
-                   && !$0.station.hasSameFrequency(as: now?.station)
-           }) {
-            reading.next = field.station
+        if let listen = windows.filter({ !$0.station.hasSameFrequency(as: now?.station) }).min(by: { $0.ends < $1.ends }) {
+            reading.next = listen.station
             reading.nextIsListen = true
             reading.nextKind = nil
         }
@@ -384,6 +388,23 @@ extension RadioTimeline {
                                       note: viaFIS ? "TMA " + RouteRadioPlanner.baseName(zone.airspace.name) : nil))
             }
         }
+        // An aerodrome whose reporting points the route flies, not either end: its contact as a zone's, from 5 min
+        // before the first point to 2 NM past the last, its zone entered or not. Calling Les Eplatures over its V and
+        // E is customary though the route stays outside its CTR (the author's device check r3-2, 19 Oct 2026).
+        let ends = Set([departure?.ident, destination?.ident].compactMap { $0?.uppercased() })
+        var pointsOf: [String: [Int]] = [:]
+        for i in waypoints.indices.dropFirst().dropLast() {
+            guard let icao = waypoints[i].aerodromeICAO?.uppercased(), !icao.isEmpty, !ends.contains(icao) else { continue }
+            pointsOf[icao, default: []].append(i)
+        }
+        var calledAtPoints = Set<String>()
+        for (icao, points) in pointsOf {
+            guard let field = fieldsNearby.first(where: { $0.ident.uppercased() == icao }),
+                  let first = points.min(), let last = points.max() else { continue }
+            calledAtPoints.insert(icao)
+            zoneCalls.append(Call(station: field.contact, kind: .unit, fromNM: cum[first],
+                                  toNM: min(cum[last] + reportingPointPastNM, total), lead: zoneLead))
+        }
         timeline.calls += merged(zoneCalls)
         for zone in possible {
             guard let run = runs(zone.inside).first else { continue }
@@ -417,9 +438,9 @@ extension RadioTimeline {
             }
         }
 
-        // Aerodromes on the way: within 2 NM of the route, with no zone of their own, not either end.
-        let ends = Set([departure?.ident, destination?.ident].compactMap { $0?.uppercased() })
-        for field in fieldsNearby where !ends.contains(field.ident.uppercased()) {
+        // Aerodromes on the way: within 2 NM of the route, with no zone of their own, not either end, not called at
+        // their reporting points.
+        for field in fieldsNearby where !ends.contains(field.ident.uppercased()) && !calledAtPoints.contains(field.ident.uppercased()) {
             guard !airspaces.contains(where: { RouteRadioPlanner.isAerodromeZone($0) && $0.containsPoint(field.coordinate) }),
                   let nearest = samples.min(by: { distanceNM($0.coordinate, field.coordinate) < distanceNM($1.coordinate, field.coordinate) }),
                   distanceNM(nearest.coordinate, field.coordinate) <= fieldOnTheWayNM else { continue }

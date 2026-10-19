@@ -842,7 +842,8 @@ extension RouteRadioPlanner {
             airspaceSource: source,
             checkAreaTag: crossed.contains("CH") ? "DABS" : "NOTAM",
             terrain: await routeTerrain(coords, routeNM: RouteAltitudeProfile(wps).totalNM),
-            fieldsNearby: fieldsNear(coords, airports: airports) + fieldsInZones(airspaces, airports: airports),
+            fieldsNearby: fieldsNear(coords, airports: airports) + fieldsInZones(airspaces, airports: airports)
+                + fieldsOfPoints(wps, airports: airports),
             fisAreas: FISAreaService.shared.areas(in: openAIP),
             groundFallbackFt: [wps[0], wps[wps.count - 1]].compactMap { wp in
                 (airports.findAirport(byIdent: wp.name.uppercased()) ?? airports.nearestAirport(to: wp.coordinate, maxDistanceNm: 1.0))?
@@ -874,6 +875,20 @@ extension RouteRadioPlanner {
             }
         }
         return fields
+    }
+
+    /// The aerodromes whose reporting points the route flies (V and E of Les Eplatures), with their contact: the timeline
+    /// calls them there (r3-2). (6.4.2)
+    @MainActor
+    static func fieldsOfPoints(_ waypoints: [FlightPlanWaypoint], airports: AirportDataService) -> [RadioTimeline.NearbyField] {
+        guard airports.isDataAvailable else { return [] }
+        var seen = Set<String>()
+        return waypoints.compactMap { waypoint in
+            guard let icao = waypoint.aerodromeICAO?.uppercased(), !icao.isEmpty, seen.insert(icao).inserted,
+                  let airport = airports.findAirport(byIdent: icao),
+                  let contact = contact(of: airport.ident, airports: airports) else { return nil }
+            return RadioTimeline.NearbyField(ident: airport.ident, coordinate: airport.coordinate, contact: contact)
+        }
     }
 
     /// The aerodrome inside each aerodrome zone near the route (Les Eplatures in its CTR), with its contact: so the walk

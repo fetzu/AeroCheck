@@ -2554,7 +2554,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {
-                return LateTileRedraw.renderer(for: tile)
+                return ChartTileRenderer.renderer(for: tile, on: mapView)
             }
             // Traffic circuits, VFR routes and sectors: before the generic MKPolyline branch below, which
             // would draw them magenta, as the route. (6.2.0)

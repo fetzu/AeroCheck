@@ -427,24 +427,24 @@ class OfflineMapManager: ObservableObject {
     /// This method is nonisolated because it only performs file system operations
     /// and needs to be called from the tile overlay's loadTile method
     nonisolated func cachedTileURL(z: Int, x: Int, y: Int, layer: CacheableLayer) -> URL? {
-        // Use the local Documents directory for map cache (On this iPhone/AéroCheck/MapData)
-        // Note: iOS Files app shows Documents folder with the app name, so no extra subfolder needed
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let mapDataFolder = "MapData"
+        let tilePath = Self.tileFileURL(z: z, x: x, y: y, layer: layer)
+        return FileManager.default.fileExists(atPath: tilePath.path) ? tilePath : nil
+    }
+
+    /// Where a downloaded tile lies, whether it is there or not: Documents/MapData/<layer>/z/x/y.png (On this
+    /// iPhone/AéroCheck/MapData; the Files app shows Documents under the app's name). The folder found once: every map
+    /// tile drawn asks. (6.4.2)
+    nonisolated static func tileFileURL(z: Int, x: Int, y: Int, layer: CacheableLayer) -> URL {
         let layerDir: String
         switch layer {
         case .icao: layerDir = "ICAO"
         case .segelflug: layerDir = "Segelflug"
         }
-        let cacheDir = documentsPath
-            .appendingPathComponent(mapDataFolder, isDirectory: true)
-            .appendingPathComponent(layerDir, isDirectory: true)
-        let tilePath = cacheDir.appendingPathComponent("\(z)/\(x)/\(y).png")
-        if FileManager.default.fileExists(atPath: tilePath.path) {
-            return tilePath
-        }
-        return nil
+        return mapDataFolder.appendingPathComponent("\(layerDir)/\(z)/\(x)/\(y).png")
     }
+
+    private nonisolated static let mapDataFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("MapData", isDirectory: true)
 
     /// Mark "Remind me later" for update
     func remindLater() {

@@ -45,7 +45,7 @@ final class SwissChartLayerTests: XCTestCase {
     // MARK: - Outside Switzerland
 
     /// The National Map's tile at z12 over Lyon as swisstopo serves it (668 bytes, 19 Oct 2026): plain white.
-    private static let blankNationalMapTile = Data(base64Encoded: [
+    static let blankNationalMapTile = Data(base64Encoded: [
         "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAQDAwMDAgQDAwMEBAQFBgoGBgUFBgwICQcKDgwPDg4MDQ0PERYTDxAVEQ0NExoTFRcY",
         "GRkZDxIbHRsYHRYYGRj/2wBDAQQEBAYFBgsGBgsYEA0QGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgY",
         "GBgYGBgYGBj/wAARCAEAAQADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QA",

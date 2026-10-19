@@ -213,13 +213,13 @@ struct RadioTimeline: Equatable {
         let isZone = { (call: Call) in call.kind == .unit || call.kind == .tmaViaFIS }
         if isZone(chosen), var field = held.first(where: { isField($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
             field.station = Station(frequency: Station.preferredName(chosen.station.frequency, field.station.frequency),
-                                    callSign: field.station.callSign, isHX: chosen.station.isHX)
+                                    callSign: field.station.callSign, isHX: chosen.station.isHX || field.station.isHX)
             return field
         }
         if isField(chosen), let zone = held.first(where: { isZone($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
             var field = chosen
             field.station = Station(frequency: Station.preferredName(zone.station.frequency, chosen.station.frequency),
-                                    callSign: chosen.station.callSign, isHX: zone.station.isHX)
+                                    callSign: chosen.station.callSign, isHX: zone.station.isHX || chosen.station.isHX)
             return field
         }
         return chosen
@@ -385,16 +385,29 @@ extension RadioTimeline {
         // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came. Since 6.4.2's device checks an
         // aerodrome on the way too: "GRENCHEN TWR HX" was too wide for NOW and showed no name at all (zn-3).
         var zoneCalls: [Call] = []
+        // Any zone on an aerodrome's frequency where it holds the aerodrome, or where the aerodrome's own zone (its
+        // CTR) is on that frequency: a TMA too, its frequency borrowed from the CTR. Bern's tower was "BERN TWR" from
+        // TMA BERN, then "LSZB TWR", then "LSZB TWR HX" in its CTR, one frequency under three names (the route 3
+        // replay, 19 Oct). HX where any zone on it over the aerodrome is. (6.4.2)
         var aerodromes: [(contact: Station, at: CLLocationCoordinate2D)] = fieldsNearby.map { ($0.contact, $0.coordinate) }
         if let contact = destination?.contact { aerodromes.insert((contact, waypoints[waypoints.count - 1].coordinate), at: 0) }
         if let contact = departure?.contact { aerodromes.insert((contact, waypoints[0].coordinate), at: 0) }
+        func isHX(_ contact: Station, at point: CLLocationCoordinate2D) -> Bool {
+            contact.isHX || (zones + possible).contains {
+                $0.station.isHX && $0.station.hasSameFrequency(as: contact) && $0.airspace.containsPoint(point)
+            }
+        }
         func named(_ zone: Zone) -> Station {
-            guard RouteRadioPlanner.isAerodromeZone(zone.airspace),
-                  let contact = aerodromes.first(where: {
-                      $0.contact.hasSameFrequency(as: zone.station) && zone.airspace.containsPoint($0.at)
-                  })?.contact else { return zone.station }
-            return Station(frequency: Station.preferredName(zone.station.frequency, contact.frequency),
-                           callSign: contact.callSign, isHX: zone.station.isHX)
+            let ownZones = airspaces.filter {
+                RouteRadioPlanner.isAerodromeZone($0)
+                    && ($0.primaryFrequency.map { Station.isSameFrequency($0.value, zone.station.frequency) } ?? false)
+            }
+            guard let aerodrome = aerodromes.first(where: { aerodrome in
+                      aerodrome.contact.hasSameFrequency(as: zone.station)
+                          && (zone.airspace.containsPoint(aerodrome.at) || ownZones.contains { $0.containsPoint(aerodrome.at) })
+                  }) else { return zone.station }
+            return Station(frequency: Station.preferredName(zone.station.frequency, aerodrome.contact.frequency),
+                           callSign: aerodrome.contact.callSign, isHX: isHX(aerodrome.contact, at: aerodrome.at))
         }
         for zone in zones {
             let viaFIS = RouteRadioPlanner.isClearedByFIS(zone.airspace, station: zone.station)
@@ -434,13 +447,15 @@ extension RadioTimeline {
         }
 
         // The departure, from the start to the level-off.
-        if let contact = departure?.contact {
+        if var contact = departure?.contact {
+            contact.isHX = isHX(contact, at: waypoints[0].coordinate)
             timeline.calls.append(Call(station: contact, kind: .departure, fromNM: 0, toNM: min(departureLimitNM, total)))
         }
 
         // The destination: from its zone's boundary where the route ends inside one that holds it, else the end.
         let end = waypoints[waypoints.count - 1].coordinate
-        if let destination, let contact = destination.contact {
+        if let destination, var contact = destination.contact {
+            contact.isHX = isHX(contact, at: end)
             // The stretch of the aerodrome's own zone the route ends in (a CTR, a FIZ), not a TMA above it.
             let zoneEntry = zones
                 .filter { RouteRadioPlanner.isAerodromeZone($0.airspace) && $0.airspace.containsPoint(end) }

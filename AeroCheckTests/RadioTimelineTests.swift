@@ -260,6 +260,24 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertFalse(timeline(waypoints: own, fields: [lsxc]).calls.contains { $0.kind == .unit })
     }
 
+    /// One frequency, one name: a TMA over the destination on its tower's frequency is called by the destination too,
+    /// HX as its CTR is. Bern's read "BERN TWR", "LSZB TWR", then "LSZB TWR HX" (the route 3 replay, 19 Oct 2026).
+    func testAZoneOverTheDestinationOnItsFrequencyIsCalledByIt() {
+        let bern = RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: Station(frequency: "121.030", callSign: "LSXB TWR"),
+                                               atis: nil, ground: nil)
+        let tma = airspace("TMA XB", type: 7, icaoClass: 3, lon: 7.85...8.3, frequency: ("121.030", "XB TOWER"))
+        let ctr = airspace("CTR XB (HX)", type: 4, icaoClass: 3, lon: 8.1...8.3, frequency: ("121.025", "XB TOWER"))
+        // TMA BERN 1 publishes no frequency and doesn't reach the field: CTR BERN's, borrowed.
+        let tma1 = airspace("TMA XB 1", type: 7, icaoClass: 3, lon: 7.8...7.95)
+        for t in [plan([tma, ctr], destination: .some(bern)).timeline, plan([tma1, ctr], destination: .some(bern)).timeline] {
+            let names = stride(from: 25.0, to: t.totalNM, by: 1).compactMap { read(t, at: $0).now?.station }
+                .filter { $0.hasSameFrequency(as: bern.contact) }
+            XCTAssertFalse(names.isEmpty)
+            XCTAssertEqual(Set(names.map(\.callSign)), ["LSXB TWR"], names.map(\.callSign).description)
+            XCTAssertTrue(names.allSatisfy(\.isHX))
+        }
+    }
+
     /// On the ground the departure is NOW, a zone a few miles out notwithstanding; in the climb the zone takes NOW
     /// 5 min before its boundary, as it must be called before entry.
     func testOnTheGroundTheDepartureIsNowBeforeAZoneNearby() {

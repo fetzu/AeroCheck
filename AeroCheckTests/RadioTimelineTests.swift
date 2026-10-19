@@ -225,6 +225,26 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: zone.fromNM).now?.station.callSign, "ALPHA TWR")
     }
 
+    /// An aerodrome whose reporting points the route flies is called there, its zone entered or not: from 5 min before
+    /// its first point to 2 NM past its last (Les Eplatures over V and E, the author's device check r3-2).
+    func testAnAerodromesReportingPointsAreCalledThere() {
+        var wps = waypoints()
+        wps[2].aerodromeICAO = "LSXC"
+        let lsxc = RadioTimeline.NearbyField(ident: "LSXC", coordinate: .init(latitude: 47.15, longitude: 7.6),
+                                             contact: Station(frequency: "118.130", callSign: "LSXC TWR"))
+        let t = timeline(waypoints: wps, fields: [lsxc])
+        let point = t.waypointNM[2]
+        XCTAssertEqual(read(t, at: point - 8.7).now?.station, geneva)
+        XCTAssertEqual(read(t, at: point - 8.7).next?.callSign, "LSXC TWR")
+        XCTAssertEqual(read(t, at: point - 8.0).now?.station.callSign, "LSXC TWR")
+        XCTAssertEqual(read(t, at: point + 1.8).now?.station.callSign, "LSXC TWR")
+        XCTAssertEqual(read(t, at: point + 2.2).now?.station, geneva)
+        // Not the departure's or the destination's points: those have their own calls.
+        var own = waypoints()
+        own[2].aerodromeICAO = "LSXA"
+        XCTAssertFalse(timeline(waypoints: own, fields: [lsxc]).calls.contains { $0.kind == .unit })
+    }
+
     /// A CTR crossed on the way is called by the aerodrome inside it, on its 8.33 kHz name: "GRENCHEN TWR HX"
     /// was too wide for NOW, which showed no name at all (the author's device check zn-3, 19 Oct 2026).
     func testAZoneOnTheWayIsCalledByItsAerodrome() {
@@ -415,10 +435,22 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertTrue(timeline(fields: [field("LSXB", latitude: 47.0, longitude: 8.2)]).listens.allSatisfy { $0.kind == .atis })
     }
 
-    /// The destination's ATIS wins over an aerodrome on the way.
-    func testTheATISWinsOverAnAerodromeOnTheWay() {
+    /// The destination's ATIS and an aerodrome on the way, one after the other: the one whose window ends first,
+    /// the field passed, then the ATIS (the author's device check ls-1, 19 Oct 2026: LSPL abeam on the way back to
+    /// Grenchen, where the ATIS used to win and LSPL never showed). ROUTE lists both.
+    func testTwoListensComeOneAfterTheOther() {
         let t = timeline(fields: [field("LSXD", latitude: 47.01, longitude: 7.9)])
-        XCTAssertEqual(read(t, at: t.waypointNM[3] - 1).next?.callSign, "LSXB ATIS")
+        let abeam = t.waypointNM[3]
+        let before = read(t, at: abeam - 9)
+        XCTAssertEqual(before.next?.callSign, "LSXB ATIS", "the ATIS alone in its window")
+        let field = read(t, at: abeam - 1)
+        XCTAssertEqual(field.next?.callSign, "LSXD A/G")
+        XCTAssertTrue(field.nextIsListen)
+        let after = read(t, at: abeam + 2.2)
+        XCTAssertEqual(after.next?.callSign, "LSXB ATIS")
+        XCTAssertTrue(after.nextIsListen)
+        let route = t.ahead(.init(progressNM: abeam - 1, speedKt: 100, departureOver: true))
+        XCTAssertEqual(route.filter(\.listen).map(\.station.callSign), ["LSXD A/G", "LSXB ATIS"])
     }
 
     // MARK: - FIS areas (q4)

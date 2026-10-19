@@ -582,6 +582,17 @@ final class LateTileRedrawTests: XCTestCase {
         XCTAssertTrue(LateTileRedraw.mayRedraw(after: Array(recent.dropFirst()), at: now))
     }
 
+    /// Over the cap, the redraw waits for the oldest in the window to leave it, rather than never coming: a long
+    /// pinch spent the cap and left the route builder's last dropped tiles as holes (device check, 19 Oct 2026).
+    func testACappedRedrawWaitsForTheWindowToFreeOne() {
+        let now = Date()
+        XCTAssertNil(LateTileRedraw.waitForRedraw(after: [], at: now), "one fits now")
+        let recent = (1...LateTileRedraw.maxRedraws).map { now.addingTimeInterval(-Double($0)) }
+        let wait = try? XCTUnwrap(LateTileRedraw.waitForRedraw(after: recent, at: now))
+        XCTAssertEqual(wait ?? 0, LateTileRedraw.window - Double(LateTileRedraw.maxRedraws), accuracy: 0.1)
+        XCTAssertTrue(LateTileRedraw.mayRedraw(after: recent, at: now.addingTimeInterval(wait ?? 0)))
+    }
+
     func testRedrawsStopAtTheCap() async {
         let (overlay, renderer) = icaoOverlay()
 

@@ -1710,6 +1710,9 @@ enum L10n {
         static let title = String(localized: "mapLayer.title")
         static let icao = String(localized: "mapLayer.icao")
         static let icaoHint = String(localized: "mapLayer.icaoHint")
+        /// The route builder's chart, from the ICAO chart to the glider chart to the National Map as it zooms in.
+        /// (6.4.2)
+        static let icaoGliderNational = String(localized: "mapLayer.icaoGliderNational")
         static let landeskarte = String(localized: "mapLayer.landeskarte")
         static let swissimage = String(localized: "mapLayer.swissimage")
         static let satellite = String(localized: "mapLayer.satellite")

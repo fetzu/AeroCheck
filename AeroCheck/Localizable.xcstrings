@@ -16540,6 +16540,24 @@
         }
       }
     },
+    "route.nearby": {
+      "comment": "ROUTE's RADIO column: the heading over the control zones near the aircraft that the route doesn't enter, listed after the route's calls.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEARBY, OFF ROUTE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À PROXIMITÉ, HORS ROUTE"
+          }
+        }
+      }
+    },
     "map.backToAircraft": {
       "extractionState": "manual",
       "localizations": {

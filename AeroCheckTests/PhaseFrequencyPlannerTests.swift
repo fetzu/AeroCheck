@@ -715,9 +715,13 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
     func testRouteRadioListsACTRAroundOnlyOnce() {
         var world = Self.empty
         world.ctrs = [(station: "XB (HX)", frequency: "118.130"), (station: "BERN (HX)", frequency: "121.025")]
-        let stations = onRoute(longitude: 7.05, next: 1, world: world).route.map(\.station)
+        let route = onRoute(longitude: 7.05, next: 1, world: world).route
+        let stations = route.map(\.station)
         XCTAssertFalse(stations.contains("XB (HX)"), stations.description)
         XCTAssertTrue(stations.contains("BERN (HX)"))
+        // Nearby, off the route, after the route's calls: ROUTE heads them so (the author's device check r3-6).
+        XCTAssertEqual(route.filter(\.nearby).map(\.station), ["BERN (HX)"])
+        XCTAssertEqual(route.firstIndex { $0.nearby }, route.lastIndex { !$0.nearby && !$0.isEmergency }.map { $0 + 1 })
     }
 
     /// The Cockpit's radio reads a timeline only for the route it was built for.

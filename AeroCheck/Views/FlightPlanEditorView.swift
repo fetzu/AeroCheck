@@ -1456,12 +1456,14 @@ struct IntFormField: View {
 // MARK: - Waypoint Picker Map View Representable
 
 /// Map layers for the waypoint-picker / route-builder maps. (shared by the builder + waypoint sheet)
+/// In the menu's order, the author's (device check mp-1, 19 Oct 2026): the charts, the National Map, SWISSIMAGE,
+/// then Apple's map.
 enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
-    case apple = "Apple Maps"
     case icao = "ICAO / Segelflug"
     /// Offered as Plan › Map offers it (the author's device checks, 19 Oct 2026). (6.4.2)
     case nationalMap = "National Map"
     case swissimage = "SwissImage"
+    case apple = "Apple Maps"
 
     var id: String { rawValue }
 
@@ -1477,7 +1479,7 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
     /// As the menu names it: Plan › Map's names, the charts with their zooms. (6.4.2)
     var title: String {
         switch self {
-        case .apple: return rawValue
+        case .apple: return L10n.MapLayer.standard
         case .icao: return L10n.MapLayer.icaoGliderNational
         case .nationalMap: return L10n.MapLayer.landeskarte
         case .swissimage: return L10n.MapLayer.swissimage

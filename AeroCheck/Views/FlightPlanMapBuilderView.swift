@@ -850,7 +850,8 @@ struct FlightPlanMapBuilderView: View {
         )
     }
 
-    /// Map-type button — icon only (mirrors the nav view's two-button chrome). (v4.1.0)
+    /// Map-type button — icon only (mirrors the nav view's two-button chrome). (v4.1.0) A map, whatever the layer:
+    /// the ICAO chart's aeroplane read as a flight button (the author's device check mp-1, 6.4.2).
     private var mapTypeButton: some View {
         Menu {
             Picker("Map layer", selection: $selectedLayer) {
@@ -859,12 +860,15 @@ struct FlightPlanMapBuilderView: View {
                 }
             }
         } label: {
-            Image(systemName: selectedLayer.icon)
+            Image(systemName: "map")
                 .font(.aero(size: 16, weight: .semibold))
                 .foregroundColor(.primaryText)
                 .frame(width: 44, height: 44)
                 .background(Color.panelBackground.opacity(0.92), in: Circle())
         }
+        // Top to bottom as listed, though it opens upwards from the map's foot, where iOS turns it over and put
+        // Apple Maps first. (6.4.2, mp-1)
+        .menuOrder(.fixed)
         .accessibilityLabel(L10n.MapLayer.title)
     }
 

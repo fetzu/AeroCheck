@@ -60,11 +60,6 @@ enum MapLayerType: String, CaseIterable, Identifiable {
         }
     }
 
-    /// A light chart the approach view may fade round the field: the ICAO chart and the national map.
-    /// Not Apple's map, dark in the app, where the white wash lit up Apple's airport grounds into a
-    /// glow (device check 7 Oct), nor the photos. (6.2.0)
-    var fadesForApproach: Bool { self == .icao || self == .landeskarten }
-
     /// WMTS layer identifier for swisstopo
     var swisstopoLayerIdentifier: String? {
         switch self {
@@ -1603,7 +1598,6 @@ struct NavigationMapView: View {
                     && abs(airport.longitude - region.center.longitude) <= halfLon
             }.sorted()
         }
-        let fades = selectedLayer.fadesForApproach
         return idents.prefix(3).compactMap { ident -> VFRApproachField? in
             guard let airport = airportDataService.findAirport(byIdent: ident) else { return nil }
             let reference = VFRCoordinate(latitude: airport.latitude, longitude: airport.longitude)
@@ -1613,8 +1607,7 @@ struct NavigationMapView: View {
             let circuits = (byField[ident] ?? OFMDataService.shared.procedures(forAerodrome: ident))
                 .filter { $0.kind == .circuit && selection.includes($0) }
             return VFRApproachField.make(ident: ident, reference: reference, runways: runways, circuits: circuits,
-                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident),
-                                         fadesChart: fades)
+                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident))
         }
     }
 

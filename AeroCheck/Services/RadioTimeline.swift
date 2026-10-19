@@ -127,6 +127,10 @@ struct RadioTimeline: Equatable {
     static let fisChangeLead: TimeInterval = 120
     /// A zone left: the app switches by itself this far past its exit (`Rules.latest`). (6.4.3)
     static let zoneExitMarginNM = 2.0
+    /// Under the latest rules, a reporting point or an arrival point is called before it is reached: the app's own
+    /// switch comes this long ahead of it. At the point itself its pill was hidden by the point's own mark, which comes
+    /// at the same moment (the dr-3 replay of 19 Oct, at V and at ST-URSANNE). (6.4.3)
+    static let pointLatestLead: TimeInterval = 30
     /// Further than this from the route, the flight is off it: the rules without a route (R7).
     static let offRouteNM = 5.0
     /// Under this, a speed is taken as this: a fix on the ground gives no time to miles.
@@ -167,13 +171,15 @@ struct RadioTimeline: Equatable {
         case .fis:
             return rules == .due ? call.fromNM - Self.fisChangeLead * v : call.fromNM
         case .unit, .tmaViaFIS:
-            return rules == .latest ? call.fromNM : call.fromNM - call.lead * v
+            guard rules == .latest else { return call.fromNM - call.lead * v }
+            // An aerodrome at its reporting points: before the first one.
+            return call.yieldsToDeparture ? call.fromNM - Self.pointLatestLead * v : call.fromNM
         case .destination:
             if rules == .latest {
-                // Its zone's boundary (where the route ends inside one) or its arrival point, whichever first; with
-                // neither, 2 min before it.
+                // Its zone's boundary (where the route ends inside one) or just before its arrival point, whichever
+                // first; with neither, 2 min before it.
                 let zone = call.fromNM < totalNM - 1e-6 ? call.fromNM : nil
-                let points = [zone, call.arrivalPointNM].compactMap { $0 }
+                let points = [zone, call.arrivalPointNM.map { $0 - Self.pointLatestLead * v }].compactMap { $0 }
                 return points.min() ?? call.fromNM - Self.arrivalPointLead * v
             }
             var start = call.fromNM - call.lead * v
@@ -238,12 +244,14 @@ struct RadioTimeline: Equatable {
     }
 
     /// Which call wins where several hold a point: the destination, then the zone called last, then the departure,
-    /// then an aerodrome at its reporting points, then the FIS.
-    private static func rank(_ call: Call) -> Int {
+    /// then an aerodrome at its reporting points, then the FIS. Under the latest rules an aerodrome at its reporting
+    /// points wins over the departure: the pilot is on it by its first point, whatever the departure's 10 NM (the dr-3
+    /// replay of 19 Oct: the app's switch to LSGC TWR came 10 NM out, past V). (6.4.3)
+    private static func rank(_ call: Call, rules: Rules) -> Int {
         switch call.kind {
         case .fis: return 0
         case .departure: return 2
-        case .unit, .tmaViaFIS: return call.yieldsToDeparture ? 1 : 3
+        case .unit, .tmaViaFIS: return call.yieldsToDeparture && rules != .latest ? 1 : 3
         case .destination: return 4
         }
     }
@@ -259,7 +267,7 @@ struct RadioTimeline: Equatable {
         for call in held {
             let start = start(of: call, speedKt: speedKt, rules: rules)
             if let chosen = best {
-                let rank = Self.rank(call), chosenRank = Self.rank(chosen.call)
+                let rank = Self.rank(call, rules: rules), chosenRank = Self.rank(chosen.call, rules: rules)
                 if rank < chosenRank || (rank == chosenRank && start <= chosen.start) { continue }
             }
             best = (call, start)

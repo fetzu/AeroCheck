@@ -281,6 +281,61 @@ final class RadioHandoverTests: XCTestCase {
         XCTAssertEqual(rebased.reading.next, alpha, "the zone still ahead")
     }
 
+    /// An aerodrome at its reporting points, V a few miles out: due at the level-off, and with no tap the app switches
+    /// 30 s before V, not 10 NM out (the dr-3 replay of 19 Oct switched to LSGC TWR past V), nor at V, where the
+    /// point's own mark hid the switch's pill.
+    func testAReportingPointsCallIsCaughtUpAtTheFirstPoint() {
+        var plan = FlightPlan(waypoints: waypoints())
+        plan.waypoints[1] = FlightPlanWaypoint(name: "V", coordinate: .init(latitude: 47.0, longitude: 7.09),
+                                               altitude: 5000, plannedGroundSpeed: 100)
+        plan.waypoints[1].aerodromeICAO = "LSXC"
+        plan.calculateRouteData()
+        let lsxcTower = Station(frequency: "118.130", callSign: "LSXC TWR")
+        let lsxc = RadioTimeline.NearbyField(ident: "LSXC", coordinate: .init(latitude: 47.15, longitude: 7.09),
+                                             contact: lsxcTower)
+        let t = RouteRadioPlanner.plan(.init(
+            waypoints: plan.waypoints, airspaces: [],
+            departure: RouteRadioPlanner.Aerodrome(ident: "LSXA", contact: lsxa, atis: nil, ground: nil),
+            destination: RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: Station(frequency: "118.125", callSign: "LSXB TWR"),
+                                                     atis: nil, ground: nil),
+            fis: { [geneva, zurich] point in point.longitude < 7.75 ? geneva : zurich },
+            fieldsNearby: [lsxc])).timeline
+        let v = t.waypointNM[1]
+        var handover = RadioHandover()
+        read(&handover, t, at: 0, departureOver: false)
+        let levelled = read(&handover, t, at: 1.5).reading
+        XCTAssertEqual(levelled.now?.station, lsxa)
+        XCTAssertEqual(levelled.next, lsxcTower)
+        XCTAssertTrue(levelled.nextIsDue)
+        XCTAssertNotNil(levelled.dueLeft, "the line runs out at V")
+        let lead = RadioTimeline.pointLatestLead * 100 / 3600
+        XCTAssertNil(read(&handover, t, at: v - lead - 0.1).switched)
+        XCTAssertEqual(read(&handover, t, at: v - lead + 0.1).switched?.to, lsxcTower, "30 s before V")
+    }
+
+    /// The destination's arrival point (D, LSXB's point): due 2 min before it, and with no tap the app switches 30 s
+    /// before it, not at it (ST-URSANNE's mark hid the switch's pill in the dr-3 replay of 19 Oct).
+    func testTheDestinationIsCaughtUpBeforeItsArrivalPoint() {
+        var wps = waypoints()
+        wps[3].aerodromeICAO = "LSXB"
+        let t = RouteRadioPlanner.plan(.init(
+            waypoints: wps, airspaces: [],
+            departure: RouteRadioPlanner.Aerodrome(ident: "LSXA", contact: lsxa, atis: nil, ground: nil),
+            destination: RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: Station(frequency: "118.125", callSign: "LSXB TWR"),
+                                                     atis: nil, ground: nil),
+            fis: { [geneva, zurich] point in point.longitude < 7.75 ? geneva : zurich })).timeline
+        let d = t.waypointNM[3]
+        var handover = onGeneva(t)
+        tapNext(&handover, t, at: 30)
+        XCTAssertEqual(handover.station, zurich)
+        let due = read(&handover, t, at: d - 3.0).reading
+        XCTAssertEqual(due.next?.callSign, "LSXB TWR")
+        XCTAssertTrue(due.nextIsDue)
+        let lead = RadioTimeline.pointLatestLead * 100 / 3600
+        XCTAssertNil(read(&handover, t, at: d - lead - 0.1).switched)
+        XCTAssertEqual(read(&handover, t, at: d - lead + 0.1).switched?.to.callSign, "LSXB TWR")
+    }
+
     /// The app's own switch undone: the pilot stays on the FIS, the tower stays due in NEXT without the line, and the
     /// app doesn't switch again; the pilot's tap takes it.
     func testAnUndoneSwitchStaysDueAndIsNotMadeAgain() {

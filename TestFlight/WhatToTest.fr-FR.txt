@@ -1,4 +1,4 @@
-6.4.2 fait suivre la route à ACT et SUIV, les fréquences radio, comme vous travaillez la radio : les stations dans l'ordre où vous les appelez, comme sur le log de nav imprimé.
+6.4.2 fait suivre la route à ACT et SUIV, les fréquences radio, comme vous travaillez la radio : les stations dans l'ordre où vous les appelez, comme sur le log de nav imprimé. Et l'app dessine désormais les cartes elle-même, sans trous.
 
 À regarder, sur une route :
 - l'aérodrome de départ reste ACT jusqu'à la mise en palier (ou la sortie de sa zone), avec en SUIV le FIS ou la zone qui vient ;
@@ -9,5 +9,11 @@
 - un aérodrome que la route passe à moins de 2 NM s'affiche en SUIV comme ÉCOUTE dès 5 minutes avant, ACT restant le FIS (Réglages › Checklist & Vol › Aérodromes sur la route le désactive).
 
 Sans route, un aérodrome n'est ACT que dans sa zone ou à moins de 3 NM, sinon le FIS.
+
+Sur les cartes (Planifier › Carte, la CARTE du cockpit, l'éditeur de route) :
+- chaque tuile dessinée : pendant que les tuiles nettes arrivent, une carte plus grossière les remplace, jamais un trou ni la carte d'Apple à travers la carte ;
+- la carte OACI jusqu'à la carte vol à voile, dessinée plus grande à son zoom le plus proche ;
+- dans l'éditeur de route, OACI/Vol à voile/Carte nationale jusqu'aux rues, les cartes téléchargées hors ligne, la carte d'Apple au-delà de la frontière ;
+- plus de voile blanc autour du terrain quand vous zoomez sur un aérodrome.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

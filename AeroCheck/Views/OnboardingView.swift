@@ -541,6 +541,10 @@ struct OnboardingView: View {
             await navaidService.downloadData(for: list)
             await obstacleService.downloadData(for: list)
             await reportingPointService.downloadData(for: list)
+            // The aerodromes as OpenAIP has them: the frequencies' names as the AIPs write them (8.33 kHz,
+            // "LSZQ AD 122.055"), merged over OurAirports. Until 6.4.2 only Settings › Navigation & Maps fetched
+            // them, and a device set up here kept OurAirports' 25 kHz names. (6.4.2)
+            await OpenAIPAirportDataService.shared.downloadData(for: list)
             // Circuits and VFR routes where open flightmaps publishes them (22 countries). (6.2.0)
             await OFMDataService.shared.downloadData(for: list)
         }

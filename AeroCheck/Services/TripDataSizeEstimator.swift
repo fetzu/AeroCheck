@@ -22,8 +22,9 @@ enum TripDataSizeEstimator {
     /// The per-country layers a trip prefetch downloads (`DataSetProvider.tripLayer`), with the
     /// core-API collection each OpenAIP one maps to.
     ///
-    /// The OpenAIP *airport* layer is deliberately absent, matching the prefetch itself: it ships with
-    /// the full Navigation & Maps country bundle, not this lightweight route top-up.
+    /// The OpenAIP *airport* layer is deliberately absent. Since 6.4.2 the top-up fetches it too, but it is
+    /// no gap (`OpenAIPAirportProvider.perCountryCoverage`) and weighs little on disk, about 600 B a record:
+    /// 90 KB for Switzerland, 1 MB for France (19 Oct 2026, from OpenAIP's exports).
     enum Layer: String, CaseIterable {
         case airspace, navaids, obstacles, reportingPoints
         /// open flightmaps circuits and VFR routes, sized from `index.json`. (6.2.0)

@@ -173,7 +173,8 @@ struct FlightPlanMapBuilderView: View {
         // of seconds on a clubhouse hotspot — an indeterminate spinner for all of them tells the pilot
         // nothing about whether to keep waiting. (device pass) Each provider adds the countries to what
         // its layer holds (the union, so nothing is pruned) and skips what is already on disk.
-        let providers = tripProviders
+        // OpenAIP's airports with them, for the frequencies' names: no gap of its own (`OpenAIPAirportProvider`). (6.4.2)
+        let providers = tripProviders + [OpenAIPAirportProvider(service: .shared)]
         prefetchStep = 0
         prefetchTotal = providers.count
         for provider in providers {

@@ -4895,8 +4895,9 @@ struct OverlaysSections: View {
     }
 
     /// Worded stale-data warning + inline update, so the Layers-button badge isn't cryptic on its own.
-    /// Update re-downloads all OpenAIP layers (airspace + navaids + obstacles + reporting points) for the
-    /// cached countries, since they age together, and open flightmaps' VFR procedures. (v4.1 follow-up)
+    /// Update re-downloads all OpenAIP layers (airspace + navaids + obstacles + reporting points, and the
+    /// aerodromes since 6.4.2) for the cached countries, since they age together, and open flightmaps' VFR
+    /// procedures. (v4.1 follow-up)
     private var staleDataBanner: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top, spacing: 10) {
@@ -4954,13 +4955,17 @@ struct OverlaysSections: View {
             .union(navaidService.downloadedCountries)
             .union(obstacleService.downloadedCountries)
             .union(reportingPointService.downloadedCountries)
-            .union(vfrProcedureService.downloadedCountries))
+            .union(vfrProcedureService.downloadedCountries)
+            .union(OpenAIPAirportDataService.shared.downloadedCountries))
         guard !countries.isEmpty else { return }
         Task {
             await openAIPDataService.downloadData(for: countries)
             await navaidService.downloadData(for: countries)
             await obstacleService.downloadData(for: countries)
             await reportingPointService.downloadData(for: countries)
+            // OpenAIP's aerodromes too, for the frequencies' names (8.33 kHz): until 6.4.2 only Settings fetched
+            // them. (6.4.2)
+            await OpenAIPAirportDataService.shared.downloadData(for: countries)
             // The circuits and VFR routes of the countries OFM covers, new cycle included. (6.2.0)
             await vfrProcedureService.downloadData(for: countries)
             dataStatusManager.recompute()

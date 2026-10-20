@@ -37,6 +37,9 @@ struct FlightPlanMapBuilderView: View {
         center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Swiss Jura default
         span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
     )
+    /// The map's region while it moves, for the profile's band alone (its reader), `region` taking it at rest. Not
+    /// read here: as a `@StateObject` this view observed it, and was rebuilt on every frame still. (6.4.2)
+    @State private var liveRegion = LiveMapRegion()
     @State private var visibleAirports: [Airport] = []
     /// Where this editor shows a dry run of its route: over itself (it is a cover, maybe over a flight's page,
     /// which the app's root can't present over). (6.4.0)
@@ -490,6 +493,7 @@ struct FlightPlanMapBuilderView: View {
             focusToken: focusToken,
             fitRouteToken: fitRouteToken,
             region: $region,
+            liveRegion: liveRegion,
             // "+" on an aerodrome, navaid or reporting point: a planning control, so never offered
             // while flying (a builder left open under a flight started from the widget). (6.0.1)
             onPointAdd: appState.isFlightActive ? nil : { point in addPoint(point) },
@@ -1044,12 +1048,15 @@ struct FlightPlanMapBuilderView: View {
             }
             .padding(.leading, 14).padding(.trailing, 2)
             if !profileCollapsed {
-                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
-                                 selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
-                                 visibleRegion: region,
-                                 selectedLeg: selectedLeg,
-                                 onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
-                                 onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
+                // The band follows the map live, from `liveRegion`: only it is redrawn on every frame of a pan.
+                LiveRegionReader(live: liveRegion, atRest: region) { visible in
+                    RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
+                                     selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
+                                     visibleRegion: visible,
+                                     selectedLeg: selectedLeg,
+                                     onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
+                                     onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
+                }
                     .frame(height: profileExpanded ? 300 : (horizontalSizeClass == .compact ? 100 : 136))
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
@@ -2272,6 +2279,24 @@ private struct LegRow: View {
 /// Live route map: swisstopo/Apple tile overlay + gold route polyline + numbered waypoint markers +
 /// nearby airport markers. Tapping empty map adds a free waypoint; tapping an airport marker adds
 /// that airport. Reuses the waypoint-picker tile overlays.
+/// The route builder's map region as it moves, written on every frame of a pan or a pinch for what follows it live (the
+/// profile's "looking here" band). Written into the builder's `@State` instead, it rebuilt the whole builder and
+/// updated its map on every frame, about 60 times a second, each map update up to 24 ms when the markers changed
+/// (the map tile review, F9). (6.4.2)
+@Observable
+final class LiveMapRegion {
+    var region: MKCoordinateRegion?
+}
+
+/// Hands `content` the map's live region, the one at rest until the map has moved: the only view that reads it.
+private struct LiveRegionReader<Content: View>: View {
+    let live: LiveMapRegion
+    let atRest: MKCoordinateRegion
+    @ViewBuilder let content: (MKCoordinateRegion) -> Content
+
+    var body: some View { content(live.region ?? atRest) }
+}
+
 struct RouteBuilderMapView: UIViewRepresentable {
     let waypoints: [FlightPlanWaypoint]
     let mapLayer: WaypointPickerMapLayer
@@ -2285,6 +2310,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var focusToken: Int = 0
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
+    /// Takes the region on every frame of a move, `region` only at rest; nil: `region` on every frame. (6.4.2)
+    var liveRegion: LiveMapRegion? = nil
     /// "+" in an aerodrome's, navaid's or reporting point's callout. nil ⇒ no "+". (6.0.1)
     var onPointAdd: ((RoutePoint) -> Void)? = nil
     /// Live drag committed a waypoint move (index, new coordinate). nil ⇒ read-only map (no drag). (#3)
@@ -2553,15 +2580,21 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             parent.region = mapView.region
+            parent.liveRegion?.region = mapView.region
         }
 
         // Fires continuously while the user pans/zooms (not just at the end), so the profile's
-        // "looking here" band tracks the map live instead of snapping on release. (feedback)
+        // "looking here" band tracks the map live instead of snapping on release. (feedback) Into
+        // `liveRegion`, which only the band reads. (6.4.2)
         func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
             // The circuits' altitudes follow the map's heading as it turns. (6.2.0)
             VFRMapLayer.orientLabels(on: mapView, palette: vfrLayer.palette)
             guard !isDragging else { return } // don't fight an in-progress waypoint/line drag
-            parent.region = mapView.region
+            if let live = parent.liveRegion {
+                live.region = mapView.region
+            } else {
+                parent.region = mapView.region
+            }
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {

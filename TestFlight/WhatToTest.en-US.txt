@@ -1,4 +1,4 @@
-6.4.2 makes the radio's NOW and NEXT follow your route the way you work the radio: the stations in the order you call them, as on the printed nav log.
+6.4.2 makes the radio's NOW and NEXT follow your route the way you work the radio: the stations in the order you call them, as on the printed nav log. And the app now draws the maps itself, without holes.
 
 What to look at, on a route:
 - the departure field stays NOW until you level off (or leave its zone), with the Info or the zone ahead as NEXT;
@@ -9,5 +9,11 @@ What to look at, on a route:
 - an aerodrome the route passes within 2 NM shows in NEXT as LISTEN from 5 minutes before, NOW staying with the Info (Settings › Checklist & Flight › Aerodromes on the way turns it off).
 
 Without a route, an aerodrome is NOW only inside its zone or within 3 NM, else the Info.
+
+On the maps (Plan › Map, the Cockpit's MAP, the route editor):
+- every chart tile drawn: while the sharp tiles come, a coarser chart stands in, never a hole or Apple's map through the chart;
+- the ICAO chart down to the glider chart, drawn larger at its closest zoom;
+- the route editor's ICAO/Glider/National map down to the streets, the downloaded charts offline, Apple's map past the border;
+- no white fade round the field any more when you zoom in on an aerodrome.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

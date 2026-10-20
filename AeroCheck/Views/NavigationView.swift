@@ -3574,7 +3574,7 @@ final class LegsBandDriver {
     /// asking for them at all (`LateTileRedraw`): a band that doesn't move (on the ground, in Plan ›
     /// Map, on the simulator's fixed position) showed the chart with holes, or none, until the panel
     /// closed, one opening in three. Once the band's camera is at rest, the overlays' own redraw, and
-    /// their reload if the redraw goes unanswered.
+    /// their reload if the redraw goes unanswered. Since 6.4.2 only OpenAIP's: `ChartTileRenderer` draws the charts.
     private static func redrawTiles(on mapView: MKMapView) {
         for case let tiles as LateTileRedrawing in mapView.overlays {
             tiles.redraw.tileArrived()
@@ -4085,7 +4085,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             // OpenAIP tile overlay
             if let tileOverlay = overlay as? OpenAIPTileOverlay {
-                return LateTileRedraw.renderer(for: tileOverlay)
+                return ChartTileRenderer.renderer(for: tileOverlay, on: mapView)
             }
 
             // Traffic circuits, VFR routes and sectors: their own classes, before the generic MKPolyline
@@ -5106,8 +5106,9 @@ struct SwissMapView: UIViewRepresentable {
                 return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 135_000, maxCenterCoordinateDistance: 600_000)!
             } else {
                 // ICAO + Segelflugkarte: zoom 7-12. At 65 km the map stopped about z10 to z11 and the glider chart,
-                // then from z12, never showed (the author's device check, 19 Oct 2026): 30 km reaches z12 on an
-                // iPad's map, z11 on a phone's, where the glider chart starts since 6.4.2.
+                // then from z12, never showed (the author's device check, 19 Oct 2026). At 30 km the iPad's map wants
+                // z13, past the glider chart's last zoom: MapKit's tile renderer drew nothing there (the map tile
+                // review, F2); `ChartTileRenderer` draws z12 enlarged twice, as the author chose (q3 B). (6.4.2)
                 return MKMapView.CameraZoomRange(minCenterCoordinateDistance: Self.icaoGliderClosestDistance,
                                                  maxCenterCoordinateDistance: 600_000)!
             }
@@ -5487,7 +5488,6 @@ struct SwissMapView: UIViewRepresentable {
             // ICAO layer with seamless Segelflugkarte switching (or offline mode)
             let overlay = ICAOSegelflugkarteTileOverlay(
                 forceICAO: forceICAOLayer,
-                offlineMapManager: offlineMapManager,
                 isStrictOfflineMode: isStrictOfflineMode,
                 hasSegelflugCache: hasSegelflugCache
             )
@@ -5672,7 +5672,6 @@ struct SwissMapView: UIViewRepresentable {
             if layerType == .icao {
                 let overlay = ICAOSegelflugkarteTileOverlay(
                     forceICAO: forceICAO,
-                    offlineMapManager: offlineMapManager,
                     isStrictOfflineMode: strictOffline,
                     hasSegelflugCache: segelflugCache
                 )
@@ -5750,7 +5749,7 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             if let tileOverlay = overlay as? MKTileOverlay {
-                return LateTileRedraw.renderer(for: tileOverlay)
+                return ChartTileRenderer.renderer(for: tileOverlay, on: mapView)
             }
 
             // Flight plan route (magenta - high visibility on aviation charts)

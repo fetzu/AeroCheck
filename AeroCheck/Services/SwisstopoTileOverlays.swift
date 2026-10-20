@@ -1,15 +1,14 @@
 import Foundation
 import ImageIO
 import MapKit
-import os
 
 // MARK: - Swisstopo / swisstopo WMTS tile overlays (shared)
 
 // The single source of truth for the app's swisstopo WMTS tile overlays. Previously duplicated as
 // `WaypointPickerICAOTileOverlay`/`WaypointPickerSwisstopoTileOverlay` in FlightPlanEditorView; all
 // map consumers (NavigationView, the flight mini-map, the flight-plan editor + map builder) now use
-// these. Use default args for a simple online overlay; pass an `OfflineMapManager` for the cache-first
-// behavior the main navigation map needs. (v4 UI/UX Revamp design-system consolidation)
+// these. (v4 UI/UX Revamp design-system consolidation) Every map reads the downloaded charts first, and
+// `ChartTileRenderer` draws the tiles. (6.4.2)
 
 // MARK: - The swisstopo tile endpoint
 
@@ -70,170 +69,6 @@ enum SwisstopoTiles {
         }
         return drawn && pixels.allSatisfy { $0 >= 250 }
     }
-}
-
-// MARK: - Tiles MapKit drops
-
-/// Redraws a tile overlay once tiles have come in over the network, so MapKit asks again for the
-/// ones it dropped.
-///
-/// MapKit drops some of the tiles `loadTile` hands it asynchronously, and doesn't ask for them again
-/// until the map is redrawn (a pan, a zoom). On a map that doesn't move, those tiles stay holes: Plan ›
-/// Map after a relaunch, on a cold HTTP cache, often showed the ICAO chart with half its tiles missing
-/// or none at all. Measured on the simulator (2 Oct 2026, on 6.0.1, before #243 and on 6.1.0): every
-/// tile answered 200 with its PNG and `result` ran once per tile (on the main thread or off it, no
-/// difference), yet MapKit drew a random subset; the same tiles handed over synchronously, from the
-/// offline chart cache, drew every time. A redraw (`setNeedsDisplay`) makes MapKit request exactly
-/// the missing tiles again, and they draw. The Cockpit's map rarely shows it: following the aircraft
-/// moves the camera, which redraws.
-///
-/// One redraw per burst of tiles, `settle` after the last one. MapKit answers a redraw with the
-/// missing tiles, and with a few it already drew (four of 36 in the runs), so the tiles it asks for
-/// within `answerWindow` of a redraw call for no other: without that, each redraw called for the
-/// next. When a redraw gets no answer at all by `followUp`, MapKit has stopped listening (5 of 76
-/// warm-cache relaunches: the map blank, a second redraw ignored too) and `reloadData` brings the
-/// tiles back (it did, all three times it ran). `maxRedraws` per `window` is the backstop. (6.1.0)
-///
-/// Since 6.4.2 the swisstopo charts no longer go through it: `ChartTileRenderer` draws them. Only OpenAIP's overlay does,
-/// until it moves there too. The reload comes only while MapKit has never answered a redraw: after every zoom it blanked the map for a frame, every tile at once,
-/// when nothing was missing (nothing to ask for is no answer), the second of the author's "flashes" (device check
-/// mp-2, measured on the simulator 19 Oct 2026). Repainting a burst's tiles alone (`setNeedsDisplay(_:)`) left
-/// the dropped ones holes: MapKit asks again only on a whole redraw. (6.4.2)
-@MainActor
-final class LateTileRedraw {
-    /// Quiet time after the last tile before the redraw.
-    nonisolated static let settle: TimeInterval = 0.3
-    /// A tile MapKit asks for this soon after a redraw is the redraw's answer (it came within 60 ms
-    /// in the runs).
-    nonisolated static let answerWindow: TimeInterval = 0.25
-    /// How long a redraw may go unanswered before the reload.
-    nonisolated static let followUp: TimeInterval = 1
-    /// Redraws and reloads allowed per `window`.
-    nonisolated static let maxRedraws = 4
-    nonisolated static let window: TimeInterval = 10
-
-    /// The renderer drawing the overlay. Set by the map delegate that makes it
-    /// (`LateTileRedraw.renderer(for:)`); MapKit keeps it alive while the overlay is on the map.
-    weak var renderer: MKTileOverlayRenderer?
-    /// `settle` and `followUp`, shorter in tests.
-    var settleDelay: TimeInterval = LateTileRedraw.settle
-    var followUpDelay: TimeInterval = LateTileRedraw.followUp
-
-    private var pending: Task<Void, Never>?
-    private var redraws: [Date] = []
-
-    /// The last redraw and the tiles MapKit asked for since. Written on MapKit's tile threads too,
-    /// hence the lock.
-    private struct Ledger {
-        var lastRedraw: Date?
-        var askedSince = 0
-    }
-    private nonisolated let ledger = OSAllocatedUnfairLock(initialState: Ledger())
-    /// MapKit answered a redraw once: it listens, and a later redraw it doesn't answer had nothing missing. (6.4.2)
-    private var everAnswered = false
-
-    nonisolated init() {}
-
-    /// MapKit asks for a tile (every `loadTile`, cached or not): counted, so a redraw it answers isn't
-    /// taken for ignored. Whether it answers our last redraw. Any thread.
-    nonisolated func tileAsked() -> Bool {
-        let now = Date()
-        return ledger.withLock { ledger -> Bool in
-            guard let lastRedraw = ledger.lastRedraw else { return false }
-            ledger.askedSince += 1
-            return Self.isAnswer(requestedAt: now, lastRedraw: lastRedraw)
-        }
-    }
-
-    /// MapKit's `result` for a tile fetched over the network, wrapped: it hands the tile over, then
-    /// asks for a redraw after the burst, unless the tile came back empty (a redraw would only ask for
-    /// it again) or answers a redraw (`tileAsked()`). A tile that failed asks for one too: the redraw
-    /// asks for it again, where it stayed a hole until the next pan (the author's device check mp-2,
-    /// 6.4.2).
-    nonisolated func handingOver(_ result: @escaping (Data?, Error?) -> Void,
-                                 answering answersRedraw: Bool) -> (Data?, Error?) -> Void {
-        { [self] data, error in
-            result(data, error)
-            if data != nil || error != nil, !answersRedraw { tileArrived() }
-        }
-    }
-
-    /// A tile was just handed to MapKit, after `loadTile` returned. Any thread.
-    nonisolated func tileArrived() {
-        Task { @MainActor in self.schedule() }
-    }
-
-    /// Whether a tile MapKit asked for at `requestedAt` answers the redraw that went out at `lastRedraw`.
-    nonisolated static func isAnswer(requestedAt: Date, lastRedraw: Date?) -> Bool {
-        guard let lastRedraw else { return false }
-        let delay = requestedAt.timeIntervalSince(lastRedraw)
-        return delay >= 0 && delay < answerWindow
-    }
-
-    /// Whether one more redraw fits under the cap, given the times of the previous ones.
-    nonisolated static func mayRedraw(after previous: [Date], at now: Date) -> Bool {
-        previous.filter { now.timeIntervalSince($0) < window }.count < maxRedraws
-    }
-
-    /// How long until the cap frees a redraw: the oldest in the window leaving it. Nil when one fits now.
-    nonisolated static func waitForRedraw(after previous: [Date], at now: Date) -> TimeInterval? {
-        guard !mayRedraw(after: previous, at: now),
-              let oldest = previous.filter({ now.timeIntervalSince($0) < window }).min() else { return nil }
-        return window - now.timeIntervalSince(oldest) + 0.05
-    }
-
-    /// A renderer for `overlay`, hooked to its redraw when it has one. Every map delegate that draws a
-    /// swisstopo or OpenAIP overlay makes its tile renderers here.
-    static func renderer(for overlay: MKTileOverlay) -> MKTileOverlayRenderer {
-        let renderer = MKTileOverlayRenderer(tileOverlay: overlay)
-        (overlay as? LateTileRedrawing)?.redraw.renderer = renderer
-        return renderer
-    }
-
-    /// The redraw `settle` after this tile, then the reload if MapKit didn't answer it; a later tile
-    /// starts over.
-    private func schedule() {
-        pending?.cancel()
-        pending = Task { [weak self, settleDelay, followUpDelay] in
-            try? await Task.sleep(nanoseconds: UInt64(settleDelay * 1_000_000_000))
-            guard !Task.isCancelled, let redraw = self else { return }
-            if !redraw.redraw(reload: false) {
-                // Over the cap, the redraw waits for the window to free one rather than never coming: a long
-                // pinch through several zooms spends the cap, and the route builder's chart kept its last
-                // dropped tiles as holes until the next pan (device check, 19 Oct 2026). (6.4.2)
-                guard redraw.renderer != nil,
-                      let wait = Self.waitForRedraw(after: redraw.redraws, at: Date()) else { return }
-                try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
-                guard !Task.isCancelled, redraw.redraw(reload: false) else { return }
-            }
-            try? await Task.sleep(nanoseconds: UInt64(followUpDelay * 1_000_000_000))
-            guard !Task.isCancelled, let self else { return }
-            if self.ledger.withLock({ $0.askedSince }) > 0 {
-                self.everAnswered = true
-                return
-            }
-            // Unanswered, from a MapKit that answers redraws: nothing was missing. (6.4.2)
-            guard !self.everAnswered else { return }
-            self.redraw(reload: true)
-        }
-    }
-
-    /// Redraws (or reloads) the renderer if the cap allows; whether it did.
-    @discardableResult
-    private func redraw(reload: Bool) -> Bool {
-        guard let renderer else { return false }
-        let now = Date()
-        guard Self.mayRedraw(after: redraws, at: now) else { return false }
-        redraws = redraws.filter { now.timeIntervalSince($0) < Self.window } + [now]
-        ledger.withLock { $0 = Ledger(lastRedraw: now) }
-        if reload { renderer.reloadData() } else { renderer.setNeedsDisplay() }
-        return true
-    }
-}
-
-/// A tile overlay that loads tiles over the network and redraws after them (`LateTileRedraw`).
-protocol LateTileRedrawing: MKTileOverlay {
-    var redraw: LateTileRedraw { get }
 }
 
 // MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)

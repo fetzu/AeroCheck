@@ -1,6 +1,5 @@
 import Foundation
 import MapKit
-import UIKit
 import CoreGraphics
 
 /// Custom tile overlay for OpenAIP aviation raster tiles
@@ -13,46 +12,19 @@ import CoreGraphics
 /// to avoid visual grid artifacts (different tiles have different fill opacities
 /// creating a visible checkerboard pattern). Only high-contrast features like
 /// labels, lines, and symbols are preserved.
-class OpenAIPTileOverlay: MKTileOverlay, LateTileRedrawing {
-    weak var cacheManager: OpenAIPCacheManager?
+class OpenAIPTileOverlay: MKTileOverlay, ChartTileSource {
     let isStrictOfflineMode: Bool
-    /// MapKit drops some tiles that arrive after `loadTile` returned, as it does the swisstopo
-    /// charts': redraw after a burst from the network (`LateTileRedraw`). (6.1.0)
-    let redraw = LateTileRedraw()
     /// The session network tiles come over; a stub in tests.
     var tileSession = ExternalRequest.session
 
     private let subdomains = OpenAIPConfig.tileSubdomains
 
-    /// Processed tiles memoized by z/x/y. The per-pixel alpha-strip (processedTile) is expensive and
-    /// MapKit re-requests already-cached tiles on every pan/zoom; without this the strip re-ran each
-    /// render. Bounded, and thread-safe since loadTile runs off the main thread. (v4.0.0 review P2)
-    private let processedTileCache: NSCache<NSString, NSData> = {
-        let cache = NSCache<NSString, NSData>()
-        cache.countLimit = 512
-        return cache
-    }()
-
-    /// A 256x256 fully transparent PNG used for empty/missing tiles.
-    /// Returning this instead of nil ensures MapKit renders all tiles uniformly,
-    /// preventing visible seams where some tiles load and others don't.
-    /// Must be 256x256 to match the standard tile size and avoid scaling artifacts.
     /// Largest tile edge accepted from the origin. Standard tiles are 256; @2x/@3x variants reach
     /// 768. 2048 leaves generous headroom while making an OOM impossible. (SEC-C34)
-    private static let maxTileDimension = 2048
+    private static let maxTileDimension = ChartTileLoader.maxTileDimension
 
     /// Response ceiling for a single tile — orders of magnitude above a real PNG tile. (SEC-C34)
     private static let maxTileBytes = OpenAIPConfig.maxTileBytes
-
-    private static let transparentTilePNG: Data = {
-        let size = CGSize(width: 256, height: 256)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { context in
-            UIColor.clear.setFill()
-            context.fill(CGRect(origin: .zero, size: size))
-        }
-        return image.pngData() ?? Data()
-    }()
 
     /// Minimum alpha threshold (0-255) for pixels to be kept visible.
     /// OpenAIP tiles use very low alpha values (7-54) for airspace region fills,
@@ -62,14 +34,15 @@ class OpenAIPTileOverlay: MKTileOverlay, LateTileRedrawing {
     /// text, symbols, and boundary lines intact.
     private static let alphaThreshold: UInt8 = 64
 
-    init(cacheManager: OpenAIPCacheManager? = nil, isStrictOfflineMode: Bool = false) {
-        self.cacheManager = cacheManager
+    /// No labels enlarged past OpenAIP's last zoom: none were drawn there before 6.4.2.
+    let enlargesPastLastZoom = 0
+
+    init(isStrictOfflineMode: Bool = false) {
         self.isStrictOfflineMode = isStrictOfflineMode
 
-        // Placeholder URL template — we override loadTile for cache-first logic, so MapKit never
-        // fetches from this template itself. It carries NO api key (SA-11): the key goes in the
-        // x-openaip-api-key header on the request built in loadTile, so it can never leak into a
-        // URLCache entry, a proxy log, or OpenAIP's access logs.
+        // Placeholder URL template — `spec(for:)` says where each tile comes from. It carries NO api key (SA-11):
+        // the key goes in the x-openaip-api-key header of the request, so it can never leak into a URLCache entry, a
+        // proxy log, or OpenAIP's access logs.
         let urlTemplate = "https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
@@ -88,83 +61,26 @@ class OpenAIPTileOverlay: MKTileOverlay, LateTileRedrawing {
             ?? URL(string: "about:blank")!
     }
 
-    /// Cache-first tile loading: check disk cache before making network requests.
-    /// All tiles are processed to remove low-alpha airspace fills before display.
-    override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
-        let answersRedraw = redraw.tileAsked()
-        let z = path.z
-
-        // If zoom is outside our supported range, return a transparent tile
-        // Do NOT clamp to min/max because the tile x/y coordinates would be wrong
-        // for the clamped zoom level, causing misaligned/mismatched tiles
-        if z < OpenAIPConfig.tileMinZoom || z > OpenAIPConfig.tileMaxZoom {
-            result(Self.transparentTilePNG, nil)
-            return
+    /// The downloaded copy first, then the network unless offline, with subdomain rotation and the key in a header
+    /// (SA-11); every tile's fills stripped (`strippingFills`). Drawn by `ChartTileRenderer`, which keeps the stripped
+    /// image: until 6.4.2 MapKit's renderer dropped some of them, as it did the charts', and a failed tile was a
+    /// transparent one never asked again (the map tile review, F8).
+    func spec(for tile: ChartTile) -> ChartTileSpec? {
+        var spec = ChartTileSpec(key: "openaip/\(tile.z)/\(tile.x)/\(tile.y)",
+                                 disk: OpenAIPCacheManager.tileFileURL(z: tile.z, x: tile.x, y: tile.y))
+        spec.process = { Self.strippingFills(of: $0) }
+        guard !isStrictOfflineMode else { return spec }
+        let subdomain = subdomains[abs(tile.x + tile.y) % subdomains.count]
+        guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: tile.z, x: tile.x, y: tile.y) else {
+            return spec
         }
-
-        // Serve an already-processed tile without re-running the pixel strip.
-        let memoKey = "\(z)/\(path.x)/\(path.y)" as NSString
-        if let memo = processedTileCache.object(forKey: memoKey) {
-            result(memo as Data, nil)
-            return
-        }
-
-        // Try cache first
-        if let manager = cacheManager {
-            if let cachedURL = manager.cachedTileURL(z: z, x: path.x, y: path.y),
-               let data = try? Data(contentsOf: cachedURL) {
-                let processed = Self.processedTile(from: data)
-                processedTileCache.setObject(processed as NSData, forKey: memoKey)
-                result(processed, nil)
-                return
-            }
-        }
-
-        // In strict offline mode, return transparent tile (no network requests)
-        if isStrictOfflineMode {
-            result(Self.transparentTilePNG, nil)
-            return
-        }
-
-        // Cache miss - fetch from network with subdomain rotation. The key rides in a header
-        // rather than the URL. (SA-11)
-        let subdomain = subdomains[abs(path.x + path.y) % subdomains.count]
-        guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: z, x: path.x, y: path.y) else {
-            result(Self.transparentTilePNG, nil)
-            return
-        }
-
-        let transparentPNG = Self.transparentTilePNG
-        // Only a real tile asks for the redraw: the transparent one stands for a failure, and a
-        // redraw would only fetch it again. (6.1.0)
-        let handOver = redraw.handingOver(result, answering: answersRedraw)
         let session = tileSession
-        // SEC-C34: go through ExternalRequest so tiles get the shared streaming size ceiling and
-        // the cross-host redirect header stripping. This used a bare URLSession.shared dataTask,
-        // which had neither.
-        Task { [weak self] in
-            let data: Data
-            let httpResponse: HTTPURLResponse
-            do {
-                (data, httpResponse) = try await ExternalRequest.data(
-                    for: request,
-                    session: session,
-                    maxResponseBytes: Self.maxTileBytes
-                )
-            } catch {
-                result(transparentPNG, nil)
-                return
-            }
-
-            guard httpResponse.statusCode == 200, !data.isEmpty else {
-                result(transparentPNG, nil)
-                return
-            }
-
-            let processed = Self.processedTile(from: data)
-            self?.processedTileCache.setObject(processed as NSData, forKey: memoKey)
-            handOver(processed, nil)
+        spec.fetch = {
+            // SEC-C34: through ExternalRequest, for the shared streaming size ceiling and the cross-host redirect
+            // header stripping.
+            try await ExternalRequest.data(for: request, session: session, maxResponseBytes: Self.maxTileBytes)
         }
+        return spec
     }
 
     // MARK: - Tile Processing
@@ -176,71 +92,51 @@ class OpenAIPTileOverlay: MKTileOverlay, LateTileRedrawing {
     /// between adjacent tiles based on which airspaces overlap each tile. This creates
     /// visible rectangular grid artifacts on the map. Since we already render proper
     /// polygon-based airspace fills from the structured API, we only need the tiles
-    /// for their labels and symbols — so we strip the low-alpha fill pixels.
-    private static func processedTile(from pngData: Data) -> Data {
-        guard let image = UIImage(data: pngData),
-              let cgImage = image.cgImage else {
-            return transparentTilePNG
-        }
-
+    /// for their labels and symbols — so we strip the low-alpha fill pixels. The image stays decoded, for the
+    /// renderer: no PNG encoded again for MapKit to decode once more. (6.4.2)
+    static func strippingFills(of cgImage: CGImage) -> CGImage? {
         // SEC-C34: bound the decode before allocating. A map tile is 256×256 (512 for @2x); this
         // buffer is sized from the DECODED IMAGE's own dimensions, so a maliciously oversized but
         // well-formed PNG from the tile origin would allocate width*height*4 bytes — an OOM with
-        // the map open, i.e. in flight. Anything outside the expected envelope is dropped in favour
-        // of the transparent tile, which degrades the overlay rather than the app.
+        // the map open, i.e. in flight. Anything outside the expected envelope is dropped.
         guard cgImage.width > 0, cgImage.height > 0,
               cgImage.width <= Self.maxTileDimension, cgImage.height <= Self.maxTileDimension else {
             AppLog.openAIP.debugLine("Rejected tile with implausible dimensions \(cgImage.width)x\(cgImage.height)")
-            return transparentTilePNG
+            return nil
         }
 
         let width = cgImage.width
         let height = cgImage.height
         let bytesPerPixel = 4
         let bytesPerRow = width * bytesPerPixel
-        let totalBytes = height * bytesPerRow
-
-        // Create a buffer for RGBA pixel data
-        var pixelData = [UInt8](repeating: 0, count: totalBytes)
 
         guard let context = CGContext(
-            data: &pixelData,
+            data: nil,
             width: width,
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: bytesPerRow,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return transparentTilePNG
+        ), let buffer = context.data else {
+            return nil
         }
 
         // Draw the original image into our RGBA buffer
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
         let threshold = alphaThreshold
+        let pixels = buffer.bindMemory(to: UInt8.self, capacity: bytesPerRow * height)
 
         // Process pixels: make low-alpha fill pixels fully transparent
-        for i in stride(from: 0, to: totalBytes, by: bytesPerPixel) {
-            let alpha = pixelData[i + 3]
-
-            if alpha < threshold {
-                // Low-alpha pixel (airspace fill) — make fully transparent
-                pixelData[i] = 0     // R
-                pixelData[i + 1] = 0 // G
-                pixelData[i + 2] = 0 // B
-                pixelData[i + 3] = 0 // A
-            }
-            // High-alpha pixels (labels, lines, symbols) — keep as-is
+        for i in stride(from: 0, to: bytesPerRow * height, by: bytesPerPixel) where pixels[i + 3] < threshold {
+            // Low-alpha pixel (airspace fill) — make fully transparent
+            pixels[i] = 0     // R
+            pixels[i + 1] = 0 // G
+            pixels[i + 2] = 0 // B
+            pixels[i + 3] = 0 // A
         }
 
-        // Create new image from processed pixel data
-        guard let processedImage = context.makeImage() else {
-            return transparentTilePNG
-        }
-
-        // Convert back to PNG data
-        let uiImage = UIImage(cgImage: processedImage)
-        return uiImage.pngData() ?? transparentTilePNG
+        return context.makeImage()
     }
 }

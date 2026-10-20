@@ -3383,9 +3383,6 @@ final class LegsBandDriver {
     private var zoomRangeBeforeBand: MKMapView.CameraZoomRange?
     /// Bumped on every open and close, so a restore queued by a close doesn't land on a reopened band.
     private var generation = 0
-    /// The band has moved the camera somewhere the map wasn't, and the chart there is to be redrawn
-    /// once the camera is at rest.
-    private var redrawsTilesAtRest = false
 
     /// The map came to rest (the coordinator's `regionDidChange`): note its zoom, the pilot's when the
     /// band doesn't have the camera, in the shared state too.
@@ -3395,10 +3392,6 @@ final class LegsBandDriver {
             // Back to its height: now the pilot's camera, exactly.
             finishRestore(mapView, mapState: restoring.mapState)
             return
-        }
-        if redrawsTilesAtRest {
-            redrawsTilesAtRest = false
-            Self.redrawTiles(on: mapView)
         }
         guard !ownsCamera else { return }
         pilotScale = scale
@@ -3489,9 +3482,8 @@ final class LegsBandDriver {
                                  fromDistance: pilotScale * placement.zoomOut / perMetre,
                                  pitch: 0, heading: band.heading)
         if let last = lastCamera, Self.isSame(last, camera, scale: pilotScale * placement.zoomOut) { return }
-        // The first framing moves the camera, and in portrait the map's size: the chart's tiles are
-        // redrawn once it is at rest. Later ones follow the aircraft, as following it does.
-        if lastCamera == nil { redrawsTilesAtRest = true }
+        // The first framing moves the camera, and in portrait the map's size; later ones follow the
+        // aircraft, as following it does.
         lastCamera = camera
         mapView.setCamera(camera, animated: !UIAccessibility.isReduceMotionEnabled)
     }
@@ -3539,7 +3531,6 @@ final class LegsBandDriver {
         mapView.setCamera(Self.camera(of: mapState), animated: false)
         ownsCamera = false
         lastCamera = nil
-        Self.redrawTiles(on: mapView)
         mapState.updateFromRegion(mapView.region)
         mapState.endBand()
     }
@@ -3568,17 +3559,6 @@ final class LegsBandDriver {
                                                    maxCenterCoordinateDistance: range.maxCenterCoordinateDistance)
         else { return }
         mapView.cameraZoomRange = band
-    }
-
-    /// MapKit draws only some of the tiles it is handed while a still map settles, and sometimes stops
-    /// asking for them at all (`LateTileRedraw`): a band that doesn't move (on the ground, in Plan ›
-    /// Map, on the simulator's fixed position) showed the chart with holes, or none, until the panel
-    /// closed, one opening in three. Once the band's camera is at rest, the overlays' own redraw, and
-    /// their reload if the redraw goes unanswered. Since 6.4.2 only OpenAIP's: `ChartTileRenderer` draws the charts.
-    private static func redrawTiles(on mapView: MKMapView) {
-        for case let tiles as LateTileRedrawing in mapView.overlays {
-            tiles.redraw.tileArrived()
-        }
     }
 
     /// Map points per screen point, across the middle of the map.
@@ -3657,7 +3637,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Add OpenAIP raster tile overlay if enabled (separate from the airspace vector — v4.1.0)
         if showOpenAIPTiles {
-            let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
+            let overlay = OpenAIPTileOverlay()
             insertTileBelowShapes(overlay, on: mapView)
         }
 
@@ -4006,7 +3986,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let hasOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
 
         if showOpenAIPTiles && !hasOverlay {
-            let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
+            let overlay = OpenAIPTileOverlay()
             insertTileBelowShapes(overlay, on: mapView)
             // The tile just landed above any existing airspace/track/route overlays — re-lift them. (v4.2 layer-switch fix)
             reliftNonTileOverlays(on: mapView)
@@ -5236,10 +5216,7 @@ struct SwissMapView: UIViewRepresentable {
         let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
         var tilesTouched = overlayChanged
         if showOpenAIPTiles && !hasOpenAIPOverlay {
-            let openAIPOverlay = OpenAIPTileOverlay(
-                cacheManager: openAIPCacheManager,
-                isStrictOfflineMode: isStrictOfflineMode
-            )
+            let openAIPOverlay = OpenAIPTileOverlay(isStrictOfflineMode: isStrictOfflineMode)
             insertTileBelowShapes(openAIPOverlay, on: mapView)
             tilesTouched = true
         } else if !showOpenAIPTiles && hasOpenAIPOverlay {

@@ -934,6 +934,7 @@ struct ReadBandDueCue: View {
     let cornerRadius: CGFloat
 
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
@@ -944,8 +945,9 @@ struct ReadBandDueCue: View {
                         .overlay(alignment: .leading) {
                             Capsule().fill(theme.info)
                                 .scaleEffect(x: max(0, min(1, left)), anchor: .leading)
-                                // A fix a second: the line runs out smoothly between them, as UNDO's does. (6.4.3)
-                                .animation(.linear(duration: 1), value: left)
+                                // A fix a second: the line runs out smoothly between them, as UNDO's does; with
+                                // Reduce Motion it steps once a second, as UNDO's does then. (6.4.3)
+                                .animation(reduceMotion ? nil : .linear(duration: 1), value: left)
                         }
                         .frame(height: 3)
                         // Clear of the outline's rounded corners.

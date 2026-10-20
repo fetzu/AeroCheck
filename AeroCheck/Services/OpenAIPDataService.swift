@@ -378,6 +378,16 @@ class OpenAIPDataService: ObservableObject {
         return (spatialGrid[GridKey(lat: cell.lat.lowerBound, lon: cell.lon.lowerBound)] ?? []).filter { $0.airspaceType == .fisSector && $0.containsPoint(point) }
     }
 
+    /// An aerodrome's own zones, the ones its point sits in (a CTR, an RMZ or FIZ, an ATZ, a TIZ; not a TMA): where
+    /// the field is NOW without a route (q10). Empty where it has none. (6.4.2)
+    func aerodromeZones(containing point: CLLocationCoordinate2D) -> [Airspace] {
+        guard isLoaded else { return [] }
+        let cell = gridKeyRange(minLat: point.latitude, maxLat: point.latitude,
+                                minLon: point.longitude, maxLon: point.longitude)
+        return (spatialGrid[GridKey(lat: cell.lat.lowerBound, lon: cell.lon.lowerBound)] ?? [])
+            .filter { RouteRadioPlanner.isAerodromeZone($0) && $0.containsPoint(point) }
+    }
+
     /// The data's FIS sectors whose box the route's comes near: `fisSectors(containing:)` for a whole
     /// route, the nav log's per-leg FIS. (6.2)
     func fisSectors(alongRoute waypoints: [CLLocationCoordinate2D]) -> [Airspace] {

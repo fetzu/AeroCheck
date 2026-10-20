@@ -36066,6 +36066,54 @@
         }
       }
     },
+    "settings.radio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radio"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radio"
+          }
+        }
+      }
+    },
+    "settings.radio.fieldsOnTheWay": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aerodromes on the way"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aérodromes sur la route"
+          }
+        }
+      }
+    },
+    "settings.radio.fieldsOnTheWayFooter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An aerodrome the route passes within 2 NM shows in NEXT as LISTEN, from 5 minutes before it. NOW stays with the Info."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un aérodrome que la route passe à moins de 2 NM s'affiche en SUIV comme ÉCOUTE, dès 5 minutes avant. ACT reste le FIS."
+          }
+        }
+      }
+    },
     "settings.flightLogging.logEngineHours": {
       "extractionState": "manual",
       "localizations": {

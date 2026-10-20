@@ -58,7 +58,7 @@ enum PhaseFrequencyPlanner {
         /// (the author's device check dr-3, 6.4.1). Numbers compare to the kHz ("122.05" is "122.050").
         func isSameStation(as other: Entry?) -> Bool {
             guard let other else { return false }
-            return RouteRadioPlanner.Station.normalized(freq) == RouteRadioPlanner.Station.normalized(other.freq)
+            return RouteRadioPlanner.Station.isSameFrequency(freq, other.freq)
         }
     }
 
@@ -324,8 +324,7 @@ enum PhaseFrequencyPlanner {
             if let typed = waypoint.frequency, !typed.isEmpty {
                 if let ident = name, sources.hasAirportData {
                     let field = labelled(ident)
-                    let same = RouteRadioPlanner.Station.normalized(typed)
-                    if field.contains(where: { RouteRadioPlanner.Station.normalized($0.freq) == same }) { return field }
+                    if field.contains(where: { RouteRadioPlanner.Station.isSameFrequency($0.freq, typed) }) { return field }
                 }
                 return [(label: name ?? "WPT", freq: typed)]
             }
@@ -524,7 +523,13 @@ enum PhaseFrequencyPlanner {
                 for zone in timeline.possible where timeline.end(of: zone, departureOver: true) > moment.progressNM {
                     list.add(PhaseFrequencyPlanner.entry(zone.station, kind: .unit), role: .other)
                 }
-                for ctr in ctrs { if let frequency = ctr.frequency { list.add(ctr.station, frequency) } }
+                // The CTRs around, short of one the timeline already lists under another name (Grenchen's tower as
+                // "GRENCHEN TWR HX", "LSZG TWR" and the CTR "GRENCHEN (HX)": the Grenchen replay).
+                for ctr in ctrs {
+                    guard let frequency = ctr.frequency,
+                          !list.items.contains(where: { RouteRadioPlanner.Station.isSameFrequency($0.freq, frequency) }) else { continue }
+                    list.add(ctr.station, frequency)
+                }
                 list.addEmergency()
                 return list.items
             }

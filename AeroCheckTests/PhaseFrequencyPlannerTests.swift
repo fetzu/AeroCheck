@@ -256,6 +256,14 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(toLSGC.next, .init(station: "LSGC AFIS", freq: "120.350"))
     }
 
+    /// 122.055 is the 8.33 kHz name of 122.050: one station for NOW and NEXT. (6.4.2)
+    func testAnEightThirtyThreeChannelNameIsTheSameStation() {
+        XCTAssertTrue(PhaseFrequencyPlanner.Entry(station: "LSZQ AFIS", freq: "122.050")
+            .isSameStation(as: .init(station: "LSZQ AD", freq: "122.055")))
+        XCTAssertFalse(PhaseFrequencyPlanner.Entry(station: "A", freq: "118.125")
+            .isSameStation(as: .init(station: "B", freq: "118.135")))
+    }
+
     /// ROUTE's radio lists a field's contact once, under the database's name; a frequency the pilot typed that
     /// the database doesn't have stays as typed.
     func testTheWaypointsCopyOfTheContactIsListedOnce() {
@@ -700,6 +708,16 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         let stations = onRoute(longitude: 7.05, next: 1).route
         XCTAssertEqual(stations.map(\.station), ["Geneva Info", "Zurich Info", "LSXB ATIS", "LSXB TWR", SwissCommonFrequency.emergency.name])
         XCTAssertEqual(stations.map(\.listen), [false, false, true, false, false])
+    }
+
+    /// ROUTE on the route lists a CTR around once: not again under its own name when the timeline has its
+    /// frequency (the destination's tower, 8.33 kHz name or not).
+    func testRouteRadioListsACTRAroundOnlyOnce() {
+        var world = Self.empty
+        world.ctrs = [(station: "XB (HX)", frequency: "118.130"), (station: "BERN (HX)", frequency: "121.025")]
+        let stations = onRoute(longitude: 7.05, next: 1, world: world).route.map(\.station)
+        XCTAssertFalse(stations.contains("XB (HX)"), stations.description)
+        XCTAssertTrue(stations.contains("BERN (HX)"))
     }
 
     /// The Cockpit's radio reads a timeline only for the route it was built for.

@@ -191,10 +191,18 @@ struct RadioTimeline: Equatable {
             best = (call, start)
         }
         guard let chosen = best?.call else { return nil }
-        if chosen.kind == .unit || chosen.kind == .tmaViaFIS,
-           let field = held.first(where: {
-               ($0.kind == .departure || $0.kind == .destination) && $0.station.hasSameFrequency(as: chosen.station)
-           }) {
+        // The aerodrome and its own zone on one frequency: the aerodrome's name with the zone's frequency, as the
+        // airspace data writes it (Grenchen's tower 120.105, the 8.33 kHz name the airport database writes 120.100).
+        let isField = { (call: Call) in call.kind == .departure || call.kind == .destination }
+        let isZone = { (call: Call) in call.kind == .unit || call.kind == .tmaViaFIS }
+        if isZone(chosen), var field = held.first(where: { isField($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
+            field.station = Station(frequency: chosen.station.frequency, callSign: field.station.callSign,
+                                    isHX: chosen.station.isHX)
+            return field
+        }
+        if isField(chosen), let zone = held.first(where: { isZone($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
+            var field = chosen
+            field.station = Station(frequency: zone.station.frequency, callSign: chosen.station.callSign, isHX: zone.station.isHX)
             return field
         }
         return chosen
@@ -347,14 +355,24 @@ extension RadioTimeline {
             timeline.calls.append(Call(station: change.station, kind: .fis, fromNM: i == 0 ? 0 : change.nm, toNM: to))
         }
 
-        // Each stretch of each zone at the planned altitude.
+        // Each stretch of each zone at the planned altitude. An aerodrome's own zone on its frequency is called by
+        // the aerodrome's name, on the zone's channel: "LSZG TWR HX 120.105" from the ground to the CTR's exit,
+        // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came.
         var zoneCalls: [Call] = []
+        let aerodromes = [(departure, waypoints[0].coordinate), (destination, waypoints[waypoints.count - 1].coordinate)]
         for zone in zones {
             let viaFIS = RouteRadioPlanner.isClearedByFIS(zone.airspace, station: zone.station)
+            var station = zone.station
+            if RouteRadioPlanner.isAerodromeZone(zone.airspace),
+               let contact = aerodromes.first(where: { end in
+                   end.0?.contact?.hasSameFrequency(as: zone.station) == true && zone.airspace.containsPoint(end.1)
+               })?.0?.contact {
+                station = Station(frequency: zone.station.frequency, callSign: contact.callSign, isHX: zone.station.isHX)
+            }
             for run in runs(zone.inside) {
                 let from = run.lowerBound == 0 ? 0 : samples[run.lowerBound].d
                 let to = run.upperBound + 1 < samples.count ? samples[run.upperBound + 1].d : .infinity
-                zoneCalls.append(Call(station: zone.station, kind: viaFIS ? .tmaViaFIS : .unit, fromNM: from, toNM: to,
+                zoneCalls.append(Call(station: station, kind: viaFIS ? .tmaViaFIS : .unit, fromNM: from, toNM: to,
                                       lead: viaFIS ? tmaLead : zoneLead,
                                       note: viaFIS ? "TMA " + RouteRadioPlanner.baseName(zone.airspace.name) : nil))
             }

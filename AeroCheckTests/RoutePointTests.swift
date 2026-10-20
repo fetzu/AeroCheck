@@ -286,6 +286,28 @@ final class RoutePointTests: XCTestCase {
         XCTAssertNil(target(nil, nil, false))
     }
 
+    /// A reporting point, or an arrival sector's letter drawn as one, nearer the drop than the aerodrome and the
+    /// navaid in range wins: LSGN's N, its badge 1.2 NM out, became LSGN (the author's device check r3-2, 6.4.2).
+    func testAPointNearerThanTheAerodromeWins() throws {
+        let lsgn = airport("LSGN", 46.957371, 6.864574)
+        let n = ReportingPoint(id: "ofm-sector:arr-n", name: "N", compulsory: false, latitude: 46.97697, longitude: 6.84898,
+                               airports: [], source: .openFlightmaps, aerodromeICAO: "LSGN")
+        let label = ReportingPointLabel(point: n, aerodrome: ReportingPointAerodrome(icao: "LSGN", name: "NEUCHATEL"))
+        let onTheBadge = coordinate(46.9768, 6.8492)
+        guard case .reportingPoint(let point, _)? = RoutePoint.snapTarget(near: onTheBadge, aerodrome: lsgn, navaid: nil,
+                                                                           reportingPoint: (n, label)) else {
+            return XCTFail("the badge's point, not LSGN")
+        }
+        XCTAssertEqual(point.name, "N")
+        XCTAssertEqual(RoutePoint.reportingPoint(n, label).waypoint(asEndpoint: false).aerodromeICAO, "LSGN")
+        let nearTheField = coordinate(46.9600, 6.8620)
+        guard case .aerodrome(let field)? = RoutePoint.snapTarget(near: nearTheField, aerodrome: lsgn, navaid: nil,
+                                                                   reportingPoint: (n, label)) else {
+            return XCTFail("nearer the field: the field")
+        }
+        XCTAssertEqual(field.ident, "LSGN")
+    }
+
     // MARK: - Older plans, older builds
 
     /// A waypoint as 6.0 wrote it: none of the new keys.

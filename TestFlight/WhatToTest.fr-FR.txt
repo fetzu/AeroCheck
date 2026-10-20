@@ -1,9 +1,13 @@
-6.4.1 corrige le compte des atterrissages et ce que propose SUIVANT pour la radio à l'arrivée, le tout trouvé en rejouant un vol réel au sol.
+6.4.2 fait suivre la route à ACT et SUIV, les fréquences radio, comme vous travaillez la radio : les stations dans l'ordre où vous les appelez, comme sur le log de nav imprimé.
 
-À regarder :
-- un vol vers un aérodrome plus haut que celui de départ, sur un iPhone ou un iPad cellulaire (ils ont un baromètre) : l'atterrissage est compté au moment où il a lieu, la vérification après l'atterrissage vient d'elle-même et la destination reçoit son heure ;
-- ATTERRISSAGE pressé tard, quelques minutes après le toucher : la revue du vol et le carnet de vol montrent un seul atterrissage, à l'heure du toucher, et le temps de vol est celui mesuré ;
-- le carnet de vol : un vol qui a enregistré deux fois le même atterrissage en montre un seul partout, sur sa ligne, sur sa page et dans les exports CSV et PDF ;
-- la radio à l'arrivée : une fois passé un point hors du circuit de la destination, SUIVANT reste vide au lieu de proposer le FIS, et le reste après l'atterrissage. Sur un vol local, SUIVANT propose le FIS à l'aller, jusqu'au premier point hors du circuit.
+À regarder, sur une route :
+- l'aérodrome de départ reste ACT jusqu'à la mise en palier (ou la sortie de sa zone), avec en SUIV le FIS ou la zone qui vient ;
+- puis chaque FIS et chaque zone à son tour : une CTR, une RMZ ou une FIZ devient ACT 5 minutes avant d'y entrer, le FIS suivant s'affiche en SUIV avant sa limite et devient ACT à la limite ;
+- une TMA dont la clairance vient du FIS (Genève, Zurich, les secteurs de Bâle) est nommée à côté d'ACT dès 10 minutes avant ;
+- au-dessus de l'Ajoie et du nord du Jura, dès 2'000 ft sol : Bale Info ;
+- la destination devient ACT 5 minutes avant l'aérodrome, ou 2 minutes avant son point d'arrivée s'il vient plus tôt, et son ATIS s'affiche en SUIV comme ÉCOUTE dès 10 minutes avant ;
+- un aérodrome que la route passe à moins de 2 NM s'affiche en SUIV comme ÉCOUTE dès 5 minutes avant, ACT restant le FIS (Réglages › Checklist & Vol › Aérodromes sur la route le désactive).
+
+Sans route, un aérodrome n'est ACT que dans sa zone ou à moins de 3 NM, sinon le FIS.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

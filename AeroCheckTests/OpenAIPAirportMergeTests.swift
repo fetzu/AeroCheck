@@ -687,6 +687,48 @@ final class OpenAIPAirportMergeTests: XCTestCase {
                        ["TWR"])
     }
 
+    /// LSZQ: OpenAIP lists "AD 122.055" (type 16), OurAirports "AFIS 122.05" and "APP 119.35". The merged list keeps
+    /// OpenAIP's AD and OurAirports' APP, never the AFIS on the same frequency (122.055 is 122.050's 8.33 kHz name),
+    /// and the field's contact is "AD 122.055": until 6.4.2 the AFIS row stayed and won, wrong channel, wrong type.
+    func testAnAerodromesOwnRadioIsItsContactAndOurAirportsCopyGoes() throws {
+        let lszq = try OpenAIPAirport.parse(geoJSON: Data("""
+        {"type":"FeatureCollection","features":[{"type":"Feature",
+          "properties":{"_id":"oaip-lszq","name":"BRESSAUCOURT","icaoCode":"LSZQ","type":2,"country":"CH",
+            "frequencies":[{"name":"AD","value":"122.055","type":16,"primary":true}]},
+          "geometry":{"type":"Point","coordinates":[7.0289,47.3924]}}]}
+        """.utf8))
+        let ours = [ourAirport(id: 300136, ident: "LSZQ", lat: 47.3924, lon: 7.029, name: "Bressaucourt Airfield")]
+        let ourFreqs = ["LSZQ": [
+            AirportFrequency(id: 1, airportRef: 300136, airportIdent: "LSZQ", type: "AFIS", description: nil, frequencyMhz: 122.05),
+            AirportFrequency(id: 2, airportRef: 300136, airportIdent: "LSZQ", type: "APP", description: "Bale Approach", frequencyMhz: 119.35),
+        ]]
+        let outcome = AirportDataMergeEngine.mergeOutcome(ourAirports: ours, openAIP: lszq)
+        let merged = try XCTUnwrap(AirportDataMergeEngine.mergedFrequencies(
+            ourFrequenciesByIdent: ourFreqs, openAIP: lszq, foldedOpenAIPIds: outcome.foldedOpenAIPIds)["LSZQ"])
+        XCTAssertEqual(merged.map(\.type), ["AD", "APP"])
+        let contact = try XCTUnwrap(AirportDataService.pickFieldContact(from: merged))
+        XCTAssertEqual(contact.type, "AD")
+        XCTAssertEqual(contact.formattedFrequency, "122.055")
+    }
+
+    /// Type 16 under its country's short name: "AD" (CH), "A/A" (FR), else "RADIO" (DE, AT, IT: "AACHEN RADIO").
+    func testAnAerodromesOwnRadioIsNamedAsItsCountryDoes() {
+        XCTAssertEqual(OpenAIPFrequency(name: "AD", value: "122.055", typeRaw: 16).typeLabel, "AD")
+        XCTAssertEqual(OpenAIPFrequency(name: " a/a ", value: "123.500", typeRaw: 16).typeLabel, "A/A")
+        XCTAssertEqual(OpenAIPFrequency(name: "AACHEN RADIO", value: "122.875", typeRaw: 16).typeLabel, "RADIO")
+        XCTAssertEqual(OpenAIPFrequency(name: "AD", value: "120.105", typeRaw: 14).typeLabel, "TWR")
+    }
+
+    /// "AD", "A/A" and "RADIO" are matched whole: a field's "RADAR" is never its "AD".
+    func testARadarIsNeverAnAerodromeRadio() {
+        XCTAssertFalse(AirportDataService.isContactType("RADAR", "AD"))
+        XCTAssertTrue(AirportDataService.isContactType("ad", "AD"))
+        XCTAssertTrue(AirportDataService.isContactType("TWR (Secondary)", "TWR"))
+        let radarOnly = [AirportFrequency(id: 1, airportRef: 1, airportIdent: "XXXX", type: "RADAR", description: nil, frequencyMhz: 119.0),
+                         AirportFrequency(id: 2, airportRef: 1, airportIdent: "XXXX", type: "AD", description: nil, frequencyMhz: 123.605)]
+        XCTAssertEqual(AirportDataService.pickFieldContact(from: radarOnly)?.type, "AD")
+    }
+
     /// The readers see one LSGC runway: the wind pick, the planning summary and the editor's runway ends
     /// (which offered 05, 06, 23 and 24 before).
     func testSuggestRunwayAndSummarySeeOneLSGCRunway() throws {

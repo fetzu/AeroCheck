@@ -832,7 +832,7 @@ extension RouteRadioPlanner {
     static func contact(of ident: String, airports: AirportDataService) -> Station? {
         let freqs = airports.getFrequencies(for: ident)
         for type in AirportDataService.fieldContactPriority {
-            if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
+            if let f = freqs.first(where: { AirportDataService.isContactType($0.type, type) }) {
                 return Station(frequency: f.formattedFrequency, callSign: "\(ident) \(type)")
             }
         }
@@ -892,7 +892,7 @@ extension RouteRadioPlanner {
         let freqs = airports.getFrequencies(for: airport.ident)
         var contact: Station?
         for type in AirportDataService.fieldContactPriority {
-            if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
+            if let f = freqs.first(where: { AirportDataService.isContactType($0.type, type) }) {
                 contact = Station(frequency: f.formattedFrequency, callSign: "\(airport.ident) \(type)")
                 break
             }

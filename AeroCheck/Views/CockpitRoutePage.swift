@@ -935,9 +935,11 @@ struct CockpitRadioFollower: ViewModifier {
 
     /// The flight beyond its position: its ground speed, whether its departure is over. (6.4.2)
     private var situation: PhaseFrequencyPlanner.Situation {
-        let speed = locationManager.currentLocation.flatMap { $0.speed >= 0 ? $0.speed * 1.943_844 : nil }
+        let location = locationManager.currentLocation
+        let speed = location.flatMap { $0.speed >= 0 ? $0.speed * 1.943_844 : nil }
+        let altitude = location.flatMap { $0.verticalAccuracy > 0 ? $0.altitude * 3.280_84 : nil }
         return PhaseFrequencyPlanner.Situation(groundSpeedKt: speed, departureOver: departureOver,
-                                               fieldsOnTheWay: appState.settings.showFieldsOnTheWay)
+                                               fieldsOnTheWay: appState.settings.showFieldsOnTheWay, altitudeFt: altitude)
     }
 
     /// The level-off, or a later cue (which brings it), on this leg.

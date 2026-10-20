@@ -341,6 +341,63 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: t.waypointNM[3] - 1).next?.callSign, "LSXB ATIS")
     }
 
+    // MARK: - FIS areas (q4)
+
+    /// The server's file for Bâle Information over AZ4, as the job writes it.
+    private static let az4File = """
+    {"v":1,"generated":"2026-10-18T18:45:48Z","areas":[{"id":"ch-bale-az4","country":"CH","station":"BALE INFORMATION",
+    "frequency":"130.900","airspace":{"name":"TMA BALE ZURICH AZ4","type":7,"icaoClass":4},"source":"French eAIP"}]}
+    """
+
+    /// A stand-in for AZ4 over the route between 7.4° and 7.6° E: class E from 2,000 ft AGL.
+    private func az4(floorAGL: Int = 2000, name: String = "TMA BALE ZURICH AZ4", country: String = "CH") -> Airspace {
+        Airspace(id: name, name: name, type: 7, icaoClass: 4, country: country,
+                 upperCeiling: AltitudeLimit(value: 100, unit: 6, referenceDatum: 2),
+                 lowerCeiling: AltitudeLimit(value: floorAGL, unit: 1, referenceDatum: 0),
+                 geometry: AirspaceGeometry(type: "Polygon", coordinates: [[[7.4, 46.9], [7.4, 47.1], [7.6, 47.1], [7.6, 46.9], [7.4, 46.9]]]),
+                 activity: nil, frequencies: nil)
+    }
+
+    private func areas(_ airspaces: [Airspace]) throws -> [FISArea] {
+        FISArea.areas(of: try JSONDecoder().decode(FISAreaFile.self, from: Data(Self.az4File.utf8)), in: airspaces)
+    }
+
+    func testTheServersFileNamesAnAirspaceTheDeviceDraws() throws {
+        let found = try areas([az4(), alphaCTR()])
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(found.first?.station, Station(frequency: "130.900", callSign: "BALE INFO"))
+        XCTAssertEqual(found.first?.airspaces.map(\.name), ["TMA BALE ZURICH AZ4"])
+        XCTAssertTrue(try areas([az4(name: "TMA BALE ZURICH AZ4 T3")]).isEmpty, "another part")
+        XCTAssertTrue(try areas([az4(country: "FR")]).isEmpty, "another country's")
+        XCTAssertTrue(try areas([]).isEmpty, "the country not downloaded: the sectors as before")
+    }
+
+    /// Over AZ4 at the leg's cruise (5,000 ft, 3,500 ft over 1,500 ft of ground): Bâle Information, between
+    /// Geneva's stretches.
+    func testAFISAreaIsTheFISWhereTheCruiseIsInIt() throws {
+        let result = RouteRadioPlanner.plan(.init(
+            waypoints: waypoints(), airspaces: [], departure: departure, destination: destination,
+            fis: { [geneva, zurich] point in point.longitude < 7.75 ? geneva : zurich },
+            fisAreas: try areas([az4()]), groundFallbackFt: 1500))
+        let stations = result.timeline.calls.filter { $0.kind == .fis }.map(\.station.callSign)
+        XCTAssertEqual(stations, ["GENEVA INFO", "BALE INFO", "GENEVA INFO", "ZURICH INFO"])
+        let bale = result.timeline.calls.first { $0.station.callSign == "BALE INFO" }!
+        XCTAssertEqual(bale.fromNM, 16.4, accuracy: 1.1)
+        XCTAssertTrue(result.stations.contains { $0.label == "BALE INFO" && $0.frequency == "130.900" }, "on the nav log")
+        // Its floor above the cruise (6,000 ft AGL over 1,500 ft of ground is 7,500 ft): no Bâle.
+        let high = RouteRadioPlanner.plan(.init(
+            waypoints: waypoints(), airspaces: [], departure: departure, destination: destination,
+            fis: { [geneva, zurich] point in point.longitude < 7.75 ? geneva : zurich },
+            fisAreas: try areas([az4(floorAGL: 6000)]), groundFallbackFt: 1500))
+        XCTAssertFalse(high.timeline.calls.contains { $0.station.callSign == "BALE INFO" })
+        // The ground unknown (no terrain, no aerodrome elevation): a floor in ft AGL can't be judged, no Bâle.
+        let unknown = RouteRadioPlanner.plan(.init(
+            waypoints: waypoints(), airspaces: [], departure: departure, destination: destination,
+            fis: { [geneva, zurich] point in point.longitude < 7.75 ? geneva : zurich },
+            fisAreas: try areas([az4()])))
+        XCTAssertFalse(unknown.timeline.calls.contains { $0.station.callSign == "BALE INFO" })
+    }
+
     // MARK: - ROUTE's radio
 
     func testAheadIsEveryCallFromNowOnInOrder() {

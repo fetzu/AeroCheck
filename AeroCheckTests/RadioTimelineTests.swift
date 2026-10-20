@@ -147,6 +147,39 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: 5, departureOver: false).next, geneva, "never the zone's 122.055 after the field's 122.050")
     }
 
+    /// Of two names for one frequency, the 8.33 kHz channel's: the author's 19 Oct answers, Bern 121.030 (its CTR
+    /// writes 121.025), Les Eplatures 118.130 (118.125), Grenchen 120.105 (the airport database 120.100).
+    func testOfTwoNamesTheEightThirtyThreeChannelsWins() {
+        XCTAssertTrue(Station.isEightThirtyThreeName("121.030"))
+        XCTAssertTrue(Station.isEightThirtyThreeName("118.135"))
+        XCTAssertFalse(Station.isEightThirtyThreeName("121.025"))
+        XCTAssertFalse(Station.isEightThirtyThreeName("124.7"))
+        XCTAssertEqual(Station.preferredName("121.025", "121.030"), "121.030")
+        XCTAssertEqual(Station.preferredName("118.130", "118.125"), "118.130")
+        XCTAssertEqual(Station.preferredName("124.700", "124.70"), "124.700", "both 25 kHz names: the first")
+    }
+
+    /// Bern: the destination's tower 121.030, its CTR 121.025. The whole flight says 121.030: NOW in the CTR, the
+    /// nav log's row into it, the Radio box (one line).
+    func testOneFrequencyHasOneNameAcrossTheFlight() {
+        let bern = RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: Station(frequency: "121.030", callSign: "LSXB TWR"),
+                                               atis: nil, ground: nil)
+        let ctr = airspace("CTR XB", type: 4, icaoClass: 3, lon: 8.05...8.3, frequency: ("121.025", "XB TOWER"))
+        let result = plan([ctr], destination: .some(bern))
+        let t = result.timeline
+        XCTAssertEqual(read(t, at: t.totalNM - 1).now?.station.frequency, "121.030")
+        XCTAssertFalse(result.rows.contains { $0.station?.frequency == "121.025" }, result.rows.map { $0.station?.frequency ?? "-" }.description)
+        XCTAssertTrue(result.rows.flatMap(\.remarks).allSatisfy { !$0.contains("121.025") })
+        XCTAssertFalse(result.stations.contains { $0.frequency == "121.025" })
+        // Grenchen the other way round: the airport database's 120.100, the CTR's 120.105.
+        let grenchen = RouteRadioPlanner.Aerodrome(ident: "LSXA", contact: Station(frequency: "120.100", callSign: "LSXA TWR"),
+                                                   atis: nil, ground: nil)
+        let own = airspace("CTR XA", type: 4, icaoClass: 3, lon: 6.9...7.2, frequency: ("120.105", "XA TOWER"))
+        let fromGrenchen = plan([own], departure: .some(grenchen))
+        XCTAssertEqual(fromGrenchen.rows[0].station?.frequency, "120.105")
+        XCTAssertEqual(read(fromGrenchen.timeline, at: 0, speed: 0, departureOver: false).now?.station.frequency, "120.105")
+    }
+
     // MARK: - FIS (q4, q5)
 
     func testTheNextFISIsNextAndNowChangesAtItsBoundary() {

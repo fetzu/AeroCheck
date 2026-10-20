@@ -524,11 +524,12 @@ enum PhaseFrequencyPlanner {
                     list.add(PhaseFrequencyPlanner.entry(zone.station, kind: .unit), role: .other)
                 }
                 // The CTRs around, short of one the timeline already lists under another name (Grenchen's tower as
-                // "GRENCHEN TWR HX", "LSZG TWR" and the CTR "GRENCHEN (HX)": the Grenchen replay).
+                // "GRENCHEN TWR HX", "LSZG TWR" and the CTR "GRENCHEN (HX)": the Grenchen replay). Nearby, off the
+                // route: ROUTE says so over them, where they read as the route's next calls (device check r3-6).
                 for ctr in ctrs {
                     guard let frequency = ctr.frequency,
                           !list.items.contains(where: { RouteRadioPlanner.Station.isSameFrequency($0.freq, frequency) }) else { continue }
-                    list.add(ctr.station, frequency)
+                    list.add(ctr.station, frequency, nearby: true)
                 }
                 list.addEmergency()
                 return list.items
@@ -562,11 +563,11 @@ enum PhaseFrequencyPlanner {
         }
 
         mutating func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false,
-                          listen: Bool = false, note: String? = nil) {
+                          listen: Bool = false, note: String? = nil, nearby: Bool = false) {
             guard seen.insert(freq + "|" + station).inserted else { return }
             items.append(PhaseFrequency(station: station, freq: freq, highlighted: role == .current,
                                         isEmergency: emergency, role: emergency ? .emergency : role,
-                                        listen: listen, note: note))
+                                        listen: listen, note: note, nearby: nearby))
         }
 
         /// 121.500, always last.
@@ -651,7 +652,17 @@ extension PhaseFrequencyPlanner.Sources {
              nearbyCTRs: { coordinate in
                  openAIP.nearbyCTRs(from: coordinate, withinNM: PhaseFrequencyPlanner.ctrRadiusNM,
                                     requireFrequencies: true)
-                     .map { (station: $0.airspace.shortName, frequency: $0.airspace.primaryFrequency?.value) }
+                     .map { ctr -> (station: String, frequency: String?) in
+                         // The aerodrome inside on the same frequency gives its name and its 8.33 kHz channel, as on
+                         // the route: "LSGC TWR 118.130" where the CTR writes "LES EPLATURES 118.125" (r3-6). (6.4.2)
+                         let frequency = ctr.airspace.primaryFrequency?.value
+                         if let frequency, let field = RouteRadioPlanner.fieldsInZones([ctr.airspace], airports: airports).first,
+                            RouteRadioPlanner.Station.isSameFrequency(field.contact.frequency, frequency) {
+                             return (station: field.contact.callSign + (ctr.airspace.isMilitary ? " HX" : ""),
+                                     frequency: RouteRadioPlanner.Station.preferredName(frequency, field.contact.frequency))
+                         }
+                         return (station: ctr.airspace.shortName, frequency: frequency)
+                     }
              },
              fisSectors: { coordinate in
                  let sectors = openAIP.fisSectors(containing: coordinate)
@@ -684,7 +695,7 @@ extension PhaseFrequency {
     }
 
     /// Its content, for telling a new list from the last: a list is rebuilt with new ids each time.
-    var contentKey: String { "\(station)|\(freq)|\(role)|\(isEmergency)|\(listen)|\(note ?? "")" }
+    var contentKey: String { "\(station)|\(freq)|\(role)|\(isEmergency)|\(listen)|\(note ?? "")|\(nearby)" }
 }
 
 // MARK: - The Cockpit's radio

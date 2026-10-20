@@ -751,8 +751,8 @@ struct ReadBandNowLine: View {
 }
 
 /// NOW or NEXT on one line: the tag, the frequency, then the station where it fits whole. The frequency is
-/// what is dialled: it comes first and keeps its digits; the station gives way, whole or not at all, never
-/// cut. What a pilot typed for a waypoint ("119.175 Bern Information") is read as its frequency and its
+/// what is dialled: it comes first and keeps its digits; the station gives way, down to three quarters of its
+/// size, never to nothing ("NOW 120.105" alone confused the author, device check zn-3, 6.4.2). What a pilot typed for a waypoint ("119.175 Bern Information") is read as its frequency and its
 /// words (`ReadBandFrequencyText`), the words in the station's place. The tag's room is the wider of the
 /// two tags, so NOW's frequency and NEXT's line up.
 struct ReadBandFrequencyCell: View {
@@ -790,7 +790,11 @@ struct ReadBandFrequencyCell: View {
                         stationText(shown.station + " · " + note)
                     }
                     stationText(shown.station)
-                    Color.clear.frame(width: 0, height: 0)
+                    Text(verbatim: shown.station)
+                        .font(.aero(size: metrics.labelSize))
+                        .foregroundColor(theme.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
                 Spacer(minLength: 0)
             }

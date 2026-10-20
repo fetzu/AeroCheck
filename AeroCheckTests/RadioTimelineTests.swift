@@ -225,6 +225,88 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertEqual(read(t, at: zone.fromNM).now?.station.callSign, "ALPHA TWR")
     }
 
+    /// An aerodrome whose reporting points the route flies is called there, its zone entered or not: from 5 min before
+    /// its first point to 2 NM past its last (Les Eplatures over V and E, the author's device check r3-2).
+    func testAnAerodromesReportingPointsAreCalledThere() {
+        var wps = waypoints()
+        wps[2].aerodromeICAO = "LSXC"
+        let lsxc = RadioTimeline.NearbyField(ident: "LSXC", coordinate: .init(latitude: 47.15, longitude: 7.6),
+                                             contact: Station(frequency: "118.130", callSign: "LSXC TWR"))
+        let t = timeline(waypoints: wps, fields: [lsxc])
+        let point = t.waypointNM[2]
+        XCTAssertEqual(read(t, at: point - 8.7).now?.station, geneva)
+        XCTAssertEqual(read(t, at: point - 8.7).next?.callSign, "LSXC TWR")
+        XCTAssertEqual(read(t, at: point - 8.0).now?.station.callSign, "LSXC TWR")
+        XCTAssertEqual(read(t, at: point + 1.8).now?.station.callSign, "LSXC TWR")
+        XCTAssertEqual(read(t, at: point + 2.2).now?.station, geneva)
+        // A point a few miles out (V, 6.7 NM from LSGN): the departure stays NOW on the ground and to the level-off,
+        // the aerodrome NEXT; then the aerodrome (the dr-3 replay of 19 Oct read LSGC TWR on the ground at LSGN).
+        var nearPlan = FlightPlan(waypoints: waypoints())
+        nearPlan.waypoints[1] = FlightPlanWaypoint(name: "V", coordinate: .init(latitude: 47.0, longitude: 7.09),
+                                                   altitude: 5000, plannedGroundSpeed: 100)
+        nearPlan.waypoints[1].aerodromeICAO = "LSXC"
+        nearPlan.calculateRouteData()
+        let early = timeline(waypoints: nearPlan.waypoints, fields: [lsxc])
+        let ground = read(early, at: 0, speed: 100, departureOver: false)
+        XCTAssertEqual(ground.now?.station.callSign, "LSXA AFIS")
+        XCTAssertEqual(ground.next?.callSign, "LSXC TWR")
+        XCTAssertEqual(read(early, at: 1.5, departureOver: false).now?.station.callSign, "LSXA AFIS", "climbing")
+        XCTAssertEqual(read(early, at: 0.5, speed: 30, departureOver: false).next?.callSign, "LSXC TWR",
+                       "NEXT in the climb, before its 5 min have begun: the level-off may come after them")
+        XCTAssertEqual(read(early, at: 1.5, departureOver: true).now?.station.callSign, "LSXC TWR", "levelled off")
+        // Not the departure's or the destination's points: those have their own calls.
+        var own = waypoints()
+        own[2].aerodromeICAO = "LSXA"
+        XCTAssertFalse(timeline(waypoints: own, fields: [lsxc]).calls.contains { $0.kind == .unit })
+    }
+
+    /// One frequency, one name: a TMA over the destination on its tower's frequency is called by the destination too,
+    /// HX as its CTR is. Bern's read "BERN TWR", "LSZB TWR", then "LSZB TWR HX" (the route 3 replay, 19 Oct 2026).
+    func testAZoneOverTheDestinationOnItsFrequencyIsCalledByIt() {
+        let bern = RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: Station(frequency: "121.030", callSign: "LSXB TWR"),
+                                               atis: nil, ground: nil)
+        let tma = airspace("TMA XB", type: 7, icaoClass: 3, lon: 7.85...8.3, frequency: ("121.030", "XB TOWER"))
+        let ctr = airspace("CTR XB (HX)", type: 4, icaoClass: 3, lon: 8.1...8.3, frequency: ("121.025", "XB TOWER"))
+        // TMA BERN 1 publishes no frequency and doesn't reach the field: CTR BERN's, borrowed.
+        let tma1 = airspace("TMA XB 1", type: 7, icaoClass: 3, lon: 7.8...7.95)
+        for t in [plan([tma, ctr], destination: .some(bern)).timeline, plan([tma1, ctr], destination: .some(bern)).timeline] {
+            let names = stride(from: 25.0, to: t.totalNM, by: 1).compactMap { read(t, at: $0).now?.station }
+                .filter { $0.hasSameFrequency(as: bern.contact) }
+            XCTAssertFalse(names.isEmpty)
+            XCTAssertEqual(Set(names.map(\.callSign)), ["LSXB TWR"], names.map(\.callSign).description)
+            XCTAssertTrue(names.allSatisfy(\.isHX))
+        }
+    }
+
+    /// On the ground the departure is NOW, a zone a few miles out notwithstanding; in the climb the zone takes NOW
+    /// 5 min before its boundary, as it must be called before entry.
+    func testOnTheGroundTheDepartureIsNowBeforeAZoneNearby() {
+        let ctr = airspace("CTR ALPHA", type: 4, icaoClass: 3, lon: 7.08...7.2, frequency: ("130.150", "ALPHA TOWER"))
+        let t = timeline([ctr])
+        let ground = read(t, at: 0, speed: 100, departureOver: false)
+        XCTAssertEqual(ground.now?.station.callSign, "LSXA AFIS")
+        XCTAssertEqual(ground.next?.callSign, "ALPHA TWR")
+        XCTAssertEqual(read(t, at: 1, departureOver: false).now?.station.callSign, "ALPHA TWR")
+    }
+
+    /// A CTR crossed on the way is called by the aerodrome inside it, on its 8.33 kHz name: "GRENCHEN TWR HX"
+    /// was too wide for NOW, which showed no name at all (the author's device check zn-3, 19 Oct 2026).
+    func testAZoneOnTheWayIsCalledByItsAerodrome() {
+        let inside = RadioTimeline.NearbyField(ident: "LSXC", coordinate: .init(latitude: 47.05, longitude: 7.45),
+                                               contact: Station(frequency: "130.155", callSign: "LSXC TWR"))
+        let t = timeline([alphaCTR("CTR ALPHA (HX)")], fields: [inside])
+        let zone = t.calls.first { $0.kind == .unit }!
+        let now = read(t, at: zone.fromNM).now?.station
+        XCTAssertEqual(now?.callSign, "LSXC TWR")
+        XCTAssertEqual(now?.frequency, "130.155")
+        XCTAssertEqual(now?.isHX, true)
+        XCTAssertFalse(t.listens.contains { $0.station.callSign == "LSXC TWR" }, "in a zone, never a field on the way")
+        // An aerodrome on another frequency leaves the zone its own name.
+        let other = RadioTimeline.NearbyField(ident: "LSXC", coordinate: inside.coordinate,
+                                              contact: Station(frequency: "123.605", callSign: "LSXC A/G"))
+        XCTAssertEqual(timeline([alphaCTR()], fields: [other]).calls.first { $0.kind == .unit }?.station.callSign, "ALPHA TWR")
+    }
+
     /// TMA GENEVA: the clearance comes from Geneva Information. NOW stays the Info, named with the TMA from
     /// 10 min before.
     func testATMAClearedByTheFISKeepsTheInfoWithTheTMABeside() {
@@ -397,10 +479,41 @@ final class RadioTimelineTests: XCTestCase {
         XCTAssertTrue(timeline(fields: [field("LSXB", latitude: 47.0, longitude: 8.2)]).listens.allSatisfy { $0.kind == .atis })
     }
 
-    /// The destination's ATIS wins over an aerodrome on the way.
-    func testTheATISWinsOverAnAerodromeOnTheWay() {
+    /// An out-and-back passes an aerodrome twice: a LISTEN each way (LSPL on the Grenchen loop, the author's device
+    /// check ls-1, 19 Oct 2026, had it on the way out only).
+    func testAnAerodromePassedTwiceIsListenEachWay() {
+        var loop = FlightPlan(waypoints: [7.0, 7.6, 7.02].enumerated().map { i, lon in
+            FlightPlanWaypoint(name: ["LSXA", "TP", "LSXB"][i], coordinate: .init(latitude: 47.0, longitude: lon),
+                               altitude: i == 1 ? 5000 : 1500, plannedGroundSpeed: 100)
+        })
+        loop.calculateRouteData()
+        let noATIS = RouteRadioPlanner.Aerodrome(ident: "LSXB", contact: destination.contact, atis: nil, ground: nil)
+        let t = timeline(waypoints: loop.waypoints, destination: .some(noATIS),
+                         fields: [field("LSXC", latitude: 47.02, longitude: 7.3)])
+        let passes = t.listens.filter { $0.kind == .fieldOnTheWay }.map(\.atNM)
+        XCTAssertEqual(passes.count, 2, passes.description)
+        XCTAssertEqual(passes.first ?? 0, t.waypointNM[1] / 2, accuracy: 1)
+        XCTAssertEqual(passes.last ?? 0, t.waypointNM[1] + (t.totalNM - t.waypointNM[1]) / 2 - 0.4, accuracy: 1.5)
+        XCTAssertEqual(read(t, at: passes.last! - 1).next?.callSign, "LSXC A/G")
+        XCTAssertTrue(read(t, at: passes.last! - 1).nextIsListen)
+    }
+
+    /// The destination's ATIS and an aerodrome on the way, one after the other: the one whose window ends first,
+    /// the field passed, then the ATIS (the author's device check ls-1, 19 Oct 2026: LSPL abeam on the way back to
+    /// Grenchen, where the ATIS used to win and LSPL never showed). ROUTE lists both.
+    func testTwoListensComeOneAfterTheOther() {
         let t = timeline(fields: [field("LSXD", latitude: 47.01, longitude: 7.9)])
-        XCTAssertEqual(read(t, at: t.waypointNM[3] - 1).next?.callSign, "LSXB ATIS")
+        let abeam = t.waypointNM[3]
+        let before = read(t, at: abeam - 9)
+        XCTAssertEqual(before.next?.callSign, "LSXB ATIS", "the ATIS alone in its window")
+        let field = read(t, at: abeam - 1)
+        XCTAssertEqual(field.next?.callSign, "LSXD A/G")
+        XCTAssertTrue(field.nextIsListen)
+        let after = read(t, at: abeam + 2.2)
+        XCTAssertEqual(after.next?.callSign, "LSXB ATIS")
+        XCTAssertTrue(after.nextIsListen)
+        let route = t.ahead(.init(progressNM: abeam - 1, speedKt: 100, departureOver: true))
+        XCTAssertEqual(route.filter(\.listen).map(\.station.callSign), ["LSXD A/G", "LSXB ATIS"])
     }
 
     // MARK: - FIS areas (q4)

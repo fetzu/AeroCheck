@@ -21,6 +21,8 @@ import CoreLocation
 // |                          | arrival point if that comes first; to the end and after         |        |
 // | Its ATIS                 | in NEXT, LISTEN, from 10 min before that call point             | q9     |
 // | An aerodrome on the way  | in NEXT, LISTEN, from 5 min before abeam to 2 NM past           | q7     |
+// | An aerodrome whose       | 5 min before the first of its points on the route, to 2 NM past | r3-2   |
+// | reporting points it flies| the last, its zone entered or not                               |        |
 //
 // NEXT is NOW at the next change ahead on another frequency, unless a LISTEN item is in its window. Minutes are
 // turned into miles at the aircraft's ground speed, so a slow aircraft gets its calls earlier on the map.
@@ -58,6 +60,9 @@ struct RadioTimeline: Equatable {
         /// The destination's arrival point (the route's last point of that aerodrome): NOW 2 min before it at the
         /// latest.
         var arrivalPointNM: Double? = nil
+        /// An aerodrome called at its reporting points, not a zone to enter: it waits for the departure's stretch to
+        /// end, where a zone takes NOW from it in the climb (r3-2). (6.4.2)
+        var yieldsToDeparture = false
     }
 
     /// Listen-only, shown in NEXT in its window.
@@ -103,6 +108,8 @@ struct RadioTimeline: Equatable {
     static let fieldOnTheWayLead: TimeInterval = 300
     /// …until this far past it.
     static let fieldOnTheWayPastNM = 2.0
+    /// An aerodrome whose reporting points the route flies is called until this far past the last (r3-2).
+    static let reportingPointPastNM = 2.0
     /// Within this of the route, an aerodrome is on the way (q7).
     static let fieldOnTheWayNM = 2.0
     /// The departure is NOW to the level-off, and this far at most (a climb that never levels off).
@@ -165,13 +172,13 @@ struct RadioTimeline: Equatable {
     }
 
     /// Which call wins where several hold a point: the destination, then the zone called last, then the departure,
-    /// then the FIS.
-    private static func rank(_ kind: Kind) -> Int {
-        switch kind {
+    /// then an aerodrome at its reporting points, then the FIS.
+    private static func rank(_ call: Call) -> Int {
+        switch call.kind {
         case .fis: return 0
-        case .departure: return 1
-        case .unit, .tmaViaFIS: return 2
-        case .destination: return 3
+        case .departure: return 2
+        case .unit, .tmaViaFIS: return call.yieldsToDeparture ? 1 : 3
+        case .destination: return 4
         }
     }
 
@@ -185,12 +192,20 @@ struct RadioTimeline: Equatable {
         for call in held {
             let start = start(of: call, speedKt: speedKt)
             if let chosen = best {
-                let rank = Self.rank(call.kind), chosenRank = Self.rank(chosen.call.kind)
+                let rank = Self.rank(call), chosenRank = Self.rank(chosen.call)
                 if rank < chosenRank || (rank == chosenRank && start <= chosen.start) { continue }
             }
             best = (call, start)
         }
-        guard let chosen = best?.call else { return nil }
+        guard var chosen = best?.call else { return nil }
+        // On the ground the departure is NOW, whatever call holds the field already: a zone or reporting point a few
+        // miles out, whose 5 min start before the take-off at the leg's planned speed. LSGN read LSGC TWR on the
+        // ground in the dr-3 replay, its V 6.7 NM out. (6.4.2)
+        if progress <= 0, chosen.kind != .departure,
+           let departure = held.first(where: { $0.kind == .departure }),
+           !departure.station.hasSameFrequency(as: chosen.station) {
+            chosen = departure
+        }
         // The aerodrome and its own zone on one frequency: the aerodrome's name, on the 8.33 kHz channel's name of
         // the two (Grenchen's tower 120.105 where the airport database writes 120.100, Bern's 121.030 where its CTR
         // writes 121.025: `Station.preferredName`).
@@ -198,13 +213,13 @@ struct RadioTimeline: Equatable {
         let isZone = { (call: Call) in call.kind == .unit || call.kind == .tmaViaFIS }
         if isZone(chosen), var field = held.first(where: { isField($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
             field.station = Station(frequency: Station.preferredName(chosen.station.frequency, field.station.frequency),
-                                    callSign: field.station.callSign, isHX: chosen.station.isHX)
+                                    callSign: field.station.callSign, isHX: chosen.station.isHX || field.station.isHX)
             return field
         }
         if isField(chosen), let zone = held.first(where: { isZone($0) && $0.station.hasSameFrequency(as: chosen.station) }) {
             var field = chosen
             field.station = Station(frequency: Station.preferredName(zone.station.frequency, chosen.station.frequency),
-                                    callSign: chosen.station.callSign, isHX: zone.station.isHX)
+                                    callSign: chosen.station.callSign, isHX: zone.station.isHX || chosen.station.isHX)
             return field
         }
         return chosen
@@ -217,36 +232,44 @@ struct RadioTimeline: Equatable {
         var reading = Reading(now: now)
 
         // NEXT: NOW once the departure is over, then just after each change ahead, the first on another frequency.
-        var ahead: [Call?] = []
-        if now?.kind == .departure { ahead.append(self.now(atNM: progress, speedKt: speed, departureOver: true)) }
+        // While the departure is NOW, a call that starts before its stretch ends comes first, ahead of the FIS: the
+        // level-off may come after it (LSGC at V, 6.7 NM out of LSGN, where NEXT read Geneva Info in the climb and
+        // LSGC TWR took NOW at the level-off: the dr-3 replay of 19 Oct). (6.4.2)
         let changes = calls.flatMap { [start(of: $0, speedKt: speed), end(of: $0, departureOver: true)] }
             .filter { $0.isFinite && $0 > progress }
             .sorted()
+        var ahead: [Call?] = []
+        if let departure = now, departure.kind == .departure {
+            let duringIt = [progress] + changes.filter { $0 + 1e-6 < departure.toNM }.map { $0 + 1e-6 }
+            ahead.append(duringIt.lazy.compactMap { self.now(atNM: $0, speedKt: speed, departureOver: true) }
+                .first { $0.kind != .fis && !$0.station.hasSameFrequency(as: departure.station) })
+            ahead.append(self.now(atNM: progress, speedKt: speed, departureOver: true))
+        }
         for change in changes { ahead.append(self.now(atNM: change + 1e-6, speedKt: speed, departureOver: true)) }
         if let next = ahead.lazy.compactMap({ $0 }).first(where: { !$0.station.hasSameFrequency(as: now?.station) }) {
             reading.next = next.station
             reading.nextKind = next.kind
         }
 
-        // LISTEN: the destination's ATIS from 10 min before its call point; else an aerodrome on the way.
+        // LISTEN: the destination's ATIS from 10 min before its call point, an aerodrome on the way from 5 min before
+        // abeam to 2 NM past. Of two in their windows, the one whose window ends first, then the other: the field
+        // passed, then the ATIS (the author's device check ls-1: LSPL abeam on the way back to Grenchen, where the
+        // ATIS used to win and LSPL never showed).
         let v = Self.milesPerSecond(speed)
-        if let destination = calls.last(where: { $0.kind == .destination }) {
+        var windows: [(station: Station, ends: Double)] = []
+        if let destination = calls.last(where: { $0.kind == .destination }),
+           let atis = listens.first(where: { $0.kind == .atis }) {
             let call = start(of: destination, speedKt: speed)
-            if let atis = listens.first(where: { $0.kind == .atis }),
-               call - Self.atisLead * v <= progress, progress < call,
-               !atis.station.hasSameFrequency(as: now?.station) {
-                reading.next = atis.station
-                reading.nextIsListen = true
-                reading.nextKind = nil
+            if call - Self.atisLead * v <= progress, progress < call { windows.append((atis.station, call)) }
+        }
+        if moment.fieldsOnTheWay {
+            for field in listens where field.kind == .fieldOnTheWay
+                && field.atNM - Self.fieldOnTheWayLead * v <= progress && progress < field.atNM + Self.fieldOnTheWayPastNM {
+                windows.append((field.station, field.atNM + Self.fieldOnTheWayPastNM))
             }
         }
-        if !reading.nextIsListen, moment.fieldsOnTheWay,
-           let field = listens.first(where: {
-               $0.kind == .fieldOnTheWay
-                   && $0.atNM - Self.fieldOnTheWayLead * v <= progress && progress < $0.atNM + Self.fieldOnTheWayPastNM
-                   && !$0.station.hasSameFrequency(as: now?.station)
-           }) {
-            reading.next = field.station
+        if let listen = windows.filter({ !$0.station.hasSameFrequency(as: now?.station) }).min(by: { $0.ends < $1.ends }) {
+            reading.next = listen.station
             reading.nextIsListen = true
             reading.nextKind = nil
         }
@@ -359,19 +382,36 @@ extension RadioTimeline {
 
         // Each stretch of each zone at the planned altitude. An aerodrome's own zone on its frequency is called by
         // the aerodrome's name, on the zone's channel: "LSZG TWR HX 120.105" from the ground to the CTR's exit,
-        // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came.
+        // where the Grenchen replay read "GRENCHEN TWR HX" once the level-off came. Since 6.4.2's device checks an
+        // aerodrome on the way too: "GRENCHEN TWR HX" was too wide for NOW and showed no name at all (zn-3).
         var zoneCalls: [Call] = []
-        let aerodromes = [(departure, waypoints[0].coordinate), (destination, waypoints[waypoints.count - 1].coordinate)]
+        // Any zone on an aerodrome's frequency where it holds the aerodrome, or where the aerodrome's own zone (its
+        // CTR) is on that frequency: a TMA too, its frequency borrowed from the CTR. Bern's tower was "BERN TWR" from
+        // TMA BERN, then "LSZB TWR", then "LSZB TWR HX" in its CTR, one frequency under three names (the route 3
+        // replay, 19 Oct). HX where any zone on it over the aerodrome is. (6.4.2)
+        var aerodromes: [(contact: Station, at: CLLocationCoordinate2D)] = fieldsNearby.map { ($0.contact, $0.coordinate) }
+        if let contact = destination?.contact { aerodromes.insert((contact, waypoints[waypoints.count - 1].coordinate), at: 0) }
+        if let contact = departure?.contact { aerodromes.insert((contact, waypoints[0].coordinate), at: 0) }
+        func isHX(_ contact: Station, at point: CLLocationCoordinate2D) -> Bool {
+            contact.isHX || (zones + possible).contains {
+                $0.station.isHX && $0.station.hasSameFrequency(as: contact) && $0.airspace.containsPoint(point)
+            }
+        }
+        func named(_ zone: Zone) -> Station {
+            let ownZones = airspaces.filter {
+                RouteRadioPlanner.isAerodromeZone($0)
+                    && ($0.primaryFrequency.map { Station.isSameFrequency($0.value, zone.station.frequency) } ?? false)
+            }
+            guard let aerodrome = aerodromes.first(where: { aerodrome in
+                      aerodrome.contact.hasSameFrequency(as: zone.station)
+                          && (zone.airspace.containsPoint(aerodrome.at) || ownZones.contains { $0.containsPoint(aerodrome.at) })
+                  }) else { return zone.station }
+            return Station(frequency: Station.preferredName(zone.station.frequency, aerodrome.contact.frequency),
+                           callSign: aerodrome.contact.callSign, isHX: isHX(aerodrome.contact, at: aerodrome.at))
+        }
         for zone in zones {
             let viaFIS = RouteRadioPlanner.isClearedByFIS(zone.airspace, station: zone.station)
-            var station = zone.station
-            if RouteRadioPlanner.isAerodromeZone(zone.airspace),
-               let contact = aerodromes.first(where: { end in
-                   end.0?.contact?.hasSameFrequency(as: zone.station) == true && zone.airspace.containsPoint(end.1)
-               })?.0?.contact {
-                station = Station(frequency: Station.preferredName(zone.station.frequency, contact.frequency),
-                                  callSign: contact.callSign, isHX: zone.station.isHX)
-            }
+            let station = named(zone)
             for run in runs(zone.inside) {
                 let from = run.lowerBound == 0 ? 0 : samples[run.lowerBound].d
                 let to = run.upperBound + 1 < samples.count ? samples[run.upperBound + 1].d : .infinity
@@ -380,22 +420,42 @@ extension RadioTimeline {
                                       note: viaFIS ? "TMA " + RouteRadioPlanner.baseName(zone.airspace.name) : nil))
             }
         }
+        // An aerodrome whose reporting points the route flies, not either end: its contact as a zone's, from 5 min
+        // before the first point to 2 NM past the last, its zone entered or not. Calling Les Eplatures over its V and
+        // E is customary though the route stays outside its CTR (the author's device check r3-2, 19 Oct 2026).
+        let ends = Set([departure?.ident, destination?.ident].compactMap { $0?.uppercased() })
+        var pointsOf: [String: [Int]] = [:]
+        for i in waypoints.indices.dropFirst().dropLast() {
+            guard let icao = waypoints[i].aerodromeICAO?.uppercased(), !icao.isEmpty, !ends.contains(icao) else { continue }
+            pointsOf[icao, default: []].append(i)
+        }
+        var calledAtPoints = Set<String>()
+        for (icao, points) in pointsOf {
+            guard let field = fieldsNearby.first(where: { $0.ident.uppercased() == icao }),
+                  let first = points.min(), let last = points.max() else { continue }
+            calledAtPoints.insert(icao)
+            zoneCalls.append(Call(station: field.contact, kind: .unit, fromNM: cum[first],
+                                  toNM: min(cum[last] + reportingPointPastNM, total), lead: zoneLead,
+                                  yieldsToDeparture: true))
+        }
         timeline.calls += merged(zoneCalls)
         for zone in possible {
             guard let run = runs(zone.inside).first else { continue }
-            timeline.possible.append(Call(station: zone.station, kind: .unit, fromNM: samples[run.lowerBound].d,
+            timeline.possible.append(Call(station: named(zone), kind: .unit, fromNM: samples[run.lowerBound].d,
                                           toNM: run.upperBound + 1 < samples.count ? samples[run.upperBound + 1].d : .infinity,
                                           lead: zoneLead))
         }
 
         // The departure, from the start to the level-off.
-        if let contact = departure?.contact {
+        if var contact = departure?.contact {
+            contact.isHX = isHX(contact, at: waypoints[0].coordinate)
             timeline.calls.append(Call(station: contact, kind: .departure, fromNM: 0, toNM: min(departureLimitNM, total)))
         }
 
         // The destination: from its zone's boundary where the route ends inside one that holds it, else the end.
         let end = waypoints[waypoints.count - 1].coordinate
-        if let destination, let contact = destination.contact {
+        if let destination, var contact = destination.contact {
+            contact.isHX = isHX(contact, at: end)
             // The stretch of the aerodrome's own zone the route ends in (a CTR, a FIZ), not a TMA above it.
             let zoneEntry = zones
                 .filter { RouteRadioPlanner.isAerodromeZone($0.airspace) && $0.airspace.containsPoint(end) }
@@ -413,13 +473,25 @@ extension RadioTimeline {
             }
         }
 
-        // Aerodromes on the way: within 2 NM of the route, with no zone of their own, not either end.
-        let ends = Set([departure?.ident, destination?.ident].compactMap { $0?.uppercased() })
-        for field in fieldsNearby where !ends.contains(field.ident.uppercased()) {
-            guard !airspaces.contains(where: { RouteRadioPlanner.isAerodromeZone($0) && $0.containsPoint(field.coordinate) }),
-                  let nearest = samples.min(by: { distanceNM($0.coordinate, field.coordinate) < distanceNM($1.coordinate, field.coordinate) }),
-                  distanceNM(nearest.coordinate, field.coordinate) <= fieldOnTheWayNM else { continue }
-            timeline.listens.append(Listen(station: field.contact, kind: .fieldOnTheWay, atNM: nearest.d))
+        // Aerodromes on the way: within 2 NM of the route, with no zone of their own, not either end, not called at
+        // their reporting points.
+        // Each pass its own, abeam where it comes closest: an out-and-back passes one twice, and had it on the way
+        // out only (LSPL on the Grenchen loop, the author's device check ls-1, 19 Oct 2026).
+        var listed = Set<String>()
+        for field in fieldsNearby where !ends.contains(field.ident.uppercased()) && !calledAtPoints.contains(field.ident.uppercased()) {
+            guard listed.insert(field.ident.uppercased()).inserted,
+                  !airspaces.contains(where: { RouteRadioPlanner.isAerodromeZone($0) && $0.containsPoint(field.coordinate) })
+            else { continue }
+            var pass: [RouteRadioPlanner.Sample] = []
+            for (i, sample) in samples.enumerated() {
+                let near = distanceNM(sample.coordinate, field.coordinate) <= fieldOnTheWayNM
+                if near { pass.append(sample) }
+                guard !pass.isEmpty, !near || i == samples.count - 1 else { continue }
+                if let abeam = pass.min(by: { distanceNM($0.coordinate, field.coordinate) < distanceNM($1.coordinate, field.coordinate) }) {
+                    timeline.listens.append(Listen(station: field.contact, kind: .fieldOnTheWay, atNM: abeam.d))
+                }
+                pass = []
+            }
         }
         timeline.listens.sort { ($0.kind == .atis ? -1 : $0.atNM) < ($1.kind == .atis ? -1 : $1.atNM) }
         return timeline
@@ -446,6 +518,7 @@ extension RadioTimeline {
                 $0.kind == call.kind && $0.station.hasSameFrequency(as: call.station) && call.fromNM <= $0.toNM + 0.5
             }) {
                 out[i].toNM = max(out[i].toNM, call.toNM)
+                out[i].yieldsToDeparture = out[i].yieldsToDeparture && call.yieldsToDeparture
             } else {
                 out.append(call)
             }

@@ -3009,6 +3009,9 @@ struct PhaseFrequency: Identifiable {
     var listen = false
     /// An airspace named beside the station: a TMA the FIS clears. (6.4.2)
     var note: String? = nil
+    /// Off the route: a CTR around the aircraft the route doesn't enter, listed on ROUTE under its own heading
+    /// after the route's calls (the author's device check r3-6, 6.4.2).
+    var nearby = false
 
     /// The station with what is named beside it: "Geneva Info · TMA GENEVA".
     var stationWithNote: String { note.map { "\(station) · \($0)" } ?? station }
@@ -6976,9 +6979,11 @@ struct FrequencyRow: View {
         .aero(size: large ? CockpitType.row : 13, weight: item.highlighted ? .bold : .regular, design: .monospaced)
     }
 
-    /// Frequencies are data: white in flight on the kneeboard panel. (v6.0 · P5)
+    /// Frequencies are data: white in flight on the kneeboard panel (v6.0 · P5); a CTR off the route as its
+    /// station, a step back from the route's calls (6.4.2).
     private var frequencyColor: Color {
-        item.highlighted && !large ? theme.onTarget : theme.textPrimary
+        if item.nearby { return theme.textSecondary }
+        return item.highlighted && !large ? theme.onTarget : theme.textPrimary
     }
 }
 

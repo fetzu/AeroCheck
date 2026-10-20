@@ -861,7 +861,13 @@ struct NavigationMapView: View {
         // The Cockpit's map has no side column: an iPad on its side gets the portrait arrangement, the
         // frame wider, its act band under the page; beside the phone's column on its side it is the
         // chart alone too. (6.2)
-        let landscape = chrome == .plan && geometry.size.width > geometry.size.height * 1.2
+        //
+        // Nothing before the pane has its size: SwiftUI's first pass measures it 32 x 0, which read as landscape,
+        // and Plan › Map built a first map there, threw it away 80 ms later in portrait and built another (7 of 8
+        // opens; the other way round on an iPad on its side). A pane under 100 pt tall is no layout to choose, and
+        // the map is built once, in the right one (the map tile review, F4). (6.4.2)
+        let measured = chrome != .plan || geometry.size.height >= 100
+        let landscape = measured && chrome == .plan && geometry.size.width > geometry.size.height * 1.2
         let mapAreaWidth = landscape ? geometry.size.width - Self.sideColumnWidth : geometry.size.width
         // The closures below run later, in their own view's update: read the proxy here, while it
         // is current.
@@ -869,7 +875,9 @@ struct NavigationMapView: View {
         // Each large part of the map is a view of its own (`SeparateView`): built inline, this body's
         // value was about 33 KB, and rendering it overflowed the device's 1 MB main-thread stack.
         return Group {
-            if landscape {
+            if !measured {
+                Color.clear
+            } else if landscape {
                 // The legs and every frequency open over the chart's foot, beside the column, rather than
                 // in it: in the column they had the room its controls left, a strip that showed a row and
                 // a half. (6.1, device check) The map's footer rides above them, the undo toast with it.
@@ -3753,7 +3761,10 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: DryRunCameraPace.animates)
+            // Not to where it is (`SwissMapView.camera(_:isAt:)`). (6.4.2)
+            if !SwissMapView.camera(camera, isAt: mapView) {
+                mapView.setCamera(camera, animated: DryRunCameraPace.animates)
+            }
         }
 
         // Apply heading changes independently of region (for track-up mode).
@@ -5060,19 +5071,12 @@ struct SwissMapView: UIViewRepresentable {
         // Camera zoom range uses centerCoordinateDistance (meters from camera to ground center)
         // Lower distance = more zoomed in, higher distance = more zoomed out
         //
-        // Empirical mapping from tile zoom levels to camera distance:
-        // Zoom 7  ≈ 500,000m (country level, very zoomed out)
-        // Zoom 8  ≈ 250,000m
-        // Zoom 9  ≈ 120,000m
-        // Zoom 10 ≈ 60,000m
-        // Zoom 11 ≈ 30,000m (ICAO max zoom / Segelflugkarte switch point)
-        // Zoom 12 ≈ 15,000m (Segelflugkarte max zoom)
-        // Zoom 13 ≈ 7,500m
-        // Zoom 14 ≈ 4,000m
-        // Zoom 15 ≈ 2,000m
-        // Zoom 16 ≈ 1,000m
-        // Zoom 17 ≈ 500m
-        // Zoom 18 ≈ 300m (Landeskarten/SWISSIMAGE max zoom)
+        // The tile zoom a camera distance gives depends on the view: MapKit picks it from the map's height and
+        // the screen. Measured on the iPad's Plan › Map (820 x 1027 pt): zoom 13 at 28.9 km, 15 at 10 km, 18 at
+        // 1.5 km; a phone's smaller map is about a zoom lower at the same distance. A table here of one zoom per
+        // distance (zoom 11 at 30 km) held for none of them, and the ICAO layer's 30 km asked for zoom 13 of a
+        // chart that stops at 12. Since 6.4.2 `ChartTileRenderer` draws a layer's last zoom enlarged past it, so
+        // these limits are choices, not guesses at MapKit's rounding (the map tile review, F2; q3 B).
 
         switch layer {
         case .standard, .satellite:
@@ -5265,22 +5269,9 @@ struct SwissMapView: UIViewRepresentable {
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
+            // No nudge after it any more (the camera moved by 1.0001 and back, 0.2 s and 0.3 s later): it was there
+            // for MapKit to load the new overlay's tiles, which `ChartTileRenderer` asks for itself. (6.4.2, F5)
             mapView.setCamera(camera, animated: false)
-
-            // Force tile reload after overlay change for Swiss layers
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                // Trigger a redraw by slightly adjusting the camera distance
-                let adjustedCamera = MKMapCamera(
-                    lookingAtCenter: mapState.region.center,
-                    fromDistance: Self.clamped(mapState.cameraDistance, to: mapView.cameraZoomRange) * 1.0001,
-                    pitch: 0,
-                    heading: mapState.cameraHeading
-                )
-                mapView.setCamera(adjustedCamera, animated: false)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    mapView.setCamera(camera, animated: false)
-                }
-            }
         } else if !bandOwnsCamera && regionChanged && !context.coordinator.isUserInteracting {
             // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern); unanimated in
             // a dry run faster than real time (`DryRunCameraPace`).
@@ -5290,7 +5281,11 @@ struct SwissMapView: UIViewRepresentable {
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: DryRunCameraPace.animates)
+            // Not to where it is: the shared region differs from the map's until MapKit has reported it (the span
+            // fitted to the view), and an open set the same camera three or four times. (6.4.2, F5)
+            if !Self.camera(camera, isAt: mapView) {
+                mapView.setCamera(camera, animated: DryRunCameraPace.animates)
+            }
         }
 
         // Apply heading changes independently of region (for track-up mode).
@@ -5492,6 +5487,21 @@ struct SwissMapView: UIViewRepresentable {
         min(max(distance, range.minCenterCoordinateDistance), range.maxCenterCoordinateDistance)
     }
 
+    /// Whether `mapView` looks from `camera` already: within half a point, half a percent of distance and half a
+    /// degree. (6.4.2)
+    static func camera(_ camera: MKMapCamera, isAt mapView: MKMapView) -> Bool {
+        guard mapView.bounds.width > 0 else { return false }
+        let pointsPerMapPoint = mapView.bounds.width / mapView.visibleMapRect.width
+        let current = mapView.camera
+        let moved = hypot(MKMapPoint(current.centerCoordinate).x - MKMapPoint(camera.centerCoordinate).x,
+                          MKMapPoint(current.centerCoordinate).y - MKMapPoint(camera.centerCoordinate).y)
+            * pointsPerMapPoint
+        let turned = abs(current.heading - camera.heading).truncatingRemainder(dividingBy: 360)
+        return moved < 0.5
+            && abs(current.centerCoordinateDistance / camera.centerCoordinateDistance - 1) < 0.005
+            && min(turned, 360 - turned) < 0.5
+    }
+
     /// The layer's zoom range, made to hold: MapKit ignores a range set before the map is on screen (on
     /// iPad, and on the simulator: the ICAO chart opened at 56 km for its 65 km limit, and + went past
     /// it) until the range changes once it is. Set to another range and back, and the camera brought
@@ -5628,13 +5638,21 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType, forceICAO: Bool, strictOffline: Bool, segelflugCache: Bool) -> Bool {
-            // Check if we need to update
-            let layerChanged = layerType != currentLayerType
-            let forceChanged = forceICAO != currentForceICAO
-            let offlineChanged = strictOffline != isStrictOfflineMode
-            let segelflugCacheChanged = segelflugCache != hasSegelflugCache
-
-            guard layerChanged || forceChanged || offlineChanged || segelflugCacheChanged else { return false }
+            // Only when the overlay would draw something else: every new overlay asks for every tile again, the grid
+            // showing meanwhile. The forced ICAO chart, offline mode and the glider cache only change the ICAO
+            // overlay, the glider cache only offline (the map tile review, F6). (6.4.2)
+            let drawn = { (layer: MapLayerType?, force: Bool, offline: Bool, glider: Bool) -> String in
+                guard layer == .icao else { return layer?.rawValue ?? "" }
+                return "icao force=\(force) offline=\(offline) glider=\(offline && glider)"
+            }
+            let changed = drawn(layerType, forceICAO, strictOffline, segelflugCache)
+                != drawn(currentLayerType, currentForceICAO, isStrictOfflineMode, hasSegelflugCache)
+            guard changed else {
+                currentForceICAO = forceICAO
+                isStrictOfflineMode = strictOffline
+                hasSegelflugCache = segelflugCache
+                return false
+            }
 
             currentLayerType = layerType
             currentForceICAO = forceICAO

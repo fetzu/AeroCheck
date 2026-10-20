@@ -538,6 +538,141 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertFalse(CockpitRadio.movedSignificantly(from: nil, to: nil))
     }
 
+    // MARK: - On the route: the radio timeline (6.4.2)
+
+    /// A route east along 47°N from LSXA (7.0° E) to LSXB (8.2° E), 49 NM, Geneva Info west of 7.75° E and
+    /// Zurich Info east of it (`RadioTimelineTests` has the same).
+    private static func timelineRoute(next: Int = 1) -> FlightPlan {
+        let lons = [7.0, 7.3, 7.6, 7.9, 8.2]
+        let names = ["LSXA", "B", "C", "D", "LSXB"]
+        var plan = FlightPlan(name: "East", waypoints: lons.indices.map { i in
+            FlightPlanWaypoint(name: names[i], coordinate: .init(latitude: 47.0, longitude: lons[i]),
+                               altitude: i == 0 || i == 4 ? 1500 : 5000, plannedGroundSpeed: 100)
+        })
+        plan.calculateRouteData()
+        plan.currentWaypointIndex = next
+        return plan
+    }
+
+    private static func timeline(for plan: FlightPlan, airspaces: [Airspace] = []) -> RadioTimeline {
+        let geneva = RouteRadioPlanner.Station(frequency: "126.350", callSign: "GENEVA INFO")
+        let zurich = RouteRadioPlanner.Station(frequency: "124.700", callSign: "ZURICH INFO")
+        return RouteRadioPlanner.plan(.init(
+            waypoints: plan.waypoints, airspaces: airspaces,
+            departure: .init(ident: "LSXA", contact: .init(frequency: "122.050", callSign: "LSXA AFIS"), atis: nil, ground: nil),
+            destination: .init(ident: "LSXB", contact: .init(frequency: "118.125", callSign: "LSXB TWR"),
+                               atis: "128.525", ground: nil),
+            fis: { $0.longitude < 7.75 ? geneva : zurich })).timeline
+    }
+
+    /// No field near: the timeline alone decides.
+    private static let empty = World(fields: [:])
+
+    private func onRoute(longitude: Double, latitude: Double = 47.0, next: Int, departureOver: Bool = true,
+                         airspaces: [Airspace] = [], plan custom: FlightPlan? = nil,
+                         world: World = PhaseFrequencyPlannerTests.empty) -> PhaseFrequencyPlanner.Plan {
+        let plan = custom ?? Self.timelineRoute(next: next)
+        let situation = PhaseFrequencyPlanner.Situation(timeline: Self.timeline(for: plan, airspaces: airspaces),
+                                                        groundSpeedKt: 100, departureOver: departureOver)
+        return PhaseFrequencyPlanner.plan(position: .init(latitude: latitude, longitude: longitude), plan: plan,
+                                          situation: situation, sources: world.sources)
+    }
+
+    /// dr-3's first stretch: the departure field until the level-off, the Info it climbs into NEXT; then that
+    /// Info, the next one NEXT.
+    func testOnTheRouteNowAndNextFollowTheTimeline() {
+        let climbing = onRoute(longitude: 7.05, next: 1, departureOver: false)
+        XCTAssertEqual(climbing.current, .init(station: "LSXA AFIS", freq: "122.050"))
+        XCTAssertEqual(climbing.next, .init(station: "Geneva Info", freq: "126.350"))
+        let level = onRoute(longitude: 7.05, next: 1)
+        XCTAssertEqual(level.current, .init(station: "Geneva Info", freq: "126.350"))
+        XCTAssertEqual(level.next, .init(station: "Zurich Info", freq: "124.700"))
+        let before = onRoute(longitude: 7.5, next: 2)
+        XCTAssertEqual(before.current, .init(station: "Geneva Info", freq: "126.350"))
+        XCTAssertEqual(before.next, .init(station: "Zurich Info", freq: "124.700"))
+        let across = onRoute(longitude: 7.8, next: 3)
+        XCTAssertEqual(across.current, .init(station: "Zurich Info", freq: "124.700"))
+        XCTAssertEqual(across.next, .init(station: "LSXB ATIS", freq: "128.525", listen: true),
+                       "within 10 min of the destination's call, its ATIS")
+    }
+
+    /// The ATIS, 10 min before the destination's call: NEXT, tagged LISTEN; then the contact NOW, nothing NEXT.
+    func testTheDestinationsATISIsListenThenTheContactIsNow() {
+        let listen = onRoute(longitude: 7.85, next: 3)
+        XCTAssertEqual(listen.next, .init(station: "LSXB ATIS", freq: "128.525", listen: true))
+        XCTAssertEqual(listen.route.first { $0.role == .next }?.listen, true)
+        let called = onRoute(longitude: 8.05, next: 4)
+        XCTAssertEqual(called.current?.station, "LSXB TWR")
+        XCTAssertNil(called.next)
+    }
+
+    /// A TMA the FIS clears is named beside NOW; a zone active by NOTAM says HX.
+    func testATMABesideNowAndHX() {
+        let tma = Airspace(id: "TMA GOLF 2", name: "TMA GOLF 2", type: 7, icaoClass: 2, country: "CH",
+                           upperCeiling: AltitudeLimit(value: 130, unit: 6, referenceDatum: 2),
+                           lowerCeiling: AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
+                           geometry: AirspaceGeometry(type: "Polygon", coordinates: [[[7.45, 46.9], [7.45, 47.1], [7.65, 47.1], [7.65, 46.9], [7.45, 46.9]]]),
+                           activity: nil, frequencies: [AirspaceFrequency(value: "126.350", name: "GENEVA INFORMATION", primary: true, unit: nil)])
+        let inside = onRoute(longitude: 7.5, next: 2, airspaces: [tma])
+        XCTAssertEqual(inside.current, .init(station: "Geneva Info", freq: "126.350", note: "TMA GOLF"))
+        XCTAssertEqual(inside.route.first?.stationWithNote, "Geneva Info · TMA GOLF")
+
+        let ctr = Airspace(id: "CTR ALPHA (HX)", name: "CTR ALPHA (HX)", type: 4, icaoClass: 3, country: "CH",
+                           upperCeiling: AltitudeLimit(value: 130, unit: 6, referenceDatum: 2),
+                           lowerCeiling: AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
+                           geometry: AirspaceGeometry(type: "Polygon", coordinates: [[[7.40, 46.9], [7.40, 47.1], [7.50, 47.1], [7.50, 46.9], [7.40, 46.9]]]),
+                           activity: nil, frequencies: [AirspaceFrequency(value: "130.150", name: "ALPHA TOWER", primary: true, unit: nil)])
+        XCTAssertEqual(onRoute(longitude: 7.45, next: 2, airspaces: [ctr]).current?.station, "ALPHA TWR HX",
+                       "a zone's station as the nav log prints it")
+    }
+
+    /// More than 5 NM off the route, or diverting, the timeline is left for the rules without a route.
+    func testOffTheRouteOrDivertingTheTimelineIsLeft() {
+        XCTAssertEqual(onRoute(longitude: 7.05, next: 1, departureOver: false).current?.station, "LSXA AFIS")
+        XCTAssertNotEqual(onRoute(longitude: 7.05, latitude: 47.1, next: 1, departureOver: false).current?.station,
+                          "LSXA AFIS", "6 NM north")
+        var diverting = Self.timelineRoute(next: 2)
+        diverting.diversion = Diversion(ident: "LSZG", name: "LSZG", latitude: 47.1816, longitude: 7.4172, leftRouteAt: 2)
+        let reading = onRoute(longitude: 7.35, next: 2, plan: diverting, world: Self.world)
+        XCTAssertEqual(reading.next, .init(station: "LSZG TWR", freq: "120.100"))
+    }
+
+    /// ROUTE's radio on the route: NOW, NEXT, then the calls ahead in order, the ATIS tagged LISTEN before the
+    /// contact, 121.500 last.
+    func testRouteRadioIsTheTimelineFromNowOn() {
+        let stations = onRoute(longitude: 7.05, next: 1).route
+        XCTAssertEqual(stations.map(\.station), ["Geneva Info", "Zurich Info", "LSXB ATIS", "LSXB TWR", SwissCommonFrequency.emergency.name])
+        XCTAssertEqual(stations.map(\.listen), [false, false, true, false, false])
+    }
+
+    /// The Cockpit's radio reads a timeline only for the route it was built for.
+    func testTheRadioReadsATimelineOnlyForItsRoute() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        let plan = Self.timelineRoute(next: 1)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: plan,
+                     situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
+        XCTAssertEqual(radio.next?.station, "Zurich Info")
+        var other = plan
+        other.waypoints[2].frequency = "119.000"
+        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: other,
+                     situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
+        XCTAssertNotEqual(radio.next?.station, "Zurich Info", "an edited route waits for its own timeline")
+    }
+
+    /// LISTEN reaches the Watch and the Companion iPhone as a key of their own.
+    func testListenReachesTheWatchAndThePhone() throws {
+        let item = PhaseFrequency(station: "LSXB ATIS", freq: "128.525", highlighted: false, isEmergency: false,
+                                  role: .next, listen: true)
+        XCTAssertEqual(item.watchInfo.listen, true)
+        XCTAssertEqual(item.watchInfo.role, .next)
+        let wire = try JSONEncoder().encode(CompanionFrequency(item))
+        XCTAssertEqual(try JSONDecoder().decode(CompanionFrequency.self, from: wire).listen, true)
+        let older = try JSONDecoder().decode(CompanionFrequency.self, from: Data(#"{"station":"LSXB TWR","frequency":"118.125"}"#.utf8))
+        XCTAssertNil(older.listen)
+    }
+
     // MARK: - Fixtures
 
     /// A Jura corner of Switzerland: Grenchen (towered, with an ATIS), Les Eplatures (AFIS), Bressaucourt

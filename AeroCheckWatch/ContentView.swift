@@ -88,6 +88,8 @@ enum WatchText {
                                 comment: "Frequency badge: the station to talk to now.")
     static let freqNext = String(localized: "freq.next", defaultValue: "NEXT",
                                  comment: "Frequency badge and row: the next station.")
+    static let freqListen = String(localized: "freq.listen", defaultValue: "LISTEN",
+                                   comment: "Frequency badge: listen only (an ATIS, an aerodrome on the way).")
     static let localTime = String(localized: "LOCAL", comment: "Under the clock when it shows local time, not UTC.")
 }
 
@@ -453,7 +455,7 @@ struct FreqPanelRow: View {
             if freq.role == .now {
                 badge(WatchText.freqNow, .aviationGold)
             } else if freq.role == .next {
-                badge(WatchText.freqNext, .altimeterBlue)
+                badge(freq.listen == true ? WatchText.freqListen : WatchText.freqNext, .altimeterBlue)
             }
             Text(freq.name)
                 .font(.system(size: 11))

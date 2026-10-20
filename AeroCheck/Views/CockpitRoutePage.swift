@@ -896,6 +896,8 @@ struct CockpitRadioFollower: ViewModifier {
         let airspaceCount: Int
         /// The route's points and typed frequencies: a route edited in flight keeps its id and count.
         let route: [String]
+        /// The level-off came: the departure field gives way on the radio timeline. (6.4.2)
+        let departureOver: Bool
     }
 
     func body(content: Content) -> some View {
@@ -904,8 +906,41 @@ struct CockpitRadioFollower: ViewModifier {
             .onChange(of: key) { _, _ in recompute() }
             .onChange(of: locationManager.currentLocation) { _, location in
                 radio.noteMove(to: location?.coordinate, plan: flightPlanManager.activeFlightPlan,
-                               circuits: appState.isCircuitMode, sources: sources)
+                               circuits: appState.isCircuitMode, situation: situation, sources: sources)
             }
+            // The route's radio timeline, built again when the route or the data under it changes. (6.4.2)
+            .task(id: timelineKey) { await buildTimeline() }
+    }
+
+    /// What the timeline is built from: the route, and whether the airport and airspace data are in.
+    private var timelineKey: [String] {
+        (CockpitRadio.timelineKey(flightPlanManager.activeFlightPlan) ?? [])
+            + ["\(airportDataService.isDataAvailable)", "\(openAIPDataService.airspaceCount)"]
+    }
+
+    /// The radio timeline of the route flown, from the nav log's walk (`RouteRadioPlanner.plan`). (6.4.2)
+    private func buildTimeline() async {
+        guard let plan = flightPlanManager.activeFlightPlan, plan.waypoints.count >= 2 else {
+            radio.setTimeline(nil, for: nil)
+            recompute()
+            return
+        }
+        let result = await RouteRadioPlanner.plan(for: plan, openAIP: openAIPDataService, airports: airportDataService)
+        guard !Task.isCancelled else { return }
+        radio.setTimeline(result.timeline, for: plan)
+        recompute()
+    }
+
+    /// The flight beyond its position: its ground speed, whether its departure is over. (6.4.2)
+    private var situation: PhaseFrequencyPlanner.Situation {
+        let speed = locationManager.currentLocation.flatMap { $0.speed >= 0 ? $0.speed * 1.943_844 : nil }
+        return PhaseFrequencyPlanner.Situation(groundSpeedKt: speed, departureOver: departureOver)
+    }
+
+    /// The level-off, or a later cue (which brings it), on this leg.
+    private var departureOver: Bool {
+        let fired = appState.flightCues.fired
+        return [.levelOff, .descent, .approach, .circuit].contains { fired[$0] != nil }
     }
 
     private var key: Key {
@@ -914,7 +949,8 @@ struct CockpitRadioFollower: ViewModifier {
                    nextIndex: plan?.currentWaypointIndex, diversion: plan?.diversion?.ident,
                    airports: airportDataService.isDataAvailable, airspace: openAIPDataService.isDataAvailable,
                    airspaceCount: openAIPDataService.airspaceCount,
-                   route: plan?.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } ?? [])
+                   route: plan?.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } ?? [],
+                   departureOver: departureOver)
     }
 
     private var sources: PhaseFrequencyPlanner.Sources {
@@ -923,7 +959,8 @@ struct CockpitRadioFollower: ViewModifier {
 
     private func recompute() {
         radio.update(position: locationManager.currentLocation?.coordinate,
-                     plan: flightPlanManager.activeFlightPlan, circuits: appState.isCircuitMode, sources: sources)
+                     plan: flightPlanManager.activeFlightPlan, circuits: appState.isCircuitMode,
+                     situation: situation, sources: sources)
     }
 
     private func start() {

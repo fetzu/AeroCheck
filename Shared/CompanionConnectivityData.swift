@@ -153,14 +153,18 @@ struct CompanionFlightData: Codable {
 struct CompanionFrequency: Codable, Equatable {
     let station: String
     let frequency: String
+    /// Listen-only (the destination's ATIS, an aerodrome on the way): the phone tags it LISTEN. Optional: an
+    /// iPad a version behind sends none. (6.4.2)
+    var listen: Bool? = nil
 
     /// The longest station or frequency taken from the wire. A frequency typed for a waypoint can carry
     /// several ("Info 124.705 / Tower 118.125 / Ground 121.900"); a station is a few words.
     static let maxLength = 64
 
-    init(station: String, frequency: String) {
+    init(station: String, frequency: String, listen: Bool? = nil) {
         self.station = station
         self.frequency = frequency
+        self.listen = listen
     }
 
     /// The peer is a trust boundary: the strings are trimmed and cut to length, and an entry with no
@@ -178,6 +182,7 @@ struct CompanionFrequency: Codable, Equatable {
         }
         self.frequency = frequency
         station = try text(.station)
+        listen = try? c.decodeIfPresent(Bool.self, forKey: .listen)
     }
 }
 

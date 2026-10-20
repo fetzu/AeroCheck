@@ -772,8 +772,11 @@ struct ReadBandFrequencyCell: View {
         Button(action: onTap) {
             HStack(alignment: .firstTextBaseline, spacing: metrics.figureGap) {
                 ZStack(alignment: .leading) {
+                    // The widest of the three tags, whichever shows: NOW's and NEXT's frequencies line up and
+                    // never move when LISTEN comes. (6.4.2)
                     tagText(L10n.Read.now(language: language)).hidden()
                     tagText(L10n.Read.next(language: language)).hidden()
+                    tagText(L10n.Read.listen(language: language)).hidden()
                     tagText(title).foregroundColor(tint)
                 }
                 .accessibilityHidden(true)
@@ -782,11 +785,11 @@ struct ReadBandFrequencyCell: View {
                                   color: theme.textPrimary)
                     .layoutPriority(1)
                 ViewThatFits(in: .horizontal) {
-                    Text(verbatim: shown.station)
-                        .font(.aero(size: metrics.labelSize))
-                        .foregroundColor(theme.textSecondary)
-                        .lineLimit(1)
-                        .fixedSize()
+                    // A TMA the FIS clears beside the station where it fits, then the station alone. (6.4.2)
+                    if let note = item?.note {
+                        stationText(shown.station + " · " + note)
+                    }
+                    stationText(shown.station)
                     Color.clear.frame(width: 0, height: 0)
                 }
                 Spacer(minLength: 0)
@@ -805,7 +808,16 @@ struct ReadBandFrequencyCell: View {
     }
 
     private var title: String {
-        role == .now ? L10n.Read.now(language: language) : L10n.Read.next(language: language)
+        if role == .now { return L10n.Read.now(language: language) }
+        return item?.listen == true ? L10n.Read.listen(language: language) : L10n.Read.next(language: language)
+    }
+
+    private func stationText(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.aero(size: metrics.labelSize))
+            .foregroundColor(theme.textSecondary)
+            .lineLimit(1)
+            .fixedSize()
     }
 
     private var shown: ReadBandFrequencyText { ReadBandFrequencyText(item) }

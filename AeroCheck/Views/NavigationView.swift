@@ -3005,6 +3005,13 @@ struct PhaseFrequency: Identifiable {
     let highlighted: Bool
     let isEmergency: Bool
     var role: FreqRole = .other
+    /// Listen-only: the destination's ATIS, an aerodrome on the way. Tagged LISTEN. (6.4.2)
+    var listen = false
+    /// An airspace named beside the station: a TMA the FIS clears. (6.4.2)
+    var note: String? = nil
+
+    /// The station with what is named beside it: "Geneva Info · TMA GENEVA".
+    var stationWithNote: String { note.map { "\(station) · \($0)" } ?? station }
 }
 
 enum SwissCommonFrequency: CaseIterable {
@@ -6943,6 +6950,8 @@ struct FrequencyRow: View {
     }
 
     private var roleTag: (title: String, tint: Color)? {
+        // Listen-only, in NEXT's place or further down ROUTE: LISTEN. (6.4.2)
+        if item.listen && item.role != .current { return (L10n.Nav.freqListen, theme.info) }
         switch item.role {
         case .current: return (L10n.Nav.freqCurrent, theme.onTarget)
         case .next: return (L10n.Nav.freqNext, theme.info)
@@ -6951,7 +6960,7 @@ struct FrequencyRow: View {
     }
 
     private var station: some View {
-        Text(item.station)
+        Text(item.stationWithNote)
             .font(.aero(size: large ? CockpitType.label : 11, weight: item.highlighted ? .semibold : .regular))
             .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
             .lineLimit(1)

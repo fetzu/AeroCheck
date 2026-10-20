@@ -2640,6 +2640,8 @@ enum L10n {
         /// The frequencies' tags: "NOW" / "ACT", "NEXT" / "SUIV".
         static func now(language: String? = nil) -> String { text("nav.freqCurrent", "NOW", language) }
         static func next(language: String? = nil) -> String { text("nav.freqNext", "NEXT", language) }
+        /// NEXT's tag for a listen-only station: the destination's ATIS, an aerodrome on the way. (6.4.2)
+        static func listen(language: String? = nil) -> String { text("nav.freqListen", "LISTEN", language) }
         /// What VoiceOver calls the waypoint flown to: "Next".
         static func nextWaypoint(language: String? = nil) -> String { text("nav.next", "Next", language) }
         /// "bearing 206 degrees"
@@ -3091,6 +3093,8 @@ enum L10n {
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
+        /// Listen-only, in NEXT's place: an ATIS, an aerodrome on the way. (6.4.2)
+        static let freqListen = String(localized: "nav.freqListen")
         /// 121.500, last in the FREQ panel. (6.2)
         static let freqEmergency = String(localized: "nav.freqEmergency")
         static let mark = String(localized: "nav.mark")

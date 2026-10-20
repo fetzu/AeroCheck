@@ -84,9 +84,12 @@ struct RadioHandover: Codable, Equatable {
         var switched: Switch?
 
         // First read: the station the pilot must be on by now. On the ground, the departure; mid-route (a relaunch
-        // without the state), where the latest rules put them, a call due from there.
+        // without the state), where the latest rules put them, a call due from there. The departure's latest point is
+        // the one a flight followed from the start has: 10 NM out or its zone left, whatever the level-off (below).
+        // Read at the level-off itself, the guided dry run's chapter 5 started on Bâle Info, nothing due, and its
+        // card never came (6.4.3 device checks, ho-19).
         if state.station == nil,
-           let first = timeline.now(atNM: p, speedKt: v, departureOver: moment.departureOver, rules: .latest) {
+           let first = timeline.now(atNM: p, speedKt: v, departureOver: false, rules: .latest) {
             state.station = first.station
             state.kind = first.kind
             state.takenAtNM = p

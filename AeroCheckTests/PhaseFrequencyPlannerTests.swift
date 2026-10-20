@@ -759,12 +759,13 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         radio.publish = { _ in }
         let plan = Self.timelineRoute(next: 1)
         radio.setTimeline(Self.timeline(for: plan), for: plan)
-        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: plan,
+        // 11.5 NM out: past the departure's 10 NM, on Geneva Info from the first reading.
+        radio.update(position: .init(latitude: 47.0, longitude: 7.28), plan: plan,
                      situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
         XCTAssertEqual(radio.next?.station, "Zurich Info")
         var other = plan
         other.waypoints[2].frequency = "119.000"
-        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: other,
+        radio.update(position: .init(latitude: 47.0, longitude: 7.28), plan: other,
                      situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
         XCTAssertNotEqual(radio.next?.station, "Zurich Info", "an edited route waits for its own timeline")
     }

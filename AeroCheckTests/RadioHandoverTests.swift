@@ -427,6 +427,19 @@ final class RadioHandoverTests: XCTestCase {
         XCTAssertTrue(first.reading.nextIsDue, "the zone 4.4 NM ahead, due")
     }
 
+    /// Read first just past the level-off, within 10 NM (the guided dry run's chapter 5 on its own): still on the
+    /// departure, as a flight followed from the start would be, the Info due with its line full.
+    func testAFirstReadingAtTheLevelOffIsTheDeparture() {
+        let t = timeline()
+        var handover = RadioHandover()
+        let first = read(&handover, t, at: 6)
+        XCTAssertNil(first.switched)
+        XCTAssertEqual(first.reading.now?.station, lsxa)
+        XCTAssertEqual(first.reading.next, geneva)
+        XCTAssertTrue(first.reading.nextIsDue)
+        XCTAssertEqual(first.reading.dueLeft ?? 0, 1, accuracy: 0.01)
+    }
+
     /// A relaunch mid-flight finds the pilot's station as it was left; the flight's end clears it.
     @MainActor
     func testARelaunchKeepsThePilotsStation() throws {

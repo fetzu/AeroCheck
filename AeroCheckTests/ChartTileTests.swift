@@ -291,8 +291,8 @@ final class ChartTileTests: XCTestCase {
         func spec(for tile: ChartTile) -> ChartTileSpec? { network.spec("\(tile.z)/\(tile.x)/\(tile.y)") }
     }
 
-    /// The renderer, its redraws recorded.
-    final class RecordingRenderer: ChartTileRenderer {
+    /// The renderer, its redraws recorded (behind its own lock: the renderer's Sendable conformance holds).
+    final class RecordingRenderer: ChartTileRenderer, @unchecked Sendable {
         private let lock = NSLock()
         private var _redrawn: [(MKMapRect, MKZoomScale)] = []
         var redrawn: [(MKMapRect, MKZoomScale)] { lock.withLock { _redrawn } }

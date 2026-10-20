@@ -15650,13 +15650,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "SWISSIMAGE aerial"
+            "value": "SWISSIMAGE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "SWISSIMAGE aérien"
+            "value": "SWISSIMAGE"
           }
         }
       }
@@ -15667,13 +15667,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Satellite"
+            "value": "Apple Maps Satellite"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Satellite"
+            "value": "Plans d'Apple (satellite)"
           }
         }
       }
@@ -15684,30 +15684,48 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard map"
+            "value": "Apple Maps"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte standard"
+            "value": "Plans d'Apple"
           }
         }
       }
     },
-    "mapLayer.icaoHint": {
+    "mapLayer.icaoGlider": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Glider chart when zoomed in"
+            "value": "ICAO chart/Glider map"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte vol à voile en zoomant"
+            "value": "Carte OACI/Vol à voile"
+          }
+        }
+      }
+    },
+    "mapLayer.icaoGliderNational": {
+      "comment": "The route builder's map menu: the Swiss chart that turns from the ICAO chart to the glider chart, then the National Map, as the pilot zooms in.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO/Glider/National map"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OACI/Vol à voile/Carte nationale"
           }
         }
       }

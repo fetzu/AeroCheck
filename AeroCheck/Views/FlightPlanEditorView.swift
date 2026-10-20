@@ -1456,10 +1456,14 @@ struct IntFormField: View {
 // MARK: - Waypoint Picker Map View Representable
 
 /// Map layers for the waypoint-picker / route-builder maps. (shared by the builder + waypoint sheet)
+/// In the menu's order, the author's (device check mp-1, 19 Oct 2026): the charts, the National Map, SWISSIMAGE,
+/// then Apple's map.
 enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
-    case apple = "Apple Maps"
     case icao = "ICAO / Segelflug"
+    /// Offered as Plan › Map offers it (the author's device checks, 19 Oct 2026). (6.4.2)
+    case nationalMap = "National Map"
     case swissimage = "SwissImage"
+    case apple = "Apple Maps"
 
     var id: String { rawValue }
 
@@ -1467,7 +1471,60 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         switch self {
         case .apple: return "map"
         case .icao: return "airplane"
+        case .nationalMap: return "mountain.2"
         case .swissimage: return "photo"
+        }
+    }
+
+    /// As the menu names it: Plan › Map's names, the charts with their zooms. (6.4.2)
+    var title: String {
+        switch self {
+        case .apple: return L10n.MapLayer.standard
+        case .icao: return L10n.MapLayer.icaoGliderNational
+        case .nationalMap: return L10n.MapLayer.landeskarte
+        case .swissimage: return L10n.MapLayer.swissimage
+        }
+    }
+
+    /// How close the camera goes. The charts down to the National Map's streets: zooming in, the ICAO chart gives
+    /// way to the glider chart (z11) and then to the National Map (z13), where until 6.4.2 it stopped at the ICAO
+    /// chart, about z10, and the glider chart never showed (device check, 19 Oct 2026).
+    var cameraZoomRange: MKMapView.CameraZoomRange? {
+        switch self {
+        case .apple:
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)
+        case .icao, .nationalMap, .swissimage:
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)
+        }
+    }
+
+    /// Puts the layer on `mapView`: Apple's map, with swisstopo's over it. Where swisstopo has nothing (outside
+    /// Switzerland: an empty tile, a white one, a 400), Apple's map shows, its imagery under SWISSIMAGE: until
+    /// 6.4.2 the overlay replaced Apple's map everywhere and drew black there (device check, 19 Oct 2026).
+    /// `atBottom`: under every other overlay (the route builder's route and airspace).
+    func apply(to mapView: MKMapView, atBottom: Bool = false) {
+        mapView.removeOverlays(mapView.overlays.compactMap { $0 as? MKTileOverlay })
+        let overlay: MKTileOverlay
+        switch self {
+        case .apple:
+            mapView.mapType = .standard
+            return
+        case .icao:
+            mapView.mapType = .standard
+            overlay = ICAOSegelflugkarteTileOverlay(continuesToNationalMap: true)
+        case .nationalMap:
+            mapView.mapType = .standard
+            overlay = SwisstopoTileOverlay(layerIdentifier: ICAOSegelflugkarteTileOverlay.nationalMapLayerIdentifier,
+                                           tileExtension: "jpeg", dropsBlankTiles: true)
+        case .swissimage:
+            mapView.mapType = .satellite
+            overlay = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
+        }
+        overlay.canReplaceMapContent = false
+        if atBottom {
+            mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
+        } else {
+            mapView.addOverlay(overlay, level: .aboveLabels)
         }
     }
 }
@@ -1485,39 +1542,17 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         mapView.showsUserLocation = true
         mapView.showsCompass = true
         mapView.showsScale = true
-        configureMapLayer(mapView)
-        mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
+        mapLayer.apply(to: mapView)
+        mapView.cameraZoomRange = mapLayer.cameraZoomRange
         return mapView
-    }
-
-    private func cameraZoomRange(for layer: WaypointPickerMapLayer) -> MKMapView.CameraZoomRange? {
-        switch layer {
-        case .apple:
-            return MKMapView.CameraZoomRange(
-                minCenterCoordinateDistance: 100,
-                maxCenterCoordinateDistance: 10_000_000
-            )
-        case .icao:
-            // ICAO + Segelflugkarte: zoom 7-12, matching NavigationView values
-            return MKMapView.CameraZoomRange(
-                minCenterCoordinateDistance: 65_000,
-                maxCenterCoordinateDistance: 600_000
-            )
-        case .swissimage:
-            // SWISSIMAGE: zoom 7-18
-            return MKMapView.CameraZoomRange(
-                minCenterCoordinateDistance: 1_500,
-                maxCenterCoordinateDistance: 600_000
-            )
-        }
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         // Only reconfigure tiles when layer actually changes
         if context.coordinator.currentLayer != mapLayer {
             context.coordinator.currentLayer = mapLayer
-            configureMapLayer(mapView)
-            mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
+            mapLayer.apply(to: mapView)
+            mapView.cameraZoomRange = mapLayer.cameraZoomRange
         }
         // Update airport annotations (already uses diff logic)
         updateAirportAnnotations(mapView)
@@ -1535,32 +1570,6 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         for airport in toAdd {
             let annotation = AirportAnnotation(airport: airport)
             mapView.addAnnotation(annotation)
-        }
-    }
-
-    private func configureMapLayer(_ mapView: MKMapView) {
-        // Remove existing tile overlays
-        let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
-        mapView.removeOverlays(existingTileOverlays)
-
-        switch mapLayer {
-        case .apple:
-            mapView.mapType = .standard
-
-        case .icao:
-            mapView.mapType = .standard
-            let overlay = ICAOSegelflugkarteTileOverlay()
-            overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
-
-        case .swissimage:
-            mapView.mapType = .standard
-            let overlay = SwisstopoTileOverlay(
-                layerIdentifier: "ch.swisstopo.swissimage",
-                tileExtension: "jpeg"
-            )
-            overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
         }
     }
 

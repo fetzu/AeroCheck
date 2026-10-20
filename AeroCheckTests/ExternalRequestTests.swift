@@ -340,7 +340,9 @@ final class SwisstopoTileRequestTests: XCTestCase {
 /// MapKit drops some tiles handed over after `loadTile` returned and asks for them again only on a
 /// redraw. The swisstopo and OpenAIP overlays redraw once per burst of network tiles, never for a tile that came
 /// back empty nor for the tiles that answer a redraw, reload when a redraw goes unanswered, and stop
-/// at `LateTileRedraw.maxRedraws` per window. (6.1.0)
+/// at `LateTileRedraw.maxRedraws` per window. (6.1.0) A reload comes only while MapKit never answered, a failed
+/// tile redraws too, the tiles fetched come back at once from memory, the newest asked first, and a zoom the map
+/// has left isn't fetched (the author's device check mp-2, 6.4.2).
 @MainActor
 final class LateTileRedrawTests: XCTestCase {
 
@@ -348,6 +350,7 @@ final class LateTileRedrawTests: XCTestCase {
 
     override func setUpWithError() throws {
         ExternalRequestStub.reset()
+        SwisstopoTiles.memory.removeAllObjects()
         session = ExternalRequestStub.makeSession()
     }
 
@@ -434,12 +437,95 @@ final class LateTileRedrawTests: XCTestCase {
         _ = await loadTiles(overlay, paths(268...271))
         await waitUntil { renderer.redraws == 1 }
 
-        // MapKit answers: the dropped tiles again, and a few it already had.
+        // MapKit answers: the dropped tiles again, and a few it already had, from memory at once.
+        let requests = ExternalRequestStub.requestCount
         _ = await loadTiles(overlay, paths(268...269))
+        XCTAssertEqual(ExternalRequestStub.requestCount, requests, "from memory, not the network")
 
         await wait(0.6)
         XCTAssertEqual(renderer.redraws, 1, "an answer must not call for the next redraw")
         XCTAssertEqual(renderer.reloads, 0, "an answered redraw needs no reload")
+    }
+
+    /// Once MapKit has answered a redraw, one it leaves unanswered had nothing missing: no reload, which blanked
+    /// the whole map for a frame. (6.4.2)
+    func testAnUnansweredRedrawAfterAnAnsweredOneReloadsNothing() async {
+        let (overlay, renderer) = icaoOverlay(followUp: 0.2)
+        _ = await loadTiles(overlay, paths(268...269))
+        await waitUntil { renderer.redraws == 1 }
+        _ = await loadTiles(overlay, paths(268...268))   // the answer
+        await wait(0.4)
+
+        _ = await loadTiles(overlay, paths(270...271))   // a later burst, every tile drawn: MapKit asks for none
+        await waitUntil { renderer.redraws == 1 }
+        await wait(0.5)
+        XCTAssertEqual(renderer.reloads, 0)
+    }
+
+    /// A tile that failed asks for a repaint, which asks for it again. (6.4.2)
+    func testAFailedTileIsAskedForAgain() async {
+        let (overlay, renderer) = icaoOverlay()
+        ExternalRequestStub.reply(.init(status: 200, declaredLength: 4 * SwisstopoTiles.maxTileBytes,
+                                        body: Data(count: 16)),
+                                  at: "/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/9/280/179.png")
+        _ = await loadTiles(overlay, paths(280...280))
+        await waitUntil { renderer.redraws == 1 }
+        XCTAssertEqual(renderer.redraws, 1)
+    }
+
+    /// A tile fetched once is handed over again before `loadTile` returns: MapKit draws those. (6.4.2)
+    func testATileFetchedOnceComesBackAtOnce() async {
+        let (overlay, _) = icaoOverlay()
+        _ = await loadTiles(overlay, paths(268...268))
+        var handed: Data?
+        overlay.loadTile(at: paths(268...268)[0]) { data, _ in handed = data }
+        XCTAssertEqual(handed, tile, "answered before loadTile returned")
+    }
+
+    /// A tile of a zoom the map has left, still waiting its turn, isn't fetched: answered as failed, with no redraw,
+    /// which would only blank the zoom in view. (6.4.2)
+    func testAZoomTheMapLeftIsNotFetched() async {
+        let gate = TileGate(limit: 1)
+        _ = await gate.enter()
+        let url = SwisstopoTiles.url(layer: "ch.bazl.luftfahrtkarten-icao", z: 9, x: 268, y: 179, fileExtension: "png")!
+        ExternalRequestStub.reply(.init(declaredLength: tile.count, body: tile), at: url.path)
+        final class Wanted: @unchecked Sendable { var yes = true }
+        let wanted = Wanted()
+        let passed = expectation(description: "passed by")
+        let fetched = expectation(description: "fetched")
+        fetched.isInverted = true
+        SwisstopoTiles.load(url, session: session, gate: gate, while: { wanted.yes },
+                            result: { _, _ in fetched.fulfill() },
+                            passedBy: { data, error in
+                                XCTAssertNil(data)
+                                XCTAssertEqual((error as? URLError)?.code, .cancelled)
+                                passed.fulfill()
+                            })
+        while await gate.waitingCount < 1 { await wait(0.01) }
+        wanted.yes = false   // the pinch went on to the next zoom
+        await gate.leave()
+        await fulfillment(of: [passed, fetched], timeout: 1)
+        XCTAssertEqual(ExternalRequestStub.requestCount, 0)
+    }
+
+    /// The newest request goes first: the zoom a pinch ends at before the ones it passed. (6.4.2)
+    func testTheNewestRequestGoesFirst() async {
+        let gate = TileGate(limit: 1)
+        _ = await gate.enter()
+        final class Order: @unchecked Sendable { var ids: [Int] = []; let lock = NSLock() }
+        let order = Order()
+        var tasks: [Task<Void, Never>] = []
+        for id in 1...3 {
+            tasks.append(Task {
+                _ = await gate.enter()
+                order.lock.withLock { order.ids.append(id) }
+                await gate.leave()
+            })
+            while await gate.waitingCount < id { await wait(0.01) }
+        }
+        await gate.leave()
+        for task in tasks { await task.value }
+        XCTAssertEqual(order.ids, [3, 2, 1])
     }
 
     func testARedrawMapKitIgnoresIsFollowedByAReload() async {
@@ -447,7 +533,7 @@ final class LateTileRedrawTests: XCTestCase {
         _ = await loadTiles(overlay, paths(268...271))
         await waitUntil { renderer.redraws == 1 }
 
-        // MapKit asks for nothing: the reload.
+        // MapKit asks for nothing, never having answered one: the reload.
         await waitUntil { renderer.reloads == 1 }
         XCTAssertEqual(renderer.reloads, 1)
 
@@ -582,6 +668,17 @@ final class LateTileRedrawTests: XCTestCase {
         XCTAssertTrue(LateTileRedraw.mayRedraw(after: Array(recent.dropFirst()), at: now))
     }
 
+    /// Over the cap, the redraw waits for the oldest in the window to leave it, rather than never coming: a long
+    /// pinch spent the cap and left the route builder's last dropped tiles as holes (device check, 19 Oct 2026).
+    func testACappedRedrawWaitsForTheWindowToFreeOne() {
+        let now = Date()
+        XCTAssertNil(LateTileRedraw.waitForRedraw(after: [], at: now), "one fits now")
+        let recent = (1...LateTileRedraw.maxRedraws).map { now.addingTimeInterval(-Double($0)) }
+        let wait = try? XCTUnwrap(LateTileRedraw.waitForRedraw(after: recent, at: now))
+        XCTAssertEqual(wait ?? 0, LateTileRedraw.window - Double(LateTileRedraw.maxRedraws), accuracy: 0.1)
+        XCTAssertTrue(LateTileRedraw.mayRedraw(after: recent, at: now.addingTimeInterval(wait ?? 0)))
+    }
+
     func testRedrawsStopAtTheCap() async {
         let (overlay, renderer) = icaoOverlay()
 
@@ -614,6 +711,8 @@ final class ExternalRequestStub: URLProtocol {
     static func reset() { lock.withLock { replies = [:]; hosts = [] } }
     static func reply(_ reply: Reply, at path: String) { lock.withLock { replies[path] = reply } }
     static var requestedHosts: [String] { lock.withLock { hosts } }
+    /// Requests answered since `reset()`.
+    static var requestCount: Int { lock.withLock { hosts.count } }
 
     static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral

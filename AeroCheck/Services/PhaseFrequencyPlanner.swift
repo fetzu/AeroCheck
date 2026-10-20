@@ -992,10 +992,38 @@ final class CockpitRadio {
     }
 
     /// A new fix: the lists again once the aircraft has moved `moveThresholdDegrees` from where they
-    /// were computed.
+    /// were computed; in between, a due NEXT's line (`followDue`).
     func noteMove(to position: CLLocationCoordinate2D?, plan: FlightPlan?, circuits: Bool = false,
                   situation: PhaseFrequencyPlanner.Situation = .init(), sources: PhaseFrequencyPlanner.Sources) {
-        guard Self.movedSignificantly(from: lastPosition, to: position) else { return }
+        guard Self.movedSignificantly(from: lastPosition, to: position) else {
+            followDue(to: position, situation: situation)
+            return
+        }
         update(position: position, plan: plan, circuits: circuits, situation: situation, sources: sources)
     }
+
+    /// Between two computations of the lists (0.01°, about 20 s at 100 kt), a due NEXT's line follows the aircraft fix
+    /// by fix, and anything else the handover reads differently there (its latest point reached: the app's own
+    /// switch) computes them at once. The line ran out a quarter at a time, and the app switched up to 0.01° late, in
+    /// the 6.4.3 device checks (ho-3). Only the route's timeline is read per fix: the fields and the areas are not.
+    private func followDue(to position: CLLocationCoordinate2D?, situation: PhaseFrequencyPlanner.Situation) {
+        guard let next, next.due, let shown = next.dueLeft, let handover, let inputs = lastInputs,
+              let timeline = inputs.situation.timeline else { return }
+        var here = situation
+        here.timeline = timeline
+        guard let place = PhaseFrequencyPlanner.placement(position: position, plan: inputs.plan,
+                                                          circuits: inputs.circuits, situation: here) else { return }
+        let advanced = handover.advanced(on: place.timeline, at: place.moment)
+        guard advanced.switched == nil, advanced.reading.nextIsDue, let left = advanced.reading.dueLeft,
+              let station = advanced.reading.next, RadioTimeline.Station.isSameFrequency(station.frequency, next.freq)
+        else {
+            update(position: position, plan: inputs.plan, circuits: inputs.circuits, situation: situation,
+                   sources: inputs.sources)
+            return
+        }
+        if abs(left - shown) >= Self.dueLineStep { self.next?.dueLeft = left }
+    }
+
+    /// The line's least move worth a redraw: a thousandth of it.
+    nonisolated static let dueLineStep = 0.001
 }

@@ -944,6 +944,8 @@ struct ReadBandDueCue: View {
                         .overlay(alignment: .leading) {
                             Capsule().fill(theme.info)
                                 .scaleEffect(x: max(0, min(1, left)), anchor: .leading)
+                                // A fix a second: the line runs out smoothly between them, as UNDO's does. (6.4.3)
+                                .animation(.linear(duration: 1), value: left)
                         }
                         .frame(height: 3)
                         // Clear of the outline's rounded corners.

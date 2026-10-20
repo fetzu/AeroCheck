@@ -870,6 +870,44 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(radio.now?.station, "Geneva Info")
     }
 
+    /// A due NEXT's line follows every fix between two computations of the lists, which come every 0.01° (the 6.4.3
+    /// device checks saw it run out a quarter at a time); the latest point reached between them switches at once.
+    func testTheDueLineFollowsEveryFix() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var reported: [String] = []
+        radio.onSwitched = { message, _ in reported.append(message) }
+        let plan = Self.timelineRoute(next: 1)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        let situation = PhaseFrequencyPlanner.Situation(groundSpeedKt: 100, departureOver: true)
+        func fix(_ longitude: Double) {
+            radio.noteMove(to: .init(latitude: 47.0, longitude: longitude), plan: plan, situation: situation,
+                           sources: Self.empty.sources)
+        }
+
+        fix(7.0)
+        fix(7.05)
+        XCTAssertEqual(radio.next?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.due, true)
+        let computed = radio.computations
+        var lines = [radio.next?.dueLeft ?? 0]
+        for longitude in [7.052, 7.054, 7.056, 7.058] {
+            fix(longitude)
+            lines.append(radio.next?.dueLeft ?? 0)
+        }
+        XCTAssertEqual(radio.computations, computed, "under 0.01°: the lists aren't computed again")
+        XCTAssertEqual(lines, lines.sorted(by: >), "the line runs out")
+        XCTAssertEqual(Set(lines).count, lines.count, "at every fix")
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+
+        // 10 NM out (7.244° E) the app leaves the field by itself: at the fix past it, not 0.01° later.
+        fix(7.24)
+        XCTAssertTrue(reported.isEmpty)
+        fix(7.246)
+        XCTAssertEqual(reported, [L10n.Read.switchedAutomatically("Geneva Info")])
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+    }
+
     /// The due state reaches the Companion iPhone and the Watch, the share kept to 0...1 whatever the wire says;
     /// an older iPad sends neither, nor the switch. (6.4.3)
     func testTheDueStateReachesThePhoneAndTheWatch() throws {

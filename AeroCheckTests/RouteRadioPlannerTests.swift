@@ -306,9 +306,10 @@ final class RouteRadioPlannerTests: XCTestCase {
         XCTAssertFalse(result.rows.flatMap(\.remarks).contains { $0.contains("GOLF") })
     }
 
-    /// Well inside a flight-level band there is no doubt: the unit's station, as before.
+    /// Well inside a flight-level band there is no doubt: the unit's station, as before. (Outside Switzerland: a
+    /// Swiss class C TMA is crossed on the FIS, `testASwissClassCTMAIsCrossedOnTheFIS`.)
     func testFlightLevelBandSurelyEnteredSetsTheStation() {
-        let tma = airspace("TMA HOTEL", type: 7, icaoClass: 2, lon: 7.35...7.55,
+        let tma = airspace("TMA HOTEL", type: 7, icaoClass: 2, lon: 7.35...7.55, country: "DE",
                            floor: AltitudeLimit(value: 75, unit: 6, referenceDatum: 2),
                            ceiling: AltitudeLimit(value: 195, unit: 6, referenceDatum: 2),
                            frequency: ("131.325", "HOTEL APPROACH"))

@@ -196,11 +196,15 @@ struct ReadBandMetrics: Equatable {
         frequencySize = CockpitType.size(kneeboard: 24, phone: 20, scale: scale)
         cellPadding = kneeboard ? 14 : 12
         verticalPadding = kneeboard ? 8 : 6
-        rowGap = kneeboard ? 8 : 6
+        rowGap = kneeboard ? Self.blockGap : 6
         figureGap = kneeboard ? 12 : 8
         cornerRadius = kneeboard ? 14 : 12
     }
 
+    /// The iPad's one gap between the Cockpit's blocks, top to bottom: the header's panel, the strip, NOW | NEXT,
+    /// the picker, the page. It was 0, 8, 10 and 10 pt, the strip against the panel; the author asked for the
+    /// blocks to sit more evenly (6.4.3, option B).
+    static let blockGap: CGFloat = 10
     /// Between the strip and the card in the phone's column on its side, which has no point to spare.
     static let columnRowGap: CGFloat = 4
     /// The merged line's padding above and below: one line in the column's 370 pt.

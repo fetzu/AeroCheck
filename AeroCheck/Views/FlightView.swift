@@ -983,10 +983,14 @@ extension FlightView {
             // phase button, as on its side, whose tap opens the phase list, where a phase is picked by
             // its name: its own row took 50 pt of a chart that has 220 (an iPhone 17e) since the read
             // band. (6.2, PR 4)
+            // The panel's colour stops `blockGap` above the segments' foot: the gap over the strip is the one
+            // between every block, and the segments keep their full height to the touch (6.4.3, option B).
             if !narrow {
                 phaseProgressBarView
                     .padding(.horizontal, 20)
-                    .background(theme.panel)
+                    .background(alignment: .top) {
+                        theme.panel.padding(.bottom, ReadBandMetrics.blockGap)
+                    }
             }
 
             // The read band's live rows, over every page: GS · ALT · TRK · NEXT whenever the aircraft
@@ -996,10 +1000,10 @@ extension FlightView {
                 .coachTarget(.readBand)
 
             // 4 pt on the phone, whose chart has every point it can get (6.2, PR 4; 6.2.0, device check
-            // 11 Oct).
+            // 11 Oct); the iPad's gap between blocks (6.4.3).
             cockpitPageBar(narrow: narrow)
                 .padding(.horizontal, narrow ? 12 : 16)
-                .padding(.vertical, narrow ? 4 : 10)
+                .padding(.vertical, narrow ? 4 : ReadBandMetrics.blockGap)
                 .onPreferenceChange(CockpitBriefingInBarKey.self) { briefingInBar = $0 }
 
             SeparateView { cockpitPage(layout: narrow ? .narrow : .wide) }

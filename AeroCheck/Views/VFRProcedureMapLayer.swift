@@ -422,14 +422,6 @@ enum VFRMapPalette: String, Hashable, Sendable {
         }
     }
 
-    /// The approach view's fade round the field: white by day, a dimming at night.
-    var fade: UIColor {
-        switch self {
-        case .day: return .white
-        case .night: return .black
-        }
-    }
-
     /// Austrian noise-abatement areas: grey, not a procedure to fly.
     var noise: UIColor {
         switch self {
@@ -902,9 +894,6 @@ enum VFRMapLayer {
             }
         }
         for field in content.approach {
-            if !fixedDrawn.contains(field.drawKey) {
-                for overlay in approachOverlays(for: field) { insert(overlay, on: mapView) }
-            }
             if let zoom, !scaledDrawn.contains(field.drawKey) {
                 for overlay in approachScaledOverlays(for: field, zoom: zoom) { insert(overlay, on: mapView) }
             }
@@ -1029,15 +1018,6 @@ enum VFRMapLayer {
         var turnedOver = false
         if angle > .pi / 2 { angle -= .pi; turnedOver = true } else if angle <= -.pi / 2 { angle += .pi; turnedOver = true }
         return (CGFloat(angle), outsideLeft != turnedOver)
-    }
-
-    /// The approach view's fixed shape: the fade round the field, on a light chart.
-    static func approachOverlays(for field: VFRApproachField) -> [MKOverlay] {
-        guard field.fadesChart else { return [] }
-        let fade = VFRFadeOverlay(center: field.reference.coordinate, radiusMeters: VFRApproachField.fadeRadiusNM * 1852)
-        fade.procedureId = "approach:\(field.ident)"
-        fade.drawKey = field.drawKey
-        return [fade]
     }
 
     /// What the approach view builds for the zoom: the extended centrelines' dashes, and the circuit's
@@ -1281,16 +1261,13 @@ enum VFRMapLayer {
         return [wing(1), tip.coordinate, wing(-1)]
     }
 
-    /// Where an overlay goes among the procedures', bottom to top: the approach view's fade; the sectors
-    /// (fill, outline, hatch) and the extended centrelines; the routes' casings, their cores, their
-    /// arrowheads; the circuits' casings, then their cores; the circuits' direction arrowheads. All
+    /// Where an overlay goes among the procedures', bottom to top: the sectors (fill, outline, hatch) and the
+    /// extended centrelines; the routes' casings, their cores, their arrowheads; the circuits' casings, then their cores; the circuits' direction arrowheads. All
     /// casings under all cores of a tier, so a casing never cuts another line where they cross; the
     /// circuits over the routes, which often join them on the crosswind or downwind (their dashes over
     /// the circuit's solid line read as one dash-dot line).
     static func tier(of overlay: MKOverlay) -> Int? {
         switch overlay {
-        case is VFRFadeOverlay:
-            return -1
         case is VFRSectorOverlay:
             return 0
         case let dash as VFRDashOverlay:
@@ -1351,8 +1328,6 @@ enum VFRMapLayer {
             let renderer = MKPolylineRenderer(polyline: route)
             configure(renderer, style: style, stroke: route.stroke, palette: palette, dashed: false)
             return renderer
-        case let fade as VFRFadeOverlay:
-            return VFRFadeRenderer(overlay: fade, color: palette.fade)
         case let dash as VFRDashOverlay:
             let renderer = MKMultiPolylineRenderer(multiPolyline: dash)
             switch dash.role {

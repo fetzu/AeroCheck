@@ -37,6 +37,9 @@ struct FlightPlanMapBuilderView: View {
         center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Swiss Jura default
         span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
     )
+    /// The map's region while it moves, for the profile's band alone (its reader), `region` taking it at rest. Not
+    /// read here: as a `@StateObject` this view observed it, and was rebuilt on every frame still. (6.4.2)
+    @State private var liveRegion = LiveMapRegion()
     @State private var visibleAirports: [Airport] = []
     /// Where this editor shows a dry run of its route: over itself (it is a cover, maybe over a flight's page,
     /// which the app's root can't present over). (6.4.0)
@@ -490,6 +493,7 @@ struct FlightPlanMapBuilderView: View {
             focusToken: focusToken,
             fitRouteToken: fitRouteToken,
             region: $region,
+            liveRegion: liveRegion,
             // "+" on an aerodrome, navaid or reporting point: a planning control, so never offered
             // while flying (a builder left open under a flight started from the widget). (6.0.1)
             onPointAdd: appState.isFlightActive ? nil : { point in addPoint(point) },
@@ -1044,12 +1048,15 @@ struct FlightPlanMapBuilderView: View {
             }
             .padding(.leading, 14).padding(.trailing, 2)
             if !profileCollapsed {
-                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
-                                 selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
-                                 visibleRegion: region,
-                                 selectedLeg: selectedLeg,
-                                 onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
-                                 onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
+                // The band follows the map live, from `liveRegion`: only it is redrawn on every frame of a pan.
+                LiveRegionReader(live: liveRegion, atRest: region) { visible in
+                    RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
+                                     selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
+                                     visibleRegion: visible,
+                                     selectedLeg: selectedLeg,
+                                     onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
+                                     onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
+                }
                     .frame(height: profileExpanded ? 300 : (horizontalSizeClass == .compact ? 100 : 136))
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
@@ -2272,6 +2279,24 @@ private struct LegRow: View {
 /// Live route map: swisstopo/Apple tile overlay + gold route polyline + numbered waypoint markers +
 /// nearby airport markers. Tapping empty map adds a free waypoint; tapping an airport marker adds
 /// that airport. Reuses the waypoint-picker tile overlays.
+/// The route builder's map region as it moves, written on every frame of a pan or a pinch for what follows it live (the
+/// profile's "looking here" band). Written into the builder's `@State` instead, it rebuilt the whole builder and
+/// updated its map on every frame, about 60 times a second, each map update up to 24 ms when the markers changed
+/// (the map tile review, F9). (6.4.2)
+@Observable
+final class LiveMapRegion {
+    var region: MKCoordinateRegion?
+}
+
+/// Hands `content` the map's live region, the one at rest until the map has moved: the only view that reads it.
+private struct LiveRegionReader<Content: View>: View {
+    let live: LiveMapRegion
+    let atRest: MKCoordinateRegion
+    @ViewBuilder let content: (MKCoordinateRegion) -> Content
+
+    var body: some View { content(live.region ?? atRest) }
+}
+
 struct RouteBuilderMapView: UIViewRepresentable {
     let waypoints: [FlightPlanWaypoint]
     let mapLayer: WaypointPickerMapLayer
@@ -2285,6 +2310,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var focusToken: Int = 0
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
+    /// Takes the region on every frame of a move, `region` only at rest; nil: `region` on every frame. (6.4.2)
+    var liveRegion: LiveMapRegion? = nil
     /// "+" in an aerodrome's, navaid's or reporting point's callout. nil ⇒ no "+". (6.0.1)
     var onPointAdd: ((RoutePoint) -> Void)? = nil
     /// Live drag committed a waypoint move (index, new coordinate). nil ⇒ read-only map (no drag). (#3)
@@ -2346,7 +2373,10 @@ struct RouteBuilderMapView: UIViewRepresentable {
         updateReportingPointAnnotations(mapView, context: context)
         updateObstacleAnnotations(mapView, context: context)
         updateAirspaceOverlays(mapView, context: context)
-        applyAirspaceSelection(mapView)
+        if context.coordinator.styledSelection != .some(selectedAirspaceId) {
+            context.coordinator.styledSelection = .some(selectedAirspaceId)
+            applyAirspaceSelection(mapView)
+        }
         updateRoute(mapView, context: context)
         updateSelectedLeg(mapView, context: context)
         VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
@@ -2363,16 +2393,14 @@ struct RouteBuilderMapView: UIViewRepresentable {
     }
 
     /// Emphasise the selected conflict's polygon (brighter + thicker) by restyling its live renderer,
-    /// so tapping a row in the list makes it pop on the map. (#4 feedback)
+    /// so tapping a row in the list makes it pop on the map. (#4 feedback) Only when the selection changes: every
+    /// update pass did it, every 5 s at rest (Plan › Map's FREDA tick wakes the app state's readers), and each repaint
+    /// made MapKit redraw the chart under every polygon, about 4,000 squares a pass (the map tile review, F9). A
+    /// polygon added later is styled as it is made (`Coordinator.style(_:of:selected:)`). (6.4.2)
     private func applyAirspaceSelection(_ mapView: MKMapView) {
         for poly in mapView.overlays.compactMap({ $0 as? AirspacePolygon }) {
             guard let r = mapView.renderer(for: poly) as? MKPolygonRenderer else { continue }
-            let c = poly.overlayColor
-            let sel = poly.airspaceId == selectedAirspaceId
-            r.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: sel ? 0.36 : 0.18)
-            r.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: sel ? 1.0 : 0.85)
-            r.lineWidth = sel ? 3 : 1.5
-            r.lineDashPattern = poly.isDashed ? [8, 4] : nil
+            Coordinator.style(r, of: poly, selected: poly.airspaceId == selectedAirspaceId)
             r.setNeedsDisplay()
         }
     }
@@ -2519,6 +2547,17 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var reportingPointLabelRevision = -1
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
+        /// The selected conflict the polygons are styled for; nil before the first pass. (6.4.2)
+        var styledSelection: String??
+
+        /// A crossed airspace's look: translucent fill and coloured stroke, brighter and thicker when selected. (#4)
+        static func style(_ renderer: MKPolygonRenderer, of airspace: AirspacePolygon, selected: Bool) {
+            let c = airspace.overlayColor
+            renderer.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: selected ? 0.36 : 0.18)
+            renderer.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: selected ? 1.0 : 0.85)
+            renderer.lineWidth = selected ? 3 : 1.5
+            renderer.lineDashPattern = airspace.isDashed ? [8, 4] : nil
+        }
 
         // MARK: Live drag (flight-plan revamp #3)
         enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)
@@ -2541,20 +2580,26 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             parent.region = mapView.region
+            parent.liveRegion?.region = mapView.region
         }
 
         // Fires continuously while the user pans/zooms (not just at the end), so the profile's
-        // "looking here" band tracks the map live instead of snapping on release. (feedback)
+        // "looking here" band tracks the map live instead of snapping on release. (feedback) Into
+        // `liveRegion`, which only the band reads. (6.4.2)
         func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
             // The circuits' altitudes follow the map's heading as it turns. (6.2.0)
             VFRMapLayer.orientLabels(on: mapView, palette: vfrLayer.palette)
             guard !isDragging else { return } // don't fight an in-progress waypoint/line drag
-            parent.region = mapView.region
+            if let live = parent.liveRegion {
+                live.region = mapView.region
+            } else {
+                parent.region = mapView.region
+            }
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {
-                return LateTileRedraw.renderer(for: tile)
+                return ChartTileRenderer.renderer(for: tile, on: mapView)
             }
             // Traffic circuits, VFR routes and sectors: before the generic MKPolyline branch below, which
             // would draw them magenta, as the route. (6.2.0)
@@ -2564,11 +2609,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
             // Crossed-airspace highlight (translucent fill + colored stroke). (#4)
             if let airspace = overlay as? AirspacePolygon {
                 let renderer = MKPolygonRenderer(polygon: airspace)
-                let c = airspace.overlayColor
-                renderer.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 0.18)
-                renderer.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 0.85)
-                renderer.lineWidth = 1.5
-                if airspace.isDashed { renderer.lineDashPattern = [8, 4] }
+                Self.style(renderer, of: airspace, selected: airspace.airspaceId == parent.selectedAirspaceId)
                 return renderer
             }
             // The selected leg's halo, under the route. (planning proposal D3)

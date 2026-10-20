@@ -772,9 +772,10 @@ final class VFRMapLayerTests: XCTestCase {
         }
     }
 
-    /// The approach view: the fade under everything, the extended centreline, the direction arrowheads
-    /// over the circuit, the runway numbers (the runway in use filled) and the parachute, never hidden.
-    func testTheApproachViewDrawsItsFadeCentrelineNumbersAndParachute() throws {
+    /// The approach view: the extended centreline, the direction arrowheads over the circuit, the runway numbers (the
+    /// runway in use filled) and the parachute, never hidden. No fade round the field: it read as the field glowing
+    /// (device checks of 7 and 20 Oct). (6.4.2)
+    func testTheApproachViewDrawsItsCentrelineNumbersAndParachute() throws {
         let circuit = try procedure(named: "TC")
         let runways = VFRRunwayEnds.runways(
             thresholds: [VFRThreshold(runway: "07", position: VFRCoordinate(latitude: 47.39125, longitude: 7.02427), trueBearing: 70),
@@ -787,17 +788,6 @@ final class VFRMapLayerTests: XCTestCase {
         let spot = try XCTUnwrap(field.parachutePosition)
         XCTAssertLessThan(spot.latitude, 47.3925, "beside the field, away from the circuit (north of it)")
 
-        let fixed = VFRMapLayer.approachOverlays(for: field)
-        XCTAssertTrue(fixed.first is VFRFadeOverlay)
-        // The fade on the light charts only: on Apple's map, dark in the app, its white wash lit up Apple's
-        // airport grounds (device check, 7 Oct). The rest of the approach view stays.
-        let unfaded = VFRApproachField.make(ident: "LSZQ", reference: VFRCoordinate(latitude: 47.3925, longitude: 7.02889),
-                                            runways: runways, circuits: [circuit], windFrom: 80, parachuting: true,
-                                            fadesChart: false)
-        XCTAssertTrue(VFRMapLayer.approachOverlays(for: unfaded).isEmpty)
-        XCTAssertNotEqual(unfaded.drawKey, field.drawKey, "a switch of layer redraws it")
-        XCTAssertEqual(MapLayerType.allCases.filter(\.fadesForApproach), [.icao, .landeskarten])
-        XCTAssertEqual(fixed.compactMap { VFRMapLayer.tier(of: $0) }, [-1], "under the sectors")
         let scaled = VFRMapLayer.approachScaledOverlays(for: field, zoom: tenMetersAPoint)
         XCTAssertEqual(scaled.compactMap { ($0 as? VFRDashOverlay)?.role }, [.centreline])
         let heads = scaled.compactMap { $0 as? VFRRouteOverlay }
@@ -826,10 +816,10 @@ final class VFRMapLayerTests: XCTestCase {
         let approach = VFRMapContent(items: [], showsLabels: true, palette: .day, approach: [field])
         XCTAssertNotEqual(plain.signature, approach.signature)
         VFRMapLayer.sync(approach, on: map, state: state)
-        XCTAssertTrue(map.overlays.contains { $0 is VFRFadeOverlay })
+        XCTAssertTrue(map.overlays.allSatisfy { $0 is VFRDashOverlay || $0 is VFRRouteOverlay },
+                      "the centrelines and arrowheads only, nothing washing the chart")
         XCTAssertEqual(map.annotations.compactMap { $0 as? VFRApproachAnnotation }.count, 3)
         VFRMapLayer.sync(plain, on: map, state: state)
-        XCTAssertFalse(map.overlays.contains { $0 is VFRFadeOverlay })
         XCTAssertTrue(map.annotations.isEmpty)
     }
 

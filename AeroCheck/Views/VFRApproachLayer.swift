@@ -227,7 +227,10 @@ struct VFRDirectionArrow: Equatable, Sendable {
     let bearing: Double
 }
 
-/// What the approach view draws for one aerodrome.
+/// What the approach view draws for one aerodrome. No fade round the field any more: from 6.2.0 a white disc washed
+/// the ICAO chart and the National Map round it once the map spanned 8 NM or less, and the field read as glowing
+/// at that zoom (the author's device check, 20 Oct 2026, at Samedan; on Apple's map the same wash had lit its airport
+/// grounds, 7 Oct). The circuits keep their own casings over the chart. (6.4.2)
 struct VFRApproachField: Equatable, Sendable {
     let ident: String
     let reference: VFRCoordinate
@@ -238,22 +241,18 @@ struct VFRApproachField: Equatable, Sendable {
     let parachuting: Bool
     /// Where the parachute goes: beside the field, away from its circuits.
     let parachutePosition: VFRCoordinate?
-    /// Whether the chart fades round the field: on the light charts only (`MapLayerType.fadesForApproach`).
-    var fadesChart = true
-
-    /// How far the fade reaches, and the centreline past each threshold.
-    static let fadeRadiusNM = 4.2
+    /// The centreline past each threshold.
     static let centrelineNM = 2.0
 
     var drawKey: String {
-        "approach|\(ident)|\(runwayInUse ?? "-")|\(parachuting)|\(arrows.count)|\(runways.count)|\(fadesChart)"
+        "approach|\(ident)|\(runwayInUse ?? "-")|\(parachuting)|\(arrows.count)|\(runways.count)"
     }
 
     /// - Parameters:
     ///   - circuits: the aerodrome's circuits as drawn, for the direction arrows.
     ///   - windFrom: the wind's direction (degrees true), in flight; nil on the ground.
     static func make(ident: String, reference: VFRCoordinate, runways: [VFRRunwayEnds], circuits: [VFRProcedure],
-                     windFrom: Double?, parachuting: Bool, fadesChart: Bool = true) -> VFRApproachField {
+                     windFrom: Double?, parachuting: Bool) -> VFRApproachField {
         let inUse = VFRRunwayEnds.endInUse(of: runways, windFrom: windFrom)
         // The longest runway, and the one in use if it is another: Bern's parallel strips put four
         // numbers on top of each other at the end of their centrelines.
@@ -269,8 +268,7 @@ struct VFRApproachField: Equatable, Sendable {
         }
         return VFRApproachField(ident: ident, reference: reference, runways: runways, runwayInUse: inUse?.ident,
                                 arrows: arrows, parachuting: parachuting,
-                                parachutePosition: parachuting ? parachuteSpot(reference: reference, runways: runways, circuits: circuits) : nil,
-                                fadesChart: fadesChart)
+                                parachutePosition: parachuting ? parachuteSpot(reference: reference, runways: runways, circuits: circuits) : nil)
     }
 
     /// The circuit's direction for the runway landed on: two arrowheads on the downwind. Open
@@ -308,48 +306,6 @@ struct VFRApproachField: Equatable, Sendable {
 }
 
 // MARK: - Overlays and annotations of the approach view
-
-/// The chart faded round the field: a soft disc, white by day, a dimming at night.
-final class VFRFadeOverlay: NSObject, MKOverlay, VFRProcedureShape {
-    let coordinate: CLLocationCoordinate2D
-    let boundingMapRect: MKMapRect
-    let radiusMeters: Double
-    var procedureId = ""
-    var drawKey = ""
-    var isScaled: Bool { false }
-
-    init(center: CLLocationCoordinate2D, radiusMeters: Double) {
-        coordinate = center
-        self.radiusMeters = radiusMeters
-        let points = radiusMeters * MKMapPointsPerMeterAtLatitude(center.latitude)
-        let c = MKMapPoint(center)
-        boundingMapRect = MKMapRect(x: c.x - points, y: c.y - points, width: 2 * points, height: 2 * points)
-        super.init()
-    }
-}
-
-/// Draws `VFRFadeOverlay`: a radial gradient, 42 % in the middle, 30 % three quarters out, none at the edge.
-final class VFRFadeRenderer: MKOverlayRenderer {
-    let color: UIColor
-
-    init(overlay: VFRFadeOverlay, color: UIColor) {
-        self.color = color
-        super.init(overlay: overlay)
-    }
-
-    override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
-        guard let fade = overlay as? VFRFadeOverlay else { return }
-        let rect = self.rect(for: fade.boundingMapRect)
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = rect.width / 2
-        let colors = [color.withAlphaComponent(0.42).cgColor, color.withAlphaComponent(0.30).cgColor,
-                      color.withAlphaComponent(0).cgColor] as CFArray
-        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors,
-                                        locations: [0, 0.75, 1]) else { return }
-        context.drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center,
-                                   endRadius: radius, options: [])
-    }
-}
 
 /// A runway number at the end of its extended centreline, or the parachute beside the field.
 final class VFRApproachAnnotation: NSObject, MKAnnotation {

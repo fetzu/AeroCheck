@@ -121,8 +121,10 @@ Things that bite:
 - **The dry run is not a scene**: launch it with the variables in the table (`SIMCTL_CHILD_` before each, and
   `AEROCHECK_ORIENTATION=portrait` on the iPhone), once, and wait for the hold; the band takes the status bar's place.
   The script's `--scenes` doesn't drive it, so take and convert the screenshot by hand, as for a gesture.
-- **The status bar override** sets 9:41 and full bars. The app's own clocks (flight time, ETA) use the
-  real time: capture in the daytime, or the map's ETA reads 0:50.
+- **The status bar override** sets 9:41 and full bars. The app's own clocks (flight time, ETA, a check's time, the leg
+  timer) read the flight clock: launch the in-flight scenes and the dry run with `AEROCHECK_CLOCK=09:41`
+  (`SIMCTL_CHILD_AEROCHECK_CLOCK`, DEBUG, app #454 from 6.4.3) and they read 9:41 too, whatever the hour of the
+  capture; a dry run started with `09:25` reaches its first final near 9:41. Without it they read the real time.
 - **A fresh container has no aeronautical data.** Airport data (NOW / NEXT frequencies) and airspace
   (the route editor's conflicts) come from Settings ▸ Data & Storage, or the route editor's "Download
   data" banner, or are copied from a container that has them: terminate the app, then copy

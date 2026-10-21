@@ -126,7 +126,8 @@ struct ActBandMetrics: Equatable {
     /// The phone in portrait: a row one line tall, S1, S2 and S3 as wide and More alone narrow (6.2.0).
     var isOneLine = false
 
-    static func make(layout: CockpitLayout, scale: CockpitScale = .current) -> ActBandMetrics {
+    static func make(layout: CockpitLayout, scale: CockpitScale = .current,
+                     language: String = AppLanguage.current) -> ActBandMetrics {
         let grid = layout == .columns
         if scale == .phone && layout == .narrow {
             return ActBandMetrics(spacing: 6, height: phoneLineHeight, narrowWidth: phoneMoreWidth(),
@@ -134,15 +135,15 @@ struct ActBandMetrics: Equatable {
         }
         return ActBandMetrics(spacing: CockpitType.size(kneeboard: 12, phone: 6, scale: scale),
                               height: grid ? gridSlotHeight : CockpitType.size(kneeboard: 104, phone: 92, scale: scale),
-                              narrowWidth: narrowWidth(scale: scale), isGrid: grid)
+                              narrowWidth: narrowWidth(scale: scale, language: language), isGrid: grid)
     }
 
     /// The Companion iPhone's band, under NAV: as the phone's was until 6.2.0, 92 pt tall with S3 and S4
     /// narrow, where MARK shows the waypoint and the leg's time the Cockpit's read band and ROUTE show.
-    static func companion(scale: CockpitScale = .current) -> ActBandMetrics {
+    static func companion(scale: CockpitScale = .current, language: String = AppLanguage.current) -> ActBandMetrics {
         ActBandMetrics(spacing: CockpitType.size(kneeboard: 12, phone: 6, scale: scale),
                        height: CockpitType.size(kneeboard: 104, phone: 92, scale: scale),
-                       narrowWidth: narrowWidth(scale: scale), isGrid: false)
+                       narrowWidth: narrowWidth(scale: scale, language: language), isGrid: false)
     }
 
     /// The phone in portrait: a slot one line of words tall (`ActFace.phoneLine`), the 15 mm thumb target's
@@ -177,28 +178,30 @@ struct ActBandMetrics: Equatable {
         CockpitType.size(kneeboard: 12, phone: 3, scale: scale)
     }
 
-    /// How wide S3 and S4 are: the widest word either can ever carry, in every language the app ships, at the
+    /// How wide S3 and S4 are: the widest word either can ever carry in the app's language, at the
     /// in-flight label size (DEFER, Divert, More, TOUCH-AND-GO on two lines), with its padding. Kept
     /// between 120 and 150 pt on the iPad and 72 and 80 on the Companion iPhone, where S1 and S2 need the
     /// rest. The Cockpit's phone in portrait has its own since 6.2.0 (`phoneMoreWidth`).
-    /// Measured once a device: the frames never follow the words on screen.
-    static func narrowWidth(scale: CockpitScale) -> CGFloat {
-        let key: Measure = scale == .phone ? .phoneNarrow : .kneeboardNarrow
+    /// Measured once a device and language: the frames never follow the words on screen. Until 6.5.0 the
+    /// widest of every language: German's "Ausweichen" would have taken 9 pt from S1 and S2 in English and
+    /// in French.
+    static func narrowWidth(scale: CockpitScale, language: String = AppLanguage.current) -> CGFloat {
+        let key: Measure = scale == .phone ? .phoneNarrow(language) : .kneeboardNarrow(language)
         if let cached = measured.withLock({ $0[key] }) { return cached }
-        let widest = narrowTemplates.map { textWidth($0, size: CockpitType.label(for: scale)) }.max() ?? 0
+        let widest = narrowTemplates(language: language, scale: scale)
+            .map { textWidth($0, size: CockpitType.label(for: scale)) }.max() ?? 0
         let bounds: ClosedRange<CGFloat> = scale == .phone ? 72...80 : 120...150
         let width = min(max((widest + 2 * narrowPadding(scale)).rounded(.up), bounds.lowerBound), bounds.upperBound)
         measured.withLock { $0[key] = width }
         return width
     }
 
-    /// Every line the narrow slots can show, in every language the app ships.
-    static var narrowTemplates: [String] {
-        AppLanguage.shipped.flatMap { language -> [String] in
-            let touchAndGo = localizedString(key: "checklist.touchAndGo", language: language, defaultValue: "TOUCH-AND-GO")
-            return ["cockpit.defer", "act.divert", "nav.more"].map { localizedString(key: $0, language: language) }
-                + ActBandText.twoLines(touchAndGo).components(separatedBy: "\n")
-        }
+    /// Every line the narrow slots can show in `language`, each word as `ActNarrowLabel` sets it on `scale`.
+    static func narrowTemplates(language: String, scale: CockpitScale) -> [String] {
+        let touchAndGo = localizedString(key: "checklist.touchAndGo", language: language, defaultValue: "TOUCH-AND-GO")
+        return ["cockpit.defer", "act.divert", "nav.more"]
+            .flatMap { ActNarrowLabel.block(localizedString(key: $0, language: language), scale: scale).text.components(separatedBy: "\n") }
+            + ActBandText.twoLines(touchAndGo).components(separatedBy: "\n")
     }
 
     /// `text` set in B612 Bold at `size`, as the slots set it.
@@ -206,7 +209,7 @@ struct ActBandMetrics: Equatable {
         (text as NSString).size(withAttributes: [.font: UIFont.aero(size: size, weight: .bold)]).width
     }
 
-    private enum Measure { case kneeboardNarrow, phoneNarrow, phoneMore }
+    private enum Measure: Hashable { case kneeboardNarrow(String), phoneNarrow(String), phoneMore }
     private static let measured = OSAllocatedUnfairLock<[Measure: CGFloat]>(initialState: [:])
 }
 
@@ -268,19 +271,24 @@ struct ActBandLayout: Layout {
 
 /// Words set for a narrow slot.
 enum ActBandText {
-    /// `text` on two lines, broken at the hyphen or the space nearest its middle: "TOUCH-" over "AND-GO",
-    /// "POSÉ-" over "DÉCOLLÉ", "GO" over "AROUND". A hyphen stays on the first line, a space goes. One
-    /// line when there is nowhere to break.
+    /// `text` on two lines, broken at the hyphen, the space or the soft hyphen nearest its middle: "TOUCH-"
+    /// over "AND-GO", "POSÉ-" over "DÉCOLLÉ", "GO" over "AROUND", "AUF-" over "SCHIEBEN". A hyphen stays on
+    /// the first line, a space goes, a soft hyphen shows as a hyphen. One line when there is nowhere to break.
     static func twoLines(_ text: String) -> String {
         let characters = Array(text)
         let middle = Double(characters.count) / 2
-        let breaks = characters.indices.filter { characters[$0] == "-" || characters[$0] == " " }
+        let breaks = characters.indices.filter { ["-", " ", softHyphen].contains(characters[$0]) }
         guard let at = breaks.min(by: { abs(Double($0) + 0.5 - middle) < abs(Double($1) + 0.5 - middle) }),
               at > 0, at < characters.count - 1 else { return text }
-        let first = String(characters[...at]).trimmingCharacters(in: .whitespaces)
+        let first = characters[at] == softHyphen ? String(characters[..<at]) + "-"
+                                                 : String(characters[...at]).trimmingCharacters(in: .whitespaces)
         let second = String(characters[(at + 1)...]).trimmingCharacters(in: .whitespaces)
         return "\(first)\n\(second)"
     }
+
+    /// Where a word too long for a narrow slot may break, written into the catalog (U+00AD): German's DEFER,
+    /// "AUF\u{AD}SCHIEBEN". Nothing shows on one line. (6.5.0)
+    static let softHyphen: Character = "\u{AD}"
 }
 
 // MARK: - Words set in a slot, on the phone
@@ -943,7 +951,7 @@ struct ActNarrowLabel: View {
                 Image(systemName: icon).font(.aero(size: CockpitType.response, weight: .semibold))
             }
             ActFaceText(blocks: [block], verticalInset: 0)
-                .frame(height: ActFace.lineHeight(size: block.size, block: block))
+                .frame(height: ActFace.lineHeight(size: block.size, block: block) * CGFloat(block.maxLines))
         }
         .padding(.horizontal, ActBandMetrics.narrowPadding())
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -957,11 +965,14 @@ struct ActNarrowLabel: View {
 extension ActNarrowLabel {
     /// The word, on one line: at the label size under the iPad's icon; on the phone, with no icon, the
     /// band's one line ("Divert", "More"; at the button's 25 they ran into the narrow slot's edges).
-    /// (6.2.0)
+    /// (6.2.0) Under the iPad's icon, a word that carries a soft hyphen goes on two lines there, as
+    /// TOUCH-AND-GO does: "AUF-" over "SCHIEBEN", where one line asked 157 pt of a slot English and French
+    /// keep at 126. (6.5.0)
     static func block(_ title: String, scale: CockpitScale) -> ActFaceBlock {
-        scale == .phone ? ActFace.phoneLine(title)
-                        : ActFaceBlock(text: title, size: CockpitType.label(for: scale), maxLines: 1,
-                                       floor: CockpitType.label(for: scale))
+        if scale == .phone { return ActFace.phoneLine(title) }
+        let text = title.contains(ActBandText.softHyphen) ? ActBandText.twoLines(title) : title
+        return ActFaceBlock(text: text, size: CockpitType.label(for: scale), maxLines: text.contains("\n") ? 2 : 1,
+                            floor: CockpitType.label(for: scale))
     }
 }
 

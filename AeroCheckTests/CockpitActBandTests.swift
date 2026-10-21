@@ -264,35 +264,35 @@ final class CockpitActBandTests: XCTestCase {
     }
 
     /// S3 holds TOUCH-AND-GO on two lines and "Dérouter" at the in-flight label size or larger, on the
-    /// iPad and on the Companion iPhone, and so does every other word of the narrow slots but the phone's
-    /// French DEFER ("REPORTER", a little smaller). The Cockpit's phone has its own frames since 6.2.0
-    /// (`testThePhonesBandIsOneLineTall`).
+    /// iPad and on the Companion iPhone, and so does every other word of the narrow slots, each language in
+    /// its own slots since 6.5.0, but the words wider than the phone's 80 pt can give: French's DEFER
+    /// ("REPORTER", a little smaller), German's "Ausweichen" and DEFER. The Cockpit's phone has its own
+    /// frames since 6.2.0 (`testThePhonesBandIsOneLineTall`).
     func testTheNarrowSlotsHoldTheirWordsAtTheLabelSize() {
-        XCTAssertTrue((120...150).contains(ActBandMetrics.narrowWidth(scale: .kneeboard)))
-        XCTAssertTrue((72...80).contains(ActBandMetrics.narrowWidth(scale: .phone)))
-        for scale in [CockpitScale.kneeboard, .phone] {
-            let room = ActBandMetrics.narrowWidth(scale: scale) - 2 * ActBandMetrics.narrowPadding(scale)
-            let size = CockpitType.label(for: scale)
-            var words = ["TOUCH-", "AND-GO", "Dérouter", "POSÉ-", "DÉCOLLÉ", "Divert", "More", "Plus", "DEFER"]
-            words += AppLanguage.shipped.flatMap { language in
-                ActBandText.twoLines(localizedString(key: "checklist.touchAndGo", language: language))
-                    .components(separatedBy: "\n")
-            }
-            words.append(localizedString(key: "act.divert", language: "fr"))
-            for word in words {
-                XCTAssertLessThanOrEqual(ActBandMetrics.textWidth(word, size: size), room, "\(word) at \(size) pt, \(scale)")
-                // As SwiftUI sets it too.
-                let text = Text(verbatim: word).font(.aero(size: size, weight: .bold)).fixedSize()
-                XCTAssertLessThanOrEqual(UIHostingController(rootView: text).sizeThatFits(in: CGSize(width: 1_000, height: 100)).width,
-                                         room + 0.5, "\(word) as drawn, \(scale)")
+        for language in AppLanguage.shipped {
+            XCTAssertTrue((120...150).contains(ActBandMetrics.narrowWidth(scale: .kneeboard, language: language)), language)
+            XCTAssertTrue((72...80).contains(ActBandMetrics.narrowWidth(scale: .phone, language: language)), language)
+            for scale in [CockpitScale.kneeboard, .phone] {
+                let width = ActBandMetrics.narrowWidth(scale: scale, language: language)
+                let room = width - 2 * ActBandMetrics.narrowPadding(scale)
+                let size = CockpitType.label(for: scale)
+                for word in ActBandMetrics.narrowTemplates(language: language, scale: scale) {
+                    // Only where the slot is as wide as it gets may a word shrink: the phone's 80 pt.
+                    if scale == .phone && width == 80 && ActBandMetrics.textWidth(word, size: size) > room { continue }
+                    XCTAssertLessThanOrEqual(ActBandMetrics.textWidth(word, size: size), room, "\(language): \(word) at \(size) pt, \(scale)")
+                    // As SwiftUI sets it too.
+                    let text = Text(verbatim: word).font(.aero(size: size, weight: .bold)).fixedSize()
+                    XCTAssertLessThanOrEqual(UIHostingController(rootView: text).sizeThatFits(in: CGSize(width: 1_000, height: 100)).width,
+                                             room + 0.5, "\(language): \(word) as drawn, \(scale)")
+                }
             }
         }
         XCTAssertEqual(localizedString(key: "act.divert", language: "fr"), "Dérouter", "the verb on the button")
         XCTAssertEqual(localizedString(key: "act.divert", language: "en"), "Divert")
         // The iPad's French DEFER fits as well; on the phone it is the one word that shrinks a little.
         let reporter = ActBandMetrics.textWidth("REPORTER", size: CockpitType.label(for: .kneeboard))
-        XCTAssertLessThanOrEqual(reporter, ActBandMetrics.narrowWidth(scale: .kneeboard) - 2 * ActBandMetrics.narrowPadding(.kneeboard))
-        let phoneRoom = ActBandMetrics.narrowWidth(scale: .phone) - 2 * ActBandMetrics.narrowPadding(.phone)
+        XCTAssertLessThanOrEqual(reporter, ActBandMetrics.narrowWidth(scale: .kneeboard, language: "fr") - 2 * ActBandMetrics.narrowPadding(.kneeboard))
+        let phoneRoom = ActBandMetrics.narrowWidth(scale: .phone, language: "fr") - 2 * ActBandMetrics.narrowPadding(.phone)
         XCTAssertGreaterThan(phoneRoom / ActBandMetrics.textWidth("REPORTER", size: 17), 0.85)
     }
 
@@ -308,9 +308,9 @@ final class CockpitActBandTests: XCTestCase {
         // The phone's is set to fit (`ActFace`): `testEveryRolesWordsFitThePhonesSlots`.
         do {
             let scale = CockpitScale.kneeboard
-            let room = ActBandMetrics.narrowWidth(scale: scale) - 2 * ActBandMetrics.narrowPadding(scale)
             let label = CockpitType.label(for: scale)
             for language in AppLanguage.shipped {
+                let room = ActBandMetrics.narrowWidth(scale: scale, language: language) - 2 * ActBandMetrics.narrowPadding(scale)
                 let title = ActBandText.twoLines(localizedString(key: "checklist.touchAndGo", language: language))
                 let hint = localizedString(key: "checklist.holdToConfirm", language: language)
                 let total = height(title, size: label, lines: 2, width: room) + 2
@@ -328,6 +328,39 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertEqual(ActBandText.twoLines("REMISE DE GAZ"), "REMISE\nDE GAZ")
         XCTAssertEqual(ActBandText.twoLines("DEFER"), "DEFER", "nowhere to break")
         XCTAssertEqual(ActBandText.twoLines("-GO"), "-GO")
+        XCTAssertEqual(ActBandText.twoLines("AUF\u{AD}SCHIEBEN"), "AUF-\nSCHIEBEN", "a soft hyphen shows where it breaks")
+    }
+
+    /// German's DEFER carries a soft hyphen: on one line it shows nothing and takes no room (the phone, the
+    /// Deferred items list), under the iPad's icon it breaks there, "AUF-" over "SCHIEBEN". Each language's
+    /// narrow slots are as wide as its own words ask on the iPad: English at the 120 pt floor, French's
+    /// REPORTER as before German, German's "Ausweichen" a little wider; none takes from the others' S1 and
+    /// S2. (6.5.0)
+    func testEachLanguagesNarrowWordsHoldItsOwnSlots() throws {
+        let label = CockpitType.label(for: .kneeboard)
+        XCTAssertEqual(ActBandMetrics.textWidth("AUF\u{AD}SCHIEBEN", size: label), ActBandMetrics.textWidth("AUFSCHIEBEN", size: label),
+                       accuracy: 0.01)
+        XCTAssertEqual(ActNarrowLabel.block("AUF\u{AD}SCHIEBEN", scale: .kneeboard).text, "AUF-\nSCHIEBEN")
+        XCTAssertEqual(ActNarrowLabel.block("AUF\u{AD}SCHIEBEN", scale: .kneeboard).maxLines, 2)
+        XCTAssertEqual(ActNarrowLabel.block("REPORTER", scale: .kneeboard).maxLines, 1)
+        // The icon and the two lines inside the iPad's 104 pt.
+        let twoLines = ActNarrowLabel.block("AUF\u{AD}SCHIEBEN", scale: .kneeboard)
+        let icon = UIImage(systemName: "clock.arrow.circlepath",
+                           withConfiguration: UIImage.SymbolConfiguration(font: .aero(size: CockpitType.response, weight: .semibold)))
+        XCTAssertLessThanOrEqual((icon?.size.height ?? 40) + 6 + 2 * ActFace.lineHeight(size: label, block: twoLines), 104 - 8)
+        XCTAssertEqual(ActBandMetrics.narrowWidth(scale: .kneeboard, language: "en"), 120)
+        let reporter = ActBandMetrics.textWidth("REPORTER", size: label) + 2 * ActBandMetrics.narrowPadding(.kneeboard)
+        XCTAssertEqual(ActBandMetrics.narrowWidth(scale: .kneeboard, language: "fr"), reporter.rounded(.up))
+        for language in AppLanguage.shipped {
+            let width = ActBandMetrics.narrowWidth(scale: .kneeboard, language: language)
+            let room = width - 2 * ActBandMetrics.narrowPadding(.kneeboard)
+            for line in ActBandMetrics.narrowTemplates(language: language, scale: .kneeboard) {
+                XCTAssertLessThanOrEqual(ActBandMetrics.textWidth(line, size: label), room, "\(language): \(line)")
+            }
+            // S1 and S2 keep about 250 pt in portrait.
+            let frames = ActBandLayout.frames(width: Row.iPadPortrait, metrics: .make(layout: .wide, scale: .kneeboard, language: language))
+            XCTAssertGreaterThan(frames[0].width, 240, language)
+        }
     }
 
     // MARK: - The band as drawn
@@ -455,10 +488,11 @@ final class CockpitActBandTests: XCTestCase {
             }
         }
         XCTAssertGreaterThan(cases, 400)
-        // The smallest words: the long French ones on the narrowest iPhone, "ATTERRISSAGE", "REMISE DE
-        // GAZ", still above 10 pt; on an iPhone 17 above 11.
+        // The smallest words: the long French and German ones on the narrowest iPhone, "ATTERRISSAGE",
+        // "REMISE DE GAZ", still at 10 pt, German's DURCHSTARTEN (3 pt wider) a quarter under; on an iPhone
+        // 17 above 11.
         for (key, smallest) in smallest {
-            let floor: CGFloat = key.contains("SE") ? 10 : key.contains("17e") ? 10.5 : 11
+            let floor: CGFloat = key.contains("SE") ? 9.75 : key.contains("17e") ? 10.25 : 11
             XCTAssertGreaterThanOrEqual(smallest.size, floor, "\(key): \(smallest.face)")
         }
         // In English, the in-flight checks' words at 16 pt or more on an iPhone 17, most at 20.
@@ -495,9 +529,9 @@ final class CockpitActBandTests: XCTestCase {
         }
         XCTAssertGreaterThan(cases, 600)
         // What the replays caught: ✓ DONE's line on one line at 70 % (main's) holds none of them in
-        // portrait; set, every word shows at 20 pt or about.
-        let slot = Self.iPadSlots[0]
+        // portrait, in English and in French; set, every word shows at 20 pt or about, in every language.
         for language in AppLanguage.shipped {
+            let slot = Self.iPadSlots(language)[0]
             func t(_ key: String) -> String { localizedString(key: key, language: language) }
             for (check, next) in [("afterEngineStart", "taxi"), ("lineUp", "climb"), ("climb", "cruise")] {
                 let title = format("cockpit.memoryCheckDone", language, t("phase.short.\(check)"))
@@ -507,8 +541,10 @@ final class CockpitActBandTests: XCTestCase {
                                                 subtitleLines: ActChecklistPrimary.lines(.kneeboard).subtitle, fitted: true) {}
                 // Main's line: under the title and its icon, the slot less 14 pt each side.
                 let lineBlock = ActFaceBlock(text: line, size: 20, bold: false)
-                XCTAssertGreaterThan(ActFace.width(line, size: 20 * 0.7, block: lineBlock), slot.width - 28,
-                                     "\(language): \"\(line)\" can't fit main's one line")
+                if ["en", "fr"].contains(language) {
+                    XCTAssertGreaterThan(ActFace.width(line, size: 20 * 0.7, block: lineBlock), slot.width - 28,
+                                         "\(language): \"\(line)\" can't fit main's one line")
+                }
                 let (room, faces) = Self.iPadFace("", slot, padding: 14, icon: "checkmark", iconSize: 28, spacing: 10,
                                                   blocks: button.fittedBlocks(for: .kneeboard))
                 let settings = ActFace.set(faces[0].blocks, width: room.width, height: slot.height - 6, spacing: 2)
@@ -520,7 +556,7 @@ final class CockpitActBandTests: XCTestCase {
     func testTheIPadsCheckSlotWordsFitItsSlot() {
         var cases = 0
         for language in AppLanguage.shipped {
-            for slot in Self.iPadCheckSlots {
+            for slot in Self.iPadCheckSlots(language) {
                 for face in iPadCheckSlotFaces(language) {
                     check(face, in: slot, language: language)
                     cases += 1
@@ -529,7 +565,7 @@ final class CockpitActBandTests: XCTestCase {
         }
         XCTAssertGreaterThan(cases, 600)
         // The line that was cut, whole.
-        let slot = Self.iPadCheckSlots[0]
+        let slot = Self.iPadCheckSlots("fr")[0]
         let settings = ActFace.set(CheckSlotLabel.blocks(title: "MONTÉE", line: localizedString(key: "checkSlot.fromMemoryOneTap", language: "fr"),
                                                          scale: .kneeboard),
                                    width: slot.width, height: slot.height - 6, spacing: 2)
@@ -620,13 +656,14 @@ final class CockpitActBandTests: XCTestCase {
 
     /// The iPad's check slot text, beside MARK in portrait (820 pt) and on its side (1180): the slot less
     /// its 22 pt each side, its icon (the widest it shows) and the 16 pt after it.
-    private static var iPadCheckSlots: [BandSlot] {
+    private static func iPadCheckSlots(_ language: String) -> [BandSlot] {
         let icon = ["checkmark.circle", "list.bullet", "chevron.right.circle", "arrow.triangle.2.circlepath",
                     "airplane.departure"].compactMap {
             UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold))?.size.width
         }.max() ?? 40
         return [("portrait", CGFloat(820)), ("on its side", 1180)].map { name, screen in
-            let frame = ActBandLayout.frames(width: screen - 32, metrics: .make(layout: .wide, scale: .kneeboard))[0]
+            let frame = ActBandLayout.frames(width: screen - 32,
+                                             metrics: .make(layout: .wide, scale: .kneeboard, language: language))[0]
             return BandSlot(name: "iPad \(name)", width: frame.width - 2 * 22 - icon - 16, height: frame.height)
         }
     }
@@ -656,16 +693,18 @@ final class CockpitActBandTests: XCTestCase {
         }
     }
 
-    /// The iPad's S1/S2 frames in portrait (820 pt) and on its side (1180), and S3/S4.
-    private static var iPadSlots: [BandSlot] {
+    /// The iPad's S1/S2 frames in portrait (820 pt) and on its side (1180), and S3/S4, in `language`: the
+    /// narrow slots are as wide as its words ask (6.5.0).
+    private static func iPadSlots(_ language: String) -> [BandSlot] {
         [("portrait", CGFloat(820)), ("on its side", 1180)].map { name, screen in
-            let frame = ActBandLayout.frames(width: screen - 32, metrics: .make(layout: .wide, scale: .kneeboard))[0]
+            let frame = ActBandLayout.frames(width: screen - 32,
+                                             metrics: .make(layout: .wide, scale: .kneeboard, language: language))[0]
             return BandSlot(name: "iPad \(name)", width: frame.width, height: frame.height)
         }
     }
 
-    private static var iPadNarrowSlot: BandSlot {
-        let frame = ActBandLayout.frames(width: 820 - 32, metrics: .make(layout: .wide, scale: .kneeboard))[2]
+    private static func iPadNarrowSlot(_ language: String) -> BandSlot {
+        let frame = ActBandLayout.frames(width: 820 - 32, metrics: .make(layout: .wide, scale: .kneeboard, language: language))[2]
         return BandSlot(name: "iPad S3", width: frame.width, height: frame.height)
     }
 
@@ -686,7 +725,7 @@ final class CockpitActBandTests: XCTestCase {
         let checks = Self.phases.map { t("phase.short.\($0)") }
         let lines = ActChecklistPrimary.lines(.kneeboard)
         var faces: [(BandSlot, [Face])] = []
-        for slot in Self.iPadSlots {
+        for slot in Self.iPadSlots(language) {
             func thumb(_ title: String, _ subtitle: String?, icon: String?, titleLines: Int = lines.title,
                        subtitleLines: Int = lines.subtitle) -> (BandSlot, [Face]) {
                 let button = CockpitThumbButton(title: title, subtitle: subtitle, icon: icon, style: .outlined(tint: .cyan),
@@ -753,7 +792,7 @@ final class CockpitActBandTests: XCTestCase {
     /// S3 and S4 on the iPad: TOUCH-AND-GO held and in circuits, DEFER, Divert, More.
     private func iPadNarrowFaces(_ language: String) -> [(BandSlot, [Face])] {
         func t(_ key: String) -> String { localizedString(key: key, language: language) }
-        let slot = Self.iPadNarrowSlot
+        let slot = Self.iPadNarrowSlot(language)
         let inset = ActBandMetrics.narrowPadding(.kneeboard)
         let title = ActBandText.twoLines(t("checklist.touchAndGo"))
         let circuits = CockpitThumbButton(title: title, style: .outlined(tint: .cyan), titleLines: 2, fitted: true) {}
@@ -761,12 +800,13 @@ final class CockpitActBandTests: XCTestCase {
                           blocks: HoldToConfirmButton.fittedBlocks(title: title, titleLines: 2, hint: t("checklist.holdToConfirm"),
                                                                    scale: .kneeboard), inset: inset),
                      Face(name: "iPad TOUCH-AND-GO", blocks: circuits.fittedBlocks(for: .kneeboard), inset: inset)]
-        // The word under its icon: one line at the label size.
-        let word = BandSlot(name: slot.name, width: slot.width, height: CockpitType.label(for: .kneeboard) * 1.3)
-        let words = ["cockpit.defer", "act.divert", "nav.more"].map {
-            Face(name: "iPad \($0)", blocks: [ActNarrowLabel.block(t($0), scale: .kneeboard)], inset: inset, verticalInset: 0)
+        // The word under its icon: one line at the label size, German's DEFER two ("AUF-" over "SCHIEBEN").
+        let words = ["cockpit.defer", "act.divert", "nav.more"].map { key -> (BandSlot, [Face]) in
+            let block = ActNarrowLabel.block(t(key), scale: .kneeboard)
+            let word = BandSlot(name: slot.name, width: slot.width, height: CockpitType.label(for: .kneeboard) * 1.3 * CGFloat(block.maxLines))
+            return (word, [Face(name: "iPad \(key)", blocks: [block], inset: inset, verticalInset: 0)])
         }
-        return [(slot, faces), (word, words)]
+        return [(slot, faces)] + words
     }
 
     /// A slot's words as one of the band's views sets them, with its inset.

@@ -30,10 +30,12 @@
 #              WEBSITE wants the downscaled default; the store wants this.
 #   --wait         seconds to let the injector settle (default 12: the first launch after an install can
 #                  skip its scene, so the script launches every scene twice)
+#   --clock HH:MM  the app's flight clock at launch (default 09:41, the status bar's time; DEBUG
+#                  AEROCHECK_CLOCK, app 6.4.3 on). Every shot is taken at 9:41.
 set -euo pipefail
 
 APP=""; DEVICE=""; SCENES=""; ROTATE=""; PAUSE=0; WAIT=12; NATIVE=0; OUT="public/assets/screenshot/v6"
-ORIENTATION="portrait"; AS=""
+ORIENTATION="portrait"; AS=""; CLOCK="09:41"
 while [ $# -gt 0 ]; do
   case "$1" in
     --app) APP="$2"; shift 2 ;;
@@ -46,6 +48,7 @@ while [ $# -gt 0 ]; do
     --out) OUT="$2"; shift 2 ;;
     --orientation) ORIENTATION="$2"; shift 2 ;;
     --as) AS="$2"; shift 2 ;;
+    --clock) CLOCK="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -99,9 +102,10 @@ for SCENE in "${LIST[@]}"; do
     sleep 1
     if [ "$KIND" = "iphone" ]; then
       SIMCTL_CHILD_AEROCHECK_ORIENTATION="$ORIENTATION" SIMCTL_CHILD_AEROCHECK_SCENE="$SCENE" \
-        xcrun simctl launch "$DEVICE" "$BUNDLE" >/dev/null
+        SIMCTL_CHILD_AEROCHECK_CLOCK="$CLOCK" xcrun simctl launch "$DEVICE" "$BUNDLE" >/dev/null
     else
-      SIMCTL_CHILD_AEROCHECK_SCENE="$SCENE" xcrun simctl launch "$DEVICE" "$BUNDLE" >/dev/null
+      SIMCTL_CHILD_AEROCHECK_SCENE="$SCENE" SIMCTL_CHILD_AEROCHECK_CLOCK="$CLOCK" \
+        xcrun simctl launch "$DEVICE" "$BUNDLE" >/dev/null
     fi
     sleep "$WAIT"
   done

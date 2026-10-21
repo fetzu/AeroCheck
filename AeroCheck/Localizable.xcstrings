@@ -321,6 +321,12 @@
     },
     "Checked %@, re-check for this leg": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft um %@, für diese Etappe erneut prüfen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -347,6 +353,12 @@
     },
     "Circuits at %@": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunden in %@"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -3824,6 +3836,12 @@
     "dryRun.band": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TROCKENÜBUNG"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3841,6 +3859,12 @@
     "dryRun.finalCardOnly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Einblendung steuert den Flug in einer Trockenübung. In einem echten Flug erscheint sie nicht."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3858,6 +3882,12 @@
     "dryRun.paused": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pausiert"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3875,6 +3905,12 @@
     "dryRun.pausedTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TROCKENÜBUNG PAUSIERT"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3892,6 +3928,12 @@
     "dryRun.typeCode": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie den ICAO-Code des Flugplatzes ein."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3909,6 +3951,12 @@
     "dryRun.waiting": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wartet auf Sie"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3926,6 +3974,12 @@
     "dryRun.waitingShort": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wartet"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3943,6 +3997,12 @@
     "dryRun.skipping": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nächste Kontrolle"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3960,6 +4020,12 @@
     "dryRun.over": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BEENDET"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3977,6 +4043,12 @@
     "dryRun.overTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Trockenübung ist beendet"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3994,6 +4066,12 @@
     "dryRun.pause": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung pausieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4011,6 +4089,12 @@
     "dryRun.resume": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung fortsetzen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4028,6 +4112,12 @@
     "dryRun.paceAccessibility": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempo %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4045,6 +4135,12 @@
     "dryRun.nextCheck": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NÄCHSTE KONTROLLE"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4062,6 +4158,12 @@
     "dryRun.onThisFinal": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IN DIESEM ENDANFLUG MACHT DAS FLUGZEUG"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4079,6 +4181,12 @@
     "dryRun.onThisFinalShort": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IN DIESEM ENDANFLUG"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4096,6 +4204,12 @@
     "dryRun.fullStop": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FULL STOP"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4113,6 +4227,12 @@
     "dryRun.endDryRun": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung beenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4130,6 +4250,12 @@
     "dryRun.checks": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KONTROLLEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4147,6 +4273,12 @@
     "dryRun.landings": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LANDUNGEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4164,6 +4296,12 @@
     "dryRun.circuitsFigure": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PLATZRUNDEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4181,6 +4319,12 @@
     "dryRun.time": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DAUER"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4198,6 +4342,12 @@
     "dryRun.nothingSaved": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts wurde gespeichert: kein Flugbucheintrag, nichts an iCloud gesendet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4215,6 +4365,12 @@
     "dryRun.again": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WIEDERHOLEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4232,6 +4388,12 @@
     "dryRun.done": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FERTIG"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4249,6 +4411,12 @@
     "dryRun.nextGoAround": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versuchen Sie beim nächsten Mal ein Durchstarten, im Endanflug gewählt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4266,6 +4434,12 @@
     "dryRun.nextTouchAndGo": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versuchen Sie beim nächsten Mal einen Touch-and-go, im Endanflug gewählt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4283,6 +4457,12 @@
     "dryRun.nextRoute": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fliegen Sie beim nächsten Mal eine Route, die Sie geplant haben, über ihr Menü in Planen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4300,6 +4480,12 @@
     "dryRun.nextCircuits": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versuchen Sie beim nächsten Mal Platzrunden mit einem Durchstarten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4317,6 +4503,12 @@
     "dryRun.nextDivert": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versuchen Sie beim nächsten Mal, unterwegs auszuweichen: mit «Ausweichen»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4334,6 +4526,12 @@
     "dryRun.takeoffAt": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start um %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4351,6 +4549,12 @@
     "dryRun.touchAndGoAt": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch-and-go um %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4368,6 +4572,12 @@
     "dryRun.goAroundAt": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durchstarten um %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4385,6 +4595,12 @@
     "dryRun.fullStopAt": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Stop um %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4402,6 +4618,12 @@
     "dryRun.circuitsAt": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunden in %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4419,6 +4641,12 @@
     "dryRun.startTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung fliegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4436,6 +4664,12 @@
     "dryRun.startIntro": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Flugzeug wird für Sie am Boden geflogen, im echten Cockpit, damit Sie alles in jedem Tempo ausprobieren können. Nichts wird gespeichert."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4453,6 +4687,12 @@
     "dryRun.what": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was geflogen wird"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4470,6 +4710,12 @@
     "dryRun.theRoute": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Route"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4487,6 +4733,12 @@
     "dryRun.circuits": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4504,6 +4756,12 @@
     "dryRun.aerodrome": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatz"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4521,6 +4779,12 @@
     "dryRun.looking": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche in den Flugplatzdaten…"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4538,6 +4802,12 @@
     "dryRun.noRunway": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Piste für %@ in den Flugplatzdaten gefunden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4555,6 +4825,12 @@
     "dryRun.routeTooShort": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Route braucht zwei Flugplätze."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4572,6 +4848,12 @@
     "dryRun.noAirportData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Flugplatzdaten sind noch nicht auf diesem Gerät, daher ist bis zu ihrem Download nur LSZQ verfügbar (Einstellungen › Daten & Speicher)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4589,6 +4871,12 @@
     "dryRun.aircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugzeug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4606,6 +4894,12 @@
     "dryRun.pace": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempo"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4623,6 +4917,12 @@
     "dryRun.startFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf dem iPad sind Pause, das Tempo und NÄCHSTE KONTROLLE in der Leiste oben; auf dem iPhone sind sie im Menü. Wenn Sie die App verlassen, pausiert die Trockenübung."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4640,6 +4940,12 @@
     "dryRun.fly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TROCKENÜBUNG FLIEGEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4657,6 +4963,12 @@
     "dryRun.leftHand": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linksplatzrunde auf %@ ft"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4674,6 +4986,12 @@
     "dryRun.rightHand": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechtsplatzrunde auf %@ ft"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4691,6 +5009,12 @@
     "dryRun.runway": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4708,6 +5032,12 @@
     "dryRun.checklistUnavailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste dieses Flugzeugs ist im Moment nicht verfügbar: Dafür braucht es AéroCheck Pro oder eine Verbindung."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4725,6 +5055,12 @@
     "dryRun.busy": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Flug oder eine Trockenübung läuft bereits."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4742,6 +5078,12 @@
     "dryRun.refused": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Trockenübung konnte nicht beginnen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4759,6 +5101,12 @@
     "dryRun.settingsRow": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung am Boden fliegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4776,6 +5124,12 @@
     "dryRun.settingsRowSubtitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein simulierter Flug am Boden, im echten Cockpit, um alles auszuprobieren, was Sie möchten. Nichts wird gespeichert."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4793,6 +5147,12 @@
     "dryRun.flyRoute": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung fliegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4810,6 +5170,12 @@
     "dryRunCoach.chapter1": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bevor es losgeht"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4827,6 +5193,12 @@
     "dryRunCoach.chapter2": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motor und Rollen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4844,6 +5216,12 @@
     "dryRunCoach.chapter3": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufrollen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4861,6 +5239,12 @@
     "dryRunCoach.chapter4": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start und Steigflug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4878,6 +5262,12 @@
     "dryRunCoach.chapter5": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf der Route"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4895,6 +5285,12 @@
     "dryRunCoach.chapter6": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück zur Landung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4912,6 +5308,12 @@
     "dryRunCoach.chapter7": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach der Landung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4929,6 +5331,12 @@
     "dryRunCoach.chaptersFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnt die Trockenübung bei einem Kapitel des Flugs. Dorthin zu gelangen dauert ein paar Sekunden, und die früheren Kontrollen werden für Sie erledigt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4946,6 +5354,12 @@
     "dryRunCoach.coverBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Trockenübung fliegt dorthin, wo dieses Kapitel beginnt, und erledigt die früheren Kontrollen für Sie. Das dauert ein paar Sekunden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4963,6 +5377,12 @@
     "dryRunCoach.coverTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unterwegs zu Kapitel %lld"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4980,6 +5400,12 @@
     "dryRunCoach.coverTitlePart": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unterwegs dorthin"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -4997,6 +5423,12 @@
     "dryRunCoach.doing.base": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queranflug."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5014,6 +5446,12 @@
     "dryRunCoach.doing.climbing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steigflug zur Reiseflughöhe."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5031,6 +5469,12 @@
     "dryRunCoach.doing.climbingOut": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfangssteigflug."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5048,6 +5492,12 @@
     "dryRunCoach.doing.crosswind": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Querabflug."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5065,6 +5515,12 @@
     "dryRunCoach.doing.cruising": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unterwegs zu %@."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5082,6 +5538,12 @@
     "dryRunCoach.doing.descending": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sinkflug zur Platzrunde."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5099,6 +5561,12 @@
     "dryRunCoach.doing.downwind": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gegenanflug."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5116,6 +5584,12 @@
     "dryRunCoach.doing.final": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endanflug."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5133,6 +5607,12 @@
     "dryRunCoach.doing.goingAround": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durchstarten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5150,6 +5630,12 @@
     "dryRunCoach.doing.holding": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Rollhaltepunkt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5167,6 +5653,12 @@
     "dryRunCoach.doing.joining": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einflug in die Platzrunde."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5184,6 +5676,12 @@
     "dryRunCoach.doing.landing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landung."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5201,6 +5699,12 @@
     "dryRunCoach.doing.liningUp": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufrollen: In einer Trockenübung startet das Flugzeug automatisch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5218,6 +5722,12 @@
     "dryRunCoach.doing.parked": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgestellt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5235,6 +5745,12 @@
     "dryRunCoach.doing.parkedEnd": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf dem Abstellplatz."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5252,6 +5768,12 @@
     "dryRunCoach.doing.stopped": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf der Piste angehalten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5269,6 +5791,12 @@
     "dryRunCoach.doing.takeoffRoll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startlauf."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5286,6 +5814,12 @@
     "dryRunCoach.doing.taxiing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rollen zum Rollhaltepunkt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5303,6 +5837,12 @@
     "dryRunCoach.doing.taxiingIn": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rollen zum Abstellplatz."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5320,6 +5860,12 @@
     "dryRunCoach.doing.upwind": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfangssteigflug."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5337,6 +5883,12 @@
     "dryRunCoach.end": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ENDE"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5354,6 +5906,12 @@
     "dryRunCoach.flyChapters": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den Flug fliegen, Kapitel für Kapitel"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5371,6 +5929,12 @@
     "dryRunCoach.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einblendung zusammenklappen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5388,6 +5952,12 @@
     "dryRunCoach.habit1": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnen Sie den Flug vor dem Anlassen: Ab diesem Moment misst die App alle Zeiten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5405,6 +5975,12 @@
     "dryRunCoach.habit2": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die erste Taste zeigt immer die nächste Kontrolle, und nichts, was Sie aufschieben, geht verloren."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5422,6 +5998,12 @@
     "dryRunCoach.habit3": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Tippen am Rollhaltepunkt, dann beide Hände am Steuer."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5439,6 +6021,12 @@
     "dryRunCoach.habit4": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Flug läuft die App mit: Sie tippen nur, wenn sie Sie darum bittet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5456,6 +6044,12 @@
     "dryRunCoach.habit5": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein kurzer Blick genügt: Das Wichtige steht oben auf dem Bildschirm."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5473,6 +6067,12 @@
     "dryRunCoach.habit6": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zuerst fliegen: Eine Kontrolle kann warten, und die App behält sie in ihrer Reihenfolge."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5490,6 +6090,12 @@
     "dryRunCoach.habit7": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die App bereitet den Flugbucheintrag vor: Lesen Sie ihn durch, sobald Sie am Boden sind."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5507,6 +6113,12 @@
     "dryRunCoach.habitClose": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schliessen Sie zuerst einen aufgegebenen ATC-Flugplan; der Rest kann bis zum Abend warten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5524,6 +6136,12 @@
     "dryRunCoach.habitLogbook": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Eintrag ist ein Entwurf: Lesen Sie ihn durch und übertragen Sie ihn dann in Ihr Flugbuch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5541,6 +6159,12 @@
     "dryRunCoach.habitPlan": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Seite pro Flug, und was als Nächstes zu tun ist, steht immer zuoberst."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5558,6 +6182,12 @@
     "dryRunCoach.learnGroup": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LERNEN UND ÜBEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5575,6 +6205,12 @@
     "dryRunCoach.linkKept": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In einem echten Flug öffnet dies %@."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5592,6 +6228,12 @@
     "dryRunCoach.linkKeptTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Trockenübung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5609,6 +6251,12 @@
     "dryRunCoach.memoryCheckNote": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Punkte dieser Kontrolle sind als Memory Items ausgeblendet: Sagen Sie sie auswendig auf und tippen Sie dann einmal auf die Kontrolle."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5626,6 +6274,12 @@
     "dryRunCoach.nextClose": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Nächstes der Abschluss des Flugs: die Flugbuchzeile, die Kosten und das Debriefing."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5643,6 +6297,12 @@
     "dryRunCoach.nextFly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Nächstes der Flug selbst: FLUG BEGINNEN, das Cockpit, die Kontrollen, ein Durchstarten und ein Full Stop."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5660,6 +6320,12 @@
     "dryRunCoach.nextForYou": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr nächster Schritt: %@."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5677,6 +6343,12 @@
     "dryRunCoach.nextLogbook": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Nächstes Ihr Flugbuch: der Flug, den Sie eben geflogen sind, mit seinem Flugweg und seinen Kontrollen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5694,6 +6366,12 @@
     "dryRunCoach.onTo": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter zu %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5711,6 +6389,12 @@
     "dryRunCoach.part1": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einen Flug planen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5728,6 +6412,12 @@
     "dryRunCoach.part2": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den Flug fliegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5745,6 +6435,12 @@
     "dryRunCoach.part3": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abschliessen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5762,6 +6458,12 @@
     "dryRunCoach.part4": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flugbuch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5779,6 +6481,12 @@
     "dryRunCoach.partDone": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: erledigt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5796,6 +6504,12 @@
     "dryRunCoach.partOf": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teil %1$lld von %2$lld"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5813,6 +6527,12 @@
     "dryRunCoach.partsFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnt die Trockenübung bei einem Teil. Dorthin zu gelangen dauert ein paar Sekunden, und die früheren Schritte werden für Sie erledigt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5830,6 +6550,12 @@
     "dryRunCoach.partsRow": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teil für Teil"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5847,6 +6573,12 @@
     "dryRunCoach.step.afterStart.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie sie durch und tippen Sie dann auf WEITER. Das Flugzeug beginnt zu rollen, sobald Sie die Kontrolle beim Rollen erreichen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5864,6 +6596,12 @@
     "dryRunCoach.step.afterStart.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle nach dem Anlassen durch und tippen Sie dann auf WEITER."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5881,6 +6619,12 @@
     "dryRunCoach.step.afterStart.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrolle nach dem Anlassen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5898,6 +6642,12 @@
     "dryRunCoach.step.airborne.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die App hat den Start erkannt und seine Zeit aufgezeichnet. Im Flug läuft sie mit: Sie tippen nur, wenn sie Sie darum bittet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5915,6 +6665,12 @@
     "dryRunCoach.step.airborne.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start erkannt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5932,6 +6688,12 @@
     "dryRunCoach.step.approachAgain.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Platzrunde kommt sie im Gegenanflug, sobald Sie in ihn eingedreht haben. Tippen Sie auf ihre Taste und führen Sie sie durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5949,6 +6711,12 @@
     "dryRunCoach.step.approachAgain.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle im Anflug erneut durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5966,6 +6734,12 @@
     "dryRunCoach.step.approachAgain.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrolle im Anflug, noch einmal"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5983,6 +6757,12 @@
     "dryRunCoach.step.approachAgain.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Kontrolle im Anflug, im Gegenanflug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6000,6 +6780,12 @@
     "dryRunCoach.step.approachCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie fliegen gleich in die Platzrunde ein: Die Kontrolle im Anflug kommt vor dem Gegenanflug. Tippen Sie auf ihre Taste und führen Sie sie durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6017,6 +6803,12 @@
     "dryRunCoach.step.approachCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle im Anflug durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6034,6 +6826,12 @@
     "dryRunCoach.step.approachCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück zur Landung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6051,6 +6849,12 @@
     "dryRunCoach.step.approachCheck.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Kontrolle im Anflug, vor dem Gegenanflug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6068,6 +6872,12 @@
     "dryRunCoach.step.checkOnce.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABHAKEN hakt den hervorgehobenen Punkt ab und geht zum nächsten. Tippen Sie einmal darauf."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6085,6 +6895,12 @@
     "dryRunCoach.step.checkOnce.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einen Punkt abhaken"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6102,6 +6918,12 @@
     "dryRunCoach.step.climbAgain.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach einem Durchstarten nahe Ihrem Ziel fährt die App als Platzrunde fort: noch einmal die Steigflugkontrolle, dann die Kontrolle im Anflug im Gegenanflug, ohne Reiseflug- oder Sinkflugkontrolle. Führen Sie die Steigflugkontrolle während der Runde durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6119,6 +6941,12 @@
     "dryRunCoach.step.climbAgain.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Steigflugkontrolle erneut durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6136,6 +6964,12 @@
     "dryRunCoach.step.climbAgain.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch eine Runde"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6153,6 +6987,12 @@
     "dryRunCoach.step.climbAgain.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Steigflugkontrolle noch einmal, sobald der Steigflug läuft"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6170,6 +7010,12 @@
     "dryRunCoach.step.climbCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald Sie in einem positiven, getrimmten Steigflug stabilisiert sind (meist 400 bis 500 ft über Grund), tippen Sie auf ihre Taste und führen Sie sie durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6187,6 +7033,12 @@
     "dryRunCoach.step.climbCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Steigflugkontrolle durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6204,6 +7056,12 @@
     "dryRunCoach.step.climbCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Steigflugkontrolle"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6221,6 +7079,12 @@
     "dryRunCoach.step.climbCheck.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Steigflugkontrolle, sobald der Steigflug stabilisiert ist"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6238,6 +7102,12 @@
     "dryRunCoach.step.closeOut.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FLUG BEENDEN hat den Flug in den ABSCHLUSS gebracht, wo Sie finden, was noch abzuschliessen ist. Hätten Sie einen ATC-Flugplan aufgegeben, käme sein Schliessen zuerst, in Rot, mit der Nummer, die Sie anrufen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6255,6 +7125,12 @@
     "dryRunCoach.step.closeOut.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach dem Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6272,6 +7148,12 @@
     "dryRunCoach.step.cockpit.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist das Cockpit, mit dem Sie fliegen. In einem echten Flug öffnen Sie es mit FLUG BEGINNEN auf Heute; hier hat die Trockenübung es für Sie geöffnet. Das Flugzeug wartet bei jedem Schritt auf Sie."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6289,6 +7171,12 @@
     "dryRunCoach.step.cockpit.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr erster Flug, am Boden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6306,6 +7194,12 @@
     "dryRunCoach.step.cockpitAfterPlan.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist das Cockpit, geöffnet mit FLUG BEGINNEN. Das Flugzeug wartet bei jedem Schritt auf Sie."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6323,6 +7217,12 @@
     "dryRunCoach.step.cockpitAfterPlan.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr erster Flug, am Boden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6340,6 +7240,12 @@
     "dryRunCoach.step.cruiseCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie sind auf Reiseflughöhe, also ist die Reiseflugkontrolle fällig. Tippen Sie auf ihre Taste und führen Sie sie durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6357,6 +7263,12 @@
     "dryRunCoach.step.cruiseCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Reiseflugkontrolle durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6374,6 +7286,12 @@
     "dryRunCoach.step.cruiseCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Reiseflugkontrolle"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6391,6 +7309,12 @@
     "dryRunCoach.step.cruiseCheck.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Reiseflugkontrolle, beim Übergang in den Reiseflug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6408,6 +7332,12 @@
     "dryRunCoach.step.dashboard.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Stunden, Flüge und Landungen, die Stunden pro Flugzeug, was Sie ausgegeben haben und wie Ihre Kontrollen liefen. Das Flugbuch der Trockenübung enthält fünf erfundene Flüge vor Ihrem."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6425,6 +7355,12 @@
     "dryRunCoach.step.dashboard.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Jahr im Überblick"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6442,6 +7378,12 @@
     "dryRunCoach.step.debrief.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn Sie möchten, notieren Sie, was gut lief und was Sie ändern wollen. Das ist freiwillig und wird zu den Notizen des Flugs in Ihrem Flugbuch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6459,6 +7401,12 @@
     "dryRunCoach.step.debrief.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Debriefing"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6476,6 +7424,12 @@
     "dryRunCoach.step.defer.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Können Sie einen Punkt gerade nicht erledigen? AUFSCHIEBEN legt ihn beiseite, und die App behält ihn für später. Versuchen Sie es jetzt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6493,6 +7447,12 @@
     "dryRunCoach.step.defer.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einen Punkt aufschieben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6510,6 +7470,12 @@
     "dryRunCoach.step.deferredChip.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles, was Sie aufgeschoben haben, wartet hier, in Bernsteinfarbe. Tippen Sie jederzeit darauf, um es zu erledigen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6527,6 +7493,12 @@
     "dryRunCoach.step.deferredChip.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts geht verloren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6544,6 +7516,12 @@
     "dryRunCoach.step.descentCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Sinkflug hat begonnen, also ist die Sinkflugkontrolle fällig. Tippen Sie auf ihre Taste und führen Sie sie durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6561,6 +7539,12 @@
     "dryRunCoach.step.descentCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Sinkflugkontrolle durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6578,6 +7562,12 @@
     "dryRunCoach.step.descentCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Sinkflugkontrolle"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6595,6 +7585,12 @@
     "dryRunCoach.step.descentCheck.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Sinkflugkontrolle, bei Beginn des Sinkflugs"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6612,6 +7608,12 @@
     "dryRunCoach.step.endFlight.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit wird der Flug abgeschlossen und sein Flugbucheintrag erstellt, mit den Zeiten aus dem GPS-Flugweg. Dies ist eine Trockenübung, also wird nichts davon behalten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6629,6 +7631,12 @@
     "dryRunCoach.step.endFlight.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FLUG BEENDEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6646,6 +7654,12 @@
     "dryRunCoach.step.engineShutdown.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Motor steht: Tippen Sie darauf, und die App erfasst die Zeit."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6663,6 +7677,12 @@
     "dryRunCoach.step.engineShutdown.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTOR ABSTELLEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6680,6 +7700,12 @@
     "dryRunCoach.step.engineShutdown.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTOR ABSTELLEN, auf dem Abstellplatz"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6697,6 +7723,12 @@
     "dryRunCoach.step.engineStart.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie darauf, sobald der Motor läuft: Die App erfasst die Zeit, und die Zeiten des Flugs zählen ab dort."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6714,6 +7746,12 @@
     "dryRunCoach.step.engineStart.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTOR ANLASSEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6731,6 +7769,12 @@
     "dryRunCoach.step.engineStartCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Punkte dieser Kontrolle kommen vor dem Anlassen. Führen Sie sie durch und drücken Sie dann MOTOR ANLASSEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6748,6 +7792,12 @@
     "dryRunCoach.step.engineStartCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle beim Anlassen durch und drücken Sie dann MOTOR ANLASSEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6765,6 +7815,12 @@
     "dryRunCoach.step.engineStartCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrolle beim Anlassen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6782,6 +7838,12 @@
     "dryRunCoach.step.exports.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Exportieren» erstellt eine GPX- oder JSON-Datei des Flugs; «Exportieren» im Flugbuch erstellt das EASA-Flugbuch als PDF. Um denselben Flug erneut zu planen, streichen Sie ihn im Flugbuch nach rechts."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6799,6 +7861,12 @@
     "dryRunCoach.step.exports.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportieren und erneut planen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6816,6 +7884,12 @@
     "dryRunCoach.step.finish.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Beenden» schliesst die Seite des Flugs; der Flug bleibt in Ihrem Flugbuch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6833,6 +7907,12 @@
     "dryRunCoach.step.finish.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6850,6 +7930,12 @@
     "dryRunCoach.step.flightPage.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeder Flug hat seine eigene Seite, von der Planung bis zum Flugbuch: der Flugverlauf. Seine vier Kapitel (Planen, Vorbereiten, Fliegen und Abschliessen) folgen dem Ablauf jedes Flugs, und ein Tippen auf eines führt Sie dorthin. Der Kreis oben zeigt, wie viel erledigt ist."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6867,6 +7953,12 @@
     "dryRunCoach.step.flightPage.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Seite pro Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6884,6 +7976,12 @@
     "dryRunCoach.step.fuelDone.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie oben rechts auf «Fertig», um diesen Treibstoff an Bord für den Flug zu übernehmen und das Fenster zu schliessen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6901,6 +7999,12 @@
     "dryRunCoach.step.fuelDone.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speichern"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6918,6 +8022,12 @@
     "dryRunCoach.step.fuelRow.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgaben mit AUTO werden automatisch aus der Route und dem Flugzeug ausgefüllt. Tippen Sie auf «Treibstoffplan»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6935,6 +8045,12 @@
     "dryRunCoach.step.fuelRow.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch berechnet"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6952,6 +8068,12 @@
     "dryRunCoach.step.fuelSheet.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier sehen Sie, was die Route braucht und was Sie an Bord haben. Tippen Sie auf «Volle Tanks». Ist für dieses Flugzeug noch kein Wert für volle Tanks bekannt, tippen Sie den ausfliegbaren Treibstoff aus dem Flughandbuch ein (in einer Trockenübung genügt jeder Wert) und tippen Sie dann auf «Speichern · volle Tanks»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6969,6 +8091,12 @@
     "dryRunCoach.step.fuelSheet.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treibstoff an Bord"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -6986,6 +8114,12 @@
     "dryRunCoach.step.fullStop.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FULL STOP ist bereits gewählt, also landet das Flugzeug. Tippen Sie im kurzen Endanflug auf die Landekontrolle und führen Sie ihre Punkte durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7003,6 +8137,12 @@
     "dryRunCoach.step.fullStop.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie im kurzen Endanflug die Landekontrolle durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7020,6 +8160,12 @@
     "dryRunCoach.step.fullStop.memoryBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FULL STOP ist bereits gewählt, also landet das Flugzeug. Sagen Sie im kurzen Endanflug die Landekontrolle auswendig auf und tippen Sie dann einmal darauf, um sie zu erfassen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7037,6 +8183,12 @@
     "dryRunCoach.step.fullStop.memoryFold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie im kurzen Endanflug einmal auf die Landekontrolle."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7054,6 +8206,12 @@
     "dryRunCoach.step.fullStop.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diesmal ein Full Stop"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7071,6 +8229,12 @@
     "dryRunCoach.step.goAround.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie in diesem Endanflug DURCHSTARTEN in der Einblendung: Das Flugzeug steigt wieder, und die App erkennt das Durchstarten. In einem echten Flug starten Sie selbst durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7088,6 +8252,12 @@
     "dryRunCoach.step.goAround.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Durchstarten versuchen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7105,6 +8275,12 @@
     "dryRunCoach.step.goAround.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ein Durchstarten, im Endanflug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7122,6 +8298,12 @@
     "dryRunCoach.step.goAroundCard.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die App hat das Durchstarten erkannt und automatisch aufgezeichnet: Die Kontrollen sind zur Steigflugkontrolle zurückgekehrt. War es keines, nimmt WIDERRUFEN es während einiger Sekunden zurück. Nach einem echten Flug bestätigen Sie es in der Flugauswertung."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7139,6 +8321,12 @@
     "dryRunCoach.step.goAroundCard.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durchstarten erkannt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7156,6 +8344,12 @@
     "dryRunCoach.step.hoursAfter.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie den Stand des Stundenzählers erneut ein. Aus den zwei Ständen berechnen Flugbuch und Kosten die geflogene Zeit."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7173,6 +8367,12 @@
     "dryRunCoach.step.hoursAfter.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motorstunden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7190,6 +8390,12 @@
     "dryRunCoach.step.hoursBefore.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie vor dem Anlassen den Stand des Stundenzählers ein. Flugbuch und Kosten berechnen damit die geflogene Zeit. In einer Trockenübung genügt jede Zahl, oder tippen Sie auf «Überspringen»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7207,6 +8413,12 @@
     "dryRunCoach.step.hoursBefore.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motorstunden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7224,6 +8436,12 @@
     "dryRunCoach.step.landingShown.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im kurzen Endanflug kommt die Landekontrolle. Hier erscheint sie gestrichelt: Tippen Sie darauf, um sie zu öffnen, und führen Sie dann ihre Punkte durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7241,6 +8459,12 @@
     "dryRunCoach.step.landingShown.memoryBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im kurzen Endanflug kommt die Landekontrolle, auswendig aufgesagt. Hier erscheint sie gestrichelt; es gibt nichts zu drücken."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7258,6 +8482,12 @@
     "dryRunCoach.step.landingShown.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Landekontrolle"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7275,6 +8505,12 @@
     "dryRunCoach.step.legControls.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÜBERFLUG erfasst die Überflugzeit des nächsten Wegpunkts, wenn Sie darauf tippen, und die Teilstrecken-Stoppuhr darunter beginnt von vorn. Sie müssen das nicht: Die App erfasst jeden Wegpunkt automatisch, wenn Sie querab an ihm vorbeifliegen, höchstens 2.5 NM neben der Route. Erfassen Sie ihn selbst für einen Wegpunkt, den Sie weiter entfernt passieren (ein Umweg, eine Freigabe), oder um die genaue Zeit zu notieren, zu der Sie ihn melden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7292,6 +8528,12 @@
     "dryRunCoach.step.radioDue.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frequenz gewechselt? Tippen Sie auf NÄCHSTE"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7309,6 +8551,12 @@
     "dryRunCoach.step.radioDue.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NÄCHSTE ist umrandet: Es ist Zeit, dorthin zu wechseln, und die Linie an seinem Fuss läuft bis zu der Stelle ab, an der die App von selbst wechselt. Wenn Sie die Frequenz wechseln, tippen Sie auf NÄCHSTE (auf dem iPhone auf die AKT.-Zeile), und daraus wird AKT. Mit WIDERRUFEN nehmen Sie das zurück."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7326,6 +8574,12 @@
     "dryRunCoach.step.radioDue.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf NÄCHSTE, wenn Sie die Frequenz wechseln."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7343,6 +8597,12 @@
     "dryRunCoach.step.legControls.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÜBERFLUG und die Teilstrecken-Stoppuhr"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7360,6 +8620,12 @@
     "dryRunCoach.step.lineUpCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie sie durch. Das Flugzeug rollt auf, sobald Sie fertig sind."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7377,6 +8643,12 @@
     "dryRunCoach.step.lineUpCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle beim Aufrollen durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7394,6 +8666,12 @@
     "dryRunCoach.step.lineUpCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrolle beim Aufrollen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7411,6 +8689,12 @@
     "dryRunCoach.step.link.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website. Tippen Sie auf «NOTAM-Briefing öffnen»: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7428,6 +8712,12 @@
     "dryRunCoach.step.link.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gold oder Blau"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7445,6 +8735,12 @@
     "dryRunCoach.step.logbookLine.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf «Flugbuchzeile»: Dort steht die Zeile für Ihr Flugbuch, mit den Zeiten aus dem GPS-Flugweg."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7462,6 +8758,12 @@
     "dryRunCoach.step.logbookLine.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Flugbuchzeile"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7479,6 +8781,12 @@
     "dryRunCoach.step.logbookTab.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie in der Tableiste auf «Flugbuch»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7496,6 +8804,12 @@
     "dryRunCoach.step.logbookTab.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flugbuch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7513,6 +8827,12 @@
     "dryRunCoach.step.mapAgain.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das war der letzte Kontrollpunkt. Öffnen Sie wieder KARTE, um den Heimweg und die Platzrunde vor Ihnen zu sehen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7530,6 +8850,12 @@
     "dryRunCoach.step.mapAgain.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück zur Karte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7547,6 +8873,12 @@
     "dryRunCoach.step.mapTakeoff.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnen Sie KARTE. In einer Trockenübung rollt das Flugzeug automatisch auf und startet; Ihr nächster Schritt ist die Steigflugkontrolle, sobald Sie in der Luft sind."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7564,6 +8896,12 @@
     "dryRunCoach.step.mapTakeoff.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den Start beobachten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7581,6 +8919,12 @@
     "dryRunCoach.step.memorySwitch.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ist er eingeschaltet, zeigen die Kontrollen nur die Punkte zum Ablesen; die anderen sagen Sie auswendig auf und bestätigen sie mit einem Tippen. Schalten Sie ihn ein, sobald Sie sie kennen, und schliessen Sie dann das Menü, um weiterzumachen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7598,6 +8942,12 @@
     "dryRunCoach.step.memorySwitch.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory Items ausblenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7615,6 +8965,12 @@
     "dryRunCoach.step.memoryTest.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrolle beim Anlassen hat Punkte, die Sie ablesen, und Punkte, die Sie auswendig kennen sollten: ihre Memory Items. Das Menü kann sie ausblenden, damit Sie üben, sie auswendig aufzusagen. Öffnen Sie das Menü."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7632,6 +8988,12 @@
     "dryRunCoach.step.memoryTest.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory Items"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7649,6 +9011,12 @@
     "dryRunCoach.step.nextCard.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was als Nächstes zu tun ist, steht immer zuoberst auf der Seite und auf Heute."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7666,6 +9034,12 @@
     "dryRunCoach.step.nextCard.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Nächste"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7683,6 +9057,12 @@
     "dryRunCoach.step.notApplicable.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein lokaler Flug braucht keinen ATC-Flugplan: Drücken Sie lange auf «ATC-Flugplan aufgegeben» und wählen Sie dann «Entfällt»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7700,6 +9080,12 @@
     "dryRunCoach.step.notApplicable.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht für diesen Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7717,6 +9103,12 @@
     "dryRunCoach.step.numbers.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Block- und Flugzeit, die Landungen, die Motorstunden und die Kosten zum Tarif des Flugzeugs. «Zeile kopieren» legt die Zeile in die Zwischenablage. Schliessen Sie das Fenster, wenn Sie es gelesen haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7734,6 +9126,12 @@
     "dryRunCoach.step.numbers.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugbuch & Kosten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7751,6 +9149,12 @@
     "dryRunCoach.step.openFlightPage.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf Heute auf den Flug: Seine Seite ist jetzt im ABSCHLUSS."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7768,6 +9172,12 @@
     "dryRunCoach.step.openFlightPage.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück zum Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7785,6 +9195,12 @@
     "dryRunCoach.step.openLoggedFlight.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf den Flug, den Sie eben geflogen sind."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7802,6 +9218,12 @@
     "dryRunCoach.step.openLoggedFlight.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7819,6 +9241,12 @@
     "dryRunCoach.step.planSheet.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier wählen Sie den Abflug, das Ziel, allfällige Zwischenhalte, den Tag und das Flugzeug. Für diese Trockenübung ist die Route bereit: Ihr Flugplatz, zwei Kontrollpunkte und zurück. Ein Flug, der für einen anderen Tag geplant ist, bekommt am Vortag eine Erinnerung. Tippen Sie auf «Flug erstellen»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7836,6 +9264,12 @@
     "dryRunCoach.step.planSheet.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7853,6 +9287,12 @@
     "dryRunCoach.step.readBand.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GS, ALT und TRK kommen vom GPS. Darunter finden Sie, wohin die aktuelle Teilstrecke führt und wann Sie dort sind, dann, wen Sie rufen: AKT. und NÄCHSTE."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7870,6 +9310,12 @@
     "dryRunCoach.step.readBand.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was Sie ablesen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7887,6 +9333,12 @@
     "dryRunCoach.step.readyForLineUp.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie darauf. Die App nimmt diesen Moment als Startzeit und berechnet die Zeiten der Route ab dort."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7904,6 +9356,12 @@
     "dryRunCoach.step.readyForLineUp.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BEREIT ZUM AUFROLLEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7921,6 +9379,12 @@
     "dryRunCoach.step.routePage.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnen Sie ROUTE: Dort stehen die Teilstrecken mit ihren Zeiten und jede Frequenz in der Reihenfolge, in der Sie sie brauchen werden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7938,6 +9402,12 @@
     "dryRunCoach.step.routePage.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Route"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7955,6 +9425,12 @@
     "dryRunCoach.step.shutdownCheck.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle beim Abstellen durch. Wenn der Motor steht (Magnete oder Zündung aus), drücken Sie MOTOR ABSTELLEN und erledigen dann die Kontrolle."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7972,6 +9448,12 @@
     "dryRunCoach.step.shutdownCheck.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle beim Abstellen bis zu den Magneten durch und drücken Sie dann MOTOR ABSTELLEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -7989,6 +9471,12 @@
     "dryRunCoach.step.shutdownCheck.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf dem Abstellplatz"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8006,6 +9494,12 @@
     "dryRunCoach.step.startFlight.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FLUG BEGINNEN, im Kapitel Fliegen, öffnet das Cockpit. Für diese Trockenübung wurde der Rest von Planen und Vorbereiten für Sie abgehakt. In einem echten Flug listet FLUG BEGINNEN zuerst auf, was noch offen ist."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8023,6 +9517,12 @@
     "dryRunCoach.step.startFlight.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FLUG BEGINNEN"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8040,6 +9540,12 @@
     "dryRunCoach.step.tickLogbook.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald Sie die Zeile in Ihr Flugbuch übertragen haben, haken Sie die zugehörige Aufgabe ab: Der Abschluss ist vollständig."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8057,6 +9563,12 @@
     "dryRunCoach.step.tickLogbook.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ins Flugbuch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8074,6 +9586,12 @@
     "dryRunCoach.step.tickNotam.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald die NOTAM gelesen sind, haken Sie die zugehörige Aufgabe ab."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8091,6 +9609,12 @@
     "dryRunCoach.step.tickNotam.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abhaken"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8108,6 +9632,12 @@
     "dryRunCoach.step.timeOver.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die App hat den Überflug dieses Kontrollpunkts erkannt, die Überflugzeit auf ROUTE erfasst und ist automatisch zur nächsten Teilstrecke gewechselt. War das zu früh, nimmt WIDERRUFEN es hier zurück."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8125,6 +9655,12 @@
     "dryRunCoach.step.timeOver.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kontrollpunkt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8142,6 +9678,12 @@
     "dryRunCoach.step.toAfterStart.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf WEITER, um die Kontrolle nach dem Anlassen zu öffnen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8159,6 +9701,12 @@
     "dryRunCoach.step.toAfterStart.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach dem Anlassen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8176,6 +9724,12 @@
     "dryRunCoach.step.toBeforeDeparture.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Flugzeug wartet hier. Führen Sie die Kontrollen bis zur Kontrolle vor dem Start durch; ist sie erledigt, drücken Sie BEREIT ZUM AUFROLLEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8193,6 +9747,12 @@
     "dryRunCoach.step.toBeforeDeparture.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrollen weiter durch, bis zu BEREIT ZUM AUFROLLEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8210,6 +9770,12 @@
     "dryRunCoach.step.toBeforeDeparture.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Rollhaltepunkt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8227,6 +9793,12 @@
     "dryRunCoach.step.toBeforeDeparture.upcoming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Kontrollen bis zur Kontrolle vor dem Start, am Rollhaltepunkt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8244,6 +9816,12 @@
     "dryRunCoach.step.toEndFlight.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erledigen Sie die Kontrolle beim Abstellen und die letzten Kontrollen und drücken Sie dann FLUG BEENDEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8261,6 +9839,12 @@
     "dryRunCoach.step.toEndFlight.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erledigen Sie die letzten Kontrollen, dann FLUG BEENDEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8278,6 +9862,12 @@
     "dryRunCoach.step.toEndFlight.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die letzten Kontrollen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8295,6 +9885,12 @@
     "dryRunCoach.step.toEngineStart.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie bei jedem Punkt auf ABHAKEN. Ist eine Kontrolle erledigt, öffnet WEITER die nächste. Führen Sie die Kontrollen bis zur Kontrolle beim Anlassen durch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8312,6 +9908,12 @@
     "dryRunCoach.step.toEngineStart.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrollen weiter durch, bis zur Kontrolle beim Anlassen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8329,6 +9931,12 @@
     "dryRunCoach.step.toEngineStart.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrollen durchführen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8346,6 +9954,12 @@
     "dryRunCoach.step.toShutdown.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die App hat den Full Stop erkannt und automatisch die Kontrolle nach der Landung geöffnet. Führen Sie sie durch, während das Flugzeug zum Abstellplatz rollt; ist sie erledigt, geht es mit ABSTELLEN weiter zum Abstellen des Motors."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8363,6 +9977,12 @@
     "dryRunCoach.step.toShutdown.fold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen Sie die Kontrolle nach der Landung durch, dann ABSTELLEN."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8380,6 +10000,12 @@
     "dryRunCoach.step.toShutdown.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Abstellplatz"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8397,6 +10023,12 @@
     "dryRunCoach.step.today.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeder Flug beginnt auf Heute. Tippen Sie auf «Neuen Flug planen»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8414,6 +10046,12 @@
     "dryRunCoach.step.today.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einen Flug planen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8431,6 +10069,12 @@
     "dryRunCoach.step.track.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles über diesen Flug steht hier: sein Flugweg auf der Karte, das Diagramm von Höhe und Geschwindigkeit (fahren Sie mit dem Finger daran entlang, um den Flug erneut abzuspielen), die Zeitleiste, wie jede Kontrolle endete, die Motorstunden und der Plan im Vergleich mit dem, was Sie geflogen sind. Sehen Sie sich um und tippen Sie dann auf «Weiter»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8448,6 +10092,12 @@
     "dryRunCoach.step.track.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Seite des Flugs"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8465,6 +10115,12 @@
     "dryRunCoach.stopHere": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier aufhören"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8482,6 +10138,12 @@
     "dryRunCoach.stopHereNote": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den Rest finden Sie in den Einstellungen, unter Lernen und üben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8499,6 +10161,12 @@
     "dryRunCoach.storyNothingKept": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts aus der Trockenübung wurde behalten: Das Flugbuch der Übung ist verworfen, und Ihres ist unverändert."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8516,6 +10184,12 @@
     "dryRunCoach.storyRow": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr erster Flug, von der Planung bis zum Flugbuch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8533,6 +10207,12 @@
     "dryRunCoach.storyRowSubtitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planen Sie einen Flug, fliegen Sie ihn, schliessen Sie ihn ab und sehen Sie ihn in Ihrem Flugbuch an, mit einer Anleitung bei jedem Schritt. Etwa 15 Minuten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8550,6 +10230,12 @@
     "dryRunCoach.todayBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planen Sie einen Flug, fliegen Sie ihn mit der WT9, schliessen Sie ihn ab und sehen Sie ihn in Ihrem Flugbuch an, mit einer Anleitung bei jedem Schritt. Das dauert etwa 15 Minuten, und nichts davon wird behalten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8567,6 +10253,12 @@
     "dryRunCoach.flightName": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr erster Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8584,6 +10276,12 @@
     "dryRunCoach.chapterOf": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapitel %1$lld von %2$lld"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8601,6 +10299,12 @@
     "dryRunCoach.next": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8618,6 +10322,12 @@
     "dryRunCoach.pause": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8635,6 +10345,12 @@
     "dryRunCoach.goOn": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsetzen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8652,6 +10368,12 @@
     "dryRunCoach.showAgain": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nochmals zeigen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8669,6 +10391,12 @@
     "dryRunCoach.habitsTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was Sie mitnehmen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8686,6 +10414,12 @@
     "dryRunCoach.nextFree": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versuchen Sie beim nächsten Mal das freie Üben, unter Einstellungen › Info."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8703,6 +10437,12 @@
     "dryRunCoach.todayTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fliegen Sie Ihren ersten Flug am Boden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8720,6 +10460,12 @@
     "dryRunCoach.todayStart": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trockenübung beginnen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8737,6 +10483,12 @@
     "dryRunCoach.todayNotNow": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht jetzt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8754,6 +10506,12 @@
     "dryRunCoach.onboardingFly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meinen ersten Flug am Boden fliegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8771,6 +10529,12 @@
     "dryRunCoach.turningPointNumber": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrollpunkt %lld"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8788,6 +10552,12 @@
     "dryRunCoach.unfold": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einblendung öffnen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -9178,6 +10948,12 @@
     },
     "Runway %@": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste %@"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9188,6 +10964,12 @@
     },
     "Runway %@, in use": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste %@, in Betrieb"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -22689,6 +24471,12 @@
     },
     "Checked %@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geprüft am %@"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26506,6 +28294,12 @@
     "Alt (m):": {},
     "Altitude": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höhe"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28131,6 +29925,12 @@
       "comment": "A label for the heading of a navigation system.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steuerkurs"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28141,6 +29941,12 @@
     },
     "Heading: %lld°": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steuerkurs: %lld°"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29614,6 +31420,12 @@
     },
     "Speed:": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschwindigkeit:"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29624,6 +31436,12 @@
     },
     "Speed: %@": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschwindigkeit: %@"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29634,6 +31452,12 @@
     },
     "Speed: %lld kt": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschwindigkeit: %lld kt"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",

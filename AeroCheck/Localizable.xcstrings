@@ -946,6 +946,12 @@
     "aircraftRequest.requestsSection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Anfragen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -963,6 +969,12 @@
     "aircraftRequest.requestsFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Stand jeder Anfrage wird aktualisiert, wenn Sie die App öffnen. Unsere E-Mails melden ihn auch, und ein Tippen auf eine Anfrage öffnet ihre Seite, mit ihrem Verlauf."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -980,6 +992,12 @@
     "aircraftRequest.removeFromList": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus dieser Liste entfernen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -997,6 +1015,12 @@
     "aircraftRequest.liveTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist in AéroCheck"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1014,6 +1038,12 @@
     "aircraftRequest.liveBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: Die Checkliste ist in der App, für alle, die AéroCheck Pro abonniert haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1031,6 +1061,12 @@
     "aircraftRequest.status.received": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingegangen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1048,6 +1084,12 @@
     "aircraftRequest.status.receivedLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir haben Ihre Anfrage und ihre Dateien. Als Nächstes entscheiden wir, ob (und wann) wir sie aufnehmen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1065,6 +1107,12 @@
     "aircraftRequest.status.accepted": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angenommen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1082,6 +1130,12 @@
     "aircraftRequest.status.acceptedLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste wird in AéroCheck aufgenommen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1099,6 +1153,12 @@
     "aircraftRequest.status.converting": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Vorbereitung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1116,6 +1176,12 @@
     "aircraftRequest.status.convertingLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste wird für AéroCheck vorbereitet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1133,6 +1199,12 @@
     "aircraftRequest.status.proofreading": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gegenlesen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1150,6 +1222,12 @@
     "aircraftRequest.status.proofreadingLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Entwurf ist bereit: Sehen Sie ihn auf der Seite der Anfrage an, wenn Sie fünf Minuten haben (das ist freiwillig)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1167,6 +1245,12 @@
     "aircraftRequest.status.testflight": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Test"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1184,6 +1268,12 @@
     "aircraftRequest.status.testflightLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste ist in der Testversion der App. Die Version im App Store folgt als Nächstes."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1201,6 +1291,12 @@
     "aircraftRequest.status.live": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der App"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1218,6 +1314,12 @@
     "aircraftRequest.status.liveLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Flugzeug ist in AéroCheck, für alle, die AéroCheck Pro abonniert haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1235,6 +1337,12 @@
     "aircraftRequest.status.needInfo": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rückfrage"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1252,6 +1360,12 @@
     "aircraftRequest.status.needInfoLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir brauchen etwas von Ihnen: Lesen Sie die Nachricht auf der Seite der Anfrage, und antworten Sie auf unsere E-Mail."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1269,6 +1383,12 @@
     "aircraftRequest.status.declined": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgelehnt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1286,6 +1406,12 @@
     "aircraftRequest.status.declinedLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir nehmen dieses Flugzeug nicht auf. Der Grund steht auf der Seite der Anfrage."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1303,6 +1429,12 @@
     "aircraftRequest.status.duplicate": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplikat"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1320,6 +1452,12 @@
     "aircraftRequest.status.duplicateLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jemand hat dieses Flugzeug bereits angefragt. Die andere Anfrage läuft weiter, und diese hier ist abgeschlossen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1337,6 +1475,12 @@
     "aircraftRequest.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste eines Flugzeugs senden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1354,6 +1498,12 @@
     "aircraftRequest.intro": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlt Ihr Flugzeug in AéroCheck, oder ist seine Checkliste älter als die des Clubs? Senden Sie uns das Dokument des Clubs: Sobald der Club bestätigt, kommt das Flugzeug in die App (als Teil von AéroCheck Pro, wie jedes Flugzeug ausser der WT9)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1371,6 +1521,12 @@
     "aircraftRequest.registrationSection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Kennzeichen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1388,6 +1544,12 @@
     "aircraftRequest.registrationLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kennzeichen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1405,6 +1567,12 @@
     "aircraftRequest.registrationHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So, wie es auf dem Flugzeug steht: HB-KFD, F-HVXA, D-EABC. AéroCheck prüft, ob es das Flugzeug schon hat."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1422,6 +1590,12 @@
     "aircraftRequest.lookUp": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachschlagen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1439,6 +1613,12 @@
     "aircraftRequest.lookingUp": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird nachgeschlagen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1456,6 +1636,12 @@
     "aircraftRequest.knownTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist bereits in AéroCheck"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1473,6 +1659,12 @@
     "aircraftRequest.knownBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das wird eine Aktualisierung: Senden Sie die neue Ausgabe des Clubs, sie ersetzt dann die Checkliste in der App."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1490,6 +1682,12 @@
     "aircraftRequest.knownModel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugzeug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1507,6 +1705,12 @@
     "aircraftRequest.knownClub": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Club"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1524,6 +1728,12 @@
     "aircraftRequest.knownVersion": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Version"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1541,6 +1751,12 @@
     "aircraftRequest.knownLanguages": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprachen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1558,6 +1774,12 @@
     "aircraftRequest.unknownTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist noch nicht in AéroCheck"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1575,6 +1797,12 @@
     "aircraftRequest.unknownBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das wird ein neues Flugzeug. Sagen Sie uns, was es ist, und senden Sie seine Checkliste."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1592,6 +1820,12 @@
     "aircraftRequest.aircraftSection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Flugzeug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1609,6 +1843,12 @@
     "aircraftRequest.otherRegistrationsLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Kennzeichen mit derselben Checkliste (optional)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1626,6 +1866,12 @@
     "aircraftRequest.otherRegistrationsHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fügen Sie die weiteren Flugzeuge dieses Typs im Club hinzu, wenn dasselbe Dokument sie abdeckt, zum Beispiel HB-KFI, HB-KFO. Insgesamt bis zu 10 Kennzeichen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1643,6 +1889,12 @@
     "aircraftRequest.typeLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugzeugtyp"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1660,6 +1912,12 @@
     "aircraftRequest.typeHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hersteller und Modell, wie der Club es nennt: Robin DR400/180, Piper PA-28-181."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1677,6 +1935,12 @@
     "aircraftRequest.clubLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugclub oder Betreiber (optional)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1694,6 +1958,12 @@
     "aircraftRequest.clubHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leer lassen für ein Flugzeug in Privatbesitz."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1711,6 +1981,12 @@
     "aircraftRequest.senderSection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Absender"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1728,6 +2004,12 @@
     "aircraftRequest.forClub": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für den Club"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1745,6 +2027,12 @@
     "aircraftRequest.forClubHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich betreue die Dokumente des Clubs, oder der Club hat mich gebeten, es zu senden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1762,6 +2050,12 @@
     "aircraftRequest.asPilot": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Pilot"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1779,6 +2073,12 @@
     "aircraftRequest.asPilotHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich fliege es. Der Club wird um Bestätigung gebeten, bevor etwas in die App kommt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1796,6 +2096,12 @@
     "aircraftRequest.contactLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontaktperson des Clubs (E-Mail)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1813,6 +2119,12 @@
     "aircraftRequest.contactHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Person, die den Club in Fragen seiner Dokumente vertreten kann (das Präsidium, die Ausbildungsleitung, die technische Leitung). Wir senden ihr einen Link zum Bestätigen oder Ablehnen, sonst nichts."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1830,6 +2142,12 @@
     "aircraftRequest.contactUnknown": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich kenne sie nicht: Ich füge sie später auf der Seite der Anfrage hinzu"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1847,6 +2165,12 @@
     "aircraftRequest.contactUnknownHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Anfrage wartet dann auf die Zustimmung des Clubs, bis jemand die Kontaktperson hinzufügt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1864,6 +2188,12 @@
     "aircraftRequest.checklistSection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1881,6 +2211,12 @@
     "aircraftRequest.filesHintNew": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein PDF oder Fotos der Seiten (JPEG, PNG oder HEIC): bis zu 4 Dateien, je 10 MB, insgesamt 25 MB. Schwärzen Sie vorher alles Persönliche (Namen, Telefonnummern)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1898,6 +2234,12 @@
     "aircraftRequest.filesHintUpdate": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die neue Ausgabe, als PDF oder Fotos der Seiten (JPEG, PNG oder HEIC): bis zu 4 Dateien, je 10 MB, insgesamt 25 MB."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1915,6 +2257,12 @@
     "aircraftRequest.scan": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1932,6 +2280,12 @@
     "aircraftRequest.photos": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotos"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1949,6 +2303,12 @@
     "aircraftRequest.files": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1966,6 +2326,12 @@
     "aircraftRequest.scanHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Scan wird zu einem einzigen PDF, mit den Seiten in der Reihenfolge, in der Sie sie aufgenommen haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -1983,6 +2349,12 @@
     "aircraftRequest.filesTotal": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von 4 Dateien · %@ von 25 MB"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2000,6 +2372,12 @@
     "aircraftRequest.remove": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ entfernen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2017,6 +2395,12 @@
     "aircraftRequest.fileUnreadable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist kein PDF, JPEG, PNG oder HEIC."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2034,6 +2418,12 @@
     "aircraftRequest.languagesLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Sprache der Checkliste"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2051,6 +2441,12 @@
     "aircraftRequest.languagesHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Sprache, in der das Dokument geschrieben ist. Die Checkliste bleibt in dieser Sprache, unabhängig von der Sprache der App (Deutsch, Englisch oder Französisch): Eine deutsche Checkliste erscheint in allen dreien auf Deutsch."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2068,6 +2464,12 @@
     "aircraftRequest.otherLanguageLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine andere Sprache"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2085,6 +2487,12 @@
     "aircraftRequest.otherLanguageHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn sie oben nicht aufgeführt ist, geben Sie sie in beliebiger Form ein (Japanisch, Schweizerdeutsch…). Trennen Sie mehrere mit Kommas."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2102,6 +2510,12 @@
     "aircraftRequest.youSection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Angaben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2119,6 +2533,12 @@
     "aircraftRequest.nameLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Name (optional)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2136,6 +2556,12 @@
     "aircraftRequest.nameHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit der Club weiss, wer angefragt hat, falls er um Bestätigung gebeten wird."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2153,6 +2579,12 @@
     "aircraftRequest.emailLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre E-Mail-Adresse"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2170,6 +2602,12 @@
     "aircraftRequest.emailHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir schreiben Ihnen an diese Adresse zu dieser Anfrage (Eingang, Rückfragen, wenn sie in der App ist), und zu nichts anderem."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2187,6 +2625,12 @@
     "aircraftRequest.notesLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was wir wissen sollten (optional)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2204,6 +2648,12 @@
     "aircraftRequest.notesHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Beispiel: welche Seiten die Checkliste sind, was sich in dieser Ausgabe geändert hat, oder ein Flugzeug, das sich von den anderen unterscheidet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2221,6 +2671,12 @@
     "aircraftRequest.counter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2238,6 +2694,12 @@
     "aircraftRequest.rightsClub": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich darf dieses Dokument für den Club an AéroCheck weitergeben, und es ist nach meinem Wissen die gültige Ausgabe des Clubs."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2255,6 +2717,12 @@
     "aircraftRequest.rightsSelf": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich darf dieses Dokument an AéroCheck weitergeben, und es ist nach meinem Wissen die gültige Ausgabe des Clubs. Der Club wird um Bestätigung gebeten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2272,6 +2740,12 @@
     "aircraftRequest.rightsPrivate": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Flugzeug gehört mir (oder sein Eigentümer ist einverstanden), und ich darf dieses Dokument an AéroCheck weitergeben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2289,6 +2763,12 @@
     "aircraftRequest.privacyLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich habe gelesen, wie AéroCheck aufbewahrt und verwendet, was ich sende."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2306,6 +2786,12 @@
     "aircraftRequest.termsLink": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nutzungsbedingungen, Abschnitt 4.0 (auf Englisch)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2323,6 +2809,12 @@
     "aircraftRequest.privacyLink": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzerklärung, Abschnitt 4.3"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2340,6 +2832,12 @@
     "aircraftRequest.checkLabel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine kurze Prüfung, dass Sie kein Roboter sind"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2357,6 +2855,12 @@
     "aircraftRequest.checkLoading": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfung wird geladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2374,6 +2878,12 @@
     "aircraftRequest.checkWorking": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird geprüft"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2391,6 +2901,12 @@
     "aircraftRequest.checkPassed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2408,6 +2924,12 @@
     "aircraftRequest.checkFailed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Prüfung konnte nicht geladen werden (keine Verbindung, oder Cloudflare ist nicht erreichbar). Versuchen Sie es in einem Moment erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2425,6 +2947,12 @@
     "aircraftRequest.checkMissing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten Sie, bis die Prüfung oben fertig ist, dann senden Sie."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2442,6 +2970,12 @@
     "aircraftRequest.submit": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfrage senden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2459,6 +2993,12 @@
     "aircraftRequest.progressSending": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfrage wird gesendet"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2476,6 +3016,12 @@
     "aircraftRequest.progressUpload": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei %lld von %lld wird hochgeladen: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2493,6 +3039,12 @@
     "aircraftRequest.progressFinishing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird abgeschlossen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2510,6 +3062,12 @@
     "aircraftRequest.uploadStopped": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Hochladen ist bei %@ stehen geblieben. Versuchen Sie es erneut, um ab dieser Datei fortzufahren."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2527,6 +3085,12 @@
     "aircraftRequest.summary": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfen Sie vor dem Senden:"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2544,6 +3108,12 @@
     "aircraftRequest.problem.registrationLookup": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schlagen Sie zuerst das Kennzeichen nach."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2561,6 +3131,12 @@
     "aircraftRequest.problem.otherRegistrationsInvalid": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Einträge sehen nicht nach Kennzeichen aus: %@."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2578,6 +3154,12 @@
     "aircraftRequest.problem.tooManyRegistrations": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insgesamt bis zu 10 Kennzeichen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2595,6 +3177,12 @@
     "aircraftRequest.problem.typeRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie den Flugzeugtyp an."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2612,6 +3200,12 @@
     "aircraftRequest.problem.sendingForRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie, ob Sie es für den Club oder als Pilot senden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2629,6 +3223,12 @@
     "aircraftRequest.problem.contactRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie die Kontaktperson des Clubs an, oder sagen Sie, dass Sie sie nicht kennen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2646,6 +3246,12 @@
     "aircraftRequest.problem.contactInvalid": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die E-Mail-Adresse des Clubs scheint nicht zu stimmen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2663,6 +3269,12 @@
     "aircraftRequest.problem.contactIsSender": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für die Kontaktperson des Clubs geht Ihre eigene Adresse nicht: Jemand anderes im Club muss bestätigen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2680,6 +3292,12 @@
     "aircraftRequest.problem.emailRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie Ihre E-Mail-Adresse an: Dorthin melden wir, wie es mit Ihrer Anfrage steht."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2697,6 +3315,12 @@
     "aircraftRequest.problem.emailInvalid": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre E-Mail-Adresse scheint nicht zu stimmen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2714,6 +3338,12 @@
     "aircraftRequest.problem.languagesRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie die Sprache der Checkliste."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2731,6 +3361,12 @@
     "aircraftRequest.problem.languageInvalid": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» ist kein Sprachname: Verwenden Sie 2 bis 35 Buchstaben, Leerzeichen oder Bindestriche."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2748,6 +3384,12 @@
     "aircraftRequest.problem.languagesTooMany": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höchstens fünf Sprachen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2765,6 +3407,12 @@
     "aircraftRequest.problem.filesRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fügen Sie die Checkliste hinzu (ein Scan, ein PDF oder Fotos der Seiten)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2782,6 +3430,12 @@
     "aircraftRequest.problem.tooManyFiles": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bis zu 4 Dateien: Entfernen Sie zuerst eine."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2799,6 +3453,12 @@
     "aircraftRequest.problem.fileTooBig": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist %@ gross: Eine Datei darf höchstens 10 MB haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2816,6 +3476,12 @@
     "aircraftRequest.problem.totalTooBig": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Dateien sind zusammen %@ gross: Die Grenze liegt bei insgesamt 25 MB."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2833,6 +3499,12 @@
     "aircraftRequest.problem.notesTooLong": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höchstens 1000 Zeichen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2850,6 +3522,12 @@
     "aircraftRequest.problem.rightsRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätigen Sie, dass Sie dieses Dokument weitergeben dürfen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2867,6 +3545,12 @@
     "aircraftRequest.problem.privacyRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätigen Sie, dass Sie gelesen haben, wie AéroCheck aufbewahrt und verwendet, was Sie senden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2884,6 +3568,12 @@
     "aircraftRequest.error.network": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Anfragedienst antwortet nicht. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut; schlägt es weiter fehl, ist der Dienst vielleicht für eine Weile nicht erreichbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2901,6 +3591,12 @@
     "aircraftRequest.error.invalidRegistration": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das sieht nicht nach einem Kennzeichen aus. Geben Sie es so ein, wie es auf dem Flugzeug steht: HB-KFD, F-HVXA, D-EABC."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2918,6 +3614,12 @@
     "aircraftRequest.error.invalidEmail": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese E-Mail-Adresse scheint nicht zu stimmen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2935,6 +3637,12 @@
     "aircraftRequest.error.clubContactIsSender": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für die Kontaktperson des Clubs geht Ihre eigene Adresse nicht: Jemand anderes im Club bestätigt. Wenn Sie selbst die Dokumente des Clubs betreuen, senden Sie die Anfrage mit «Für den Club»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2952,6 +3660,12 @@
     "aircraftRequest.error.files": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine der Dateien wurde nicht angenommen (bis zu 4 Dateien, PDF, JPEG, PNG oder HEIC, je 10 MB, insgesamt 25 MB): Entfernen Sie sie, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2969,6 +3683,12 @@
     "aircraftRequest.error.unknownRegistration": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck hat dieses Kennzeichen nicht (mehr), also kann es keine Aktualisierung sein. Das Formular sendet es jetzt als neues Flugzeug: Prüfen Sie die Angaben, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -2986,6 +3706,12 @@
     "aircraftRequest.error.knownRegistration": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck hat dieses Kennzeichen bereits, also sendet das Formular es jetzt als Aktualisierung. Prüfen Sie es, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3003,6 +3729,12 @@
     "aircraftRequest.error.knownOthers": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernen Sie aus den weiteren Kennzeichen: %@ (bereits in AéroCheck). Um eines davon zu aktualisieren, senden Sie eine separate Anfrage."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3020,6 +3752,12 @@
     "aircraftRequest.error.listChanged": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Flugzeugliste von AéroCheck hat sich geändert, während Sie das Formular ausgefüllt haben. Schlagen Sie das Kennzeichen in ein paar Minuten erneut nach, dann senden Sie."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3037,6 +3775,12 @@
     "aircraftRequest.error.sizeMismatch": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Datei hat sich während des Sendens geändert. Fügen Sie sie noch einmal hinzu, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3054,6 +3798,12 @@
     "aircraftRequest.error.turnstileFailed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Prüfung, dass Sie kein Roboter sind, ist nicht durchgegangen. Sie hat neu begonnen: Warten Sie, bis sie fertig ist, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3071,6 +3821,12 @@
     "aircraftRequest.error.uploadGone": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Upload ist abgelaufen (Dateien werden höchstens 24 Stunden aufbewahrt). Senden Sie die Anfrage erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3088,6 +3844,12 @@
     "aircraftRequest.error.alreadySent": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Anfrage wurde bereits gesendet: %@. Der Link dazu steht in der E-Mail, die wir Ihnen gesendet haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3105,6 +3867,12 @@
     "aircraftRequest.error.payloadTooLarge": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Formular ist zu lang für den Dienst (wohl die Notizen). Kürzen Sie es, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3122,6 +3890,12 @@
     "aircraftRequest.error.rateLimited": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu viele Versuche von Ihrer Verbindung in kurzer Zeit. Warten Sie eine Minute, dann versuchen Sie es erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3139,6 +3913,12 @@
     "aircraftRequest.error.internal": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Dienst hatte auf seiner Seite ein Problem. Versuchen Sie es in einem Moment erneut; wenn es weiter passiert, schreiben Sie uns."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3156,6 +3936,12 @@
     "aircraftRequest.error.unavailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfragen sind im Moment geschlossen (der Dienst ist nicht bereit). Versuchen Sie es später erneut: Es wurde nichts gesendet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3173,6 +3959,12 @@
     "aircraftRequest.error.dailyCap": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr Anfragen können wir heute nicht annehmen. Versuchen Sie es morgen erneut: Es wurde nichts gesendet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3190,6 +3982,12 @@
     "aircraftRequest.error.lookupUnavailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Flugzeugliste von AéroCheck kann gerade nicht gelesen werden, also lässt sich das Kennzeichen nicht prüfen. Versuchen Sie es in ein paar Minuten erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3207,6 +4005,12 @@
     "aircraftRequest.error.field": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Feld wurde nicht angenommen: Prüfen Sie das Formular, dann senden Sie erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3224,6 +4028,12 @@
     "aircraftRequest.error.unknown": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etwas ist schiefgelaufen. Versuchen Sie es in einem Moment erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3241,6 +4051,12 @@
     "aircraftRequest.resultTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesendet: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3258,6 +4074,12 @@
     "aircraftRequest.resultBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir haben Ihre Anfrage erhalten und ihren Link an %@ gesendet: Damit verfolgen Sie Ihre Anfrage. Sie steht auch im Tab Flugzeuge, mit ihrem Stand."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3275,6 +4097,12 @@
     "aircraftRequest.nextTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie es weitergeht"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3292,6 +4120,12 @@
     "aircraftRequest.nextBody": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir sehen sie uns an und bereiten sie dann vor. Das dauert so lange, wie es dauert: Eine Person macht das in ihrer Freizeit, ohne versprochenes Datum. Sie erhalten bei jedem Schritt, der eine verlangt, eine E-Mail."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3309,6 +4143,12 @@
     "aircraftRequest.nextClub": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontaktperson des Clubs hat eine E-Mail erhalten, die sie um Bestätigung bittet. Ohne Bestätigung kommt nichts in die App."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3326,6 +4166,12 @@
     "aircraftRequest.nextClubNoContact": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Club wurde noch nicht angefragt: Fügen Sie seine Kontaktperson auf der Seite der Anfrage hinzu, sobald Sie sie haben."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3343,6 +4189,12 @@
     "aircraftRequest.openPage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seite Ihrer Anfrage"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3360,6 +4212,12 @@
     "aircraftRequest.entryTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senden Sie uns die Checkliste eines Flugzeugs"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3377,6 +4235,12 @@
     "aircraftRequest.entrySubtitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flugzeug fehlt, oder seine Checkliste ist nicht mehr aktuell"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3394,6 +4258,12 @@
     "aircraftRequest.menuItem": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht aufgeführt? Senden Sie uns seine Checkliste"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3411,6 +4281,12 @@
     "aircraftRequest.proLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flugzeug fehlt? Senden Sie uns seine Checkliste"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -3428,6 +4304,12 @@
     "aircraftRequest.onboardingLine": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flugzeug ist nicht dabei? Sobald Sie in der App sind, senden Sie uns seine Checkliste aus dem Tab Flugzeuge."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -10698,6 +11580,12 @@
     },
     "Report": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melden"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -24406,6 +25294,12 @@
     },
     "LANDING" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LANDUNG"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27153,6 +28047,12 @@
     },
     "Flight tomorrow" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flug morgen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -28340,6 +29240,12 @@
     },
     "Auto": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28402,6 +29308,12 @@
       "comment": "The name of the companion app.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BEGLEITER"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -30025,6 +30937,12 @@
     },
     "Ignore": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorieren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -34904,6 +35822,12 @@
     "companion.allowControl": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34921,6 +35845,12 @@
     "companion.allowControlForFlight": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Flug erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34938,6 +35868,12 @@
     "companion.allowControlMessage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» möchte die Checkliste und die Wegpunkte dieses Flugs steuern oder ihm seine GPS-Position liefern. Für diesen Flug erlauben oder immer auf diesem iPad?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34955,6 +35891,12 @@
     "companion.allowControlMessageUnnamed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein gekoppeltes Gerät möchte die Checkliste und die Wegpunkte dieses Flugs steuern oder ihm seine GPS-Position liefern. Nur für diese Verbindung erlauben?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34972,6 +35914,12 @@
     "companion.allowControlMessageUnnamedDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein gekoppeltes Gerät möchte die Checkliste und die Wegpunkte dieses Flugs steuern oder ihm seine GPS-Position liefern. Für diesen Flug erlauben oder immer auf diesem iPad?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34989,6 +35937,12 @@
     "companion.allowControlTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steuerung durch das Begleitgerät erlauben?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35006,6 +35960,12 @@
     "companion.allowDeviceAgain": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wieder erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35023,6 +35983,12 @@
     "companion.allowDeviceAgainAccessibility": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ wieder erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35040,6 +36006,12 @@
     "companion.alwaysAllowControl": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Immer erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35057,6 +36029,12 @@
     "companion.askEachFlight": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei jedem Flug fragen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35074,6 +36052,12 @@
     "companion.askEachFlightAccessibility": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ nicht mehr immer erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35091,6 +36075,12 @@
     "companion.checkAndNext": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abhaken & weiter"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35108,6 +36098,12 @@
     "companion.checklistUnavailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste erscheint hier, sobald auf dem iPad ein Flug aktiv ist."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35125,6 +36121,12 @@
     "companion.companionDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleitgerät"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35142,6 +36144,12 @@
     "companion.companionMode": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleitmodus"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35159,6 +36167,12 @@
     "companion.connectToiPad": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit dem iPad verbinden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35176,6 +36190,12 @@
     "companion.connected": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35193,6 +36213,12 @@
     "companion.connectedTo": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden mit %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35210,6 +36236,12 @@
     "companion.connectedWith": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden mit %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35227,6 +36259,12 @@
     "companion.connecting": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung wird hergestellt..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35244,6 +36282,12 @@
     "companion.connectingTo": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung mit %@ wird hergestellt…"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35261,6 +36305,12 @@
     "companion.connection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35278,6 +36328,12 @@
     "companion.connectionLost": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung verloren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35295,6 +36351,12 @@
     "companion.dataStale": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten veraltet: Werte möglicherweise eingefroren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35312,6 +36374,12 @@
     "companion.denyControl": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht erlauben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35329,6 +36397,12 @@
     "companion.deviceAlwaysAllowed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Darf Flüge immer steuern"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35346,6 +36420,12 @@
     "companion.deviceForgotten": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entkoppelt: AéroCheck verbindet sich nicht mehr damit"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35363,6 +36443,12 @@
     "companion.deviceRole": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rolle des Geräts"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35380,6 +36466,12 @@
     "companion.diagConnection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35397,6 +36489,12 @@
     "companion.diagCopy": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnose kopieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35414,6 +36512,12 @@
     "companion.diagNoEvents": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Ereignisse. Tippen Sie zum Beginnen auf «Mit dem iPad verbinden» oder «Empfang starten»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35431,6 +36535,12 @@
     "companion.diagRoleMaster": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPad: steuert (bietet an)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35448,6 +36558,12 @@
     "companion.diagRoleViewer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone: verbindet sich (sucht)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35465,6 +36581,12 @@
     "companion.diagService": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dienst"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35482,6 +36604,12 @@
     "companion.diagSupported": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unterstützt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35499,6 +36627,12 @@
     "companion.diagThisDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gerät"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35516,6 +36650,12 @@
     "companion.diagUnsupported": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht unterstützt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35533,6 +36673,12 @@
     "companion.diagWifiAware": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi Aware"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35550,6 +36696,12 @@
     "companion.diagnostics": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnose"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35567,6 +36719,12 @@
     "companion.diagnosticsFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur für Entwickler. Teilen Sie dies, wenn das Koppeln fehlschlägt: Es zeigt, ob Wi-Fi Aware verfügbar ist, und protokolliert die Verbindungsereignisse."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35584,6 +36742,12 @@
     "companion.disconnect": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trennen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35601,6 +36765,12 @@
     "companion.disconnected": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getrennt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35618,6 +36788,12 @@
     "companion.divertAllowOnIPad": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn das iPad fragt, erlauben Sie dort das iPhone."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35635,6 +36811,12 @@
     "companion.divertHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie einen Flugplatz zum Ausweichen. Das iPad navigiert dorthin."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35652,6 +36834,12 @@
     "companion.divertNearest": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächstgelegene"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35669,6 +36857,12 @@
     "companion.divertNoAirportData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Flugplatzdaten auf diesem iPhone: Laden Sie sie in den Einstellungen herunter, oder weichen Sie über das iPad aus."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35686,6 +36880,12 @@
     "companion.divertNoMatch": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Flugplatz mit diesem Code oder Namen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35703,6 +36903,12 @@
     "companion.divertNoPosition": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Position: Suchen Sie den Flugplatz."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35720,6 +36926,12 @@
     "companion.divertNotTaken": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das iPad hat das Ausweichen nicht bestätigt. Prüfen Sie das iPad."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35737,6 +36949,12 @@
     "companion.divertWaiting": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten auf das iPad…"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35754,6 +36972,12 @@
     "companion.enableCompanionMode": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleitmodus aktivieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35771,6 +36995,12 @@
     "companion.enableDescription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden Sie Ihr iPhone als Begleitgerät mit Ihrem iPad, um das Nav-Log und die Checkliste während des Flugs live zu verfolgen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35788,6 +37018,12 @@
     "companion.exitConfirmLeave": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verlassen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35805,6 +37041,12 @@
     "companion.exitConfirmMessage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gerät schaltet den Begleitmodus aus und kehrt zur App zurück. Sie können ihn in den Einstellungen wieder einschalten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35822,6 +37064,12 @@
     "companion.exitConfirmTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleitmodus verlassen?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35839,6 +37087,12 @@
     "companion.forgetDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entkoppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35856,6 +37110,12 @@
     "companion.forgetDeviceAccessibility": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ entkoppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35873,6 +37133,12 @@
     "companion.holdToExit": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Verlassen halten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35890,6 +37156,12 @@
     "companion.holdToReveal": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Anzeigen halten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35907,6 +37179,12 @@
     "companion.keepTrying": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter versuchen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35924,6 +37202,12 @@
     "companion.makeDiscoverable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sichtbar machen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35941,6 +37225,12 @@
     "companion.masterDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haupt-iPad"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35958,6 +37248,12 @@
     "companion.nextPhase": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächste Phase"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35975,6 +37271,12 @@
     "companion.noFlightPlan": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Route auf der Karte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -35992,6 +37294,12 @@
     "companion.noNetworkRequired": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Wi-Fi-Netzwerk nötig: Die Geräte kommunizieren direkt miteinander."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36009,6 +37317,12 @@
     "companion.noPairedDevices": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine gekoppelten Geräte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36026,6 +37340,12 @@
     "companion.pairDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerät koppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36043,6 +37363,12 @@
     "companion.pairDeviceFirst": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koppeln Sie zuerst ein Gerät, um die Verbindung zu ermöglichen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36060,6 +37386,12 @@
     "companion.pairInSettings": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie können ein Begleitgerät in den Einstellungen koppeln."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36077,6 +37409,12 @@
     "companion.pairNewDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neues Gerät koppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36094,6 +37432,12 @@
     "companion.pairWithiPad": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit dem iPad koppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36111,6 +37455,12 @@
     "companion.pairWithiPhone": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Ihrem iPhone koppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36128,6 +37478,12 @@
     "companion.pairedDevices": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gekoppelte Geräte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36145,6 +37501,12 @@
     "companion.pairing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird gekoppelt..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36162,6 +37524,12 @@
     "companion.pairingGuidanceMaster": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPad ist der Hauptbildschirm. Zum Koppeln beginnen Sie hier: «Neues Gerät koppeln», dann «Sichtbar machen», und lassen Sie dieses Fenster offen, während das iPhone danach sucht."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36179,6 +37547,12 @@
     "companion.pairingGuidanceViewer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone verbindet sich mit Ihrem iPad. Zum Koppeln beginnen Sie auf dem iPad: «Neues Gerät koppeln», dann «Sichtbar machen», und lassen Sie dieses Fenster offen. Dann hier: «Neues Gerät koppeln», dann «Nach Geräten suchen»."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36196,6 +37570,12 @@
     "companion.pairingMasterDescription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnen Sie hier: Tippen Sie auf «Sichtbar machen» und lassen Sie das Fenster, das sich öffnet, auf dem Bildschirm. Tippen Sie dann auf dem iPhone auf «Neues Gerät koppeln», dann auf «Nach Geräten suchen», wählen Sie dieses iPad und bestätigen Sie den Code auf beiden Geräten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36213,6 +37593,12 @@
     "companion.pairingPausesLink": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solange dieser Bildschirm offen ist, ist die Verbindung des Begleitmodus pausiert. Sobald die Geräte gekoppelt sind, oder erneut gekoppelt, schliesst sich der Bildschirm von selbst, und die Verbindung kommt von allein zurück."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36230,6 +37616,12 @@
     "companion.pairingViewerDescription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnen Sie auf dem iPad: «Neues Gerät koppeln», dann «Sichtbar machen», und lassen Sie dieses Fenster offen. Tippen Sie dann unten auf «Nach Geräten suchen», wählen Sie das iPad und bestätigen Sie den Code auf beiden Geräten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36247,6 +37639,12 @@
     "companion.providingGPS": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liefert GPS an das iPad"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36264,6 +37662,12 @@
     "companion.reconnecting": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung wird wiederhergestellt..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36280,6 +37684,12 @@
     },
     "companion.requiresIOS26": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Begleitmodus erfordert iOS 26 oder neuer auf zwei kompatiblen Geräten (Wi-Fi Aware). Auf diesem Gerät kann er keine Verbindung herstellen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36297,6 +37707,12 @@
     "companion.roleAuto": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36314,6 +37730,12 @@
     "companion.roleCompanion": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleitgerät"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36331,6 +37753,12 @@
     "companion.roleDescriptionMaster": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gerät sendet die Flugdaten an ein Begleitgerät."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36348,6 +37776,12 @@
     "companion.roleDescriptionViewer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Gerät empfängt den Flug vom iPad und zeigt sein Nav-Log und seine Checkliste."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36365,6 +37799,12 @@
     "companion.rolePrimary": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hauptgerät"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36382,6 +37822,12 @@
     "companion.scanForDevices": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach Geräten suchen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36399,6 +37845,12 @@
     "companion.startFlightOnMaster": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnen Sie zuerst einen Flug auf %@."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36416,6 +37868,12 @@
     "companion.startListening": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empfang starten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36433,6 +37891,12 @@
     "companion.switchToStandalone": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eigenständig weiter"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36450,6 +37914,12 @@
     "companion.unknownDevice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekanntes Gerät"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36467,6 +37937,12 @@
     "companion.waitingForPairing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten auf Kopplung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36484,6 +37960,12 @@
     "companion.wifiAwareInfo": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwendet Wi-Fi Aware für die direkte Kommunikation zwischen den Geräten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36501,6 +37983,12 @@
     "companion.wifiAwareRequirement": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi Aware erfordert iOS 26 oder neuer auf beiden Geräten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -36518,6 +38006,12 @@
     "companion.wifiAwareUnavailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi Aware nicht verfügbar"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -51801,6 +53295,12 @@
       "comment": "A label for the heading when the value is unknown.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unbekannt"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",

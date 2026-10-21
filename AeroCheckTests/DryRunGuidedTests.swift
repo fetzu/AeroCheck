@@ -88,6 +88,14 @@ final class DryRunGuidedTests: XCTestCase {
                        "the approach check's card waits for the slot to name it, before the downwind (g-7, st-14)")
     }
 
+    /// The radio card rings NOW | NEXT alone, where a due NEXT is tapped; the read band's card, the whole band (the
+    /// 6.4.3 device checks, ho-22: the radio card rang the strip too).
+    func testTheRadioCardRingsTheRadioLine() {
+        let steps = DryRunChapters.steps
+        XCTAssertEqual(steps.first { $0.id == "radioDue" }?.target, .radioLine)
+        XCTAssertEqual(steps.first { $0.id == "readBand" }?.target, .readBand)
+    }
+
     func testALookStepGoesOnWithNextADoStepOnlyOnceDone() {
         let look = DryRunCoachStep(id: "look", chapter: 1, kind: .look, target: nil, veils: false, holds: true,
                                    moment: .now, done: .next, title: "", body: "")
@@ -124,6 +132,29 @@ final class DryRunGuidedTests: XCTestCase {
                        + [L10n.DryRunCoach.habitClose, L10n.DryRunCoach.habitLogbook])
         XCTAssertEqual(summary.goArounds, 1)
         XCTAssertEqual(summary.landings, 1)
+    }
+
+    /// With no call due as the cruise check is done (no route's timeline, NEXT tapped already), the radio's card
+    /// is left out and nothing waits for it. (6.4.3)
+    func testTheRadioCardIsLeftOutWithNoCallDue() throws {
+        let record = try flyTheStory(.story, radioDue: false)
+        let expected = DryRunStory.steps.filter { $0.requires != .notFromPlan && $0.id != "radioDue" }.map(\.id)
+        XCTAssertEqual(record.shown, expected)
+        XCTAssertTrue(record.coach.isFinished)
+    }
+
+    /// The radio's card holds the flight until NEXT is tapped: its due call made NOW by the pilot, not the app.
+    func testTheRadioCardWaitsForTheTap() throws {
+        var held = 0
+        let record = try flyTheStory(.story) { step, session in
+            guard step.id == "radioDue", held < 5 else { return false }
+            XCTAssertTrue(session.isCoachHolding)
+            held += 1
+            return true
+        }
+        XCTAssertEqual(held, 5, "five seconds held at the card, NEXT not tapped")
+        XCTAssertTrue(record.shown.contains("radioDue"))
+        XCTAssertTrue(record.coach.isFinished)
     }
 
     // MARK: - The second round of device checks (16 Oct)
@@ -532,7 +563,9 @@ final class DryRunGuidedTests: XCTestCase {
     /// here on that page. Each stretch between two steps is timed in the pilot's seconds: a second of the flight
     /// at pace p is 1/p of the pilot's.
     /// `answer`: the test's own answer to a step, in place of the pilot's (true: answered).
-    private func flyTheStory(_ start: DryRunStart, stopAt: String? = nil, seed: UInt64 = 11,
+    /// `radioDue`: the Cockpit's radio as it reads at the level-off, NEXT due (the frequency handover, 6.4.3); the
+    /// headless flight has no Cockpit to say it.
+    private func flyTheStory(_ start: DryRunStart, stopAt: String? = nil, seed: UInt64 = 11, radioDue: Bool = true,
                              answer: ((DryRunCoachStep, DryRunSession) -> Bool)? = nil) throws -> Record {
         let plan = DryRunChapters.route(from: .lszq)
         let setup = DryRunSetup(mission: .route(plan, departure: .lszq, destination: .lszq), rate: 0, guided: start)
@@ -549,9 +582,14 @@ final class DryRunGuidedTests: XCTestCase {
         var stretch = 0.0
         var linesMissing: [String] = []
         var prompted: Set<String> = []
+        var radioGiven = false
 
         for _ in 0..<(4 * 3600) {
             if case .over = session.state { break }
+            if radioDue, !radioGiven, appState.flightCues.fired[.levelOff] != nil {
+                radioGiven = true
+                appState.radioNextIsDue = true
+            }
             // The engine hours' prompt, as the Cockpit raises it: entering the engine start, at ENGINE SHUTDOWN.
             if appState.isFlightActive, appState.currentPhase == .engineStart,
                appState.currentFlight?.engineHourStart == nil, !prompted.contains("start") {
@@ -587,6 +625,8 @@ final class DryRunGuidedTests: XCTestCase {
                 case .screenClosed(let screen): coach.hide(screen)
                 case .linkTapped: coach.noteLink()
                 case .fullTanksTapped: coach.noteFullTanks()
+                // NEXT tapped: the Cockpit's radio no longer has it due.
+                case .radioSwitched: appState.radioNextIsDue = false
                 case .flightStarted:
                     // START FLIGHT closes the flight's page and the ground, as the app does.
                     coach.actAsPilot(step, session)

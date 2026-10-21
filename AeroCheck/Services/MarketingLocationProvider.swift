@@ -201,7 +201,7 @@ struct MarketingGPSPoint {
         return R * c
     }
 
-    func toCLLocation(timestamp: Date = Date(), heading: Double? = nil) -> CLLocation {
+    func toCLLocation(timestamp: Date = FlightClock.now, heading: Double? = nil) -> CLLocation {
         CLLocation(
             coordinate: coordinate,
             altitude: altitude,
@@ -478,7 +478,8 @@ class MarketingLocationProvider: ObservableObject {
                 verticalAccuracy: 10.0,
                 course: customHeading,
                 speed: customSpeed * 0.514444,
-                timestamp: Date()
+                // The flight's clock: the capture clock's 9:41 when one runs (`AEROCHECK_CLOCK`). (6.4.3)
+                timestamp: FlightClock.now
             )
         } else {
             let track = currentScenario.track
@@ -783,8 +784,9 @@ enum MarketingSceneInjector {
         appState.currentHighlightedItem[.cruise] = fuelIndex
         appState.phaseCompletionStatus[.cruise] = nil // in-progress, not yet completed
 
-        // Record engine start + line up so the in-flight clock and timing readouts are populated.
-        let now = Date()
+        // Record engine start + line up so the in-flight clock and timing readouts are populated, on the
+        // flight's clock (`AEROCHECK_CLOCK`'s 9:41 for the screenshots). (6.4.3)
+        let now = FlightClock.now
         appState.engineStartTime = now.addingTimeInterval(-25 * 60)
         appState.lineUpTime = now.addingTimeInterval(-20 * 60)
         appState.currentFlight?.engineStartTime = appState.engineStartTime

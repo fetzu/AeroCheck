@@ -3012,6 +3012,10 @@ struct PhaseFrequency: Identifiable {
     /// Off the route: a CTR around the aircraft the route doesn't enter, listed on ROUTE under its own heading
     /// after the route's calls (the author's device check r3-6, 6.4.2).
     var nearby = false
+    /// NEXT is due: the pilot is expected to switch now (the frequency handover, 6.4.3).
+    var due = false
+    /// While due, the share still to go before the app switches by itself, 1 to 0. (6.4.3)
+    var dueLeft: Double? = nil
 
     /// The station with what is named beside it: "Geneva Info · TMA GENEVA".
     var stationWithNote: String { note.map { "\(station) · \($0)" } ?? station }

@@ -181,10 +181,19 @@ final class DryRunSession: ObservableObject, Identifiable {
 
     // MARK: Running
 
+    /// When a dry run starts: now, or in a DEBUG build the screenshots' clock when one runs
+    /// (`AEROCHECK_CLOCK`, `FlightClock.captureClockAtLaunch`). (6.4.3)
+    nonisolated static var startTime: Date {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["AEROCHECK_CLOCK"] != nil { return FlightClock.now }
+        #endif
+        return Date()
+    }
+
     /// Starts the clock at the setup's pace from `now` and the flight in the world, then feeds it. False if
     /// the world's AppState refused the flight (nothing then runs).
     @discardableResult
-    func begin(airports: AirportDataService, now: Date = Date()) -> Bool {
+    func begin(airports: AirportDataService, now: Date = DryRunSession.startTime) -> Bool {
         guard start == nil else { return true }
         start = now
         self.airports = airports

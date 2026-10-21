@@ -643,6 +643,35 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
                                           situation: situation, sources: world.sources)
     }
 
+    /// With the Cockpit's handover (6.4.3): at the level-off NOW stays the departure and NEXT comes due, its line full;
+    /// the plan gives the state back for the Cockpit to keep; without the handover, 6.4.2's NOW moves by itself.
+    func testWithTheHandoverNowWaitsAndNextComesDue() {
+        let plan = Self.timelineRoute(next: 1)
+        let situation = PhaseFrequencyPlanner.Situation(timeline: Self.timeline(for: plan), groundSpeedKt: 100,
+                                                        departureOver: false, handover: RadioHandover())
+        let ground = PhaseFrequencyPlanner.plan(position: .init(latitude: 47.0, longitude: 7.0), plan: plan,
+                                                situation: situation, sources: Self.empty.sources)
+        XCTAssertEqual(ground.current?.station, "LSXA AFIS")
+        XCTAssertEqual(ground.next?.due, false)
+        let kept = try? XCTUnwrap(ground.handover)
+        XCTAssertEqual(kept?.station?.callSign, "LSXA AFIS")
+
+        var levelled = situation
+        levelled.departureOver = true
+        levelled.handover = kept
+        let level = PhaseFrequencyPlanner.plan(position: .init(latitude: 47.0, longitude: 7.05), plan: plan,
+                                               situation: levelled, sources: Self.empty.sources)
+        XCTAssertEqual(level.current?.station, "LSXA AFIS", "NOW waits for the pilot's tap")
+        XCTAssertEqual(level.next?.station, "Geneva Info")
+        XCTAssertEqual(level.next?.due, true)
+        XCTAssertEqual(level.next?.dueLeft ?? 0, 1, accuracy: 0.01)
+        let route = level.route
+        XCTAssertEqual(route.first { $0.role == .next }?.due, true, "ROUTE's NEXT due as well")
+        XCTAssertNil(level.switched)
+
+        XCTAssertEqual(onRoute(longitude: 7.05, next: 1).current?.station, "Geneva Info", "no handover: as in 6.4.2")
+    }
+
     /// dr-3's first stretch: the departure field until the level-off, the Info it climbs into NEXT; then that
     /// Info, the next one NEXT.
     func testOnTheRouteNowAndNextFollowTheTimeline() {
@@ -730,14 +759,202 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         radio.publish = { _ in }
         let plan = Self.timelineRoute(next: 1)
         radio.setTimeline(Self.timeline(for: plan), for: plan)
-        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: plan,
+        // 11.5 NM out: past the departure's 10 NM, on Geneva Info from the first reading.
+        radio.update(position: .init(latitude: 47.0, longitude: 7.28), plan: plan,
                      situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
         XCTAssertEqual(radio.next?.station, "Zurich Info")
         var other = plan
         other.waypoints[2].frequency = "119.000"
-        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: other,
+        radio.update(position: .init(latitude: 47.0, longitude: 7.28), plan: other,
                      situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
         XCTAssertNotEqual(radio.next?.station, "Zurich Info", "an edited route waits for its own timeline")
+    }
+
+    /// The Cockpit's radio with the handover (6.4.3): a tap on NEXT switches and is offered back, a second tap within a
+    /// second is ignored, UNDO puts the pilot back; the app's own switch is reported, and undone it isn't made again; a
+    /// row of ROUTE › RADIO makes its station NOW.
+    func testTheRadioSwitchesOnATapAndTakesItBack() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var kept: RadioHandover?
+        radio.onHandover = { kept = $0 }
+        var reported: [String] = []
+        var undoReported: (() -> Void)?
+        radio.onSwitched = { message, undo in
+            reported.append(message)
+            undoReported = undo
+        }
+        let plan = Self.timelineRoute(next: 1)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        func fly(_ longitude: Double, departureOver: Bool = true) {
+            radio.update(position: .init(latitude: 47.0, longitude: longitude), plan: plan,
+                         situation: .init(groundSpeedKt: 100, departureOver: departureOver), sources: Self.empty.sources)
+        }
+
+        XCTAssertEqual(radio.tapNext(at: Date()).isOffTimeline, true, "before the first reading: ROUTE")
+        fly(7.0, departureOver: false)
+        XCTAssertTrue(radio.onTimeline)
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+        XCTAssertEqual(radio.next?.due, false)
+        fly(7.05)
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS", "NOW waits for the tap")
+        XCTAssertEqual(radio.next?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.due, true)
+
+        let tap = Date()
+        guard case .taken(let taken) = radio.tapNext(at: tap) else { return XCTFail("the tap switches") }
+        XCTAssertEqual(taken.message, L10n.Read.switched("Geneva Info"))
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(kept?.station?.callSign, "GENEVA INFO", "kept with the flight")
+        XCTAssertEqual(radio.tapNext(at: tap.addingTimeInterval(0.5)).isIgnored, true, "a bounce isn't a second tap")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        taken.undo()
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS", "UNDO: back on the field")
+        XCTAssertEqual(radio.next?.due, true)
+        XCTAssertTrue(reported.isEmpty)
+
+        fly(7.27)   // 11 NM out, no tap: the app leaves the field by itself
+        XCTAssertEqual(reported, [L10n.Read.switchedAutomatically("Geneva Info")])
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(radio.tapNext(at: Date()).isIgnored, true,
+                       "NEXT changed under the finger: the tap was for the call the app took")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        undoReported?()
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+        XCTAssertEqual(radio.next?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.due, true)
+        XCTAssertNil(radio.next?.dueLeft, "no line: the app won't switch again")
+        fly(7.29)
+        XCTAssertEqual(reported.count, 1)
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+
+        guard let zurich = radio.stations.first(where: { $0.station == "Zurich Info" }) else {
+            return XCTFail("Zurich Info on ROUTE")
+        }
+        XCTAssertTrue(CockpitRadio.picks(zurich))
+        XCTAssertEqual(radio.select(zurich)?.message, L10n.Read.switched("Zurich Info"))
+        XCTAssertEqual(radio.now?.station, "Zurich Info", "picked on ROUTE")
+        XCTAssertFalse(CockpitRadio.picks(.emergency))
+    }
+
+    /// The Companion iPhone's tap (6.4.3, q9 B): the iPad switches while its NEXT is still the frequency the phone
+    /// showed, and offers it back there too; a tap for another does nothing; the phone's UNDO takes back that switch
+    /// only, once, within its six seconds.
+    func testThePhoneSwitchesByTheFrequencyItShowed() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var offered: [String] = []
+        radio.onTaken = { offered.append($0.message) }
+        let plan = Self.timelineRoute(next: 1)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        func fly(_ longitude: Double, departureOver: Bool = true) {
+            radio.update(position: .init(latitude: 47.0, longitude: longitude), plan: plan,
+                         situation: .init(groundSpeedKt: 100, departureOver: departureOver), sources: Self.empty.sources)
+        }
+        fly(7.0, departureOver: false)
+        fly(7.05)
+        let t = Date()
+        XCTAssertFalse(radio.tapNext(fromPhone: "124.700", at: t), "NEXT is Geneva Info: a late tap does nothing")
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+        XCTAssertTrue(radio.tapNext(fromPhone: "126.35", at: t), "the same frequency, however it is written")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(offered, [L10n.Read.switched("Geneva Info")], "offered back on the iPad too")
+        XCTAssertFalse(radio.undoPhoneSwitch("124.700", at: t.addingTimeInterval(1)), "another switch's UNDO")
+        XCTAssertTrue(radio.undoPhoneSwitch("126.35", at: t.addingTimeInterval(2)))
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+        XCTAssertFalse(radio.undoPhoneSwitch("126.35", at: t.addingTimeInterval(3)), "once")
+
+        let later = t.addingTimeInterval(10)
+        XCTAssertTrue(radio.tapNext(fromPhone: "126.350", at: later))
+        XCTAssertFalse(radio.undoPhoneSwitch("126.350", at: later.addingTimeInterval(UndoOfferRule.window + 1)),
+                       "past UNDO's six seconds")
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+    }
+
+    /// A due NEXT's line follows every fix between two computations of the lists, which come every 0.01° (the 6.4.3
+    /// device checks saw it run out a quarter at a time); the latest point reached between them switches at once.
+    func testTheDueLineFollowsEveryFix() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var reported: [String] = []
+        radio.onSwitched = { message, _ in reported.append(message) }
+        let plan = Self.timelineRoute(next: 1)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        let situation = PhaseFrequencyPlanner.Situation(groundSpeedKt: 100, departureOver: true)
+        func fix(_ longitude: Double) {
+            radio.noteMove(to: .init(latitude: 47.0, longitude: longitude), plan: plan, situation: situation,
+                           sources: Self.empty.sources)
+        }
+
+        fix(7.0)
+        fix(7.05)
+        XCTAssertEqual(radio.next?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.due, true)
+        let computed = radio.computations
+        var lines = [radio.next?.dueLeft ?? 0]
+        for longitude in [7.052, 7.054, 7.056, 7.058] {
+            fix(longitude)
+            lines.append(radio.next?.dueLeft ?? 0)
+        }
+        XCTAssertEqual(radio.computations, computed, "under 0.01°: the lists aren't computed again")
+        XCTAssertEqual(lines, lines.sorted(by: >), "the line runs out")
+        XCTAssertEqual(Set(lines).count, lines.count, "at every fix")
+        XCTAssertEqual(radio.now?.station, "LSXA AFIS")
+
+        // 10 NM out (7.244° E) the app leaves the field by itself: at the fix past it, not 0.01° later.
+        fix(7.24)
+        XCTAssertTrue(reported.isEmpty)
+        fix(7.246)
+        XCTAssertEqual(reported, [L10n.Read.switchedAutomatically("Geneva Info")])
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+    }
+
+    /// The due state reaches the Companion iPhone and the Watch, the share kept to 0...1 whatever the wire says;
+    /// an older iPad sends neither, nor the switch. (6.4.3)
+    func testTheDueStateReachesThePhoneAndTheWatch() throws {
+        let item = PhaseFrequency(station: "LSZG TWR HX", freq: "120.105", highlighted: true, isEmergency: false,
+                                  role: .next, due: true, dueLeft: 0.4)
+        XCTAssertEqual(item.watchInfo.due, true)
+        let read = try JSONDecoder().decode(CompanionFrequency.self, from: JSONEncoder().encode(CompanionFrequency(item)))
+        XCTAssertEqual(read.due, true)
+        XCTAssertEqual(read.dueLeft ?? 0, 0.4, accuracy: 1e-9)
+        let wild = try JSONDecoder().decode(CompanionFrequency.self,
+                                            from: Data(#"{"station":"X","frequency":"120.105","due":true,"dueLeft":7}"#.utf8))
+        XCTAssertEqual(wild.dueLeft, 1)
+        let older = try JSONDecoder().decode(CompanionFrequency.self, from: Data(#"{"station":"X","frequency":"120.105"}"#.utf8))
+        XCTAssertNil(older.due)
+        XCTAssertNil(older.dueLeft)
+        XCTAssertNil(try JSONDecoder().decode(CompanionFlightData.self, from: Data("{}".utf8)).radioSwitch)
+        XCTAssertEqual(try JSONDecoder().decode(CompanionFlightData.self, from: Data(#"{"radioSwitch":true}"#.utf8)).radioSwitch, true)
+        let command = try JSONDecoder().decode(CompanionCommand.self,
+                                               from: JSONEncoder().encode(CompanionCommand.switchRadio(frequency: "120.105")))
+        guard case .switchRadio(let frequency) = command else { return XCTFail("the switch on the wire") }
+        XCTAssertEqual(frequency, "120.105")
+    }
+
+    /// On the timeline with nothing NEXT (the destination's tower NOW, its ATIS behind), a tap on NEXT does nothing.
+    func testATapOnAnEmptyNextDoesNothing() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        let plan = Self.timelineRoute(next: 4)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        radio.update(position: .init(latitude: 47.0, longitude: 8.19), plan: plan,
+                     situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
+        XCTAssertTrue(radio.onTimeline)
+        XCTAssertNil(radio.next?.freq)
+        XCTAssertEqual(radio.tapNext(at: Date()).isIgnored, true)
+    }
+
+    /// Off a route's timeline the handover stays out: NEXT's tap opens ROUTE.
+    func testWithoutATimelineNextOpensRoute() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        let plan = Self.timelineRoute(next: 1)
+        radio.update(position: .init(latitude: 47.0, longitude: 7.05), plan: plan,
+                     situation: .init(groundSpeedKt: 100, departureOver: true), sources: Self.empty.sources)
+        XCTAssertFalse(radio.onTimeline)
+        XCTAssertEqual(radio.tapNext(at: Date()).isOffTimeline, true)
+        XCTAssertNil(radio.handover)
     }
 
     /// LISTEN reaches the Watch and the Companion iPhone as a key of their own.
@@ -863,4 +1080,9 @@ private extension Data {
         object.removeValue(forKey: key)
         return try JSONSerialization.data(withJSONObject: object)
     }
+}
+
+private extension CockpitRadio.NextTap {
+    var isIgnored: Bool { if case .ignored = self { return true }; return false }
+    var isOffTimeline: Bool { if case .offTimeline = self { return true }; return false }
 }

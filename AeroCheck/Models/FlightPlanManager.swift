@@ -979,7 +979,8 @@ class FlightPlanManager: ObservableObject {
     func marketingStartChronometer(elapsedSeconds: TimeInterval) {
         guard var plan = activeFlightPlan else { return }
         chronometerAccumulated = 0
-        plan.chronometerStartTime = Date().addingTimeInterval(-elapsedSeconds)
+        // The flight's clock, as the chronometer counts: the capture clock's 9:41 when one runs. (6.4.3)
+        plan.chronometerStartTime = FlightClock.now.addingTimeInterval(-elapsedSeconds)
         activeFlightPlan = plan
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
             flightPlans[index] = plan

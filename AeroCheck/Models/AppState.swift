@@ -706,6 +706,9 @@ struct ActiveFlightState: Codable {
     /// Whether the flight was started as circuits, which END FLIGHT's close-out reads, `isCircuitMode` being
     /// the switch as it stands. Optional, so an older checkpoint still decodes (as `isCircuitMode`). (6.3.0)
     let startedAsCircuits: Bool?
+    /// The radio's frequency handover: the station the pilot switched to, the LISTENs heard. Optional, so an older
+    /// checkpoint still decodes (the radio starts again from the timeline). (6.4.3)
+    let radioHandover: RadioHandover?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -729,6 +732,7 @@ struct ActiveFlightState: Codable {
         self.freda = appState.freda.isRunning ? appState.freda : nil
         self.circuitLaps = appState.circuitLaps
         self.startedAsCircuits = appState.startedAsCircuits
+        self.radioHandover = appState.radioHandover
         self.highestCompletedPhase = appState.highestCompletedPhase
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.deferredItems = appState.deferredItems
@@ -772,6 +776,7 @@ struct ActiveFlightState: Codable {
         appState.freda = freda ?? FredaSchedule()
         appState.circuitLaps = circuitLaps ?? CircuitLaps()
         appState.startedAsCircuits = startedAsCircuits ?? isCircuitMode
+        appState.radioHandover = radioHandover
         appState.highestCompletedPhase = highestCompletedPhase
         appState.currentHighlightedItem = currentHighlightedItem
         appState.deferredItems = deferredItems ?? [:]
@@ -899,6 +904,12 @@ class AppState {
     /// the detector's cues (`noteFlightCue`), read by the check slot and the phase bar. (6.1, cues from
     /// the flight)
     var flightCues = FlightCueState()
+
+    /// Where the pilot is on the radio timeline (the frequency handover): kept by the Cockpit's radio, saved with the
+    /// flight, nil between flights. (6.4.3)
+    var radioHandover: RadioHandover?
+    /// NEXT is due on the Cockpit's radio: for the dry run's card. Not saved; the Cockpit says it again. (6.4.3)
+    var radioNextIsDue = false
 
     /// The landed card, up after a full-stop landing on a flight that isn't circuits, until answered or
     /// the next take-off roll. (6.1, M4)
@@ -1649,6 +1660,8 @@ class AppState {
         freda = FredaSchedule()
         fredaConfirmation = nil
         flightCues = FlightCueState()
+        radioHandover = nil
+        radioNextIsDue = false
         landedCard = nil
         deferredItems = [:]
         deferredChecks = []
@@ -1728,6 +1741,8 @@ class AppState {
         freda = FredaSchedule()
         fredaConfirmation = nil
         flightCues = FlightCueState()
+        radioHandover = nil
+        radioNextIsDue = false
         landedCard = nil
         deferredItems = [:]
         deferredChecks = []
@@ -1754,6 +1769,8 @@ class AppState {
         freda = FredaSchedule()
         fredaConfirmation = nil
         flightCues = FlightCueState()
+        radioHandover = nil
+        radioNextIsDue = false
         landedCard = nil
         currentFlight = nil
         flightAircraft = nil

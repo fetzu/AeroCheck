@@ -31,7 +31,7 @@ import CoreLocation
 struct RadioTimeline: Equatable {
     typealias Station = RouteRadioPlanner.Station
 
-    enum Kind: Equatable {
+    enum Kind: String, Equatable, Codable {
         /// The departure field's contact.
         case departure
         /// The area's flight information service.
@@ -63,7 +63,16 @@ struct RadioTimeline: Equatable {
         /// An aerodrome called at its reporting points, not a zone to enter: it waits for the departure's stretch to
         /// end, where a zone takes NOW from it in the climb (r3-2). (6.4.2)
         var yieldsToDeparture = false
+        /// The departure's latest end (`Rules.latest`): out of its own zone, else `toNM`. (6.4.3)
+        var latestToNM: Double? = nil
     }
+
+    /// How a call's stretch is read. `.now`: NOW as 6.4.2 reads it (`reading`). `.due`: where NEXT comes due for the
+    /// pilot to switch (the frequency handover, `RadioHandover`): 6.4.2's points, a FIS 2 min before its boundary.
+    /// `.latest`: where the app switches by itself when the pilot hasn't: a zone and a FIS at their boundary, a zone
+    /// left 2 NM past its exit, the departure 10 NM out or out of its zone, the destination at its zone's boundary or
+    /// its arrival point. The author's answers of 19 Oct 2026 (q2). (6.4.3)
+    enum Rules: Equatable { case now, due, latest }
 
     /// Listen-only, shown in NEXT in its window.
     struct Listen: Equatable {
@@ -114,6 +123,14 @@ struct RadioTimeline: Equatable {
     static let fieldOnTheWayNM = 2.0
     /// The departure is NOW to the level-off, and this far at most (a climb that never levels off).
     static let departureLimitNM = 10.0
+    /// A FIS boundary comes due this long before it (`Rules.due`). (6.4.3)
+    static let fisChangeLead: TimeInterval = 120
+    /// A zone left: the app switches by itself this far past its exit (`Rules.latest`). (6.4.3)
+    static let zoneExitMarginNM = 2.0
+    /// Under the latest rules, a reporting point or an arrival point is called before it is reached: the app's own
+    /// switch comes this long ahead of it. At the point itself its pill was hidden by the point's own mark, which comes
+    /// at the same moment (the dr-3 replay of 19 Oct, at V and at ST-URSANNE). (6.4.3)
+    static let pointLatestLead: TimeInterval = 30
     /// Further than this from the route, the flight is off it: the rules without a route (R7).
     static let offRouteNM = 5.0
     /// Under this, a speed is taken as this: a fix on the ground gives no time to miles.
@@ -146,16 +163,25 @@ struct RadioTimeline: Equatable {
     private static func milesPerSecond(_ speedKt: Double) -> Double { max(speedKt, minimumSpeedKt) / 3600 }
 
     /// Where a call becomes NOW at this ground speed.
-    func start(of call: Call, speedKt: Double) -> Double {
+    func start(of call: Call, speedKt: Double, rules: Rules = .now) -> Double {
         let v = Self.milesPerSecond(speedKt)
         switch call.kind {
         case .departure:
             return -.infinity
         case .fis:
-            return call.fromNM
+            return rules == .due ? call.fromNM - Self.fisChangeLead * v : call.fromNM
         case .unit, .tmaViaFIS:
-            return call.fromNM - call.lead * v
+            guard rules == .latest else { return call.fromNM - call.lead * v }
+            // An aerodrome at its reporting points: before the first one.
+            return call.yieldsToDeparture ? call.fromNM - Self.pointLatestLead * v : call.fromNM
         case .destination:
+            if rules == .latest {
+                // Its zone's boundary (where the route ends inside one) or just before its arrival point, whichever
+                // first; with neither, 2 min before it.
+                let zone = call.fromNM < totalNM - 1e-6 ? call.fromNM : nil
+                let points = [zone, call.arrivalPointNM.map { $0 - Self.pointLatestLead * v }].compactMap { $0 }
+                return points.min() ?? call.fromNM - Self.arrivalPointLead * v
+            }
             var start = call.fromNM - call.lead * v
             if let arrival = call.arrivalPointNM { start = min(start, arrival - Self.arrivalPointLead * v) }
             return start
@@ -163,36 +189,85 @@ struct RadioTimeline: Equatable {
     }
 
     /// Where a call stops being NOW.
-    func end(of call: Call, departureOver: Bool) -> Double {
+    func end(of call: Call, departureOver: Bool, rules: Rules = .now) -> Double {
         switch call.kind {
-        case .departure: return departureOver ? -.infinity : call.toNM
+        case .departure:
+            if departureOver { return -.infinity }
+            return rules == .latest ? call.latestToNM ?? call.toNM : call.toNM
         case .destination: return .infinity
-        case .fis, .unit, .tmaViaFIS: return call.toNM
+        case .fis: return call.toNM
+        case .unit, .tmaViaFIS: return rules == .latest ? call.toNM + Self.zoneExitMarginNM : call.toNM
         }
     }
 
+    /// Every finite start and end under a rule set, in order: where NOW can change. (6.4.3)
+    func changePoints(speedKt: Double, departureOver: Bool, rules: Rules) -> [Double] {
+        calls.flatMap { [start(of: $0, speedKt: speedKt, rules: rules), end(of: $0, departureOver: departureOver, rules: rules)] }
+            .filter(\.isFinite)
+            .sorted()
+    }
+
+    /// Where the stretch NOW holds at `progress` began: the last change point at or before it where NOW turned to that
+    /// frequency; -∞ when it holds from the start, or nothing is NOW. (6.4.3)
+    func segmentStart(at progress: Double, speedKt: Double, departureOver: Bool, rules: Rules) -> Double {
+        guard let here = now(atNM: progress, speedKt: speedKt, departureOver: departureOver, rules: rules) else { return -.infinity }
+        for point in changePoints(speedKt: speedKt, departureOver: departureOver, rules: rules).reversed() where point <= progress {
+            let before = now(atNM: point - 1e-6, speedKt: speedKt, departureOver: departureOver, rules: rules)
+            if !(before?.station.hasSameFrequency(as: here.station) ?? false) { return point }
+        }
+        return -.infinity
+    }
+
+    /// The first change point after `progress` where NOW turns to `station`'s frequency, and the call there; nil when it
+    /// never does. (6.4.3)
+    func firstChange(to station: Station, after progress: Double, speedKt: Double, departureOver: Bool,
+                     rules: Rules) -> (nm: Double, call: Call)? {
+        for point in changePoints(speedKt: speedKt, departureOver: departureOver, rules: rules) where point > progress {
+            if let call = now(atNM: point + 1e-6, speedKt: speedKt, departureOver: departureOver, rules: rules),
+               call.station.hasSameFrequency(as: station) {
+                return (point, call)
+            }
+        }
+        return nil
+    }
+
+    /// The first call after `progress` on another frequency than `station`'s, at its change point. (6.4.3)
+    func nextChange(from station: Station?, after progress: Double, speedKt: Double, departureOver: Bool,
+                    rules: Rules) -> Call? {
+        for point in changePoints(speedKt: speedKt, departureOver: departureOver, rules: rules) where point > progress {
+            if let call = now(atNM: point + 1e-6, speedKt: speedKt, departureOver: departureOver, rules: rules),
+               !call.station.hasSameFrequency(as: station) {
+                return call
+            }
+        }
+        return nil
+    }
+
     /// Which call wins where several hold a point: the destination, then the zone called last, then the departure,
-    /// then an aerodrome at its reporting points, then the FIS.
-    private static func rank(_ call: Call) -> Int {
+    /// then an aerodrome at its reporting points, then the FIS. Under the latest rules an aerodrome at its reporting
+    /// points wins over the departure: the pilot is on it by its first point, whatever the departure's 10 NM (the dr-3
+    /// replay of 19 Oct: the app's switch to LSGC TWR came 10 NM out, past V). (6.4.3)
+    private static func rank(_ call: Call, rules: Rules) -> Int {
         switch call.kind {
         case .fis: return 0
         case .departure: return 2
-        case .unit, .tmaViaFIS: return call.yieldsToDeparture ? 1 : 3
+        case .unit, .tmaViaFIS: return call.yieldsToDeparture && rules != .latest ? 1 : 3
         case .destination: return 4
         }
     }
 
     /// NOW at a point of the route. The departure's or the destination's own zone (its CTR, its FIZ) is called
     /// under the aerodrome's name: "LSGC TWR", not "Les Eplatures TWR".
-    func now(atNM progress: Double, speedKt: Double, departureOver: Bool) -> Call? {
+    func now(atNM progress: Double, speedKt: Double, departureOver: Bool, rules: Rules = .now) -> Call? {
         let held = calls.filter {
-            start(of: $0, speedKt: speedKt) <= progress && progress < end(of: $0, departureOver: departureOver)
+            start(of: $0, speedKt: speedKt, rules: rules) <= progress
+                && progress < end(of: $0, departureOver: departureOver, rules: rules)
         }
         var best: (call: Call, start: Double)?
         for call in held {
-            let start = start(of: call, speedKt: speedKt)
+            let start = start(of: call, speedKt: speedKt, rules: rules)
             if let chosen = best {
-                let rank = Self.rank(call), chosenRank = Self.rank(chosen.call)
+                let rank = Self.rank(call, rules: rules), chosenRank = Self.rank(chosen.call, rules: rules)
                 if rank < chosenRank || (rank == chosenRank && start <= chosen.start) { continue }
             }
             best = (call, start)
@@ -230,6 +305,21 @@ struct RadioTimeline: Equatable {
         let progress = moment.progressNM, speed = moment.speedKt
         let now = now(atNM: progress, speedKt: speed, departureOver: moment.departureOver)
         var reading = Reading(now: now)
+        if let next = nextCall(after: now, moment) {
+            reading.next = next.station
+            reading.nextKind = next.kind
+        }
+        if let listen = listening(moment, besides: now?.station) {
+            reading.next = listen.station
+            reading.nextIsListen = true
+            reading.nextKind = nil
+        }
+        return reading
+    }
+
+    /// NEXT's call, NOW being `now`: the one after it on another frequency.
+    func nextCall(after now: Call?, _ moment: Moment) -> Call? {
+        let progress = moment.progressNM, speed = moment.speedKt
 
         // NEXT: NOW once the departure is over, then just after each change ahead, the first on another frequency.
         // While the departure is NOW, a call that starts before its stretch ends comes first, ahead of the FIS: the
@@ -246,34 +336,35 @@ struct RadioTimeline: Equatable {
             ahead.append(self.now(atNM: progress, speedKt: speed, departureOver: true))
         }
         for change in changes { ahead.append(self.now(atNM: change + 1e-6, speedKt: speed, departureOver: true)) }
-        if let next = ahead.lazy.compactMap({ $0 }).first(where: { !$0.station.hasSameFrequency(as: now?.station) }) {
-            reading.next = next.station
-            reading.nextKind = next.kind
-        }
+        return ahead.lazy.compactMap({ $0 }).first(where: { !$0.station.hasSameFrequency(as: now?.station) })
+    }
+
+    /// A LISTEN item in its window, on another frequency than `besides`: of two, the one whose window ends first.
+    /// `heard`: the items heard (the frequency handover, 6.4.3), left out.
+    func listening(_ moment: Moment, besides station: Station?,
+                   heard: (Listen, Double) -> Bool = { _, _ in false }) -> (station: Station, listen: Listen, ends: Double)? {
+        let progress = moment.progressNM, speed = moment.speedKt
 
         // LISTEN: the destination's ATIS from 10 min before its call point, an aerodrome on the way from 5 min before
         // abeam to 2 NM past. Of two in their windows, the one whose window ends first, then the other: the field
         // passed, then the ATIS (the author's device check ls-1: LSPL abeam on the way back to Grenchen, where the
         // ATIS used to win and LSPL never showed).
         let v = Self.milesPerSecond(speed)
-        var windows: [(station: Station, ends: Double)] = []
+        var windows: [(station: Station, listen: Listen, ends: Double)] = []
         if let destination = calls.last(where: { $0.kind == .destination }),
            let atis = listens.first(where: { $0.kind == .atis }) {
             let call = start(of: destination, speedKt: speed)
-            if call - Self.atisLead * v <= progress, progress < call { windows.append((atis.station, call)) }
+            if call - Self.atisLead * v <= progress, progress < call { windows.append((atis.station, atis, call)) }
         }
         if moment.fieldsOnTheWay {
             for field in listens where field.kind == .fieldOnTheWay
                 && field.atNM - Self.fieldOnTheWayLead * v <= progress && progress < field.atNM + Self.fieldOnTheWayPastNM {
-                windows.append((field.station, field.atNM + Self.fieldOnTheWayPastNM))
+                windows.append((field.station, field, field.atNM + Self.fieldOnTheWayPastNM))
             }
         }
-        if let listen = windows.filter({ !$0.station.hasSameFrequency(as: now?.station) }).min(by: { $0.ends < $1.ends }) {
-            reading.next = listen.station
-            reading.nextIsListen = true
-            reading.nextKind = nil
-        }
-        return reading
+        return windows
+            .filter { !$0.station.hasSameFrequency(as: station) && !heard($0.listen, $0.ends) }
+            .min(by: { $0.ends < $1.ends })
     }
 
     /// Every call from NOW on, in the order the flight makes them, each station once, the LISTEN items in their
@@ -446,10 +537,16 @@ extension RadioTimeline {
                                           lead: zoneLead))
         }
 
-        // The departure, from the start to the level-off.
+        // The departure, from the start to the level-off. The app's own switch (6.4.3) at 10 NM, or 2 NM out of the
+        // departure's own zone on its frequency where that comes first.
         if var contact = departure?.contact {
             contact.isHX = isHX(contact, at: waypoints[0].coordinate)
-            timeline.calls.append(Call(station: contact, kind: .departure, fromNM: 0, toNM: min(departureLimitNM, total)))
+            let limit = min(departureLimitNM, total)
+            let ownZone = timeline.calls.first {
+                ($0.kind == .unit || $0.kind == .tmaViaFIS) && $0.fromNM <= 0 && $0.station.hasSameFrequency(as: contact)
+            }
+            timeline.calls.append(Call(station: contact, kind: .departure, fromNM: 0, toNM: limit,
+                                       latestToNM: ownZone.map { min(limit, $0.toNM + zoneExitMarginNM) }))
         }
 
         // The destination: from its zone's boundary where the route ends inside one that holds it, else the end.

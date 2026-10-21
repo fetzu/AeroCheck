@@ -230,6 +230,8 @@ struct CompanionReadBand: View {
     let flightData: CompanionFlightData?
     let nav: CompanionNav
     let onShowNav: () -> Void
+    /// A tap on NEXT, while the iPad takes it (`radioSwitch`): the switch, sent there. Nil: NAV. (6.4.3)
+    var onNextTap: (() -> Void)? = nil
 
     @Environment(\.cockpitTheme) private var theme
 
@@ -239,7 +241,8 @@ struct CompanionReadBand: View {
             ReadBandNextLine(figures: NextFigures(companion: nav), turn: .some(nav.next?.turn), onTap: onShowNav)
                 .background(RoundedRectangle(cornerRadius: 12).fill(theme.panel))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.panelStroke, lineWidth: 1))
-            CompanionNowLineView(line: CompanionNowLine.make(flightData: flightData, plan: nav.plan), onTap: onShowNav)
+            CompanionNowLineView(line: CompanionNowLine.make(flightData: flightData, plan: nav.plan), onTap: onShowNav,
+                                 onNextTap: onNextTap)
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 2)
@@ -310,34 +313,56 @@ struct CompanionStrip: View {
 }
 
 /// NOW | NEXT, one cell each: the tag and the station on a line, the frequency under it. From an older
-/// iPad, its FREQ in the first cell and the second left empty, the line as tall.
+/// iPad, its FREQ in the first cell and the second left empty, the line as tall. While the iPad takes the
+/// phone's switch, a tap on NEXT switches there and a due NEXT is outlined, its line running out, as on
+/// the Cockpit (6.4.3); a tap anywhere else shows NAV.
 struct CompanionNowLineView: View {
     let line: CompanionNowLine
     let onTap: () -> Void
+    var onNextTap: (() -> Void)? = nil
 
     @Environment(\.cockpitTheme) private var theme
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 10) {
-                switch line {
-                case .radio(let now, let next):
+        HStack(spacing: 10) {
+            switch line {
+            case .radio(let now, let next):
+                Button(action: onTap) {
                     cell(tag: L10n.Nav.freqCurrent, tint: theme.onTarget, station: now?.station, frequency: now?.frequency)
-                    Rectangle().fill(theme.panelStroke).frame(width: 1, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Rectangle().fill(theme.panelStroke).frame(width: 1, height: 36)
+                Button(action: next == nil ? onTap : (onNextTap ?? onTap)) {
                     cell(tag: next?.listen == true ? L10n.Nav.freqListen : L10n.Nav.freqNext, tint: theme.info,
                          station: next?.station, frequency: next?.frequency)
-                case .freq(let station, let frequency):
-                    cell(tag: "FREQ", tint: theme.textSecondary, station: station, frequency: frequency)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .overlay {
+                    if onNextTap != nil, next?.due == true {
+                        ReadBandDueCue(left: next?.dueLeft, cornerRadius: 8)
+                            .padding(.vertical, -4)
+                            .padding(.horizontal, -6)
+                    }
+                }
+                .accessibilityValue(next?.due == true ? L10n.Read.due() : "")
+                .accessibilityHint(onNextTap == nil || next == nil ? ""
+                                   : next?.listen == true ? L10n.Read.heardHint() : L10n.Read.switchHint())
+            case .freq(let station, let frequency):
+                Button(action: onTap) {
+                    cell(tag: "FREQ", tint: theme.textSecondary, station: station, frequency: frequency)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.panelStroke, lineWidth: 1))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.panelStroke, lineWidth: 1))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("read.frequencies")
     }
 

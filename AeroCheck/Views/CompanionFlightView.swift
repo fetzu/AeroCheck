@@ -34,8 +34,11 @@ struct CompanionFlightView: View {
     @State private var showDeferredList = false
     /// The deferred check being run from the list, by phase. (v6.0 review, J1)
     @State private var runningCheck: Int?
-    /// ✓ DONE just sent for a memory check, offered back for six seconds as on the iPad. (6.1)
+    /// ✓ DONE just sent for a memory check, offered back for six seconds as on the iPad (6.1); and a switch
+    /// sent from NEXT (6.4.3). One undo at a time, as on the iPad.
     @State private var memoryUndo: NavUndoOffer?
+    /// When NEXT last sent a switch: a second tap within the iPad's own second is the same tap.
+    @State private var radioTapAt: Date?
     /// The check this phone's slot just sent the iPad to: CHECKLIST once the iPad is there with a list to
     /// run (`CompanionSlotFollow`). (6.3.0)
     @State private var following: CompanionSlotFollow.Pending?
@@ -74,7 +77,8 @@ struct CompanionFlightView: View {
                 // The read band over both modes, as on the phone Cockpit; frozen data dimmed. (6.2.0)
                 CompanionReadBand(flightData: flightData,
                                   nav: CompanionNav(flightData: flightData, snapshot: flightPlan),
-                                  onShowNav: { pick(.nav) })
+                                  onShowNav: { pick(.nav) },
+                                  onNextTap: flightData?.radioSwitch == true && !isDataStale ? { switchRadio() } : nil)
                     .opacity(isDataStale ? 0.4 : 1)
                     // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays
                     // true. Surface the "connection lost / switch to standalone" escape here too (not only
@@ -306,6 +310,23 @@ struct CompanionFlightView: View {
         .frame(minHeight: CockpitTarget.control)
         .contentShape(Rectangle())
         .accessibilityAddTraits(mode == m ? .isSelected : [])
+    }
+
+    // MARK: - The radio (6.4.3)
+
+    /// NEXT tapped: the iPad switches to it (a LISTEN heard) if its NEXT is still that frequency, and the
+    /// switch is offered back here for six seconds, as the iPad offers it there.
+    private func switchRadio() {
+        guard let next = flightData?.nextFrequency else { return }
+        let tapped = Date()
+        if let last = radioTapAt, tapped.timeIntervalSince(last) < CockpitRadio.doubleTapInterval { return }
+        radioTapAt = tapped
+        let frequency = next.frequency
+        companionConnectivityManager.sendCommand(.switchRadio(frequency: frequency))
+        let message = next.listen == true ? L10n.Read.heard(next.station) : L10n.Read.switched(next.station)
+        memoryUndo = NavUndoOffer(message: message) {
+            companionConnectivityManager.sendCommand(.undoRadioSwitch(frequency: frequency))
+        }
     }
 
     // MARK: - NAV mode

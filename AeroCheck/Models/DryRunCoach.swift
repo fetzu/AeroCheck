@@ -76,6 +76,9 @@ struct DryRunCoachStep: Equatable {
         case pageMap
         case pageRoute
         case readBand
+        /// NOW | NEXT alone: the iPad's frequency row, the phone's NOW line (or its merged line on its side), where a
+        /// due NEXT is tapped. The radio card rang the whole band, the strip included (6.4.3 device checks, ho-22).
+        case radioLine
         case menu
         case finalCard
         /// The waypoint marked by itself, and its UNDO: at the checklist's foot, at the map's top.
@@ -184,6 +187,8 @@ struct DryRunCoachStep: Equatable {
         case finalChoice(DryRunGenerator.Landing)
         case engineShutdown
         case flightEnded
+        /// NEXT no longer due: tapped, so NOW. (6.4.3)
+        case radioSwitched
         // The ground's.
         case screen(Screen)
         case screenClosed(Screen)
@@ -220,6 +225,10 @@ struct DryRunCoachStep: Equatable {
         case somethingDeferred
         /// The screen still up (a sheet the pilot may have closed already).
         case screenOpen(Screen)
+        /// NEXT due on the Cockpit's radio as the step's turn comes (the frequency handover, 6.4.3). Else nothing
+        /// to show: no route's timeline, or the pilot tapped it already. Never waited for: the steps after it
+        /// would wait too.
+        case radioDue
     }
 
     /// Stable: the strings' key, the tests'.
@@ -379,6 +388,12 @@ enum DryRunChapters {
             S(id: "cruiseCheck", chapter: 5, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.cruise)), done: .checkDone(.cruise), title: T.cruiseCheckTitle,
               body: T.cruiseCheckBody, upcoming: T.cruiseCheckUpcoming, fold: T.cruiseCheckFold),
+            // NEXT due at the level-off: the tap that makes it NOW (the frequency handover, 6.4.3). Held, so the
+            // app's own switch never comes first. Only if it is due as the cruise check is done: no route's
+            // timeline, or the tap made already, and there is nothing to show.
+            S(id: "radioDue", chapter: 5, kind: .act, target: .radioLine, veils: false, holds: true, moment: .now,
+              done: .radioSwitched, requires: .radioDue, title: T.radioDueTitle, body: T.radioDueBody,
+              fold: T.radioDueFold),
             S(id: "routePage", chapter: 5, kind: .act, target: .pageRoute, veils: true, holds: true, moment: .now,
               done: .page(.route), title: T.routePageTitle, body: T.routePageBody),
             S(id: "timeOver", chapter: 5, kind: .look, target: .undoToast, veils: false, holds: true, moment: .timeOver(1),
@@ -621,6 +636,8 @@ final class DryRunCoach: ObservableObject {
     @Published private(set) var screens: Set<DryRunCoachStep.Screen> = []
     /// The Cockpit's page, from `FlightView`.
     var page: CockpitPage = .checklist
+    /// NEXT tapped for the pilot (the tests, the DEBUG autopilot), where only the Cockpit can tap it. (6.4.3)
+    private var radioTapped = false
     /// The card folded to one line, so it covers nothing the pilot reads (the author's second dry run checks):
     /// by its chevron, or by itself once the pilot is doing what an unveiled do step over the Cockpit asks (an
     /// item checked). A tap on it, or Show me again, opens it.
@@ -844,6 +861,7 @@ final class DryRunCoach: ObservableObject {
         case .canDefer: return Self.canDefer(appState)
         case .somethingDeferred: return appState.deferredItemCount + appState.deferredChecks.count > 0
         case .screenOpen(let screen): return isFastForwarding || screens.contains(screen)
+        case .radioDue: return !isFastForwarding && appState.radioNextIsDue
         }
     }
 
@@ -1035,6 +1053,7 @@ final class DryRunCoach: ObservableObject {
         case .finalChoice(let landing): return session.finalChoice == landing
         case .engineShutdown: return appState.engineShutdownTime != nil
         case .flightEnded: return !appState.isFlightActive
+        case .radioSwitched: return !appState.radioNextIsDue || radioTapped
         case .screen(let screen): return screens.contains(screen)
         case .screenClosed(let screen): return screenSeen && !screens.contains(screen)
         case .threadCreated: return session.storyThread != nil
@@ -1098,6 +1117,9 @@ final class DryRunCoach: ObservableObject {
             }
         case .flightEnded:
             session.endFlight()
+        case .radioSwitched:
+            // The Cockpit's radio is the Cockpit's: the tap taken as made, and the app catches up later.
+            radioTapped = true
         case .finalChoice(let landing):
             session.finalChoice = landing
         case .engineShutdown:

@@ -129,6 +129,9 @@ struct FrequencyInfo: Codable, Identifiable {
     /// Listen-only (the destination's ATIS, an aerodrome on the way): badged LISTEN. A key of its own, not a new
     /// role, so a Watch app a version behind still reads the row as NEXT. (6.4.2)
     var listen: Bool? = nil
+    /// NEXT is due: the pilot is expected to switch (the frequency handover). Shown only: the Watch doesn't
+    /// switch. Optional, so a Watch app a version behind ignores it. (6.4.3)
+    var due: Bool? = nil
 
     enum FrequencyType: String, Codable {
         case tower

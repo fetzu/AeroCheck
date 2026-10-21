@@ -161,11 +161,25 @@ extension FlightClock {
 
     private static func launchClock() -> Virtual? {
         #if DEBUG
-        return GroundReplay.clockAtLaunch()
+        return GroundReplay.clockAtLaunch() ?? captureClockAtLaunch()
         #else
         return nil
         #endif
     }
+
+    #if DEBUG
+    /// DEV-ONLY: the screenshots' clock, `AEROCHECK_CLOCK=09:41`: today at that time, at the wall clock's pace, so
+    /// the in-flight times (the ETA, the leg timer, a check's time) agree with the status bar's 9:41 whatever the
+    /// hour of the capture. The scenes and the dry run read it (`MarketingSceneInjector`, `DryRunSession`). (6.4.3)
+    static func captureClockAtLaunch() -> Virtual? {
+        guard let text = ProcessInfo.processInfo.environment["AEROCHECK_CLOCK"] else { return nil }
+        let parts = text.split(separator: ":").compactMap { Int($0) }
+        let wall = Date()
+        guard parts.count == 2,
+              let at = Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: wall) else { return nil }
+        return Virtual(wallAnchor: wall, virtualAnchor: at, rate: 1)
+    }
+    #endif
 
     /// A dry run's clock, from `start` (now by default) at `rate`. (6.4.0)
     static func runVirtual(from start: Date = Date(), rate: Double) {

@@ -377,7 +377,12 @@ final class ChartTileLoader: @unchecked Sendable {
 
 /// Draws a `ChartTileSource`'s tiles (see the top of this file). Every map delegate makes its tile renderers through
 /// `ChartTileRenderer.renderer(for:on:)`.
-class ChartTileRenderer: MKOverlayRenderer {
+///
+/// Sendable, as MapKit already uses it: `canDraw` and `draw` come on MapKit's drawing threads and the tiles arrive
+/// on the main thread, so what they share is behind `state`; `source` and `loader` never change, and `mapView` is
+/// set and read on the main thread only. The loader's callbacks, `@Sendable`, hold it weakly to hop to the main
+/// thread; without the conformance Xcode warned at each build (6.4.3).
+class ChartTileRenderer: MKOverlayRenderer, @unchecked Sendable {
     let source: ChartTileSource
     let loader: ChartTileLoader
 

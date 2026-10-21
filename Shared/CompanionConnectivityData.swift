@@ -146,6 +146,10 @@ struct CompanionFlightData: Codable {
     /// memberwise initialiser keeps its shape. (6.2.0)
     var nowFrequency: CompanionFrequency? = nil
     var nextFrequency: CompanionFrequency? = nil
+    /// The iPad's NEXT is read from the route's radio timeline and takes `switchRadio`: a tap on the phone's
+    /// NEXT switches. Nil from an older iPad, which would drop the command: the tap shows NAV, as before.
+    /// (6.4.3)
+    var radioSwitch: Bool? = nil
 }
 
 /// A station and its frequency as the iPad's radio lists them: "LSGC TWR", "120.155". Plain values: the
@@ -156,15 +160,21 @@ struct CompanionFrequency: Codable, Equatable {
     /// Listen-only (the destination's ATIS, an aerodrome on the way): the phone tags it LISTEN. Optional: an
     /// iPad a version behind sends none. (6.4.2)
     var listen: Bool? = nil
+    /// NEXT is due, and the share still to go before the iPad switches by itself, 1 to 0 (the frequency
+    /// handover). Optional: an older iPad sends neither. (6.4.3)
+    var due: Bool? = nil
+    var dueLeft: Double? = nil
 
     /// The longest station or frequency taken from the wire. A frequency typed for a waypoint can carry
     /// several ("Info 124.705 / Tower 118.125 / Ground 121.900"); a station is a few words.
     static let maxLength = 64
 
-    init(station: String, frequency: String, listen: Bool? = nil) {
+    init(station: String, frequency: String, listen: Bool? = nil, due: Bool? = nil, dueLeft: Double? = nil) {
         self.station = station
         self.frequency = frequency
         self.listen = listen
+        self.due = due
+        self.dueLeft = dueLeft
     }
 
     /// The peer is a trust boundary: the strings are trimmed and cut to length, and an entry with no
@@ -183,6 +193,10 @@ struct CompanionFrequency: Codable, Equatable {
         self.frequency = frequency
         station = try text(.station)
         listen = try? c.decodeIfPresent(Bool.self, forKey: .listen)
+        due = try? c.decodeIfPresent(Bool.self, forKey: .due)
+        // A share, kept to 0...1 whatever the wire says.
+        dueLeft = (try? c.decodeIfPresent(Double.self, forKey: .dueLeft))
+            .flatMap { $0 }.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil }
     }
 }
 
@@ -241,6 +255,7 @@ extension CompanionFlightData {
         // rather than losing the whole update. (6.2.0)
         nowFrequency = (try? c.decodeIfPresent(CompanionFrequency.self, forKey: .nowFrequency)) ?? nil
         nextFrequency = (try? c.decodeIfPresent(CompanionFrequency.self, forKey: .nextFrequency)) ?? nil
+        radioSwitch = (try? c.decodeIfPresent(Bool.self, forKey: .radioSwitch)) ?? nil
     }
 }
 
@@ -657,6 +672,11 @@ enum CompanionCommand: Codable {
     // before departure on a new lap. Sent only while the iPad's checklist snapshot says `offersNewCircuit`;
     // an older iPad never says it, and would drop the command, the link untouched.
     case newCircuit
+    // The frequency handover from the phone (6.4.3): a tap on NEXT, by the frequency the phone showed there,
+    // so a tap arriving after the iPad's NEXT moved on does nothing; and its UNDO, of that switch only. Sent
+    // only while the flight data says `radioSwitch`; an older iPad never says it.
+    case switchRadio(frequency: String)
+    case undoRadioSwitch(frequency: String)
 }
 
 /// The field the phone picked to divert to, as its own airport data has it: enough for the iPad to

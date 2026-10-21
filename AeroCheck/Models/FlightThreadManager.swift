@@ -1116,10 +1116,15 @@ class FlightThreadManager: ObservableObject {
                 CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
             })
         } ?? []
-        return context(for: plan,
-                       profile: profile,
-                       homeCountry: homeCountry ?? departureCountry(of: plan) ?? deviceCountry(),
-                       countries: crossed)
+        let departure = departureCountry(of: plan)
+        let arrival = arrivalCountry(of: plan)
+        var built = context(for: plan,
+                            profile: profile,
+                            homeCountry: homeCountry ?? departure ?? deviceCountry(),
+                            countries: ordered(crossed, departure: departure, arrival: arrival))
+        built.departureCountry = departure
+        built.arrivalCountry = arrival
+        return built
     }
 
     /// The country you are departing FROM, which is what decides which of the crossed countries are
@@ -1127,8 +1132,36 @@ class FlightThreadManager: ObservableObject {
     /// customs into their own country, and that Switzerland was somehow involved.
     static func departureCountry(of plan: FlightPlan?) -> String? {
         guard let first = plan?.waypoints.first else { return nil }
-        let at = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+        return aerodromeCountry(ident: first.name, latitude: first.latitude, longitude: first.longitude)
+    }
+
+    /// The country the route ends in: where the flight plan is closed, by that country's rule. (6.5.0)
+    static func arrivalCountry(of plan: FlightPlan?) -> String? {
+        guard let waypoints = plan?.waypoints, waypoints.count >= 2, let last = waypoints.last else { return nil }
+        return aerodromeCountry(ident: last.name, latitude: last.latitude, longitude: last.longitude)
+    }
+
+    /// The country an aerodrome is in: its ICAO code's (`ICAOCountry`), else the boundary polygon it lies in when
+    /// only one holds it, else the nearest country as the route's crossing test finds it. The route's own list was
+    /// the answer until 6.5.0: alphabetical and widened by 10 NM, it gave Basel-Mulhouse to Switzerland.
+    static func aerodromeCountry(ident: String?, latitude: Double, longitude: Double) -> String? {
+        if let country = ICAOCountry.country(of: ident) { return country }
+        let at = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let inside = CountryBoundaries.shared.countries(near: at, bufferNm: 0)
+        if inside.count == 1 { return inside.first }
         return RouteDataCalculator.countries(crossing: [at]).first
+    }
+
+    /// The route's countries with the departure's first and the arrival's in: the crossing test samples every
+    /// 10 NM with a 10 NM margin and returns them sorted, so an aerodrome's own country could be missing from it
+    /// or come after its neighbour's.
+    nonisolated static func ordered(_ crossed: [String], departure: String?, arrival: String?) -> [String] {
+        var countries = crossed
+        for country in [arrival, departure].compactMap({ $0 }) where !countries.contains(country) {
+            countries.append(country)
+        }
+        let rest = countries.filter { $0 != departure }.sorted()
+        return (departure.map { [$0] } ?? []) + rest
     }
 
     /// Last resort for a thread with no route at all — circuits with no plan, typically flown at

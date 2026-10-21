@@ -373,12 +373,35 @@ extension FlightThread {
         tripId = try c.decodeIfPresent(UUID.self, forKey: .tripId)
         landedElsewhere = try c.decodeIfPresent(LandedElsewhere.self, forKey: .landedElsewhere)
         homeCountry = try c.decodeIfPresent(String.self, forKey: .homeCountry)
-        tasks = try c.decodeIfPresent([ThreadTask].self, forKey: .tasks) ?? []
+        tasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .tasks)?.tasks ?? []
         flightPlanFiledAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanFiledAt)
         flightPlanClosedAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanClosedAt)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }
+}
+
+/// A list of tasks that skips one this build can't read (a key a newer build added) instead of failing the whole
+/// thread or trip. Threads and trips sync through the shared iCloud datastore, so a device still on an older build
+/// reads what a newer one wrote; a task key it doesn't know made the thread fail to decode, and a thread that fails
+/// is not shown at all. The task comes back when the newer build regenerates. (6.5.0)
+struct LossyTaskList: Decodable {
+    let tasks: [ThreadTask]
+
+    init(from decoder: Decoder) throws {
+        var list = try decoder.unkeyedContainer()
+        var read: [ThreadTask] = []
+        while !list.isAtEnd {
+            if let task = try? list.decode(ThreadTask.self) {
+                read.append(task)
+            } else {
+                _ = try list.decode(Skipped.self)   // moves past the one it couldn't read
+            }
+        }
+        tasks = read
+    }
+
+    private struct Skipped: Decodable {}
 }
 
 // MARK: - Landing somewhere else (v5.1)

@@ -23,6 +23,10 @@ enum ThreadTaskEngine {
         var feeIdents: [String] = []
         /// ISO-2 countries the route touches, departure first.
         var countries: [String] = []
+        /// The countries of the departure and the destination aerodromes (`ICAOCountry` first): filing goes by
+        /// the one, closing by the other. Nil without a route. (6.5.0)
+        var departureCountry: String?
+        var arrivalCountry: String?
         /// The pilot's home country — a route that stays inside it needs no customs prompt.
         var homeCountry: String = "CH"
         /// Aerodromes flagged PPR upstream. Empty until the openAIP `ppr` field is parsed; a pilot can

@@ -214,3 +214,19 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
     /// than any real edit, so a surviving copy of the real trip replaces it wherever the two meet.
     static let rebuiltStamp = Date(timeIntervalSince1970: 0)
 }
+
+// Written by hand for the shared tasks: a task this build can't read is skipped, not the whole trip (`LossyTaskList`,
+// 6.5.0). Every other field as the synthesised decoder read it, defaults where a file lacks one. In an extension, so
+// the memberwise initialiser stays; encoding stays synthesised.
+extension Trip {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        legIds = try c.decodeIfPresent([UUID].self, forKey: .legIds) ?? []
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        sharedTasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .sharedTasks)?.tasks ?? []
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
+        scheduledStart = try c.decodeIfPresent(Date.self, forKey: .scheduledStart)
+    }
+}

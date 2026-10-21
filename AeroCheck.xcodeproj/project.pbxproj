@@ -329,6 +329,7 @@
 		E1000001211111110000030 /* NewFlightIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000030 /* NewFlightIntent.swift */; };
 		HB0A0001211111110000001 /* HomeAerodrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000001 /* HomeAerodrome.swift */; };
 		E1000001211111110000031 /* Trip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000031 /* Trip.swift */; };
+		E1000001211111110000041 /* ICAOCountry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000041 /* ICAOCountry.swift */; };
 		TC0A0001211111110000001 /* TripOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = TC0A0001111111110000001 /* TripOverview.swift */; };
 		E1000001211111110000027 /* FlightCost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000027 /* FlightCost.swift */; };
 		E1000001211111110000026 /* LogbookEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000026 /* LogbookEntry.swift */; };
@@ -747,6 +748,7 @@
 		E1000001111111110000030 /* NewFlightIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntent.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000001 /* HomeAerodrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAerodrome.swift; sourceTree = "<group>"; };
 		E1000001111111110000031 /* Trip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trip.swift; sourceTree = "<group>"; };
+		E1000001111111110000041 /* ICAOCountry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICAOCountry.swift; sourceTree = "<group>"; };
 		TC0A0001111111110000001 /* TripOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripOverview.swift; sourceTree = "<group>"; };
 		E1000001111111110000027 /* FlightCost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCost.swift; sourceTree = "<group>"; };
 		E1000001111111110000026 /* LogbookEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookEntry.swift; sourceTree = "<group>"; };
@@ -1144,6 +1146,7 @@
 				E1000001111111110000030 /* NewFlightIntent.swift */,
 				HB0A0001111111110000001 /* HomeAerodrome.swift */,
 				E1000001111111110000031 /* Trip.swift */,
+				E1000001111111110000041 /* ICAOCountry.swift */,
 				TC0A0001111111110000001 /* TripOverview.swift */,
 				E1000001111111110000027 /* FlightCost.swift */,
 				E1000001111111110000026 /* LogbookEntry.swift */,
@@ -1822,6 +1825,7 @@
 				E1000001211111110000030 /* NewFlightIntent.swift in Sources */,
 				HB0A0001211111110000001 /* HomeAerodrome.swift in Sources */,
 				E1000001211111110000031 /* Trip.swift in Sources */,
+				E1000001211111110000041 /* ICAOCountry.swift in Sources */,
 				TC0A0001211111110000001 /* TripOverview.swift in Sources */,
 				E1000001211111110000027 /* FlightCost.swift in Sources */,
 				E1000001211111110000026 /* LogbookEntry.swift in Sources */,

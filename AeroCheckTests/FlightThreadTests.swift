@@ -456,6 +456,70 @@ final class FlightThreadTests: XCTestCase {
                                     "isUrgent", "acknowledgedLegIds"])
     }
 
+    /// A device still on an older build reads what a newer one wrote to the shared iCloud datastore. A task key it
+    /// doesn't know made `ThreadTask.init(from:)` throw, the whole thread failed, and a thread that fails is not
+    /// shown at all. Now the task is skipped and the thread stays, for a thread and for a trip's shared tasks. (6.5.0)
+    func testATaskThisBuildCannotReadIsSkippedNotItsThread() throws {
+        var json = try encoded(populatedThread())
+        var tasks = try XCTUnwrap(json["tasks"] as? [[String: Any]])
+        let kept = tasks.count
+        var future = try XCTUnwrap(tasks.first)
+        future["key"] = "prepare.somethingNewer"
+        future["id"] = UUID().uuidString
+        tasks.insert(future, at: 0)
+        json["tasks"] = tasks
+        let thread = try decoded(json)
+        XCTAssertEqual(thread.tasks.count, kept, "every task but the unknown one")
+        XCTAssertEqual(thread.routeLabel, populatedThread().routeLabel)
+
+        let trip = Trip(legIds: [UUID(), UUID()], sharedTasks: [ThreadTask(key: .notamChecked, kind: .check)])
+        var tripJSON = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(trip)) as? [String: Any])
+        var shared = try XCTUnwrap(tripJSON["sharedTasks"] as? [[String: Any]])
+        var newer = try XCTUnwrap(shared.first)
+        newer["key"] = "prepare.somethingNewer"
+        shared.append(newer)
+        tripJSON["sharedTasks"] = shared
+        let read = try JSONDecoder().decode(Trip.self, from: JSONSerialization.data(withJSONObject: tripJSON))
+        XCTAssertEqual(read.sharedTasks.map(\.key), [.notamChecked])
+        XCTAssertEqual(read.legIds, trip.legIds)
+        XCTAssertEqual(try JSONDecoder().decode(Trip.self, from: JSONEncoder().encode(trip)), trip, "a round trip unchanged")
+        let tripFields = Set(Mirror(reflecting: trip).children.compactMap(\.label))
+        XCTAssertEqual(tripFields, ["id", "legIds", "name", "sharedTasks", "createdAt", "updatedAt", "scheduledStart"],
+                       "a new trip field is read in Trip's init(from:) too")
+    }
+
+    /// An aerodrome's country comes from its ICAO code: the boundary polygons put Bressaucourt in Switzerland and
+    /// France, and the route's countries (alphabetical, widened by 10 NM) gave Basel-Mulhouse to Switzerland. (6.5.0)
+    func testAnAerodromesCountryComesFromItsICAOCode() {
+        let expected = ["LSZQ": "CH", "LFSB": "FR", "EDTF": "DE", "ETSN": "DE", "LOWS": "AT", "EGNS": "IM", "EGKA": "GB",
+                        "EKVG": "FO", "EKRK": "DK", "BIRK": "IS", "LEIG": "ES", "GCLP": "ES", "LYPG": "ME", "LYBE": "RS",
+                        "UMMS": "BY", "KPAO": "US", "PANC": "US", "YSSY": "AU", "NZAA": "NZ", "CYUL": "CA"]
+        for (ident, country) in expected {
+            XCTAssertEqual(ICAOCountry.country(of: ident), country, ident)
+        }
+        XCTAssertNil(ICAOCountry.country(of: "JORAT VOR"))
+        XCTAssertNil(ICAOCountry.country(of: "1N7"), "a US location identifier without an ICAO code")
+        XCTAssertNil(ICAOCountry.country(of: nil))
+        XCTAssertEqual(ICAOCountry.country(of: " lfsb "), "FR")
+    }
+
+    @MainActor
+    func testADepartureNearABorderIsInItsOwnCountry() {
+        var plan = FlightPlan(name: "Basel")
+        plan.waypoints = [waypoint("LSZQ", lat: 47.4489, lon: 7.1003), waypoint("LFSB", lat: 47.5896, lon: 7.5299)]
+        XCTAssertEqual(FlightThreadManager.departureCountry(of: plan), "CH")
+        XCTAssertEqual(FlightThreadManager.arrivalCountry(of: plan), "FR")
+        let c = FlightThreadManager.context(for: plan, profile: .full)
+        XCTAssertEqual(c.homeCountry, "CH")
+        XCTAssertEqual(c.departureCountry, "CH")
+        XCTAssertEqual(c.arrivalCountry, "FR")
+        XCTAssertEqual(c.countries.first, "CH", "the departure's country first")
+        XCTAssertTrue(c.countries.contains("FR"))
+        // A waypoint that is no aerodrome falls back to the polygon it lies in.
+        XCTAssertEqual(FlightThreadManager.aerodromeCountry(ident: "JORAT VOR", latitude: 46.58, longitude: 6.71), "CH")
+        XCTAssertEqual(FlightThreadManager.ordered(["CH", "DE", "FR"], departure: "FR", arrival: "IT"), ["FR", "CH", "DE", "IT"])
+    }
+
     // MARK: - Context building
 
     func testContextFromPlanDerivesRouteFuelAndFees() {

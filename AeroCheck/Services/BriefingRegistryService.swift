@@ -104,6 +104,9 @@ final class BriefingRegistryService: ObservableObject {
 
     // MARK: The shipped copy
 
+    /// The shipped copy, decoded once: for what runs off the main actor (a trip rebuilt at load).
+    nonisolated static let shipped: BriefingRegistry? = decodeShipped(shippedData())
+
     nonisolated static func shippedData() -> Data? {
         Bundle.main.url(forResource: "briefing-registry", withExtension: "json").flatMap { try? Data(contentsOf: $0) }
     }

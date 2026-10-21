@@ -441,9 +441,14 @@ enum L10n {
         static let taskMassBalance = String(localized: "Mass & balance")
         static let taskReservation = String(localized: "Aircraft reserved")
         static let taskWeather = String(localized: "Weather briefed")
-        static let taskDabs = String(localized: "DABS checked")
-        static let taskGafor = String(localized: "GAFOR checked")
         static let taskNotam = String(localized: "NOTAMs checked")
+        /// A country's airspace activity and area forecast, one task each: "Airspace activity CH". (6.5.0)
+        static func taskAirspace(_ country: String) -> String {
+            String(format: String(localized: "thread.task.airspace"), country)
+        }
+        static func taskForecast(_ country: String) -> String {
+            String(format: String(localized: "thread.task.forecast"), country)
+        }
         static let taskFlightPlanFiled = String(localized: "Flight plan filed")
         static let taskNavLog = String(localized: "Nav log ready")
         static let taskFlightPlanClose = String(localized: "Close the flight plan")
@@ -458,9 +463,20 @@ enum L10n {
         // Task subtitles
         static let hintFuel = String(localized: "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry.")
         static let hintMassBalance = String(localized: "Check the load sheet against the envelope in the POH")
-        static let hintDabs = String(localized: "Daily Airspace Bulletin Switzerland")
-        static let hintGafor = String(localized: "Route forecast (opens MeteoSwiss)")
-        static let hintFlightPlanFiled = String(localized: "Copy the ICAO plan, then file it on skybriefing")
+        /// A page by day: "Today's DABS; tomorrow's from 16:00". (6.5.0)
+        static func hintByDay(_ name: String, from time: String) -> String {
+            String(format: String(localized: "thread.hint.byDay"), name, time)
+        }
+        static let hintFlightPlanFiled = String(localized: "thread.hint.flightPlanFiled")
+        /// A plan filed from a field without ATS, in a country that wants the pilot to activate it. (6.5.0)
+        static func activateWithoutATS(_ ident: String) -> String {
+            String(format: String(localized: "thread.activation"), ident)
+        }
+        /// A route through a country whose airspace is closed. (6.5.0)
+        static func prohibitedTitle(_ country: String) -> String {
+            String(format: String(localized: "thread.prohibited.title"), country)
+        }
+        static let prohibitedHint = String(localized: "thread.prohibited.hint")
         static let hintFlightPlanClose = String(localized: "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA")
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
@@ -469,13 +485,13 @@ enum L10n {
         // Actions
         static let markDone = String(localized: "Mark done")
         static let markNotApplicable = String(localized: "Not applicable")
-        static let openSkybriefing = String(localized: "Open skybriefing")
-        static let openDabs = String(localized: "Open DABS")
-        static let openNotamBriefing = String(localized: "Open NOTAM briefing")
-        static let openWeatherBriefing = String(localized: "Open weather briefing")
+        // What a briefing link takes, under its name. (6.5.0)
+        static let accessAccount = String(localized: "thread.access.account")
+        static let accessPaid = String(localized: "thread.access.paid")
+        static let accessRestricted = String(localized: "thread.access.restricted")
+        static let linkGeneral = String(localized: "thread.link.general")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
-        static let openMeteoSwiss = String(localized: "Open MeteoSwiss")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let callFIC = String(localized: "Call 0800 437 837")
         static let finishThread = String(localized: "Finish")
@@ -505,7 +521,7 @@ enum L10n {
         }
         static let prepareReminderTitle = String(localized: "Flight tomorrow")
         static func prepareReminderBody(_ route: String) -> String {
-            String(localized: "\(route): time to check the weather, DABS and any PPR.")
+            String(localized: "\(route): time to check the weather, the airspace activity and any PPR.")
         }
 
         // Banner

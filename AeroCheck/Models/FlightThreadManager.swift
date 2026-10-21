@@ -637,7 +637,7 @@ class FlightThreadManager: ObservableObject {
     /// - Legs go in the order they were created, the only order a leg records (the real order lived
     ///   on the trip). A leg another trip lists stays with that trip.
     /// - The shared preparation is lost with the trip: its rows come back unticked, for each thing
-    ///   any leg needs (DABS when one touches Switzerland), plus any trip-scoped row a leg still
+    ///   any leg needs (a country's airspace activity on a route through it), plus any trip-scoped row a leg still
     ///   carries. The pilot re-ticks a weather briefing; nothing claims one was done.
     /// - Built in memory only. Nothing is written at load: it reaches `trips.json` with the next trip
     ///   save, so a load of an evicted file never writes over it.
@@ -672,9 +672,11 @@ class FlightThreadManager: ObservableObject {
             }
         }
         for leg in legs {
-            let context = context(for: nil, profile: leg.profile,
+            var context = context(for: nil, profile: leg.profile,
                                   homeCountry: leg.homeCountry ?? deviceCountry(),
                                   countries: leg.countries ?? [])
+            // At load, off the main actor: the copy the app shipped with. (6.5.0)
+            context.registry = BriefingRegistryService.shipped
             for task in ThreadTaskEngine.generate(context: context) where task.key.scope == .trip {
                 if shared[task.matchToken] == nil { shared[task.matchToken] = task }
             }
@@ -1124,6 +1126,7 @@ class FlightThreadManager: ObservableObject {
                             countries: ordered(crossed, departure: departure, arrival: arrival))
         built.departureCountry = departure
         built.arrivalCountry = arrival
+        built.registry = BriefingRegistryService.shared.registry
         return built
     }
 

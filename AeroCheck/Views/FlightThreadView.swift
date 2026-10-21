@@ -12,7 +12,8 @@ struct ThreadTaskPresentation {
     let hint: String?
     let icon: String
 
-    static func make(for task: ThreadTask) -> ThreadTaskPresentation {
+    /// `briefing` gives a country's airspace activity its hint (the DABS by day). (6.5.0)
+    static func make(for task: ThreadTask, briefing: ThreadBriefing? = nil) -> ThreadTaskPresentation {
         switch task.key {
         case .routePlanned:
             return .init(title: L10n.Thread.taskRoute, hint: nil, icon: "point.topleft.down.curvedto.point.bottomright.up")
@@ -25,9 +26,16 @@ struct ThreadTaskPresentation {
         case .weatherBriefed:
             return .init(title: L10n.Thread.taskWeather, hint: nil, icon: "cloud.sun")
         case .dabsChecked:
-            return .init(title: L10n.Thread.taskDabs, hint: L10n.Thread.hintDabs, icon: "doc.text")
+            // One per country since 6.5.0, "Airspace activity CH" as decided (q2). The DABS says when tomorrow's is out.
+            let country = task.briefingCountry
+            let byDay = briefing?.registry?.country(country)?.airspace.first { $0.byDay != nil }
+            let hint = byDay.flatMap { link in
+                link.byDay.map { L10n.Thread.hintByDay(link.displayName(language: briefing?.language ?? AppLanguage.current),
+                                                       from: ThreadBriefing.localTime($0.from, tz: $0.tz)) }
+            }
+            return .init(title: L10n.Thread.taskAirspace(country), hint: hint, icon: "doc.text")
         case .gaforChecked:
-            return .init(title: L10n.Thread.taskGafor, hint: L10n.Thread.hintGafor, icon: "map")
+            return .init(title: L10n.Thread.taskForecast(task.briefingCountry), hint: nil, icon: "map")
         case .notamChecked:
             return .init(title: L10n.Thread.taskNotam, hint: nil, icon: "exclamationmark.bubble")
         case .flightPlanFiled:
@@ -89,36 +97,30 @@ struct ThreadTaskPresentation {
     /// involved that is 300 km away.
     /// `chartLink` is the task's aerodrome's official chart, resolved by the caller like the tariff.
     /// (6.2.0)
+    /// `briefing` holds the server's registry and the flight's countries: the briefing tasks' links are its official
+    /// pages, a chip each, for every country the route touches (weather, NOTAMs), for the task's country (airspace
+    /// activity, area forecast) or the departure's (filing). Until 6.5.0 they were skybriefing's and MeteoSwiss's
+    /// wherever the flight went. Without a registry they have none.
     static func links(for task: ThreadTask,
                       tariffURL: URL? = nil,
                       chartLink: OfficialChartLink? = nil,
-                      touchesSwitzerland: Bool = false) -> [(label: String, url: URL)] {
-        let chart = chartLink.map { [(label: $0.title, url: $0.url)] } ?? []
+                      touchesSwitzerland: Bool = false,
+                      briefing: ThreadBriefing? = nil) -> [ThreadTaskLink] {
+        let chart = chartLink.map { [ThreadTaskLink(label: $0.title, url: $0.url)] } ?? []
         switch task.key {
         case .flightPlanFiled:
-            return [(L10n.Thread.openSkybriefing,
-                     URL(string: "https://www.skybriefing.com/services/flightplan-services")!)]
+            return briefing?.links(.filing, in: [briefing?.departureCountry].compactMap { $0 }) ?? []
         case .notamChecked:
-            // Was a bare tick with nowhere to go, which is the one task state that teaches a pilot to
-            // tick without doing. skybriefing is the Swiss briefing channel, same as for filing.
-            return [(L10n.Thread.openNotamBriefing,
-                     URL(string: "https://www.skybriefing.com/services/notam-briefing")!)]
+            return briefing?.links(.notam, in: briefing?.countries ?? []) ?? []
         case .weatherBriefed:
-            // The same: the weather was the one briefing with nowhere to go. skybriefing's weather briefing,
-            // and MeteoSwiss's aviation weather when the flight touches Switzerland. (6.4.0)
-            let skybriefing = [(label: L10n.Thread.openWeatherBriefing,
-                                url: URL(string: "https://www.skybriefing.com/services/weather-briefing")!)]
-            let swiss = [(label: L10n.Thread.openMeteoSwiss,
-                          url: URL(string: "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html")!)]
-            return skybriefing + (touchesSwitzerland ? swiss : [])
+            return briefing?.links(.weather, in: briefing?.countries ?? []) ?? []
         case .dabsChecked:
-            return [(L10n.Thread.openDabs, URL(string: "https://www.skybriefing.com/dabs")!)]
+            return briefing?.links(.airspace, in: [task.briefingCountry]) ?? []
         case .gaforChecked:
-            return [(L10n.Thread.openMeteoSwiss,
-                     URL(string: "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html")!)]
+            return briefing?.links(.forecast, in: [task.briefingCountry]) ?? []
         case .flightPlanClosed:
             // Skyguide's free flight-plan closing number. A `tel:` link is the whole feature here.
-            return [(L10n.Thread.callFIC, URL(string: "tel://0800437837")!)]
+            return [ThreadTaskLink(label: L10n.Thread.callFIC, url: URL(string: "tel://0800437837")!)]
         case .pprObtained:
             // The chart is where the aerodrome's PPR telephone and hours are. (6.2.0)
             return chart
@@ -126,22 +128,96 @@ struct ThreadTaskPresentation {
             // The operator's OWN tariff page, from the server registry. Absent for an aerodrome
             // nobody has verified yet, which is the honest state rather than a guessed link. The
             // field's official chart next to it. (6.2.0)
-            return (tariffURL.map { [(label: L10n.Cost.openTariff, url: $0)] } ?? []) + chart
+            return (tariffURL.map { [ThreadTaskLink(label: L10n.Cost.openTariff, url: $0)] } ?? []) + chart
         case .customsNotified:
             // The authority's own page, in its own language, is the source — the app only points at
             // it. The Swiss side applies whichever country is at the other end, but only when the
             // flight actually touches Switzerland.
-            var links: [(label: String, url: URL)] = []
+            var links: [ThreadTaskLink] = []
             if let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) {
-                links.append((L10n.Border.openOfficial, rule.officialURL))
+                links.append(ThreadTaskLink(label: L10n.Border.openOfficial, url: rule.officialURL))
             }
             if touchesSwitzerland {
-                links.append((L10n.Border.swissSide, BorderCrossingGuide.switzerland.officialURL))
+                links.append(ThreadTaskLink(label: L10n.Border.swissSide, url: BorderCrossingGuide.switzerland.officialURL))
             }
             return links
         default:
             return []
         }
+    }
+}
+
+/// One of a task's links: a blue chip that leaves the app, its publisher's name and, under it, what the page
+/// takes (a free account, paid, authorised users) or that it is a general page, not one for this task.
+struct ThreadTaskLink: Equatable {
+    let label: String
+    var detail: String?
+    let url: URL
+}
+
+/// What the briefing tasks' links and hints are made from, resolved by the flight's page on the main actor like the
+/// tariff: the server's registry, the route's countries (the departure's first), the departure's country, the day of
+/// the flight (the DABS by day) and the app's language. (6.5.0)
+struct ThreadBriefing {
+    var registry: BriefingRegistry?
+    var countries: [String] = []
+    var departureCountry: String?
+    var flightDay: Date?
+    var language: String = AppLanguage.current
+    var now: Date = Date()
+
+    /// `category`'s pages for each of `countries`, in their order, a page that two countries share once.
+    func links(_ category: BriefingRegistry.Category, in countries: [String]) -> [ThreadTaskLink] {
+        guard let registry else { return [] }
+        var seen = Set<URL>()
+        var links: [ThreadTaskLink] = []
+        for code in countries {
+            guard let country = registry.country(code) else { continue }
+            for link in country.links(category) {
+                let url = link.url(forFlightOn: flightDay, now: now)
+                guard seen.insert(url).inserted else { continue }
+                let words = [Self.accessWord(link.access),
+                             country.generic.contains(category.rawValue) ? L10n.Thread.linkGeneral : nil]
+                    .compactMap { $0 }
+                links.append(ThreadTaskLink(label: link.displayName(language: language),
+                                            detail: words.isEmpty ? nil : words.joined(separator: " · "), url: url))
+            }
+        }
+        return links
+    }
+
+    /// What a page takes, in words (q2: on the chip's second line, as on the official-chart button). Open says nothing.
+    static func accessWord(_ access: BriefingRegistry.Access?) -> String? {
+        switch access {
+        case .account: return L10n.Thread.accessAccount
+        case .paid: return L10n.Thread.accessPaid
+        case .restricted: return L10n.Thread.accessRestricted
+        case .open, nil: return nil
+        }
+    }
+
+    /// The route's countries where operations are prohibited, with the directive that says so (Belarus). (q5)
+    var prohibited: [(country: String, directive: BriefingRegistry.Link)] {
+        countries.compactMap { code in registry?.country(code)?.prohibited.map { (code, $0) } }
+    }
+
+    /// "16:00" in `tz` (the publisher's), today, as the device's clock reads it.
+    static func localTime(_ time: String, tz: String, now: Date = Date()) -> String {
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        var calendar = Calendar(identifier: .gregorian)
+        guard parts.count == 2, let zone = TimeZone(identifier: tz) else { return time }
+        calendar.timeZone = zone
+        guard let date = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: now) else { return time }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// The departure's aerodrome files from a country that wants a plan activated by the pilot when the field has no
+    /// ATS (`activation: "no-ats"`), and the field has neither a tower nor an AFIS in the app's data. A field the
+    /// data doesn't know says nothing. (q4)
+    static func needsActivation(country: BriefingRegistry.Country?, fieldKnown: Bool,
+                                frequencyTypes: [String]) -> Bool {
+        guard country?.activatesWithoutATS == true, fieldKnown else { return false }
+        return !frequencyTypes.contains { AirportDataService.isContactType($0, "TWR") || AirportDataService.isContactType($0, "AFIS") }
     }
 }
 
@@ -172,6 +248,8 @@ struct FlightThreadView: View {
     @Environment(\.dryRunSession) private var dryRunSession
     /// The official-chart registry: a PPR or fee task's chart turns up when it arrives. (6.2.0)
     @ObservedObject private var officialCharts = OfficialChartService.shared
+    /// The briefing registry: the briefing tasks' links when it arrives. (6.5.0)
+    @ObservedObject private var briefingRegistry = BriefingRegistryService.shared
 
     /// The chapter whose chip was tapped: the page goes to it.
     @State private var scrollToChapter: ThreadChapter?
@@ -621,6 +699,8 @@ struct FlightThreadView: View {
             tariffURL: tariffURL(for: task),
             chartLink: chartLink(for: task),
             touchesSwitzerland: thread.countries?.contains("CH") ?? false,
+            briefing: briefing(for: thread),
+            caution: task.key == .flightPlanFiled ? activationLine(for: thread) : nil,
             // v5.0.0: three tasks now open a calculator instead of only taking a tick.
             // The tick still works on its own — the tool is an aid, not a gate.
             toolLabel: toolLabel(for: task, in: thread),
@@ -1094,6 +1174,13 @@ struct FlightThreadView: View {
                 .padding(.vertical, 9)
                 .background(Color.panelBackground)
 
+                if chapter == .prepare {
+                    ForEach(briefing(for: thread).prohibited, id: \.country) { prohibited in
+                        ProhibitedCountryRow(country: prohibited.country, directive: prohibited.directive) { openURL($0) }
+                        Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                    }
+                }
+
                 // What is left first; the ticked (and not-applicable) ones fold into one row, so a
                 // chapter reads as its open work. (v6.0 · D3)
                 let open = tasks.filter { $0.state == .pending }
@@ -1472,6 +1559,28 @@ struct FlightThreadView: View {
         return officialCharts.link(for: icao, type: airportDataService.findAirport(byIdent: icao)?.type)
     }
 
+    /// The briefing tasks' registry and the flight's countries. The route's countries list the departure's first
+    /// since 6.5.0; an older thread's alphabetical list is right again at its next regeneration. (6.5.0)
+    private func briefing(for thread: FlightThread) -> ThreadBriefing {
+        let countries = thread.countries ?? []
+        return ThreadBriefing(registry: briefingRegistry.registry, countries: countries,
+                              departureCountry: FlightThreadManager.departureCountry(of: plan(for: thread)) ?? countries.first,
+                              flightDay: thread.scheduledDeparture)
+    }
+
+    /// "ESKT has no ATS: activate the plan yourself after take-off, by radio or phone.", where the departure's
+    /// country asks for it and its field has no tower and no AFIS in the app's data. (6.5.0, q4)
+    private func activationLine(for thread: FlightThread) -> String? {
+        guard let first = plan(for: thread)?.waypoints.first else { return nil }
+        let ident = first.name.trimmingCharacters(in: .whitespaces).uppercased()
+        let briefing = briefing(for: thread)
+        let known = airportDataService.findAirport(byIdent: ident) != nil
+        guard ThreadBriefing.needsActivation(country: briefing.registry?.country(briefing.departureCountry), fieldKnown: known,
+                                             frequencyTypes: airportDataService.getFrequencies(for: ident).map(\.type))
+        else { return nil }
+        return L10n.Thread.activateWithoutATS(ident)
+    }
+
     /// The operator's tariff page for a fee task, when the registry has a verified one.
     private func tariffURL(for task: ThreadTask) -> URL? {
         guard task.key == .feesPaid, let icao = task.subject,
@@ -1605,6 +1714,53 @@ private struct FlightInProgressNote: View {
     }
 }
 
+// MARK: - A prohibited country (6.5.0)
+
+/// At the top of Prepare when the route touches a country whose airspace is closed (the registry's `prohibited`:
+/// Belarus, EASA SD-2021-02): red, with the directive. Not a task, so nothing to tick and nothing stored; it goes
+/// when the route does. Nothing is blocked. (q5)
+private struct ProhibitedCountryRow: View {
+    let country: String
+    let directive: BriefingRegistry.Link
+    let onOpen: (URL) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "nosign")
+                .scaledFont(size: 18, weight: .semibold, relativeTo: .body)
+                .foregroundColor(.aviationRed)
+                .frame(width: 44, height: 22, alignment: .leading)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.Thread.prohibitedTitle(OpenAIPConfig.countryName(for: country)))
+                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.aviationRed)
+                Text(L10n.Thread.prohibitedHint)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { onOpen(directive.url) } label: {
+                    Text(directive.displayName())
+                        .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                        .foregroundColor(.altimeterBlue)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .overlay(Capsule().strokeBorder(Color.altimeterBlue.opacity(0.45), lineWidth: 1))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(Color.aviationRed.opacity(0.08))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("thread.prohibited.\(country)")
+    }
+}
+
 // MARK: - Task row
 
 /// One task. The tick is the whole point: same gesture, same feedback as a checklist item, applied to
@@ -1637,6 +1793,10 @@ struct ThreadTaskRow: View {
     var chartLink: OfficialChartLink?
     /// Whether this flight actually touches Switzerland, which gates the Swiss customs link.
     var touchesSwitzerland: Bool = false
+    /// The registry and the flight's countries, for the briefing tasks' links and hints. (6.5.0)
+    var briefing: ThreadBriefing?
+    /// A line in amber under the hint: on Flight plan filed, a plan to activate after take-off. (6.5.0, q4)
+    var caution: String?
     /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
     /// that is only ever a tick.
     var toolLabel: String?
@@ -1649,10 +1809,10 @@ struct ThreadTaskRow: View {
     /// The flight page's "Next" card: the title and hint read larger. (v6.0 · D3)
     var prominent: Bool = false
 
-    private var presentation: ThreadTaskPresentation { .make(for: task) }
-    private var links: [(label: String, url: URL)] {
+    private var presentation: ThreadTaskPresentation { .make(for: task, briefing: briefing) }
+    private var links: [ThreadTaskLink] {
         ThreadTaskPresentation.links(for: task, tariffURL: tariffURL, chartLink: chartLink,
-                                     touchesSwitzerland: touchesSwitzerland)
+                                     touchesSwitzerland: touchesSwitzerland, briefing: briefing)
     }
 
     var body: some View {
@@ -1683,6 +1843,12 @@ struct ThreadTaskRow: View {
                         Text(hint)
                             .scaledFont(size: prominent ? 15 : 12, relativeTo: prominent ? .subheadline : .caption)
                             .foregroundColor(.dimText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let caution, task.state != .notApplicable {
+                        Text(caution)
+                            .scaledFont(size: prominent ? 15 : 12, relativeTo: prominent ? .subheadline : .caption)
+                            .foregroundColor(.aviationAmber)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let note = task.note, !note.isEmpty {
@@ -1756,8 +1922,9 @@ struct ThreadTaskRow: View {
                             // The logbook line's button, not its row: the line opens from it (r6-13). (6.4.0)
                             .coachTarget(ifAny: !prominent && task.key == .logbookEntry ? .logbookRow : nil)
                     }
-                    ForEach(links, id: \.label) { link in
-                        chip(link.label, color: .altimeterBlue, strokeOpacity: 0.45) { onOpen(link.url) }
+                    // By address: two publishers can share a name, never a page. (6.5.0)
+                    ForEach(links, id: \.url) { link in
+                        chip(link.label, detail: link.detail, color: .altimeterBlue, strokeOpacity: 0.45) { onOpen(link.url) }
                             .coachTarget(ifAny: !prominent && task.key == .notamChecked && link.url == links.first?.url
                                          ? .notamLink : nil)
                     }
@@ -1765,20 +1932,37 @@ struct ThreadTaskRow: View {
     }
 
     /// One chip: the capsule as before, in a target at least 44 pt tall. The padding and the capsule
-    /// used to sit outside the button, so only the text took the tap. (6.2.0)
-    private func chip(_ label: String, color: Color, strokeOpacity: Double,
+    /// used to sit outside the button, so only the text took the tap. (6.2.0) `detail` goes under the
+    /// name, smaller: what the page takes ("free account", "paid"), as on the official-chart button.
+    /// (6.5.0, q2)
+    private func chip(_ label: String, detail: String? = nil, color: Color, strokeOpacity: Double,
                       action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(label)
-                .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-                .foregroundColor(color)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .overlay(Capsule().strokeBorder(color.opacity(strokeOpacity), lineWidth: 1))
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
+            VStack(spacing: 0) {
+                Text(label)
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                if let detail {
+                    Text(detail)
+                        .scaledFont(size: 9, relativeTo: .caption2)
+                        .opacity(0.8)
+                }
+            }
+            .foregroundColor(color)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, detail == nil ? 9 : 12)
+            .padding(.vertical, 5)
+            .overlay {
+                if detail == nil {
+                    Capsule().strokeBorder(color.opacity(strokeOpacity), lineWidth: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: 10).strokeBorder(color.opacity(strokeOpacity), lineWidth: 1)
+                }
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel([label, detail].compactMap { $0 }.joined(separator: ", "))
     }
 
     private var tickButton: some View {

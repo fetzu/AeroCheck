@@ -40,6 +40,16 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
 
         /// The name in `language`, else the registry's.
         func displayName(language: String = AppLanguage.current) -> String { names?[language] ?? name }
+
+        /// In the type, not an extension, so it is the only one: beside the memberwise initializer, a call that
+        /// leaves out `names` matched both.
+        init(name: String, url: URL, access: Access? = .open, names: [String: String]? = nil, byDay: ByDay? = nil) {
+            self.name = name
+            self.url = url
+            self.access = access
+            self.names = names
+            self.byDay = byDay
+        }
     }
 
     struct ByDay: Codable, Equatable, Sendable {
@@ -182,15 +192,6 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
 // this build doesn't know is dropped, never the country around it.
 
 extension BriefingRegistry.Link {
-    init(name: String, url: URL, access: BriefingRegistry.Access? = .open, names: [String: String]? = nil,
-         byDay: BriefingRegistry.ByDay? = nil) {
-        self.name = name
-        self.url = url
-        self.access = access
-        self.names = names
-        self.byDay = byDay
-    }
-
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decode(String.self, forKey: .name)

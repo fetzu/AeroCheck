@@ -1,18 +1,18 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "%@: time to check the weather, DABS and any PPR.": {
+    "%@: time to check the weather, the airspace activity and any PPR.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: Zeit, Wetter, DABS und allfällige PPR zu prüfen."
+            "value": "%@: Zeit, Wetter, Luftraumstatus und allfällige PPR zu prüfen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : il est temps de vérifier la météo, le DABS et les éventuels PPR."
+            "value": "%@ : il est temps de vérifier la météo, l'activité de l'espace aérien et les éventuels PPR."
           }
         }
       }
@@ -747,22 +747,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Autorisation préalable requise : appelez à l'avance"
-          }
-        }
-      }
-    },
-    "Route forecast (opens MeteoSwiss)": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Streckenprognose (öffnet MeteoSchweiz)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prévision de route (ouvre MétéoSuisse)"
           }
         }
       }
@@ -9574,19 +9558,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website. Tippen Sie auf «NOTAM-Briefing öffnen»: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
+            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website, mit einem Hinweis unter dem Namen, wenn es ein Konto braucht oder etwas kostet. Tippen Sie auf die markierte: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gold buttons stay in the app; blue ones open a website. Tap Open NOTAM briefing: in a dry run, the app only tells you where it would go."
+            "value": "Gold buttons stay in the app; blue ones open a website, with a word under the name when it needs an account or costs money. Tap the ringed one: in a dry run, the app only tells you where it would go."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site. Touchez Ouvrir le briefing NOTAM : en vol à blanc, l'app indique seulement où il mènerait."
+            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site, avec un mot sous le nom s'il faut un compte ou s'il est payant. Touchez celui qui est entouré : en vol à blanc, l'app indique seulement où il mènerait."
           }
         }
       }
@@ -12398,6 +12382,98 @@
         }
       }
     },
+    "thread.access.account": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratiskonto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "free account"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "compte gratuit"
+          }
+        }
+      }
+    },
+    "thread.access.paid": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kostenpflichtig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "paid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "payant"
+          }
+        }
+      }
+    },
+    "thread.access.restricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nur Berechtigte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "authorised users"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "utilisateurs autorisés"
+          }
+        }
+      }
+    },
+    "thread.activation": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat keine ATS: Aktivieren Sie den Flugplan nach dem Start selbst, per Funk oder Telefon."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has no ATS: activate the plan yourself after take-off, by radio or phone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n'a pas d'ATS : activez le plan vous-même après le décollage, par radio ou par téléphone."
+          }
+        }
+      }
+    },
     "thread.debrief.optional": {
       "extractionState": "manual",
       "localizations": {
@@ -12440,6 +12516,167 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce qui s'est bien passé, ce qu'il faut changer. Cela devient les notes du vol dans le carnet."
+          }
+        }
+      }
+    },
+    "thread.hint.byDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ für heute; für morgen ab %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today's %1$@; tomorrow's from %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ du jour ; celui du lendemain dès %2$@"
+          }
+        }
+      }
+    },
+    "thread.hint.flightPlanFiled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren Sie den ATC-Flugplan und geben Sie ihn im Abflugland auf"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy the ATC flight plan, then file it in the departure's country"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le plan de vol ATC, puis le déposer dans le pays de départ"
+          }
+        }
+      }
+    },
+    "thread.link.general": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "allgemeine Seite"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "general page"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "page générale"
+          }
+        }
+      }
+    },
+    "thread.prohibited.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flüge in diesem Luftraum sind verboten. Ändern Sie die Route."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Operations in this airspace are prohibited. Change the route."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les opérations dans cet espace aérien sont interdites. Modifiez la route."
+          }
+        }
+      }
+    },
+    "thread.prohibited.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: Flüge verboten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: flights prohibited"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : vols interdits"
+          }
+        }
+      }
+    },
+    "thread.task.airspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumstatus %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace activity %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activité de l'espace aérien %@"
+          }
+        }
+      }
+    },
+    "thread.task.forecast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebietsvorhersage %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Area forecast %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévision de zone %@"
           }
         }
       }
@@ -27057,38 +27294,6 @@
         }
       }
     },
-    "DABS checked" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DABS geprüft"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DABS consulté"
-          }
-        }
-      }
-    },
-    "GAFOR checked" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GAFOR geprüft"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GAFOR consulté"
-          }
-        }
-      }
-    },
     "NOTAMs checked" : {
       "localizations" : {
         "de" : {
@@ -27687,38 +27892,6 @@
         }
       }
     },
-    "Daily Airspace Bulletin Switzerland" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Daily Airspace Bulletin Switzerland"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Daily Airspace Bulletin Switzerland"
-          }
-        }
-      }
-    },
-    "Copy the ICAO plan, then file it on skybriefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kopieren Sie den ATC-Flugplan und geben Sie ihn auf skybriefing auf"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copier le plan OACI, puis le déposer sur skybriefing"
-          }
-        }
-      }
-    },
     "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA" : {
       "localizations" : {
         "de" : {
@@ -27827,86 +28000,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exporter le log de nav"
-          }
-        }
-      }
-    },
-    "Open NOTAM briefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NOTAM-Briefing öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir le briefing NOTAM"
-          }
-        }
-      }
-    },
-    "Open weather briefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wetterbriefing öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir le briefing météo"
-          }
-        }
-      }
-    },
-    "Open skybriefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "skybriefing öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir skybriefing"
-          }
-        }
-      }
-    },
-    "Open DABS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DABS öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir le DABS"
-          }
-        }
-      }
-    },
-    "Open MeteoSwiss" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MeteoSchweiz öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir MétéoSuisse"
           }
         }
       }

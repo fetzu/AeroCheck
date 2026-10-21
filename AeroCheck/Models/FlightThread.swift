@@ -121,6 +121,12 @@ struct ThreadTask: Codable, Identifiable, Equatable, Sendable {
 
     /// Identity for regeneration: the same key for the same subject is the same task.
     var matchToken: String { "\(key.rawValue)#\(subject ?? "")" }
+
+    /// The country of an airspace activity or area forecast task: its subject, Switzerland's when it has none
+    /// (a Swiss task before 6.5.0 had none, and keeps none). (6.5.0)
+    var briefingCountry: String { subject ?? "CH" }
+
+    static func briefingSubject(_ country: String) -> String? { country == "CH" ? nil : country }
 }
 
 /// Where a thread is in its life. Advancing is monotonic apart from `closeOut → done`, which the pilot

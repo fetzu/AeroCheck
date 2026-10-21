@@ -1,19 +1,14 @@
-6.4.2 fait suivre la route à ACT et SUIV, les fréquences radio, comme vous travaillez la radio : les stations dans l'ordre où vous les appelez, comme sur le log de nav imprimé. Et l'app dessine désormais les cartes elle-même, sans trous.
+6.4.3 vous laisse dire à l'app quand vous changez de fréquence : quand c'est le moment d'appeler, SUIV devient dû, et le toucher le fait passer en ACT. Sans toucher, l'app change d'elle-même au point le plus tardif. Dans les deux cas, ANNULER revient en arrière.
 
-À regarder, sur une route :
-- l'aérodrome de départ reste ACT jusqu'à la mise en palier (ou la sortie de sa zone), avec en SUIV le FIS ou la zone qui vient ;
-- puis chaque FIS et chaque zone à son tour : une CTR, une RMZ ou une FIZ devient ACT 5 minutes avant d'y entrer, le FIS suivant s'affiche en SUIV avant sa limite et devient ACT à la limite ;
-- une TMA dont la clairance vient du FIS (Genève, Zurich, les secteurs de Bâle) est nommée à côté d'ACT dès 10 minutes avant ;
-- au-dessus de l'Ajoie et du nord du Jura, dès 2'000 ft sol : Bale Info ;
-- la destination devient ACT 5 minutes avant l'aérodrome, ou 2 minutes avant son point d'arrivée s'il vient plus tôt, et son ATIS s'affiche en SUIV comme ÉCOUTE dès 10 minutes avant ;
-- un aérodrome que la route passe à moins de 2 NM s'affiche en SUIV comme ÉCOUTE dès 5 minutes avant, ACT restant le FIS (Réglages › Checklist & Vol › Aérodromes sur la route le désactive).
+À essayer, sur une route (un vol à blanc au sol le fait aussi : Planifier › Routes, balayez une route vers la droite) :
+- à la mise en palier, SUIV s'encadre, avec à son pied une ligne qui s'épuise ; ACT reste l'aérodrome de départ ;
+- touchez SUIV en changeant de fréquence : il passe en ACT, et l'emplacement affiche « Sur … » avec ANNULER pendant 6 secondes ;
+- sans toucher : au point le plus tardif (sortie de la zone de départ ou 10 NM, limite d'une zone ou d'un FIS, 30 secondes avant un point de report ou d'arrivée), l'app change d'elle-même, « Sur …, automatiquement », avec ANNULER ; annulé, l'appel reste dû et l'app ne change plus d'elle-même ;
+- une ÉCOUTE en SUIV (l'ATIS de la destination) : la toucher la marque comme faite, et SUIV passe à l'appel suivant ;
+- ROUTE › RADIO : toucher une ligne la fait passer en ACT, comme quand un contrôleur vous envoie sur une autre station ;
+- sur l'iPhone, l'appel dû s'affiche sur la ligne ACT, et toucher la ligne change de fréquence ; sur un iPhone en mode compagnon, le toucher change celle de l'iPad, et ANNULER sur l'iPhone revient en arrière ;
+- le vol à blanc guidé (Réglages › À propos › Faire un vol à blanc) a une carte pour cela après la vérification de croisière.
 
-Sans route, un aérodrome n'est ACT que dans sa zone ou à moins de 3 NM, sinon le FIS.
-
-Sur les cartes (Planifier › Carte, la CARTE du cockpit, l'éditeur de route) :
-- chaque tuile dessinée : pendant que les tuiles nettes arrivent, une carte plus grossière les remplace, jamais un trou ni la carte d'Apple à travers la carte ;
-- la carte OACI jusqu'à la carte vol à voile, dessinée plus grande à son zoom le plus proche ;
-- dans l'éditeur de route, OACI/Vol à voile/Carte nationale jusqu'aux rues, les cartes téléchargées hors ligne, la carte d'Apple au-delà de la frontière ;
-- plus de voile blanc autour du terrain quand vous zoomez sur un aérodrome.
+Sur l'iPad, les blocs du cockpit sont désormais espacés régulièrement, 10 pt du bandeau jusqu'en bas.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

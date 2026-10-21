@@ -144,11 +144,16 @@ enum L10n {
         static func layerName(_ layer: TripDataSizeEstimator.Layer) -> String {
             switch layer {
             case .airspace: return String(localized: "dataStorage.countAirspaces")
-            case .navaids: return navaidsName.lowercased()
-            case .obstacles: return obstaclesName.lowercased()
-            case .reportingPoints: return reportingPointsName.lowercased()
+            case .navaids: return inSentence(navaidsName)
+            case .obstacles: return inSentence(obstaclesName)
+            case .reportingPoints: return inSentence(reportingPointsName)
             case .vfrProcedures: return String(localized: "VFR procedures")
             }
+        }
+        /// A row's name inside a sentence ("152 navaids"): lower case, except in German, whose nouns keep
+        /// their capital ("152 Navigationshilfen"). (6.5.0)
+        private static func inSentence(_ name: String) -> String {
+            AppLanguage.current == "de" ? name : name.lowercased()
         }
         static let tripSection = String(localized: "Trip data")
         static let tripFooter = String(localized: "Your active flight plan crosses areas without downloaded data:")

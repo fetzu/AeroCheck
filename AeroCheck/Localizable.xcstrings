@@ -257,6 +257,12 @@
     },
     "AeroCheck follows a flight end to end: plan it, prepare it, fly it, close it out.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck verfolgt einen Flug von Anfang bis Ende: planen, vorbereiten, fliegen, abschliessen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -267,6 +273,12 @@
     },
     "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft: the full fleet of the partner flying clubs, listed on aerocheck.app.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck bietet von Anfang an alle Funktionen, und die WT9 Dynamic ist kostenlos inbegriffen. AéroCheck Pro schaltet alle anderen Flugzeuge frei: die ganze Flotte der Partner-Flugclubs, aufgeführt auf aerocheck.app."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -319,6 +331,12 @@
     },
     "Choose the Swiss and worldwide layers shown on the moving map.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie die Schweizer und weltweiten Ebenen der mitlaufenden Karte."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -339,6 +357,12 @@
     },
     "Download what you'll fly over so it works offline.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laden Sie herunter, was Sie überfliegen werden, damit es offline funktioniert."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -429,6 +453,12 @@
     },
     "Fly|Work the checklists through all 16 phases, pre-flight to shutdown.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fliegen|Arbeiten Sie die Checklisten aller 16 Phasen ab, von der Vorflugkontrolle bis zum Abstellen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -471,6 +501,12 @@
     },
     "Interactive checklists for all 16 flight phases. Choose how you run them.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interaktive Checklisten für alle 16 Flugphasen. Wählen Sie, wie Sie sie durchführen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -497,6 +533,12 @@
     },
     "Log|Every flight is recorded automatically: times, track and landings.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erfassen|Jeder Flug wird automatisch aufgezeichnet: Zeiten, Flugweg und Landungen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -603,6 +645,12 @@
     },
     "Off hides the landing-fee tasks. Your logbook line is unaffected.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus: Die Aufgaben zu den Landetaxen werden ausgeblendet. Ihre Flugbuchzeile bleibt unverändert."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -613,6 +661,12 @@
     },
     "One aircraft free: unlock the rest": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Flugzeug kostenlos: die übrigen freischalten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -623,6 +677,12 @@
     },
     "OpenAIP · optional chart imagery. Warnings come from the airspace data above.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · optionale Kartenbilder. Die Warnungen stammen aus den Luftraumdaten oben."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -649,6 +709,12 @@
     },
     "Plan|Build your route on the map, with airspace and terrain in view.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planen|Erstellen Sie Ihre Route auf der Karte, mit Lufträumen und Gelände im Blick."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -723,6 +789,12 @@
     },
     "Switches to the high-contrast palette when the screen is near full brightness. The app can't measure ambient light, so it goes by the screen brightness.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wechselt zur kontrastreichen Farbpalette, wenn der Bildschirm nahezu auf voller Helligkeit ist. Die App kann das Umgebungslicht nicht messen und richtet sich deshalb nach der Bildschirmhelligkeit."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -765,6 +837,12 @@
     },
     "This data comes from the community, so keep it up to date. It is not official aeronautical information: always check that it is current before flight.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Daten stammen aus der Community, halten Sie sie also aktuell. Sie sind keine offiziellen Luftfahrtinformationen: Prüfen Sie vor dem Flug immer, ob sie aktuell sind."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -807,6 +885,12 @@
     },
     "Updates & offline storage": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierungen & Offline-Speicher"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -817,6 +901,12 @@
     },
     "Used for the PIC column and for the holder's name on the logbook PDF.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für die Spalte PIC und für den Namen des Inhabers im Flugbuch-PDF verwendet."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -8848,6 +8938,12 @@
     },
     "Traffic circuits, VFR routes & reporting points · © open flightmaps association · indicative, not for primary navigation": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunden, VFR-Routen & Meldepunkte · © open flightmaps association · unverbindlich, nicht für die primäre Navigation"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9294,6 +9390,12 @@
     },
     "Report an error": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler melden"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9304,6 +9406,12 @@
     },
     "VFR procedures (open flightmaps)": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VFR-Verfahren (open flightmaps)"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9314,6 +9422,12 @@
     },
     "open flightmaps · traffic circuits, VFR arrival & departure routes, sectors": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "open flightmaps · Platzrunden, VFR-An- und -Abflugrouten, Sektoren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9555,6 +9669,12 @@
     "settings.flightLogging.confirmFlightEvents": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landungen und Durchstarts bestätigen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -9572,6 +9692,12 @@
     "settings.flightLogging.confirmFlightEventsFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein: Eine Einblendung bittet Sie, jedes Ereignis zu bestätigen, das die App erkennt. Aus: Sie werden automatisch aufgezeichnet, mit «Storno» für einige Sekunden, und Sie bestätigen sie in der Flugauswertung."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -9650,6 +9776,12 @@
     },
     "© open flightmaps association · not for primary navigation": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© open flightmaps association · nicht für die primäre Navigation"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9708,6 +9840,12 @@
     },
     "VFR procedures": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VFR-Verfahren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9734,6 +9872,12 @@
     },
     "Aerodromes": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9744,6 +9888,12 @@
     },
     "OpenAIP · runways, frequencies & PPR · primary source": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · Pisten, Frequenzen & PPR · Hauptquelle"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -9754,6 +9904,12 @@
     },
     "Couldn't update. Try again on Wi-Fi.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierung fehlgeschlagen. Versuchen Sie es mit Wi-Fi erneut."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -13207,6 +13363,12 @@
     },
     "Plan a flight from Today. You can always start flying without one.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planen Sie einen Flug im Tab Heute. Sie können auch jederzeit ohne Plan losfliegen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -18832,6 +18994,12 @@
     "mapLayer.icao": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Karte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -18849,6 +19017,12 @@
     "mapLayer.landeskarte": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landeskarte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -18866,6 +19040,12 @@
     "mapLayer.swissimage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SWISSIMAGE Luftbild"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -18883,6 +19063,12 @@
     "mapLayer.satellite": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Satellit"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -18900,6 +19086,12 @@
     "mapLayer.standard": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standardkarte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -18917,6 +19109,12 @@
     "mapLayer.icaoGlider": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Karte/Segelflugkarte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -18935,6 +19133,12 @@
       "comment": "The route builder's map menu: the Swiss chart that turns from the ICAO chart to the glider chart, then the National Map, as the pilot zooms in.",
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO/Segelflug/Landeskarte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -19274,6 +19478,12 @@
     "dataStorage.source.typeface": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schrift von Airbus, © The B612 Project Authors, SIL Open Font License 1.1"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -19291,6 +19501,12 @@
     "settings.checklist.memoryTest": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory Items ausblenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -19308,6 +19524,12 @@
     "settings.checklist.memoryTestFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blendet die Memory Items aus (die Punkte, die Sie auswendig kennen sollten), damit Sie sie aus dem Gedächtnis aufsagen. Halten Sie das Banner in der Checkliste gedrückt, um sie wieder anzuzeigen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -19325,6 +19547,12 @@
     "settings.checklist.memoryTestOnboarding": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory Items ausblenden, die Punkte, die Sie auswendig kennen sollten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -22843,6 +23071,12 @@
     },
     "Review" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Durchsehen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -22997,6 +23231,12 @@
     },
     "Student pilot" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flugschüler"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23007,6 +23247,12 @@
     },
     "Log flights as dual, with your instructor as PIC" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flüge als Dual erfassen, mit Ihrem Fluglehrer als PIC"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23017,6 +23263,12 @@
     },
     "Instructor's name" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name des Fluglehrers"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23693,6 +23945,12 @@
     },
     "CG" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schwerpunkt"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23879,6 +24137,12 @@
     },
     "Plan" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23889,6 +24153,12 @@
     },
     "Prepare" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorbereiten"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23899,6 +24169,12 @@
     },
     "Fly" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fliegen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23909,6 +24185,12 @@
     },
     "Close" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abschliessen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24533,6 +24815,12 @@
     },
     "Pilot" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilot"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24543,6 +24831,12 @@
     },
     "Your name" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihr Name"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24553,6 +24847,12 @@
     },
     "Name as it appears in your logbook" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, wie er in Ihrem Flugbuch steht"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24563,6 +24863,12 @@
     },
     "Track flight costs" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flugkosten erfassen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24621,6 +24927,12 @@
     },
     "High contrast in sunlight" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoher Kontrast bei Sonnenlicht"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24663,6 +24975,12 @@
     },
     "Flights" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flüge"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24961,6 +25279,12 @@
     },
     "Cancel flight" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flug absagen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -25074,6 +25398,12 @@
     "disclaimer.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bevor Sie fliegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25091,6 +25421,12 @@
     "disclaimer.intro": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck ist ein Hilfsmittel für die Ausbildung, keine zertifizierte Avionik. Bitte lesen Sie dies, bevor Sie es in einem Flugzeug verwenden."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25108,6 +25444,12 @@
     "disclaimer.notCertified.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht zertifiziert und wie besehen bereitgestellt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25125,6 +25467,12 @@
     "disclaimer.notCertified.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck ist von keiner Luftfahrtbehörde zugelassen und kein zertifiziertes Navigationssystem. Alles, was es anzeigt, sind ergänzende Informationen, und diese können unvollständig, veraltet oder schlicht falsch sein."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25142,6 +25490,12 @@
     "disclaimer.checklist.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das AFM und die genehmigte Checkliste haben Vorrang"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25159,6 +25513,12 @@
     "disclaimer.checklist.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checklisten in AéroCheck sind Abschriften von Clubdokumenten, keine genehmigten Checklisten. Massgebend bleiben das AFM/POH und die genehmigte Checkliste Ihres Betreibers: Vergleichen Sie sie vor dem Flug, und führen Sie die Checkliste auf Papier mit."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25176,6 +25536,12 @@
     "disclaimer.data.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten und Wetter können falsch sein"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25193,6 +25559,12 @@
     "disclaimer.data.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume, Flugplätze, Frequenzen, Hindernisse, Gelände und Wetter stammen von Dritten, und es ist nicht garantiert, dass sie aktuell sind. Gleichen Sie sie mit dem offiziellen AIP, den NOTAM und einem ordnungsgemässen Briefing vor dem Flug ab."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25210,6 +25582,12 @@
     "disclaimer.pilot.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie sind der verantwortliche Pilot"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25227,6 +25605,12 @@
     "disclaimer.pilot.body": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie allein bleiben verantwortlich für die sichere Durchführung des Flugs, für die Einhaltung der geltenden Vorschriften und für jede Entscheidung, die Sie treffen. Nichts in dieser App entbindet Sie davon."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25244,6 +25628,12 @@
     "disclaimer.readTerms": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vollständige Nutzungsbedingungen lesen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25261,6 +25651,12 @@
     "disclaimer.asIs": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereitgestellt wie besehen, ohne Gewährleistung jeglicher Art. Nutzung auf eigene Gefahr."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25278,6 +25674,12 @@
     "disclaimer.accept": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich habe verstanden und akzeptiere"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25295,6 +25697,12 @@
     "settings.legal": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechtliches"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25312,6 +25720,12 @@
     "settings.legal.footer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Sicherheitshinweis wird beim ersten Start einmal angezeigt. Sie können ihn hier jederzeit erneut lesen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25329,6 +25743,12 @@
     "settings.legal.safetyNotice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sicherheitshinweis"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25346,6 +25766,12 @@
     "settings.legal.safetyNoticeSubtitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was AéroCheck ist und was es nicht ist"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25363,6 +25789,12 @@
     "settings.legal.termsOfUse": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nutzungsbedingungen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25380,6 +25812,12 @@
     "settings.legal.privacyPolicy": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzerklärung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25397,6 +25835,12 @@
     "subscription.termsOfUse": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nutzungsbedingungen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25721,6 +26165,12 @@
     },
     "Account Type": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontotyp"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25733,6 +26183,12 @@
       "comment": "A label describing the number of active subscriptions.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktive Abonnements"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25743,6 +26199,12 @@
     },
     "Add more countries anytime in Settings → Data.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Länder können Sie jederzeit unter Einstellungen → Daten & Speicher hinzufügen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -25759,6 +26221,12 @@
     },
     "Add or remove countries and continents in Navigation & Maps": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länder und Kontinente unter Navigation & Karten hinzufügen oder entfernen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25773,6 +26241,12 @@
     },
     "Aeronautical charts · © swisstopo / BAZL": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftfahrtkarten · © swisstopo / BAZL"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25783,6 +26257,12 @@
     },
     "Aeronautical data": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftfahrtdaten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25809,6 +26289,12 @@
     },
     "Airport database · public domain": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdatenbank · gemeinfrei"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25835,6 +26321,12 @@
     },
     "Airports & frequencies": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplätze & Frequenzen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25845,6 +26337,12 @@
     },
     "Airspace": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraum"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25871,6 +26369,12 @@
     },
     "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumdaten von [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25897,6 +26401,12 @@
     },
     "Airspace overlay": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumebene"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25907,6 +26417,12 @@
     },
     "Airspace · © OpenAIP and contributors, CC BY-NC 4.0": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraum · © OpenAIP and contributors, CC BY-NC 4.0"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25917,6 +26433,12 @@
     },
     "Airspace, navaids & reporting points": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume, Navigationshilfen & Meldepunkte"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -25927,6 +26449,12 @@
     },
     "All Transactions": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Transaktionen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26028,6 +26556,12 @@
     },
     "Auto follows your device language": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto folgt der Sprache Ihres Geräts"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26038,6 +26572,12 @@
     },
     "Auto-updating · aircraft checklists from aerocheck.app": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatische Aktualisierung · Flugzeug-Checklisten von aerocheck.app"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26078,6 +26618,12 @@
     },
     "CTRs & zones from OpenAIP": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CTR & Zonen von OpenAIP"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26092,6 +26638,12 @@
     },
     "Check for checklist updates": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach Aktualisierungen der Checklisten suchen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26102,6 +26654,12 @@
     },
     "Checklist language": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checklistensprache"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26112,6 +26670,12 @@
     },
     "Route, fuel, mass & balance, the aircraft booked": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route, Treibstoff, Masse und Schwerpunkt, Flugzeug reserviert"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26122,6 +26686,12 @@
     },
     "Weather, NOTAM, customs, the flight plan filed": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wetter, NOTAM, Zoll, ATC-Flugplan aufgegeben"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26138,6 +26708,12 @@
     },
     "The 16-phase checklist you already know": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste in 16 Phasen, die Sie schon kennen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26148,6 +26724,12 @@
     },
     "Close the flight plan, fees, the logbook line": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATC-Flugplan schliessen, Taxen, Flugbuchzeile"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -26164,6 +26746,12 @@
     },
     "Checklists": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checklisten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26190,6 +26778,12 @@
     },
     "Continue": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26200,6 +26794,12 @@
     },
     "Continue anyway": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trotzdem fortfahren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26210,6 +26810,12 @@
     },
     "Coverage: %@": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abdeckung: %@"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26274,6 +26880,12 @@
     },
     "Data & Storage": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten & Speicher"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26284,6 +26896,12 @@
     },
     "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Daten (Lufträume, Navigationshilfen, Hindernisse, Meldepunkte, Flugplätze) sind klein. Kartenkacheln fügen Rasterkartenbilder hinzu und sind viel grösser."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26312,6 +26930,12 @@
       "comment": "A label displayed under the copyright information of the map layers.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenquellen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26322,6 +26946,12 @@
     },
     "Delete": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Löschen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26332,6 +26962,12 @@
     },
     "Delete downloaded data?": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heruntergeladene Daten löschen?"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26342,6 +26978,12 @@
     },
     "Detected region": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erkannte Region"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26369,6 +27011,12 @@
     },
     "Done": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26379,6 +27027,12 @@
     },
     "Download": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herunterladen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26389,6 +27043,12 @@
     },
     "Download data + map tiles": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten + Kartenkacheln herunterladen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26439,6 +27099,12 @@
     },
     "Downloading…": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird heruntergeladen…"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26471,6 +27137,12 @@
       "comment": "A label describing the environment of a transaction.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Umgebung"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -26505,6 +27177,12 @@
     },
     "Expires": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läuft ab"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27225,6 +27903,12 @@
     },
     "Flight": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flug"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27235,6 +27919,12 @@
     },
     "Flight planning": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplanung"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27245,6 +27935,12 @@
     },
     "Flights & settings across devices": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flüge & Einstellungen auf allen Geräten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27255,6 +27951,12 @@
     },
     "Force ICAO chart": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Karte erzwingen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27465,6 +28167,12 @@
     },
     "How the app behaves in the air, plus the bigger features and your data.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie sich die App in der Luft verhält, dazu die grösseren Funktionen und Ihre Daten."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27479,6 +28187,12 @@
     },
     "ICAO + glider · up to ≈ 250 MB": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO + Segelflugkarte · bis zu ≈ 250 MB"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27515,6 +28229,12 @@
     },
     "In flight & features": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Flug & Funktionen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27549,6 +28269,12 @@
     },
     "Keep setting up": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einrichtung fortsetzen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27559,6 +28285,12 @@
     },
     "Keep the chart at all zoom levels": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Karte in jeder Zoomstufe behalten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27612,6 +28344,12 @@
       "comment": "A message displayed while loading transactions.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transaktionen werden geladen..."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27622,6 +28360,12 @@
     },
     "Log engine hours": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motorstunden erfassen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27632,6 +28376,12 @@
     },
     "Logs will appear here when you sync with the server or perform subscription operations.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protokolle erscheinen hier, sobald Sie mit dem Server synchronisieren oder Vorgänge am Abonnement ausführen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27681,6 +28431,12 @@
     },
     "METAR / TAF / SIGMET · NOAA Aviation Weather Center, public domain": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "METAR / TAF / SIGMET · NOAA Aviation Weather Center, gemeinfrei"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27693,6 +28449,12 @@
     "MSL": {},
     "Manage regions & downloads": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regionen & Downloads verwalten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27755,6 +28517,12 @@
     },
     "Maps & Data": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten & Daten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27765,6 +28533,12 @@
     },
     "Masts, towers & wires": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masten, Türme & Leitungen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27811,6 +28585,12 @@
     },
     "More options": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Optionen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27833,6 +28613,12 @@
     },
     "National borders (trip data coverage) · Natural Earth, public domain": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landesgrenzen (Abdeckung der Routendaten) · Natural Earth, gemeinfrei"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -27849,6 +28635,12 @@
     },
     "Navaids": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigationshilfen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27859,6 +28651,12 @@
     },
     "Navigate|A moving map with airspace, frequencies and your live track.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigieren|Eine mitlaufende Karte mit Lufträumen, Frequenzen und Ihrem Flugweg in Echtzeit."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27875,6 +28673,12 @@
       "comment": "A message displayed when there are no subscription logs to display.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Protokolle"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27887,6 +28691,12 @@
       "comment": "A message displayed when a user has no transactions.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Transaktionen gefunden"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27897,6 +28707,12 @@
     },
     "No airspace data downloaded": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Luftraumdaten heruntergeladen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27907,6 +28723,12 @@
     },
     "No checklists cached yet": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Checklisten gespeichert"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27937,6 +28759,12 @@
     },
     "Not downloaded": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht heruntergeladen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27951,6 +28779,12 @@
     },
     "Obstacle": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hindernis"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27961,6 +28795,12 @@
     },
     "Obstacles": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hindernisse"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -27987,6 +28827,12 @@
     },
     "Offline charts": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline-Karten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28029,6 +28875,12 @@
     },
     "OpenAIP map tiles": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP-Kartenkacheln"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28039,6 +28891,12 @@
     },
     "OpenAIP · VFR reporting points": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · VFR-Meldepunkte"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28049,6 +28907,12 @@
     },
     "OpenAIP · VOR / DME / NDB radio navigation aids": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · Funknavigationshilfen VOR / DME / NDB"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28059,6 +28923,12 @@
     },
     "OpenAIP · controlled airspace, sectors & frequencies": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · kontrollierter Luftraum, Sektoren & Frequenzen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28069,6 +28939,12 @@
     },
     "OpenAIP · towers, masts and wind turbines": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP · Türme, Masten und Windkraftanlagen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28085,6 +28961,12 @@
       "comment": "A label for the original transaction identifier.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ursprüngliche ID"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28095,6 +28977,12 @@
     },
     "OurAirports · global airfields · secondary / fallback source": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OurAirports · Flugplätze weltweit · Zweit- / Ersatzquelle"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28105,6 +28993,12 @@
     },
     "Out of date": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veraltet"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28183,6 +29077,12 @@
     },
     "Prompt for the hour meter": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach dem Stundenzähler fragen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28193,6 +29093,12 @@
     },
     "Purchased": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gekauft"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28203,6 +29109,12 @@
     },
     "Recommended": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empfohlen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28213,6 +29125,12 @@
     },
     "Record your GPS flight track": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihren GPS-Flugweg aufzeichnen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28223,6 +29141,12 @@
     },
     "Refresh": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neu laden"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28249,6 +29173,12 @@
     },
     "Remove all downloads": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Downloads entfernen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28259,6 +29189,12 @@
     },
     "Remove all downloads?": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Downloads entfernen?"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28269,6 +29205,12 @@
     },
     "Reporting point": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldepunkt"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28279,6 +29221,12 @@
     },
     "Reporting points": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldepunkte"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28291,6 +29239,12 @@
       "comment": "A note indicating that a subscription has been revoked. The date is shown next to the text.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widerrufen am %@"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28325,6 +29279,12 @@
     },
     "See AéroCheck Pro": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck Pro ansehen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28339,6 +29299,12 @@
     },
     "Select countries": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länder auswählen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28472,6 +29438,12 @@
     },
     "Show navaids on map": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigationshilfen auf der Karte anzeigen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28482,6 +29454,12 @@
     },
     "Show nearby airspace & frequencies": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume & Frequenzen in der Nähe anzeigen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28492,6 +29470,12 @@
     },
     "Show obstacles on map": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hindernisse auf der Karte anzeigen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28502,6 +29486,12 @@
     },
     "Show reporting points on map": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldepunkte auf der Karte anzeigen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28512,6 +29502,12 @@
     },
     "Simulate position: LSZS (Samedan)": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position simulieren: LSZS (Samedan)"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28522,6 +29518,12 @@
     },
     "Simulate stale data": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veraltete Daten simulieren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28532,6 +29534,12 @@
     },
     "Skip anyway": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trotzdem überspringen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28542,6 +29550,12 @@
     },
     "Skip setup?": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einrichtung überspringen?"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28552,6 +29566,12 @@
     },
     "Some aeronautical data is out of date. Open Data & Storage to update.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Luftfahrtdaten sind veraltet. Öffnen Sie Daten & Speicher, um sie zu aktualisieren."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28624,6 +29644,12 @@
     },
     "Storage": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speicher"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28634,6 +29660,12 @@
     },
     "Subscription Logs": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement-Protokolle"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28644,6 +29676,12 @@
     },
     "Suggest the right maps to download next": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die passenden Karten zum Herunterladen vorschlagen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28654,6 +29692,12 @@
     },
     "Summary": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zusammenfassung"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28664,6 +29708,12 @@
     },
     "Surface wind (Switzerland) · © MeteoSwiss": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bodenwind (Schweiz) · © MeteoSchweiz"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28674,6 +29724,12 @@
     },
     "Swiss ICAO chart": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schweizer ICAO-Karte"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28684,6 +29740,12 @@
     },
     "Swiss charts": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schweizer Karten"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28694,6 +29756,12 @@
     },
     "Sync to iCloud": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit iCloud synchronisieren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28754,6 +29822,12 @@
     },
     "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geländehöhe & Höhenwinde · Open-Meteo (CC BY 4.0), © swisstopo"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28780,6 +29854,12 @@
     },
     "This could mean:\n• You're not signed into an Apple ID\n• No subscriptions have been purchased\n• Testing with StoreKit Configuration file": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das kann bedeuten:\n• Sie sind nicht mit einem Apple Account angemeldet\n• Es wurden keine Abonnements gekauft\n• Test mit einer StoreKit-Konfigurationsdatei"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28790,6 +29870,12 @@
     },
     "This removes the cached data from this device. You can download it again later.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit werden die gespeicherten Daten von diesem Gerät entfernt. Sie können sie später erneut herunterladen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28820,6 +29906,12 @@
       "comment": "A label describing the total number of transactions.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transaktionen gesamt"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28848,6 +29940,12 @@
       "comment": "Text displayed in a notification when a touch-and-go event is detected.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch-and-go erkannt"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28876,6 +29974,12 @@
     },
     "Track vector": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kursvektor"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28888,6 +29992,12 @@
       "comment": "The title of the view that displays detailed information about a user's in-app purchases.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transaktions-Debugging"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28900,6 +30010,12 @@
       "comment": "A label for the transaction ID displayed in the debug view.",
       "isCommentAutoGenerated": true,
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transaktions-ID"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28910,6 +30026,12 @@
     },
     "Trend line ahead of the aircraft": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trendlinie vor dem Flugzeug"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28920,6 +30042,12 @@
     },
     "Trip data": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routendaten"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -28955,6 +30083,12 @@
     },
     "Up to date": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuell"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -28999,6 +30133,12 @@
     },
     "Update all on Wi-Fi": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles mit Wi-Fi aktualisieren"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29009,6 +30149,12 @@
     },
     "Update recommended": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierung empfohlen"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29067,6 +30213,12 @@
     },
     "Use your location": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihren Standort verwenden"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29077,6 +30229,12 @@
     },
     "Verification Error: %@": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifizierungsfehler: %@"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29129,6 +30287,12 @@
     },
     "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne heruntergeladene Luftraumdaten sehen Sie beim Navigieren weder Lufträume noch Frequenzen. Sie können dies später unter Einstellungen → Daten & Speicher einrichten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -29145,6 +30309,12 @@
     },
     "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first.": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne die empfohlenen Daten zu Lufträumen, Navigationshilfen und Meldepunkten sehen Sie beim Navigieren weder Lufträume noch Frequenzen. Wählen Sie Ihre Länder aus, und tippen Sie zuerst auf Herunterladen."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29155,6 +30325,12 @@
     },
     "Worldwide": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weltweit"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29165,6 +30341,12 @@
     },
     "Worldwide · ≈ 12 MB": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weltweit · ≈ 12 MB"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29179,6 +30361,12 @@
     },
     "Your active flight plan crosses areas without downloaded data:": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Route quert Gebiete ohne heruntergeladene Daten:"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -29195,6 +30383,12 @@
     },
     "Your map": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Karte"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -29514,6 +30708,12 @@
     "aircraft.checklistLanguageOnly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checkliste nur auf %@ verfügbar"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -29922,6 +31122,12 @@
     "app.tagline": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Behalten Sie Ihre Flüge im Griff!"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -33551,6 +34757,12 @@
     "dataStorage.countAirspaces": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -33568,6 +34780,12 @@
     "dataStorage.downloadMissingChecklists": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlende Checklisten herunterladen (%d)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34168,6 +35386,12 @@
     "download.cached": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GESPEICHERT"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34185,6 +35409,12 @@
     "download.cancel": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abbrechen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34202,6 +35432,12 @@
     "download.description": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laden Sie die Schweizer Luftfahrtkarten für die Offline-Navigation und schnelleres Laden herunter."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34219,6 +35455,12 @@
     "download.done": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34236,6 +35478,12 @@
     "download.downloadSegelflug": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segelflugkarte herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34253,6 +35501,12 @@
     "download.downloadingLayer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ wird heruntergeladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34270,6 +35524,12 @@
     "download.downloadingTiles": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kacheln werden heruntergeladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34287,6 +35547,12 @@
     "download.estimatedTimeRemaining": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschätzte Restzeit: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34304,6 +35570,12 @@
     "download.icaoAndSegelflug": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO + Segelflugkarte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34321,6 +35593,12 @@
     "download.icaoOnly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur ICAO-Karte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34338,6 +35616,12 @@
     "download.redownload": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten erneut herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34355,6 +35639,12 @@
     "download.selectCharts": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten zum Herunterladen auswählen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34372,6 +35662,12 @@
     "download.throttled": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server begrenzt die Downloads, daher kann dies länger dauern."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34389,6 +35685,12 @@
     "download.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -34406,6 +35708,12 @@
     "download.total": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesamt: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -37199,6 +38507,12 @@
     },
     "iCloud & Log": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud & Aufzeichnung"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
@@ -37209,6 +38523,12 @@
     },
     "iCloud sync, GPS recording & flight log": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud-Synchronisierung, GPS-Aufzeichnung & Flugbuch"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -37250,6 +38570,12 @@
     "language.de": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deutsch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -37267,6 +38593,12 @@
     "language.en": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Englisch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -37284,6 +38616,12 @@
     "language.fr": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Französisch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -37301,6 +38639,12 @@
     "language.it": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Italienisch"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -37322,6 +38666,12 @@
     "mapLayer.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartenebene"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -41908,6 +43258,12 @@
     },
     "onboarding.getStarted": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loslegen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -41924,6 +43280,12 @@
     },
     "onboarding.navigation.downloadAirports": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -41940,6 +43302,12 @@
     },
     "onboarding.navigation.downloadCharts": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schweizer Karten herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -41956,6 +43324,12 @@
     },
     "onboarding.navigation.downloaded": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heruntergeladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -41972,6 +43346,12 @@
     },
     "onboarding.navigation.downloading": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird heruntergeladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -41989,6 +43369,12 @@
     "onboarding.navigation.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigation im Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42005,6 +43391,12 @@
     },
     "onboarding.next": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42022,6 +43414,12 @@
     "onboarding.location.next": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS fragt Sie als Nächstes. Sie können Ihre Antwort jederzeit in den Einstellungen ändern."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42038,6 +43436,12 @@
     },
     "onboarding.ready.body": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginnen Sie Ihren ersten Flug, und lassen Sie sich von AéroCheck durch jede Phase führen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42054,6 +43458,12 @@
     },
     "onboarding.ready.button": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit AéroCheck beginnen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42070,6 +43480,12 @@
     },
     "onboarding.ready.title": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie sind bereit"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42086,6 +43502,12 @@
     },
     "onboarding.skip": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überspringen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42102,6 +43524,12 @@
     },
     "onboarding.welcome.subtitle": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verfolgen Sie Ihren Flug vom ersten Plan bis zum letzten Flugbucheintrag:"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -42118,6 +43546,12 @@
     },
     "onboarding.welcome.title": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Willkommen bei AéroCheck"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43606,6 +45040,12 @@
     "premium.checkBackLater": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schauen Sie später wieder nach neuen Flugzeugen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43623,6 +45063,12 @@
     "premium.loadingAircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium-Flugzeuge werden geladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43640,6 +45086,12 @@
     "premium.noAircraftAvailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Premium-Flugzeuge verfügbar"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43657,6 +45109,12 @@
     "premium.requiresAeroCheckPro": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erfordert AéroCheck Pro"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43674,6 +45132,12 @@
     "premium.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium-Flugzeuge"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43921,6 +45385,12 @@
     "settings.about": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Info"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43938,6 +45408,12 @@
     "settings.about.appVersion": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App-Version"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43955,6 +45431,12 @@
     "settings.about.author": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autor"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43972,6 +45454,12 @@
     "settings.about.mitLicense": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veröffentlicht unter der MIT-Lizenz."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -43989,6 +45477,12 @@
     "settings.about.openSource": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Source"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44006,6 +45500,12 @@
     "settings.about.openSourceDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese App ist Open Source und auf GitHub verfügbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44023,6 +45523,12 @@
     "settings.about.replayIntro": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einführung wiederholen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44040,6 +45546,12 @@
     "settings.about.replayIntroDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Einführung nochmals zeigen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44057,6 +45569,12 @@
     "settings.about.website": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Website"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44074,6 +45592,12 @@
     "settings.aircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugzeug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44091,6 +45615,12 @@
     "settings.aircraft.available": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d/%d verfügbar"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44108,6 +45638,12 @@
     "settings.aircraft.getLatestData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neueste Flugzeugdaten laden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44125,6 +45661,12 @@
     "settings.aircraft.loading": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird geladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44142,6 +45684,12 @@
     "settings.aircraft.noPremiumAircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Premium-Flugzeuge"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44159,6 +45707,12 @@
     "settings.aircraft.premiumAircrafts": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium-Flugzeuge"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44176,6 +45730,12 @@
     "settings.aircraft.selectAircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie das Flugzeug, das Sie fliegen werden. Premium-Flugzeuge erfordern ein Abonnement für AéroCheck Pro. Tippen Sie auf «Neueste Flugzeugdaten laden», um die Liste zu aktualisieren und nach Aktualisierungen der Checklisten zu suchen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44193,6 +45753,12 @@
     "settings.aircraftVisibility": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sichtbarkeit der Flugzeuge"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44210,6 +45776,12 @@
     "settings.aircraftVisibility.footer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgeblendete Flugzeuge erscheinen weder auf Heute noch unter «Ihre Flugzeuge» noch beim Planen eines Flugs. Hier bleiben sie aufgeführt."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44227,6 +45799,12 @@
     "settings.aircraftVisibility.hideAll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle ausblenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44244,6 +45822,12 @@
     "settings.aircraftVisibility.noAircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine zugänglichen Flugzeuge zum Filtern. Abonnieren Sie AéroCheck Pro, um auf die Premium-Flugzeuge zuzugreifen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44261,6 +45845,12 @@
     "settings.aircraftVisibility.showAll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle einblenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44278,6 +45868,12 @@
     "settings.aircraftVisibility.visible": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d von %d sichtbar"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44295,6 +45891,12 @@
     "settings.airportData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44312,6 +45914,12 @@
     "settings.airportData.delete": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten löschen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44329,6 +45937,12 @@
     "settings.airportData.download": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44346,6 +45960,12 @@
     "settings.airportData.downloading": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplätze werden heruntergeladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44363,6 +45983,12 @@
     "settings.airportData.footer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten von OurAirports.com, verwendet für die Karte und die Flugplanung. Eine Aktualisierung alle 90 Tage wird empfohlen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44380,6 +46006,12 @@
     "settings.airportData.lastUpdated": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zuletzt aktualisiert: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44397,6 +46029,12 @@
     "settings.airportData.loaded": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d Flugplätze geladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44414,6 +46052,12 @@
     "settings.airportData.showOnMap": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplätze auf der Karte anzeigen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44431,6 +46075,12 @@
     "settings.airportData.update": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplatzdaten aktualisieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44448,6 +46098,12 @@
     "settings.airportData.updateAvailable": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierung verfügbar (Daten > 90 Tage alt)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44465,6 +46121,12 @@
     "settings.availableChecklists": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verfügbare Checklisten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44482,6 +46144,12 @@
     "settings.availableChecklists.noCached": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Checklisten gespeichert"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44499,6 +46167,12 @@
     "settings.availableChecklists.version": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44516,6 +46190,12 @@
     "settings.checklist": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checkliste"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44533,6 +46213,12 @@
     "settings.checklistLanguage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checklistensprache"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44550,6 +46236,12 @@
     "settings.checklistLanguage.auto": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto (Systemsprache)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44567,6 +46259,12 @@
     "settings.checklistLanguage.footer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie die Sprache des Checklisteninhalts. Ist Ihre bevorzugte Sprache für ein Flugzeug nicht verfügbar, wird Englisch verwendet."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44584,6 +46282,12 @@
     "settings.data": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44601,6 +46305,12 @@
     "settings.data.recordedFlights": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgezeichnete Flüge"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44618,6 +46328,12 @@
     "settings.data.totalGPSPoints": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS-Punkte gesamt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44635,6 +46351,12 @@
     "settings.deleteCache.message": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit wird die gespeicherte ICAO-Karte gelöscht. Für die Offline-Nutzung müssen Sie sie erneut herunterladen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44652,6 +46374,12 @@
     "settings.deleteCache.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartenspeicher löschen?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44669,6 +46397,12 @@
     "settings.developer.forceNotSubscribed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status «Nicht abonniert» erzwingen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44686,6 +46420,12 @@
     "settings.developer.forceNotSubscribedDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Nicht abonniert» erzwingen: Ignoriert den tatsächlichen Abonnementstatus und tut so, als hätten Sie kein Abonnement. Nützlich, um die kostenlose Version auch mit aktivem Abonnement zu testen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44703,6 +46443,12 @@
     "settings.developer.marketingMode": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marketing-Modus"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44720,6 +46466,12 @@
     "settings.developer.marketingModeDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marketing-Modus: Wenn eingeschaltet, schütteln Sie Ihr Gerät, um die Marketing-Steuerelemente für den Standort einzublenden. So können Sie GPS-Positionen für Bildschirmfotos simulieren."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44737,6 +46489,12 @@
     "settings.developer.resetOnboarding": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einführung zurücksetzen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44754,6 +46512,12 @@
     "settings.developer.resetOnboardingDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einführung zurücksetzen: Zeigt die Einführung beim nächsten Start erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44771,6 +46535,12 @@
     "settings.developer.resetSubscription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnementstatus zurücksetzen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44788,6 +46558,12 @@
     "settings.developer.resetSubscriptionDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement zurücksetzen: Löscht den gespeicherten Abonnementstatus und prüft erneut mit StoreKit."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44805,6 +46581,12 @@
     "settings.developer.showAllTransactions": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Transaktionen anzeigen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44822,6 +46604,12 @@
     "settings.developer.showAllTransactionsDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Transaktionen anzeigen: Zeigt alle StoreKit-Transaktionen an, um Probleme mit dem Abonnement zu untersuchen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44839,6 +46627,12 @@
     "settings.developer.showSubscriptionLogs": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement-Protokolle anzeigen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44856,6 +46650,12 @@
     "settings.developer.showSubscriptionLogsDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement-Protokolle anzeigen: Echtzeit-Protokolle der Synchronisierung des Abonnements und der Kommunikation mit dem Server."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44873,6 +46673,12 @@
     "settings.display": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANZEIGE"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44890,6 +46696,12 @@
     "settings.display.alwaysUseUTC": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Immer UTC-Zeiten verwenden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44907,6 +46719,12 @@
     "settings.display.alwaysUseUTCDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn eingeschaltet, wird jede Zeit in der App in UTC angezeigt, mit dem Zusatz (UTC)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44924,6 +46742,12 @@
     "settings.display.theme": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cockpit-Design"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44941,6 +46765,12 @@
     "settings.display.theme.auto": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44958,6 +46788,12 @@
     "settings.display.theme.day": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tag"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44975,6 +46811,12 @@
     "settings.display.theme.night": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nacht"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -44992,6 +46834,12 @@
     "settings.display.themeDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto folgt dem Erscheinungsbild Ihres Geräts. Nacht wechselt zu gedämpftem Rot, um Ihre Nachtsicht zu schützen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45009,6 +46857,12 @@
     "settings.done": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45026,6 +46880,12 @@
     "settings.experimental": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimentell"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45043,6 +46903,12 @@
     "settings.flightLogging": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugerfassung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45059,6 +46925,12 @@
     },
     "settings.radio": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funk"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45075,6 +46947,12 @@
     },
     "settings.radio.fieldsOnTheWay": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplätze entlang der Route"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45091,6 +46969,12 @@
     },
     "settings.radio.fieldsOnTheWayFooter": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Flugplatz, an dem die Route innerhalb von 2 NM vorbeiführt, erscheint ab 5 Minuten davor unter NÄCHSTE als ABHÖREN. AKT. bleibt bei der Info."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45108,6 +46992,12 @@
     "settings.flightLogging.logEngineHours": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motorstunden erfassen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45125,6 +47015,12 @@
     "settings.flightLogging.logEngineHoursFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn eingeschaltet, fragt die App beim Anlassen und beim Abstellen nach dem Stand des Stundenzählers. Nützlich für die Wartungsüberwachung."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45142,6 +47038,12 @@
     "settings.flightPlanning": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplanung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45159,6 +47061,12 @@
     "settings.flightPlanning.planFlightRoutes": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planen Sie Routen mit Wegpunkten, Zeit- und Distanzberechnungen und einer Darstellung des Geländes."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45176,6 +47084,12 @@
     "settings.flightPlanning.terrainAltitudeUnit": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einheit der Geländehöhe"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45193,6 +47107,12 @@
     "settings.flightPlanning.terrainUnitDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Einheit der Höhen im Geländeprofil."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45210,6 +47130,12 @@
     "settings.gps": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS-Aufzeichnung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45227,6 +47153,12 @@
     "settings.gps.batterySaver": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akku sparen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45244,6 +47176,12 @@
     "settings.gps.lowerIntervals": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzere Intervalle ergeben detailliertere Flugwege, brauchen aber mehr Speicherplatz"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45261,6 +47199,12 @@
     "settings.gps.precision": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Präzision"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45278,6 +47222,12 @@
     "settings.gps.priority": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS-Priorität"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45295,6 +47245,12 @@
     "settings.gps.priorityFooter": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Präzision nutzt die höchste GPS-Genauigkeit. Akku sparen verringert Genauigkeit und Aktualisierungsrate, um die Akkulaufzeit zu verlängern."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45312,6 +47268,12 @@
     "settings.gps.recordingInterval": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufzeichnungsintervall"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45329,6 +47291,12 @@
     "settings.gps.seconds": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d Sekunden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45345,6 +47313,12 @@
     },
     "settings.hub.aboutSubtitle": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version, Entwickleroptionen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45361,6 +47335,12 @@
     },
     "settings.hub.aircraftAndSubscription": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugzeuge & Abonnement"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45377,6 +47357,12 @@
     },
     "settings.hub.aircraftAndSubscriptionSubtitle": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugzeuge verwalten, Abonnement"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45393,6 +47379,12 @@
     },
     "settings.hub.checklistAndFlight": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checkliste & Flug"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45410,6 +47402,12 @@
     "settings.hub.checklistAndFlightSubtitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory Items, Sprache, Erfassung, Anzeige"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45427,6 +47425,12 @@
     "settings.hub.companionMode": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleitmodus"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45444,6 +47448,12 @@
     "settings.hub.companionModeSubtitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone und iPad koppeln"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45460,6 +47470,12 @@
     },
     "settings.hub.flightPlanningSubtitle": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilot, Heimatflugplatz, Flugkosten, Routenplanung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45476,6 +47492,12 @@
     },
     "settings.hub.navigationAndMaps": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigation & Karten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45492,6 +47514,12 @@
     },
     "settings.hub.navigationAndMapsSubtitle": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartenebenen, Offline-Karten, Flugplatzdaten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45509,6 +47537,12 @@
     "settings.icloud": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud-Synchronisierung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45526,6 +47560,12 @@
     "settings.icloud.flightLogsStored": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Flüge werden im Ordner AéroCheck in der App Dateien gespeichert und lassen sich von jedem Gerät aus öffnen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45543,6 +47583,12 @@
     "settings.icloud.lastSync": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Synchronisierung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45560,6 +47606,12 @@
     "settings.icloud.offKeepsLocal": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus: Ihre Flüge und Einstellungen bleiben auf diesem Gerät. Was bereits in iCloud Drive liegt, bleibt dort."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45577,6 +47629,12 @@
     "settings.icloud.syncNow": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt synchronisieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45594,6 +47652,12 @@
     "settings.icloud.syncToICloud": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit iCloud synchronisieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45611,6 +47675,12 @@
     "settings.icloud.syncing": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird synchronisiert..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45628,6 +47698,12 @@
     "settings.icloud.whenEnabledDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn eingeschaltet, werden Ihre Einstellungen und Flugaufzeichnungen auf allen Ihren Geräten synchronisiert, die mit demselben iCloud-Account angemeldet sind."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45645,6 +47721,12 @@
     "settings.navigation": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigation"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45662,6 +47744,12 @@
     "settings.navigation.forceICAO": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Kartenebene erzwingen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45679,6 +47767,12 @@
     "settings.navigation.forceICAODesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn eingeschaltet, bleibt die ICAO-Karte (1:500 000) in jeder Zoomstufe. Wenn ausgeschaltet, wechselt die Karte beim Hineinzoomen zur Segelflugkarte (1:300 000)."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45696,6 +47790,12 @@
     "settings.offlineMaps": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline-Karten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45713,6 +47813,12 @@
     "settings.offlineMaps.chartsCached": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Karten werden zwischengespeichert, damit sie schneller laden. swisstopo aktualisiert sie jedes Jahr im April."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45730,6 +47836,12 @@
     "settings.offlineMaps.deleteAllCached": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle gespeicherten Karten löschen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45747,6 +47859,12 @@
     "settings.offlineMaps.downloadCharts": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45764,6 +47882,12 @@
     "settings.offlineMaps.downloadDesc": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laden Sie die Karten herunter, um offline zu navigieren. Die ICAO-Karte ist erforderlich. Die Segelflugkarte ist optional und zeigt beim Hineinzoomen mehr Details."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45781,6 +47905,12 @@
     "settings.offlineMaps.icaoChart": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Karte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45798,6 +47928,12 @@
     "settings.offlineMaps.offlineActive": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Offline-Modus ist eingeschaltet. Die ICAO-Karte und die Segelflugkarte sind beide aus dem Speicher verfügbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45815,6 +47951,12 @@
     "settings.offlineMaps.offlineMode": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline-Modus"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45832,6 +47974,12 @@
     "settings.offlineMaps.onlyICAO": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Offline-Modus ist eingeschaltet, aber nur die ICAO-Karte ist gespeichert. Laden Sie die Segelflugkarte herunter, um offline flüssig hineinzuzoomen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45849,6 +47997,12 @@
     "settings.offlineMaps.segelflugkarte": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segelflugkarte"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45866,6 +48020,12 @@
     "settings.offlineMaps.totalCacheSize": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartenspeicher gesamt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45883,6 +48043,12 @@
     "settings.offlineMaps.updateAddCharts": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten aktualisieren/hinzufügen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45900,6 +48066,12 @@
     "settings.openAIP.airspace": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP-Luftraum"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45917,6 +48089,12 @@
     "settings.openAIP.airspaceOverlay": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumebene"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45934,6 +48112,12 @@
     "settings.openAIP.airspaceStreaming": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Online-Luftraumdaten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45951,6 +48135,12 @@
     "settings.openAIP.airspacesLoaded": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d Lufträume geladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45968,6 +48158,12 @@
     "settings.openAIP.clearSelection": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auswahl aufheben"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -45985,6 +48181,12 @@
     "settings.openAIP.continentCountryCount": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d Länder"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46002,6 +48204,12 @@
     "settings.openAIP.countriesSelected": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d Länder ausgewählt"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46019,6 +48227,12 @@
     "settings.openAIP.dataTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP-Daten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46036,6 +48250,12 @@
     "settings.openAIP.deleteData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP-Daten löschen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46053,6 +48273,12 @@
     "settings.openAIP.deleteMessage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit werden alle gespeicherten OpenAIP-Kartenkacheln und Luftraumdaten gelöscht."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46070,6 +48296,12 @@
     "settings.openAIP.deleteTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAIP-Daten löschen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46087,6 +48319,12 @@
     "settings.openAIP.deselectAll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle abwählen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46104,6 +48342,12 @@
     "settings.openAIP.download": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46121,6 +48365,12 @@
     "settings.openAIP.downloadAirspaceOnly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Luftraumdaten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46138,6 +48388,12 @@
     "settings.openAIP.downloadAll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles herunterladen (Kacheln + Daten)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46155,6 +48411,12 @@
     "settings.openAIP.downloadData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten herunterladen…"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46172,6 +48434,12 @@
     "settings.openAIP.downloadDataOnly": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Daten herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46189,6 +48457,12 @@
     "settings.openAIP.downloadTilesAnyway": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kacheln trotzdem herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46206,6 +48480,12 @@
     "settings.openAIP.downloadTilesConfirmMessage": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Daten (≈%1$@) sind, was AéroCheck braucht. Kartenkacheln fügen ≈%2$@ an Rasterkartenbildern hinzu, eine schwere und zweitrangige Ebene. Empfohlen ist, nur die Daten herunterzuladen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46223,6 +48503,12 @@
     "settings.openAIP.downloadTilesConfirmTitle": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auch Kartenkacheln herunterladen?"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46240,6 +48526,12 @@
     "settings.openAIP.downloadingAirspace": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumdaten werden heruntergeladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46257,6 +48549,12 @@
     "settings.openAIP.downloadingTiles": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kacheln werden heruntergeladen..."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46274,6 +48572,12 @@
     "settings.openAIP.estimatedDataSize": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschätzte Datengrösse: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46291,6 +48595,12 @@
     "settings.openAIP.estimatedTileCache": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschätzter Kachelspeicher: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46308,6 +48618,12 @@
     "settings.openAIP.footer": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumdaten © OpenAIP contributors, CC BY-NC 4.0. Weltweite Luftraumgrenzen und Luftfahrtdaten als Ebene."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46325,6 +48641,12 @@
     "settings.openAIP.noDataHint": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Luftraumdaten heruntergeladen, daher bleibt die Ebene auf der Karte leer. Laden Sie unten Länder herunter."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46342,6 +48664,12 @@
     "settings.openAIP.selectAll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle auswählen (%@)"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46359,6 +48687,12 @@
     "settings.openAIP.selectCountries": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länder zum Herunterladen auswählen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46376,6 +48710,12 @@
     "settings.openAIP.selectionChanged": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auswahl geändert: zum Übernehmen herunterladen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46393,6 +48733,12 @@
     "settings.openAIP.tileCache": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kachelspeicher"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46410,6 +48756,12 @@
     "settings.openAIP.updateData": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten aktualisieren"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46427,6 +48779,12 @@
     "settings.openAIP.updated": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisiert: %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46444,6 +48802,12 @@
     "settings.subscription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46461,6 +48825,12 @@
     "settings.subscription.accessAll": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie haben Zugriff auf alle Checklisten der Premium-Flugzeuge."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46478,6 +48848,12 @@
     "settings.subscription.aeroCheckPro": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck Pro"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46495,6 +48871,12 @@
     "settings.subscription.gracePeriodEnds": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kulanzfrist endet am %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46512,6 +48894,12 @@
     "settings.subscription.lapsed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Abonnement ist abgelaufen. Die Premium-Checklisten bleiben während der Kulanzfrist verfügbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46529,6 +48917,12 @@
     "settings.subscription.unlockText": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnieren Sie, um die Checklisten weiterer Flugzeuge freizuschalten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46546,6 +48940,12 @@
     "settings.title": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46747,6 +49147,12 @@
     "subscription.accessDescription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugriff auf die Checklisten weiterer Flugzeuge mit einem Abonnement für AéroCheck Pro"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46764,6 +49170,12 @@
     "subscription.benefit.allChecklists": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugriff auf alle Checklisten der Premium-Flugzeuge"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46781,6 +49193,12 @@
     "subscription.benefit.autoUpdates": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatische Aktualisierung, wenn sich Checklisten ändern"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46798,6 +49216,12 @@
     "subscription.benefit.offlineAccess": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline-Zugriff nach dem Download"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46815,6 +49239,12 @@
     "subscription.benefit.supportDev": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unterstützung der Weiterentwicklung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46832,6 +49262,12 @@
     "subscription.benefits": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VORTEILE"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46849,6 +49285,12 @@
     "subscription.bestValue": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestes Angebot"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46866,6 +49308,12 @@
     "subscription.choosePlan": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angebot wählen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46883,6 +49331,12 @@
     "subscription.currentStatus": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktueller Status"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46900,6 +49354,12 @@
     "subscription.error": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46917,6 +49377,12 @@
     "subscription.error.pending": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Kauf wartet auf eine Genehmigung. Sie erhalten Zugriff, sobald er genehmigt ist. Sie müssen nicht erneut kaufen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46934,6 +49400,12 @@
     "subscription.error.purchaseFailed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kauf konnte nicht abgeschlossen werden, und Ihnen wurde nichts belastet. Prüfen Sie Ihre Verbindung, und versuchen Sie es erneut."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46951,6 +49423,12 @@
     "subscription.error.restoreFailed": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Käufe konnten nicht wiederhergestellt werden. Prüfen Sie Ihre Verbindung, und versuchen Sie es erneut. Das Wiederherstellen ist kostenlos und belastet Sie nie."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46968,6 +49446,12 @@
     "subscription.error.unknownResult": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kauf wurde nicht abgeschlossen. Sehen Sie unter «Abonnements» in Ihrem Apple Account nach, bevor Sie es erneut versuchen, damit Sie nicht zweimal bezahlen."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -46985,6 +49469,12 @@
     "subscription.freeTrialDayFormat": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d Tage gratis"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47002,6 +49492,12 @@
     "subscription.freeTrialNote": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die erste Woche kostenlos, danach jährliche Verlängerung. Jederzeit kündbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47019,6 +49515,12 @@
     "subscription.freeTrialNoteDays": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die ersten %d Tage kostenlos, danach jährliche Verlängerung. Jederzeit kündbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47036,6 +49538,12 @@
     "subscription.freeTrialNoteDaysPrice": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die ersten %d Tage kostenlos, danach %@ pro Jahr. Jederzeit kündbar."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47053,6 +49561,12 @@
     "subscription.lifetimeTagline": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einmal bezahlen, für immer behalten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47070,6 +49584,12 @@
     "subscription.ok": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47087,6 +49607,12 @@
     "subscription.oneTime": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "einmalig"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47104,6 +49630,12 @@
     "subscription.privacyPolicy": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzerklärung"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47121,6 +49653,12 @@
     "subscription.restorePurchases": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Käufe wiederherstellen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47138,6 +49676,12 @@
     "subscription.retry": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut versuchen"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47155,6 +49699,12 @@
     "subscription.termsDescription": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnements verlängern sich automatisch, sofern sie nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt werden. Sie können Ihr Abonnement in der App «Einstellungen» Ihres Geräts verwalten."
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47172,6 +49722,12 @@
     "subscription.unableToLoad": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnementoptionen konnten nicht geladen werden"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47189,6 +49745,12 @@
     "subscription.unlockAircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ freischalten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47206,6 +49768,12 @@
     "subscription.unlockPremiumAircraft": {
       "extractionState": "manual",
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium-Flugzeuge freischalten"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -47226,6 +49794,12 @@
     },
     "swisstopo · official VFR chart (imagery)": {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "swisstopo · offizielle VFR-Karte (Kartenbild)"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",

@@ -74,6 +74,31 @@ final class LocalizationCatalogTests: XCTestCase {
         return try XCTUnwrap(Bundle(path: path))
     }
 
+    /// Every language the app ships has every key French has: a key translated into French and not into German
+    /// reads English on a German device, and nothing else would say so. English is the source, French the
+    /// reference, since every key a pilot reads has had its French since 6.1. (6.5.0)
+    func testEveryShippedLanguageHasEveryKeyFrenchHas() throws {
+        let french = try table("fr")
+        XCTAssertGreaterThan(french.count, 2_000, "the French table")
+        for language in AppLanguage.shipped where !["en", "fr"].contains(language) {
+            let missing = Set(french.keys).subtracting(try table(language).keys).sorted()
+            XCTAssertTrue(missing.isEmpty, "\(language) lacks \(missing.count) keys French has: \(missing.prefix(30))")
+        }
+    }
+
+    /// A language's compiled table: its strings and its plurals.
+    private func table(_ language: String) throws -> [String: Any] {
+        let bundle = try languageBundle(language)
+        var keys: [String: Any] = [:]
+        for kind in ["strings", "stringsdict"] {
+            if let url = bundle.url(forResource: "Localizable", withExtension: kind),
+               let entries = NSDictionary(contentsOf: url) as? [String: Any] {
+                keys.merge(entries) { first, _ in first }
+            }
+        }
+        return keys
+    }
+
     /// The Logbook's Share Stats sheet read English in French: its section labels, toggles, accents and
     /// layouts took a `String`, never looked up, and its title had no French. (6.2)
     func testTheShareStatsSheetHasItsFrench() throws {

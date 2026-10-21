@@ -28,7 +28,7 @@ fi
 
 REPO="${CI_PRIMARY_REPOSITORY_PATH:-$PWD}"
 DIR="$REPO/TestFlight"
-LOCALES="en-US fr-FR"
+LOCALES="en-US fr-FR de-DE"
 MAX_LINES=25   # well under TestFlight's 4,000 characters
 mkdir -p "$DIR" || exit 0
 

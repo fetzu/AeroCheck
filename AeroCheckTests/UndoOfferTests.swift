@@ -188,7 +188,7 @@ final class UndoOfferTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(compact.buttonHeight, 44)
         XCTAssertEqual(NavUndoToast.Metrics(compact: false).buttonHeight, 78, "the kneeboard's 15 mm UNDO")
         let font = UIFont.aero(size: CockpitType.label(for: .phone), weight: .semibold)
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for clock in ["22:58", "10:58 PM"] {
                 for kind in MapChromeSample.UndoKind.allCases {
                     let message = MapChromeSample.undoMessage(kind, language: language, time: clock)

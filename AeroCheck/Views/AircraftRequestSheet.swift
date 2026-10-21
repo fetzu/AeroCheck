@@ -566,11 +566,21 @@ struct AircraftRequestSheet: View {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
-    private static var site: String { AircraftRequestIntake.locale == "fr" ? "https://aerocheck.app/fr" : "https://aerocheck.app" }
+    /// The website in the request's language: English at the root, the others under their code (/fr, /de).
+    private static var site: String {
+        let locale = AircraftRequestIntake.locale
+        return locale == "en" ? "https://aerocheck.app" : "https://aerocheck.app/\(locale)"
+    }
+    /// The terms are English in every language, so their anchor is the English one.
     static var termsURL: URL { URL(string: site + "/terms/#40-sending-us-an-aircrafts-checklist")! }
+    /// Section 4.3 of the privacy policy, whose anchor is its heading in that language.
+    private static let privacyAnchors = [
+        "en": "#43-aircraft-requests-intakeaerocheckapp",
+        "fr": "#43-demandes-davions-intakeaerocheckapp",
+        "de": "#43-flugzeuganfragen-intakeaerocheckapp",
+    ]
     static var privacyURL: URL {
-        URL(string: site + (AircraftRequestIntake.locale == "fr" ? "/privacy/#43-demandes-davions-intakeaerocheckapp"
-                                                                  : "/privacy/#43-aircraft-requests-intakeaerocheckapp"))!
+        URL(string: site + "/privacy/" + (privacyAnchors[AircraftRequestIntake.locale] ?? privacyAnchors["en"]!))!
     }
 
     static func text(for problem: AircraftRequestForm.Problem) -> String {

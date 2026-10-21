@@ -204,7 +204,7 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(metrics.height, 44, "the touch target's least")
         XCTAssertEqual(metrics.bandHeight, metrics.height)
         // More fits its word in both languages at the slots' 20 pt.
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             let more = ActBandMetrics.textWidth(localizedString(key: "nav.more", language: language), size: 20)
             XCTAssertLessThanOrEqual(more, metrics.narrowWidth - 2 * 6, "\(language): 6 pt clear of its frame")
         }
@@ -274,7 +274,7 @@ final class CockpitActBandTests: XCTestCase {
             let room = ActBandMetrics.narrowWidth(scale: scale) - 2 * ActBandMetrics.narrowPadding(scale)
             let size = CockpitType.label(for: scale)
             var words = ["TOUCH-", "AND-GO", "Dérouter", "POSÉ-", "DÉCOLLÉ", "Divert", "More", "Plus", "DEFER"]
-            words += ["en", "fr"].flatMap { language in
+            words += AppLanguage.shipped.flatMap { language in
                 ActBandText.twoLines(localizedString(key: "checklist.touchAndGo", language: language))
                     .components(separatedBy: "\n")
             }
@@ -310,7 +310,7 @@ final class CockpitActBandTests: XCTestCase {
             let scale = CockpitScale.kneeboard
             let room = ActBandMetrics.narrowWidth(scale: scale) - 2 * ActBandMetrics.narrowPadding(scale)
             let label = CockpitType.label(for: scale)
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let title = ActBandText.twoLines(localizedString(key: "checklist.touchAndGo", language: language))
                 let hint = localizedString(key: "checklist.holdToConfirm", language: language)
                 let total = height(title, size: label, lines: 2, width: room) + 2
@@ -395,7 +395,7 @@ final class CockpitActBandTests: XCTestCase {
         XCTAssertEqual(lines("SAIGNELÉGIER", 60), ["SAIGNELÉGIER"], "a word is never broken")
         XCTAssertEqual(lines("TOUCH-\nAND-GO", 300), ["TOUCH-", "AND-GO"], "a break asked for is kept")
         // The catalog's counts carry the no-break space, in both languages.
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for count in [1, 2, 12] {
                 XCTAssertFalse(plural("%lld items", count, language).contains(" "), "\(language) \(count) items")
                 XCTAssertFalse(plural("%lld deferred items", count, language).hasPrefix("\(count) "))
@@ -428,7 +428,7 @@ final class CockpitActBandTests: XCTestCase {
     func testEveryRolesWordsFitThePhonesSlots() {
         var cases = 0
         var smallest: [String: (size: CGFloat, face: String)] = [:]
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for (slots, faces) in [(Self.wideSlots, wideFaces(language)), (Self.narrowSlots, narrowFaces(language)),
                                    (Self.moreSlots, moreFaces(language))] {
                 for slot in slots {
@@ -485,7 +485,7 @@ final class CockpitActBandTests: XCTestCase {
     /// undo-1). (6.2)
     func testEveryIPadFaceFitsItsSlot() {
         var cases = 0
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for (slot, faces) in iPadWideFaces(language) + iPadNarrowFaces(language) {
                 for face in faces {
                     check(face, in: slot, language: language)
@@ -497,7 +497,7 @@ final class CockpitActBandTests: XCTestCase {
         // What the replays caught: ✓ DONE's line on one line at 70 % (main's) holds none of them in
         // portrait; set, every word shows at 20 pt or about.
         let slot = Self.iPadSlots[0]
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             func t(_ key: String) -> String { localizedString(key: key, language: language) }
             for (check, next) in [("afterEngineStart", "taxi"), ("lineUp", "climb"), ("climb", "cruise")] {
                 let title = format("cockpit.memoryCheckDone", language, t("phase.short.\(check)"))
@@ -519,7 +519,7 @@ final class CockpitActBandTests: XCTestCase {
 
     func testTheIPadsCheckSlotWordsFitItsSlot() {
         var cases = 0
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for slot in Self.iPadCheckSlots {
                 for face in iPadCheckSlotFaces(language) {
                     check(face, in: slot, language: language)
@@ -544,7 +544,7 @@ final class CockpitActBandTests: XCTestCase {
     func testSwiftUIDrawsEachLineAsSet() throws {
         let slot = try XCTUnwrap(Self.wideSlots.first)
         var drawn: Set<String> = []
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for face in wideFaces(language) {
                 let room = slot.width - 2 * face.inset
                 let settings = ActFace.set(face.blocks, width: room, height: slot.height - 2 * face.verticalInset,

@@ -167,7 +167,7 @@ final class CockpitColumnFitTests: XCTestCase {
         let interface = Bundle.main.preferredLocalizations.first ?? "en"
         for phone in Self.phones {
             for page in Page.allCases {
-                for language in [ChecklistLanguage.en, .fr] {
+                for language in AppLanguage.shipped.compactMap(ChecklistLanguage.init(rawValue:)) {
                     let services = makeServices()
                     let shown = setUp(page, language: language, services: services)
                     let image = try render(FlightView(initialPage: shown), services: services, size: phone.size)
@@ -182,7 +182,7 @@ final class CockpitColumnFitTests: XCTestCase {
         }
     }
 
-    /// The header's one row: every phase's name at 17 pt beside Menu, in English and in French, in the
+    /// The header's one row: every phase's name at 17 pt beside Menu, in every language the app ships, in the
     /// column's width (`FlightView.cockpitColumnWidth`): its 12 pt either side, Menu (the word under its
     /// icon, 10 pt either side), 8 pt between them, the phase button's 10 pt either side. "BEFORE TAKE-OFF
     /// CHECK" sets the width (since the check titles took the English order, 6.4.0).
@@ -191,7 +191,7 @@ final class CockpitColumnFitTests: XCTestCase {
         let menu = ActBandMetrics.textWidth(localizedString(key: "cockpit.menu", language: "en"), size: label) + 2 * 10
         let room = FlightView.cockpitColumnWidth - 2 * 12 - menu - 8 - 2 * 10
         var widest: (String, CGFloat) = ("", 0)
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for phase in Self.phases {
                 let name = localizedString(key: "phase.short.\(phase)", language: language)
                 let width = ActBandMetrics.textWidth(name, size: label)

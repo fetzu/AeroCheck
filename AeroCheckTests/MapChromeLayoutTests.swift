@@ -58,7 +58,7 @@ final class MapChromeLayoutTests: XCTestCase {
     func testTheSlotKeepsOneFrameWhateverStateItHolds() {
         for chart in Chart.allCases {
             let geometry = MapChromeGeometry(size: chart.size, scale: chart.scale)
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 for state in allStates(language: language) {
                     for panned in [false, true] {
                         let placed = placedFrames(Sample.model(status: state.status, undo: state.undo, panned: panned),
@@ -230,7 +230,7 @@ final class MapChromeLayoutTests: XCTestCase {
             let geometry = MapChromeGeometry(size: chart.size, scale: chart.scale)
             let metrics = geometry.metrics
             let slot = geometry.statusSlot
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 for state in allStates(language: language) {
                     let context = "\(state.name), \(chart.rawValue), \(language)"
                     if let offer = state.undo {
@@ -529,7 +529,7 @@ final class MapChromeLayoutTests: XCTestCase {
         let directory = URL(fileURLWithPath: folder, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for chart in Chart.allCases {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let shots: [(String, MapChromeModel, Bool)] =
                     [("dark-following-northup", Sample.model(), false),
                      ("dark-panned-trackup-scale", Sample.model(panned: true, orientation: .trackUp, stale: true), true)]

@@ -1712,13 +1712,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The language the document is written in. The checklist stays in that language whatever the app’s language (English or French): a German checklist reads in German in both."
+            "value": "The language the document is written in. The checklist stays in that language whatever the app’s language (English, German or French): a German checklist reads in German in all three."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La langue dans laquelle le document est écrit. La checklist reste dans cette langue, quelle que soit celle de l’app (anglais ou français) : une checklist en allemand se lit en allemand dans les deux."
+            "value": "La langue dans laquelle le document est écrit. La checklist reste dans cette langue, quelle que soit celle de l’app (anglais, allemand ou français) : une checklist en allemand se lit en allemand dans les trois."
           }
         }
       }
@@ -4143,13 +4143,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The airport data isn't on this device yet, so only LSZQ is available until you download it (Settings › Data)."
+            "value": "The airport data isn't on this device yet, so only LSZQ is available until you download it (Settings › Data & Storage)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les données d'aérodromes ne sont pas encore sur cet appareil : seul LSZQ est disponible jusqu'à leur téléchargement (Réglages › Données)."
+            "value": "Les données d'aérodromes ne sont pas encore sur cet appareil : seul LSZQ est disponible jusqu'à leur téléchargement (Réglages › Données et stockage)."
           }
         }
       }
@@ -11536,13 +11536,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional. Set or change it anytime in Settings → Flight Planning."
+            "value": "Optional. Set or change it anytime in Settings → Flights."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Facultatif. À définir ou modifier à tout moment dans Réglages → Planification de vol."
+            "value": "Facultatif. À définir ou modifier à tout moment dans Réglages → Vols."
           }
         }
       }
@@ -20823,10 +20823,16 @@
     },
     "Add more countries anytime in Settings → Data.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add more countries anytime in Settings → Data & Storage."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez d'autres pays à tout moment dans Réglages → Données."
+            "value": "Ajoutez d'autres pays à tout moment dans Réglages → Données et stockage."
           }
         }
       }
@@ -23555,10 +23561,16 @@
     },
     "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data & Storage."
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sans télécharger les données d'espace aérien, vous ne verrez ni les espaces aériens ni les fréquences en navigation. Vous pourrez le configurer plus tard dans Réglages → Données."
+            "value": "Sans télécharger les données d'espace aérien, vous ne verrez ni les espaces aériens ni les fréquences en navigation. Vous pourrez le configurer plus tard dans Réglages → Données et stockage."
           }
         }
       }

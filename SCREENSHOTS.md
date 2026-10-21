@@ -43,10 +43,15 @@ shot keys; `--as` names a shot that shares a scene with another.
 | `log` | `flightlog` | Vol d'Alpes in the logbook: track, altitude profile | Logbook tab, tap Vol d'Alpes |
 | `landscape` | `cruisemap` | The iPhone on its side: the Cockpit's column, the map at full height | iPhone only: `--orientation landscapeLeft --as landscape` |
 | `circuits` | `circuits` | Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25 | none (since 6.3.0 the scene opens Plan › Map on the national map, Airspace off, Traffic circuits and Arrival & departure routes on, framed on LSZQ about 8 NM across, without a callout) |
-| `dryrun` | none: `AEROCHECK_DRYRUN=guided`, `AEROCHECK_DRYRUN_CHAPTER=6`, `AEROCHECK_DRYRUN_AUTO=1`, `AEROCHECK_DRYRUN_STOP=step:goAround` | The guided dry run held on its first final at LSZQ: the coach's "Try a go-around" card over the card that chooses the landing (6.4.0) | none; about three minutes after launch the autopilot holds there. A flight in progress blocks a dry run: launch a scene that cancels it first (`homeflight`) |
+| `dryrun` | none: `AEROCHECK_DRYRUN=guided`, `AEROCHECK_DRYRUN_CHAPTER=6`, `AEROCHECK_DRYRUN_AUTO=1`, `AEROCHECK_DRYRUN_STOP=step:goAround`, `AEROCHECK_CLOCK=09:25` | The guided dry run held on its first final at LSZQ: the coach's "Try a go-around" card over the card that chooses the landing (6.4.0) | none; about three minutes after launch the autopilot holds there. A flight in progress blocks a dry run: launch a scene that cancels it first (`homeflight`) |
 
 The rules that are not negotiable:
 
+- **Every shot at 9:41.** The status bar says 9:41, so the app's own times must too: launch every scene
+  and the dry run with the capture clock, `AEROCHECK_CLOCK=09:41` (DEBUG, in the app since 6.4.3, app
+  #454); the dry run with `09:25`, so its first final comes near 9:41. The script sets `09:41` itself
+  (`--clock` to change it); a launch by hand needs `SIMCTL_CHILD_AEROCHECK_CLOCK`. It makes the time of
+  day of the capture irrelevant: no waiting for the daytime. A build before 6.4.3 has no such clock.
 - **Both devices in PORTRAIT.** The Cockpit is built for an iPad in portrait on a kneeboard, and the
   site shows the iPad with the iPhone in front of it. The one exception is `landscape`, the phone on
   its side.
@@ -121,10 +126,9 @@ Things that bite:
 - **The dry run is not a scene**: launch it with the variables in the table (`SIMCTL_CHILD_` before each, and
   `AEROCHECK_ORIENTATION=portrait` on the iPhone), once, and wait for the hold; the band takes the status bar's place.
   The script's `--scenes` doesn't drive it, so take and convert the screenshot by hand, as for a gesture.
-- **The status bar override** sets 9:41 and full bars. The app's own clocks (flight time, ETA, a check's time, the leg
-  timer) read the flight clock: launch the in-flight scenes and the dry run with `AEROCHECK_CLOCK=09:41`
-  (`SIMCTL_CHILD_AEROCHECK_CLOCK`, DEBUG, app #454 from 6.4.3) and they read 9:41 too, whatever the hour of the
-  capture; a dry run started with `09:25` reaches its first final near 9:41. Without it they read the real time.
+- **The status bar override** sets 9:41 and full bars, and the capture clock puts the app's own times
+  (flight time, ETA, a check's time, the leg timer) at 9:41 too: see the rules above. Without it they read
+  the real time and the map's ETA says 22:51 under a 9:41 status bar.
 - **A fresh container has no aeronautical data.** Airport data (NOW / NEXT frequencies) and airspace
   (the route editor's conflicts) come from Settings ▸ Data & Storage, or the route editor's "Download
   data" banner, or are copied from a container that has them: terminate the app, then copy

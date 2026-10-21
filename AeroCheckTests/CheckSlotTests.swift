@@ -516,7 +516,7 @@ final class CheckSlotLabelLayoutTests: XCTestCase {
         // Every check has its word, in both languages, without CHECK or VÉRIFICATION.
         for phase in ChecklistPhase.allCases {
             XCTAssertFalse(phase.phoneWord.isEmpty, "\(phase)")
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 // The case's name is the catalog's: "phase.word.beforeEngineStart".
                 let key = "phase.word.\(phase)"
                 let word = localizedString(key: key, language: language)

@@ -22,7 +22,7 @@ final class DestinationLineTests: XCTestCase {
     /// both devices and in both languages.
     func testTheLineKeepsOneHeightWhateverItsFiguresDo() {
         for (scale, width) in [(CockpitScale.kneeboard, Width.iPad), (.phone, Width.phone)] {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let reference = height(Sample.behind, scale, width, language)
                 XCTAssertGreaterThan(reference, 0)
                 for state in trackRowStates {
@@ -44,7 +44,7 @@ final class DestinationLineTests: XCTestCase {
             ("diverting to SAIGNELÉGIER", Sample.long(diverting: true)),
         ]
         for (scale, width) in [(CockpitScale.kneeboard, Width.iPad), (.phone, Width.phone)] {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let reference = height(Sample.diverting, scale, width, language)
                 for (name, estimate) in states {
                     XCTAssertEqual(height(estimate, scale, width, language), reference, accuracy: 0.5,
@@ -90,7 +90,7 @@ final class DestinationLineTests: XCTestCase {
         let states = trackRowStates + [LineCase("diverting", Sample.diverting),
                                        LineCase("diverting to SAIGNELÉGIER", Sample.long(diverting: true))]
         for (scale, width) in [(CockpitScale.kneeboard, Width.iPad), (.phone, Width.phone)] {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 for state in states {
                     let wanted = idealWidth(state.estimate, scale, language, resumes: state.resumes)
                         + (scale == .phone ? 0 : twelveHourClockAllowance(scale))
@@ -269,7 +269,7 @@ final class DestinationLineTests: XCTestCase {
         let directory = URL(fileURLWithPath: folder, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for (device, scale, width) in [("ipad", CockpitScale.kneeboard, CGFloat(820)), ("phone", .phone, 402)] {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 for state in Sample.states {
                     let line = DestinationLine(estimate: state.estimate, scale: scale, onResumeRoute: {}, language: language)
                         .padding(scale == .kneeboard ? 16 : 12)

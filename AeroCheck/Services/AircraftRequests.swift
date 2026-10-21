@@ -85,10 +85,13 @@ enum AircraftRequestIntake {
         statusURL.components(separatedBy: "#").first ?? statusURL
     }
 
-    /// The e-mails' and the request page's language: French in a French app, English otherwise. Not
+    /// The languages the intake writes its e-mails and pages in (the server's `workers/intake/src/lib/locale.ts`).
+    static let locales = ["en", "fr", "de"]
+
+    /// The e-mails' and the request page's language: the app's when the intake writes it, English otherwise. Not
     /// the checklist's, which is whatever the document is written in.
     static var locale: String {
-        Bundle.main.preferredLocalizations.first?.hasPrefix("fr") == true ? "fr" : "en"
+        locales.contains(AppLanguage.current) ? AppLanguage.current : "en"
     }
 
     // MARK: Endpoints

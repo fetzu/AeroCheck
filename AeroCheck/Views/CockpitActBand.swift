@@ -151,13 +151,13 @@ struct ActBandMetrics: Equatable {
     /// target; the slots' words at 20 pt where they fit. (6.2.0)
     static let phoneLineHeight: CGFloat = 56
 
-    /// More, the phone's S4 in portrait: "More" or "Plus" at the slots' 20 pt, 6 pt clear of its frame
+    /// More, the phone's S4 in portrait: "More", "Plus" or "Mehr" at the slots' 20 pt, 6 pt clear of its frame
     /// each side (at the narrow padding's 3 "More" touched it), between 56 and 64 pt. What it leaves goes
     /// to S1, S2 and S3, which hold the long words: the check's name, GO AROUND, TOUCH-AND-GO. Measured
     /// once.
     static func phoneMoreWidth() -> CGFloat {
         if let cached = measured.withLock({ $0[.phoneMore] }) { return cached }
-        let widest = ["en", "fr"].map { textWidth(localizedString(key: "nav.more", language: $0), size: ActFace.phoneLineSize) }
+        let widest = AppLanguage.shipped.map { textWidth(localizedString(key: "nav.more", language: $0), size: ActFace.phoneLineSize) }
             .max() ?? 0
         let width = min(max((widest + 2 * 6).rounded(.up), 56), 64)
         measured.withLock { $0[.phoneMore] = width }
@@ -177,7 +177,7 @@ struct ActBandMetrics: Equatable {
         CockpitType.size(kneeboard: 12, phone: 3, scale: scale)
     }
 
-    /// How wide S3 and S4 are: the widest word either can ever carry, in English and in French, at the
+    /// How wide S3 and S4 are: the widest word either can ever carry, in every language the app ships, at the
     /// in-flight label size (DEFER, Divert, More, TOUCH-AND-GO on two lines), with its padding. Kept
     /// between 120 and 150 pt on the iPad and 72 and 80 on the Companion iPhone, where S1 and S2 need the
     /// rest. The Cockpit's phone in portrait has its own since 6.2.0 (`phoneMoreWidth`).
@@ -192,9 +192,9 @@ struct ActBandMetrics: Equatable {
         return width
     }
 
-    /// Every line the narrow slots can show, in both languages.
+    /// Every line the narrow slots can show, in every language the app ships.
     static var narrowTemplates: [String] {
-        ["en", "fr"].flatMap { language -> [String] in
+        AppLanguage.shipped.flatMap { language -> [String] in
             let touchAndGo = localizedString(key: "checklist.touchAndGo", language: language, defaultValue: "TOUCH-AND-GO")
             return ["cockpit.defer", "act.divert", "nav.more"].map { localizedString(key: $0, language: language) }
                 + ActBandText.twoLines(touchAndGo).components(separatedBy: "\n")

@@ -14,6 +14,21 @@ func localizedString(key: String, language: String, defaultValue: String = "") -
     return bundle.localizedString(forKey: key, value: defaultValue, table: nil)
 }
 
+/// The languages the app ships in: English first, then the others as the bundle has them ("de", "fr"). What
+/// measures a word in every language reads this (the act band's frames, the width tests), and so does the request
+/// flow, so a new language is its catalog and nothing else. (6.5.0)
+enum AppLanguage {
+    static let shipped: [String] = {
+        let found = Set(Bundle.main.localizations.filter { $0 != "Base" }.map { String($0.prefix(2)) })
+        return ["en"] + found.subtracting(["en"]).sorted()
+    }()
+
+    /// The language the app reads in now: the device's when the app ships it, else English.
+    static var current: String {
+        Bundle.main.preferredLocalizations.first.map { String($0.prefix(2)) } ?? "en"
+    }
+}
+
 /// Localized string keys for type-safe localization access
 /// All UI strings should use these keys via String(localized:) or Text() with LocalizedStringKey
 enum L10n {

@@ -26,7 +26,7 @@ final class ReadBandLayoutTests: XCTestCase {
 
     func testTheBandHoldsStillThroughEveryState() {
         for (name, layout, width) in Self.layouts {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let reference = parts(Sample.states[0], layout, width, language)
                 let referenceHeight = height(Sample.states[0], layout, width, language)
                 XCTAssertFalse(reference.isEmpty)
@@ -68,7 +68,7 @@ final class ReadBandLayoutTests: XCTestCase {
     /// every state (`testTheBandHoldsStillThroughEveryState` holds the frames at 1180).
     func testOnItsSideTheIPadsFiguresSitOnOneRowBesideTheName() throws {
         let metrics = ReadBandMetrics(.kneeboard)
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             for state in Sample.states {
                 let side = parts(state, .wide, 1_180, language)
                 let upright = parts(state, .wide, 820, language)
@@ -96,7 +96,7 @@ final class ReadBandLayoutTests: XCTestCase {
     func testTheColumnsRowsHoldStillThroughEveryState() {
         let width = FlightView.cockpitColumnWidth
         for (name, merges) in Self.columnForms {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let reference = parts(Sample.states[0], .columns, width, language, merges: merges)
                 let referenceHeight = height(Sample.states[0], .columns, width, language, merges: merges)
                 XCTAssertNotNil(reference[.nextLine], "\(name): the next line")
@@ -123,7 +123,7 @@ final class ReadBandLayoutTests: XCTestCase {
         // The strip's labels are the device's label size (20 pt on the iPad the suite runs on).
         try XCTSkipUnless(CockpitScale.current == .phone, "laid out at the phone's sizes: run it on an iPhone")
         let width = FlightView.cockpitColumnWidth
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             let merged = parts(Sample.states[0], .columns, width, language, merges: true)
             let twoLines = parts(Sample.states[0], .columns, width, language)
             let strip = try XCTUnwrap(merged[.strip])
@@ -149,7 +149,7 @@ final class ReadBandLayoutTests: XCTestCase {
     func testTheColumnsLinesHoldTheNamesAtTheLabelSize() throws {
         let metrics = ReadBandMetrics(.phone)
         let width = FlightView.cockpitColumnWidth
-        for language in ["en", "fr"] {
+        for language in AppLanguage.shipped {
             let merged = try XCTUnwrap(parts(Sample.states[0], .columns, width, language, merges: true)[.nextName])
             XCTAssertLessThanOrEqual(textWidth("ST-URSANNE", size: metrics.labelSize, bold: true, mono: true), merged.width,
                                      "the merged line's name, \(language): \(merged.width) pt")
@@ -192,7 +192,7 @@ final class ReadBandLayoutTests: XCTestCase {
                        NextFigureTemplates.clock].map { templateWidth($0, metrics) }.max() ?? 0
         let twelveHour = max(0, textWidth("10:58 PM", size: metrics.figureSize, bold: true, mono: true) - figures)
         for width in [CGFloat(820), 1_180] {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let column = try XCTUnwrap(parts(Sample.states[0], .wide, width, language)[.nextName]).width - twelveHour
                 XCTAssertLessThanOrEqual(textWidth("E (LSGC)", size: metrics.identSize, bold: true, mono: true), column,
                                          "\"E (LSGC)\" at \(metrics.identSize) pt, \(width), \(language)")
@@ -216,7 +216,7 @@ final class ReadBandLayoutTests: XCTestCase {
                               templateWidth(NextFigureTemplates.ete, metrics) + metrics.figureGap
                                 + templateWidth(NextFigureTemplates.clock, metrics) + twelveHourClockAllowance(metrics))
             let column = width - 24 - 2 * metrics.cellPadding - figures - metrics.figureGap
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 XCTAssertLessThanOrEqual(textWidth("SAIGNELÉGIER", size: metrics.labelSize, bold: true, mono: true),
                                          column - ReadBandNextLine.arrowSize - 6,
                                          "\"SAIGNELÉGIER\" after the turn arrow at \(width), \(language)")
@@ -373,7 +373,7 @@ final class ReadBandLayoutTests: XCTestCase {
         let directory = URL(fileURLWithPath: folder, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for (name, layout, width) in Self.layouts {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let all = VStack(alignment: .leading, spacing: 10) {
                     ForEach(Sample.states, id: \.name) { state in
                         Text(verbatim: state.name).font(.caption).foregroundColor(.gray).padding(.horizontal, 16)
@@ -387,7 +387,7 @@ final class ReadBandLayoutTests: XCTestCase {
         }
         // The phone's column on its side, both forms.
         for (name, merges) in Self.columnForms {
-            for language in ["en", "fr"] {
+            for language in AppLanguage.shipped {
                 let all = VStack(alignment: .leading, spacing: 10) {
                     ForEach(Sample.states, id: \.name) { state in
                         Text(verbatim: state.name).font(.caption).foregroundColor(.gray).padding(.horizontal, 16)

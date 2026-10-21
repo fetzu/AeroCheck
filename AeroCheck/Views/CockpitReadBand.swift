@@ -78,6 +78,7 @@ struct CockpitReadRows: View {
             case .wide:
                 ReadBandFrequencies(now: now, next: nextFrequency, scale: scale, onTap: onShowRoute,
                                     onNowTap: onShowRadio, onNextTap: onNextTap, language: language)
+                    .coachTarget(.radioLine)
             case .narrow:
                 phoneCard
             case .columns:
@@ -117,6 +118,7 @@ struct CockpitReadRows: View {
     private var nowLine: some View {
         ReadBandNowLine(now: now, dueNext: dueNext, scale: scale,
                         onTap: (dueNext == nil ? nil : onNextTap) ?? onShowRadio ?? onShowRoute, language: language)
+            .coachTarget(.radioLine)
     }
 
     /// The phone's column on its side: the next line and the NOW line one line each, or merged into one
@@ -128,6 +130,7 @@ struct CockpitReadRows: View {
                 ReadBandMergedLine(figures: strip == nil ? nil : next, now: now, dueNext: dueNext, scale: scale,
                                    onTap: onShowRoute, onNowTap: (dueNext == nil ? nil : onNextTap) ?? onShowRadio,
                                    language: language)
+                    .coachTarget(.radioLine)
             } else {
                 if strip != nil {
                     ReadBandColumnNextLine(figures: next, scale: scale, onTap: onShowRoute, language: language)

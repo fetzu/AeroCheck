@@ -76,6 +76,9 @@ struct DryRunCoachStep: Equatable {
         case pageMap
         case pageRoute
         case readBand
+        /// NOW | NEXT alone: the iPad's frequency row, the phone's NOW line (or its merged line on its side), where a
+        /// due NEXT is tapped. The radio card rang the whole band, the strip included (6.4.3 device checks, ho-22).
+        case radioLine
         case menu
         case finalCard
         /// The waypoint marked by itself, and its UNDO: at the checklist's foot, at the map's top.
@@ -388,7 +391,7 @@ enum DryRunChapters {
             // NEXT due at the level-off: the tap that makes it NOW (the frequency handover, 6.4.3). Held, so the
             // app's own switch never comes first. Only if it is due as the cruise check is done: no route's
             // timeline, or the tap made already, and there is nothing to show.
-            S(id: "radioDue", chapter: 5, kind: .act, target: .readBand, veils: false, holds: true, moment: .now,
+            S(id: "radioDue", chapter: 5, kind: .act, target: .radioLine, veils: false, holds: true, moment: .now,
               done: .radioSwitched, requires: .radioDue, title: T.radioDueTitle, body: T.radioDueBody,
               fold: T.radioDueFold),
             S(id: "routePage", chapter: 5, kind: .act, target: .pageRoute, veils: true, holds: true, moment: .now,

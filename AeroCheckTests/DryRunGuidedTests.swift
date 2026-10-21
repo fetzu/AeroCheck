@@ -88,6 +88,14 @@ final class DryRunGuidedTests: XCTestCase {
                        "the approach check's card waits for the slot to name it, before the downwind (g-7, st-14)")
     }
 
+    /// The radio card rings NOW | NEXT alone, where a due NEXT is tapped; the read band's card, the whole band (the
+    /// 6.4.3 device checks, ho-22: the radio card rang the strip too).
+    func testTheRadioCardRingsTheRadioLine() {
+        let steps = DryRunChapters.steps
+        XCTAssertEqual(steps.first { $0.id == "radioDue" }?.target, .radioLine)
+        XCTAssertEqual(steps.first { $0.id == "readBand" }?.target, .readBand)
+    }
+
     func testALookStepGoesOnWithNextADoStepOnlyOnceDone() {
         let look = DryRunCoachStep(id: "look", chapter: 1, kind: .look, target: nil, veils: false, holds: true,
                                    moment: .now, done: .next, title: "", body: "")

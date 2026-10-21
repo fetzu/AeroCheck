@@ -13379,7 +13379,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "STANDARD"
+            "value": "Standard"
           }
         },
         "en": {
@@ -33959,7 +33959,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fluggeschwindigkeiten"
+            "value": "Fluggeschwindigkeiten (IAS)"
           }
         },
         "en": {
@@ -51732,7 +51732,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Daten herunterladen…"
+            "value": "Daten herunterladen"
           }
         },
         "en": {

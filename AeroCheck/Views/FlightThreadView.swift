@@ -1,5 +1,6 @@
 import SwiftUI
 import QuickLook
+import CoreLocation
 
 // MARK: - Task presentation
 //
@@ -324,6 +325,7 @@ struct FlightThreadView: View {
                             stopActions(thread)
                             continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
+                                if chapter == .prepare { weatherCard(thread) }
                                 chapterSection(thread, chapter: chapter)
                                     .id(chapter)
                             }
@@ -1557,6 +1559,19 @@ struct FlightThreadView: View {
     private func chartLink(for task: ThreadTask) -> OfficialChartLink? {
         guard task.key == .pprObtained || task.key == .feesPaid, let icao = task.subject else { return nil }
         return officialCharts.link(for: icao, type: airportDataService.findAirport(byIdent: icao)?.type)
+    }
+
+    /// Prepare's weather above its tasks, before the flight, for a route with an aerodrome the app knows (q1). Not in a
+    /// dry run: its story has no network and its clock isn't today's. (6.5.0)
+    @ViewBuilder
+    private func weatherCard(_ thread: FlightThread) -> some View {
+        if dryRunSession == nil, thread.state == .planned || thread.state == .ready, let plan = plan(for: thread) {
+            let fields = PrepareWeather.fields(of: plan, airports: airportDataService)
+            if !fields.isEmpty {
+                PrepareWeatherCard(threadId: thread.id, fields: fields,
+                                   route: plan.waypoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) })
+            }
+        }
     }
 
     /// The briefing tasks' registry and the flight's countries. The route's countries list the departure's first

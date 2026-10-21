@@ -528,6 +528,37 @@ enum L10n {
         static let openFlightPlanBanner = String(localized: "Flight plan not marked closed")
     }
 
+    // MARK: - Prepare's weather (6.5.0)
+    enum PrepareWeather {
+        static let title = String(localized: "prepareWeather.title")
+        static let departure = String(localized: "prepareWeather.role.departure")
+        static let destination = String(localized: "prepareWeather.role.destination")
+        static let alternate = String(localized: "prepareWeather.role.alternate")
+        static let nearest = String(localized: "prepareWeather.role.nearest")
+        /// "No METAR or TAF · nearest LFSB, 19 NM".
+        static func noMetarOrTaf(nearest: String, distanceNm: Int) -> String {
+            String(format: String(localized: "prepareWeather.noMetarOrTaf"), nearest, distanceNm)
+        }
+        static func noTaf(nearest: String, distanceNm: Int) -> String {
+            String(format: String(localized: "prepareWeather.noTaf"), nearest, distanceNm)
+        }
+        static let nothingWithin = String(localized: "prepareWeather.nothingWithin")
+        static let noTafWithin = String(localized: "prepareWeather.noTafWithin")
+        static let noMetar = String(localized: "prepareWeather.noMetar")
+        /// After a nearest station whose row is higher up the card.
+        static let above = String(localized: "prepareWeather.above")
+        static func noSigmetAlongRoute(_ received: Int) -> String {
+            String(localized: "No SIGMET along the route · \(received) received")
+        }
+        static let noSigmetReceived = String(localized: "prepareWeather.noSigmetReceived")
+        static let sigmetFailed = String(localized: "prepareWeather.sigmetFailed")
+        static let sigmetsAlongRoute = String(localized: "prepareWeather.sigmetsAlongRoute")
+        static let source = String(localized: "prepareWeather.source")
+        static let loading = String(localized: "prepareWeather.loading")
+        static let failed = String(localized: "prepareWeather.failed")
+        static let refresh = String(localized: "prepareWeather.refresh")
+    }
+
     // MARK: - Home
     enum Home {
         static let flightInfo = String(localized: "home.flightInfo")

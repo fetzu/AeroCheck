@@ -56,6 +56,10 @@ final class AviationWeatherService: ObservableObject {
             let validFrom: Date?
             let validTo: Date?
             let raw: String?
+            /// The position form only (`?lat=&lon=`): where the aerodrome is. Its distance is measured on the device:
+            /// the proxy's is from the query snapped to its grid, up to 10 NM off. (6.5.0)
+            var lat: Double?
+            var lon: Double?
         }
     }
 
@@ -96,6 +100,12 @@ final class AviationWeatherService: ObservableObject {
     }
     private struct MetarPayload: Decodable { let observations: [Metar] }
     private struct SigmetPayload: Decodable { let hazards: [Sigmet] }
+    private struct NearbyTafPayload: Decodable { let forecasts: [Taf.Forecast] }
+    /// `received` is the size of AWC's whole set: none along the route with 0 received means no data came.
+    struct RouteSigmets: Decodable, Equatable {
+        let received: Int
+        let hazards: [Sigmet]
+    }
 
     // MARK: - Config
 
@@ -156,7 +166,52 @@ final class AviationWeatherService: ObservableObject {
         let code = icao.uppercased()
         guard code.count == 4, code.allSatisfy({ $0.isLetter || $0.isNumber }) else { return }
         guard let url = URL(string: "\(baseURL)/v1/taf?icao=\(code)") else { return }
-        if let payload: Taf = await get(url) { taf = payload }
+        if let payload: Taf = await Self.get(url) { taf = payload }
+    }
+
+    // MARK: - For Prepare's weather card (6.5.0)
+
+    /// The observations within `radiusNm` of an aerodrome, nearest first. Snapped to the proxy's grid before it
+    /// leaves, as the in-flight form is: the proxy snaps it anyway.
+    static func metars(near coordinate: CLLocationCoordinate2D, radiusNm: Int = 60) async -> [Metar]? {
+        guard let url = URL(string: "\(APIConfig.weatherBaseURL)/v1/metar?lat=\(snap(coordinate.latitude))"
+                            + "&lon=\(snap(coordinate.longitude))&radius=\(radiusNm)") else { return nil }
+        let payload: MetarPayload? = await get(url)
+        return payload?.observations
+    }
+
+    /// An aerodrome's own TAF: none (an empty list) for most GA fields.
+    static func tafs(icao: String) async -> [Taf.Forecast]? {
+        let code = icao.uppercased()
+        guard code.count == 4, code.allSatisfy({ $0.isLetter || $0.isNumber }),
+              let url = URL(string: "\(APIConfig.weatherBaseURL)/v1/taf?icao=\(code)") else { return nil }
+        let payload: Taf? = await get(url)
+        return payload?.forecasts
+    }
+
+    /// The TAFs of the aerodromes nearest a field that has none, nearest first, each with its distance.
+    static func nearestTafs(near coordinate: CLLocationCoordinate2D, radiusNm: Int = 60) async -> [Taf.Forecast]? {
+        guard let url = URL(string: "\(APIConfig.weatherBaseURL)/v1/taf?lat=\(snap(coordinate.latitude))"
+                            + "&lon=\(snap(coordinate.longitude))&radius=\(radiusNm)") else { return nil }
+        let payload: NearbyTafPayload? = await get(url)
+        return payload?.forecasts
+    }
+
+    /// The SIGMETs within `radiusNm` of a planned route (2 to 30 points: a longer route is thinned, its ends kept).
+    static func sigmets(along route: [CLLocationCoordinate2D], radiusNm: Int = 30) async -> RouteSigmets? {
+        let points = thinned(route, to: 30)
+        guard points.count >= 2 else { return nil }
+        let path = points.map { String(format: "%.2f,%.2f", $0.latitude, $0.longitude) }.joined(separator: ";")
+        var components = URLComponents(string: "\(APIConfig.weatherBaseURL)/v1/sigmet")
+        components?.queryItems = [URLQueryItem(name: "route", value: path), URLQueryItem(name: "radius", value: "\(radiusNm)")]
+        guard let url = components?.url else { return nil }
+        return await get(url)
+    }
+
+    /// At most `limit` points, evenly picked, the first and the last always among them.
+    nonisolated static func thinned(_ route: [CLLocationCoordinate2D], to limit: Int) -> [CLLocationCoordinate2D] {
+        guard route.count > limit, limit >= 2 else { return route }
+        return (0..<limit).map { route[Int((Double($0) * Double(route.count - 1) / Double(limit - 1)).rounded())] }
     }
 
     private func fetchMetars(near coordinate: CLLocationCoordinate2D) async -> [Metar]? {
@@ -165,7 +220,7 @@ final class AviationWeatherService: ObservableObject {
         guard let url = URL(string:
             "\(baseURL)/v1/metar?lat=\(lat)&lon=\(lon)&radius=60"
         ) else { return nil }
-        let payload: MetarPayload? = await get(url)
+        let payload: MetarPayload? = await Self.get(url)
         return payload?.observations
     }
 
@@ -175,13 +230,13 @@ final class AviationWeatherService: ObservableObject {
         guard let url = URL(string:
             "\(baseURL)/v1/sigmet?lat=\(lat)&lon=\(lon)&radius=150"
         ) else { return nil }
-        let payload: SigmetPayload? = await get(url)
+        let payload: SigmetPayload? = await Self.get(url)
         return payload?.hazards
     }
 
     /// One request shape for all three endpoints: same client header, same envelope, same
     /// degrade-to-nil on any failure.
-    private func get<T: Decodable>(_ url: URL) async -> T? {
+    private static func get<T: Decodable>(_ url: URL) async -> T? {
         var request = URLRequest(url: url)
         if let secret = APIConfig.weatherClientSecret {
             request.setValue(secret, forHTTPHeaderField: "X-AeroCheck-Client")

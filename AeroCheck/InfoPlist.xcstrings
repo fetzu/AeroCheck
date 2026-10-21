@@ -5,6 +5,12 @@
       "comment" : "Privacy - Camera Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AéroCheck verwendet die Kamera, um die Checkliste Ihres Flugzeugs zu erfassen, wenn Sie sie uns senden. Die Seiten gehen erst an AéroCheck, wenn Sie die Anfrage senden."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -23,6 +29,12 @@
       "comment" : "Privacy - Location Always and When In Use Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AéroCheck zeichnet Ihren Flug weiter auf, wenn sich der Bildschirm sperrt oder Sie die App wechseln, damit keine Landung verloren geht und die Zeiten im Flugbuch stimmen; ohne «Immer» endet die Aufzeichnung, sobald die App den Bildschirm verlässt. Der Flugweg bleibt auf Ihrem Gerät und, wenn Sie synchronisieren, in Ihrer eigenen iCloud. Wetter-, Gelände- und Luftraumdienste erhalten nur gerundete Positionen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -41,6 +53,12 @@
       "comment" : "Privacy - Location When In Use Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AéroCheck zeichnet den Flugweg Ihres Flugs auf (Position, Höhe und Geschwindigkeit über Grund), um die Navigationskarte zu zeichnen und Ihr Flugbuch auszufüllen. Der Flugweg bleibt auf Ihrem Gerät und, wenn Sie synchronisieren, in Ihrer eigenen iCloud. Wetter-, Gelände- und Luftraumdienste erhalten nur gerundete Positionen, um die Daten für den Ort zu zeigen, an dem Sie fliegen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -59,6 +77,12 @@
       "comment" : "Privacy - Motion Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AéroCheck liest den barometrischen Höhenmesser, um die Höhe auf Ihrem Flugweg aufzuzeichnen und Starts, Touch-and-gos und Landungen genau zu erkennen. Bewegungsdaten verlassen Ihr Gerät nie."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -77,6 +101,12 @@
       "comment" : "Privacy - Photo Library Additions Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AéroCheck braucht diesen Zugriff, um Bilder Ihrer Flüge in Ihrer Fotomediathek zu speichern."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",

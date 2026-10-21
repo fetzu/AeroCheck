@@ -12,6 +12,12 @@
     "CHRONO" : {
       "comment" : "Navigation screen: the leg timer.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STOPPUHR"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -23,6 +29,12 @@
     "Connected" : {
       "comment" : "Standby: the phone is reachable.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbunden"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33,6 +45,12 @@
     },
     "FLIGHT TIME" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FLUGZEIT"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -44,6 +62,12 @@
     "FREQUENCIES" : {
       "comment" : "The frequencies screen's title.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FREQUENZEN"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -55,6 +79,12 @@
     "LOCAL" : {
       "comment" : "Under the clock when it shows local time, not UTC.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LOKALZEIT"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -66,6 +96,12 @@
     "NEXT" : {
       "comment" : "Flight screen: before the next phase, NEXT  CLIMB.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NÄCHSTE"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -77,6 +113,12 @@
     "NO DATA" : {
       "comment" : "Banner over the screens when the phone's data stopped arriving.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KEINE DATEN"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -88,6 +130,12 @@
     "Start flight on iPhone" : {
       "comment" : "Standby: flights start on the phone.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flug auf dem iPhone beginnen"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -99,6 +147,12 @@
     "Waiting..." : {
       "comment" : "Standby: waiting for the phone.",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warten…"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
@@ -111,6 +165,12 @@
       "comment" : "Read after a NEXT frequency the pilot is expected to switch to now.",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "fällig"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -129,6 +189,12 @@
       "comment" : "Frequency badge: listen only (an ATIS, an aerodrome on the way).",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABHÖREN"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -147,6 +213,12 @@
       "comment" : "Frequency badge and row: the next station.",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NÄCHSTE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -165,6 +237,12 @@
       "comment" : "Frequency badge: the station to talk to now.",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AKT."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",

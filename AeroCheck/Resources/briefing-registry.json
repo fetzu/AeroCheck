@@ -1,0 +1,3024 @@
+{
+  "v": 1,
+  "generated": "2026-10-20T17:29:53Z",
+  "countries": {
+    "AL": {
+      "weather": [
+        {
+          "name": "Albcontrol MET",
+          "url": "https://www.albcontrol.al/opmet-warnings/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Albcontrol eAIP",
+          "url": "https://www.albcontrol.al/aip/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Albcontrol ASM",
+          "url": "https://www.albcontrol.al/asm/",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Albcontrol MET",
+          "url": "https://www.albcontrol.al/maps/",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+35542377722",
+            "name": "Tirana ARO"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [
+        "notam",
+        "filing"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "AM": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "ARMATS eAIP",
+          "url": "https://armats.am/en/category/eaip/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+37410292929",
+            "name": "ARMATS, Zvartnots AIS (ext. 314)"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [
+        "notam",
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "AT": {
+      "weather": [
+        {
+          "name": "Homebriefing (Austro Control)",
+          "url": "https://www.homebriefing.com",
+          "access": "account"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Homebriefing (Austro Control)",
+          "url": "https://www.homebriefing.com",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Homebriefing (Austro Control)",
+          "url": "https://www.homebriefing.com",
+          "access": "account"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Austro Control Flugwetter",
+          "url": "https://www.austrocontrol.at/wetter/flugwetter/produkte",
+          "access": "account"
+        }
+      ],
+      "filing": [
+        {
+          "name": "Homebriefing (Austro Control)",
+          "url": "https://www.homebriefing.com",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+43517033211",
+            "name": "AIS/ARO Wien"
+          }
+        ],
+        "atsClose": "sera",
+        "links": [
+          {
+            "name": "Homebriefing (Austro Control)",
+            "url": "https://www.homebriefing.com",
+            "access": "account"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "BA": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "BHANSA AMC",
+          "url": "https://amc.bhansa.gov.ba/amc/maps/getNOTAMsPDF",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "BHANSA AMC",
+          "url": "https://amc.bhansa.gov.ba/Current-situation-anonymous-users",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+38751337561",
+            "name": "FIC Banja Luka"
+          },
+          {
+            "number": "+38733779150",
+            "name": "ARO Sarajevo"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "BE": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "skeyes",
+          "url": "https://www.skeyes.be/",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [],
+      "filing": [
+        {
+          "name": "skeyes",
+          "url": "https://www.skeyes.be/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+3222062540",
+            "name": "Brussels ARO"
+          }
+        ],
+        "atsClose": "report"
+      },
+      "generic": [
+        "weather",
+        "airspace",
+        "forecast"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "BG": {
+      "weather": [
+        {
+          "name": "B-FLIP (BULATSA)",
+          "url": "https://b-flip.bulatsa.com/mto",
+          "access": "account"
+        }
+      ],
+      "notam": [
+        {
+          "name": "B-FLIP (BULATSA)",
+          "url": "https://b-flip.bulatsa.com/publications/aip/home",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "B-FLIP (BULATSA)",
+          "url": "https://b-flip.bulatsa.com/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": []
+      },
+      "generic": [
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "BY": {
+      "weather": [],
+      "notam": [],
+      "airspace": [],
+      "forecast": [],
+      "filing": [],
+      "closing": {
+        "phones": []
+      },
+      "generic": [],
+      "prohibited": {
+        "name": "EASA SD-2021-02",
+        "url": "https://ad.easa.europa.eu/ad/SD-2021-02",
+        "access": "open"
+      },
+      "reviewed": "2026-10-18"
+    },
+    "CH": {
+      "weather": [
+        {
+          "name": "skybriefing",
+          "url": "https://www.skybriefing.com/services/weather-briefing",
+          "access": "paid"
+        },
+        {
+          "name": "MeteoSwiss",
+          "url": "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html",
+          "access": "open",
+          "names": {
+            "fr": "MétéoSuisse",
+            "de": "MeteoSchweiz"
+          }
+        }
+      ],
+      "notam": [
+        {
+          "name": "skybriefing",
+          "url": "https://www.skybriefing.com/services/notam-briefing",
+          "access": "paid"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "DABS",
+          "url": "https://www.skybriefing.com/o/dabs?today",
+          "access": "open",
+          "byDay": {
+            "tomorrow": "https://www.skybriefing.com/o/dabs?tomorrow",
+            "from": "16:00",
+            "tz": "Europe/Zurich"
+          }
+        }
+      ],
+      "forecast": [
+        {
+          "name": "MeteoSwiss",
+          "url": "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html",
+          "access": "open",
+          "names": {
+            "fr": "MétéoSuisse",
+            "de": "MeteoSchweiz"
+          }
+        }
+      ],
+      "filing": [
+        {
+          "name": "skybriefing",
+          "url": "https://www.skybriefing.com/services/flightplan-services",
+          "access": "paid"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+41800437837",
+            "name": "skyguide ARO"
+          }
+        ],
+        "alertMinutes": 30,
+        "atsClose": "sera",
+        "links": [
+          {
+            "name": "Swiss SAR Alerts (FOCA)",
+            "url": "https://apps.apple.com/ch/app/swiss-sar-alerts/id1496031677",
+            "access": "open"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "CY": {
+      "weather": [
+        {
+          "name": "Department of Meteorology",
+          "url": "https://www.dom.org.cy/FORECAST/index.html",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Cyprus DCA AIS",
+          "url": "https://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/All/EE69411919A34B0CC2257D5C001C503E?OpenDocument",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Cyprus DCA AIS",
+          "url": "https://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/All/1FCBCCFF1CF6C20BC2258B4D003084D8?OpenDocument",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Department of Meteorology",
+          "url": "https://www.dom.org.cy/FORECAST/laf.html",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "Cyprus DCA AIS",
+          "url": "https://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/page36_en/page36_en?OpenDocument",
+          "access": "open"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+35724802921",
+            "name": "Larnaka ARO"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "CZ": {
+      "weather": [
+        {
+          "name": "ANS CR Meteo",
+          "url": "https://meteo.rlp.cz/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "IBS (ANS CR)",
+          "url": "https://ibs.rlp.cz/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AUP (ANS CR)",
+          "url": "https://aup.rlp.cz/",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "CHMI SWL",
+          "url": "https://www.chmi.cz/letectvi/predpovedi-pro-letani/swl-mapa",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "IBS (ANS CR)",
+          "url": "https://ibs.rlp.cz/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+420220374393",
+            "name": "Praha FIC"
+          }
+        ],
+        "atsClose": "controlled"
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "DE": {
+      "weather": [
+        {
+          "name": "pc_met (DWD)",
+          "url": "https://www.flugwetter.de",
+          "access": "paid"
+        }
+      ],
+      "notam": [
+        {
+          "name": "DFS AIS-Portal",
+          "url": "https://secais.dfs.de/pilotservice/home.jsp?lang=en",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "DFS WebAUP",
+          "url": "https://secais.dfs.de/pilotservice/briefing/aup/aup_edit.jsp?lang=en",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "pc_met (DWD)",
+          "url": "https://www.flugwetter.de",
+          "access": "paid"
+        }
+      ],
+      "filing": [
+        {
+          "name": "DFS AIS-Portal",
+          "url": "https://secais.dfs.de/pilotservice/home.jsp?lang=en",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+4961037075500",
+            "name": "AIS-C (DFS)"
+          }
+        ],
+        "atsClose": "controlled",
+        "links": [
+          {
+            "name": "DFS AIS-Portal",
+            "url": "https://secais.dfs.de/pilotservice/home.jsp?lang=en",
+            "access": "account"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "DK": {
+      "weather": [
+        {
+          "name": "NorthAviMet",
+          "url": "https://www.northavimet.com/login",
+          "access": "restricted"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Naviair Briefing",
+          "url": "https://briefing.naviair.dk/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Naviair Briefing",
+          "url": "https://briefing.naviair.dk/",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "NorthAviMet",
+          "url": "https://www.northavimet.com/low-level-forecast/llf-sweden-denmark-finland-estonia",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+4532478272",
+            "name": "AIS Briefing Naviair"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "EE": {
+      "weather": [
+        {
+          "name": "lennuilm.ee",
+          "url": "https://www.lennuilm.ee/?lang=en",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "EANS AIM",
+          "url": "https://aim.eans.ee/en/notampib",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EANS AIM",
+          "url": "https://aim.eans.ee/en/aup-uup",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "lennuilm.ee",
+          "url": "https://www.lennuilm.ee/prognoosiinfo/sigwx-sfc-10000ft/?lang=en",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "EANS AIM",
+          "url": "https://aim.eans.ee/en/aim/forms/fpl",
+          "access": "open"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+3726258374",
+            "name": "EANS Flight Data Assistant"
+          }
+        ],
+        "reportMinutes": 30,
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "ES": {
+      "weather": [
+        {
+          "name": "AEMET AMA",
+          "url": "https://www.aemet.es/en/eltiempo/prediccion/aeronautica",
+          "access": "restricted"
+        }
+      ],
+      "notam": [
+        {
+          "name": "ICARO (ENAIRE)",
+          "url": "https://notampib.enaire.es",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "AEMET AMA",
+          "url": "https://www.aemet.es/en/eltiempo/prediccion/aeronautica",
+          "access": "restricted"
+        }
+      ],
+      "filing": [
+        {
+          "name": "ICARO (ENAIRE)",
+          "url": "https://notampib.enaire.es",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [],
+        "atsClose": "sera",
+        "links": [
+          {
+            "name": "ENAIRE AIP ENR 1.10",
+            "url": "https://aip.enaire.es/AIP/contenido_AIP/ENR/LE_ENR_1_10_en.html",
+            "access": "open"
+          }
+        ],
+        "aerodromes": {
+          "LEBI": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LEDD": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LEMR": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias"
+              }
+            ]
+          },
+          "LEMZ": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LENF": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LERO": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LEVF": {
+            "phones": [
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias"
+              }
+            ]
+          },
+          "LESN": {
+            "phones": [
+              {
+                "number": "+34918603557",
+                "name": "Centralised ARO, area 2"
+              }
+            ]
+          },
+          "LEGY": {
+            "phones": [
+              {
+                "number": "+34918603557",
+                "name": "Centralised ARO, area 2"
+              }
+            ]
+          },
+          "LEOJ": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LENA": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LEBF": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LECA": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LECI": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LETL": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LEWG": {
+            "phones": [
+              {
+                "number": "+34918603558",
+                "name": "Centralised ARO, area 3"
+              }
+            ]
+          },
+          "LEIR": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEGP": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LETG": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LERN": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEEN": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEOC": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEGZ": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEQP": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LESZ": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LETD": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEEV": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LETH": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEMT": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LETI": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEFM": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEGU": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LELA": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEMX": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LELT": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LEMK": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LERM": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LETP": {
+            "phones": [
+              {
+                "number": "+34918603559",
+                "name": "Centralised ARO, area 4"
+              }
+            ]
+          },
+          "LECF": {
+            "phones": [
+              {
+                "number": "+34918603561",
+                "name": "Centralised ARO, area 6"
+              }
+            ]
+          },
+          "LEIG": {
+            "phones": [
+              {
+                "number": "+34918603561",
+                "name": "Centralised ARO, area 6"
+              }
+            ]
+          },
+          "LEMS": {
+            "phones": [
+              {
+                "number": "+34918603561",
+                "name": "Centralised ARO, area 6"
+              }
+            ]
+          },
+          "LESL": {
+            "phones": [
+              {
+                "number": "+34918603562",
+                "name": "Centralised ARO, area 7"
+              },
+              {
+                "number": "+34971157138",
+                "name": "ARO Menorca"
+              }
+            ]
+          },
+          "LEAK": {
+            "phones": [
+              {
+                "number": "+34918603563",
+                "name": "Centralised ARO, area 8"
+              }
+            ]
+          },
+          "LEPC": {
+            "phones": [
+              {
+                "number": "+34918603563",
+                "name": "Centralised ARO, area 8"
+              }
+            ]
+          },
+          "LEVY": {
+            "phones": [
+              {
+                "number": "+34918603563",
+                "name": "Centralised ARO, area 8"
+              }
+            ]
+          },
+          "LECN": {
+            "phones": [
+              {
+                "number": "+34918603563",
+                "name": "Centralised ARO, area 8"
+              }
+            ]
+          },
+          "LERE": {
+            "phones": [
+              {
+                "number": "+34918603563",
+                "name": "Centralised ARO, area 8"
+              }
+            ]
+          },
+          "LESS": {
+            "phones": [
+              {
+                "number": "+34918603563",
+                "name": "Centralised ARO, area 8"
+              }
+            ]
+          },
+          "LEOL": {
+            "phones": [
+              {
+                "number": "+34918603564",
+                "name": "Centralised ARO, area 9"
+              }
+            ]
+          },
+          "LETX": {
+            "phones": [
+              {
+                "number": "+34918603564",
+                "name": "Centralised ARO, area 9"
+              }
+            ]
+          },
+          "LELG": {
+            "phones": [
+              {
+                "number": "+34918603564",
+                "name": "Centralised ARO, area 9"
+              }
+            ]
+          },
+          "LELH": {
+            "phones": [
+              {
+                "number": "+34918603564",
+                "name": "Centralised ARO, area 9"
+              }
+            ]
+          },
+          "LEMP": {
+            "phones": [
+              {
+                "number": "+34918603564",
+                "name": "Centralised ARO, area 9"
+              }
+            ]
+          },
+          "LEMU": {
+            "phones": [
+              {
+                "number": "+34918603564",
+                "name": "Centralised ARO, area 9"
+              }
+            ]
+          },
+          "LEDE": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEDC": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LENS": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              },
+              {
+                "number": "+34958245281",
+                "name": "ARO Granada"
+              }
+            ]
+          },
+          "LEVJ": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEFU": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LENE": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEVP": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEBE": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LECT": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEIZ": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LESE": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEPR": {
+            "phones": [
+              {
+                "number": "+34918603565",
+                "name": "Centralised ARO, area 10"
+              }
+            ]
+          },
+          "LEUT": {
+            "phones": [
+              {
+                "number": "+34918603566",
+                "name": "Centralised ARO, area 11"
+              }
+            ]
+          },
+          "LEOH": {
+            "phones": [
+              {
+                "number": "+34918603566",
+                "name": "Centralised ARO, area 11"
+              }
+            ]
+          },
+          "LEAH": {
+            "phones": [
+              {
+                "number": "+34918603566",
+                "name": "Centralised ARO, area 11"
+              }
+            ]
+          },
+          "LEGC": {
+            "phones": [
+              {
+                "number": "+34918603566",
+                "name": "Centralised ARO, area 11"
+              }
+            ]
+          },
+          "LEJU": {
+            "phones": [
+              {
+                "number": "+34918603566",
+                "name": "Centralised ARO, area 11"
+              }
+            ]
+          },
+          "LEMF": {
+            "phones": [
+              {
+                "number": "+34918603566",
+                "name": "Centralised ARO, area 11"
+              }
+            ]
+          },
+          "LECX": {
+            "phones": [
+              {
+                "number": "+34918603567",
+                "name": "Centralised ARO, area 12"
+              }
+            ]
+          },
+          "LETF": {
+            "phones": [
+              {
+                "number": "+34918603567",
+                "name": "Centralised ARO, area 12"
+              }
+            ]
+          },
+          "LETJ": {
+            "phones": [
+              {
+                "number": "+34918603567",
+                "name": "Centralised ARO, area 12"
+              }
+            ]
+          },
+          "LEAX": {
+            "phones": [
+              {
+                "number": "+34918603568",
+                "name": "Centralised ARO, area 13"
+              }
+            ]
+          },
+          "GCAT": {
+            "phones": [
+              {
+                "number": "+34918603570",
+                "name": "Centralised ARO, area 15"
+              }
+            ]
+          },
+          "GCLB": {
+            "phones": [
+              {
+                "number": "+34918603570",
+                "name": "Centralised ARO, area 15"
+              }
+            ]
+          },
+          "LEER": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LETY": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LEGI": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LEPZ": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LEDP": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LEPI": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LEOT": {
+            "phones": [
+              {
+                "number": "+34967555703",
+                "name": "ARO Albacete"
+              },
+              {
+                "number": "+34967555700",
+                "name": "ARO Albacete"
+              }
+            ]
+          },
+          "LEPN": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEIJ": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEML": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LELI": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEOA": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEMY": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEVE": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEEM": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEGG": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LETE": {
+            "phones": [
+              {
+                "number": "+34924210406",
+                "name": "ARO Badajoz"
+              }
+            ]
+          },
+          "LEAP": {
+            "phones": [
+              {
+                "number": "+34972186658",
+                "name": "ARO Girona"
+              },
+              {
+                "number": "+34972186659",
+                "name": "ARO Girona"
+              }
+            ]
+          },
+          "LECD": {
+            "phones": [
+              {
+                "number": "+34972186658",
+                "name": "ARO Girona"
+              },
+              {
+                "number": "+34972186659",
+                "name": "ARO Girona"
+              }
+            ]
+          },
+          "LENN": {
+            "phones": [
+              {
+                "number": "+34958245281",
+                "name": "ARO Granada"
+              }
+            ]
+          },
+          "LEJE": {
+            "phones": [
+              {
+                "number": "+34958245281",
+                "name": "ARO Granada"
+              }
+            ]
+          },
+          "LEAT": {
+            "phones": [
+              {
+                "number": "+34987877700",
+                "name": "ARO León"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias, outside León's hours"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias, outside León's hours"
+              }
+            ]
+          },
+          "LEZS": {
+            "phones": [
+              {
+                "number": "+34987877700",
+                "name": "ARO León"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias, outside León's hours"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias, outside León's hours"
+              }
+            ]
+          },
+          "LEVL": {
+            "phones": [
+              {
+                "number": "+34987877700",
+                "name": "ARO León"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias, outside León's hours"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias, outside León's hours"
+              }
+            ]
+          },
+          "LEAV": {
+            "phones": [
+              {
+                "number": "+34987877700",
+                "name": "ARO León"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias, outside León's hours"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias, outside León's hours"
+              }
+            ]
+          },
+          "LEOS": {
+            "phones": [
+              {
+                "number": "+34987877700",
+                "name": "ARO León"
+              },
+              {
+                "number": "+34985127531",
+                "name": "ARO Asturias, outside León's hours"
+              },
+              {
+                "number": "+34985127532",
+                "name": "ARO Asturias, outside León's hours"
+              }
+            ]
+          },
+          "LEIS": {
+            "phones": [
+              {
+                "number": "+34971789275",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789286",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789309",
+                "name": "ARO Palma de Mallorca"
+              }
+            ]
+          },
+          "LEJF": {
+            "phones": [
+              {
+                "number": "+34971789275",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789286",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789309",
+                "name": "ARO Palma de Mallorca"
+              }
+            ]
+          },
+          "LEPT": {
+            "phones": [
+              {
+                "number": "+34971789275",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789286",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789309",
+                "name": "ARO Palma de Mallorca"
+              }
+            ]
+          },
+          "LESB": {
+            "phones": [
+              {
+                "number": "+34971789275",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789286",
+                "name": "ARO Palma de Mallorca"
+              },
+              {
+                "number": "+34971789309",
+                "name": "ARO Palma de Mallorca"
+              }
+            ]
+          },
+          "LEUM": {
+            "phones": [
+              {
+                "number": "+34948168740",
+                "name": "ARO Pamplona"
+              }
+            ]
+          },
+          "LEAI": {
+            "phones": [
+              {
+                "number": "+34977779804",
+                "name": "ARO Reus"
+              },
+              {
+                "number": "+34977779885",
+                "name": "ARO Reus"
+              }
+            ]
+          },
+          "LEDL": {
+            "phones": [
+              {
+                "number": "+34923329600",
+                "name": "ARO Salamanca"
+              }
+            ]
+          },
+          "LESI": {
+            "phones": [
+              {
+                "number": "+34923329600",
+                "name": "ARO Salamanca"
+              }
+            ]
+          },
+          "LEUN": {
+            "phones": [
+              {
+                "number": "+34923329600",
+                "name": "ARO Salamanca"
+              }
+            ]
+          },
+          "LEUC": {
+            "phones": [
+              {
+                "number": "+34942202111",
+                "name": "ARO Santander"
+              },
+              {
+                "number": "+34942202113",
+                "name": "ARO Santander"
+              }
+            ]
+          },
+          "LERP": {
+            "phones": [
+              {
+                "number": "+34942202111",
+                "name": "ARO Santander"
+              },
+              {
+                "number": "+34942202113",
+                "name": "ARO Santander"
+              }
+            ]
+          },
+          "LEVB": {
+            "phones": [
+              {
+                "number": "+34983415503",
+                "name": "ARO Valladolid"
+              }
+            ]
+          },
+          "LETC": {
+            "phones": [
+              {
+                "number": "+34983415503",
+                "name": "ARO Valladolid"
+              }
+            ]
+          },
+          "LETZ": {
+            "phones": [
+              {
+                "number": "+34983415503",
+                "name": "ARO Valladolid"
+              }
+            ]
+          },
+          "LEDB": {
+            "phones": [
+              {
+                "number": "+34945163518",
+                "name": "ARO Vitoria"
+              }
+            ]
+          }
+        }
+      },
+      "generic": [
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "FI": {
+      "weather": [
+        {
+          "name": "Ilmailusää (FMI)",
+          "url": "https://ilmailusaa.fi/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "ais.fi (Fintraffic)",
+          "url": "https://www.ais.fi/bulletins/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "ais.fi AUP (Fintraffic)",
+          "url": "https://www.ais.fi/en/airspace-use-plan-aup-0",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Ilmailusää LLF (FMI)",
+          "url": "https://ilmailusaa.fi/lowlevelforecast.html",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "ais.fi (Fintraffic)",
+          "url": "https://www.ais.fi/en/user/submit-flight-plan",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+358291502071",
+            "name": "ACC VFR Control"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "FO": {
+      "weather": [
+        {
+          "name": "NorthAviMet",
+          "url": "https://www.northavimet.com/login",
+          "access": "restricted"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Naviair Briefing",
+          "url": "https://briefing.naviair.dk/",
+          "access": "open"
+        }
+      ],
+      "airspace": [],
+      "forecast": [],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+4532478272",
+            "name": "AIS Briefing Naviair"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "FR": {
+      "weather": [
+        {
+          "name": "Aéroweb (Météo-France)",
+          "url": "https://aviation.meteo.fr",
+          "access": "account"
+        }
+      ],
+      "notam": [
+        {
+          "name": "SOFIA-Briefing (DGAC)",
+          "url": "https://sofia-briefing.aviation-civile.gouv.fr/sofia/pages/homepage.html",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "SIA AZBA",
+          "url": "https://www.sia.aviation-civile.gouv.fr/schedules",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Aéroweb (Météo-France)",
+          "url": "https://aviation.meteo.fr",
+          "access": "account"
+        }
+      ],
+      "filing": [
+        {
+          "name": "SOFIA-Briefing (DGAC)",
+          "url": "https://sofia-briefing.aviation-civile.gouv.fr/sofia/pages/homepage.html",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+33156301301",
+            "name": "DSNA ARO"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "GB": {
+      "weather": [
+        {
+          "name": "Met Office MAVIS",
+          "url": "https://mavis.metoffice.gov.uk",
+          "access": "account"
+        }
+      ],
+      "notam": [
+        {
+          "name": "NATS AIS",
+          "url": "https://nats-uk.ead-it.com/cms-nats/opencms/en/",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "NATS PIB 5",
+          "url": "https://pibs.nats.co.uk/operational/pibs/pib5.shtml",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Met Office MAVIS",
+          "url": "https://mavis.metoffice.gov.uk",
+          "access": "account"
+        }
+      ],
+      "filing": [
+        {
+          "name": "AFPEx (NATS)",
+          "url": "https://www.flightplanningonline.co.uk",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+441489612792",
+            "name": "AFPEx Helpdesk"
+          }
+        ],
+        "alertMinutes": 30,
+        "atsClose": "atsu"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "GE": {
+      "weather": [
+        {
+          "name": "Sakaeronavigatsia MET",
+          "url": "https://meteo.airnav.ge/en/webmet",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Sakaeronavigatsia AIS",
+          "url": "https://ais.airnav.ge/en/notam",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Sakaeronavigatsia AIS",
+          "url": "https://ais.airnav.ge/en/notam",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Sakaeronavigatsia MET",
+          "url": "https://meteo.airnav.ge/en/webmet",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "Sakaeronavigatsia AIS",
+          "url": "https://ais.airnav.ge/en/fpl",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+995322744264",
+            "name": "ARO Tbilisi"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "GL": {
+      "weather": [
+        {
+          "name": "NorthAviMet",
+          "url": "https://www.northavimet.com/login",
+          "access": "restricted"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Naviair Briefing",
+          "url": "https://briefing.naviair.dk/",
+          "access": "open"
+        }
+      ],
+      "airspace": [],
+      "forecast": [],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+299363304",
+            "name": "Nuuk FIC"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "GR": {
+      "weather": [
+        {
+          "name": "HNMS",
+          "url": "https://www.emy.gr/en/aviation",
+          "access": "open"
+        }
+      ],
+      "notam": [],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "HNMS",
+          "url": "https://www.emy.gr/en/aviation?tab=significantAviationTab",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": []
+      },
+      "generic": [
+        "notam",
+        "airspace",
+        "filing"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "HR": {
+      "weather": [
+        {
+          "name": "Croatia Control MET",
+          "url": "https://met.crocontrol.hr/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Internet Briefing (Croatia Control)",
+          "url": "https://ib.crocontrol.hr/aes/login.jsp?HF_LANGUAGE=en_GB",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AMC Croatia",
+          "url": "https://amc-en.crocontrol.hr/Current-situation-anonymous-users",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "Internet Briefing (Croatia Control)",
+          "url": "https://ib.crocontrol.hr/aes/login.jsp?HF_LANGUAGE=en_GB",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+38521205444",
+            "name": "Central ARO Split"
+          }
+        ],
+        "links": [
+          {
+            "name": "Internet Briefing (Croatia Control)",
+            "url": "https://ib.crocontrol.hr/aes/login.jsp?HF_LANGUAGE=en_GB",
+            "access": "account"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "HU": {
+      "weather": [
+        {
+          "name": "HungaroMet",
+          "url": "https://aviation.met.hu/",
+          "access": "account"
+        }
+      ],
+      "notam": [
+        {
+          "name": "NetBriefing (HungaroControl)",
+          "url": "https://www.netbriefing.hu/EN/index_en.html",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AUP (HungaroControl)",
+          "url": "https://ais-en.hungarocontrol.hu/airspace-use-plan",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "NetBriefing (HungaroControl)",
+          "url": "https://www.netbriefing.hu/EN/index_en.html",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+3612934310",
+            "name": "ARO Budapest"
+          }
+        ],
+        "atsClose": "sera",
+        "links": [
+          {
+            "name": "NetBriefing (HungaroControl)",
+            "url": "https://www.netbriefing.hu/EN/index_en.html",
+            "access": "account"
+          }
+        ]
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "IE": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "AirNav Ireland",
+          "url": "https://www.airnav.ie/air-traffic-management/notam-notice-to-airmen-24e348473e7b0153452e634c36c72213",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AirNav Ireland",
+          "url": "https://www.airnav.ie/air-traffic-management/notam-notice-to-airmen-24e348473e7b0153452e634c36c72213",
+          "access": "open"
+        }
+      ],
+      "forecast": [],
+      "filing": [
+        {
+          "name": "AirNav Ireland",
+          "url": "https://www.airnav.ie/flight-planning",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+35361770725",
+            "name": "Shannon ATS"
+          },
+          {
+            "number": "+35318067400",
+            "name": "Dublin ATS"
+          }
+        ]
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "IM": {
+      "weather": [
+        {
+          "name": "Met Office MAVIS",
+          "url": "https://mavis.metoffice.gov.uk",
+          "access": "account"
+        }
+      ],
+      "notam": [
+        {
+          "name": "NATS AIS",
+          "url": "https://nats-uk.ead-it.com/cms-nats/opencms/en/",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "NATS PIB 5",
+          "url": "https://pibs.nats.co.uk/operational/pibs/pib5.shtml",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Met Office MAVIS",
+          "url": "https://mavis.metoffice.gov.uk",
+          "access": "account"
+        }
+      ],
+      "filing": [
+        {
+          "name": "AFPEx (NATS)",
+          "url": "https://www.flightplanningonline.co.uk",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+441624827546",
+            "name": "Isle of Man ATC"
+          },
+          {
+            "number": "+441489612792",
+            "name": "AFPEx Helpdesk"
+          }
+        ],
+        "alertMinutes": 30,
+        "atsClose": "atsu"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "IS": {
+      "weather": [
+        {
+          "name": "Icelandic Met Office",
+          "url": "https://en.vedur.is/weather/aviation/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Avians",
+          "url": "https://www.avians.is/en/c-preflight-information/notam",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Avians",
+          "url": "https://www.avians.is/en/c-preflight-information/notam",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "Icelandic Met Office",
+          "url": "https://en.vedur.is/weather/aviation/llf-iceland/",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "Cronos (Avians)",
+          "url": "https://www.avians.is/en/c-preflight-information/flight-plan",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+3544244240",
+            "name": "Reykjavík ACC"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "IT": {
+      "weather": [
+        {
+          "name": "MeteoAM (Aeronautica Militare)",
+          "url": "https://www.meteoam.it/it/metar-taf",
+          "access": "open"
+        }
+      ],
+      "notam": [],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "MeteoAM SWLL (Aeronautica Militare)",
+          "url": "https://www.meteoam.it/it/swll",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": []
+      },
+      "generic": [
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "LT": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "Oro navigacija",
+          "url": "https://www.ans.lt/en/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [],
+      "filing": [],
+      "closing": {
+        "phones": []
+      },
+      "generic": [
+        "weather",
+        "notam",
+        "airspace",
+        "forecast",
+        "filing"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "LU": {
+      "weather": [
+        {
+          "name": "MeteoLux",
+          "url": "https://www.meteolux.lu/fr/meteo-aeronautique/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "skeyes",
+          "url": "https://www.skeyes.be/",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "MeteoLux",
+          "url": "https://www.meteolux.lu/fr/meteo-aeronautique/previsions-luxembourg/",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "skeyes",
+          "url": "https://www.skeyes.be/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+352479823010",
+            "name": "ARO Luxembourg (ANA)"
+          },
+          {
+            "number": "+3222062540",
+            "name": "Brussels ARO"
+          }
+        ],
+        "atsClose": "report"
+      },
+      "generic": [
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "LV": {
+      "weather": [
+        {
+          "name": "IBS (LGS)",
+          "url": "https://ibs.lgs.lv/home.do",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "LGS AIS",
+          "url": "https://ais.lgs.lv/notam",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "LGS AIS",
+          "url": "https://ais.lgs.lv/notam",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "IBS (LGS)",
+          "url": "https://ibs.lgs.lv/home.do",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "IBS (LGS)",
+          "url": "https://ibs.lgs.lv/home.do",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+37167300642",
+            "name": "ARO Riga"
+          }
+        ],
+        "reportMinutes": 30,
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "MD": {
+      "weather": [
+        {
+          "name": "MoldATSA AIM",
+          "url": "https://aim.moldatsa.md/#meteo-msgs",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "MoldATSA AIM",
+          "url": "https://aim.moldatsa.md/#list-of-valid-notam",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "MoldATSA AIM",
+          "url": "https://aim.moldatsa.md/#list-laup",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "MoldATSA AIM",
+          "url": "https://aim.moldatsa.md/#meteo-msgs",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "MoldATSA AIM",
+          "url": "https://aim.moldatsa.md/#aro-flight-plan-operations",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+37322502815",
+            "name": "ARO Chişinău"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "MT": {
+      "weather": [
+        {
+          "name": "Malta MET Office",
+          "url": "https://maltametoffice.com/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Transport Malta AIP",
+          "url": "https://www.transport.gov.mt/aviation/air-navigation-services-aerodromes-ground-handling-services/aeronautical-information-publication-3764",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+35622355543",
+            "name": "Malta AIS (NOF)"
+          }
+        ]
+      },
+      "generic": [
+        "notam",
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "NL": {
+      "weather": [
+        {
+          "name": "KNMI Luchtvaartmeteo",
+          "url": "https://www.luchtvaartmeteo.nl",
+          "access": "restricted"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Amsterdam Integrated Briefing (LVNL)",
+          "url": "https://hbs.ixosystem.eu/ixo/login.php",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "KNMI",
+          "url": "https://www.knmi.nl/nederland-nu/luchtvaart/weerbulletin-kleine-luchtvaart",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "Amsterdam Integrated Briefing (LVNL)",
+          "url": "https://hbs.ixosystem.eu/ixo/login.php",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+31204062315",
+            "name": "ARO Schiphol"
+          }
+        ],
+        "atsClose": "controlled"
+      },
+      "generic": [
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "NO": {
+      "weather": [
+        {
+          "name": "IPPC (Avinor)",
+          "url": "https://www.ippc.no/ippc/index.jsp",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "IPPC (Avinor)",
+          "url": "https://www.ippc.no/ippc/index.jsp",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "IPPC (Avinor)",
+          "url": "https://www.ippc.no/ippc/index.jsp",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "IPPC (Avinor)",
+          "url": "https://www.ippc.no/ippc/index.jsp",
+          "access": "open"
+        },
+        {
+          "name": "NorthAviMet",
+          "url": "https://www.northavimet.com/low-level-forecast/llf-norway",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "IPPC (Avinor)",
+          "url": "https://www.ippc.no/ippc/index.jsp",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+4764819000",
+            "name": "AIS Norway"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "PL": {
+      "weather": [
+        {
+          "name": "Awiacja (IMGW)",
+          "url": "https://awiacja.imgw.pl/metar-i-taf",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "IWB (PANSA)",
+          "url": "https://iwb.pansa.pl/",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AUP (PANSA)",
+          "url": "https://airspace.pansa.pl/aup/current",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "GAMET (IMGW)",
+          "url": "https://awiacja.imgw.pl/prognozy-lotnicze/gamet",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "IWB (PANSA)",
+          "url": "https://iwb.pansa.pl/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+48225747173",
+            "name": "ARO Poland"
+          }
+        ],
+        "alertMinutes": 30,
+        "atsClose": "sera",
+        "links": [
+          {
+            "name": "IWB (PANSA)",
+            "url": "https://iwb.pansa.pl/",
+            "access": "account"
+          }
+        ]
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "PT": {
+      "weather": [
+        {
+          "name": "IPMA",
+          "url": "https://www.ipma.pt/en/aeronautica/tar.metar/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "eARO (NAV Portugal)",
+          "url": "https://fplbriefing.nav.pt/login",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "NAV Portugal AIS",
+          "url": "https://ais.nav.pt/access-the-airspace-use-plan-updated-use-plan/",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "IPMA self-briefing",
+          "url": "https://brief-ng.ipma.pt/",
+          "access": "account"
+        }
+      ],
+      "filing": [
+        {
+          "name": "eARO (NAV Portugal)",
+          "url": "https://fplbriefing.nav.pt/login",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+351218553341",
+            "name": "ARO Portugal"
+          }
+        ],
+        "atsClose": "sera",
+        "links": [
+          {
+            "name": "eARO (NAV Portugal)",
+            "url": "https://fplbriefing.nav.pt/login",
+            "access": "account"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "RO": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "AIS Romania (ROMATSA)",
+          "url": "https://www.aisro.ro/notam/notamv4.php",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AIS Romania (ROMATSA)",
+          "url": "https://www.aisro.ro/zone/warn/intr_v03.php",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+40212032122",
+            "name": "ARO Bucureşti"
+          }
+        ],
+        "reportMinutes": 30,
+        "atsClose": "sera"
+      },
+      "generic": [
+        "weather",
+        "filing"
+      ],
+      "reviewed": "2026-10-18"
+    },
+    "RS": {
+      "weather": [],
+      "notam": [
+        {
+          "name": "SMATSA",
+          "url": "https://www.smatsa.rs/en/ans/ais/notam",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "SMATSA AUP",
+          "url": "https://www.smatsa.rs/en/aup/aup-srb/",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+381113814576",
+            "name": "ARO Beograd"
+          }
+        ]
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "SE": {
+      "weather": [
+        {
+          "name": "AROWeb (LFV)",
+          "url": "https://aro.lfv.se/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "AROWeb (LFV)",
+          "url": "https://aro.lfv.se/Links/Link/ShowFileList?type=AIS&path=%5Cpibsweden%5C&torlinkName=NOTAM%20Sweden",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "AROWeb (LFV)",
+          "url": "https://aro.lfv.se/Editorial/View/GeneralDocument?torLinkId=337&type=AIS&folderId=77",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "AROWeb LHP (LFV)",
+          "url": "https://aro.lfv.se/Links/Link/ViewLink?TorLinkId=310&type=MET",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "AROWeb (LFV)",
+          "url": "https://aro.lfv.se/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+46858554505",
+            "name": "Stockholm ACC"
+          },
+          {
+            "number": "+46406132405",
+            "name": "Malmö ACC"
+          }
+        ],
+        "reportMinutes": 30,
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "SI": {
+      "weather": [
+        {
+          "name": "ARSO",
+          "url": "https://meteo.arso.gov.si/met/en/aviation/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "Slovenia Control AIM",
+          "url": "https://aim.sloveniacontrol.si/aim/products/notam-summary/",
+          "access": "open"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "Slovenia Control AIM",
+          "url": "https://aim.sloveniacontrol.si/aim/products/restricted-area-activation/",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "ARSO",
+          "url": "https://meteo.arso.gov.si/met/en/aviation/",
+          "access": "open"
+        },
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+38642040420",
+            "name": "ARO Slovenia"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [],
+      "reviewed": "2026-10-18"
+    },
+    "SK": {
+      "weather": [
+        {
+          "name": "SHMU",
+          "url": "https://www.shmu.sk/en/?page=1&id=meteo_lms_aktualne_info",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "IBAF (LPS SR)",
+          "url": "https://aim.lps.sk/ibaf/",
+          "access": "account"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "eGAFOR",
+          "url": "https://viewer.egafor.eu/egafor-viewer/",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "IBAF (LPS SR)",
+          "url": "https://aim.lps.sk/ibaf/",
+          "access": "account"
+        }
+      ],
+      "closing": {
+        "phones": [
+          {
+            "number": "+421248572230",
+            "name": "Bratislava FIC"
+          },
+          {
+            "number": "+421248572280",
+            "name": "CARO Bratislava"
+          }
+        ],
+        "atsClose": "sera"
+      },
+      "generic": [
+        "airspace"
+      ],
+      "activation": "no-ats",
+      "reviewed": "2026-10-18"
+    },
+    "TR": {
+      "weather": [
+        {
+          "name": "MGM Hezarfen",
+          "url": "https://hezarfen.mgm.gov.tr/",
+          "access": "open"
+        }
+      ],
+      "notam": [
+        {
+          "name": "DHMİ AIP",
+          "url": "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+          "access": "paid"
+        }
+      ],
+      "airspace": [
+        {
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "access": "open"
+        }
+      ],
+      "forecast": [
+        {
+          "name": "MGM Rasat",
+          "url": "https://rasat.mgm.gov.tr/",
+          "access": "open"
+        }
+      ],
+      "filing": [],
+      "closing": {
+        "phones": [
+          {
+            "number": "+903128271048",
+            "name": "Ankara FIC"
+          }
+        ]
+      },
+      "generic": [
+        "notam",
+        "airspace"
+      ],
+      "reviewed": "2026-10-18"
+    }
+  },
+  "flags": []
+}

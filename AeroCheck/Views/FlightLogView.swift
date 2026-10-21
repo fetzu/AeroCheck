@@ -892,18 +892,26 @@ struct FlightLogView: View {
         let flights = filteredFlights
         let stats = aggregateStats(flights)
         return VStack(spacing: 14) {
-            // Title + year selector + export (concept header)
-            HStack(alignment: .center) {
-                // The tab's name: flown flights live in the Logbook. (v6.0 · P8)
-                Text(L10n.Ground.logbook)
-                    .scaledFont(size: 28, weight: .bold, relativeTo: .title2)
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Spacer(minLength: 8)
-                yearMenu
-                shareCardButton
-                exportMenu
+            // Title + year selector + export (concept header). One row where it fits; else the title on its own
+            // line and the controls under it: in French on an iPhone 17 the row cut "Carnet de…" and broke
+            // "Exporter" over two lines (6.4.3).
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center) {
+                    logbookTitle
+                    Spacer(minLength: 8)
+                    yearMenu
+                    shareCardButton
+                    exportMenu
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    logbookTitle
+                    HStack(alignment: .center) {
+                        yearMenu
+                        Spacer(minLength: 8)
+                        shareCardButton
+                        exportMenu
+                    }
+                }
             }
 
             // Metric cards — 4 across on regular width, 2 on compact.
@@ -1069,13 +1077,24 @@ struct FlightLogView: View {
             HStack(spacing: 5) {
                 Image(systemName: "square.and.arrow.up").scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
                 Text("Export").scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
             }
+            .fixedSize()
             .foregroundColor(.black)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold))
         }
         .accessibilityLabel("Export")
+    }
+
+    /// The tab's name: flown flights live in the Logbook. (v6.0 · P8)
+    private var logbookTitle: some View {
+        Text(L10n.Ground.logbook)
+            .scaledFont(size: 28, weight: .bold, relativeTo: .title2)
+            .foregroundColor(.primaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     /// Secondary action: open the stats-summary share-card customization sheet for the current filter. (round 10)

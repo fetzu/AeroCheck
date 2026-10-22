@@ -111,7 +111,7 @@ A dry run is a flight flown on the ground, in the real Cockpit: the aircraft is 
 **Your first flight, from plan to logbook** is one story in four parts, flown in the WT9 from your home aerodrome (LSZQ when you have none, or when the airport data has no runway for it): a triangle out to two turning points and back, with a go-around, then a full stop.
 
 1. **Plan a flight**: **Plan new flight** on Today, the sheet already filled in with the dry run's route, **Create flight**, then the flight's page: its chapters, the next thing to do, the fuel plan and Fuel on board, a link (in a dry run, a link only says where it would go), a tick, and the ATC flight plan set to not applicable. **START FLIGHT** opens the Cockpit, with the rest of Plan and Prepare ticked for you.
-2. **Fly it**: the flight itself, in seven chapters (Before you go, Engine and taxi, Line-up, Take-off and climb, On the route, Back to land, After landing). Every check is yours, from the pre-flight check to the shutdown, with the memory items and the Menu's switch that hides them, DEFER and the deferred items, READY FOR LINE UP, MAP and ROUTE, the turning points the app marks by itself (and their UNDO), MARK and the leg timer, a go-around chosen on final and the circuit's checks after it, the full stop, ENGINE SHUTDOWN at the parking and END FLIGHT.
+2. **Fly it**: the flight itself, in seven chapters (Before you go, Engine and taxi, Line-up, Take-off and climb, On the route, Back to land, After landing). Every check is yours, from the pre-flight check to the shutdown, with the memory items and the Menu's switch that hides them, DEFER and the deferred items, READY FOR LINE UP, MAP and ROUTE, NEXT's change of frequency after the cruise check (when NEXT is due by then), the turning points the app marks by itself (and their UNDO), MARK and the leg timer, a go-around chosen on final and the circuit's checks after it, the full stop, ENGINE SHUTDOWN at the parking and END FLIGHT.
 3. **Close out**: the flight's page in CLOSE-OUT, the logbook line and **Logbook & costs**, the debrief and **Finish**.
 4. **Your logbook**: the **Logbook** tab, where five made-up flights (circuits earlier in the year) come before yours, the year at a glance, then your flight's page, its track, its checks and its exports.
 
@@ -391,12 +391,62 @@ Ground speed is not the airspeed your panel shows (a head- or tailwind shifts it
 
 Under the strip, in every phase and on every page, the two frequencies to have set, one line each:
 
-- **NOW**: the one to talk to now. Within about 10 NM of an aerodrome, its contact frequency; en route, the area FIS.
-- **NEXT**: the next one you will need. While you divert, the diversion field. Otherwise the aerodrome you are flying to (the next waypoint), until you are within its 10 NM and it becomes NOW; then the next one on the route. At the route's end and in circuits, nothing: the field you land at is NOW. On a local flight, back to the field you are at, NEXT is the area's Info once the route leaves the circuit (a waypoint more than 3 NM out). With no call from the route, near an aerodrome, the area's Info; else the nearest control zone, else the hand-over between FIS and an aerodrome.
+- **NOW**: the station you are on.
+- **NEXT**: the one to call next, or one to listen to, tagged **LISTEN** in NEXT's place.
 
-Each line gives the frequency, then the station's name if it fits whole. Both follow the flight whichever page is on screen, CHECKLIST included. Without a GPS position or airport data, they follow the route instead: the departure's frequency, then the next waypoint that has one. A tap on either opens ROUTE, where every frequency is.
+Each line gives the frequency, then the station's name, set smaller when it is long but never left out. Both follow the flight whichever page is on screen, CHECKLIST included.
 
-On the iPhone, the NOW line sits under the next line, and a tap on it opens ROUTE on its RADIO list; NEXT's frequency is there.
+On a route, they follow its radio timeline: every call in the order the flight makes it, the stations the nav log prints, worked out from the route at its planned altitudes. NEXT is the next call on another frequency; when its moment comes it falls due, and a tap on it makes it NOW (see [Changing Frequency](#changing-frequency)). The calls, as they come:
+
+- **The departure aerodrome**, from the ground to the level-off (10 NM out at most). One with a zone of its own (a CTR, a FIZ) is the call until you leave that zone.
+- **The FIS of each area**, from boundary to boundary: Zürich Info or Geneva Info, either side of their line, and Bâle Information (130.900) over the Ajoie and the northern Jura from 2,000 ft above the ground (the part of TMA BALE ZURICH, AZ4, where Zurich hands low-level VFR traffic to Basel).
+- **A CTR, an RMZ or a FIZ** (an ATZ too): from 5 minutes before its boundary to its exit. A zone active by NOTAM (HX) counts as active, with HX after its station ("LSZG TWR HX"). A zone the route may or may not enter (a limit in ft above the ground, or a flight level) is never called; ROUTE lists it.
+- **A TMA the FIS clears** (TMA GENEVA, the Basel sectors, the Swiss class C TMAs such as TMA ZUERICH): the Info stays the call, with the TMA named beside it from 10 minutes before ("Zürich Info · TMA ZUERICH"), where it fits.
+- **An aerodrome whose reporting points the route flies** (V and E of Les Eplatures, outside its CTR): its station, from 5 minutes before the first point to 2 NM past the last.
+- **The destination**: 5 minutes before the aerodrome (before its zone's boundary, where it has one), or 2 minutes before its arrival point (the route's last waypoint of that aerodrome) if that comes first. NEXT is empty from then on.
+
+The minutes count at your ground speed (from 30 kt; slower than that, the leg's planned speed), so a slower aircraft gets its calls further out.
+
+NEXT reads **LISTEN** for a station to listen to rather than call:
+
+- **The destination's ATIS**, from 10 minutes before the destination's call until it.
+- **An aerodrome on the way**, one the route passes within 2 NM with no zone of its own: from 5 minutes before abeam to 2 NM past, NOW staying with the Info. **Aerodromes on the way**, in **Settings › Checklist & Flight** (on by default), turns these off.
+
+Of two LISTENs at once, the one whose window ends first shows, then the other.
+
+A frequency has one name all flight: of two names for it, the 8.33 kHz channel's ("120.105", not "120.100"), and an aerodrome's own zone goes under the aerodrome's name ("LSGC TWR 118.130", not "LES EPLATURES 118.125"). With OpenAIP's aerodromes on the device, an aerodrome's own radio reads as its country writes it ("LSZQ AD 122.055"; A/A in France).
+
+Off a route's timeline, NOW and NEXT move by themselves, nothing comes due, and a tap on either opens ROUTE:
+
+- **Without a route**: an aerodrome is NOW only inside its zone (a CTR, an RMZ, a FIZ or an ATZ), or within 3 NM of one that has none; else the area's FIS (Bâle Information over AZ4 at your GPS altitude). NEXT is, near an aerodrome, the area's Info; else the nearest control zone within 25 NM; else the nearest aerodrome.
+- **In circuits**: NOW is the field, NEXT is empty.
+- **While you divert**: NEXT is the diversion field, which becomes NOW 5 minutes before it (or inside its zone); NEXT is then empty.
+- **More than 5 NM off the route**: the rules without a route, until you are back on it.
+
+Without a GPS position or airport data, they follow the route instead: the departure's frequency, then the next waypoint that has one.
+
+On the iPhone, the NOW line sits under the next line. NEXT is on ROUTE's RADIO list, and on the NOW line while it is due (see [The Cockpit on the Phone](#the-cockpit-on-the-phone)).
+
+### Changing Frequency
+
+The app does not hear the radio, and the FIS or a tower often gives the change ("frequency change approved") before or after the timeline's call point. So on a route, NOW changes when you say so:
+
+- **NEXT comes due** at its call point: outlined, with a line along its foot that runs out at the latest point, where the app changes by itself. NOW stays as it is. With Reduce Motion on, the line steps down once a second.
+- **A tap on NEXT** makes it NOW, due or not, and the message "LSZG TWR HX now" offers **UNDO** for six seconds, where a MARK's does (see [Leg Timer and MARK](#leg-timer-and-mark)). A second tap within a second does nothing (a bounce in turbulence never takes the call after it as well), and neither does a tap in the two seconds after the app's own change: it was meant for that call.
+- **Without a tap**, the app changes at the latest point: "Zürich Info now, automatically", outlined like a waypoint marked automatically, with UNDO. Undone, the call stays due in NEXT, without its line, and the app leaves it to you.
+- **A tap on a LISTEN** marks it heard ("LSZG ATIS heard", with UNDO), and NEXT shows the call after it. A call that is due comes before a LISTEN.
+- **A tap on NOW** opens ROUTE, where a tap on a row makes that station NOW, as when a controller sends you to another (see [The Route Page](#the-route-page)).
+
+Where each change comes due, and where the app makes it at the latest:
+
+- **Leaving the departure**: due at the level-off (from an aerodrome with a zone, once out of it); the app changes 2 NM out of that zone, or 10 NM out, whichever comes first. A zone the climb goes into comes due before, by its own rule.
+- **Into a CTR, an RMZ or a FIZ**: due 5 minutes before its boundary; the app changes at the boundary.
+- **Out of a zone, back to the Info**: due at its exit; the app changes 2 NM past it.
+- **From one Info to the next**: due 2 minutes before the boundary; the app changes at the boundary, never to an Info you would be on for less than a minute.
+- **An aerodrome at its reporting points**: due 5 minutes before the first point; the app changes 30 seconds before it.
+- **The destination**: due 5 minutes before it, or 2 minutes before its arrival point; the app changes at its zone's boundary or 30 seconds before its arrival point, whichever comes first (without either, 2 minutes before the aerodrome).
+
+The station you are on is kept with the flight: a relaunch in flight comes back to it, and a route changed in flight (an edit, a Direct) keeps it, the calls behind the aircraft taken as made.
 
 ### Three Pages
 
@@ -516,11 +566,11 @@ When **Log Engine Hours** is on (**Settings › Checklist & Flight**), the check
 
 ### The Route Page
 
-**ROUTE** is where the flight goes and who to talk to on the way. The flight never opens it for you: pick it, or tap NEXT or NOW | NEXT in the read band (on the iPhone, the next line opens it on LEGS and the NOW line on RADIO), or **Legs and frequencies** in More. From top to bottom:
+**ROUTE** is where the flight goes and who to talk to on the way. The flight never opens it for you: pick it, or tap NEXT (the waypoint) or NOW in the read band, NEXT's frequency too off a route's timeline (on the iPhone, the next line opens it on LEGS and the NOW line on RADIO), or **Legs and frequencies** in More. From top to bottom:
 
 - **The DEST line**: **DEST** and the destination, then the distance still to fly, the ETE and the ETA over the destination, and how far ahead of the plan (▲, green) or behind it (▼, amber) you are, in whole minutes (±0 on time). On the iPad it is one line; on the iPhone too, without the ETA ("DEST LSZB 52 NM · 30 min ▲3"), a long name set smaller rather than cut.
 - **The route to scale**, under it, on the iPad: a bar as long as the route, filled as far as you have flown, with a notch at each waypoint where it lies along the route (the next one magenta and taller), and the aircraft where it is. The iPhone has none.
-- **LEGS** and **RADIO**, each scrolling on its own: side by side on the iPad; on the iPhone, one at a time: a **LEGS | RADIO** switch under the DEST line picks the list, which takes the page down to Emergency (ROUTE opens on LEGS, from CHECKLIST · MAP · ROUTE too). LEGS opens on the leg being flown and brings it back into view at each MARK. Each leg, on the row of the waypoint it leads to, gives its planned time, the time flown (the leg timer on the leg being flown; from one time over to the next on a leg flown) and how far ahead (▲) or over (▼) you are, a leg of an hour or more as "1h05"; on the iPhone, each leg is one line, a long name set smaller, never cut. RADIO lists every frequency in the order you will use it: NOW and NEXT, tagged; the aerodrome you are at, with its ATIS; the diversion field; the stations of the route from the waypoint you are flying to onward (the aerodromes passed are dropped); the FIS where you are, then that of each area the way ahead enters, in the order it enters them (Zürich Info, then Geneva Info from LSZQ to LSGE); and the control zones within 25 NM. Without a route, RADIO takes the whole page.
+- **LEGS** and **RADIO**, each scrolling on its own: side by side on the iPad; on the iPhone, one at a time: a **LEGS | RADIO** switch under the DEST line picks the list, which takes the page down to Emergency (ROUTE opens on LEGS, from CHECKLIST · MAP · ROUTE too). LEGS opens on the leg being flown and brings it back into view at each MARK. Each leg, on the row of the waypoint it leads to, gives its planned time, the time flown (the leg timer on the leg being flown; from one time over to the next on a leg flown) and how far ahead (▲) or over (▼) you are, a leg of an hour or more as "1h05"; on the iPhone, each leg is one line, a long name set smaller, never cut. RADIO lists every frequency in the order you will use it: NOW and NEXT, tagged; on the ground, the aerodrome you are at, with its ATIS; then the route's radio timeline from NOW on (see [NOW and NEXT](#now-and-next)), each station once, a LISTEN in its place and tagged; the zones the route may or may not enter; and, under **NEARBY, OFF ROUTE**, the control zones within 25 NM that the route does not call. A tap on a row (all but NOW, a LISTEN and Emergency) makes that station NOW, with UNDO, off the route too: the station a controller sends you to. While NEXT is due, its row is outlined. Off a route's timeline (no route, circuits, a diversion), the list is the aerodrome you are at, with its ATIS; the diversion field; the stations of the route from the waypoint you are flying to onward (the aerodromes passed are dropped); the FIS where you are, then that of each area the way ahead enters, in the order it enters them (Zürich Info, then Geneva Info from LSZQ to LSGE); and the control zones within 25 NM. Without a route, RADIO takes the whole page.
 - **Emergency**, 121.500, under both, always whole.
 
 The DEST line's ETE is NEXT's (the leg being flown, at the current ground speed) plus the planned EETs of the legs after it, to overhead the destination without the arrival allowance; ▲ or ▼ compares the ETA with the plan's time over the destination. Below 30 kt or without a GPS position, there is no ETE, ETA or ▲/▼: the line gives the plan's time over the destination instead ("ETO 11:55"). Once the destination is marked, it keeps the final ▲ or ▼.
@@ -635,7 +685,7 @@ The magnifying glass, immediately left of **Map**, opens **Search aerodromes**: 
 
 At the top left of the Cockpit's MAP, one slot says the one thing that needs you, and stays dark otherwise. It shows one state at a time, the most urgent first, and a tap opens what it is about:
 
-- **UNDO**: for six seconds after a MARK, a leg-timer reset, a waypoint marked automatically, a check or FREDA recorded with one tap, or a go-around, touch-and-go or full stop the app recorded by itself, the message and **UNDO**, with its time running out under the word.
+- **UNDO**: for six seconds after a MARK, a leg-timer reset, a waypoint marked automatically, a check or FREDA recorded with one tap, a go-around, touch-and-go or full stop the app recorded by itself, or a change of frequency (yours or the app's, see [Changing Frequency](#changing-frequency)), the message and **UNDO**, with its time running out under the word.
 - **NO GPS** (red), by the GPS indicator's rule (see [GPS Indicators](#gps-indicators)). A tap opens the GPS Status drawer.
 - **OFF ROUTE 1.2 NM** (amber), see below. A tap frames the aircraft and the leg.
 - **CHART OFFLINE** (amber): the chart on screen can neither be fetched (offline mode, or no network) nor drawn from the offline cache (another layer, a zoom the cache does not hold, or outside Switzerland). A tap says where the chart comes from.
@@ -650,7 +700,7 @@ OFF ROUTE shows when the aircraft is more than 1.0 NM off the route it is flying
 
 ### Frequencies
 
-In the Cockpit, NOW and NEXT are in the read band (see [NOW and NEXT](#now-and-next)), and every frequency is on ROUTE. In Plan › Map, NOW and NEXT run along the bottom of the map, by the same rule. Tap them for the legs and the **RADIO FREQUENCIES**: NOW and NEXT, **All frequencies** along the way (the nearest aerodrome, the route's waypoints, the FIS of the areas on the way, nearby control zones), and the emergency frequency, 121.500, always at the foot.
+In the Cockpit, NOW and NEXT are in the read band (see [NOW and NEXT](#now-and-next)), and every frequency is on ROUTE. In Plan › Map, NOW and NEXT run along the bottom of the map, from where you are and the route rather than its radio timeline: NOW the aerodrome within 10 NM of you, else the area's FIS; NEXT the route's next aerodrome (the area's Info, on a local flight). Nothing comes due there: changing frequency is the Cockpit's. Tap them for the legs and the **RADIO FREQUENCIES**: NOW and NEXT, **All frequencies** along the way (the nearest aerodrome, the route's waypoints, the FIS of the areas on the way, nearby control zones), and the emergency frequency, 121.500, always at the foot.
 
 ### Leg Timer and MARK
 
@@ -715,7 +765,7 @@ The iPhone flies with the same Cockpit as the iPad: the same zones, in the same 
 ### The Cockpit on the Phone
 
 - **The header, on one row**: the phase button, with the phase bar drawn inside (and the lap at its right end in circuit mode), and **Menu**. A tap on the phase opens **Select Phase**, which is where a phase is picked on the phone (the iPad keeps its bar of segments to tap). The registration, the flight time and the GPS icon are not there: the Menu has the running flight time, the circuit's counts and **Abandon Flight** (see [The Menu](#the-menu)), and a GPS problem shows in the strip's flags and in MAP's status slot.
-- **The strip** has three cells, GS, ALT and TRK (a tap on GS opens V-SPEEDS; the vertical speed sits beside ALT's label). Under it, one card holds the **next line** (the waypoint's name in magenta, framed in amber while you divert, then its distance and its ETE) and the **NOW line** (NOW's frequency and station). The bearing and the ETA are on ROUTE. A tap on the next line opens ROUTE on LEGS, a tap on the NOW line opens it on RADIO, where NEXT's frequency is too. The next line comes and goes with the strip; the NOW line is there in every phase.
+- **The strip** has three cells, GS, ALT and TRK (a tap on GS opens V-SPEEDS; the vertical speed sits beside ALT's label). Under it, one card holds the **next line** (the waypoint's name in magenta, framed in amber while you divert, then its distance and its ETE) and the **NOW line** (NOW's frequency and station). The bearing and the ETA are on ROUTE. A tap on the next line opens ROUTE on LEGS, a tap on the NOW line opens it on RADIO, where NEXT's frequency is too. While NEXT is due, the NOW line shows it beside NOW ("NOW 124.700 › 120.105 LSZG TWR HX", NOW's frequency smaller and grey, the due call outlined with its line), and a tap on the line changes frequency instead (see [Changing Frequency](#changing-frequency)). The next line comes and goes with the strip; the NOW line is there in every phase.
 - **CHECKLIST · MAP · ROUTE** runs across the width, slim (the words alone where their icons do not fit). **V-SPEEDS** is in **More**, and behind a tap on GS. At the top of CHECKLIST, the deferred count, **BRIEFING** and **NEXT** appear only while they apply.
 - **The act band** has the iPad's four slots, one line of words tall: the first three as wide, **More** narrow at the right end, no icons and no second lines (**CRUISE · MARK · Divert · More** on MAP and ROUTE; see [The Act Band](#the-act-band)). A word too long for its slot is set smaller rather than cut. A tap anywhere on the list checks the current item too.
 - **V-SPEEDS** is a list, with the phase's speeds highlighted and the maximum crosswind under it.
@@ -732,7 +782,7 @@ On its side, the phone puts the page on the left, at full height (CHECKLIST, MAP
 - **One header row**, as upright: the phase button, with the phase bar drawn inside (a tap opens **Select Phase**), and **Menu**, which has the flight time, the circuit's counts and **Abandon Flight**.
 - **CHECKLIST · MAP · ROUTE**, a little more compact.
 - **The strip**: GS, ALT and TRK.
-- **The next waypoint and NOW, on one line**: the waypoint's name and its ETE, then NOW and its frequency (the name framed in amber while you divert). On the largest phones, two lines: the name with its distance and ETE, then the NOW line. A tap opens ROUTE.
+- **The next waypoint and NOW, on one line**: the waypoint's name and its ETE, then NOW and its frequency (the name framed in amber while you divert). On the largest phones, two lines: the name with its distance and ETE, then the NOW line. A tap opens ROUTE. While NEXT is due, it shows as on the NOW line upright (on one line, "› 120.105" in place of NOW's frequency, outlined), and a tap there changes frequency.
 - **The act band**, its four slots two by two, at the foot of the column, with the same one-line words as upright.
 
 ---
@@ -843,7 +893,7 @@ The **Apple Watch app** follows the flight from your iPhone. Before a flight it 
 In flight, the **flight page** shows the phase (in the colour of its stage) and the next one (the right one in circuit mode, which skips Cruise and Descent), the time (**LOCAL**, or **UTC** with **Always Use UTC Times**), and the **FLIGHT TIME**, from the line-up to the landing. With a route on the map, the watch has three pages, from top to bottom **Navigation**, the flight page and **Frequencies**, and opens on the first; turn the Digital Crown or swipe up and down to go from one to the next:
 
 - **Navigation**: the next waypoint (or the diversion field) and its place in the route ("3/7"); the leg timer (**CHRONO**) with three buttons, MARK, pause or start, and reset, which work the iPhone's leg timer as the Cockpit's do (MARK records the time over and starts the next leg); then **HDG** (the bearing to the waypoint), **DIST** (NM) and **EET** (the time to it at the current ground speed).
-- **Frequencies**: the frequencies of the Cockpit's RADIO (see [The Route Page](#the-route-page)), NOW and NEXT first, then the others in the order you will use them. They follow the flight whatever page the iPhone shows.
+- **Frequencies**: the frequencies of the Cockpit's RADIO (see [The Route Page](#the-route-page)), NOW and NEXT first, then the others in the order you will use them; NEXT outlined while it is due, a LISTEN tagged as such. They follow the flight whatever page the iPhone shows. The watch only shows them: the frequency is changed on the iPhone.
 
 When the watch has had nothing from the phone for five seconds (out of range, for example), its values dim under a **NO DATA** banner, so frozen values are never mistaken for live ones.
 
@@ -851,9 +901,9 @@ When the watch has had nothing from the phone for five seconds (out of range, fo
 
 **Companion Mode** pairs an iPad and an iPhone over a direct Wi-Fi link (Wi-Fi Aware; requires **iOS 26 on both devices**) to turn the second device into a synced **wingman** screen. Pair the two devices once under **Settings › Companion Mode** (**Pair New Device** shows even with the mode off); afterwards they connect automatically when both are nearby and ready.
 
-The first time a phone wants to drive the iPad's flight (its checklist and waypoints, a diversion, or its GPS position), the iPad asks: **Allow companion control?**, with **Allow for This Flight**, **Always Allow** (on this iPad, until you **Forget** the phone or tap **Ask Each Flight** in Settings) and **Don't Allow**.
+The first time a phone wants to drive the iPad's flight (its checklist and waypoints, its radio, a diversion, or its GPS position), the iPad asks: **Allow companion control?**, with **Allow for This Flight**, **Always Allow** (on this iPad, until you **Forget** the phone or tap **Ask Each Flight** in Settings) and **Don't Allow**.
 
-The companion viewer has two screens, **NAV** and **CHECKLIST**, under the read band of the phone's Cockpit: the strip (GS, ALT, TRK), the next line (with an arrow that shows where the waypoint lies from your track, amber while you divert) and NOW | NEXT, the iPad's two frequencies side by side. It shows the checklist on the ground and NAV once airborne, until you tap one; a tap on the next line or on NOW | NEXT shows NAV, and a tap on NAV's check slot that sends the iPad on to the next check shows CHECKLIST once the iPad is there (unless that check is from memory).
+The companion viewer has two screens, **NAV** and **CHECKLIST**, under the read band of the phone's Cockpit: the strip (GS, ALT, TRK), the next line (with an arrow that shows where the waypoint lies from your track, amber while you divert) and NOW | NEXT, the iPad's two frequencies side by side. It shows the checklist on the ground and NAV once airborne, until you tap one; a tap on the next line or on NOW shows NAV, and a tap on NAV's check slot that sends the iPad on to the next check shows CHECKLIST once the iPad is there (unless that check is from memory). On a route, a tap on NEXT changes the iPad's frequency (a LISTEN, marked heard), as a tap on the iPad's own NEXT does: NEXT is outlined while it is due, its line running out, and the phone offers UNDO for six seconds, which takes the change back on the iPad (the iPad offers its own too). This needs 6.4.3 on the iPad; with an older one, or off a route's timeline, a tap on NEXT shows NAV.
 
 - **NAV** is the phone's ROUTE page, drawn from what the iPad sends: the DEST line, the legs and the radio in one scroll, Emergency under it (see [The Route Page](#the-route-page)), and the act band at the foot. Its four slots: the iPad's [check slot](#the-check-slot), which takes the same one tap as on the iPad; **START LEG**, then **MARK** with the waypoint and the leg time, which marks the waypoint on the iPad and starts its next leg; **Divert** (below); and **More**, to start the leg timer again after a pause, **Reset chronometer**, or open the **Nav Log** (the leg to each waypoint, MC and NM, its ETO and its ATO; tap an empty ATO to record it now). RADIO lists what the iPad sends: NOW, NEXT, the diversion field and the frequencies typed for the waypoints ahead. A leg's row does nothing here (the phone has no map to show it on), and a MARK from the phone has no UNDO. At the end of a circuits flight's after landing check, **NEW CIRCUIT** takes MARK's place.
 - **CHECKLIST**: a mirror of the master's checklist. At the end of a circuits flight's after landing check, **NEXT: PARKING CHECK** and **NEW CIRCUIT** sit side by side. NEW CIRCUIT needs 6.3.0 on both devices; otherwise the phone keeps NEXT.
@@ -904,6 +954,7 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 
 - **Airports and frequencies**: from OurAirports and OpenAIP (positions, runways, fuel grades, PPR flags and radio frequencies). A runway shows once, even when the two sources number it differently: it takes the numbers most sources agree on, and a short list, checked by hand, corrects the few they get wrong.
 - **Airspace**: OpenAIP controlled and restricted airspace, with vertical limits and frequencies.
+- **FIS areas**: where another FIS than the area's works low-level VFR traffic (so far one: Bâle Information over the Ajoie and the northern Jura, from 2,000 ft above the ground), from the AéroCheck service, refreshed weekly; the area is drawn by your own OpenAIP airspace. Until it is on the device, the FIS sectors decide alone.
 - **Navaids, obstacles, and reporting points**: OpenAIP map layers (see [The Map Sheet](#the-map-sheet)), plus the few reporting points OpenAIP lacks, from open flightmaps.
 - **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, in the 22 countries open flightmaps covers. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
 - **Charts**: Swiss ICAO, national map, and Segelflug charts from swisstopo.
@@ -948,7 +999,7 @@ Settings is a tab of its own, organised into dedicated pages. Three former setti
 
 ### Checklist & Flight
 
-**Hide memory items** and **Checklist Language**; **Log Engine Hours** (on by default) and **Confirm landings and go-arounds** (off by default, see [Flight Events](#flight-events)); **Always Use UTC Times**; the **Cockpit theme** (Auto / Day / Night) and **High contrast in sunlight**.
+**Hide memory items** and **Checklist Language**; **Log Engine Hours** (on by default) and **Confirm landings and go-arounds** (off by default, see [Flight Events](#flight-events)); under **Radio**, **Aerodromes on the way** (on by default: an aerodrome the route passes within 2 NM shows in NEXT as LISTEN, see [NOW and NEXT](#now-and-next)); **Always Use UTC Times**; the **Cockpit theme** (Auto / Day / Night) and **High contrast in sunlight**.
 
 ### Navigation & Maps
 

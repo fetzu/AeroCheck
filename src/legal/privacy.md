@@ -140,6 +140,8 @@ Deleting the app deletes its data on the device. To remove what is in your iClou
 
 The site itself sets no cookies and runs no analytics. It is served by GitHub Pages through Cloudflare, and the aircraft page asks api.aerocheck.app for the current list from your browser. The request pages (sending a checklist, following a request, a club's answer) talk to intake.aerocheck.app from your browser (section 4.3), and the form loads Cloudflare Turnstile from challenges.cloudflare.com. The links in our e-mails carry their code after a "#", which a browser never sends to the website: only the request server receives it, to open the request.
 
+The Countries page opens on the country you most likely fly in, guessed from your device's time zone, or else your browser's language, as your browser already gives them to any page. The guess is made in your browser: nothing is sent, kept or looked up, and the page says what it guessed from.
+
 
 ## 9.0 Open source and changes
 

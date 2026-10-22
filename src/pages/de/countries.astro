@@ -1,0 +1,9 @@
+---
+import Base from '../../layouts/Base.astro';
+import Countries from '../../components/Countries.astro';
+import { loadSite } from '../../lib/site';
+const site = loadSite('de');
+---
+<Base site={site} lang="de" title={site.countries.title} description={site.countries.description}>
+  <Countries lang="de" t={site.countries} />
+</Base>

@@ -1,0 +1,223 @@
+---
+// The Countries page (/countries, decided 22 Oct 2026): "I fly in …", what the app has there by chapter, a map that
+// frames the country and its neighbours, and every country in a table at the foot. Every country's rows are rendered
+// here at build time from the server's coverage file; the browser only chooses which one shows, guessing the country
+// from the device's time zone and language without sending anything (src/scripts/countries.ts). Without a script the
+// table at the foot is the page.
+import type { Lang, CountriesCopy } from '../lib/site';
+import { langBase, DATE_LOCALES } from '../lib/langs';
+import { loadReleasedCoverage } from '../lib/coverage';
+import { buildCountries, MAP } from '../lib/countries';
+import { toJsonScript } from '../lib/requests-copy';
+import tz from '../data/tz-countries.json';
+interface Props { lang: Lang; t: CountriesCopy; }
+const { lang, t } = Astro.props;
+const coverage = await loadReleasedCoverage();
+const view = buildCountries(coverage, lang, t);
+const known = new Set(view.countries.map((c) => c.cc));
+const support = `${langBase(lang)}/support`;
+const sym = { on: '●', part: '◐', off: '–' } as const;
+const offMap = view.countries.filter((c) => !c.onMap);
+// What the script needs: the time zones, the map's boxes and label points, and the words it writes itself.
+const data = {
+  lang,
+  tz,
+  boxes: Object.fromEntries(Object.entries(MAP.countries).map(([cc, m]) => [cc, { b: m.b, c: m.c }])),
+  names: Object.fromEntries(view.countries.map((c) => [c.cc, c.name])),
+  near: Object.fromEntries(view.countries.map((c) => [c.cc, c.near.map((n) => n.cc)])),
+  phrases: Object.fromEntries(view.countries.map((c) => [c.cc, c.phrase])),
+  copy: { choose: t.choose, elsewhere: t.elsewhere, guessed_tz: t.guessed_tz, guessed_lang: t.guessed_lang, other: t.lead.other, other_none: t.lead.other_none },
+};
+---
+<section class="countries container">
+  <header class="c-head">
+    <p class="eyebrow">{t.eyebrow}</p>
+    <h1 class="ask">
+      <span>{t.ask}</span>
+      <label class="pick" id="cty-pick">
+        <span id="cty-pick-text">{t.choose}</span>
+        <select id="cty-sel" aria-label={t.select_label}>
+          <option value="" disabled selected>{t.option_choose}</option>
+          {view.countries.map((c) => <option value={c.cc}>{c.name}</option>)}
+          <option value="XX">{t.option_elsewhere}</option>
+        </select>
+      </label>
+    </h1>
+    <p class="guess" id="cty-guess" hidden></p>
+    {view.countries.map((c) => <p class="lead" data-for={c.cc}>{c.lead}</p>)}
+    <p class="lead" data-for="XX" id="cty-other-lead">{t.lead.other_none}</p>
+  </header>
+
+  <div class="c-body">
+    <div class="c-panels">
+      <p class="empty" data-for="">{t.empty}</p>
+      {view.countries.map((c) => (
+        <div class="panel" data-for={c.cc} id={`country-${c.cc}`}>
+          {c.prohibited && <p class="ban">{c.prohibited}</p>}
+          {c.groups.map((g) => (
+            <div class="grp">
+              <h2 class:list={['grp-h', { fly: g.id === 'fly' }]}>{g.name}</h2>
+              {g.rows.map((r) => (
+                <div class:list={['row', r.level]}>
+                  <span class:list={['dot', r.level]} aria-hidden="true"></span>
+                  <span class="lbl">{r.label}</span>
+                  <span class="txt"><span class="sr">{t.levels[r.level]}: </span><Fragment set:html={r.html} /></span>
+                </div>
+              ))}
+            </div>
+          ))}
+          <div class="foot">
+            <p><strong>{t.everywhere_here}</strong>: {t.everywhere}.{c.checked && ` ${c.checked}`}</p>
+            <p><a class="tell" href={support}>{c.tell} <span aria-hidden="true">→</span></a></p>
+          </div>
+        </div>
+      ))}
+      <div class="panel" data-for="XX">
+        <div class="foot">
+          <p><strong>{t.everywhere_label}</strong>: {t.everywhere}, {t.everywhere_other}</p>
+          <p><a class="tell" href={support}>{t.tell_other} <span aria-hidden="true">→</span></a></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="c-map" id="cty-map">
+      <svg viewBox={`0 0 ${MAP.w} ${MAP.h}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={t.map_label}>
+        {Object.entries(MAP.countries).map(([cc, m]) => (
+          <path class:list={['land', { data: known.has(cc) }]} data-cc={known.has(cc) ? cc : undefined} d={m.d}>
+            {known.has(cc) && <title>{view.countries.find((c) => c.cc === cc)?.name}</title>}
+          </path>
+        ))}
+        {Object.entries(MAP.countries).filter(([cc, m]) => m.dot && known.has(cc)).map(([cc, m]) => (
+          <circle class="land data" data-cc={cc} cx={m.c[0]} cy={m.c[1]} r="6"><title>{view.countries.find((c) => c.cc === cc)?.name}</title></circle>
+        ))}
+        <text id="cty-label" text-anchor="middle" dominant-baseline="middle"></text>
+      </svg>
+    </div>
+
+    <div class="c-near">
+      {view.countries.filter((c) => c.near.length).map((c) => (
+        <div data-for={c.cc}>
+          <h2 class="near-h">{t.near.heading}</h2>
+          {c.near.map((n) => <button type="button" class="nb" data-cc={n.cc}><strong>{n.name}</strong> · {n.line}</button>)}
+        </div>
+      ))}
+      <div data-for="offmap" class="offmap">
+        <span class="offmap-h">{t.not_on_map}</span>
+        {offMap.map((c) => <button type="button" data-cc={c.cc}>{c.name}</button>)}
+      </div>
+    </div>
+  </div>
+
+  <details class="matrix" id="every-country" open>
+    <summary>{t.table.summary}</summary>
+    <div class="mx-wrap">
+      <table class="mx">
+        <thead><tr><th scope="col">{t.table.country}</th>{view.columns.map((col) => <th scope="col" title={col.label}><abbr title={col.label}>{col.short}</abbr></th>)}</tr></thead>
+        <tbody>
+          {view.matrix.map((m) => (
+            <tr data-row={m.cc}>
+              <th scope="row"><a href={`#${m.cc}`} data-cc={m.cc}>{m.name}</a></th>
+              {m.cells.map((cell) => <td class={`c-${cell.level}`}>{sym[cell.level]}{cell.n ? ` ${cell.n.toLocaleString(DATE_LOCALES[lang])}` : ''}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="mx-key">{t.table.key}</p>
+  </details>
+  <script type="application/json" id="cty-data" set:html={toJsonScript(data)}></script>
+</section>
+
+<script>import '../scripts/countries.ts';</script>
+
+<style>
+  .countries { padding: 40px 24px 72px; display: grid; gap: 28px; }
+  .c-head { display: grid; gap: 10px; }
+  /* "I fly [in France]": the phrase is shown, the native select lies over it, invisible, to be tapped. */
+  .ask { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.18; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; margin-top: 4px; }
+  .pick { position: relative; display: inline-flex; align-items: baseline; gap: .25em; color: var(--gold); border-bottom: 3px solid var(--gold-fill); padding-bottom: 1px; max-width: 100%; cursor: pointer; }
+  .pick::after { content: ""; flex: none; width: .3em; height: .3em; margin-left: .12em; border-right: .09em solid currentColor; border-bottom: .09em solid currentColor; transform: translateY(-.2em) rotate(45deg); }
+  .pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; appearance: none; -webkit-appearance: none; }
+  .pick:focus-within { outline: 2px solid var(--cyan); outline-offset: 4px; border-radius: 2px; }
+  .pick.none { color: var(--dim); }
+  .guess { font-size: 13px; color: var(--dim); display: flex; gap: 7px; align-items: baseline; margin: 0; }
+  .guess[hidden] { display: none; }
+  .guess::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--gold-fill); transform: translateY(-1px); }
+  .lead { font-size: 18px; color: var(--muted); max-width: 56ch; margin: 0; text-wrap: pretty; }
+
+  /* Without a script every country's blocks stay hidden and the table below is the page. */
+  [data-for] { display: none; }
+  :global(html.cty-ready) [data-for].on { display: block; }
+  :global(html.cty-ready) .lead[data-for].on { display: block; }
+
+  .c-body { display: grid; gap: 24px 36px; align-items: start; grid-template-areas: "map" "panels" "near"; }
+  @media (min-width: 860px) {
+    .c-body { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); grid-template-areas: "panels map" "panels near"; grid-template-rows: auto 1fr; }
+    .c-map { position: sticky; top: 76px; }
+  }
+  .c-panels { grid-area: panels; min-width: 0; }
+  .c-map { grid-area: map; min-width: 0; }
+  .c-near { grid-area: near; min-width: 0; font-size: 14px; }
+  :global(html:not(.cty-ready)) .c-body { display: none; }
+
+  .panel { display: none; }
+  :global(html.cty-ready) .panel.on { display: grid; gap: 20px; }
+  .empty { font-size: 16px; color: var(--muted); margin: 0; }
+  .ban { border: 1px solid var(--error); color: var(--error); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 14px; margin: 0; }
+  .grp-h { font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); padding-bottom: 7px; border-bottom: 1px solid var(--line-2); margin: 0; }
+  .grp-h.fly { color: var(--cyan); }
+  .row { display: grid; grid-template-columns: 14px minmax(9em, 13em) minmax(0, 1fr); gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+  @media (max-width: 560px) { .row { grid-template-columns: 14px minmax(0, 1fr); } .row .txt { grid-column: 2; } }
+  .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--dim); transform: translateY(1px); }
+  .dot.on { background: var(--green); border-color: var(--green); }
+  .dot.part { background: linear-gradient(90deg, var(--amber) 50%, transparent 50%); border-color: var(--amber); }
+  .dot.off { border-color: var(--line-2); }
+  .lbl { font-size: 14px; font-weight: 700; color: var(--text); }
+  .row.off .lbl { color: var(--dim); font-weight: 400; }
+  .txt { font-size: 14px; color: var(--muted); }
+  .txt :global(.n) { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .txt :global(.acc) { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line-2); border-radius: 4px; padding: 0 5px; margin-left: 5px; white-space: nowrap; color: var(--muted); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .foot { display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+  .foot p { margin: 0; }
+  .foot strong { color: var(--text); }
+  .tell { color: var(--cyan); }
+
+  .c-map svg { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--radius); background: var(--bg-band); }
+  .c-map .land { fill: var(--panel-2); stroke: var(--bg); stroke-width: .8; stroke-linejoin: round; transition: fill .2s; }
+  .c-map .land.data { fill: color-mix(in srgb, var(--text) 13%, var(--bg)); cursor: pointer; }
+  .c-map .land.data:hover { fill: color-mix(in srgb, var(--text) 20%, var(--bg)); }
+  .c-map .land.near { fill: color-mix(in srgb, var(--gold-fill) 38%, var(--bg)); }
+  .c-map .land.here { fill: var(--gold-fill); stroke: var(--gold-ink); }
+  .c-map circle.land { stroke-width: 1.2; }
+  .c-map text { font-family: var(--sans); font-weight: 700; fill: var(--gold-ink); paint-order: stroke; stroke: var(--gold-fill); pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .c-map .land { transition: none; } }
+
+  .near-h { font-family: var(--mono); font-size: 11.5px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 6px; }
+  .nb { display: block; width: 100%; font: inherit; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); padding: 8px 0; color: var(--muted); cursor: pointer; }
+  .nb strong { color: var(--text); }
+  .nb:hover strong { color: var(--cyan); }
+  .offmap { display: none; }
+  :global(html.cty-ready) .offmap.on { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .offmap-h { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
+  .offmap button { font: inherit; font-size: 13px; border: 1px solid var(--line-2); background: var(--panel); color: var(--text); border-radius: 999px; padding: 3px 11px; cursor: pointer; }
+
+  .matrix { border-top: 1px solid var(--line-2); padding-top: 16px; }
+  .matrix summary { cursor: pointer; font-weight: 700; font-size: 16px; color: var(--text); }
+  :global(html:not(.cty-ready)) .matrix { border-top: 0; padding-top: 0; }
+  .mx-wrap { overflow-x: auto; margin-top: 12px; }
+  .mx { border-collapse: collapse; font-size: 12.5px; min-width: 820px; width: 100%; font-variant-numeric: tabular-nums; }
+  .mx th, .mx td { padding: 6px 7px; border-top: 1px solid var(--line); text-align: center; white-space: nowrap; }
+  .mx thead th { font-family: var(--mono); font-size: 10.5px; font-weight: 400; letter-spacing: .04em; color: var(--muted); border-top: 0; vertical-align: bottom; }
+  .mx abbr { text-decoration: none; }
+  .mx tbody th { text-align: left; font-weight: 400; position: sticky; left: 0; background: var(--bg); }
+  .mx thead th:first-child { position: sticky; left: 0; background: var(--bg); text-align: left; }
+  .mx tbody th a { color: var(--text); }
+  .mx tbody th a:hover { color: var(--cyan); }
+  .mx tr.sel th, .mx tr.sel td { background: color-mix(in srgb, var(--gold-fill) 16%, var(--bg)); }
+  .mx tr.sel th a { font-weight: 700; }
+  .mx .c-on { color: var(--green); }
+  .mx .c-part { color: var(--amber); }
+  .mx .c-off { color: var(--dim); }
+  .mx-key { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+</style>

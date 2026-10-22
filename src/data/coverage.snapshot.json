@@ -1,0 +1,2749 @@
+{
+  "v": 1,
+  "generated": "2026-10-22T16:03:17Z",
+  "countries": {
+    "AL": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Albcontrol MET",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "Albcontrol eAIP",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Albcontrol ASM",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Albcontrol MET",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Tirana ARO"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 1
+      },
+      "openaip": true
+    },
+    "AM": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "ARMATS eAIP",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARMATS, Zvartnots AIS (ext. 314)"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "AT": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Homebriefing (Austro Control)",
+            "access": "account"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Homebriefing (Austro Control)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Homebriefing (Austro Control)",
+            "access": "account"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Austro Control Flugwetter",
+            "access": "account"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Homebriefing (Austro Control)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "AIS/ARO Wien"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 51,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "on",
+        "count": 31
+      },
+      "points": 322,
+      "charts": {
+        "level": "part",
+        "kind": "eaip"
+      },
+      "fees": {
+        "level": "on",
+        "count": 16
+      },
+      "border": {
+        "level": "on"
+      },
+      "openaip": true
+    },
+    "AU": {
+      "charts": {
+        "level": "part",
+        "kind": "start"
+      },
+      "openaip": true
+    },
+    "BA": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "BHANSA AMC",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "BHANSA AMC",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "FIC Banja Luka",
+          "ARO Sarajevo"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 3
+      },
+      "openaip": true
+    },
+    "BE": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skeyes",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skeyes",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Brussels ARO"
+        ],
+        "ats": "report"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 8,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 3
+      },
+      "points": 83,
+      "charts": {
+        "level": "off",
+        "reason": "homepage"
+      },
+      "fees": {
+        "level": "on",
+        "count": 19
+      },
+      "openaip": true
+    },
+    "BG": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "B-FLIP (BULATSA)",
+            "access": "account"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "B-FLIP (BULATSA)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "B-FLIP (BULATSA)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "part"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 1,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 156,
+      "charts": {
+        "level": "part",
+        "kind": "start",
+        "signin": true
+      },
+      "fees": {
+        "level": "on",
+        "count": 4
+      },
+      "openaip": true
+    },
+    "BY": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "off"
+      },
+      "airspace": {
+        "level": "off"
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "part"
+      },
+      "prohibited": "EASA SD-2021-02",
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "CH": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skybriefing",
+            "access": "paid"
+          },
+          {
+            "name": "MeteoSwiss",
+            "access": "open",
+            "names": {
+              "fr": "MétéoSuisse",
+              "de": "MeteoSchweiz"
+            }
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skybriefing",
+            "access": "paid"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "DABS",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MeteoSwiss",
+            "access": "open",
+            "names": {
+              "fr": "MétéoSuisse",
+              "de": "MeteoSchweiz"
+            }
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skybriefing",
+            "access": "paid"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "alertMinutes": 30,
+        "units": [
+          "skyguide ARO"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 40,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "on",
+        "count": 41
+      },
+      "points": 91,
+      "charts": {
+        "level": "part",
+        "kind": "subscription"
+      },
+      "fees": {
+        "level": "on",
+        "count": 32
+      },
+      "border": {
+        "level": "on"
+      },
+      "openaip": true,
+      "swisstopo": true,
+      "wind": "meteoswiss"
+    },
+    "CY": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Department of Meteorology",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Cyprus DCA AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Cyprus DCA AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Department of Meteorology",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Cyprus DCA AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Larnaka ARO"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 2
+      },
+      "openaip": true
+    },
+    "CZ": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ANS CR Meteo",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (ANS CR)",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AUP (ANS CR)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "CHMI SWL",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (ANS CR)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Praha FIC"
+        ],
+        "ats": "controlled",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 163,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 7
+      },
+      "points": 114,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 91
+      },
+      "fees": {
+        "level": "on",
+        "count": 22
+      },
+      "openaip": true
+    },
+    "DE": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "pc_met (DWD)",
+            "access": "paid"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "DFS AIS-Portal",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "DFS WebAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "pc_met (DWD)",
+            "access": "paid"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "DFS AIS-Portal",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "AIS-C (DFS)"
+        ],
+        "ats": "controlled"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 548,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "on",
+        "count": 166
+      },
+      "points": 405,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 444
+      },
+      "fees": {
+        "level": "on",
+        "count": 147
+      },
+      "border": {
+        "level": "on"
+      },
+      "openaip": true
+    },
+    "DK": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NorthAviMet",
+            "access": "restricted"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Naviair Briefing",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Naviair Briefing",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NorthAviMet",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "AIS Briefing Naviair"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "off",
+        "count": 0,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 46,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 32
+      },
+      "fees": {
+        "level": "on",
+        "count": 9
+      },
+      "openaip": true
+    },
+    "EE": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "lennuilm.ee",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "EANS AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "EANS AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "lennuilm.ee",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "EANS AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "reportMinutes": 30,
+        "units": [
+          "EANS Flight Data Assistant"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 4
+      },
+      "openaip": true
+    },
+    "ES": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AEMET AMA",
+            "access": "restricted"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ICARO (ENAIRE)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AEMET AMA",
+            "access": "restricted"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ICARO (ENAIRE)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "aerodromes": 119,
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 60
+      },
+      "openaip": true
+    },
+    "FI": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Ilmailusää (FMI)",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ais.fi (Fintraffic)",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ais.fi AUP (Fintraffic)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Ilmailusää LLF (FMI)",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ais.fi (Fintraffic)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ACC VFR Control"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 2,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 119,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 80
+      },
+      "fees": {
+        "level": "on",
+        "count": 27
+      },
+      "openaip": true
+    },
+    "FO": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NorthAviMet",
+            "access": "restricted"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Naviair Briefing",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "off"
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "AIS Briefing Naviair"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "FR": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Aéroweb (Météo-France)",
+            "access": "account"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "SOFIA-Briefing (DGAC)",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "SIA AZBA",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Aéroweb (Météo-France)",
+            "access": "account"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "SOFIA-Briefing (DGAC)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "DSNA ARO"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 1,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 1
+      },
+      "points": 773,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 419
+      },
+      "fees": {
+        "level": "on",
+        "count": 80
+      },
+      "border": {
+        "level": "on"
+      },
+      "openaip": true
+    },
+    "GB": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Met Office MAVIS",
+            "access": "account"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NATS AIS",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NATS PIB 5",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Met Office MAVIS",
+            "access": "account"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AFPEx (NATS)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "alertMinutes": 30,
+        "units": [
+          "AFPEx Helpdesk"
+        ],
+        "ats": "atsu"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 97
+      },
+      "border": {
+        "level": "on"
+      },
+      "openaip": true
+    },
+    "GE": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Sakaeronavigatsia MET",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Sakaeronavigatsia AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Sakaeronavigatsia AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Sakaeronavigatsia MET",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Sakaeronavigatsia AIS",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Tbilisi"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "GL": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NorthAviMet",
+            "access": "restricted"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Naviair Briefing",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "off"
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Nuuk FIC"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "GR": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "HNMS",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "off"
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "HNMS",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "part"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 1,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 376,
+      "charts": {
+        "level": "part",
+        "kind": "start"
+      },
+      "fees": {
+        "level": "on",
+        "count": 10
+      },
+      "openaip": true
+    },
+    "HR": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Croatia Control MET",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Internet Briefing (Croatia Control)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AMC Croatia",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Internet Briefing (Croatia Control)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Central ARO Split"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 10,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 205,
+      "charts": {
+        "level": "part",
+        "kind": "start",
+        "signin": true
+      },
+      "fees": {
+        "level": "on",
+        "count": 5
+      },
+      "openaip": true
+    },
+    "HU": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "HungaroMet",
+            "access": "account"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NetBriefing (HungaroControl)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AUP (HungaroControl)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NetBriefing (HungaroControl)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Budapest"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 47,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 134,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 69
+      },
+      "fees": {
+        "level": "on",
+        "count": 12
+      },
+      "openaip": true
+    },
+    "IE": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AirNav Ireland",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AirNav Ireland",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AirNav Ireland",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Shannon ATS",
+          "Dublin ATS"
+        ],
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 13
+      },
+      "openaip": true
+    },
+    "IM": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Met Office MAVIS",
+            "access": "account"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NATS AIS",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NATS PIB 5",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Met Office MAVIS",
+            "access": "account"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AFPEx (NATS)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "alertMinutes": 30,
+        "units": [
+          "Isle of Man ATC",
+          "AFPEx Helpdesk"
+        ],
+        "ats": "atsu"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "IS": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Icelandic Met Office",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Avians",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Avians",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Icelandic Met Office",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Cronos (Avians)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Reykjavík ACC"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 5
+      },
+      "openaip": true
+    },
+    "IT": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MeteoAM (Aeronautica Militare)",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "off"
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MeteoAM SWLL (Aeronautica Militare)",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "part"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 10,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 5
+      },
+      "points": 520,
+      "charts": {
+        "level": "off",
+        "reason": "terms"
+      },
+      "fees": {
+        "level": "on",
+        "count": 32
+      },
+      "border": {
+        "level": "on"
+      },
+      "openaip": true
+    },
+    "LI": {
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 1
+      },
+      "openaip": false
+    },
+    "LT": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "Oro navigacija",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "part"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 3
+      },
+      "openaip": true
+    },
+    "LU": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MeteoLux",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skeyes",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MeteoLux",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "skeyes",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Luxembourg (ANA)",
+          "Brussels ARO"
+        ],
+        "ats": "report"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 1,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 1
+      },
+      "points": 8,
+      "charts": {
+        "level": "off",
+        "reason": "homepage"
+      },
+      "fees": {
+        "level": "on",
+        "count": 2
+      },
+      "openaip": true
+    },
+    "LV": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (LGS)",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "LGS AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "LGS AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (LGS)",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (LGS)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "reportMinutes": 30,
+        "units": [
+          "ARO Riga"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 6
+      },
+      "openaip": true
+    },
+    "MD": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MoldATSA AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MoldATSA AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MoldATSA AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MoldATSA AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MoldATSA AIM",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Chişinău"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "ME": {
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 2
+      },
+      "openaip": false
+    },
+    "MK": {
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 2
+      },
+      "openaip": false
+    },
+    "MT": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Malta MET Office",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "Transport Malta AIP",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "off"
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Malta AIS (NOF)"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 1,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 1
+      },
+      "points": 22,
+      "charts": {
+        "level": "off",
+        "reason": "sold"
+      },
+      "fees": {
+        "level": "on",
+        "count": 1
+      },
+      "openaip": false
+    },
+    "NL": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "KNMI Luchtvaartmeteo",
+            "access": "restricted"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Amsterdam Integrated Briefing (LVNL)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "KNMI",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Amsterdam Integrated Briefing (LVNL)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Schiphol"
+        ],
+        "ats": "controlled"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 16,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "on",
+        "count": 13
+      },
+      "points": 103,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 22
+      },
+      "fees": {
+        "level": "on",
+        "count": 16
+      },
+      "openaip": true
+    },
+    "NO": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPPC (Avinor)",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPPC (Avinor)",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPPC (Avinor)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPPC (Avinor)",
+            "access": "open"
+          },
+          {
+            "name": "NorthAviMet",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPPC (Avinor)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "AIS Norway"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 56
+      },
+      "openaip": true
+    },
+    "NZ": {
+      "charts": {
+        "level": "part",
+        "kind": "start"
+      },
+      "openaip": true
+    },
+    "PL": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Awiacja (IMGW)",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IWB (PANSA)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AUP (PANSA)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "GAMET (IMGW)",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IWB (PANSA)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "alertMinutes": 30,
+        "units": [
+          "ARO Poland"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 1,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 464,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 84
+      },
+      "fees": {
+        "level": "on",
+        "count": 28
+      },
+      "openaip": true
+    },
+    "PT": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPMA",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eARO (NAV Portugal)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "NAV Portugal AIS",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IPMA self-briefing",
+            "access": "account"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eARO (NAV Portugal)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Portugal"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 11
+      },
+      "openaip": true
+    },
+    "RO": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AIS Romania (ROMATSA)",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AIS Romania (ROMATSA)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "reportMinutes": 30,
+        "units": [
+          "ARO Bucureşti"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 18,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 181,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 37
+      },
+      "fees": {
+        "level": "on",
+        "count": 10
+      },
+      "openaip": true
+    },
+    "RS": {
+      "weather": {
+        "level": "off"
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "SMATSA",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "SMATSA AUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Beograd"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "fees": {
+        "level": "on",
+        "count": 4
+      },
+      "openaip": true
+    },
+    "SE": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AROWeb (LFV)",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AROWeb (LFV)",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AROWeb (LFV)",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AROWeb LHP (LFV)",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "AROWeb (LFV)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "reportMinutes": 30,
+        "units": [
+          "Stockholm ACC",
+          "Malmö ACC"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 3,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "part",
+        "count": 1
+      },
+      "points": 292,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 48
+      },
+      "fees": {
+        "level": "on",
+        "count": 52
+      },
+      "openaip": true
+    },
+    "SI": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ARSO",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Slovenia Control AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "Slovenia Control AIM",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "ARSO",
+            "access": "open"
+          },
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "ARO Slovenia"
+        ],
+        "ats": "sera"
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "part",
+        "count": 5,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 74,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 16
+      },
+      "fees": {
+        "level": "on",
+        "count": 8
+      },
+      "openaip": true
+    },
+    "SK": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "SHMU",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBAF (LPS SR)",
+            "access": "account"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "eGAFOR",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBAF (LPS SR)",
+            "access": "account"
+          }
+        ]
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Bratislava FIC",
+          "CARO Bratislava"
+        ],
+        "ats": "sera",
+        "activation": true
+      },
+      "reviewed": "2026-10-18",
+      "circuits": {
+        "level": "on",
+        "count": 37,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 61,
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 27
+      },
+      "fees": {
+        "level": "on",
+        "count": 8
+      },
+      "openaip": true
+    },
+    "TR": {
+      "weather": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MGM Hezarfen",
+            "access": "open"
+          }
+        ]
+      },
+      "notam": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "DHMİ AIP",
+            "access": "paid"
+          }
+        ]
+      },
+      "airspace": {
+        "level": "part",
+        "publishers": [
+          {
+            "name": "EUROCONTROL EAUP",
+            "access": "open"
+          }
+        ]
+      },
+      "forecast": {
+        "level": "on",
+        "publishers": [
+          {
+            "name": "MGM Rasat",
+            "access": "open"
+          }
+        ]
+      },
+      "filing": {
+        "level": "off"
+      },
+      "close": {
+        "level": "on",
+        "units": [
+          "Ankara FIC"
+        ]
+      },
+      "reviewed": "2026-10-18",
+      "charts": {
+        "level": "off"
+      },
+      "openaip": true
+    },
+    "US": {
+      "circuits": {
+        "level": "on",
+        "count": 4856,
+        "source": "nasr",
+        "altitudes": 438
+      },
+      "charts": {
+        "level": "on",
+        "kind": "every",
+        "count": 5285
+      },
+      "openaip": true
+    },
+    "ZA": {
+      "circuits": {
+        "level": "off",
+        "count": 0,
+        "source": "ofm"
+      },
+      "routes": {
+        "level": "off",
+        "count": 0
+      },
+      "points": 7,
+      "charts": {
+        "level": "off",
+        "reason": "unreadable"
+      },
+      "openaip": true
+    }
+  }
+}

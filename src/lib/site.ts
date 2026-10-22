@@ -14,7 +14,7 @@ export interface Callout { where: string; title: string; text: string; x: number
 /** A flagship row. `shot` is shown on both devices; `iphone_shot` overrides the iPhone's. A row whose
  *  anchor or step belongs to FLY sits in the FLY band (see Landing.astro). `facts`: at most three, plain
  *  text, never chips. `note`: one calm line under them (the safety sentence by the checklists). */
-export interface FlagshipItem { step: string; title: string; description: string; facts?: string[]; note?: string; shot: string; iphone_shot?: string; anchor?: string; fly?: boolean; }
+export interface FlagshipItem { step: string; title: string; description: string; facts?: string[]; note?: string; shot: string; iphone_shot?: string; anchor?: string; fly?: boolean; where?: boolean; }
 /** The iPhone band in FLY: the phone in portrait, then on its side. */
 export interface PhoneBand { step: string; title: string; description: string; shots: [string, string]; }
 /** One of the four chapters a flight has in the app. `core` marks FLY, drawn filled like the app does. */
@@ -30,7 +30,7 @@ export interface SiteData {
   lang: Lang;
   meta: { title: string; description: string };
   brand: string;
-  nav: { features: string; story: string; aircraft: string; manual: string; changelog: string; download: string };
+  nav: { features: string; story: string; aircraft: string; countries: string; manual: string; changelog: string; download: string };
   store: { alt: string; cta: string };
   theme: { to_dark: string; to_light: string };
   hero: {
@@ -55,12 +55,52 @@ export interface SiteData {
     end: { title: string; text: string; secondary: Link };
   };
   device_labels: { ipad: string; iphone: string; dots: string };
+  countries: CountriesCopy;
   footer: {
     safety: string;
     made_by: string; author: string; author_url: string;
     with: string; in: string; city: string;
     privacy: string; terms: string; support: string; license: string; license_url: string;
   };
+}
+
+/** One/other forms of a phrase with a count ({n}). */
+export interface Plural { one: string; other: string; }
+/** The Countries page's words (src/data/{lang}.yaml, `countries`); the facts come from src/lib/coverage.ts. */
+export interface CountriesCopy {
+  title: string; description: string; eyebrow: string;
+  ask: string; choose: string; elsewhere: string; select_label: string; option_choose: string; option_elsewhere: string;
+  guessed_tz: string; guessed_lang: string; empty: string;
+  lead: {
+    home: string; closed: string; thin: string; knows: string; and: string;
+    parts: { brief: string; brief_file: string; close: string; charts: string; patterns: string; circuits: string };
+    other: string; other_none: string;
+  };
+  prohibited: string;
+  levels: { on: string; part: string; off: string };
+  chapters: { prepare: string; fly: string; close: string };
+  labels: Record<string, string>;
+  short: Record<string, string>;
+  access: { account: string; paid: string; restricted: string; signin: string };
+  text: {
+    general: string; no_page: string; europe_only: string;
+    border_ch: string; border: string; border_off: string; openaip: string; openaip_off: string;
+    nasr: string; circuits: Plural; circuits_none: string; no_source: string; routes: Plural; routes_none: string;
+    charts: Plural; charts_subscription: string; charts_eaip: string; charts_start: string; charts_none: string;
+    charts_reason: Record<string, string>;
+    swisstopo: string; wind_ch: string; wind: string;
+    close_alert: string; close_report: string; close_call: string; close_aerodromes: string; close_activation: string;
+    close_unchecked: string; close_none: string; fees: Plural; fees_none: string;
+  };
+  everywhere: string; everywhere_here: string; everywhere_label: string; everywhere_other: string;
+  checked: string; tell: string; tell_other: string;
+  near: { heading: string; briefing: string; circuits: string; charts: string; chart_links: string; cockpit: string; closed: string };
+  not_on_map: string; map_label: string;
+  table: { summary: string; country: string; key: string };
+  home_line: { lead: string; briefing: string; circuits: string; charts: string; link: string };
+  where: string;
+  /** "in der Schweiz", "aux Pays-Bas": the preposition goes with the country. */
+  in: Record<string, string>;
 }
 
 // Site copy lives in src/data/{lang}.yaml — edit those to change wording. Read at build time (SSG).

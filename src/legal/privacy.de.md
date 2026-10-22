@@ -140,6 +140,8 @@ Wenn Sie die App löschen, werden ihre Daten auf dem Gerät gelöscht. Um zu ent
 
 Die Website selbst setzt keine Cookies und führt keine Nutzungsanalyse durch. Sie wird von GitHub Pages über Cloudflare ausgeliefert, und die Flugzeugseite fragt von Ihrem Browser aus api.aerocheck.app nach der aktuellen Liste. Die Anfrageseiten (eine Checkliste senden, eine Anfrage verfolgen, die Antwort eines Clubs) sprechen von Ihrem Browser aus mit intake.aerocheck.app (Abschnitt 4.3), und das Formular lädt Cloudflare Turnstile von challenges.cloudflare.com. Die Links in unseren E-Mails tragen ihren Code nach einem «#», den ein Browser nie an die Website sendet: Nur der Anfrageserver erhält ihn, um die Anfrage zu öffnen.
 
+Die Länderseite öffnet sich mit dem Land, in dem Sie am wahrscheinlichsten fliegen, geschätzt anhand der Zeitzone Ihres Geräts oder sonst der Sprache Ihres Browsers, wie Ihr Browser sie ohnehin jeder Seite mitteilt. Die Schätzung geschieht in Ihrem Browser: Nichts wird gesendet, gespeichert oder nachgeschlagen, und die Seite sagt, woraus sie geschätzt hat.
+
 
 ## 9.0 Open Source und Änderungen
 

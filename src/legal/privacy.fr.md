@@ -140,6 +140,8 @@ Supprimer l'app supprime ses données sur l'appareil. Pour effacer ce qui se tro
 
 Le site lui-même ne dépose aucun cookie et ne mesure pas son audience. Il est servi par GitHub Pages à travers Cloudflare, et la page des avions demande la liste actuelle à api.aerocheck.app depuis votre navigateur. Les pages des demandes (envoyer une checklist, suivre une demande, la réponse d'un club) parlent à intake.aerocheck.app depuis votre navigateur (section 4.3), et le formulaire charge Cloudflare Turnstile depuis challenges.cloudflare.com. Les liens de nos e-mails portent leur code après un « # », qu'un navigateur n'envoie jamais au site : seul le serveur des demandes le reçoit, pour ouvrir la demande.
 
+La page Pays s'ouvre sur le pays où vous volez le plus probablement, deviné d'après le fuseau horaire de votre appareil, ou à défaut la langue de votre navigateur, tels que votre navigateur les donne déjà à toute page. Le choix se fait dans votre navigateur : rien n'est envoyé, conservé ni recherché, et la page dit d'où vient sa supposition.
+
 
 ## 9.0 Open source et modifications
 

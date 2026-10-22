@@ -1929,17 +1929,11 @@ private struct ProhibitedCountryRow: View {
                     .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
-                Button { onOpen(directive.url) } label: {
-                    Text(directive.displayName())
-                        .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-                        .foregroundColor(.altimeterBlue)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .overlay(Capsule().strokeBorder(Color.altimeterBlue.opacity(0.45), lineWidth: 1))
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
+                // A row, as every link on the page. (6.5.0, q3)
+                ThreadLinkRow(link: ThreadTaskLink(label: directive.displayName(), url: directive.url)) {
+                    onOpen(directive.url)
                 }
-                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
             Spacer(minLength: 0)
         }

@@ -12,9 +12,9 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/markdown-remark": "^7.3.2",
+    "@astrojs/markdown-remark": "^7.3.3",
     "@astrojs/sitemap": "^3.7.4",
-    "astro": "^7.3.8"
+    "astro": "^7.4.0"
   },
   "devDependencies": {
     "js-yaml": "^5.4.3"

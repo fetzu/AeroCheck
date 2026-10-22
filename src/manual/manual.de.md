@@ -405,7 +405,7 @@ Auf einer Route folgen sie ihrem Funkablauf: jeder Anruf in der Reihenfolge, in 
 - **Ein Flugplatz, dessen Meldepunkte die Route überfliegt** (V und E von Les Eplatures, ausserhalb seiner CTR): seine Station, von 5 Minuten vor dem ersten Punkt bis 2 NM nach dem letzten.
 - **Das Ziel**: 5 Minuten vor dem Flugplatz (vor der Grenze seiner Zone, wo er eine hat), oder 2 Minuten vor seinem Ankunftspunkt (dem letzten Wegpunkt der Route, der zu diesem Flugplatz gehört), wenn dieser früher kommt. NÄCHSTE bleibt von da an leer.
 
-Die Minuten zählen bei Ihrer Geschwindigkeit über Grund (ab 30 kt; darunter bei der geplanten Geschwindigkeit der Teilstrecke), sodass ein langsameres Flugzeug seine Anrufe weiter draussen erhält.
+Die Minuten zählen bei Ihrer Geschwindigkeit über Grund (ab 30 kt; darunter bei der geplanten Geschwindigkeit der Teilstrecke): Gleich viele Minuten vorher erhält ein langsameres Flugzeug seine Anrufe näher an der Grenze, ein schnelleres weiter draussen.
 
 NÄCHSTE zeigt **ABHÖREN** für eine Station, die Sie abhören statt rufen:
 

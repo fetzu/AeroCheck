@@ -405,7 +405,7 @@ Sur une route, elles suivent sa séquence radio : chaque appel dans l'ordre où 
 - **Un aérodrome dont la route vole les points de report** (V et E des Éplatures, hors de sa CTR) : sa station, de 5 minutes avant le premier point jusqu'à 2 NM après le dernier.
 - **La destination** : 5 minutes avant l'aérodrome (avant la limite de sa zone, s'il en a une), ou 2 minutes avant son point d'arrivée (le dernier point de la route qui appartient à cet aérodrome) s'il vient plus tôt. SUIV reste ensuite vide.
 
-Les minutes se comptent à votre vitesse sol (dès 30 kt ; en dessous, à la vitesse prévue de la branche), si bien qu'un avion plus lent reçoit ses appels plus loin.
+Les minutes se comptent à votre vitesse sol (dès 30 kt ; en dessous, à la vitesse prévue de la branche) : autant de minutes avant, un avion plus lent reçoit ses appels plus près de la limite, un plus rapide plus loin.
 
 SUIV affiche **ÉCOUTE** pour une station à écouter plutôt qu'à appeler :
 

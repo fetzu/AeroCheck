@@ -405,7 +405,7 @@ On a route, they follow its radio timeline: every call in the order the flight m
 - **An aerodrome whose reporting points the route flies** (V and E of Les Eplatures, outside its CTR): its station, from 5 minutes before the first point to 2 NM past the last.
 - **The destination**: 5 minutes before the aerodrome (before its zone's boundary, where it has one), or 2 minutes before its arrival point (the route's last waypoint of that aerodrome) if that comes first. NEXT is empty from then on.
 
-The minutes count at your ground speed (from 30 kt; slower than that, the leg's planned speed), so a slower aircraft gets its calls further out.
+The minutes count at your ground speed (from 30 kt; slower than that, the leg's planned speed): the same minutes before, a slower aircraft gets its calls nearer the boundary, a faster one further out.
 
 NEXT reads **LISTEN** for a station to listen to rather than call:
 

@@ -196,13 +196,20 @@ At the bottom of the page, **Cancel flight** asks first ("Cancel this flight?"):
 
 ### Prepare
 
-- **Weather briefed** (**Open weather briefing**, skybriefing's, and **Open MeteoSwiss**, its aviation weather, when the route touches Switzerland). On routes that touch Switzerland, **DABS checked** (**Open DABS**) and **GAFOR checked** (**Open MeteoSwiss**). **NOTAMs checked** (**Open NOTAM briefing**).
-- **ATC flight plan filed**: **Copy ATC flight plan** puts a complete ICAO flight plan message on the clipboard (fields 7 to 19, with your route, endurance and persons on board), and **Open skybriefing** takes you to file it. Ticking this task is what arms the close-out reminder after landing.
+Before the flight, a **Weather** card sits above Prepare's tasks: each aerodrome of the route with its METAR and TAF as published, the departure, the destination and the alternates of the ATC flight plan (item 16). A field without a TAF says so and points to the nearest one that has one ("No METAR or TAF · nearest LSZG, 20 NM"), whose reports follow in a **NEAREST** row. Under them, the SIGMETs along the route, or "No SIGMET along the route · 142 received" (in amber, "No SIGMET data received: check the official briefing", when none came at all). At the top, the time the reports were fetched (UTC) and a refresh button; at the foot, "METAR, TAF, SIGMET · NOAA Aviation Weather Center". Opening the page again within ten minutes shows the same reports without asking again; nothing is stored. The card needs no AéroCheck Pro, and a dry run has none. Read it before the official briefing, never instead of it.
+
+A route through a country whose airspace is closed (Belarus) gets a red row at the top of Prepare: "Belarus: flights prohibited", "Operations in this airspace are prohibited. Change the route.", with the directive that says so (EASA SD-2021-02). It is not a task: nothing to tick and nothing stored, and nothing is blocked. It goes when the route does.
+
+- **Weather briefed** and **NOTAMs checked**: a blue chip for each official page of every country the route touches, the departure's first (a page two countries share shows once). Each chip names its publisher (skybriefing, MeteoSwiss, SOFIA-Briefing (DGAC)…) and, on a second line, what the page takes: **free account**, **paid** or **authorised users**, or **general page** where the country has no page of its own for it (the EAUP, an AIP's start page). A chip without a second line is open to all.
+- **Airspace activity** and **Area forecast**: one task per country of the route that publishes them, with its code ("Airspace activity CH", "Area forecast FR") and that country's pages. Switzerland's airspace activity is the DABS: its hint reads "Today's DABS; tomorrow's from 16:00" (the time in your device's time zone), and its chip opens the DABS of the flight's day once it is out, today's until then.
+- **ATC flight plan filed**: "Copy the ATC flight plan, then file it in the departure's country". **Copy ATC flight plan** puts a complete ICAO flight plan message on the clipboard (fields 7 to 19, with your route, endurance and persons on board), and the chip opens the departure country's filing portal (skybriefing for Switzerland, SOFIA-Briefing for France, the DFS AIS-Portal for Germany). Ticking this task is what arms the close-out reminder after landing. Where the departure's country wants a plan filed from a field without ATS to be activated by the pilot (Sweden, Finland, Estonia, Latvia, the Czech Republic, Slovakia, Poland, Hungary and Ireland), and the app's data gives the field neither a tower nor an AFIS, an amber line says so: "ESKT has no ATS: activate the plan yourself after take-off, by radio or phone." A field the data doesn't know gets no line.
 - **PPR**: raised for an aerodrome on your route that openAIP flags as prior permission required, so you call before you go. Its **Official chart** chip opens the aerodrome's chart (see [Official Chart](#official-chart)), which is usually where the number and the hours are. It appears only when the airfield data is downloaded.
 - **Border crossing**: one task per foreign country the route crosses, with the country's **border pack**: whether a customs aerodrome is required, whether prior notification is required, and the lead time, for CH, FR, DE, AT, IT and GB. Each comes with **Official rules** (and **Swiss side** when the flight touches Switzerland) and the date it was checked. A country not yet curated says so and points you to the AIP. Where official sources disagree, the task says that too. **Treat an unestablished requirement as one that applies until you have checked.** This is a reminder, not a clearance.
 - **Nav log ready**: **Export nav log** opens the nav log as an A4 PDF, to read, print, mark up or share. The flight sheet's **Export** menu has it in A5 as well, the kneeboard size.
 
 The day before a dated flight, a **preparation reminder** arrives at T−24 h.
+
+The chips come from AéroCheck's briefing registry, which lists each country's official publishers (see [What Data AéroCheck Uses](#what-data-aérocheck-uses)). A country with no page for a task adds no chip to it.
 
 ### Fly
 
@@ -218,12 +225,29 @@ From there on it is the 16 phases; see [The Cockpit](#the-cockpit) and [The Map]
 
 After **END FLIGHT**, the flight moves to CLOSE-OUT.
 
-- **Close the ATC flight plan**: only if you ticked **ATC flight plan filed**. It is the one task with a search-and-rescue consequence: if the plan was not closed on arrival, Zurich RCC is alerted 30 minutes after your ETA. So the flight's page opens on a red card, **Close your ATC flight plan**, with **Call 0800 437 837** and **Mark closed**; the Today tab shows a badge; and a notification comes about two minutes after END FLIGHT, or 15 minutes after a full-stop landing if you have not ended the flight, whether the app detected the landing or you counted it (with the app open before At the Hangar, it waits in Notification Center: see [Notifications](#notifications)). If you landed somewhere other than planned, the card tells you which aerodrome to give the FIC.
+- **Close the ATC flight plan**: only if you ticked **ATC flight plan filed**. It is the one task with a search-and-rescue consequence, and it follows the rule of the country you landed in. So the flight's page opens on a red card, **Close your ATC flight plan**, with that rule, that country's numbers and **Mark closed**; the Today tab shows a badge; and a notification reminds you. The task's hint is the rule, and its chips are the numbers and the country's links. See [Closing the ATC Flight Plan](#closing-the-atc-flight-plan).
 - **Logbook entry**: **Logbook line** opens **Logbook & costs** for the recorded flight; see [Logbook & Costs](#logbook--costs).
 - **Fees**: the landing fee, when your destination has one. **Flight cost** opens the cost of the flight, **Operator's tariff** the operator's own tariff page, where AéroCheck knows it, and **Official chart** the aerodrome's chart. It appears only when cost tracking is on.
 - **Debrief**, marked optional: a field of a few lines for what went well and what to change. It is the flight's notes, the same text as **NOTES** in its Logbook entry, so either place edits it. It is not a task: never ticked, never counted, and the close-out is complete without it.
 
 **Finish** the flight when you are done; anything still open simply stops asking. A finished flight leaves Plan › Flights and stays in the Logbook.
+
+### Closing the ATC Flight Plan
+
+A filed ATC flight plan is closed by the rule of the country the flight lands in: the destination's, or that of the field you landed at instead. AéroCheck takes it from its briefing registry and says it in a sentence that starts with the country:
+
+- Where the AIP ties alerting to a delay (Switzerland, the United Kingdom, Poland and the Isle of Man): "Switzerland: if it is still open, search and rescue starts 30 min after your ETA."
+- Where it sets a deadline for reporting the arrival (Sweden, Estonia, Latvia and Romania): "Sweden: report your arrival within 30 min of landing."
+- Elsewhere, with the unit to report to: "Germany: report your arrival to AIS-C (DFS). No delay is published; if it stays open, search and rescue may be started."
+- A country with nothing checked (Italy, Greece…) gets the rule that holds everywhere, never another country's number: "Close it with the aerodrome's ATS unit, or the nearest one. If it stays open, search and rescue may be started."
+
+The red card has the rule, then up to two numbers, each named, with the number under the name (**Call skyguide ARO**, +41800437837), beside **Mark closed**; the task's chips have all of them, and the banner that comes over the app after END FLIGHT has the first. The numbers are written in the international format (E.164), so they work from a foreign SIM too. In Spain, the number is the aerodrome's own ARO.
+
+Under the buttons, a line says what a landing at an aerodrome with ATS does, by the country's rule: "An aerodrome with ATS that saw you land closes it: nothing to do." (SERA's rule); "Only a controlled aerodrome closes it for you." (Germany, the Netherlands and the Czech Republic), with "EDTF is not one: close it yourself." when the app's data has no tower there; "At an aerodrome with an ATSU, the ATSU closes it." (the United Kingdom); "Report your arrival even at an aerodrome with ATS." (Belgium and Luxembourg). A country whose rule AéroCheck has not checked gets no line. Then the country's own links, with what they take: in Switzerland, the FOCA's Swiss SAR Alerts app; in Germany, the DFS AIS-Portal, for the arrival report.
+
+If you landed somewhere other than planned, the card adds: "Say you landed at LSZS, not LSZE."
+
+The notification comes about two minutes after END FLIGHT. If you have not ended the flight, it comes after a full-stop landing, whether the app detected it or you counted it: at half the alerting delay the country publishes, or after 15 minutes where it publishes none (15 minutes in Switzerland either way). It gives the rule as well; with the app open before At the Hangar, it waits in Notification Center (see [Notifications](#notifications)).
 
 ### The Flight Sheet
 
@@ -272,7 +296,7 @@ Several aerodromes in Plan new flight make a **trip**: one flight per leg, shown
 
 A stop can be changed until the leg after it flies: that leg's page has **Stop at LSGE**, with its time on the ground and its Refuel box, and the departures estimated after it follow ("Leaves ≈ 15:10, when the leg before lands plus the time on the ground").
 
-Each leg's page shows the trip (**TRIP · 2 of 6**, the shared tasks done), its legs (tap one to open it) and the preparation the legs share: **Aircraft reserved**, **Weather briefed**, **DABS checked**, **GAFOR checked** and **NOTAMs checked** are ticked once for the whole trip. A briefing tick **goes stale** when it no longer covers the next leg (a different day, or more than six hours before its departure), so yesterday's NOTAM briefing never shows as done on today's leg; the row then says when it was last checked. Everything else (route, fuel, mass & balance, ATC flight plan, PPR, customs, nav log, fees, logbook, the debrief in each leg's notes) belongs to each leg.
+Each leg's page shows the trip (**TRIP · 2 of 6**, the shared tasks done), its legs (tap one to open it) and the preparation the legs share: **Aircraft reserved**, **Weather briefed**, **NOTAMs checked** and each country's **Airspace activity** and **Area forecast** are ticked once for the whole trip. A briefing tick **goes stale** when it no longer covers the next leg (a different day, or more than six hours before its departure), so yesterday's NOTAM briefing never shows as done on today's leg; the row then says when it was last checked. Everything else (route, fuel, mass & balance, ATC flight plan, PPR, customs, nav log, fees, logbook, the debrief in each leg's notes) belongs to each leg.
 
 At the bottom of a leg's page, **Cancel this leg** and **Cancel whole trip (3 legs)** sit side by side. The trip's question ("Cancel this trip?") lists the legs it deletes; the legs already flown stay, with their flights in the logbook.
 
@@ -669,6 +693,10 @@ Tap a label for its callout: the procedure's name, what it is ("Traffic circuit 
 
 To keep the chart readable, the procedures are drawn only when the map shows 40 NM or less across (on its shorter side), and their labels (and so their callouts) from 20 NM. At most 80 are drawn at once: your destination's first, then your departure's, then the nearest.
 
+Near an aerodrome, the map adds its approach view: in flight, for the destination (or the field you divert to) within 10 NM or from the approach check on; in Plan › Map, for the aerodromes in view once the map shows 8 NM or less. It draws each runway's extended centreline with the runway numbers at its ends (in flight, the number of the runway in use filled, from the wind), the circuit's direction for that runway, and a parachute beside the field where OpenAIP reports parachuting.
+
+In the United States, where open flightmaps has no data, **Traffic circuits** shows the traffic patterns of the FAA's NASR instead. Each runway number carries the side its pattern turns ("30 RIGHT", "12 LEFT"), and the field its pattern altitude where the FAA publishes one ("TPA 806 ft", above sea level, as the Chart Supplement prints it). No pattern is drawn: the FAA publishes no shape. In Plan › Map, the US fields in view at 8 NM or less show it; in flight, the destination. VoiceOver reads "Runway 30, right-hand traffic". The patterns are fetched the first time a US field needs them, never at launch.
+
 The procedures come with the aeronautical data of each country (see [Downloading Data](#downloading-data)). When a switch is on and the country under the map has none on the device, the card says so ("Download VFR procedures for CZ in Data & Storage"), and a tap takes you there.
 
 With **Reporting points** on, the map also shows the few reporting points OpenAIP lacks, from open flightmaps. They look like the others; their callout adds where they come from ("open flightmaps · AIRAC 2610"), and so does the route editor's search.
@@ -733,8 +761,9 @@ A diversion changes where you navigate to and nothing else: Divert turns amber, 
 - **France**: the aerodrome's VAC (PDF) from the SIA, for the AIRAC cycle in force.
 - **Czech Republic, Slovakia, Hungary, Slovenia, Poland, Finland, Sweden, the Netherlands, Denmark, Romania and South Africa**: the aerodrome's VFR chart, or its page in the VFR manual or the AIP, from the national publisher (ANS CR, LPS SR, HungaroControl, Slovenia Control, PANSA, Fintraffic, LFV, LVNL, Naviair, ROMATSA, SACAA).
 - **Switzerland**: skyguide's VFR Manual on SkyBriefing, one page for every aerodrome, behind a login and a subscription; the button says so (**Official chart · SkyBriefing (subscription)**), so a sign-in page comes as no surprise.
+- **The United States**: the airport's page of the FAA's Chart Supplement (the former A/FD), from the edition in force, public and without a sign-in. A field without an ICAO code is found by its FAA identifier ("1N7").
 - **Croatia** and **Bulgaria**: the AIP portal, behind a login (Croatia Control's by order, BULATSA's after a free sign-in; the button says which).
-- **Austria** and **Greece**: the AIP's start page (Greece's asks you to prove you are not a robot).
+- **Austria**, **Greece**, **Australia** and **New Zealand**: the AIP's start page (Greece's asks you to prove you are not a robot; Australia's and New Zealand's terms allow no other link).
 
 Italy has none (ENAV's terms forbid links to its site without its authorisation), nor do Belgium and Luxembourg (skeyes allows links to its home page only) or Malta (its AIP is sold), and neither do the countries elsewhere. The link is in the airport callout on the map (**Chart**, on the left), the route editor's airport callout, the Divert list, the departure and approach briefings, the PPR and Fees tasks of a flight's page, and the callout of a traffic circuit or a VFR route.
 
@@ -808,6 +837,8 @@ METAR and TAF join the briefing, and SIGMETs are shown on the map with their dis
 ### Approach Briefing
 
 Before approach, a similar briefing covers the **airport** and **elevation** (with the **Official chart**), **runway**, **wind**, **approach speeds** (initial, final, and stall), nearby **reporting points**, and the **go-around procedure**. When wind data is unavailable, it reminds you to check the windsock for calm, crosswind, headwind, or tailwind conditions.
+
+For a US destination, a **Traffic pattern** section follows the reporting points, from the FAA's NASR: each runway end with its side (**RWY 30**, "Right traffic"), then the **TPA** as the FAA publishes it ("806 ft (800 ft AGL)"). Where the FAA only has a remark about it, the TPA reads "See the FAA's remark" and the remark follows word for word, "(FAA NASR, as written)", never a figure taken from it ("TPA 1000 FT W & 800 FT E." at Palo Alto). Where the FAA says nothing, it reads "1000 ft AGL recommended (AIM)". The section ends with "Check the Chart Supplement."
 
 ---
 
@@ -956,9 +987,12 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 - **Airspace**: OpenAIP controlled and restricted airspace, with vertical limits and frequencies.
 - **FIS areas**: where another FIS than the area's works low-level VFR traffic (so far one: Bâle Information over the Ajoie and the northern Jura, from 2,000 ft above the ground), from the AéroCheck service, refreshed weekly; the area is drawn by your own OpenAIP airspace. Until it is on the device, the FIS sectors decide alone.
 - **Navaids, obstacles, and reporting points**: OpenAIP map layers (see [The Map Sheet](#the-map-sheet)), plus the few reporting points OpenAIP lacks, from open flightmaps.
+- **Weather reports**: METAR, TAF and SIGMET from NOAA's Aviation Weather Center (public domain), through the AéroCheck weather proxy: in flight for the briefings and the map, and before it for Prepare's weather card (see [Prepare](#prepare)).
 - **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, in the 22 countries open flightmaps covers. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
+- **US traffic patterns**: the side of each runway's pattern and the pattern altitude, from the FAA's NASR (public domain), through the AéroCheck service. Fetched the first time a US field needs them, then at most once a week.
 - **Charts**: Swiss ICAO, national map, and Segelflug charts from swisstopo.
-- **Official charts**: a link to each aerodrome's chart on its publisher's site (DFS, the SIA, skyguide on SkyBriefing, Austro Control and the AIS of 14 more countries), never the chart itself; see [Official Chart](#official-chart).
+- **Official charts**: a link to each aerodrome's chart on its publisher's site in 21 countries (DFS, the SIA, skyguide on SkyBriefing, Austro Control, the FAA and the AIS of 16 more countries), never the chart itself; see [Official Chart](#official-chart).
+- **Briefing links**: the official pages behind Prepare's tasks (weather, NOTAMs, airspace activity, area forecast, filing) and each country's rule and numbers for closing an ATC flight plan, from the AéroCheck service's briefing registry. It is built weekly on the AéroCheck server from each country's own publishers, every link checked, and the app ships with a copy, so the links and the numbers are there before the first download. Each link names its publisher.
 - **Landing-fee sources**: where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service.
 
 ### Downloading Data
@@ -1023,4 +1057,4 @@ Pair an iPhone and iPad as a synced second screen (Wi-Fi Aware; requires iOS 26 
 
 ### About
 
-App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources; and hidden **Developer Options** (tap the version number five times to unlock).
+App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources (among them the briefing links' publishers, named on each link, and the FAA's NASR for the US traffic patterns); and hidden **Developer Options** (tap the version number five times to unlock).

@@ -80,7 +80,7 @@ flagship:
       fly: true
       title: "Die Karte, mit eingezeichneten Platzrunden"
       description: "Unterwegs wechselt die Seite zur Karte: das Flugzeug, die Route und die Lufträume, mit ÜBERFLUG und Ausweichen unter dem Daumen. Rund um die Flugplätze die Platzrunden, Anflugsektoren und VFR-Routen von open flightmaps, mit einem Link zur offiziellen Karte."
-      facts: ["Schweizer ICAO- und Segelflugkarten, offline", "Platzrunden und VFR-Routen in 22 Ländern", "Links zu offiziellen Karten in 18 Ländern"]
+      facts: ["Schweizer ICAO- und Segelflugkarten, offline", "Platzrunden und VFR-Routen in 22 Ländern", "Links zu offiziellen Karten in 21 Ländern"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
     - step: "04 · Abschliessen"

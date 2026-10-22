@@ -79,7 +79,7 @@ flagship:
       fly: true
       title: "La carte, avec les tours de piste"
       description: "En route, la page passe à la carte : l'avion, la route et les espaces aériens, avec MARQUER et Dérouter sous le pouce. Autour des aérodromes, les tours de piste, les secteurs d'arrivée et les routes VFR d'open flightmaps, avec un lien vers la carte officielle."
-      facts: ["Cartes OACI et vol à voile suisses, hors ligne", "Tours de piste et routes VFR dans 22 pays", "Liens vers les cartes officielles dans 18 pays"]
+      facts: ["Cartes OACI et vol à voile suisses, hors ligne", "Tours de piste et routes VFR dans 22 pays", "Liens vers les cartes officielles dans 21 pays"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
     - step: "04 · Clôturer"

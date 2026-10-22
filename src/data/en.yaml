@@ -80,7 +80,7 @@ flagship:
       fly: true
       title: "The map, with the circuits drawn"
       description: "En route the page turns to the chart: the aircraft, the route and the airspace, with MARK and Divert under your thumb. Around the aerodromes, the traffic circuits, arrival sectors and VFR routes from open flightmaps, with a link to the official chart."
-      facts: ["Swiss ICAO and glider charts, offline", "Circuits and VFR routes in 22 countries", "Official chart links in 18 countries"]
+      facts: ["Swiss ICAO and glider charts, offline", "Circuits and VFR routes in 22 countries", "Official chart links in 21 countries"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
     - step: "04 · Close"

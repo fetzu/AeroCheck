@@ -236,6 +236,27 @@ extension BriefingRegistry.Closing {
         aerodromes = own
     }
 
+    /// Written as the server writes it, `{"LEIG": {"phones": […]}}`, for the cache, which `init(from:)` reads back.
+    /// The synthesised encoding wrote `{"LEIG": […]}`, which came back empty: after the first download, a relaunch had
+    /// lost Spain's 119 AROs. (6.5.0)
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(phones, forKey: .phones)
+        try c.encodeIfPresent(alertMinutes, forKey: .alertMinutes)
+        try c.encodeIfPresent(reportMinutes, forKey: .reportMinutes)
+        try c.encodeIfPresent(atsClose, forKey: .atsClose)
+        try c.encode(links, forKey: .links)
+        var own = c.nestedContainer(keyedBy: BriefingRegistry.AnyKey.self, forKey: .aerodromes)
+        for (icao, phones) in aerodromes {
+            guard let key = BriefingRegistry.AnyKey(stringValue: icao) else { continue }
+            var aerodrome = own.nestedContainer(keyedBy: AerodromeKeys.self, forKey: key)
+            try aerodrome.encode(phones, forKey: .phones)
+        }
+    }
+
+    /// Declared since both directions are written by hand, which leaves nothing for Swift to synthesise them from.
+    enum CodingKeys: String, CodingKey { case phones, alertMinutes, reportMinutes, atsClose, links, aerodromes }
+
     private enum AerodromeKeys: String, CodingKey { case phones }
 }
 

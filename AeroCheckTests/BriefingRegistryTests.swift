@@ -117,6 +117,16 @@ final class BriefingRegistryTests: XCTestCase {
         }
         XCTAssertEqual(shipped.country("CH")?.closing.phones.first?.number, "+41800437837")
         XCTAssertEqual(shipped.country("IT")?.notam, [], "Italy: nothing may be linked")
+        XCTAssertEqual(shipped.country("ES")?.closing.aerodromes.count, (((countries["ES"]?["closing"] as? [String: Any])?["aerodromes"]) as? [String: Any])?.count)
+    }
+
+    /// What the cache writes, it reads back whole: every field, Spain's AROs per aerodrome included (the synthesised
+    /// encoding wrote them in a shape the reader didn't take, found by the 6.5.0 device-check probe).
+    func testTheRegistryRoundTripsThroughTheCache() throws {
+        let shipped = try XCTUnwrap(BriefingRegistryService.decodeShipped(BriefingRegistryService.shippedData()))
+        let again = try JSONDecoder().decode(BriefingRegistry.self, from: JSONEncoder().encode(shipped))
+        XCTAssertEqual(again, shipped)
+        XCTAssertEqual(again.closingPhones(country: "ES", aerodrome: "LEIG").map(\.name), ["Centralised ARO, area 6"])
     }
 
     // MARK: The service
@@ -146,10 +156,11 @@ final class BriefingRegistryTests: XCTestCase {
         XCTAssertEqual(asked, [BriefingRegistryService.registryURL])
         XCTAssertNil(service.registry?.country("BY"))
         XCTAssertFalse(service.isStale)
-        // A relaunch reads the cache, not the shipped copy.
+        // A relaunch reads the cache, not the shipped copy, and the cache keeps Spain's ARO.
         let relaunched = BriefingRegistryService(cacheURL: cache, bundled: Data(sample.utf8), fetch: { _ in Data() })
         XCTAssertNil(relaunched.registry?.country("BY"))
         XCTAssertFalse(relaunched.isStale)
+        XCTAssertEqual(relaunched.registry?.closingPhones(country: "ES", aerodrome: "LEIG").map(\.number), ["+34918603561"])
     }
 
     func testAFailedOrEmptyDownloadKeepsWhatItHad() async throws {

@@ -1,14 +1,10 @@
-6.4.3 vous laisse dire à l'app quand vous changez de fréquence : quand c'est le moment d'appeler, SUIV devient dû, et le toucher le fait passer en ACT. Sans toucher, l'app change d'elle-même au point le plus tardif. Dans les deux cas, ANNULER revient en arrière.
+6.5.0 parle allemand, et prépare un vol pour les pays où il va : les liens de briefing, la météo et la clôture du plan de vol suivent les règles de chaque pays.
 
-À essayer, sur une route (un vol à blanc au sol le fait aussi : Planifier › Routes, balayez une route vers la droite) :
-- à la mise en palier, SUIV s'encadre, avec à son pied une ligne qui s'épuise ; ACT reste l'aérodrome de départ ;
-- touchez SUIV en changeant de fréquence : il passe en ACT, et l'emplacement affiche « Sur … » avec ANNULER pendant 6 secondes ;
-- sans toucher : au point le plus tardif (sortie de la zone de départ ou 10 NM, limite d'une zone ou d'un FIS, 30 secondes avant un point de report ou d'arrivée), l'app change d'elle-même, « Sur …, automatiquement », avec ANNULER ; annulé, l'appel reste dû et l'app ne change plus d'elle-même ;
-- une ÉCOUTE en SUIV (l'ATIS de la destination) : la toucher la marque comme faite, et SUIV passe à l'appel suivant ;
-- ROUTE › RADIO : toucher une ligne la fait passer en ACT, comme quand un contrôleur vous envoie sur une autre station ;
-- sur l'iPhone, l'appel dû s'affiche sur la ligne ACT, et toucher la ligne change de fréquence ; sur un iPhone en mode compagnon, le toucher change celle de l'iPad, et ANNULER sur l'iPhone revient en arrière ;
-- le vol à blanc guidé (Réglages › À propos › Faire un vol à blanc) a une carte pour cela après la vérification de croisière.
-
-Sur l'iPad, les blocs du cockpit sont désormais espacés régulièrement, 10 pt du bandeau jusqu'en bas.
+À essayer :
+- L'allemand : réglez l'appareil en allemand (Réglages › Général › Langue et région), ou l'app seule (Réglages › AéroCheck › Langue). Chaque écran, les boutons du cockpit compris : dites ce qui sonne faux.
+- La page d'un vol, Préparer : la carte météo au-dessus des tâches (METAR et TAF de chaque aérodrome, le TAF le plus proche pour un aérodrome qui n'en a pas, les SIGMET le long de la route) ; une tâche météo et une tâche NOTAM avec un lien par pays ; l'activité de l'espace aérien et la prévision de zone par pays ; le dépôt dans le pays de départ. Sous un lien, s'il faut un compte gratuit ou s'il est payant.
+- Une route à l'étranger, Bressaucourt–Fribourg-en-Brisgau par exemple : les liens allemands, et après l'atterrissage la carte de clôture avec la règle et le numéro de l'Allemagne. Un atterrissage en Suisse garde le numéro de skyguide.
+- Un départ d'un aérodrome suédois sans tour : la ligne sous Plan de vol ATC déposé, qui dit de l'activer soi-même. Une route par la Biélorussie : la ligne rouge.
+- Aux États-Unis, la vue d'approche près de Palo Alto (KPAO) ou de San Carlos (KSQL) : le côté du tour de piste à chaque seuil et la TPA ; le briefing d'approche donne la remarque de la FAA. Les cartes officielles des États-Unis, de l'Australie et de la Nouvelle-Zélande.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

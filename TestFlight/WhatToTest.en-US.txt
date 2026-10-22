@@ -1,14 +1,10 @@
-6.4.3 lets you tell the app when you change frequency: when it is time to call, NEXT comes due, and a tap on it makes it NOW. Without a tap the app changes by itself at the latest point. Either way UNDO takes it back.
+6.5.0 speaks German, and prepares a flight for the countries it goes to: the briefing links, the weather and closing the flight plan follow each country's own rules.
 
-What to try, on a route (a dry run on the ground does it too: Plan › Routes, swipe right on a route):
-- at the level-off NEXT gets an outline, and a line along its foot that runs out; NOW stays on the departure;
-- tap NEXT when you change frequency: it becomes NOW, and the slot reads "… now" with UNDO for 6 seconds;
-- don't tap: at the latest point (out of the departure's zone or 10 NM out, a zone's or an Info's boundary, 30 seconds before a reporting or arrival point) the app changes by itself, "… now, automatically", with UNDO; undone, the call stays due and the app doesn't change again;
-- a LISTEN in NEXT (the destination's ATIS): a tap marks it heard, and NEXT goes on to the next call;
-- ROUTE › RADIO: a tap on a row makes it NOW, as when a controller sends you to another station;
-- on the iPhone the due call shows on the NOW line, and a tap on the line switches; on a Companion iPhone the tap switches the iPad, and UNDO there takes it back;
-- the guided dry run (Settings › About › Fly a dry run on the ground) has a card for it after the cruise check.
-
-On the iPad the Cockpit's blocks are now evenly spaced, 10 pt apart from the header down.
+What to try:
+- German: set the device to German (Settings › General › Language & Region), or the app alone (Settings › AéroCheck › Language). Every screen, the Cockpit's buttons included: say what reads wrong.
+- A flight's page, Prepare: the weather card above the tasks (METAR and TAF at each field, the nearest TAF for a field without one, the SIGMETs along the route); one weather and one NOTAM task with a link per country; airspace activity and the area forecast per country; filing in the departure's country. Under a link, whether it needs a free account or costs money.
+- A route abroad, Bressaucourt to Freiburg for one: Germany's links, and after landing the close-out card with Germany's rule and number. A landing in Switzerland keeps skyguide's number.
+- A departure from a Swedish field without a tower: the line on ATC flight plan filed about activating it yourself. A route through Belarus: the red row.
+- In the US, the approach view near Palo Alto (KPAO) or San Carlos (KSQL): the pattern side at each runway end and the TPA; the approach briefing has the FAA's remark. Official charts for the US, Australia and New Zealand.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

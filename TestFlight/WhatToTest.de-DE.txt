@@ -1,0 +1,10 @@
+6.5.0 spricht Deutsch und bereitet einen Flug für die Länder vor, in die er führt: Briefing-Links, Wetter und das Schliessen des ATC-Flugplans folgen den Regeln des jeweiligen Landes.
+
+Zum Ausprobieren:
+- Deutsch: Stellen Sie das Gerät auf Deutsch (Einstellungen › Allgemein › Sprache & Region) oder nur die App (Einstellungen › AéroCheck › Sprache). Jeder Bildschirm, auch die Tasten im Cockpit: Melden Sie, was falsch klingt.
+- Die Seite eines Flugs, Vorbereiten: die Wetterkarte über den Aufgaben (METAR und TAF jedes Flugplatzes, der nächstgelegene TAF für einen Flugplatz ohne eigenen, die SIGMET entlang der Route); eine Wetter- und eine NOTAM-Aufgabe mit einem Link pro Land; Luftraumstatus und Gebietsvorhersage pro Land; die Flugplanaufgabe im Abflugland. Unter einem Link steht, ob er ein Gratiskonto braucht oder kostenpflichtig ist.
+- Eine Route ins Ausland, zum Beispiel Bressaucourt–Freiburg: die deutschen Links und nach der Landung die Karte zum Schliessen mit der Regel und der Nummer Deutschlands. Eine Landung in der Schweiz behält die Nummer von skyguide.
+- Ein Abflug von einem schwedischen Flugplatz ohne Tower: die Zeile unter «ATC-Flugplan aufgegeben», ihn selbst zu aktivieren. Eine Route über Belarus: die rote Zeile.
+- In den USA die Anflugansicht bei Palo Alto (KPAO) oder San Carlos (KSQL): die Seite der Platzrunde an jedem Pistenende und die TPA; das Anflugbriefing zeigt die Bemerkung der FAA. Offizielle Karten für die USA, Australien und Neuseeland.
+
+Senden Sie Ihre Hinweise aus der TestFlight-App: Ein Screenshot mit einer Zeile Text ist am schnellsten.

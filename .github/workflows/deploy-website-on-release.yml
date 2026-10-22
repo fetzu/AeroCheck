@@ -6,10 +6,16 @@ name: Deploy website on release
 # `website` branch — so this workflow just dispatches it there.
 #
 # `edited`/`deleted` are included because the changelog page mirrors release notes verbatim.
+#
+# And every Thursday at 06:30 UTC, after the server's weekly data job (05:00 UTC, at most 30 minutes): the Countries
+# page and the counts the copy quotes are read from its coverage file at build time, so the site follows the week's
+# data. Scheduled workflows only run from the default branch, which is why this lives here too.
 
 on:
   release:
     types: [published, edited, deleted]
+  schedule:
+    - cron: '30 6 * * 4'
 
 permissions:
   actions: write

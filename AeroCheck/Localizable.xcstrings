@@ -11940,6 +11940,236 @@
         }
       }
     },
+    "error.download.checksum": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei stimmt nicht mit ihrem Index überein (SHA-256)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file doesn't match its index (SHA-256)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier ne correspond pas à son index (SHA-256)"
+          }
+        }
+      }
+    },
+    "error.download.hostNotAllowed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Adresse ist keine zugelassene Quelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The address is not an allowed source"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'adresse n'est pas une source autorisée"
+          }
+        }
+      }
+    },
+    "error.download.http": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server antwortete mit HTTP %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server answered HTTP %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur a répondu HTTP %lld"
+          }
+        }
+      }
+    },
+    "error.download.invalidURL": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültige Download-Adresse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid download address"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse de téléchargement invalide"
+          }
+        }
+      }
+    },
+    "error.download.tooLarge": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei zu gross (%lld Bytes)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File too large (%lld bytes)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier trop volumineux (%lld octets)"
+          }
+        }
+      }
+    },
+    "error.download.unreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die heruntergeladenen Daten konnten nicht gelesen werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded data could not be read"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données téléchargées sont illisibles"
+          }
+        }
+      }
+    },
+    "error.download.wrongCountry": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei gilt für %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file is for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier concerne %@"
+          }
+        }
+      }
+    },
+    "error.import.coordinates": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Import enthält ungültige Koordinaten (ausserhalb des Bereichs oder keine Zahl)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import contains invalid coordinates (out of range or not a number)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'import contient des coordonnées invalides (hors limites ou non numériques)"
+          }
+        }
+      }
+    },
+    "error.import.gpx": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültiges GPX-Format"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid GPX format"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format GPX invalide"
+          }
+        }
+      }
+    },
+    "error.import.json": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültiges JSON-Format: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid JSON format: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format JSON invalide : %@"
+          }
+        }
+      }
+    },
     "flightDetail.touchAndGo": {
       "extractionState": "manual",
       "localizations": {
@@ -23073,7 +23303,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "SWISSIMAGE Luftbild"
+            "value": "SWISSIMAGE"
           }
         },
         "en": {
@@ -23096,7 +23326,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Satellit"
+            "value": "Apple Karten (Satellit)"
           }
         },
         "en": {
@@ -23119,7 +23349,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standardkarte"
+            "value": "Apple Karten"
           }
         },
         "en": {
@@ -29434,19 +29664,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lufträume, Flugplätze, Frequenzen, Hindernisse, Gelände und Wetter stammen von Dritten, und es ist nicht garantiert, dass sie aktuell sind. Gleichen Sie sie mit dem offiziellen AIP, den NOTAM und einem ordnungsgemässen Briefing vor dem Flug ab."
+            "value": "Lufträume, Flugplätze, Frequenzen, Platzrunden, Hindernisse, Gelände und Wetter stammen von Dritten, und es ist nicht garantiert, dass sie aktuell sind. Gleichen Sie sie mit dem offiziellen AIP, den NOTAM und einem ordnungsgemässen Briefing vor dem Flug ab."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Airspace, airports, frequencies, obstacles, terrain and weather come from third parties and are not guaranteed to be current. Verify against the official AIP, NOTAMs and a proper pre-flight briefing."
+            "value": "Airspace, airports, frequencies, traffic circuits, obstacles, terrain and weather come from third parties and are not guaranteed to be current. Verify against the official AIP, NOTAMs and a proper pre-flight briefing."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Espaces aériens, aérodromes, fréquences, obstacles, relief et météo proviennent de tiers et ne sont pas garantis à jour. Vérifiez avec l'AIP officielle, les NOTAM et un briefing avant vol en règle."
+            "value": "Espaces aériens, aérodromes, fréquences, tours de piste, obstacles, relief et météo proviennent de tiers et ne sont pas garantis à jour. Vérifiez avec l'AIP officielle, les NOTAM et un briefing avant vol en règle."
           }
         }
       }
@@ -30337,7 +30567,21 @@
     },
     "All aircraft": {
       "comment": "A label for the \"All aircraft\" option in the filter menu.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Flugzeuge"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les avions"
+          }
+        }
+      }
     },
     "All flights (%lld)": {
       "comment": "A menu item that lets the user export all flights.",
@@ -30487,7 +30731,22 @@
         }
       }
     },
-    "CACHED": {},
+    "CACHED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GESPEICHERT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EN CACHE"
+          }
+        }
+      }
+    },
     "COMPANION": {
       "comment": "The name of the companion app.",
       "isCommentAutoGenerated": true,
@@ -31005,7 +31264,21 @@
     },
     "Duration %@": {
       "comment": "A label that describes the duration of a flight. The argument is the duration.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dauer %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durée %@"
+          }
+        }
+      }
     },
     "EST. IAS": {
       "comment": "A label indicating the estimated indicator airspeed (IAS).",
@@ -31789,7 +32062,21 @@
     },
     "Fit route": {
       "comment": "A button that fits the map view to the route.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route einpassen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cadrer la route"
+          }
+        }
+      }
     },
     "Flight": {
       "localizations": {
@@ -31898,7 +32185,21 @@
     "GPS": {},
     "GPS signal": {
       "comment": "A label for the GPS signal indicator.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS-Signal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signal GPS"
+          }
+        }
+      }
     },
     "GPS signal lost": {
       "localizations": {
@@ -32373,7 +32674,21 @@
     },
     "Map layer": {
       "comment": "A label for the map layer picker.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartenebene"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couche carte"
+          }
+        }
+      }
     },
     "Map markers": {
       "localizations": {
@@ -32457,7 +32772,21 @@
     },
     "Max crosswind": {
       "comment": "A label displayed under the V-speeds, indicating the maximum crosswind limits.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max. Seitenwind"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent de travers max"
+          }
+        }
+      }
     },
     "Airspace data missing near your route": {
       "localizations": {
@@ -32663,7 +32992,21 @@
     },
     "No flights in this period": {
       "comment": "A message displayed when there are no flights to show in the log.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Flüge in diesem Zeitraum"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun vol sur cette période"
+          }
+        }
+      }
     },
     "Not downloaded": {
       "localizations": {
@@ -32967,7 +33310,21 @@
     },
     "Planned altitude in feet": {
       "comment": "A label for the altitude of a waypoint.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geplante Höhe in Fuss"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude prévue en pieds"
+          }
+        }
+      }
     },
     "Position: %@, %@": {
       "localizations": {
@@ -33183,7 +33540,21 @@
     },
     "Search an ICAO above, or press and\nhold the map to drop a waypoint": {
       "comment": "A hint to the user to search for an ICAO or tap the map to add a waypoint.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchen Sie oben einen ICAO-Code oder halten Sie\ndie Karte gedrückt, um einen Wegpunkt zu setzen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cherchez un code OACI ci-dessus, ou appuyez longuement\nsur la carte pour poser un point"
+          }
+        }
+      }
     },
     "See AéroCheck Pro": {
       "localizations": {
@@ -33203,7 +33574,21 @@
     },
     "Select a flight": {
       "comment": "A label displayed in the Flight Log view when a flight is not selected.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie einen Flug"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez un vol"
+          }
+        }
+      }
     },
     "Select countries": {
       "localizations": {
@@ -33239,7 +33624,22 @@
         }
       }
     },
-    "Series": {},
+    "Series": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenreihe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Série"
+          }
+        }
+      }
+    },
     "Share": {
       "localizations": {
         "de": {
@@ -34283,7 +34683,21 @@
     },
     "Year": {
       "comment": "A label for the year picker in the flight log.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jahr"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année"
+          }
+        }
+      }
     },
     "Your active flight plan crosses areas without downloaded data:": {
       "localizations": {
@@ -39304,7 +39718,21 @@
     },
     "degraded": {
       "comment": "A label describing a degraded GPS signal.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ungenau"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dégradé"
+          }
+        }
+      }
     },
     "dest.a11y.destination": {
       "extractionState": "manual",
@@ -43163,7 +43591,21 @@
     },
     "lost": {
       "comment": "A label for a GPS signal that is lost.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verloren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "perdu"
+          }
+        }
+      }
     },
     "mapLayer.title": {
       "extractionState": "manual",
@@ -54404,7 +54846,21 @@
     },
     "track": {
       "comment": "A label for the heading of the aircraft.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "route"
+          }
+        }
+      }
     },
     "unit.ft": {
       "extractionState": "manual",

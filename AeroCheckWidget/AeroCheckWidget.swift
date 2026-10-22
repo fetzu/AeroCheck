@@ -162,7 +162,7 @@ struct MediumWidgetView: View {
                         VStack(spacing: 4) {
                             Image(systemName: "book.closed.fill").font(.system(size: 22))
                                 .widgetAccentable()
-                            Text("Flight Log").font(.system(size: 11, weight: .medium))
+                            Text("Logbook").font(.system(size: 11, weight: .medium))
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(renderingMode == .fullColor ? (colorScheme == .dark ? Color.aviationGreen.opacity(0.2) : Color.aviationGreen.opacity(0.15)) : Color.clear)
@@ -322,7 +322,8 @@ struct AeroCheckWidget: Widget {
             AeroCheckWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("AéroCheck")
-        .description("Quickly start a flight or view your flight log.")
+        // The app's words since 6.5.0: Logbook, as the tab says, in English, French and German (q8).
+        .description("Quickly start a flight or open your logbook.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }

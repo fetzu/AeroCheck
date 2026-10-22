@@ -531,6 +531,24 @@ enum L10n {
         static let openFlightPlanBanner = String(localized: "Flight plan not marked closed")
     }
 
+    // MARK: - Download and import errors, in the app's language (6.5.0, q8)
+    enum DataErrors {
+        static func invalidJSON(_ detail: String) -> String {
+            String(format: String(localized: "error.import.json"), detail)
+        }
+        static let invalidGPX = String(localized: "error.import.gpx")
+        static let invalidCoordinates = String(localized: "error.import.coordinates")
+        static let invalidURL = String(localized: "error.download.invalidURL")
+        static func http(_ status: Int) -> String { String(format: String(localized: "error.download.http"), status) }
+        static let unreadable = String(localized: "error.download.unreadable")
+        static let hostNotAllowed = String(localized: "error.download.hostNotAllowed")
+        static func tooLarge(_ bytes: Int) -> String { String(format: String(localized: "error.download.tooLarge"), bytes) }
+        static let checksum = String(localized: "error.download.checksum")
+        static func wrongCountry(_ country: String) -> String {
+            String(format: String(localized: "error.download.wrongCountry"), country)
+        }
+    }
+
     // MARK: - Closing a flight plan, by country (6.5.0)
     enum CloseOut {
         static func ruleAlert(_ country: String, minutes: Int) -> String {

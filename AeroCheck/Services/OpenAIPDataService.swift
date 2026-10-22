@@ -766,8 +766,9 @@ enum OpenAIPError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Invalid API URL"
-        case .apiError(let code): return "API error (HTTP \(code))"
+        // In the app's language since 6.5.0: Data & Storage shows them. (q8)
+        case .invalidURL: return L10n.DataErrors.invalidURL
+        case .apiError(let code): return L10n.DataErrors.http(code)
         }
     }
 }

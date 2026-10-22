@@ -283,6 +283,7 @@
 		A4000001211111110000001 /* AeroCheckWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000001 /* AeroCheckWatchApp.swift */; };
 		A4000001211111110000002 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000002 /* WatchContentView.swift */; };
 		A4000001211111110000007 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000007 /* Localizable.xcstrings */; };
+		A2000001211111110000A40 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A2000001111111110000A40 /* Localizable.xcstrings */; };
 		A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000003 /* WatchConnectivityManager.swift */; };
 		A4000001211111110000004 /* WatchConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001111111110000002 /* WatchConnectivityData.swift */; };
 		A3000009211111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
@@ -725,6 +726,7 @@
 		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
 		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A4000001111111110000007 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A2000001111111110000A40 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A4000001111111110000003 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		A4000001111111110000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A4000001111111110000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -1303,6 +1305,7 @@
 				A9000001111111110000003 /* FlightLiveActivity.swift */,
 				A2000001111111110000004 /* Info.plist */,
 				A2000001111111110000A32 /* PrivacyInfo.xcprivacy */,
+				A2000001111111110000A40 /* Localizable.xcstrings */,
 			);
 			path = AeroCheckWidget;
 			sourceTree = "<group>";
@@ -1535,6 +1538,7 @@
 			files = (
 				A2000001211111110000004 /* Assets.xcassets in Resources */,
 				A2000001211111110000A32 /* PrivacyInfo.xcprivacy in Resources */,
+				A2000001211111110000A40 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

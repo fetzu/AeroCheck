@@ -81,11 +81,12 @@ enum OFMDataError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .http(let status): return "HTTP \(status)"
-        case .hostNotAllowed: return "Host outside the allow-list"
-        case .tooLarge(let bytes): return "File too large (\(bytes) bytes)"
-        case .checksumMismatch: return "SHA-256 differs from the index"
-        case .wrongCountry(let country): return "File is for \(country)"
+        // In the app's language since 6.5.0: Data & Storage shows them. (q8)
+        case .http(let status): return L10n.DataErrors.http(status)
+        case .hostNotAllowed: return L10n.DataErrors.hostNotAllowed
+        case .tooLarge(let bytes): return L10n.DataErrors.tooLarge(bytes)
+        case .checksumMismatch: return L10n.DataErrors.checksum
+        case .wrongCountry(let country): return L10n.DataErrors.wrongCountry(country)
         }
     }
 }

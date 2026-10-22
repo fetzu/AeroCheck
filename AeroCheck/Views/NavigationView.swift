@@ -314,6 +314,8 @@ struct NavigationMapView: View {
     @ObservedObject private var reportingPointCatalog = ReportingPointCatalog.shared   // OpenAIP + open flightmaps (6.2.0)
     /// The aerodrome procedures (6.2.0): its `revision` redraws them when a download or the first load lands.
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
+    /// The US traffic patterns, for the approach view: its `revision` too. (6.5.0)
+    @ObservedObject private var nasrPatterns = NASRPatternService.shared
 
     /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
     /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
@@ -1425,7 +1427,8 @@ struct NavigationMapView: View {
     /// What redraws the aerodrome procedures besides the region. (6.2.0)
     private var vfrLayerKey: VFRLayerFollower.Key {
         VFRLayerFollower.Key(selection: VFRLayerSelection(settings: appState.settings),
-                             revision: vfrProcedureService.revision, palette: VFRMapPalette(theme: theme),
+                             revision: vfrProcedureService.revision, patternsRevision: nasrPatterns.revision,
+                             palette: VFRMapPalette(theme: theme),
                              firstAerodromes: VFRMapDensity.endpointAerodromes(of: flightPlanManager.activeFlightPlan))
     }
 
@@ -1550,8 +1553,16 @@ struct NavigationMapView: View {
         let palette = VFRMapPalette(theme: theme)
         let selection = VFRLayerSelection(settings: appState.settings)
         let service = OFMDataService.shared
-        guard selection.isAnyOn, service.isLoaded, VFRMapDensity.showsProcedures(in: region) else {
+        guard selection.isAnyOn, VFRMapDensity.showsProcedures(in: region) else {
             vfrContent = .empty(palette)
+            return
+        }
+        guard service.isLoaded else {
+            // No open flightmaps data here (the US has none): the approach view still shows a US field's pattern
+            // from NASR, with the traffic circuits. (6.5.0)
+            let approach = selection.circuits ? approachFields(region: region, candidates: [], selection: selection) : []
+            vfrContent = approach.isEmpty ? .empty(palette) : VFRMapContent(items: [], showsLabels: false, palette: palette,
+                                                                             approach: approach)
             return
         }
         let candidates = service.procedures(in: region)
@@ -1597,6 +1608,14 @@ struct NavigationMapView: View {
                 return abs(airport.latitude - region.center.latitude) <= halfLat
                     && abs(airport.longitude - region.center.longitude) <= halfLon
             }.sorted()
+            // The US fields in view whose pattern NASR publishes: there are no open flightmaps circuits there. (6.5.0)
+            if selection.circuits {
+                let us = airportDataService.findNearestAirports(to: region.center, limit: 12, maxDistanceNm: 8)
+                    .filter { $0.isoCountry == "US" && !idents.contains($0.ident.uppercased())
+                        && abs($0.latitude - region.center.latitude) <= halfLat
+                        && abs($0.longitude - region.center.longitude) <= halfLon }
+                idents += us.map { $0.ident.uppercased() }.filter { nasrPatterns.aerodrome($0) != nil }
+            }
         }
         return idents.prefix(3).compactMap { ident -> VFRApproachField? in
             guard let airport = airportDataService.findAirport(byIdent: ident) else { return nil }
@@ -1606,8 +1625,11 @@ struct NavigationMapView: View {
                                                 reference: reference)
             let circuits = (byField[ident] ?? OFMDataService.shared.procedures(forAerodrome: ident))
                 .filter { $0.kind == .circuit && selection.includes($0) }
+            // A US field's pattern side and altitude, from NASR (loaded the first time a US field asks). (6.5.0)
+            let pattern = airport.isoCountry == "US" ? nasrPatterns.aerodrome(ident) : nil
             return VFRApproachField.make(ident: ident, reference: reference, runways: runways, circuits: circuits,
-                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident))
+                                         windFrom: windFrom, parachuting: airportDataService.hasParachuting(ident),
+                                         pattern: pattern)
         }
     }
 
@@ -7145,6 +7167,8 @@ struct VFRLayerFollower: ViewModifier {
     struct Key: Equatable {
         let selection: VFRLayerSelection
         let revision: Int
+        /// The US traffic patterns' (`NASRPatternService`). (6.5.0)
+        var patternsRevision = 0
         let palette: VFRMapPalette
         let firstAerodromes: [String]
     }

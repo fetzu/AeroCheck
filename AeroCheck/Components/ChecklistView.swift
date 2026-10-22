@@ -1297,6 +1297,8 @@ struct DepartureBriefingContent: View {
 struct ApproachBriefingContent: View {
     @Environment(\.cockpitTheme) private var theme
     let context: BriefingContext
+    /// A US destination's traffic pattern. (6.5.0)
+    @ObservedObject private var nasr = NASRPatternService.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1347,6 +1349,28 @@ struct ApproachBriefingContent: View {
                         }
                     }
 
+                    // A US destination's traffic pattern, from the FAA's NASR: the side at each runway end, the
+                    // pattern altitude, or the FAA's remark as written, never a figure taken from it. (6.5.0, q6)
+                    if let airport = context.destinationAirport, airport.isoCountry == "US",
+                       let pattern = nasr.aerodrome(airport.ident), !pattern.ends.isEmpty || pattern.tpa != nil || pattern.tpaRemark != nil {
+                        BriefingSection(title: L10n.Briefing.trafficPattern.uppercased()) {
+                            ForEach(pattern.ends, id: \.rwy) { end in
+                                BriefingItem(label: "RWY \(end.rwy)", value: L10n.Briefing.patternTraffic(end.pattern))
+                            }
+                            BriefingItem(label: "TPA", value: TrafficPatternText.altitude(pattern))
+                            if let remark = pattern.tpaRemark {
+                                Text("«\(remark)» \(L10n.Briefing.asWrittenByFAA)")
+                                    .font(.aero(size: CockpitType.label))
+                                    .foregroundColor(theme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Text(L10n.Briefing.checkChartSupplement)
+                                .font(.aero(size: CockpitType.label))
+                                .foregroundColor(theme.textDim)
+                                .italic()
+                        }
+                    }
+
                     // Airspeeds Section - Dynamic from aircraft
                     BriefingSection(title: L10n.Briefing.airspeedsIAS.uppercased()) {
                         SpeedGridView(speeds: context.speeds, phase: .approach)
@@ -1359,6 +1383,20 @@ struct ApproachBriefingContent: View {
                     }
 
         }
+    }
+}
+
+/// A US traffic pattern's altitude in words: the FAA's figure ("806 ft (800 ft AGL)") where it publishes one;
+/// where it only has a remark, "see the FAA's remark"; else the AIM's recommendation, said to be one. (6.5.0)
+enum TrafficPatternText {
+    static let recommendedAGL = 1_000
+
+    static func altitude(_ pattern: NASRPatterns.Aerodrome) -> String {
+        if let tpa = pattern.tpa {
+            return tpa.msl.map { L10n.Briefing.patternAltitude(msl: $0, agl: tpa.agl) } ?? L10n.Briefing.patternAltitudeAGL(tpa.agl)
+        }
+        if pattern.tpaRemark != nil { return L10n.Briefing.patternSeeRemark }
+        return L10n.Briefing.patternRecommended(recommendedAGL)
     }
 }
 

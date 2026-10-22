@@ -99,6 +99,10 @@ enum L10n {
         static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
         static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")
         static let sourceObservations = String(localized: "METAR / TAF / SIGMET · NOAA Aviation Weather Center, public domain")
+        /// Prepare's and the close-out's links, and the US traffic patterns. (6.5.0)
+        static let sourceBriefingName = String(localized: "settings.source.briefingName")
+        static let sourceBriefing = String(localized: "settings.source.briefing")
+        static let sourcePatterns = String(localized: "settings.source.patterns")
         static let sourceTypeface = String(localized: "dataStorage.source.typeface")
         static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")
@@ -846,6 +850,21 @@ enum L10n {
         static let close = String(localized: "briefing.close")
         static let airport = String(localized: "briefing.airport")
         static let elevation = String(localized: "briefing.elevation")
+        // A US destination's traffic pattern (6.5.0)
+        static let trafficPattern = String(localized: "briefing.trafficPattern")
+        static func patternTraffic(_ side: NASRPatterns.Side) -> String {
+            String(localized: side == .right ? "briefing.pattern.right" : "briefing.pattern.left")
+        }
+        static func patternAltitude(msl: Int, agl: Int) -> String {
+            String(format: String(localized: "briefing.tpa.value"), msl, agl)
+        }
+        static func patternAltitudeAGL(_ agl: Int) -> String { String(format: String(localized: "briefing.tpa.agl"), agl) }
+        static let patternSeeRemark = String(localized: "briefing.tpa.seeRemark")
+        static func patternRecommended(_ agl: Int) -> String {
+            String(format: String(localized: "briefing.tpa.recommended"), agl)
+        }
+        static let asWrittenByFAA = String(localized: "briefing.tpa.asWritten")
+        static let checkChartSupplement = String(localized: "briefing.checkChartSupplement")
         static let wind = String(localized: "briefing.wind")
         static let runway = String(localized: "briefing.runway")
         static let notDetected = String(localized: "briefing.notDetected")
@@ -2977,6 +2996,17 @@ enum L10n {
     /// Aerodrome procedures from open flightmaps on the maps: the switches, the labels, the callout and
     /// the credit. (6.2.0)
     enum VFRMap {
+        // A US field's traffic pattern, from the FAA's NASR (6.5.0)
+        static let patternRight = String(localized: "vfrMap.pattern.right")
+        static let patternLeft = String(localized: "vfrMap.pattern.left")
+        /// "right-hand traffic", for VoiceOver after the runway.
+        static func patternTraffic(_ side: NASRPatterns.Side) -> String {
+            String(localized: side == .right ? "vfrMap.pattern.rightTraffic" : "vfrMap.pattern.leftTraffic")
+        }
+        /// "TPA 806 ft".
+        static func patternAltitude(_ feet: Int) -> String {
+            String(format: String(localized: "vfrMap.pattern.altitude"), feet)
+        }
         static let aerodromeProcedures = String(localized: "Aerodrome procedures")
         static let showCircuits = String(localized: "Traffic circuits")
         static let showRoutes = String(localized: "Arrival & departure routes (with sectors)")

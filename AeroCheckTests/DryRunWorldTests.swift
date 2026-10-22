@@ -150,6 +150,7 @@ final class DryRunWorldTests: XCTestCase {
             "Views/DryRunGuidedViews.swift": ["@AppStorage": (2, "Today's card: the app's own flags, read on the ground, never by the world")],
             "Services/BriefingRegistryService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FISAreaService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
+            "Services/NASRPatternService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],
             "Services/LocationManager.swift": ["CLLocationManager()": (1, "never started by a dry run's (`isDryRun`)")],
             "Services/NotificationService.swift": [

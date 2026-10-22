@@ -138,9 +138,9 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     /// (`template`, `url`); a `pages` table names its aerodromes. A country the registry adds later
     /// needs an app release, which is also when its publisher gets a host below.
     static let icaoPrefixes: [String: [String]] = [
-        "AT": ["LO"], "BG": ["LB"], "CH": ["LS"], "CZ": ["LK"], "DE": ["ED", "ET"], "DK": ["EK"], "FI": ["EF"],
-        "FR": ["LF"], "GR": ["LG"], "HR": ["LD"], "HU": ["LH"], "NL": ["EH"], "PL": ["EP"], "RO": ["LR"],
-        "SE": ["ES"], "SI": ["LJ"], "SK": ["LZ"], "ZA": ["FA"],
+        "AT": ["LO"], "AU": ["Y"], "BG": ["LB"], "CH": ["LS"], "CZ": ["LK"], "DE": ["ED", "ET"], "DK": ["EK"],
+        "FI": ["EF"], "FR": ["LF"], "GR": ["LG"], "HR": ["LD"], "HU": ["LH"], "NL": ["EH"], "NZ": ["NZ"],
+        "PL": ["EP"], "RO": ["LR"], "SE": ["ES"], "SI": ["LJ"], "SK": ["LZ"], "US": ["K", "PA", "PH"], "ZA": ["FA"],
     ]
 
     /// The publisher's domain per country: a link anywhere else is not opened. The registry is ours,
@@ -148,6 +148,7 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     /// Africa's charts are on a storage host of a shared cloud domain: that one host, never the domain.
     static let publisherDomains: [String: [String]] = [
         "AT": ["austrocontrol.at"],
+        "AU": ["airservicesaustralia.com"],
         "BG": ["bulatsa.com"],
         "CH": ["skybriefing.com", "skyguide.ch"],
         "CZ": ["aim.rlp.cz"],
@@ -159,19 +160,22 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
         "HR": ["crocontrol.hr"],
         "HU": ["hungarocontrol.hu"],
         "NL": ["lvnl.nl"],
+        "NZ": ["aip.net.nz"],
         "PL": ["pansa.pl"],
         "RO": ["aisro.ro"],
         "SE": ["lfv.se"],
         "SI": ["sloveniacontrol.si"],
         "SK": ["lps.sk"],
+        // The Chart Supplement's host alone, not the whole of faa.gov. (6.5.0)
+        "US": ["aeronav.faa.gov"],
         "ZA": ["caasanwebsitestorage.blob.core.windows.net"],
     ]
 
     static let publisherNames = [
-        "AT": "Austro Control", "BG": "BULATSA", "CH": "SkyBriefing", "CZ": "ANS CR", "DE": "DFS", "DK": "Naviair",
-        "FI": "Fintraffic", "FR": "SIA", "GR": "HASP", "HR": "Croatia Control", "HU": "HungaroControl",
-        "NL": "LVNL", "PL": "PANSA", "RO": "ROMATSA", "SE": "LFV", "SI": "Slovenia Control", "SK": "LPS SR",
-        "ZA": "SACAA",
+        "AT": "Austro Control", "AU": "Airservices Australia", "BG": "BULATSA", "CH": "SkyBriefing", "CZ": "ANS CR",
+        "DE": "DFS", "DK": "Naviair", "FI": "Fintraffic", "FR": "SIA", "GR": "HASP", "HR": "Croatia Control",
+        "HU": "HungaroControl", "NL": "LVNL", "NZ": "Airways NZ", "PL": "PANSA", "RO": "ROMATSA", "SE": "LFV",
+        "SI": "Slovenia Control", "SK": "LPS SR", "US": "FAA", "ZA": "SACAA",
     ]
 
     init(v: Int = OfficialChartRegistry.schema, generated: String? = nil, countries: [String: Country]) {
@@ -207,7 +211,7 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     // MARK: Links
 
     /// The official chart of `icao`, or nil: an unknown country (IT's terms forbid deep links, so it
-    /// is never in the file), a code that isn't four letters, a closed field, a link off its
+    /// is never in the file), a code that isn't one (`isAerodromeCode`), a closed field, a link off its
     /// publisher's site, or a French one that can't be trusted to exist.
     ///
     /// - Parameter type: the field's type, when known. France needs it when the registry has no list of
@@ -215,7 +219,7 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     ///   bases, and a code without one answers 404. With the list, the list decides.
     func link(for icao: String, type: AirportType?, now: Date) -> OfficialChartLink? {
         let code = icao.trimmingCharacters(in: .whitespaces).uppercased()
-        guard Self.isICAOCode(code), type != .closed else { return nil }
+        guard Self.isAerodromeCode(code), type != .closed else { return nil }
         for (country, entry) in countries.sorted(by: { $0.key < $1.key }) {
             guard let url = url(of: entry, country: country, code: code, type: type, now: now) else { continue }
             return OfficialChartLink(icao: code, country: country, url: url,
@@ -227,7 +231,8 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
     }
 
     private func url(of entry: Country, country: String, code: String, type: AirportType?, now: Date) -> URL? {
-        let prefixes = Self.icaoPrefixes[country] ?? []
+        // A code with digits ("1N7", "LF51") is only ever a `pages` key: a whole country's kinds want ICAO letters.
+        let prefixes = Self.isICAOCode(code) ? Self.icaoPrefixes[country] ?? [] : []
         guard !entry.hasExpired(now: now) else { return nil }
         switch entry.kind {
         case Kind.dfsBasicVFR:
@@ -281,6 +286,13 @@ struct OfficialChartRegistry: Codable, Equatable, Sendable {
 
     static func isICAOCode(_ code: String) -> Bool {
         code.count == 4 && code.unicodeScalars.allSatisfy { ("A"..."Z").contains($0) }
+    }
+
+    /// An ICAO code, or the FAA identifier of a US field that has none ("1N7"), which the Chart Supplement's
+    /// pages are keyed by: three or four letters and digits. Only a `pages` table names those; every other kind
+    /// matches ICAO letters. (6.5.0)
+    static func isAerodromeCode(_ code: String) -> Bool {
+        (3...4).contains(code.count) && code.unicodeScalars.allSatisfy { ("A"..."Z").contains($0) || ("0"..."9").contains($0) }
     }
 
     /// A `pages` path the job read from a publisher's index: relative, without `..`, a scheme or a

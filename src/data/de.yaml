@@ -172,7 +172,7 @@ story:
       chapter: "Fliegen"
       fly: true
       title: "Kontrollpunkte markieren sich selbst."
-      text: "BENOT wird beim Überfliegen markiert, mit WIDERRUFEN für sechs Sekunden. Die Funkfrequenz ist auf Geneva Info gewechselt; der Tower von Samedan steht schon unter NÄCHSTE."
+      text: "BENOT wird beim Überfliegen markiert, mit STORNO für sechs Sekunden. Die Funkfrequenz ist auf Geneva Info gewechselt; der Tower von Samedan steht schon unter NÄCHSTE."
       shot: "automark"
       alt: "BENOT automatisch markiert, die Reiseflugkontrolle offen"
     - when: "1:04"

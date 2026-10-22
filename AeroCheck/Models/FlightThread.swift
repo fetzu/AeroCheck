@@ -84,6 +84,10 @@ enum ThreadTaskKey: String, Codable, CaseIterable, Sendable {
             return .close
         }
     }
+
+    /// The tasks the flight page's weather block holds, under its one tick: "Weather briefed" and every country's area
+    /// forecast (the author's v65-1 and q4, 22 Oct 2026). Still separate tasks underneath, so a 6.4 build reads them.
+    var isWeatherBlock: Bool { self == .weatherBriefed || self == .gaforChecked }
 }
 
 /// One item of admin work on a thread.

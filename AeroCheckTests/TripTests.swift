@@ -356,6 +356,32 @@ extension TripTests {
         XCTAssertEqual(stored?.acknowledgedLegIds, [b.id])
     }
 
+    /// The weather block on a leg ticks the trip's briefing, the weather and every area forecast, from that leg. (6.5.0)
+    @MainActor
+    func testTheWeatherBlockOnALegTicksTheTripsBriefing() throws {
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+        let index = try XCTUnwrap(m.trips.firstIndex { $0.id == trip.id })
+        var france = ThreadTask(key: .gaforChecked, kind: .check)
+        france.subject = "FR"
+        m.trips[index].sharedTasks.append(france)
+
+        m.setWeatherState(.done, threadId: b.id)
+        let shared = m.trip(withId: trip.id)?.sharedTasks ?? []
+        let weather = shared.filter { $0.key.isWeatherBlock }
+        XCTAssertGreaterThanOrEqual(weather.count, 2)
+        XCTAssertTrue(weather.allSatisfy { $0.state == .done && $0.acknowledgedLegIds == [b.id] })
+        XCTAssertEqual(shared.first { $0.key == .notamChecked }?.state, .pending)
+        XCTAssertTrue(m.thread(withId: b.id)?.tasks.contains { $0.key.isWeatherBlock } == false, "the leg has none of its own")
+
+        m.setWeatherState(.pending, threadId: b.id)
+        XCTAssertTrue(m.trip(withId: trip.id)?.sharedTasks.filter { $0.key.isWeatherBlock }
+            .allSatisfy { $0.state == .pending && $0.acknowledgedLegIds.isEmpty } ?? false)
+    }
+
     @MainActor
     func testUntickingRetractsTheAcknowledgementEverywhere() {
         let m = makeTestThreadManager()

@@ -58,12 +58,12 @@ final class PrepareWeatherTests: XCTestCase {
         XCTAssertEqual(destination.nearest?.shownAbove, true, "LFSB's row is above: said once")
         XCTAssertNil(weather.stations[3].nearest, "a field with its own TAF needs none")
         // The words.
-        XCTAssertEqual(PrepareWeatherCard.note(for: departure),
+        XCTAssertEqual(PrepareWeatherReports.note(for: departure),
                        L10n.PrepareWeather.noMetarOrTaf(nearest: "LFSB", distanceNm: nm(lszq.coordinate, 47.59, 7.5291)))
-        XCTAssertEqual(PrepareWeatherCard.note(for: destination),
+        XCTAssertEqual(PrepareWeatherReports.note(for: destination),
                        "\(L10n.PrepareWeather.noTaf(nearest: "LFSB", distanceNm: nm(edtf.coordinate, 47.59, 7.5291))) \(L10n.PrepareWeather.above)")
-        XCTAssertNil(PrepareWeatherCard.note(for: weather.stations[1]), "a NEAREST row says nothing of its own")
-        XCTAssertNil(PrepareWeatherCard.note(for: weather.stations[3]))
+        XCTAssertNil(PrepareWeatherReports.note(for: weather.stations[1]), "a NEAREST row says nothing of its own")
+        XCTAssertNil(PrepareWeatherReports.note(for: weather.stations[3]))
     }
 
     /// A local flight: one field, both words. A field whose nearest TAF is another field of the route gets no row of
@@ -96,18 +96,18 @@ final class PrepareWeatherTests: XCTestCase {
 
     func testNothingWithinReach() {
         let lonely = PrepareWeather.assemble(fields: [lszq], fetched: ["LSZQ": .init()], sigmets: nil, at: Date())
-        XCTAssertEqual(PrepareWeatherCard.note(for: lonely.stations[0]), L10n.PrepareWeather.nothingWithin)
+        XCTAssertEqual(PrepareWeatherReports.note(for: lonely.stations[0]), L10n.PrepareWeather.nothingWithin)
     }
 
     /// The report as published, its kind in front where AWC leaves it out (its METARs), never twice.
     func testAReportKeepsItsTextAndGetsItsKindOnce() {
-        XCTAssertEqual(PrepareWeatherCard.labelled("LFSB 212230Z AUTO 00000KT", as: "METAR", or: ["METAR", "SPECI"]),
+        XCTAssertEqual(PrepareWeatherReports.labelled("LFSB 212230Z AUTO 00000KT", as: "METAR", or: ["METAR", "SPECI"]),
                        "METAR LFSB 212230Z AUTO 00000KT")
-        XCTAssertEqual(PrepareWeatherCard.labelled("SPECI LFSB 212245Z 27015KT", as: "METAR", or: ["METAR", "SPECI"]),
+        XCTAssertEqual(PrepareWeatherReports.labelled("SPECI LFSB 212245Z 27015KT", as: "METAR", or: ["METAR", "SPECI"]),
                        "SPECI LFSB 212245Z 27015KT")
-        XCTAssertEqual(PrepareWeatherCard.labelled("TAF LFSB 211700Z 2118/2218", as: "TAF", or: ["TAF"]),
+        XCTAssertEqual(PrepareWeatherReports.labelled("TAF LFSB 211700Z 2118/2218", as: "TAF", or: ["TAF"]),
                        "TAF LFSB 211700Z 2118/2218")
-        XCTAssertEqual(PrepareWeatherCard.utc(Date(timeIntervalSince1970: 81_000)), "22:30 UTC")
+        XCTAssertEqual(PrepareWeatherReports.utc(Date(timeIntervalSince1970: 81_000)), "22:30 UTC")
     }
 
     /// The SIGMET request takes 2 to 30 points: a longer route is thinned evenly, its ends kept.

@@ -13689,6 +13689,98 @@
         }
       }
     },
+    "thread.byDay.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das %1$@ für %2$@ erscheint am %3$@ um %4$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The %1$@ for %2$@ comes out on %3$@ at %4$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La %1$@ du %2$@ paraît le %3$@ à %4$@."
+          }
+        }
+      }
+    },
+    "thread.byDay.laterToday": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das %1$@ für morgen erscheint heute um %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow's %1$@ comes out today at %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La %1$@ de demain paraît aujourd'hui à %2$@."
+          }
+        }
+      }
+    },
+    "thread.byDay.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ für heute."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ for today."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ du jour."
+          }
+        }
+      }
+    },
+    "thread.byDay.tomorrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ für morgen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ for tomorrow."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de demain."
+          }
+        }
+      }
+    },
     "thread.closeFlightPlan.body": {
       "extractionState": "manual",
       "localizations": {
@@ -13758,29 +13850,6 @@
         }
       }
     },
-    "thread.hint.byDay": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ für heute; für morgen ab %2$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Today's %1$@; tomorrow's from %2$@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ du jour ; celui du lendemain dès %2$@"
-          }
-        }
-      }
-    },
     "thread.hint.flightPlanFiled": {
       "extractionState": "manual",
       "localizations": {
@@ -13804,6 +13873,29 @@
         }
       }
     },
+    "thread.link.forecast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebietsvorhersage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Area forecast"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévision de zone"
+          }
+        }
+      }
+    },
     "thread.link.general": {
       "extractionState": "manual",
       "localizations": {
@@ -13823,6 +13915,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "page générale"
+          }
+        }
+      }
+    },
+    "thread.link.weather": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wetter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Météo"
           }
         }
       }
@@ -13915,6 +14030,98 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prévision de zone %@"
+          }
+        }
+      }
+    },
+    "thread.weather.below": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unten: die Meldungen und das offizielle Briefing."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Below: the reports and the official briefing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ci-dessous : les observations et le briefing officiel."
+          }
+        }
+      }
+    },
+    "thread.weather.briefOfficially": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offizielles Briefing"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brief officially"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefing officiel"
+          }
+        }
+      }
+    },
+    "thread.weather.briefedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefed at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultée à %@"
+          }
+        }
+      }
+    },
+    "thread.weather.notTicked": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht abgehakt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not ticked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas cochée"
           }
         }
       }

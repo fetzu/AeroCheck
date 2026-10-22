@@ -313,6 +313,41 @@ extension BriefingRegistry.Link {
         return Self.isTomorrow(day, now: now, tz: byDay.tz) && !Self.isPast(byDay.from, now: now, tz: byDay.tz)
     }
 
+    /// Which page a flight on `day` needs, and whether it is out (the author's v65-2, 22 Oct 2026: say what matters to
+    /// this flight, in words). Nil for a link with one page. An undated flight, or one today, takes today's page;
+    /// tomorrow's once it is out; a later one, nothing yet, with the day its page comes out (the eve, at `byDay.from`).
+    /// A flight already past takes today's page, without words.
+    enum DayPage: Equatable {
+        case today, tomorrow, past
+        /// Tomorrow's, out today at `byDay.from`.
+        case comesOutToday
+        /// A later day's, out on the eve (`on`, a day in the publisher's time zone) at `byDay.from`.
+        case comesOut(on: Date)
+
+        /// The page is there to open.
+        var isOut: Bool {
+            switch self {
+            case .today, .tomorrow, .past: return true
+            case .comesOutToday, .comesOut: return false
+            }
+        }
+    }
+
+    func dayPage(forFlightOn day: Date?, now: Date = Date()) -> DayPage? {
+        guard let byDay else { return nil }
+        guard let day else { return .today }
+        let calendar = Self.calendar(byDay.tz)
+        let today = calendar.startOfDay(for: now)
+        let flightDay = calendar.startOfDay(for: day)
+        let days = calendar.dateComponents([.day], from: today, to: flightDay).day ?? 0
+        switch days {
+        case ..<0: return .past
+        case 0: return .today
+        case 1: return Self.isPast(byDay.from, now: now, tz: byDay.tz) ? .tomorrow : .comesOutToday
+        default: return .comesOut(on: calendar.date(byAdding: .day, value: -1, to: flightDay) ?? flightDay)
+        }
+    }
+
     private static func calendar(_ tz: String) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: tz) ?? .current

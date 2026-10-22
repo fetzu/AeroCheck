@@ -467,9 +467,20 @@ enum L10n {
         // Task subtitles
         static let hintFuel = String(localized: "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry.")
         static let hintMassBalance = String(localized: "Check the load sheet against the envelope in the POH")
-        /// A page by day: "Today's DABS; tomorrow's from 16:00". (6.5.0)
-        static func hintByDay(_ name: String, from time: String) -> String {
-            String(format: String(localized: "thread.hint.byDay"), name, time)
+        /// A page by day, said for this flight's day only (the author's v65-2, 22 Oct 2026): "DABS for today.",
+        /// "DABS for tomorrow.", "Tomorrow's DABS comes out today at 16:00.", "The DABS for Saturday 24 October comes out
+        /// on Friday 23 October at 16:00." (6.5.0)
+        static func byDayToday(_ name: String) -> String {
+            String(format: String(localized: "thread.byDay.today"), name)
+        }
+        static func byDayTomorrow(_ name: String) -> String {
+            String(format: String(localized: "thread.byDay.tomorrow"), name)
+        }
+        static func byDayLaterToday(_ name: String, at time: String) -> String {
+            String(format: String(localized: "thread.byDay.laterToday"), name, time)
+        }
+        static func byDayLater(_ name: String, for flightDay: String, on publishDay: String, at time: String) -> String {
+            String(format: String(localized: "thread.byDay.later"), name, flightDay, publishDay, time)
         }
         static let hintFlightPlanFiled = String(localized: "thread.hint.flightPlanFiled")
         /// A plan filed from a field without ATS, in a country that wants the pilot to activate it. (6.5.0)
@@ -493,6 +504,16 @@ enum L10n {
         static let accessPaid = String(localized: "thread.access.paid")
         static let accessRestricted = String(localized: "thread.access.restricted")
         static let linkGeneral = String(localized: "thread.link.general")
+        /// What a weather block's link gives, beside its country: "Weather", "Area forecast", both. (6.5.0)
+        static let linkWeather = String(localized: "thread.link.weather")
+        static let linkForecast = String(localized: "thread.link.forecast")
+        /// The weather block (6.5.0, v65-1): its links' heading, its folded line, and the NEXT card pointing to it.
+        static let briefOfficially = String(localized: "thread.weather.briefOfficially")
+        static func weatherBriefedAt(_ time: String) -> String {
+            String(format: String(localized: "thread.weather.briefedAt"), time)
+        }
+        static let weatherNotTicked = String(localized: "thread.weather.notTicked")
+        static let weatherBelow = String(localized: "thread.weather.below")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
         static let markFlightPlanClosed = String(localized: "Mark closed")

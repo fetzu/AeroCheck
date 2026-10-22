@@ -549,6 +549,39 @@ class FlightThreadManager: ObservableObject {
         saveTrips()
     }
 
+    /// The weather block's one tick: "Weather briefed" and every country's area forecast at once, on the flight, or on its
+    /// trip when it is a leg of one (where the briefing lives). A task marked not applicable stays so, unless the block
+    /// itself is being marked not applicable, or the whole block was and is ticked again. One save. (6.5.0, the
+    /// author's v65-1 and q4, 22 Oct 2026)
+    func setWeatherState(_ state: ThreadTaskState, threadId: UUID) {
+        func keeps(_ task: ThreadTask, of block: [ThreadTask]) -> Bool {
+            task.state == .notApplicable && state != .notApplicable && !block.allSatisfy { $0.state == .notApplicable }
+        }
+        if let tripId = thread(withId: threadId)?.tripId, let index = trips.firstIndex(where: { $0.id == tripId }) {
+            let block = trips[index].sharedTasks.filter { $0.key.isWeatherBlock }
+            for i in trips[index].sharedTasks.indices where trips[index].sharedTasks[i].key.isWeatherBlock {
+                if keeps(trips[index].sharedTasks[i], of: block) { continue }
+                trips[index].sharedTasks[i].state = state
+                trips[index].sharedTasks[i].completedAt = (state == .done) ? Date() : nil
+                if state == .done {
+                    trips[index].sharedTasks[i].acknowledgedLegIds.insert(threadId)
+                } else {
+                    trips[index].sharedTasks[i].acknowledgedLegIds = []
+                }
+            }
+            trips[index].touch()
+            saveTrips()
+        } else if let index = threads.firstIndex(where: { $0.id == threadId }) {
+            let block = threads[index].tasks.filter { $0.key.isWeatherBlock }
+            for task in block {
+                if keeps(task, of: block) { continue }
+                threads[index].setState(state, forTaskWithId: task.id)
+            }
+            threads[index].settleReadiness()
+            saveThreads()
+        }
+    }
+
     /// Remove a leg, and dissolve the trip when it stops being one.
     ///
     /// A trip of one leg is just a flight, so the survivor gets its shared tasks back and becomes

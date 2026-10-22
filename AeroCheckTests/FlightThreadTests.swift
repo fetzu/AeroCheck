@@ -382,23 +382,85 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(ThreadTaskPresentation.links(for: filed, briefing: fromSwitzerland).map(\.label), ["skybriefing"])
     }
 
-    /// The DABS by the flight's day: tomorrow's page once it is out (16:00 in Zurich), today's before, and the
-    /// hint says when. (decided with the registry, 18 Oct)
+    /// The DABS by the flight's day, in plain words (the author's v65-2, 22 Oct 2026): the link opens the flight's day
+    /// once it is out (16:00 in Zurich, the day before) and isn't there before; the hint says which day's it opens, or
+    /// when the flight's comes out. (decided with the registry, 18 Oct)
     func testTheDABSOpensTheFlightsDay() throws {
         var zurich = Calendar(identifier: .gregorian)
         zurich.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Zurich"))
-        let noon = try XCTUnwrap(zurich.date(from: DateComponents(year: 2026, month: 10, day: 22, hour: 12)))
-        let evening = try XCTUnwrap(zurich.date(from: DateComponents(year: 2026, month: 10, day: 22, hour: 17)))
-        let tomorrow = try XCTUnwrap(zurich.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: 10)))
-        let dabs = ThreadTask(key: .dabsChecked, kind: .check)
-        func link(_ now: Date) -> String? {
-            let briefing = ThreadBriefing(registry: registry, countries: ["CH"], flightDay: tomorrow, now: now)
-            return ThreadTaskPresentation.links(for: dabs, briefing: briefing).first?.url.absoluteString
+        func at(_ day: Int, _ hour: Int) throws -> Date {
+            try XCTUnwrap(zurich.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour)))
         }
-        XCTAssertEqual(link(noon), "https://www.skybriefing.com/o/dabs?today", "tomorrow's isn't out at noon")
-        XCTAssertEqual(link(evening), "https://www.skybriefing.com/o/dabs?tomorrow")
-        let hint = ThreadTaskPresentation.make(for: dabs, briefing: ThreadBriefing(registry: registry, language: "en")).hint
-        XCTAssertEqual(hint, L10n.Thread.hintByDay("DABS", from: ThreadBriefing.localTime("16:00", tz: "Europe/Zurich")))
+        let dabs = ThreadTask(key: .dabsChecked, kind: .check)
+        func page(flying day: Date?, now: Date) -> (link: String?, hint: String?) {
+            let briefing = ThreadBriefing(registry: registry, countries: ["CH"], flightDay: day, language: "en", now: now)
+            return (ThreadTaskPresentation.links(for: dabs, briefing: briefing).first?.url.absoluteString,
+                    ThreadTaskPresentation.make(for: dabs, briefing: briefing).hint)
+        }
+        let four = ThreadBriefing.localTime("16:00", tz: "Europe/Zurich")
+        // Today's flight: today's DABS, and nothing about tomorrow's.
+        let today = page(flying: try at(22, 15), now: try at(22, 12))
+        XCTAssertEqual(today.link, "https://www.skybriefing.com/o/dabs?today")
+        XCTAssertEqual(today.hint, L10n.Thread.byDayToday("DABS"))
+        XCTAssertEqual(page(flying: nil, now: try at(22, 12)).hint, L10n.Thread.byDayToday("DABS"), "no day: today's")
+        // Tomorrow's, at noon: not out yet, so no link (today's isn't the flight's), and when it comes.
+        let noon = page(flying: try at(23, 10), now: try at(22, 12))
+        XCTAssertNil(noon.link)
+        XCTAssertEqual(noon.hint, L10n.Thread.byDayLaterToday("DABS", at: four))
+        // Tomorrow's, in the evening: out.
+        let evening = page(flying: try at(23, 10), now: try at(22, 17))
+        XCTAssertEqual(evening.link, "https://www.skybriefing.com/o/dabs?tomorrow")
+        XCTAssertEqual(evening.hint, L10n.Thread.byDayTomorrow("DABS"))
+        // Saturday's, on Thursday: out on Friday at four.
+        let saturday = page(flying: try at(24, 10), now: try at(22, 17))
+        XCTAssertNil(saturday.link)
+        let words = try XCTUnwrap(saturday.hint)
+        XCTAssertTrue(words.contains("Saturday") && words.contains("Friday") && words.contains(four), words)
+    }
+
+    /// The weather block's pages: each country's weather, then its area forecast, a page once with what it gives, and
+    /// its country named on a route through several. (the author's v65-1, 22 Oct 2026)
+    func testTheWeatherBlockListsEachCountrysPagesOnce() {
+        let briefing = ThreadBriefing(registry: registry, countries: ["CH", "FR"], departureCountry: "CH", language: "en")
+        let links = briefing.weatherLinks()
+        let both = "\(L10n.Thread.linkWeather) · \(L10n.Thread.linkForecast)"
+        XCTAssertEqual(links.map(\.label), ["skybriefing", "MeteoSwiss", "Aéroweb (Météo-France)"])
+        XCTAssertEqual(links.map(\.purpose), [L10n.Thread.linkWeather, both, both])
+        XCTAssertEqual(links.map(\.country), ["CH", "CH", "FR"])
+        XCTAssertEqual(links.map(\.detail), [L10n.Thread.accessPaid, nil, L10n.Thread.accessAccount])
+        XCTAssertNil(ThreadBriefing(registry: registry, countries: ["CH"], language: "en").weatherLinks().first?.country,
+                     "one country: whose goes without saying")
+        XCTAssertTrue(ThreadBriefing(countries: ["CH"]).weatherLinks().isEmpty, "no registry, no links")
+    }
+
+    /// The weather block's one tick: "Weather briefed" and every area forecast at once. A forecast marked not applicable
+    /// stays so; the whole block marked not applicable, then ticked, comes back whole. (the author's v65-1, q4)
+    @MainActor
+    func testTheWeatherBlockTicksAsOne() throws {
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+        let index = try XCTUnwrap(manager.threads.firstIndex { $0.id == thread.id })
+        var france = ThreadTask(key: .gaforChecked, kind: .check)
+        france.subject = "FR"
+        manager.threads[index].tasks.append(france)
+        func block() -> [ThreadTask] { manager.thread(withId: thread.id)?.tasks.filter { $0.key.isWeatherBlock } ?? [] }
+        XCTAssertGreaterThanOrEqual(block().count, 2)
+
+        manager.setWeatherState(.done, threadId: thread.id)
+        XCTAssertTrue(block().allSatisfy { $0.state == .done && $0.completedAt != nil })
+        XCTAssertEqual(manager.thread(withId: thread.id)?.tasks.first { $0.key == .notamChecked }?.state, .pending,
+                       "the weather's tick, not the NOTAMs'")
+
+        manager.setTaskState(.notApplicable, taskId: france.id, threadId: thread.id)
+        manager.setWeatherState(.pending, threadId: thread.id)
+        XCTAssertEqual(block().first { $0.id == france.id }?.state, .notApplicable)
+        XCTAssertTrue(block().filter { $0.id != france.id }.allSatisfy { $0.state == .pending })
+
+        manager.setWeatherState(.notApplicable, threadId: thread.id)
+        XCTAssertTrue(block().allSatisfy { $0.state == .notApplicable })
+        manager.setWeatherState(.done, threadId: thread.id)
+        XCTAssertTrue(block().allSatisfy { $0.state == .done })
     }
 
     /// A plan from a field without ATS, where the country wants the pilot to activate it: the line, from the

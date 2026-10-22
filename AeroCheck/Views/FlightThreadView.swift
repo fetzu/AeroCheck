@@ -242,8 +242,9 @@ struct ThreadBriefing {
         case .tomorrow: return L10n.Thread.byDayTomorrow(name)
         case .comesOutToday: return L10n.Thread.byDayLaterToday(name, at: time)
         case .comesOut(on: let day):
+            // The app's language in the device's region: "Saturday, 24 October" on a Swiss iPad in English.
             let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: language)
+            formatter.locale = Locale(identifier: Locale.current.region.map { "\(language)_\($0.identifier)" } ?? language)
             formatter.timeZone = TimeZone(identifier: byDay.tz)
             formatter.setLocalizedDateFormatFromTemplate("EEEEdMMMM")
             return L10n.Thread.byDayLater(name, for: formatter.string(from: flightDay ?? now),

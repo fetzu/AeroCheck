@@ -74,12 +74,14 @@ struct PrepareWeather: Equatable {
             var station = Station(ident: field.ident, roles: [field.role],
                                   metar: data.metars.first { $0.icao == field.ident }?.raw, taf: data.ownTaf)
             var nearestRow: Station?
-            if station.taf == nil,
-               let nearby = data.nearbyTafs.first(where: { $0.icao != field.ident && $0.raw != nil }) {
-                let distance = nearby.lat.flatMap { lat in nearby.lon.map { lon in
-                    CLLocation(latitude: lat, longitude: lon)
-                        .distance(from: CLLocation(latitude: field.coordinate.latitude, longitude: field.coordinate.longitude)) / 1852
-                } } ?? 0
+            // The nearest by the device's own measure: the proxy sorts from its grid point, up to 10 NM off, and put
+            // Basel-Mulhouse (24 NM) before Grenchen (20 NM) for Bressaucourt. (6.5.0, the device check's live probe)
+            let here = CLLocation(latitude: field.coordinate.latitude, longitude: field.coordinate.longitude)
+            let candidates = data.nearbyTafs.compactMap { taf -> (taf: AviationWeatherService.Taf.Forecast, nm: Double)? in
+                guard taf.icao != field.ident, taf.raw != nil, let lat = taf.lat, let lon = taf.lon else { return nil }
+                return (taf, CLLocation(latitude: lat, longitude: lon).distance(from: here) / 1852)
+            }
+            if station.taf == nil, let (nearby, distance) = candidates.min(by: { $0.nm < $1.nm }) {
                 let above = stations.contains { $0.ident == nearby.icao }
                 station.nearest = Nearest(ident: nearby.icao, distanceNm: Int(distance.rounded()), shownAbove: above)
                 if !above && !route.contains(nearby.icao) {

@@ -81,6 +81,19 @@ final class PrepareWeatherTests: XCTestCase {
         XCTAssertEqual(weather.stations.map(\.ident), ["LSZQ", "LFST"], "LFST is the destination's row, not a NEAREST one")
     }
 
+    /// The nearest TAF by the field's own distance, never the proxy's order (sorted from its grid point): for
+    /// Bressaucourt, Grenchen (20 NM) before Basel-Mulhouse (24 NM), as the proxy listed them on 22 Oct.
+    func testTheNearestTAFIsTheFieldsNearest() {
+        var data = PrepareWeather.Fetched()
+        data.nearbyTafs = [taf("LFSB", "TAF LFSB 220500Z", lat: 47.59, lon: 7.5291),
+                           taf("LSZG", "TAF LSZG 220500Z", lat: 47.1817, lon: 7.4172),
+                           taf("LSGC", "TAF LSGC 220500Z", lat: 47.0839, lon: 6.7928)]
+        let weather = PrepareWeather.assemble(fields: [lszq], fetched: ["LSZQ": data], sigmets: nil, at: Date())
+        XCTAssertEqual(weather.stations[0].nearest?.ident, "LSZG")
+        XCTAssertEqual(weather.stations[0].nearest?.distanceNm, nm(lszq.coordinate, 47.1817, 7.4172))
+        XCTAssertEqual(weather.stations.map(\.ident), ["LSZQ", "LSZG"])
+    }
+
     func testNothingWithinReach() {
         let lonely = PrepareWeather.assemble(fields: [lszq], fetched: ["LSZQ": .init()], sigmets: nil, at: Date())
         XCTAssertEqual(PrepareWeatherCard.note(for: lonely.stations[0]), L10n.PrepareWeather.nothingWithin)

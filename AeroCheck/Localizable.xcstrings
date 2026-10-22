@@ -969,22 +969,6 @@
         }
       }
     },
-    "Your ATC flight plan for %@ is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ihr ATC-Flugplan für %@ ist nicht als geschlossen markiert. Hat der Tower ihn nicht für Sie geschlossen, wird das RCC Zürich 30 min nach Ihrer ETA alarmiert."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre plan de vol ATC pour %@ n'est pas marqué comme clôturé. Si la tour ne l'a pas clôturé pour vous, le RCC de Zurich est alerté 30 min après votre ETA."
-          }
-        }
-      }
-    },
     "aircraftRequest.requestsSection": {
       "extractionState": "manual",
       "localizations": {
@@ -4569,6 +4553,259 @@
           "stringUnit": {
             "state": "translated",
             "value": "tour %lld : %@"
+          }
+        }
+      }
+    },
+    "closeOut.ats.atsu": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf einem Flugplatz mit ATSU schliesst die ATSU ihn."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At an aerodrome with an ATSU, the ATSU closes it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur un aérodrome doté d'un ATSU, l'ATSU le clôture."
+          }
+        }
+      }
+    },
+    "closeOut.ats.controlled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur ein kontrollierter Flugplatz schliesst ihn für Sie."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only a controlled aerodrome closes it for you."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seul un aérodrome contrôlé le clôture pour vous."
+          }
+        }
+      }
+    },
+    "closeOut.ats.notControlled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist keiner: Schliessen Sie ihn selbst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is not one: close it yourself."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n'en est pas un : clôturez-le vous-même."
+          }
+        }
+      }
+    },
+    "closeOut.ats.report": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melden Sie Ihre Ankunft auch auf einem Flugplatz mit ATS."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report your arrival even at an aerodrome with ATS."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signalez votre arrivée même sur un aérodrome doté d'un organisme ATS."
+          }
+        }
+      }
+    },
+    "closeOut.ats.sera": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Flugplatz mit ATS, der Ihre Landung beobachtet hat, schliesst ihn: nichts zu tun."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An aerodrome with ATS that saw you land closes it: nothing to do."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un aérodrome doté d'un organisme ATS qui vous a vu atterrir le clôture : rien à faire."
+          }
+        }
+      }
+    },
+    "closeOut.call": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ anrufen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appeler %@"
+          }
+        }
+      }
+    },
+    "closeOut.rule.alert": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Ist er noch offen, werden die Rettungsdienste %2$lld min nach Ihrer ETA alarmiert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: if it is still open, search and rescue starts %2$lld min after your ETA."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : s'il est encore ouvert, les secours sont alertés %2$lld min après votre ETA."
+          }
+        }
+      }
+    },
+    "closeOut.rule.noDelay": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: Melden Sie Ihre Ankunft. Es ist keine Frist veröffentlicht; bleibt er offen, können die Rettungsdienste alarmiert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: report your arrival. No delay is published; if it stays open, search and rescue may be started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : signalez votre arrivée. Aucun délai n'est publié ; s'il reste ouvert, les secours peuvent être alertés."
+          }
+        }
+      }
+    },
+    "closeOut.rule.report": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Melden Sie Ihre Ankunft innerhalb von %2$lld min nach der Landung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: report your arrival within %2$lld min of landing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : signalez votre arrivée dans les %2$lld min suivant l'atterrissage."
+          }
+        }
+      }
+    },
+    "closeOut.rule.reportTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Melden Sie Ihre Ankunft bei %2$@. Es ist keine Frist veröffentlicht; bleibt er offen, können die Rettungsdienste alarmiert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: report your arrival to %2$@. No delay is published; if it stays open, search and rescue may be started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : signalez votre arrivée à %2$@. Aucun délai n'est publié ; s'il reste ouvert, les secours peuvent être alertés."
+          }
+        }
+      }
+    },
+    "closeOut.rule.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schliessen Sie ihn bei der ATS-Stelle des Flugplatzes oder der nächstgelegenen. Bleibt er offen, können die Rettungsdienste alarmiert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close it with the aerodrome's ATS unit, or the nearest one. If it stays open, search and rescue may be started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôturez-le auprès de l'organisme ATS de l'aérodrome, ou du plus proche. S'il reste ouvert, les secours peuvent être alertés."
           }
         }
       }
@@ -12942,6 +13179,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ n'a pas d'ATS : activez le plan vous-même après le décollage, par radio ou par téléphone."
+          }
+        }
+      }
+    },
+    "thread.closeFlightPlan.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr ATC-Flugplan für %1$@ ist nicht als geschlossen markiert. %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your ATC flight plan for %1$@ is not marked closed. %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre plan de vol ATC pour %1$@ n'est pas marqué comme clôturé. %2$@"
           }
         }
       }
@@ -23482,19 +23742,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Melden Sie dem FIC Zürich, dass Sie in %1$@ gelandet sind, nicht in %2$@."
+            "value": "Melden Sie, dass Sie in %1$@ gelandet sind, nicht in %2$@."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tell Zurich FIC you landed at %1$@, not %2$@."
+            "value": "Say you landed at %1$@, not %2$@."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Annoncez au FIC de Zurich votre atterrissage à %1$@ et non à %2$@."
+            "value": "Précisez que vous avez atterri à %1$@ et non à %2$@."
           }
         }
       }
@@ -28364,22 +28624,6 @@
         }
       }
     },
-    "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wurde er bei der Ankunft nicht geschlossen, wird das RCC Zürich 30 min nach Ihrer ETA alarmiert"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "S'il n'a pas été clôturé à l'arrivée, le RCC de Zurich est alerté 30 min après votre ETA"
-          }
-        }
-      }
-    },
     "Booked with your club" : {
       "localizations" : {
         "de" : {
@@ -28488,22 +28732,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Marquer clôturé"
-          }
-        }
-      }
-    },
-    "Call 0800 437 837" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "0800 437 837 anrufen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appeler 0800 437 837"
           }
         }
       }

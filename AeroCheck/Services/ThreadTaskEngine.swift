@@ -157,8 +157,8 @@ enum ThreadTaskEngine {
 
         // --- CLOSE ---
         if c.flightPlanFiled {
-            // The one task with a real-world consequence for forgetting it: Zurich RCC alerts 30 min
-            // after the ETA on an unclosed plan.
+            // The one task with a real-world consequence for forgetting it: search and rescue is alerted
+            // after the ETA on an unclosed plan (30 min in Switzerland; each country's rule, `CloseOut`).
             specs.append(Spec(key: .flightPlanClosed, kind: .reminder, isUrgent: true))
         }
         for ident in c.tracksCost ? c.feeIdents.sorted() : [] {

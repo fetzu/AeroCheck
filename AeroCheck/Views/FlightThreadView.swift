@@ -78,7 +78,9 @@ struct ThreadTaskPresentation {
             let country = task.subject.map { OpenAIPConfig.countryName(for: $0) } ?? ""
             return .init(title: L10n.Thread.taskCustoms(country), hint: hint, icon: "globe.europe.africa")
         case .flightPlanClosed:
-            return .init(title: L10n.Thread.taskFlightPlanClose, hint: L10n.Thread.hintFlightPlanClose, icon: "checkmark.shield")
+            // The rule of the country landed in. (6.5.0)
+            return .init(title: L10n.Thread.taskFlightPlanClose, hint: briefing?.closeOut?.rule ?? L10n.CloseOut.ruleUnknown,
+                         icon: "checkmark.shield")
         case .feesPaid:
             return .init(title: L10n.Thread.taskFees(task.subject ?? ""), hint: nil, icon: "banknote")
         case .logbookEntry:
@@ -120,8 +122,9 @@ struct ThreadTaskPresentation {
         case .gaforChecked:
             return briefing?.links(.forecast, in: [task.briefingCountry]) ?? []
         case .flightPlanClosed:
-            // Skyguide's free flight-plan closing number. A `tel:` link is the whole feature here.
-            return [ThreadTaskLink(label: L10n.Thread.callFIC, url: URL(string: "tel://0800437837")!)]
+            // The numbers of the country landed in, then its own links (Swiss SAR Alerts, the online arrival report).
+            // A `tel:` link is the whole feature here. Until 6.5.0, Skyguide's wherever the flight landed.
+            return briefing?.closeOutLinks ?? []
         case .pprObtained:
             // The chart is where the aerodrome's PPR telephone and hours are. (6.2.0)
             return chart
@@ -166,6 +169,20 @@ struct ThreadBriefing {
     var flightDay: Date?
     var language: String = AppLanguage.current
     var now: Date = Date()
+    /// How the plan is closed where the flight lands. (q3)
+    var closeOut: CloseOut?
+
+    /// The close-out's numbers, each a call, then the country's links.
+    var closeOutLinks: [ThreadTaskLink] {
+        guard let closeOut else { return [] }
+        let calls = closeOut.phones.compactMap { phone in
+            CloseOut.callURL(phone).map { ThreadTaskLink(label: L10n.CloseOut.call(phone.name), detail: phone.number, url: $0) }
+        }
+        let links = closeOut.links.map {
+            ThreadTaskLink(label: $0.displayName(language: language), detail: Self.accessWord($0.access), url: $0.url)
+        }
+        return calls + links
+    }
 
     /// `category`'s pages for each of `countries`, in their order, a page that two countries share once.
     func links(_ category: BriefingRegistry.Category, in countries: [String]) -> [ThreadTaskLink] {
@@ -1354,9 +1371,14 @@ struct FlightThreadView: View {
     // MARK: - Open flight plan card
 
     /// The headline: a filed plan that is still open after landing. Red, unmissable, and carrying the
-    /// two ways to actually close it.
+    /// ways to actually close it: since 6.5.0 by the rule of the country landed in, its numbers to call
+    /// (each named, in E.164 so they work from a foreign SIM too), what a field with ATS does, and its
+    /// own links (q3).
     private func openFlightPlanCard(_ thread: FlightThread) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let closeOut = closeOut(for: thread)
+        let links = ThreadBriefing(registry: briefingRegistry.registry, closeOut: closeOut).closeOutLinks
+            .filter { $0.url.scheme != "tel" }
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .scaledFont(size: 18, relativeTo: .title3)
@@ -1365,10 +1387,11 @@ struct FlightThreadView: View {
                     Text(L10n.Thread.closeFlightPlanTitle)
                         .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
-                    Text(L10n.Thread.hintFlightPlanClose)
+                    Text(closeOut.rule)
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
-                    // Landed elsewhere: RCC is counting towards the ETA at the PLANNED destination,
+                        .fixedSize(horizontal: false, vertical: true)
+                    // Landed elsewhere: the alerting counts towards the ETA at the PLANNED destination,
                     // so where the aircraft actually is is the thing to say. (v5.1)
                     if let landed = thread.landedElsewhere {
                         Text(L10n.Trip.tellFICLanded(landed.landedIdent, landed.plannedIdent))
@@ -1378,22 +1401,32 @@ struct FlightThreadView: View {
                 }
                 Spacer()
             }
-            // Equal width, deliberately. These two are peers — calling the FIC and marking the
-            // plan closed are both complete answers to the same urgent question — so neither should
-            // be typographically louder than the other. The sizes used to be driven entirely by
-            // label length ("Call 0800 437 837" against "Mark closed") plus two styles that
-            // disagreed on padding. (device pass)
+            // Equal width, deliberately. These are peers — calling and marking the plan closed are
+            // both complete answers to the same urgent question — so none should be typographically
+            // louder than the other. The sizes used to be driven entirely by label length plus two
+            // styles that disagreed on padding. (device pass)
             HStack(spacing: 8) {
-                if let url = URL(string: "tel://0800437837") {
-                    Button {
-                        openURL(url)
-                    } label: {
-                        Text(L10n.Thread.callFIC)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
+                ForEach(closeOut.phones.prefix(2), id: \.number) { phone in
+                    if let url = CloseOut.callURL(phone) {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            VStack(spacing: 1) {
+                                Text(L10n.CloseOut.call(phone.name))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
+                                Text(phone.number)
+                                    .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .opacity(0.85)
+                            }
                             .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle(color: .aviationRed, isLarge: false))
+                        .accessibilityLabel(L10n.CloseOut.call(phone.name))
+                        .accessibilityValue(phone.number)
                     }
-                    .buttonStyle(PrimaryButtonStyle(color: .aviationRed, isLarge: false))
                 }
                 Button {
                     threadManager.markFlightPlanClosed(threadId: thread.id)
@@ -1404,6 +1437,34 @@ struct FlightThreadView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle(isLarge: false))
+            }
+            if let atsLine = closeOut.atsLine {
+                Text(atsLine)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !links.isEmpty {
+                FlowLayout(spacing: 8) {
+                    ForEach(links, id: \.url) { link in
+                        Button { openURL(link.url) } label: {
+                            VStack(spacing: 0) {
+                                Text(link.label)
+                                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                                if let detail = link.detail {
+                                    Text(detail).scaledFont(size: 9, relativeTo: .caption2).opacity(0.8)
+                                }
+                            }
+                            .foregroundColor(.altimeterBlue)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.altimeterBlue.opacity(0.45), lineWidth: 1))
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
         .padding(14)
@@ -1580,7 +1641,16 @@ struct FlightThreadView: View {
         let countries = thread.countries ?? []
         return ThreadBriefing(registry: briefingRegistry.registry, countries: countries,
                               departureCountry: FlightThreadManager.departureCountry(of: plan(for: thread)) ?? countries.first,
-                              flightDay: thread.scheduledDeparture)
+                              flightDay: thread.scheduledDeparture,
+                              closeOut: thread.flightPlanFiledAt == nil ? nil : closeOut(for: thread))
+    }
+
+    /// How this flight's plan is closed, the field's tower known from the app's data. (6.5.0)
+    private func closeOut(for thread: FlightThread) -> CloseOut {
+        threadManager.closeOut(for: thread) { ident in
+            guard airportDataService.findAirport(byIdent: ident) != nil else { return nil }
+            return airportDataService.getFrequencies(for: ident).contains { AirportDataService.isContactType($0.type, "TWR") }
+        }
     }
 
     /// "ESKT has no ATS: activate the plan yourself after take-off, by radio or phone.", where the departure's

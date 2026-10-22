@@ -212,6 +212,12 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Slovakia.
     var homeCountry: String?
 
+    /// The aerodrome the route ends at and its country (`ICAOCountry` first): where the flight plan is closed, by that
+    /// country's rule. Recorded with `countries` for the same reason; nil on threads written before 6.5.0 until their
+    /// next regeneration. (6.5.0)
+    var arrivalIdent: String?
+    var arrivalCountry: String?
+
     var tasks: [ThreadTask] = []
 
     /// Set when the pilot ticks "flight plan filed". This is what arms the close reminder — a thread
@@ -379,6 +385,8 @@ extension FlightThread {
         tripId = try c.decodeIfPresent(UUID.self, forKey: .tripId)
         landedElsewhere = try c.decodeIfPresent(LandedElsewhere.self, forKey: .landedElsewhere)
         homeCountry = try c.decodeIfPresent(String.self, forKey: .homeCountry)
+        arrivalIdent = try c.decodeIfPresent(String.self, forKey: .arrivalIdent)
+        arrivalCountry = try c.decodeIfPresent(String.self, forKey: .arrivalCountry)
         tasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .tasks)?.tasks ?? []
         flightPlanFiledAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanFiledAt)
         flightPlanClosedAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanClosedAt)

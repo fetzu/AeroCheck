@@ -414,6 +414,83 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertTrue(L10n.Thread.activateWithoutATS("ESKT").hasPrefix("ESKT"))
     }
 
+    // MARK: - Closing the plan by country (6.5.0)
+
+    /// The close-out kinds the registry has: an alerting delay (CH), a deadline (SE), neither (DE, with only a
+    /// controlled aerodrome closing it), an aerodrome's own number (Spain), nothing checked (Italy).
+    private let closing: BriefingRegistry = {
+        typealias Phone = BriefingRegistry.Phone
+        var ch = BriefingRegistry.Country()
+        ch.closing = .init(phones: [Phone(number: "+41800437837", name: "skyguide ARO")], alertMinutes: 30, atsClose: .sera,
+                           links: [.init(name: "Swiss SAR Alerts (FOCA)", url: URL(string: "https://apps.apple.com/ch/app/id1496031677")!)])
+        var se = BriefingRegistry.Country()
+        se.closing = .init(phones: [Phone(number: "+46858554505", name: "Stockholm ACC"), Phone(number: "+4640613350", name: "Malmö ACC")],
+                           reportMinutes: 30, atsClose: .sera)
+        var de = BriefingRegistry.Country()
+        de.closing = .init(phones: [Phone(number: "+4961037075500", name: "AIS-C (DFS)")], atsClose: .controlled)
+        var es = BriefingRegistry.Country()
+        es.closing = .init(atsClose: .sera, aerodromes: ["LEIG": [Phone(number: "+34918603561", name: "Centralised ARO, area 6")]])
+        return BriefingRegistry(countries: ["CH": ch, "SE": se, "DE": de, "ES": es, "IT": .init()])
+    }()
+
+    func testTheCloseOutSaysTheRuleOfTheCountryLandedIn() {
+        func name(_ code: String) -> String { OpenAIPConfig.countryName(for: code) }
+        let ch = CloseOut.make(registry: closing, country: "CH", aerodrome: "LSZQ")
+        XCTAssertEqual(ch.rule, L10n.CloseOut.ruleAlert(name("CH"), minutes: 30))
+        XCTAssertEqual(ch.phones.map(\.number), ["+41800437837"])
+        XCTAssertEqual(ch.atsLine, L10n.CloseOut.atsSera)
+        XCTAssertEqual(ch.reminderDelay, 15 * 60, "half the alerting delay")
+
+        let se = CloseOut.make(registry: closing, country: "SE", aerodrome: "ESKT")
+        XCTAssertEqual(se.rule, L10n.CloseOut.ruleReport(name("SE"), minutes: 30), "a deadline, not an alerting delay")
+        XCTAssertEqual(se.phones.map(\.name), ["Stockholm ACC", "Malmö ACC"])
+        XCTAssertEqual(se.reminderDelay, NotificationService.landingDelay)
+
+        let de = CloseOut.make(registry: closing, country: "DE", aerodrome: "EDTF", aerodromeHasTower: false)
+        XCTAssertEqual(de.rule, L10n.CloseOut.ruleReportTo(name("DE"), "AIS-C (DFS)"))
+        XCTAssertEqual(de.atsLine, "\(L10n.CloseOut.atsControlled) \(L10n.CloseOut.notControlled("EDTF"))")
+        XCTAssertEqual(CloseOut.make(registry: closing, country: "DE", aerodrome: "EDNY", aerodromeHasTower: true).atsLine,
+                       L10n.CloseOut.atsControlled)
+
+        let es = CloseOut.make(registry: closing, country: "ES", aerodrome: "LEIG")
+        XCTAssertEqual(es.phones.map(\.name), ["Centralised ARO, area 6"], "the aerodrome's own ARO")
+        XCTAssertEqual(es.rule, L10n.CloseOut.ruleReportTo(name("ES"), "Centralised ARO, area 6"))
+        XCTAssertEqual(CloseOut.make(registry: closing, country: "ES", aerodrome: "LEZZ").rule, L10n.CloseOut.ruleUnknown,
+                       "a Spanish field the registry has no number for: nothing checked, the rule for everywhere")
+
+        let italy = CloseOut.make(registry: closing, country: "IT", aerodrome: "LIMJ")
+        XCTAssertEqual(italy.rule, L10n.CloseOut.ruleUnknown)
+        XCTAssertTrue(italy.phones.isEmpty, "never another country's number")
+        XCTAssertEqual(CloseOut.make(registry: nil, country: "CH", aerodrome: "LSZQ").rule, L10n.CloseOut.ruleUnknown)
+    }
+
+    /// The country landed in: the diversion's after a diversion, else the route's end; a thread from before 6.5.0
+    /// reads its arrival from its label. The task and the red card call its numbers.
+    func testTheCloseOutFollowsWhereTheFlightLanded() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGS")
+        thread.arrivalIdent = "LSGS"
+        thread.arrivalCountry = "CH"
+        XCTAssertEqual(FlightThreadManager.closeOut(for: thread, registry: closing).country, "CH")
+        thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSGS", landedIdent: "EDTF", landedName: "Freiburg")
+        let diverted = FlightThreadManager.closeOut(for: thread, registry: closing) { _ in false }
+        XCTAssertEqual(diverted.country, "DE")
+        XCTAssertEqual(diverted.aerodrome, "EDTF")
+        XCTAssertEqual(diverted.aerodromeHasTower, false)
+
+        let old = FlightThread(routeLabel: "LSGS → LSZQ")
+        XCTAssertEqual(FlightThreadManager.closeOut(for: old, registry: closing).aerodrome, "LSZQ")
+        XCTAssertEqual(FlightThreadManager.closeOut(for: old, registry: closing).country, "CH")
+        XCTAssertNil(FlightThreadManager.arrival(inLabel: "Rhine valley"))
+
+        let briefing = ThreadBriefing(registry: closing, language: "en",
+                                      closeOut: CloseOut.make(registry: closing, country: "CH", aerodrome: "LSZQ"))
+        let links = ThreadTaskPresentation.links(for: ThreadTask(key: .flightPlanClosed, kind: .reminder), briefing: briefing)
+        XCTAssertEqual(links.map(\.url.absoluteString), ["tel:+41800437837", "https://apps.apple.com/ch/app/id1496031677"])
+        XCTAssertEqual(links.first?.label, L10n.CloseOut.call("skyguide ARO"))
+        XCTAssertEqual(ThreadTaskPresentation.make(for: ThreadTask(key: .flightPlanClosed, kind: .reminder), briefing: briefing).hint,
+                       briefing.closeOut?.rule)
+    }
+
     /// A route through a closed country: its row, with the directive; nothing else changes. (q5)
     func testAProhibitedCountryOnTheRouteIsNamed() {
         let briefing = ThreadBriefing(registry: registry, countries: ["PL", "BY"])
@@ -511,6 +588,8 @@ final class FlightThreadTests: XCTestCase {
         thread.tripId = UUID()
         thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSZE", landedIdent: "LSZS", landedName: "Samedan")
         thread.homeCountry = "CH"
+        thread.arrivalIdent = "LSZE"
+        thread.arrivalCountry = "CH"
         thread.tasks = [task]
         thread.flightPlanFiledAt = date
         thread.flightPlanClosedAt = date.addingTimeInterval(3600)
@@ -573,7 +652,8 @@ final class FlightThreadTests: XCTestCase {
         let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
         XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
                                       "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
-                                      "landedElsewhere", "homeCountry", "tasks", "flightPlanFiledAt",
+                                      "landedElsewhere", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
+                                      "flightPlanFiledAt",
                                       "flightPlanClosedAt", "createdAt", "updatedAt"])
         let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))
         XCTAssertEqual(taskFields, ["id", "key", "subject", "kind", "state", "completedAt", "note", "detail",

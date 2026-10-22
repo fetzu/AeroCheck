@@ -156,6 +156,8 @@ class FlightThreadManager: ObservableObject {
         context.destinationFuels = destinationFuels ?? Self.destinationFuels(on: plan)
         thread.countries = context.countries
         thread.homeCountry = context.homeCountry
+        thread.arrivalIdent = context.arrivalIdent
+        thread.arrivalCountry = context.arrivalCountry
         thread.tasks = ThreadTaskEngine.generate(context: context)
         thread.settleReadiness()
 
@@ -206,14 +208,21 @@ class FlightThreadManager: ObservableObject {
         // for no change at all. Replacing rows underneath a finger is a plausible cause of the crash
         // reported when ticking a task on a freshly created flight, and it is churn worth removing
         // either way. (device pass)
+        let arrivalChanged = plan != nil && (threads[index].arrivalIdent != context.arrivalIdent
+                                             || threads[index].arrivalCountry != context.arrivalCountry)
         guard regenerated != existing
                 || threads[index].countries != context.countries
                 || threads[index].homeCountry != context.homeCountry
+                || arrivalChanged
                 || (plan != nil && plan?.firmDepartureTime != threads[index].scheduledDeparture)
         else { return }
 
         threads[index].countries = context.countries
         threads[index].homeCountry = context.homeCountry
+        if plan != nil {
+            threads[index].arrivalIdent = context.arrivalIdent
+            threads[index].arrivalCountry = context.arrivalCountry
+        }
         threads[index].tasks = regenerated
         threads[index].settleReadiness()
 
@@ -941,17 +950,42 @@ class FlightThreadManager: ObservableObject {
     /// `delay` distinguishes the two arming points. END FLIGHT uses the short one: the pilot has the
     /// app open and the in-app banner is already up. A confirmed full-stop landing uses the long
     /// one, and is the case that actually needs a notification — the pilot who lands, shuts down and
-    /// walks away without pressing anything used to get NO prompt at all before Skyguide's RCC
-    /// alerted at ETA+30, because this was only ever called from `beginCloseOut` despite the comment
+    /// walks away without pressing anything used to get NO prompt at all before search and rescue
+    /// was alerted (Skyguide's RCC at ETA+30 in Switzerland), because this was only ever called from `beginCloseOut` despite the comment
     /// here claiming the detector called it. (review F6)
     func scheduleCloseReminderIfNeeded(threadId: UUID,
                                        delay: TimeInterval = NotificationService.postFlightDelay) {
         guard let thread = thread(withId: threadId), thread.hasOpenFlightPlan else { return }
+        let rule = closeOut(for: thread).rule
         Task { [notifications] in
             await notifications.scheduleFlightPlanCloseReminder(threadId: thread.id,
                                                                routeLabel: thread.routeLabel,
+                                                               rule: rule,
                                                                delay: delay)
         }
+    }
+
+    /// How this flight's plan is closed: by the rule of the country it landed in, the diversion's after a
+    /// diversion. `aerodromeHasTower` answers for a country where only a controlled aerodrome closes it. (6.5.0)
+    func closeOut(for thread: FlightThread, aerodromeHasTower: ((String) -> Bool?)? = nil) -> CloseOut {
+        Self.closeOut(for: thread, registry: BriefingRegistryService.shared.registry, aerodromeHasTower: aerodromeHasTower)
+    }
+
+    nonisolated static func closeOut(for thread: FlightThread, registry: BriefingRegistry?,
+                                     aerodromeHasTower: ((String) -> Bool?)? = nil) -> CloseOut {
+        let aerodrome = thread.landedElsewhere?.landedIdent ?? thread.arrivalIdent ?? arrival(inLabel: thread.routeLabel)
+        // A field landed at that no ICAO prefix places (a private strip): the planned destination's country, the
+        // likeliest; a thread from before 6.5.0 has none recorded until its next regeneration.
+        let country = aerodrome.flatMap { ICAOCountry.country(of: $0) } ?? thread.arrivalCountry
+        return CloseOut.make(registry: registry, country: country, aerodrome: aerodrome,
+                             aerodromeHasTower: aerodrome.flatMap { aerodromeHasTower?($0) ?? nil })
+    }
+
+    /// "LSZQ" from the label "LSGS → LSZQ" (`routeLabel(for:)`), for a thread written before `arrivalIdent`.
+    nonisolated static func arrival(inLabel label: String) -> String? {
+        guard let last = label.components(separatedBy: " → ").dropFirst().last?.trimmingCharacters(in: .whitespaces),
+              looksLikeICAO(last) else { return nil }
+        return last
     }
 
     /// A full-stop landing was confirmed for the running flight: arm the close reminder on whatever
@@ -963,7 +997,8 @@ class FlightThreadManager: ObservableObject {
     /// correct — so it must not guess. (review F6)
     func noteFullStopLanding(flightId: UUID) {
         guard let thread = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) else { return }
-        scheduleCloseReminderIfNeeded(threadId: thread.id, delay: NotificationService.landingDelay)
+        // Half the alerting delay of the country landed in, 15 min where none is published. (6.5.0)
+        scheduleCloseReminderIfNeeded(threadId: thread.id, delay: closeOut(for: thread).reminderDelay)
     }
 
     /// A close requested before the threads finished loading, replayed once they have.

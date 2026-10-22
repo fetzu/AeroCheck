@@ -477,7 +477,6 @@ enum L10n {
             String(format: String(localized: "thread.prohibited.title"), country)
         }
         static let prohibitedHint = String(localized: "thread.prohibited.hint")
-        static let hintFlightPlanClose = String(localized: "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA")
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
         static let hintPPR = String(localized: "Prior permission required: call ahead")
@@ -493,7 +492,6 @@ enum L10n {
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
         static let markFlightPlanClosed = String(localized: "Mark closed")
-        static let callFIC = String(localized: "Call 0800 437 837")
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.
         static let deleteThread = String(localized: "Cancel flight")
@@ -516,8 +514,9 @@ enum L10n {
 
         // Notifications
         static let closeFlightPlanTitle = String(localized: "Close your flight plan")
-        static func closeFlightPlanBody(_ route: String) -> String {
-            String(localized: "Your ATC flight plan for \(route) is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
+        /// The route, then the close-out's rule for the country landed in. (6.5.0)
+        static func closeFlightPlanBody(_ route: String, rule: String) -> String {
+            String(format: String(localized: "thread.closeFlightPlan.body"), route, rule)
         }
         static let prepareReminderTitle = String(localized: "Flight tomorrow")
         static func prepareReminderBody(_ route: String) -> String {
@@ -526,6 +525,32 @@ enum L10n {
 
         // Banner
         static let openFlightPlanBanner = String(localized: "Flight plan not marked closed")
+    }
+
+    // MARK: - Closing a flight plan, by country (6.5.0)
+    enum CloseOut {
+        static func ruleAlert(_ country: String, minutes: Int) -> String {
+            String(format: String(localized: "closeOut.rule.alert"), country, minutes)
+        }
+        static func ruleReport(_ country: String, minutes: Int) -> String {
+            String(format: String(localized: "closeOut.rule.report"), country, minutes)
+        }
+        static func ruleReportTo(_ country: String, _ unit: String) -> String {
+            String(format: String(localized: "closeOut.rule.reportTo"), country, unit)
+        }
+        static func ruleNoDelay(_ country: String) -> String {
+            String(format: String(localized: "closeOut.rule.noDelay"), country)
+        }
+        static let ruleUnknown = String(localized: "closeOut.rule.unknown")
+        static let atsSera = String(localized: "closeOut.ats.sera")
+        static let atsControlled = String(localized: "closeOut.ats.controlled")
+        static func notControlled(_ aerodrome: String) -> String {
+            String(format: String(localized: "closeOut.ats.notControlled"), aerodrome)
+        }
+        static let atsATSU = String(localized: "closeOut.ats.atsu")
+        static let atsReport = String(localized: "closeOut.ats.report")
+        /// "Call skyguide ARO".
+        static func call(_ unit: String) -> String { String(format: String(localized: "closeOut.call"), unit) }
     }
 
     // MARK: - Prepare's weather (6.5.0)

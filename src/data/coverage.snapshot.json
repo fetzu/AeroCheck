@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "generated": "2026-10-22T16:03:17Z",
+  "generated": "2026-10-22T17:17:22Z",
   "countries": {
     "AL": {
       "weather": {
@@ -1829,13 +1829,7 @@
     },
     "LV": {
       "weather": {
-        "level": "on",
-        "publishers": [
-          {
-            "name": "IBS (LGS)",
-            "access": "open"
-          }
-        ]
+        "level": "off"
       },
       "notam": {
         "level": "on",
@@ -1856,22 +1850,10 @@
         ]
       },
       "forecast": {
-        "level": "on",
-        "publishers": [
-          {
-            "name": "IBS (LGS)",
-            "access": "open"
-          }
-        ]
+        "level": "off"
       },
       "filing": {
-        "level": "on",
-        "publishers": [
-          {
-            "name": "IBS (LGS)",
-            "access": "account"
-          }
-        ]
+        "level": "off"
       },
       "close": {
         "level": "on",
@@ -2277,10 +2259,10 @@
         ]
       },
       "airspace": {
-        "level": "on",
+        "level": "part",
         "publishers": [
           {
-            "name": "NAV Portugal AIS",
+            "name": "EUROCONTROL EAUP",
             "access": "open"
           }
         ]
@@ -2740,8 +2722,9 @@
       },
       "points": 7,
       "charts": {
-        "level": "off",
-        "reason": "unreadable"
+        "level": "on",
+        "kind": "every",
+        "count": 42
       },
       "openaip": true
     }

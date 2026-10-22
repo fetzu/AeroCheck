@@ -171,6 +171,13 @@ aerodromes, so the replay keeps the simulator's own airport data and the frequen
 for these captures). The logbook frame comes from a second, untouched run at 30×. Captured on 18 Oct 2026 for the
 6.4.0 site; the page's times are the Cockpit's flight clock in each frame.
 
+`automark` was recaptured on 22 Oct 2026 from the `6.4.3` tag, for the radio's NOW and NEXT of 6.4.2 and 6.4.3: the
+same scenario at 2× (so the six seconds of BENOT's UNDO last three on the wall clock), flown by a temporary UI test on
+`CockpitPilot` (every check worked, NEXT tapped each time a call came due, the cruise check left open on CHECKLIST,
+shots taken while BENOT's mark offers UNDO). The replay's clock does not take the capture clock (`AEROCHECK_CLOCK`);
+a local change, never committed, started it at 09:16 so the frame reads 9:38 under the status bar's 9:41. The other
+frames are still the 18 Oct run's, whose longer ground holds put the line-up at 00:18 on the flight clock.
+
 ## App Store
 
 **Exact sizes.** App Store Connect matches screenshot dimensions EXACTLY against a device size class

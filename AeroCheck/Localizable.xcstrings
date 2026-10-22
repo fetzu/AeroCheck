@@ -9669,7 +9669,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App hat das Durchstarten erkannt und automatisch aufgezeichnet: Die Kontrollen sind zur Steigflugkontrolle zurückgekehrt. War es keines, nimmt WIDERRUFEN es während einiger Sekunden zurück. Nach einem echten Flug bestätigen Sie es in der Flugauswertung."
+            "value": "Die App hat das Durchstarten erkannt und automatisch aufgezeichnet: Die Kontrollen sind zur Steigflugkontrolle zurückgekehrt. War es keines, nimmt STORNO es während einiger Sekunden zurück. Nach einem echten Flug bestätigen Sie es in der Flugauswertung."
           }
         },
         "en": {
@@ -9922,7 +9922,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NÄCHSTE ist umrandet: Es ist Zeit, dorthin zu wechseln, und die Linie an seinem Fuss läuft bis zu der Stelle ab, an der die App von selbst wechselt. Wenn Sie die Frequenz wechseln, tippen Sie auf NÄCHSTE (auf dem iPhone auf die AKT.-Zeile), und daraus wird AKT. Mit WIDERRUFEN nehmen Sie das zurück."
+            "value": "NÄCHSTE ist umrandet: Es ist Zeit, dorthin zu wechseln, und die Linie an seinem Fuss läuft bis zu der Stelle ab, an der die App von selbst wechselt. Wenn Sie die Frequenz wechseln, tippen Sie auf NÄCHSTE (auf dem iPhone auf die AKT.-Zeile), und daraus wird AKT. Mit STORNO nehmen Sie das zurück."
           }
         },
         "en": {
@@ -11003,7 +11003,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App hat den Überflug dieses Kontrollpunkts erkannt, die Überflugzeit auf ROUTE erfasst und ist automatisch zur nächsten Teilstrecke gewechselt. War das zu früh, nimmt WIDERRUFEN es hier zurück."
+            "value": "Die App hat den Überflug dieses Kontrollpunkts erkannt, die Überflugzeit auf ROUTE erfasst und ist automatisch zur nächsten Teilstrecke gewechselt. War das zu früh, nimmt STORNO es hier zurück."
           }
         },
         "en": {
@@ -15798,7 +15798,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "überfällig · vor dem Horizontalflug nicht erledigt"
+            "value": "überfällig · vor dem Reiseflug nicht erledigt"
           }
         },
         "en": {

@@ -13052,6 +13052,29 @@
         }
       }
     },
+    "prepareWeather.refreshFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierung nicht möglich: Dies sind die Meldungen von %@. Prüfen Sie die Verbindung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not refresh: these are the reports of %@. Check the connection."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualisation impossible : voici les observations de %@. Vérifiez la connexion."
+          }
+        }
+      }
+    },
     "prepareWeather.role.alternate": {
       "extractionState": "manual",
       "localizations": {

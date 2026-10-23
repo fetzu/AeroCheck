@@ -216,6 +216,14 @@ struct PrepareWeatherReports: View {
         VStack(alignment: .leading, spacing: 0) {
             switch service.state(for: threadId) {
             case .loaded(let weather)?:
+                if service.refreshFailed.contains(threadId) {
+                    Text(L10n.PrepareWeather.refreshFailed(Self.utc(weather.fetchedAt)))
+                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                        .foregroundColor(.aviationAmber)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 9)
+                }
                 ForEach(weather.stations) { station in
                     stationRow(station)
                     Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 14)

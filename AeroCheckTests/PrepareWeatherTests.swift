@@ -134,4 +134,82 @@ final class PrepareWeatherTests: XCTestCase {
         XCTAssertEqual(sigmets.hazards.map(\.firId), ["LSAS"])
         XCTAssertFalse(L10n.PrepareWeather.noSigmetAlongRoute(163).isEmpty)
     }
+
+    // MARK: - Fetching (the author's device check, 23 Oct 2026)
+
+    /// A stand-in for the network: each call takes the next outcome, after `delay`, whatever its caller's cancellation.
+    private final class Stub: @unchecked Sendable {
+        private let lock = NSLock()
+        private var outcomes: [PrepareWeatherService.Outcome]
+        private(set) var calls: [Bool] = []
+        let delay: UInt64
+        init(_ outcomes: [PrepareWeatherService.Outcome], delayMs: UInt64 = 0) {
+            self.outcomes = outcomes
+            delay = delayMs * 1_000_000
+        }
+        func next(fresh: Bool) async -> PrepareWeatherService.Outcome {
+            if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
+            lock.lock(); defer { lock.unlock() }
+            calls.append(fresh)
+            return outcomes.isEmpty ? .init() : outcomes.removeFirst()
+        }
+    }
+
+    private func answered() -> PrepareWeatherService.Outcome {
+        var outcome = PrepareWeatherService.Outcome()
+        outcome.fetched = fetched
+        outcome.anything = true
+        return outcome
+    }
+
+    private func service(_ stub: Stub) -> PrepareWeatherService {
+        PrepareWeatherService(fetcher: { _, _, fresh in await stub.next(fresh: fresh) })
+    }
+
+    /// The card's task is cancelled when the page redraws or closes (a flight just created does both): the fetch goes on
+    /// in the service's own task and fills the card, where it used to say "could not be fetched".
+    func testACancelledCardStillGetsItsWeather() async {
+        let stub = Stub([answered()], delayMs: 50)
+        let weather = service(stub)
+        let id = UUID()
+        let card = Task { await weather.load(threadId: id, fields: [lszq, edtf], route: []) }
+        card.cancel()
+        await card.value
+        guard case .loaded(let loaded)? = weather.state(for: id) else { return XCTFail("\(String(describing: weather.state(for: id)))") }
+        XCTAssertEqual(loaded.stations.first?.ident, "LSZQ")
+        // The same fields again while one is loading or loaded: no second fetch.
+        await weather.load(threadId: id, fields: [lszq, edtf], route: [])
+        XCTAssertEqual(stub.calls.count, 1)
+    }
+
+    /// The refresh asks past the device's cache; when nothing answers, the last reports stay, said so beside them
+    /// (v65-18: in airplane mode the cache answered and the card looked refreshed).
+    func testAFailedRefreshKeepsTheReportsAndSaysSo() async {
+        let stub = Stub([answered(), .init()])
+        let weather = service(stub)
+        let id = UUID()
+        await weather.load(threadId: id, fields: [lszq, edtf], route: [])
+        await weather.load(threadId: id, fields: [lszq, edtf], route: [], force: true)
+        XCTAssertEqual(stub.calls, [false, true], "the refresh, past the cache")
+        guard case .loaded? = weather.state(for: id) else { return XCTFail("the reports should stay") }
+        XCTAssertTrue(weather.refreshFailed.contains(id))
+        XCTAssertFalse(L10n.PrepareWeather.refreshFailed("14:46 UTC").isEmpty)
+        // Nothing ever: "could not be fetched".
+        let other = UUID()
+        await weather.load(threadId: other, fields: [lszq], route: [])
+        XCTAssertEqual(weather.state(for: other), .failed)
+        XCTAssertFalse(weather.refreshFailed.contains(other))
+    }
+
+    /// The route changed while its weather was loading: the newer fetch wins, the older one's answer is dropped.
+    func testAnOlderFetchComingBackLateIsDropped() async {
+        let stub = Stub([answered(), answered()], delayMs: 30)
+        let weather = service(stub)
+        let id = UUID()
+        async let first: Void = weather.load(threadId: id, fields: [lszq], route: [])
+        async let second: Void = weather.load(threadId: id, fields: [lszq, edtf], route: [])
+        _ = await (first, second)
+        guard case .loaded(let loaded)? = weather.state(for: id) else { return XCTFail() }
+        XCTAssertTrue(loaded.stations.contains { $0.ident == "EDTF" }, "the second route's fields")
+    }
 }

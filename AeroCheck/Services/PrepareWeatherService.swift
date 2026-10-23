@@ -128,42 +128,109 @@ final class PrepareWeatherService: ObservableObject {
         case failed
     }
 
+    /// What one fetch brought back: each field's reports, the SIGMETs, and whether anything answered at all.
+    struct Outcome {
+        var fetched: [String: PrepareWeather.Fetched] = [:]
+        var sigmets: AviationWeatherService.RouteSigmets?
+        var anything = false
+    }
+
+    typealias Fetcher = @Sendable (_ fields: [PrepareWeather.Field], _ route: [CLLocationCoordinate2D],
+                                   _ fresh: Bool) async -> Outcome
+
     @Published private(set) var states: [UUID: State] = [:]
+    /// Flights whose refresh failed while their last reports stay on the card, said so beside them. (6.5.0)
+    @Published private(set) var refreshFailed: Set<UUID> = []
     private var keys: [UUID: [PrepareWeather.Field]] = [:]
+    /// Each flight's latest fetch: an older one that comes back late is dropped.
+    private var generations: [UUID: Int] = [:]
+    private let fetcher: Fetcher
+
+    init(fetcher: @escaping Fetcher = { fields, route, fresh in await PrepareWeatherService.fetch(fields, route, fresh: fresh) }) {
+        self.fetcher = fetcher
+    }
 
     /// The reports are ten minutes old at most at the proxy: asking again sooner gives the same answer.
     static let maxAge: TimeInterval = 10 * 60
 
     func state(for threadId: UUID) -> State? { states[threadId] }
 
-    /// Fetch for `fields` and the route, unless the same fields were fetched less than ten minutes ago (`force`, the
-    /// card's refresh, asks anyway).
+    /// Fetch for `fields` and the route, unless the same fields were fetched less than ten minutes ago, or are on their
+    /// way. `force`, the card's refresh, asks the network again, past the device's cache; if that fails, the last
+    /// reports stay with "could not refresh" beside them, as the in-flight briefing keeps its own.
+    ///
+    /// The fetch runs in the service's own task, not the caller's: the card's `.task` is cancelled whenever the page
+    /// redraws or closes (a flight just created does both), and its cancelled requests read as "The weather could not
+    /// be fetched", with the next load turned away because the first was still loading (the author's device check,
+    /// 23 Oct 2026).
     func load(threadId: UUID, fields: [PrepareWeather.Field], route: [CLLocationCoordinate2D], force: Bool = false,
               now: Date = Date()) async {
         guard !fields.isEmpty else { states[threadId] = nil; return }
         if !force, keys[threadId] == fields, case .loaded(let weather)? = states[threadId],
            now.timeIntervalSince(weather.fetchedAt) < Self.maxAge { return }
-        if states[threadId] == .loading { return }
+        if states[threadId] == .loading, keys[threadId] == fields { return }
+        let shown: PrepareWeather? = { if case .loaded(let weather)? = states[threadId] { return weather }; return nil }()
         states[threadId] = .loading
         keys[threadId] = fields
+        let generation = (generations[threadId] ?? 0) + 1
+        generations[threadId] = generation
 
-        var fetched: [String: PrepareWeather.Fetched] = [:]
-        var anything = false
-        for field in fields where fetched[field.ident] == nil {
-            async let metars = AviationWeatherService.metars(near: field.coordinate)
-            async let own = AviationWeatherService.tafs(icao: field.ident)
-            var data = PrepareWeather.Fetched()
-            let (fetchedMetars, ownTafs) = await (metars, own)
-            data.metars = fetchedMetars ?? []
-            data.ownTaf = ownTafs?.first { $0.raw != nil }?.raw
-            if data.ownTaf == nil {
-                data.nearbyTafs = await AviationWeatherService.nearestTafs(near: field.coordinate) ?? []
-            }
-            anything = anything || fetchedMetars != nil || ownTafs != nil
-            fetched[field.ident] = data
+        let fetcher = self.fetcher
+        let outcome = await Task { await fetcher(fields, route, force) }.value
+        guard generations[threadId] == generation else { return }
+        if outcome.anything || outcome.sigmets != nil {
+            states[threadId] = .loaded(PrepareWeather.assemble(fields: fields, fetched: outcome.fetched,
+                                                               sigmets: outcome.sigmets, at: Date()))
+            refreshFailed.remove(threadId)
+        } else if let shown {
+            states[threadId] = .loaded(shown)
+            refreshFailed.insert(threadId)
+        } else {
+            states[threadId] = .failed
+            refreshFailed.remove(threadId)
         }
-        let sigmets = await AviationWeatherService.sigmets(along: route)
-        guard anything || sigmets != nil else { states[threadId] = .failed; return }
-        states[threadId] = .loaded(PrepareWeather.assemble(fields: fields, fetched: fetched, sigmets: sigmets, at: Date()))
+    }
+
+    /// Every field at once, each with its METARs, its own TAF and the TAFs nearest it (used only when it has none: asked
+    /// together rather than after, a round trip less), and the SIGMETs beside them. A cold proxy takes seconds per
+    /// answer from NOAA; one field after the other made it 5 s and more (the author's device check). Once more after a
+    /// second when nothing answered. `fresh` asks past the device's cache.
+    nonisolated static func fetch(_ fields: [PrepareWeather.Field], _ route: [CLLocationCoordinate2D],
+                                  fresh: Bool) async -> Outcome {
+        var outcome = await fetchOnce(fields, route, fresh: fresh)
+        if !outcome.anything, outcome.sigmets == nil, !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            outcome = await fetchOnce(fields, route, fresh: true)
+        }
+        return outcome
+    }
+
+    private nonisolated static func fetchOnce(_ fields: [PrepareWeather.Field], _ route: [CLLocationCoordinate2D],
+                                              fresh: Bool) async -> Outcome {
+        var unique: [PrepareWeather.Field] = []
+        for field in fields where !unique.contains(where: { $0.ident == field.ident }) { unique.append(field) }
+        async let sigmets = AviationWeatherService.sigmets(along: route, fresh: fresh)
+        var outcome = Outcome()
+        await withTaskGroup(of: (String, PrepareWeather.Fetched, Bool).self) { group in
+            for field in unique {
+                group.addTask {
+                    async let metars = AviationWeatherService.metars(near: field.coordinate, fresh: fresh)
+                    async let own = AviationWeatherService.tafs(icao: field.ident, fresh: fresh)
+                    async let nearby = AviationWeatherService.nearestTafs(near: field.coordinate, fresh: fresh)
+                    let (fetchedMetars, ownTafs, nearbyTafs) = await (metars, own, nearby)
+                    var data = PrepareWeather.Fetched()
+                    data.metars = fetchedMetars ?? []
+                    data.ownTaf = ownTafs?.first { $0.raw != nil }?.raw
+                    if data.ownTaf == nil { data.nearbyTafs = nearbyTafs ?? [] }
+                    return (field.ident, data, fetchedMetars != nil || ownTafs != nil)
+                }
+            }
+            for await (ident, data, answered) in group {
+                outcome.fetched[ident] = data
+                outcome.anything = outcome.anything || answered
+            }
+        }
+        outcome.sigmets = await sigmets
+        return outcome
     }
 }

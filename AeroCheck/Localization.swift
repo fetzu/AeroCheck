@@ -624,6 +624,10 @@ enum L10n {
         static let source = String(localized: "prepareWeather.source")
         static let loading = String(localized: "prepareWeather.loading")
         static let failed = String(localized: "prepareWeather.failed")
+        /// A refresh that failed with reports on the card: they stay, with their time. (6.5.0, the author's v65-18)
+        static func refreshFailed(_ time: String) -> String {
+            String(format: String(localized: "prepareWeather.refreshFailed"), time)
+        }
         static let refresh = String(localized: "prepareWeather.refresh")
     }
 

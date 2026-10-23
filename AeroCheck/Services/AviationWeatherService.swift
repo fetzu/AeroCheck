@@ -170,42 +170,46 @@ final class AviationWeatherService: ObservableObject {
     }
 
     // MARK: - For Prepare's weather card (6.5.0)
+    //
+    // `fresh`: past the device's cache (the proxy's answers carry max-age up to 30 min), for the card's refresh. Without
+    // it, a refresh in airplane mode "worked" from the cache, quitting the app included (the author's v65-18).
 
     /// The observations within `radiusNm` of an aerodrome, nearest first. Snapped to the proxy's grid before it
     /// leaves, as the in-flight form is: the proxy snaps it anyway.
-    static func metars(near coordinate: CLLocationCoordinate2D, radiusNm: Int = 60) async -> [Metar]? {
+    static func metars(near coordinate: CLLocationCoordinate2D, radiusNm: Int = 60, fresh: Bool = false) async -> [Metar]? {
         guard let url = URL(string: "\(APIConfig.weatherBaseURL)/v1/metar?lat=\(snap(coordinate.latitude))"
                             + "&lon=\(snap(coordinate.longitude))&radius=\(radiusNm)") else { return nil }
-        let payload: MetarPayload? = await get(url)
+        let payload: MetarPayload? = await get(url, fresh: fresh)
         return payload?.observations
     }
 
     /// An aerodrome's own TAF: none (an empty list) for most GA fields.
-    static func tafs(icao: String) async -> [Taf.Forecast]? {
+    static func tafs(icao: String, fresh: Bool = false) async -> [Taf.Forecast]? {
         let code = icao.uppercased()
         guard code.count == 4, code.allSatisfy({ $0.isLetter || $0.isNumber }),
               let url = URL(string: "\(APIConfig.weatherBaseURL)/v1/taf?icao=\(code)") else { return nil }
-        let payload: Taf? = await get(url)
+        let payload: Taf? = await get(url, fresh: fresh)
         return payload?.forecasts
     }
 
     /// The TAFs of the aerodromes nearest a field that has none, nearest first, each with its distance.
-    static func nearestTafs(near coordinate: CLLocationCoordinate2D, radiusNm: Int = 60) async -> [Taf.Forecast]? {
+    static func nearestTafs(near coordinate: CLLocationCoordinate2D, radiusNm: Int = 60,
+                            fresh: Bool = false) async -> [Taf.Forecast]? {
         guard let url = URL(string: "\(APIConfig.weatherBaseURL)/v1/taf?lat=\(snap(coordinate.latitude))"
                             + "&lon=\(snap(coordinate.longitude))&radius=\(radiusNm)") else { return nil }
-        let payload: NearbyTafPayload? = await get(url)
+        let payload: NearbyTafPayload? = await get(url, fresh: fresh)
         return payload?.forecasts
     }
 
     /// The SIGMETs within `radiusNm` of a planned route (2 to 30 points: a longer route is thinned, its ends kept).
-    static func sigmets(along route: [CLLocationCoordinate2D], radiusNm: Int = 30) async -> RouteSigmets? {
+    static func sigmets(along route: [CLLocationCoordinate2D], radiusNm: Int = 30, fresh: Bool = false) async -> RouteSigmets? {
         let points = thinned(route, to: 30)
         guard points.count >= 2 else { return nil }
         let path = points.map { String(format: "%.2f,%.2f", $0.latitude, $0.longitude) }.joined(separator: ";")
         var components = URLComponents(string: "\(APIConfig.weatherBaseURL)/v1/sigmet")
         components?.queryItems = [URLQueryItem(name: "route", value: path), URLQueryItem(name: "radius", value: "\(radiusNm)")]
         guard let url = components?.url else { return nil }
-        return await get(url)
+        return await get(url, fresh: fresh)
     }
 
     /// At most `limit` points, evenly picked, the first and the last always among them.
@@ -236,8 +240,9 @@ final class AviationWeatherService: ObservableObject {
 
     /// One request shape for all three endpoints: same client header, same envelope, same
     /// degrade-to-nil on any failure.
-    private static func get<T: Decodable>(_ url: URL) async -> T? {
+    private static func get<T: Decodable>(_ url: URL, fresh: Bool = false) async -> T? {
         var request = URLRequest(url: url)
+        if fresh { request.cachePolicy = .reloadIgnoringLocalCacheData }
         if let secret = APIConfig.weatherClientSecret {
             request.setValue(secret, forHTTPHeaderField: "X-AeroCheck-Client")
         }

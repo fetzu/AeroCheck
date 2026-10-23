@@ -3411,12 +3411,16 @@ struct TripDataBanner: View {
         // nothing about whether to keep waiting. (device pass) Each provider adds the countries to what
         // its layer holds (the union, so nothing is pruned) and skips what is already on disk.
         // OpenAIP's airports with them, for the frequencies' names: no gap of its own (`OpenAIPAirportProvider`). (6.4.2)
+        // Side by side, each its own service: one after the other, the US's airspace held "0/6" for over a minute
+        // before the rest came in seconds (the author's v65-36, 23 Oct 2026). The count moves as each lands. (6.5.0)
         let providers = tripProviders + [OpenAIPAirportProvider(service: .shared)]
         prefetchStep = 0
         prefetchTotal = providers.count
-        for provider in providers {
-            await provider.prefetch(countries: needed)
-            prefetchStep += 1
+        await withTaskGroup(of: Void.self) { group in
+            for provider in providers {
+                group.addTask { @MainActor in await provider.prefetch(countries: needed) }
+            }
+            for await _ in group { prefetchStep += 1 }
         }
         isPrefetchingTrip = false
         tripPrefetchFailed = !tripNeededCountries.isEmpty

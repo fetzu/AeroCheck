@@ -682,57 +682,46 @@ struct OpenAIPDownloadSheet: View {
         // The countries open flightmaps covers get their circuits and VFR routes with the rest; the
         // selection is the union, so a country left out is pruned like the OpenAIP layers'. (6.2.0)
         let ofmService = OFMDataService.shared
+        // A layer whose countries are the selection is updated: every country fetched again. One whose countries
+        // differ takes only what it lacks and drops what was deselected: taking the US off re-fetched Switzerland,
+        // Germany and France for every layer, minutes while OpenAIP's API was slow (the author's v65-42, 23 Oct
+        // 2026). Open flightmaps compares each file's hash already. (6.5.0)
+        let selection = Set(countries)
+        func onlyChanges(_ downloaded: [String]) -> Bool { Set(downloaded) != selection }
+        let airspaceOnly = onlyChanges(openAIPDataService.downloadedCountries)
+        let navaidsOnly = onlyChanges(openAIPNavaidDataService.downloadedCountries)
+        let obstaclesOnly = onlyChanges(obstacleService.downloadedCountries)
+        let pointsOnly = onlyChanges(reportingPointService.downloadedCountries)
+        let airportsOnly = onlyChanges(openAIPAirportService.downloadedCountries)
 
         Task {
-            if tilesAndData {
-                // Download tiles + airspace data + navaids + obstacles in parallel
-                await withTaskGroup(of: Void.self) { group in
+            // Structured data (airspace, navaids, obstacles, reporting points, airports, procedures: small, ~100s KB),
+            // and the raster tiles with them when asked, all in parallel.
+            await withTaskGroup(of: Void.self) { group in
+                if tilesAndData {
                     group.addTask {
                         await openAIPCacheManager.downloadTiles(for: countries)
                     }
-                    group.addTask {
-                        await openAIPDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPNavaidDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await obstacleService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await reportingPointService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPAirportService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await ofmService.downloadData(for: countries)
-                    }
-                    await group.waitForAll()
                 }
-            } else {
-                // Download structured data only (airspace + navaids + obstacles — small, ~100s KB)
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask {
-                        await openAIPDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPNavaidDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await obstacleService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await reportingPointService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPAirportService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await ofmService.downloadData(for: countries)
-                    }
-                    await group.waitForAll()
+                group.addTask {
+                    await openAIPDataService.downloadData(for: countries, skippingCached: airspaceOnly)
                 }
+                group.addTask {
+                    await openAIPNavaidDataService.downloadData(for: countries, skippingCached: navaidsOnly)
+                }
+                group.addTask {
+                    await obstacleService.downloadData(for: countries, skippingCached: obstaclesOnly)
+                }
+                group.addTask {
+                    await reportingPointService.downloadData(for: countries, skippingCached: pointsOnly)
+                }
+                group.addTask {
+                    await openAIPAirportService.downloadData(for: countries, skippingCached: airportsOnly)
+                }
+                group.addTask {
+                    await ofmService.downloadData(for: countries)
+                }
+                await group.waitForAll()
             }
         }
     }

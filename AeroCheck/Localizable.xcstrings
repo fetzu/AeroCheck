@@ -13558,6 +13558,29 @@
         }
       }
     },
+    "settings.openAIP.stillDownloading": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird noch heruntergeladen: %@. Danach können Sie erneut laden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still downloading: %@. Download data again once it is done."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement en cours : %@. Vous pourrez relancer une fois terminé."
+          }
+        }
+      }
+    },
     "settings.source.briefing": {
       "extractionState": "manual",
       "localizations": {

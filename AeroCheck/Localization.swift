@@ -1098,6 +1098,10 @@ enum L10n {
         static let tileCache = String(localized: "settings.openAIP.tileCache")
         static let updateData = String(localized: "settings.openAIP.updateData")
         static let downloadData = String(localized: "settings.openAIP.downloadData")
+        /// Under Download data while a layer is still downloading: "Still downloading: Airspace, Obstacles." (6.5.0)
+        static func stillDownloading(_ layers: String) -> String {
+            String(format: String(localized: "settings.openAIP.stillDownloading"), layers)
+        }
         static let airspaceNoDataHint = String(localized: "settings.openAIP.noDataHint")
         static let deleteOpenAIPData = String(localized: "settings.openAIP.deleteData")
         static let deleteOpenAIPTitle = String(localized: "settings.openAIP.deleteTitle")

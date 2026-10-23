@@ -160,6 +160,9 @@ final class DryRunGenerator {
     /// The leg flown: to `waypoints[legIndex]`, or the destination's circuit at the route's count.
     private(set) var legIndex = 0
     private var destination: DryRunAerodrome?
+    /// Where this flight lands: the destination, the field diverted to, or the circuits' own. The Cockpit's map marks
+    /// its runway as the one in use. (6.5.0)
+    var landingAerodrome: DryRunAerodrome { destination ?? aerodrome }
     private var cruiseAltitudeFt = 0.0
     private var enRoutePrevious: Double?
     private var descending = false

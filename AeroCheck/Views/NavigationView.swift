@@ -339,6 +339,8 @@ struct NavigationMapView: View {
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
     /// The US traffic patterns, for the approach view: its `revision` too. (6.5.0)
     @ObservedObject private var nasrPatterns = NASRPatternService.shared
+    /// A dry run's: the runway it lands on is the one in use on its map. (6.5.0)
+    @Environment(\.dryRunSession) private var dryRunSession
 
     /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
     /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
@@ -1625,12 +1627,18 @@ struct NavigationMapView: View {
             let onApproach = appState.currentPhase == .approach || appState.currentPhase == .landing
             guard onApproach || (distanceNM ?? .infinity) <= 10 else { return [] }
             idents = [target]
-            windFrom = BriefingWindLadder.select(
-                metars: aviationWeatherService.ladderCandidates,
-                station: windDataService.currentWindData,
-                model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
-                aircraftAltitudeM: locationManager.currentAltitudeMeters,
-                now: Date())?.directionDeg.map(Double.init)
+            // A dry run marks the runway it lands on: its simulation decides, not the real wind at the real field
+            // (the author's v65-17, 23 Oct 2026: 31 marked at Palo Alto, the aircraft on 13). (6.5.0)
+            if let field = dryRunSession?.generator.landingAerodrome, field.ident.uppercased() == target {
+                windFrom = field.runwayHeading
+            } else {
+                windFrom = BriefingWindLadder.select(
+                    metars: aviationWeatherService.ladderCandidates,
+                    station: windDataService.currentWindData,
+                    model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
+                    aircraftAltitudeM: locationManager.currentAltitudeMeters,
+                    now: Date())?.directionDeg.map(Double.init)
+            }
         } else {
             guard VFRMapDensity.spanNM(of: region) <= 8 else { return [] }
             let halfLat = region.span.latitudeDelta / 2, halfLon = region.span.longitudeDelta / 2

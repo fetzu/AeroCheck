@@ -77,6 +77,23 @@ final class DryRunPracticeTests: XCTestCase {
         XCTAssertEqual(made.patternAltitudeFt, 2500)
     }
 
+    /// A US field without an open flightmaps circuit flies its NASR pattern: the side of the runway it lands on and the
+    /// field's TPA, where every such dry run flew left-hand at 1,000 ft (the author's v65-17, 23 Oct 2026). (6.5.0)
+    func testAUSFieldFliesItsNASRPattern() throws {
+        let field = airport("KXXX", 37, -122, elevation: 7)
+        let rwy = runway("04", "22", lengthFt: 2500, leEnd: (36.997, -122.003), heEnd: (37.003, -121.997))
+        let pattern = NASRPatterns.Aerodrome(tpa: .init(agl: 800, msl: 807),
+                                             ends: [.init(rwy: "04", pattern: .right), .init(rwy: "22", pattern: .left)])
+        let made = try XCTUnwrap(DryRunAerodrome.make(airport: field, runways: [rwy], pattern: pattern))
+        XCTAssertEqual(made.runwayHeading, 39, accuracy: 3, "the low end, 04")
+        XCTAssertEqual(made.circuitSide, .right, "04's pattern")
+        XCTAssertEqual(made.patternAltitudeFt, 807)
+        // No NASR entry: as before.
+        let plain = try XCTUnwrap(DryRunAerodrome.make(airport: field, runways: [rwy]))
+        XCTAssertEqual(plain.circuitSide, .left)
+        XCTAssertEqual(plain.patternAltitudeFt, 1007)
+    }
+
     func testOnlyAHeadingLaysTheRunwayOutOnTheReferencePoint() throws {
         let field = airport("LSXY", 46.9, 7.4, elevation: 1700)
         let made = try XCTUnwrap(DryRunAerodrome.make(airport: field, runways: [runway("14", "32", lengthFt: 2600, leHeading: 141)]))

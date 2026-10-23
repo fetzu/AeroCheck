@@ -832,6 +832,7 @@ final class DryRunCenter: ObservableObject {
         guard let airport = airports.findAirport(byIdent: code) else { return nil }
         return DryRunAerodrome.make(airport: airport, runways: airports.getRunways(for: code),
                                     thresholds: OFMDataService.shared.thresholds(forAerodrome: code),
-                                    circuits: OFMDataService.shared.procedures(forAerodrome: code))
+                                    circuits: OFMDataService.shared.procedures(forAerodrome: code),
+                                    pattern: airport.isoCountry == "US" ? NASRPatternService.shared.aerodrome(code) : nil)
     }
 }

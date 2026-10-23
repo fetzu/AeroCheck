@@ -100,9 +100,11 @@ struct DryRunAerodrome {
     /// has one (open flightmaps' line and altitude): the circuit on the side its points lie, its downwind as
     /// far out as they reach (between 0.6 and 1.6 NM). Without a circuit: a left-hand one, 0.9 NM out,
     /// 1,000 ft above the field.
+    /// `circuitSide`: without a circuit line, the side the field publishes (a US field's, from NASR). (6.5.0)
     static func make(ident: String, name: String, reference: CLLocationCoordinate2D, elevationFt: Double,
                      threshold: CLLocationCoordinate2D, farEnd: CLLocationCoordinate2D,
                      circuitLine: [CLLocationCoordinate2D] = [], circuitAltitudeFt: Double? = nil,
+                     circuitSide: Side? = nil,
                      arrivals: [Procedure] = [], departures: [Procedure] = []) -> DryRunAerodrome {
         let heading = DryRunGeo.bearing(from: threshold, to: farEnd)
         // Each point's distance off the runway's line, metres, positive to its right.
@@ -111,7 +113,7 @@ struct DryRunAerodrome {
             let off = DryRunGeo.angleDifference(from: heading, to: DryRunGeo.bearing(from: threshold, to: point))
             return d * sin(off * .pi / 180)
         }.filter { abs($0) > 0.2 * DryRunGeo.metresPerNM }
-        var side = Side.left
+        var side = circuitSide ?? .left
         var offset = defaultDownwindOffsetM
         if !offsets.isEmpty {
             side = offsets.reduce(0, +) > 0 ? .right : .left
@@ -276,20 +278,26 @@ extension DryRunAerodrome {
     /// - the runway in use: the one open flightmaps' powered circuit lands on (its line ends at the
     ///   threshold), with that circuit's side, reach and altitude; else the longest open runway from its low
     ///   end, with a left-hand circuit 1,000 ft above the field. (6.4.0)
+    /// - a US field's pattern from NASR (`pattern`): the side of that runway's pattern and the field's TPA, where
+    ///   until 6.5.0 every dry run without a circuit flew left-hand. (the author's v65-17, 23 Oct 2026)
     static func make(airport: Airport, runways: [Runway], thresholds: [VFRThreshold] = [],
-                     circuits: [VFRProcedure] = []) -> DryRunAerodrome? {
+                     circuits: [VFRProcedure] = [], pattern: NASRPatterns.Aerodrome? = nil) -> DryRunAerodrome? {
         let reference = CLLocationCoordinate2D(latitude: airport.latitude, longitude: airport.longitude)
         let elevation = Double(airport.elevation ?? 0)
         let open = runways.filter { !$0.closed }.sorted { ($0.lengthFt ?? 0) > ($1.lengthFt ?? 0) }
 
-        // The runways as pairs of ends, the longest first.
+        // The runways as pairs of ends, the longest first, with the low end's designator where the data has it.
         var ends: [(CLLocationCoordinate2D, CLLocationCoordinate2D)] = []
+        var lowEnds: [String?] = []
         for runway in open {
             let le = runway.leIdent.flatMap { id in thresholds.first { sameRunwayEnd($0.runway, id) } }?.position.coordinate
                 ?? coordinate(runway.leLatitude, runway.leLongitude)
             let he = runway.heIdent.flatMap { id in thresholds.first { sameRunwayEnd($0.runway, id) } }?.position.coordinate
                 ?? coordinate(runway.heLatitude, runway.heLongitude)
-            if let le, let he, DryRunGeo.distance(le, he) > 150 { ends.append((le, he)) }
+            if let le, let he, DryRunGeo.distance(le, he) > 150 {
+                ends.append((le, he))
+                lowEnds.append(runway.leIdent)
+            }
         }
         if ends.isEmpty { ends = pairs(of: thresholds) }
 
@@ -316,8 +324,11 @@ extension DryRunAerodrome {
             }
         }
         if let longest = ends.first {
+            let side = lowEnds.first.flatMap { $0 }.flatMap { pattern?.side(of: $0) }
             return make(ident: airport.ident, name: airport.name, reference: reference, elevationFt: elevation,
-                        threshold: longest.0, farEnd: longest.1)
+                        threshold: longest.0, farEnd: longest.1,
+                        circuitAltitudeFt: pattern?.tpa.map { elevation + Double($0.agl) },
+                        circuitSide: side.map { $0 == .right ? .right : .left })
         }
         // Only a heading and a length; else only its designator (Bellechasse, Montricher: 08 lies about 080°,
         // magnetic, a few degrees off true in Europe, near enough for the dry run's runway).

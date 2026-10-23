@@ -2,9 +2,10 @@
 
 À essayer :
 - L'allemand : réglez l'appareil en allemand (Réglages › Général › Langue et région), ou l'app seule (Réglages › AéroCheck › Langue). Chaque écran, les boutons du cockpit compris : dites ce qui sonne faux.
-- La page d'un vol, Préparer : la carte météo au-dessus des tâches (METAR et TAF de chaque aérodrome, le TAF le plus proche pour un aérodrome qui n'en a pas, les SIGMET le long de la route) ; une tâche météo et une tâche NOTAM avec un lien par pays ; l'activité de l'espace aérien et la prévision de zone par pays ; le dépôt dans le pays de départ. Sous un lien, s'il faut un compte gratuit ou s'il est payant.
-- Une route à l'étranger, Bressaucourt–Fribourg-en-Brisgau par exemple : les liens allemands, et après l'atterrissage la carte de clôture avec la règle et le numéro de l'Allemagne. Un atterrissage en Suisse garde le numéro de skyguide.
-- Un départ d'un aérodrome suédois sans tour : la ligne sous Plan de vol ATC déposé, qui dit de l'activer soi-même. Une route par la Biélorussie : la ligne rouge.
-- Aux États-Unis, la vue d'approche près de Palo Alto (KPAO) ou de San Carlos (KSQL) : le côté du tour de piste à chaque seuil et la TPA ; le briefing d'approche donne la remarque de la FAA. Les cartes officielles des États-Unis, de l'Australie et de la Nouvelle-Zélande.
+- La page d'un vol, Préparer : le bloc Météo au-dessus des tâches, avec le METAR et le TAF de chaque aérodrome (le TAF le plus proche pour un aérodrome qui n'en a pas), les SIGMET le long de la route, et les pages météo et de prévision de zone de chaque pays en lignes. Une seule coche pour le tout ; cochée, le bloc se replie en une ligne. Le DABS dit de quel jour il est, ou quand paraît celui du vol.
+- Une route à l'étranger, Bressaucourt–Fribourg-en-Brisgau par exemple : les liens allemands, et après l'atterrissage la carte de clôture avec la règle et le numéro de l'Allemagne. Un atterrissage en Suisse garde le numéro de skyguide. Lors d'un voyage, chaque étape compte la préparation du voyage.
+- Un départ d'un aérodrome suédois sans tour : la ligne qui dit d'activer le plan soi-même. Une route par la Biélorussie : la ligne rouge, et DÉMARRER LE VOL à maintenir une seconde.
+- Les cartes partagent un même fond ; hors de Suisse, elles montrent les Plans d'Apple à la place de la carte OACI. La couche OpenAIP s'affiche à nouveau (OpenAIP a déplacé ses tuiles), et Réglages › Données et stockage télécharge plus vite : l'espace aérien vient désormais des fichiers d'OpenAIP.
+- Aux États-Unis, près de Palo Alto (KPAO) ou de San Carlos (KSQL) : le côté du tour de piste à chaque seuil et la TPA dans la vue d'approche. Les cartes officielles des États-Unis, de l'Australie et de la Nouvelle-Zélande.
 
 Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

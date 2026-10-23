@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "generated": "2026-10-18T18:53:24Z",
+  "generated": "2026-10-22T17:17:21Z",
   "countries": {
     "AL": {
       "weather": [
@@ -2395,13 +2395,7 @@
       "reviewed": "2026-10-18"
     },
     "LV": {
-      "weather": [
-        {
-          "name": "IBS (LGS)",
-          "url": "https://ibs.lgs.lv/home.do",
-          "access": "open"
-        }
-      ],
+      "weather": [],
       "notam": [
         {
           "name": "LGS AIS",
@@ -2416,20 +2410,8 @@
           "access": "open"
         }
       ],
-      "forecast": [
-        {
-          "name": "IBS (LGS)",
-          "url": "https://ibs.lgs.lv/home.do",
-          "access": "open"
-        }
-      ],
-      "filing": [
-        {
-          "name": "IBS (LGS)",
-          "url": "https://ibs.lgs.lv/home.do",
-          "access": "account"
-        }
-      ],
+      "forecast": [],
+      "filing": [],
       "closing": {
         "phones": [
           {
@@ -2440,7 +2422,11 @@
         "reportMinutes": 30,
         "atsClose": "sera"
       },
-      "generic": [],
+      "generic": [
+        "weather",
+        "forecast",
+        "filing"
+      ],
       "activation": "no-ats",
       "reviewed": "2026-10-18"
     },
@@ -2706,8 +2692,8 @@
       ],
       "airspace": [
         {
-          "name": "NAV Portugal AIS",
-          "url": "https://ais.nav.pt/access-the-airspace-use-plan-updated-use-plan/",
+          "name": "EUROCONTROL EAUP",
+          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
           "access": "open"
         }
       ],
@@ -2741,7 +2727,9 @@
           }
         ]
       },
-      "generic": [],
+      "generic": [
+        "airspace"
+      ],
       "reviewed": "2026-10-18"
     },
     "RO": {
@@ -3020,5 +3008,96 @@
       "reviewed": "2026-10-18"
     }
   },
-  "flags": []
+  "flags": [
+    {
+      "country": "FR",
+      "url": "https://aviation.meteo.fr",
+      "status": 0,
+      "detail": "weather: Aéroweb (Météo-France): no answer, last week's link kept (silent since 2026-10-22)",
+      "level": "link",
+      "since": "2026-10-22"
+    },
+    {
+      "country": "FR",
+      "url": "https://aviation.meteo.fr",
+      "status": 0,
+      "detail": "forecast: Aéroweb (Météo-France): no answer, last week's link kept (silent since 2026-10-22)",
+      "level": "link",
+      "since": "2026-10-22"
+    },
+    {
+      "country": "LV",
+      "url": "https://ibs.lgs.lv/home.do",
+      "status": 403,
+      "detail": "weather: IBS (LGS) failed; left out",
+      "level": "link"
+    },
+    {
+      "country": "LV",
+      "url": "https://ibs.lgs.lv/home.do",
+      "status": 403,
+      "detail": "forecast: IBS (LGS) failed; left out",
+      "level": "link"
+    },
+    {
+      "country": "LV",
+      "url": "https://ibs.lgs.lv/home.do",
+      "status": 403,
+      "detail": "filing: IBS (LGS) failed; left out",
+      "level": "link"
+    },
+    {
+      "country": "PT",
+      "url": "https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html",
+      "status": 503,
+      "detail": "ais: NAV Portugal eAIP failed; left out",
+      "level": "link"
+    },
+    {
+      "country": "PT",
+      "url": "https://ais.nav.pt/access-the-airspace-use-plan-updated-use-plan/",
+      "status": 503,
+      "detail": "airspace: NAV Portugal AIS failed; left out",
+      "level": "link"
+    },
+    {
+      "country": "SI",
+      "url": "https://aim.sloveniacontrol.si/aim/",
+      "status": 0,
+      "detail": "ais: Slovenia Control AIM failed; left out",
+      "level": "link"
+    },
+    {
+      "country": "SI",
+      "url": "https://aim.sloveniacontrol.si/aim/products/notam-summary/",
+      "status": 0,
+      "detail": "notam: Slovenia Control AIM: no answer, last week's link kept (silent since 2026-10-22)",
+      "level": "link",
+      "since": "2026-10-22"
+    },
+    {
+      "country": "SI",
+      "url": "https://aim.sloveniacontrol.si/aim/products/restricted-area-activation/",
+      "status": 0,
+      "detail": "airspace: Slovenia Control AIM: no answer, last week's link kept (silent since 2026-10-22)",
+      "level": "link",
+      "since": "2026-10-22"
+    },
+    {
+      "country": "TR",
+      "url": "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+      "status": 0,
+      "detail": "ais: DHMİ AIP: no answer, last week's link kept (silent since 2026-10-22)",
+      "level": "link",
+      "since": "2026-10-22"
+    },
+    {
+      "country": "TR",
+      "url": "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+      "status": 0,
+      "detail": "notam: DHMİ AIP: no answer, last week's link kept (silent since 2026-10-22)",
+      "level": "link",
+      "since": "2026-10-22"
+    }
+  ]
 }

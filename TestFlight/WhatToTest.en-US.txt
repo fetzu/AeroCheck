@@ -2,9 +2,10 @@
 
 What to try:
 - German: set the device to German (Settings › General › Language & Region), or the app alone (Settings › AéroCheck › Language). Every screen, the Cockpit's buttons included: say what reads wrong.
-- A flight's page, Prepare: the weather card above the tasks (METAR and TAF at each field, the nearest TAF for a field without one, the SIGMETs along the route); one weather and one NOTAM task with a link per country; airspace activity and the area forecast per country; filing in the departure's country. Under a link, whether it needs a free account or costs money.
-- A route abroad, Bressaucourt to Freiburg for one: Germany's links, and after landing the close-out card with Germany's rule and number. A landing in Switzerland keeps skyguide's number.
-- A departure from a Swedish field without a tower: the line on ATC flight plan filed about activating it yourself. A route through Belarus: the red row.
-- In the US, the approach view near Palo Alto (KPAO) or San Carlos (KSQL): the pattern side at each runway end and the TPA; the approach briefing has the FAA's remark. Official charts for the US, Australia and New Zealand.
+- A flight's page, Prepare: the Weather block above the tasks, with the METAR and TAF of each field (the nearest TAF for a field without one), the SIGMETs along the route, and each country's weather and area-forecast pages as rows. One tick for all of it; ticked, it folds to one line. The DABS says which day's it opens, or when the flight's comes out.
+- A route abroad, Bressaucourt to Freiburg for one: Germany's links, and after landing the close-out card with Germany's rule and number. A landing in Switzerland keeps skyguide's number. On a trip, each leg counts the trip's preparation.
+- A departure from a Swedish field without a tower: the line about activating the plan yourself. A route through Belarus: the red row, and START FLIGHT held a second.
+- The maps share one chart; outside Switzerland they show Apple Maps in place of the ICAO chart. The OpenAIP layer draws again (OpenAIP moved its tiles), and Settings › Data & Storage downloads faster: airspace now comes from OpenAIP's own files.
+- In the US, near Palo Alto (KPAO) or San Carlos (KSQL): the pattern side at each runway end and the TPA on the approach view. Official charts for the US, Australia and New Zealand.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

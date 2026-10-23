@@ -10,29 +10,43 @@ import SwiftUI
 
 struct GroundView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
 
+    /// The iPad draws its own bar (`GroundTabBar`); the iPhone keeps the system's at the foot. (6.5.0)
+    private var ownsTabBar: Bool { horizontalSizeClass == .regular }
+
     var body: some View {
         TabView(selection: Bindable(appState).groundTab) {
+            // On the iPad, our own bar where the system's was (`GroundTabBar`): over Today, which has no navigation bar,
+            // and over Settings' two columns (SettingsView); in the navigation bar of the others, beside their actions
+            // (`groundTabBarInToolbar`). The tabs' screens don't take an inset set on the TabView. (6.5.0)
             HomeView()
+                .safeAreaInset(edge: .top, spacing: 0) { if ownsTabBar { GroundTabBar() } }
                 .tabItem { Label(L10n.Ground.today, systemImage: "sun.horizon.fill") }
                 .tag(GroundTab.today)
                 .badge(openFlightPlanBadge)
+                .toolbar(ownsTabBar ? .hidden : .automatic, for: .tabBar)
             PlanTabView()
                 .tabItem { Label(L10n.Ground.plan, systemImage: "map.fill") }
                 .tag(GroundTab.plan)
+                .toolbar(ownsTabBar ? .hidden : .automatic, for: .tabBar)
             FlightLogView(mode: .logbook)
                 .tabItem { Label(L10n.Ground.logbook, systemImage: "book.closed.fill") }
                 .tag(GroundTab.logbook)
-            NavigationStack { AircraftSettingsView(showsSpeeds: true) }
+                .toolbar(ownsTabBar ? .hidden : .automatic, for: .tabBar)
+            NavigationStack { AircraftSettingsView(showsSpeeds: true).groundTabBarInToolbar() }
                 .tabItem { Label(L10n.Ground.aircraft, systemImage: "airplane") }
                 .tag(GroundTab.aircraft)
+                .toolbar(ownsTabBar ? .hidden : .automatic, for: .tabBar)
             SettingsView(isEmbedded: true)
                 .tabItem { Label(L10n.Ground.settings, systemImage: "gearshape.fill") }
                 .tag(GroundTab.settings)
+                .toolbar(ownsTabBar ? .hidden : .automatic, for: .tabBar)
         }
+        .environment(\.ownsGroundTabBar, ownsTabBar)
         // The brand colour on the ground; the flight screens don't use it (v6.0 · P5).
         .tint(.aviationGold)
         .modifier(FlightStartAlerts())
@@ -42,6 +56,66 @@ struct GroundView: View {
     /// badge used to count every flight ever flown, which taught the eye to skip badges. (review A6)
     private var openFlightPlanBadge: Int {
         (threadManager.threadAwaitingCloseOut?.hasOpenFlightPlan ?? false) ? 1 : 0
+    }
+}
+
+/// The ground's tabs on the iPad: at the top, as the system's floating bar, but as wide as its words. The system's
+/// stops at about 470 pt on any iPad, so in German and French its words ran out of room and it scrolled, Settings out
+/// of view (the author's device check, 23 Oct 2026). Ours is as wide as its words, its text sizes capped so it stays
+/// within the screen. The dry run's ground keeps the system's: two tabs fit. (6.5.0)
+struct GroundTabBar: View {
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject var threadManager: FlightThreadManager
+
+    private static let tabs: [(tab: GroundTab, title: String)] = [
+        (.today, L10n.Ground.today), (.plan, L10n.Ground.plan), (.logbook, L10n.Ground.logbook),
+        (.aircraft, L10n.Ground.aircraft), (.settings, L10n.Ground.settings),
+    ]
+
+    /// Today's badge: an ATC flight plan still open after landing, as the system's tab had it.
+    private var badge: Int { (threadManager.threadAwaitingCloseOut?.hasOpenFlightPlan ?? false) ? 1 : 0 }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Self.tabs, id: \.tab) { item in
+                tabButton(item.tab, title: item.title)
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Color.panelBackground))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+        .fixedSize()
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func tabButton(_ tab: GroundTab, title: String) -> some View {
+        let selected = appState.groundTab == tab
+        return Button { appState.groundTab = tab } label: {
+            HStack(spacing: 6) {
+                Text(title)
+                    .lineLimit(1)
+                if tab == .today, badge > 0 {
+                    Text("\(badge)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.aviationRed))
+                }
+            }
+            .font(.body)
+            .foregroundColor(selected ? .aviationGold : .primaryText)
+            .padding(.horizontal, 15)
+            .frame(minHeight: 37)
+            .background { if selected { Capsule().fill(Color.cockpitBackground) } }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(tab == .today && badge > 0 ? "\(badge)" : "")
     }
 }
 
@@ -233,6 +307,7 @@ struct PlanTabView: View {
                     }
                 }
             }
+            .groundTabBarInToolbar()
         }
         // A section asked for from elsewhere: Today's route strip opens Routes. (iPhone pass)
         .onAppear { openPendingSection() }
@@ -243,5 +318,38 @@ struct PlanTabView: View {
         guard let pending = appState.pendingPlanSection else { return }
         appState.pendingPlanSection = nil
         section = pending
+    }
+}
+
+/// The iPad draws the ground's tab bar itself (`GroundView`), in the tabs' navigation bars or over them. (6.5.0)
+private struct OwnsGroundTabBarKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var ownsGroundTabBar: Bool {
+        get { self[OwnsGroundTabBarKey.self] }
+        set { self[OwnsGroundTabBarKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// The iPad's tab bar in this tab's navigation bar, where the system's sat: the tab's own actions keep their place
+    /// beside it (Routes' filter and +, the Logbook's import). On the root of a tab's navigation stack. (6.5.0)
+    func groundTabBarInToolbar(_ enabled: Bool = true) -> some View {
+        modifier(GroundTabBarToolbar(enabled: enabled))
+    }
+}
+
+private struct GroundTabBarToolbar: ViewModifier {
+    @Environment(\.ownsGroundTabBar) private var shown
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if shown && enabled {
+                ToolbarItem(placement: .principal) { GroundTabBar() }
+            }
+        }
     }
 }

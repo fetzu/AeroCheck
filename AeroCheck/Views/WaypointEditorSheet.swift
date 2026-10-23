@@ -498,12 +498,17 @@ struct MiniMapPreview: View {
 
 struct CoordinatePickerView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(AppState.self) private var appState
 
     let initialCoordinate: CLLocationCoordinate2D
     let onSelect: (CLLocationCoordinate2D) -> Void
 
     @State private var region: MKCoordinateRegion
-    @State private var selectedLayer: WaypointPickerMapLayer = .apple
+    /// The device's one chart, as every map has it since 6.5.0 (it was Apple's map here, whatever the others showed).
+    private var selectedLayer: Binding<WaypointPickerMapLayer> {
+        Binding(get: { WaypointPickerMapLayer(appState.navigationMapState.selectedLayer) },
+                set: { appState.selectMapLayer($0.mapLayerType) })
+    }
 
     init(initialCoordinate: CLLocationCoordinate2D, onSelect: @escaping (CLLocationCoordinate2D) -> Void) {
         self.initialCoordinate = initialCoordinate
@@ -520,7 +525,7 @@ struct CoordinatePickerView: View {
             ZStack {
                 WaypointPickerMapViewRepresentable(
                     region: $region,
-                    mapLayer: selectedLayer,
+                    mapLayer: .shown(for: appState.navigationMapState.selectedLayer, over: region),
                     airports: [],
                     onAirportTapped: nil
                 )
@@ -544,7 +549,7 @@ struct CoordinatePickerView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        Picker(L10n.Nav.layer, selection: $selectedLayer) {
+                        Picker(L10n.Nav.layer, selection: selectedLayer) {
                             ForEach(WaypointPickerMapLayer.allCases) { layer in
                                 Label(layer.title, systemImage: layer.icon)
                                     .tag(layer)

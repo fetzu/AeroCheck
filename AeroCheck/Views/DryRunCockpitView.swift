@@ -34,6 +34,8 @@ extension EnvironmentValues {
 struct DryRunCockpitView: View {
     @ObservedObject var session: DryRunSession
     @Environment(\.scenePhase) private var scenePhase
+    /// The app's own, under the world's: a chart picked in the dry run is the device's chart. (6.5.0)
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         Group {
@@ -51,6 +53,11 @@ struct DryRunCockpitView: View {
             }
         }
         .statusBarHidden(true)
+        // One chart for every map: picked in the dry run, it is the one Plan › Map, the builder and the Cockpit show
+        // after it (the author's device check, 23 Oct 2026). (6.5.0)
+        .onChange(of: session.world.appState.navigationMapState.selectedLayer) { _, layer in
+            appState.selectMapLayer(layer)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { session.pause() }
         }

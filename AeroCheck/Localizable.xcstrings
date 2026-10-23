@@ -12262,6 +12262,29 @@
         }
       }
     },
+    "mapLayer.switzerlandOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: nur Schweiz. Hier %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Switzerland only. Here, %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : Suisse seulement. Ici, %2$@."
+          }
+        }
+      }
+    },
     "open flightmaps · indicative": {
       "localizations": {
         "de": {

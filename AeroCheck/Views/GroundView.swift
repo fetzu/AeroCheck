@@ -170,6 +170,7 @@ struct PlanTabView: View {
     }
 
     @Environment(AppState.self) private var appState
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var section: Section = .flights
     /// The embedded map has no close button; this only satisfies its binding.
@@ -207,12 +208,18 @@ struct PlanTabView: View {
                     // The in-flight map's chrome, exactly: no clock/speed/altitude bar or GPS chip over
                     // the map controls (they sat on top of them), the same controls in the same places.
                     // (on-device review #4)
-                    NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, chrome: .plan,
-                                      onShowRoutes: { section = .routes })
-                        // The chart starts under the picker, as the other sections do. Drawn on under
-                        // the iPhone's bar, it was blurred there by the bar's scroll edge effect.
-                        // (round 6, I-10)
-                        .clipped()
+                    VStack(spacing: 0) {
+                        // The route on the map without its countries' data: the route builder's offer to download
+                        // it, here too, above the chart rather than over its chrome (the author's v65-14,
+                        // 23 Oct 2026). (6.5.0)
+                        TripDataBanner(route: flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? [])
+                        NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, chrome: .plan,
+                                          onShowRoutes: { section = .routes })
+                            // The chart starts under the picker, as the other sections do. Drawn on under
+                            // the iPhone's bar, it was blurred there by the bar's scroll edge effect.
+                            // (round 6, I-10)
+                            .clipped()
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

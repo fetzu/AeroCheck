@@ -100,6 +100,29 @@ enum MapLayerType: String, CaseIterable, Identifiable {
     }
 }
 
+extension MapLayerType {
+    /// What a map shows for this choice over `region`: the chart picked, or, with the whole view outside swisstopo's
+    /// charts, the next best, Apple's map (its satellite view for SWISSIMAGE). The choice itself stays: back over
+    /// Switzerland, the chart comes back. The ICAO chart on a US route showed nothing, on Plan › Map and in the dry
+    /// run alike (the author's device check, 23 Oct 2026). (6.5.0)
+    func shown(over region: MKCoordinateRegion) -> MapLayerType {
+        guard isSwissLayer, !SwissChartCoverage.reaches(region) else { return self }
+        return self == .swissimage ? .satellite : .standard
+    }
+}
+
+/// Where swisstopo's charts draw: Switzerland and Liechtenstein, with the ICAO chart's margin over the borders. (6.5.0)
+enum SwissChartCoverage {
+    static let minLat = 45.3, maxLat = 48.3, minLon = 5.3, maxLon = 11.2
+
+    /// Whether any of `region` is over it.
+    static func reaches(_ region: MKCoordinateRegion) -> Bool {
+        let halfLat = region.span.latitudeDelta / 2, halfLon = region.span.longitudeDelta / 2
+        return region.center.latitude + halfLat >= minLat && region.center.latitude - halfLat <= maxLat
+            && region.center.longitude + halfLon >= minLon && region.center.longitude - halfLon <= maxLon
+    }
+}
+
 
 /// A fit's region (a leg from ROUTE, Show on the route pill) reaches the shared state a turn later:
 /// `SharedMapState.updateFromRegion` defers it, to publish outside the view update. Until it does, the
@@ -369,6 +392,9 @@ struct NavigationMapView: View {
     /// map drew one chart, then the other, and the switch's forced tile refresh made Plan › Map flash.
     /// (6.2, device check)
     @State private var selectedLayer: MapLayerType = NavigationMapState.savedLayer(in: .standard)
+    /// The layer drawn: the one picked, Apple's map where its chart has nothing to show (`MapLayerType.shown(over:)`).
+    /// (6.5.0)
+    private var shownLayer: MapLayerType { selectedLayer.shown(over: mapState.region) }
     @State private var isFollowingAircraft: Bool = true
     /// iPad: base chart and overlays in one labelled sheet. (v6.0 · C1)
     @State private var showMapSheet: Bool = false
@@ -439,7 +465,7 @@ struct NavigationMapView: View {
     private var isCachedMode: Bool {
         guard !appState.settings.offlineMode,
               offlineMapManager.isCacheAvailable,
-              selectedLayer == .icao else {
+              shownLayer == .icao else {
             return false
         }
         // If forceICAOChartLayer is ON, we're always using ICAO (and cache)
@@ -651,6 +677,11 @@ struct NavigationMapView: View {
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
         .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
+        // One choice for every map: picked in the route builder, or on the other map of a split screen, it shows here
+        // at once (the author's device check, 23 Oct 2026). (6.5.0)
+        .onChange(of: appState.navigationMapState.selectedLayer) { _, layer in
+            if selectedLayer != layer { selectedLayer = layer }
+        }
     }
 
     private func handleAppear() {
@@ -1053,7 +1084,7 @@ struct NavigationMapView: View {
     }
 
     private var mapSheet: some View {
-        MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
+        MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
             .environment(appState)
             .environment(\.cockpitTheme, theme)
             .environmentObject(openAIPDataService)
@@ -1653,13 +1684,13 @@ struct NavigationMapView: View {
         // This ensures waypoint checkmarks are refreshed immediately
         let currentWaypointIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0
 
-        if isOfflineMode || selectedLayer.isSwissLayer {
+        if isOfflineMode || shownLayer.isSwissLayer {
             // Use custom tile overlay for Swiss layers (or offline mode)
             // Always pass offlineMapManager so cache can be used opportunistically
             // In offline mode, only force ICAO if Segelflug cache is not available
             let effectiveForceICAO = appState.settings.forceICAOChartLayer || (isOfflineMode && !hasFullOfflineSupport)
             SwissMapView(
-                layerType: isOfflineMode ? .icao : selectedLayer,
+                layerType: isOfflineMode ? .icao : shownLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: displayGpsTrack,
@@ -1695,7 +1726,7 @@ struct NavigationMapView: View {
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
             NativeMapViewUIKit(
-                selectedLayer: selectedLayer,
+                selectedLayer: shownLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: displayGpsTrack,
@@ -2273,7 +2304,7 @@ struct NavigationMapView: View {
             mapControls(withZoom: false, orientationSegments: false)
         }
         .sheet(isPresented: $showMapSheet) {
-            MapSheet(selectedLayer: $selectedLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
+            MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
                 .environment(appState)
                 .environment(\.cockpitTheme, theme)
                 .environmentObject(openAIPDataService)
@@ -2829,7 +2860,7 @@ struct NavigationMapView: View {
         CockpitChartChrome(mapState: mapState, networkMonitor: dataStatusManager.networkMonitor,
                            orientation: mapOrientationMode, isFollowingAircraft: isFollowingAircraft,
                            airspaceNeedsAttention: airspaceDataNeedsAttention,
-                           selectedLayer: isOfflineMode ? .icao : selectedLayer, sigmets: rankedSigmets,
+                           selectedLayer: isOfflineMode ? .icao : shownLayer, sigmets: rankedSigmets,
                            showsStack: cockpitShowsStack, footRoom: cockpitLegFootRoom,
                            actions: MapChromeActions(
                                toggleOrientation: { toggleOrientation() },
@@ -4449,9 +4480,23 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
             if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
+            refreshChart(of: annotation, on: mapView)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
+            // A time over a waypoint in flight only: on Plan › Map a tap on the route's "2" stamped one. (6.5.0)
+            guard parent.isInFlight else { return }
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+        }
+
+        /// An airport's callout with the chart the registry has now, not when its marker was drawn: one that came
+        /// later left Palo Alto without its chart (the author's v65-15). (6.5.0)
+        private func refreshChart(of annotation: MKAnnotation, on mapView: MKMapView) {
+            guard let airport = annotation as? AirportAnnotation, let view = mapView.view(for: airport) else { return }
+            AirportCalloutControls.configure(
+                view,
+                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
+                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
         }
 
         func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
@@ -4493,6 +4538,9 @@ struct MapSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Binding var selectedLayer: MapLayerType
+    /// What the map draws for it where it is: Apple's map outside the Swiss charts. Said under the list when it isn't
+    /// the chart picked. (6.5.0)
+    var shownLayer: MapLayerType? = nil
     let isOfflineMode: Bool
     /// Where the map is, for the aerodrome procedures' missing-data hint. (6.2.0)
     var mapCenter: CLLocationCoordinate2D? = nil
@@ -4555,6 +4603,14 @@ struct MapSheet: View {
                 ForEach(Array(Self.baseCharts.enumerated()), id: \.element) { index, layer in
                     if index > 0 { Divider().padding(.leading, 60) }
                     baseChartRow(layer)
+                }
+                if let shownLayer, shownLayer != selectedLayer {
+                    Divider().padding(.leading, 60)
+                    Text(L10n.MapLayer.switzerlandOnly(Self.name(of: selectedLayer), Self.name(of: shownLayer)))
+                        .font(.aero(size: 15))
+                        .foregroundColor(theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(16)
                 }
             }
         }
@@ -6118,11 +6174,24 @@ struct SwissMapView: UIViewRepresentable {
             // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
             if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
+            refreshChart(of: annotation, on: mapView)
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later
             mapView.deselectAnnotation(annotation, animated: false)
-            // Record ATO on tap
+            // Record ATO on tap, in flight only: on Plan › Map a tap on the route's "2" stamped one. (6.5.0)
+            guard parent.isInFlight else { return }
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+        }
+
+        /// An airport's callout with the chart the registry has now, not when its marker was drawn: one that came
+        /// later left Palo Alto without its chart (the author's v65-15). (6.5.0)
+        private func refreshChart(of annotation: MKAnnotation, on mapView: MKMapView) {
+            guard let airport = annotation as? AirportAnnotation, let view = mapView.view(for: airport) else { return }
+            AirportCalloutControls.configure(
+                view,
+                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
+                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
         }
 
         /// Add long-press gesture recognizer to waypoint annotation views

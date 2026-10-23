@@ -88,11 +88,12 @@ final class SwissChartLayerTests: XCTestCase {
             let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
             layer.apply(to: map)
             let tiles = map.overlays.compactMap { $0 as? MKTileOverlay }
-            XCTAssertEqual(tiles.count, layer == .apple ? 0 : 1, "\(layer)")
+            let apple = layer == .apple || layer == .appleSatellite
+            XCTAssertEqual(tiles.count, apple ? 0 : 1, "\(layer)")
             XCTAssertTrue(tiles.allSatisfy { !$0.canReplaceMapContent }, "\(layer)")
-            XCTAssertEqual(map.mapType, layer == .swissimage ? .satellite : .standard, "\(layer)")
+            XCTAssertEqual(map.mapType, layer == .swissimage || layer == .appleSatellite ? .satellite : .standard, "\(layer)")
             XCTAssertFalse(layer.title.isEmpty)
-            if layer != .apple {
+            if !apple {
                 XCTAssertEqual(layer.cameraZoomRange?.minCenterCoordinateDistance, 1_500, "\(layer)")
             }
             // Switching layers leaves one overlay.
@@ -111,5 +112,32 @@ final class SwissChartLayerTests: XCTestCase {
     /// z10 to z11.
     func testTheNavMapComesCloseEnoughForTheGliderChart() {
         XCTAssertLessThanOrEqual(SwissMapView.icaoGliderClosestDistance, 30_000)
+    }
+
+    /// One chart for every map (the author's device check, 23 Oct 2026): the builder's names map onto Plan › Map's
+    /// both ways, and where the Swiss charts have nothing, Apple's map, its satellite view for SWISSIMAGE. (6.5.0)
+    func testOneChartForEveryMapAndApplesWhereTheChartsEnd() {
+        for layer in MapLayerType.allCases {
+            XCTAssertEqual(WaypointPickerMapLayer(layer).mapLayerType, layer)
+        }
+        for layer in WaypointPickerMapLayer.allCases {
+            XCTAssertEqual(WaypointPickerMapLayer(layer.mapLayerType), layer)
+        }
+        let bern = MKCoordinateRegion(center: .init(latitude: 46.95, longitude: 7.45),
+                                      span: .init(latitudeDelta: 0.5, longitudeDelta: 0.5))
+        let paloAlto = MKCoordinateRegion(center: .init(latitude: 37.46, longitude: -122.11),
+                                          span: .init(latitudeDelta: 0.3, longitudeDelta: 0.3))
+        let mulhouse = MKCoordinateRegion(center: .init(latitude: 47.75, longitude: 7.10),
+                                          span: .init(latitudeDelta: 0.4, longitudeDelta: 0.4))
+        let lyon = MKCoordinateRegion(center: .init(latitude: 45.73, longitude: 4.83),
+                                      span: .init(latitudeDelta: 0.4, longitudeDelta: 0.4))
+        XCTAssertEqual(MapLayerType.icao.shown(over: bern), .icao)
+        XCTAssertEqual(MapLayerType.icao.shown(over: mulhouse), .icao, "over the border, the chart's margin")
+        XCTAssertEqual(MapLayerType.icao.shown(over: paloAlto), .standard)
+        XCTAssertEqual(MapLayerType.landeskarten.shown(over: lyon), .standard)
+        XCTAssertEqual(MapLayerType.swissimage.shown(over: paloAlto), .satellite)
+        XCTAssertEqual(MapLayerType.satellite.shown(over: bern), .satellite, "Apple's maps are everywhere")
+        XCTAssertEqual(WaypointPickerMapLayer.shown(for: .icao, over: paloAlto), .apple)
+        XCTAssertFalse(L10n.MapLayer.switzerlandOnly("ICAO chart", "Apple Maps").isEmpty)
     }
 }

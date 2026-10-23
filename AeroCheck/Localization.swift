@@ -1872,6 +1872,10 @@ enum L10n {
         static let swissimage = String(localized: "mapLayer.swissimage")
         static let satellite = String(localized: "mapLayer.satellite")
         static let standard = String(localized: "mapLayer.standard")
+        /// Under the Map sheet's charts, outside Switzerland: "ICAO chart: Switzerland only. Here, Apple Maps." (6.5.0)
+        static func switzerlandOnly(_ chart: String, _ shown: String) -> String {
+            String(format: String(localized: "mapLayer.switzerlandOnly"), chart, shown)
+        }
     }
 
     // MARK: - Flight Plan Overlay

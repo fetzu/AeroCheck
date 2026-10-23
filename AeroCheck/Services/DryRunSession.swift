@@ -744,7 +744,8 @@ final class DryRunCenter: ObservableObject {
         services = (settings, airports, aircraftData)
         // Where the detector finds the aerodromes, and the map their frequencies.
         await airports.ensureLoaded()
-        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided), aircraft: setup.aircraft)
+        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided), aircraft: setup.aircraft,
+                                mapLayer: NavigationMapState.savedLayer(in: .standard))
         guard await world.loadChecklist(aircraftDataService: aircraftData) else {
             world.tearDown()
             return .checklistUnavailable

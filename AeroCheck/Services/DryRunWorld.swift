@@ -40,7 +40,10 @@ final class DryRunWorld {
     let aircraft: AircraftOption?
     private(set) var isTornDown = false
 
-    init(settings: AppSettings, aircraft: AircraftOption? = nil, base: URL = DryRunWorld.baseDirectory) {
+    /// `mapLayer`: the device's chart, which the world's maps show from the start: on its own suite the dry run always
+    /// opened on the ICAO chart (the author's device check, 23 Oct 2026). (6.5.0)
+    init(settings: AppSettings, aircraft: AircraftOption? = nil, mapLayer: MapLayerType = .icao,
+         base: URL = DryRunWorld.baseDirectory) {
         self.aircraft = aircraft
         root = base.appendingPathComponent("DryRun-\(id.uuidString)", isDirectory: true)
         suiteName = Self.suitePrefix + id.uuidString
@@ -50,6 +53,7 @@ final class DryRunWorld {
         // The pilot's settings, read by the world's AppState as its own: what the Cockpit changes stays here.
         persistence.saveSettings(Self.settings(from: settings, aircraft: aircraft))
         appState = AppState(defaults: defaults, persistence: persistence)
+        appState.selectMapLayer(mapLayer)
         plans = FlightPlanManager(defaults: defaults, persistence: persistence)
         // Inert notifications: a flight planned or closed out in the world schedules no reminder (the
         // story's Plan and Close out parts plan and close one).

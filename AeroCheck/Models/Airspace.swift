@@ -64,6 +64,12 @@ struct Airspace: Codable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(c, geometry: c.decode(AirspaceGeometry.self, forKey: .geometry))
+    }
+
+    /// From an airspace's fields and its geometry. The API's item holds both; a feature of OpenAIP's export holds the
+    /// fields in its `properties` and the geometry beside them (`AirspaceExport`). One reading for both. (6.5.0)
+    init(_ c: KeyedDecodingContainer<CodingKeys>, geometry: AirspaceGeometry) throws {
         self.init(
             id: try c.decode(String.self, forKey: .id),
             name: try c.decode(String.self, forKey: .name),
@@ -72,9 +78,12 @@ struct Airspace: Codable, Identifiable {
             country: try c.decode(String.self, forKey: .country),
             upperCeiling: try c.decode(AltitudeLimit.self, forKey: .upperCeiling),
             lowerCeiling: try c.decode(AltitudeLimit.self, forKey: .lowerCeiling),
-            geometry: try c.decode(AirspaceGeometry.self, forKey: .geometry),
+            geometry: geometry,
             activity: try c.decodeIfPresent(Int.self, forKey: .activity),
-            frequencies: try c.decodeIfPresent([AirspaceFrequency].self, forKey: .frequencies)
+            // An unreadable list costs the airspace its frequencies, not the airspace: OpenAIP holds two British ones
+            // (EGAE's ATZ, a parachute area) with their frequency as text, in both of its sources, and one such item
+            // failed the API's whole page, and with it Britain's airspace (23 Oct 2026). (6.5.0)
+            frequencies: (try? c.decodeIfPresent([AirspaceFrequency].self, forKey: .frequencies)) ?? nil
         )
     }
 
@@ -598,6 +607,36 @@ enum AirspaceClassCategory: Int, Codable {
 // MARK: - OpenAIP API Response Types
 
 /// Wrapper for paginated OpenAIP API responses
+/// A country's airspace as OpenAIP exports it (`{cc}_asp.geojson` on its exports host, rebuilt nightly): a GeoJSON
+/// FeatureCollection whose features are the API's items turned inside out, their fields in `properties`, the geometry
+/// beside them. Read into the same `Airspace` the API's pages give. A feature that doesn't read (a geometry other than
+/// a polygon, which the API's pages couldn't give either) is left out and counted, not the whole country. (6.5.0)
+struct AirspaceExport: Decodable {
+    let airspaces: [Airspace]
+    /// Features left out.
+    let skipped: Int
+
+    private enum Keys: String, CodingKey { case features }
+    private enum FeatureKeys: String, CodingKey { case properties, geometry }
+
+    private struct Feature: Decodable {
+        let airspace: Airspace?
+        init(from decoder: Decoder) throws {
+            airspace = try? {
+                let c = try decoder.container(keyedBy: FeatureKeys.self)
+                let fields = try c.nestedContainer(keyedBy: Airspace.CodingKeys.self, forKey: .properties)
+                return try Airspace(fields, geometry: c.decode(AirspaceGeometry.self, forKey: .geometry))
+            }()
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let features = try decoder.container(keyedBy: Keys.self).decode([Feature].self, forKey: .features)
+        airspaces = features.compactMap(\.airspace)
+        skipped = features.count - airspaces.count
+    }
+}
+
 struct OpenAIPResponse<T: Codable>: Codable {
     let totalCount: Int
     let totalPages: Int

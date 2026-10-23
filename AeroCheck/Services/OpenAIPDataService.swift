@@ -277,8 +277,44 @@ class OpenAIPDataService: ObservableObject {
         isDownloading = false
     }
 
-    /// Fetch all airspaces for a given country from OpenAIP API with pagination
+    /// A country's airspace: OpenAIP's export first (one file, keyless), the core API's pages when the export can't be
+    /// had. Until 6.5.0 the API alone, as the other layers left it in July (`OpenAIPLayerCache`): when OpenAIP's
+    /// maintenance of 23 Oct slowed it to minutes a country, the export answered Switzerland in 0.2 s and the US's
+    /// 30 MB in 2 s (the author's v65-42 and v65-43). The export is rebuilt nightly: a change made at OpenAIP during
+    /// the day comes a day later than through the API. (6.5.0)
     private func fetchAirspaces(for country: String) async throws -> [Airspace] {
+        if let exported = await fetchAirspacesFromExport(country) { return exported }
+        return try await fetchAirspacesFromAPI(country)
+    }
+
+    /// The country's export, nil when it can't be had or reads as no airspace at all: the API then answers.
+    private func fetchAirspacesFromExport(_ country: String) async -> [Airspace]? {
+        guard let url = OpenAIPConfig.geoJSONExportURL(country: country, layerSuffix: OpenAIPConfig.airspaceExportSuffix)
+        else { return nil }
+        do {
+            // Pinned to the export host: a redirect elsewhere is refused, not followed.
+            let (data, response) = try await ExternalRequest.data(
+                from: url, session: OpenAIPConfig.geoJSONExportSession, allowedHosts: [OpenAIPConfig.geoJSONExportHost])
+            guard response.statusCode == 200 else {
+                AppLog.openAIP.debugLine("Airspace export returned \(response.statusCode) for \(country); trying the API")
+                return nil
+            }
+            // Off the main actor: the US's is 30 MB.
+            let export = try await Task.detached(priority: .userInitiated) {
+                try JSONDecoder().decode(AirspaceExport.self, from: data)
+            }.value
+            if export.skipped > 0 {
+                AppLog.openAIP.debugLine("Airspace export for \(country): \(export.skipped) features not read")
+            }
+            return export.airspaces.isEmpty ? nil : export.airspaces
+        } catch {
+            AppLog.openAIP.debugLine("Airspace export unreachable for \(country) (\(error)); trying the API")
+            return nil
+        }
+    }
+
+    /// Fetch all airspaces for a given country from OpenAIP API with pagination
+    private func fetchAirspacesFromAPI(_ country: String) async throws -> [Airspace] {
         var allAirspaces: [Airspace] = []
         var page = 1
         let limit = OpenAIPConfig.airspacePageLimit

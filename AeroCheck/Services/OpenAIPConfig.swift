@@ -278,6 +278,9 @@ enum OpenAIPConfig {
     static let geoJSONExportHost = "s3.openaip.net"
     static let geoJSONExportBaseURL = "https://\(geoJSONExportHost)/openaip-system-exports"
 
+    /// The airspace layer's suffix on the exports host (`ch_asp.geojson`), read before the core API since 6.5.0.
+    static let airspaceExportSuffix = "asp"
+
     /// The export URL of one layer for one country (lowercased ISO-2 code, as the host names them).
     static func geoJSONExportURL(country: String, layerSuffix: String) -> URL? {
         URL(string: "\(geoJSONExportBaseURL)/\(country.lowercased())_\(layerSuffix).geojson")

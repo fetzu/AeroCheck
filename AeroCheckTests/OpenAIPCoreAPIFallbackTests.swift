@@ -161,7 +161,7 @@ final class OpenAIPExportURLTests: XCTestCase {
     /// Every structured layer, for a country typed either way, lands on the public host under the
     /// path the host serves: `openaip-system-exports/<cc>_<layer>.geojson`, cc lowercased.
     func testEveryLayerExportIsOnThePublicHost() throws {
-        for suffix in ["apt", "nav", "obs", "rpp"] {
+        for suffix in ["apt", "nav", "obs", "rpp", OpenAIPConfig.airspaceExportSuffix] {
             for country in ["CH", "de"] {
                 let url = try XCTUnwrap(OpenAIPConfig.geoJSONExportURL(country: country, layerSuffix: suffix))
                 XCTAssertEqual(url.absoluteString,
@@ -185,4 +185,76 @@ final class OpenAIPExportURLTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(config.timeoutIntervalForResource, 300)
         XCTAssertEqual(config.httpAdditionalHeaders?["User-Agent"] as? String, ExternalRequest.userAgent)
     }
+
+    // MARK: - Airspace from the export (6.5.0)
+
+    /// Buochs's CTR as both sources gave it on 23 Oct 2026: the API's item, and the export's feature with the same
+    /// fields in `properties` and the geometry beside them. One reading for both, the same airspace to the field.
+    func testAnExportFeatureReadsAsTheAPIsItem() throws {
+        let fields = """
+        "_id":"67db2da61d8b0645e948e85a","name":"CTR BUOCHS (HX)","type":4,"icaoClass":3,"country":"CH",
+        "upperLimit":{"value":130,"unit":6,"referenceDatum":2},"lowerLimit":{"value":0,"unit":1,"referenceDatum":0},
+        "activity":0,"frequencies":[{"value":"119.625","primary":true,"unit":2,"name":"BUOCHS TOWER","_id":"x"}]
+        """
+        let geometry = """
+        {"type":"Polygon","coordinates":[[[8.35,46.93],[8.45,46.93],[8.45,47.0],[8.35,47.0],[8.35,46.93]]]}
+        """
+        let api = try JSONDecoder().decode(Airspace.self, from: Data("{\(fields),\"geometry\":\(geometry),\"__v\":0}".utf8))
+        let export = try JSONDecoder().decode(AirspaceExport.self, from: Data("""
+        {"type":"FeatureCollection","features":[{"type":"Feature","id":"67db2da61d8b0645e948e85a",
+         "properties":{\(fields)},"geometry":\(geometry)}]}
+        """.utf8))
+        XCTAssertEqual(export.skipped, 0)
+        let read = try XCTUnwrap(export.airspaces.first)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        XCTAssertEqual(try encoder.encode(read), try encoder.encode(api))
+        XCTAssertEqual(read.frequencies?.first?.name, "BUOCHS TOWER")
+        XCTAssertEqual(read.polygonCoordinates.count, 5)
+        XCTAssertNotNil(read.boundingBox)
+    }
+
+    /// A feature that doesn't read (a multipolygon, which the API's pages couldn't give either) is left out and
+    /// counted; the country's other airspaces stay.
+    func testAFeatureThatDoesntReadIsLeftOutNotTheCountry() throws {
+        let export = try JSONDecoder().decode(AirspaceExport.self, from: Data("""
+        {"type":"FeatureCollection","features":[
+         {"type":"Feature","properties":{"_id":"a","name":"A","type":1,"country":"CH",
+          "upperLimit":{"value":10,"unit":6,"referenceDatum":2},"lowerLimit":{"value":0,"unit":1,"referenceDatum":0}},
+          "geometry":{"type":"MultiPolygon","coordinates":[[[[8,46],[9,46],[9,47],[8,46]]]]}},
+         {"type":"Feature","properties":{"_id":"b","name":"B","type":1,"country":"CH",
+          "upperLimit":{"value":10,"unit":6,"referenceDatum":2},"lowerLimit":{"value":0,"unit":1,"referenceDatum":0}},
+          "geometry":{"type":"Polygon","coordinates":[[[8,46],[9,46],[9,47],[8,46]]]}},
+         {"type":"Feature","properties":{"name":"no id"},"geometry":null}
+        ]}
+        """.utf8))
+        XCTAssertEqual(export.airspaces.map(\.id), ["b"])
+        XCTAssertEqual(export.skipped, 2)
+    }
+
+    /// A frequency OpenAIP holds as text (EGAE's ATZ, 23 Oct 2026: the API sends a string, the export an object of
+    /// characters) costs the airspace its frequencies, not the airspace, from either source.
+    func testAnUnreadableFrequencyKeepsTheAirspace() throws {
+        let fields = """
+        "_id":"egae","name":"EGAE","type":13,"icaoClass":6,"country":"GB",
+        "upperLimit":{"value":2000,"unit":1,"referenceDatum":0},"lowerLimit":{"value":0,"unit":1,"referenceDatum":0}
+        """
+        let geometry = """
+        {"type":"Polygon","coordinates":[[[-1.3,54.5],[-1.2,54.5],[-1.2,54.6],[-1.3,54.5]]]}
+        """
+        let api = try JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: Data("""
+        {"limit":1000,"totalCount":1,"totalPages":1,"page":1,"items":[{\(fields),"geometry":\(geometry),
+         "frequencies":["{ \\"value\\": \\"123.625\\", \\"primary\\": true, \\"unit\\": 2 }"]}]}
+        """.utf8))
+        XCTAssertEqual(api.items.map(\.name), ["EGAE"])
+        XCTAssertNil(api.items.first?.frequencies)
+        let export = try JSONDecoder().decode(AirspaceExport.self, from: Data("""
+        {"type":"FeatureCollection","features":[{"type":"Feature","properties":{\(fields),
+         "frequencies":[{"0":"{","1":" "}]},"geometry":\(geometry)}]}
+        """.utf8))
+        XCTAssertEqual(export.airspaces.map(\.name), ["EGAE"])
+        XCTAssertEqual(export.skipped, 0)
+        XCTAssertNil(export.airspaces.first?.frequencies)
+    }
 }
+

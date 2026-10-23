@@ -345,8 +345,8 @@ final class OfficialChartTests: XCTestCase {
         let charts = try registry()
         XCTAssertTrue(OfficialChartService.isStale(registry: nil, fetchedAt: october2, now: october2))
         XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: nil, now: october2))
-        XCTAssertFalse(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + 6 * day))
-        XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + 7 * day))
+        XCTAssertFalse(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + day))
+        XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + 2 * day))
         XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: october2 + day, now: october2),
                       "a clock that went back")
         // A new cycle while the file names 2610's French folder: once an hour until the job's new file.

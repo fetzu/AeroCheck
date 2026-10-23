@@ -365,8 +365,9 @@ final class OfficialChartService: ObservableObject {
     static let allowedHosts = Set([registryURL.host?.lowercased()].compactMap { $0 })
     /// 12 KB in 2610, nearly all of it DFS's page table.
     static let maxBytes = 1024 * 1024
-    /// A week, the job's own rhythm.
-    nonisolated static let maxAge: TimeInterval = 7 * 24 * 60 * 60
+    /// Two days. A week, the job's own rhythm, could miss a whole week of it, and kept a copy without the countries
+    /// added since: Palo Alto had no chart on the author's device a day after the US was added (v65-15). (6.5.0)
+    nonisolated static let maxAge: TimeInterval = 2 * 24 * 60 * 60
     /// After a new cycle starts, how often to look for the file with the new French folder.
     nonisolated static let cycleRetry: TimeInterval = 60 * 60
 
@@ -478,12 +479,19 @@ final class OfficialChartService: ObservableObject {
         let registry: OfficialChartRegistry
         /// The address it was read from; nil in a cache written before 6.2.0 kept it.
         var source: String?
+        /// The app build that read it; nil before 6.5.0. A cache is what that build could decode, re-encoded: an
+        /// older build drops a table it can't read (the US's `pages` before 6.5.0), so another build fetches anew.
+        var build: String?
     }
+
+    /// This build, as `CFBundleVersion` says.
+    nonisolated static var appBuild: String? { Bundle.main.infoDictionary?["CFBundleVersion"] as? String }
 
     /// The cache, and its age when it came from today's address. One from another address (aerocheck.app
     /// until the registry moved to the API, or the other server's after a switch between TestFlight and
     /// the App Store) keeps its links for offline use but counts as stale, so the first refresh replaces
-    /// it: kept a week, the old file hid the countries added since. (6.2.0, device check 7 Oct)
+    /// it: kept a week, the old file hid the countries added since. (6.2.0, device check 7 Oct) Likewise one another build
+    /// wrote. (6.5.0)
     private func loadCache() {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -491,7 +499,7 @@ final class OfficialChartService: ObservableObject {
               let cached = try? decoder.decode(CachedRegistry.self, from: data),
               cached.registry.v == OfficialChartRegistry.schema else { return }
         registry = cached.registry
-        lastFetch = cached.source == Self.registryURL.absoluteString ? cached.fetchedAt : nil
+        lastFetch = cached.source == Self.registryURL.absoluteString && cached.build == Self.appBuild ? cached.fetchedAt : nil
     }
 
     private func saveCache(_ registry: OfficialChartRegistry) {
@@ -500,7 +508,7 @@ final class OfficialChartService: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         do {
             try encoder.encode(CachedRegistry(fetchedAt: fetchedAt, registry: registry,
-                                              source: Self.registryURL.absoluteString))
+                                              source: Self.registryURL.absoluteString, build: Self.appBuild))
                 .write(to: cacheURL, options: DataPersistenceManager.protectedWriteOptions)
         } catch {
             AppLog.general.debugLine("Failed to cache the chart registry: \(error.localizedDescription)")

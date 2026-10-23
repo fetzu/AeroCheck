@@ -206,9 +206,11 @@ final class PrepareWeatherTests: XCTestCase {
         let stub = Stub([answered(), answered()], delayMs: 30)
         let weather = service(stub)
         let id = UUID()
-        async let first: Void = weather.load(threadId: id, fields: [lszq], route: [])
-        async let second: Void = weather.load(threadId: id, fields: [lszq, edtf], route: [])
-        _ = await (first, second)
+        // The first surely under way before the second: two `async let`s start in either order.
+        let first = Task { await weather.load(threadId: id, fields: [lszq], route: []) }
+        while weather.state(for: id) != .loading { await Task.yield() }
+        await weather.load(threadId: id, fields: [lszq, edtf], route: [])
+        await first.value
         guard case .loaded(let loaded)? = weather.state(for: id) else { return XCTFail() }
         XCTAssertTrue(loaded.stations.contains { $0.ident == "EDTF" }, "the second route's fields")
     }

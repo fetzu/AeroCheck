@@ -238,9 +238,8 @@ class OpenAIPCacheManager: ObservableObject {
 
     /// Download a single tile and save to disk
     private nonisolated func downloadAndSaveTile(z: Int, x: Int, y: Int, session: URLSession) async -> Bool {
-        let subdomain = OpenAIPConfig.tileSubdomains[abs(x + y) % OpenAIPConfig.tileSubdomains.count]
         // Key in a header, not the URL (SA-11).
-        guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: z, x: x, y: y) else { return false }
+        guard let request = OpenAIPConfig.tileRequest(z: z, x: x, y: y) else { return false }
 
         do {
             let (data, httpResponse) = try await Self.fetchTile(request, session: session)

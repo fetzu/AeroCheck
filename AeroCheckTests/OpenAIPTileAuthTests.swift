@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import XCTest
 @testable import AeroCheck
 
@@ -17,7 +18,7 @@ import XCTest
 final class OpenAIPTileAuthTests: XCTestCase {
 
     func testTileURLCarriesNoQueryParameters() throws {
-        let url = try XCTUnwrap(OpenAIPConfig.tileURL(subdomain: "a", z: 10, x: 530, y: 355))
+        let url = try XCTUnwrap(OpenAIPConfig.tileURL(z: 10, x: 530, y: 355))
 
         XCTAssertNil(url.query, "tile URLs must have no query string at all")
         XCTAssertFalse(url.absoluteString.lowercased().contains("apikey"),
@@ -26,7 +27,7 @@ final class OpenAIPTileAuthTests: XCTestCase {
     }
 
     func testTileRequestSendsTheKeyAsAHeader() throws {
-        let request = try XCTUnwrap(OpenAIPConfig.tileRequest(subdomain: "b", z: 8, x: 1, y: 2))
+        let request = try XCTUnwrap(OpenAIPConfig.tileRequest(z: 8, x: 1, y: 2))
 
         XCTAssertEqual(request.value(forHTTPHeaderField: OpenAIPConfig.apiKeyHeader),
                        OpenAIPConfig.apiKey)
@@ -35,7 +36,7 @@ final class OpenAIPTileAuthTests: XCTestCase {
     }
 
     func testTileRequestURLDoesNotLeakTheKey() throws {
-        let request = try XCTUnwrap(OpenAIPConfig.tileRequest(subdomain: "c", z: 12, x: 3, y: 4))
+        let request = try XCTUnwrap(OpenAIPConfig.tileRequest(z: 12, x: 3, y: 4))
         let urlString = try XCTUnwrap(request.url?.absoluteString)
 
         XCTAssertNil(request.url?.query)
@@ -47,11 +48,11 @@ final class OpenAIPTileAuthTests: XCTestCase {
         }
     }
 
-    func testEveryTileSubdomainProducesAKeylessURL() throws {
-        for subdomain in OpenAIPConfig.tileSubdomains {
-            let url = try XCTUnwrap(OpenAIPConfig.tileURL(subdomain: subdomain, z: 9, x: 5, y: 6))
-            XCTAssertNil(url.query, "subdomain \(subdomain) leaked a query string")
-        }
+    /// One host, as OpenAIP asks since its tiles moved (Oct 2026): the `a.`, `b.`, `c.` addresses stopped answering. (6.5.0)
+    func testTilesComeFromOpenAIPsOneHost() throws {
+        let url = try XCTUnwrap(OpenAIPConfig.tileURL(z: 9, x: 5, y: 6))
+        XCTAssertEqual(url.absoluteString, "https://api.tiles.openaip.net/api/data/openaip/9/5/6.png")
+        XCTAssertEqual(OpenAIPTileOverlay().url(forTilePath: MKTileOverlayPath(x: 5, y: 6, z: 9, contentScaleFactor: 2)), url)
     }
 }
 
@@ -158,7 +159,7 @@ final class OpenAIPRequestGuardTests: XCTestCase {
             guard let url = request.url, let host = url.host else { return }
             Self.lock.withLock { Self.headersByHost[host] = request.allHTTPHeaderFields ?? [:] }
             switch host {
-            case "a.api.tiles.openaip.net":
+            case "api.tiles.openaip.net":
                 // A cross-host redirect, as a compromised or misconfigured origin could send. The
                 // new request starts as a copy of the old one, headers and all, as CFNetwork's does.
                 let target = URL(string: "https://elsewhere.example/tile.png")!
@@ -202,10 +203,10 @@ final class OpenAIPRequestGuardTests: XCTestCase {
 
     func testABulkTileRedirectedToAnotherHostArrivesWithoutTheKey() async throws {
         let (_, response) = try await OpenAIPCacheManager.fetchTile(
-            keyedRequest("https://a.api.tiles.openaip.net/api/data/openaip/1/2/3.png"), session: session)
+            keyedRequest("https://api.tiles.openaip.net/api/data/openaip/1/2/3.png"), session: session)
 
         XCTAssertEqual(response.statusCode, 200)
-        XCTAssertEqual(StubProtocol.headers(sentTo: "a.api.tiles.openaip.net")?[OpenAIPConfig.apiKeyHeader],
+        XCTAssertEqual(StubProtocol.headers(sentTo: "api.tiles.openaip.net")?[OpenAIPConfig.apiKeyHeader],
                        "test-openaip-key", "OpenAIP itself still gets the key")
         let elsewhere = try XCTUnwrap(StubProtocol.headers(sentTo: "elsewhere.example"), "the redirect was followed")
         XCTAssertNil(elsewhere[OpenAIPConfig.apiKeyHeader], "the key must not follow a redirect off OpenAIP")
@@ -214,7 +215,7 @@ final class OpenAIPRequestGuardTests: XCTestCase {
     func testABulkTileIsCappedWhileItStreams() async {
         do {
             _ = try await OpenAIPCacheManager.fetchTile(
-                keyedRequest("https://c.api.tiles.openaip.net/api/data/openaip/1/2/3.png"), session: session,
+                keyedRequest("https://example.invalid/api/data/openaip/1/2/3.png"), session: session,
                 maxResponseBytes: 1024)
             XCTFail("a body over the ceiling must be refused even without a Content-Length")
         } catch {

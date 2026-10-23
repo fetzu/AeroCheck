@@ -718,23 +718,27 @@ struct OpenFlightPlanBanner: View {
                     .font(.aero(size: 12))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    // The first number of the country landed in; the flight's page has them all. (6.5.0)
-                    if let phone = closeOut.phones.first, let url = CloseOut.callURL(phone) {
-                        Button {
-                            openURL(url)
-                        } label: {
-                            Text(L10n.CloseOut.call(phone.name))
-                                .font(.aero(size: 12, weight: .semibold))
-                                .foregroundColor(.aviationRed)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .padding(.horizontal, 12).frame(minHeight: 34)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
-                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationRed.opacity(0.5), lineWidth: 1)))
-                                .contentShape(Rectangle())
+                FlowLayout(spacing: 8) {
+                    // The numbers of the country landed in, two at most as on the flight's page: Sweden's two ACCs
+                    // are for the north and the south, so the first alone was half the answer (the author's v65-12,
+                    // 23 Oct 2026). Wrapped onto a second line where they don't fit. (6.5.0)
+                    ForEach(closeOut.phones.prefix(2), id: \.number) { phone in
+                        if let url = CloseOut.callURL(phone) {
+                            Button {
+                                openURL(url)
+                            } label: {
+                                Text(L10n.CloseOut.call(phone.name))
+                                    .font(.aero(size: 12, weight: .semibold))
+                                    .foregroundColor(.aviationRed)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .padding(.horizontal, 12).frame(minHeight: 34)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationRed.opacity(0.5), lineWidth: 1)))
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityValue(phone.number)
                         }
-                        .accessibilityValue(phone.number)
                     }
                     Button(action: onMarkClosed) {
                         Text(L10n.Thread.markFlightPlanClosed)

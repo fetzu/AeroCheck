@@ -241,8 +241,13 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Readiness over the pre-flight chapters only — the number Home shows. Tasks marked not
     /// applicable leave the denominator, so dismissing a PPR that turned out not to apply moves the
     /// ring to 100% rather than stranding it at 9/10.
-    var preFlightProgress: (done: Int, total: Int) {
-        let relevant = tasks.filter {
+    var preFlightProgress: (done: Int, total: Int) { preFlightProgress(sharing: []) }
+
+    /// The same, with `shared` counted in: a leg's trip tasks as the leg sees them (`Trip.sharedTasks(for:in:)`). A leg
+    /// is ready when everything before ITS flight is, the trip's weather and NOTAMs included: the leg's own tasks alone
+    /// said "7 of 7, Everything done" with the trip's weather open (the author's device check, 23 Oct 2026). (6.5.0)
+    func preFlightProgress(sharing shared: [ThreadTask]) -> (done: Int, total: Int) {
+        let relevant = (tasks + shared).filter {
             ($0.chapter == .plan || $0.chapter == .prepare) && $0.state != .notApplicable
         }
         return (relevant.filter { $0.state == .done }.count, relevant.count)
@@ -252,9 +257,9 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// state already says ("x of y done"); back to PLANNED when one is unticked or a new one appears. Before
     /// the flight only: FLY, CLOSE-OUT and DONE are the flight's. READY was only ever set when an abandoned
     /// flight was detached, so a flight with everything ticked still said PLANNED. (6.4.0)
-    mutating func settleReadiness() {
+    mutating func settleReadiness(sharing shared: [ThreadTask] = []) {
         guard state == .planned || state == .ready else { return }
-        let progress = preFlightProgress
+        let progress = preFlightProgress(sharing: shared)
         state = progress.total > 0 && progress.done >= progress.total ? .ready : .planned
     }
 
@@ -264,22 +269,30 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// The single next thing to do, in chapter order — what the Home strip advertises.
-    var nextTask: ThreadTask? { nextTask(skipping: []) }
+    var nextTask: ThreadTask? { nextTask(skipping: [], sharing: []) }
+
+    /// For a leg, its own next task, then its trip's (`shared`), as the trip card on Today has it. (6.5.0)
+    func nextTask(sharing shared: [ThreadTask]) -> ThreadTask? { nextTask(skipping: [], sharing: shared) }
 
     /// The next task for the flight page's NEXT card. The same as `nextTask`, except while the red
     /// open-plan card is up: that card already says "close your flight plan", with the call and the
     /// tick, so a gold NEXT card saying it again only pushed the rest of the page down. It moves on
     /// to the task after, or to nothing. Home keeps `nextTask`: its strip has no red card beside it.
-    var nextTaskBesideOpenFlightPlan: ThreadTask? {
-        nextTask(skipping: hasOpenFlightPlanAfterFlight ? [.flightPlanClosed] : [])
+    var nextTaskBesideOpenFlightPlan: ThreadTask? { nextTaskBesideOpenFlightPlan(sharing: []) }
+
+    func nextTaskBesideOpenFlightPlan(sharing shared: [ThreadTask]) -> ThreadTask? {
+        nextTask(skipping: hasOpenFlightPlanAfterFlight ? [.flightPlanClosed] : [], sharing: shared)
     }
 
-    private func nextTask(skipping keys: Set<ThreadTaskKey>) -> ThreadTask? {
-        for chapter in ThreadChapter.taskBearing {
-            // Before the flight, the close chapter isn't the pilot's problem yet.
-            if chapter == .close && state != .closeOut && state != .done { continue }
-            if let task = tasks(in: chapter).first(where: { $0.state == .pending && !keys.contains($0.key) }) {
-                return task
+    /// The flight's own tasks first, in chapter order, then `shared` (a leg's trip tasks) the same way.
+    private func nextTask(skipping keys: Set<ThreadTaskKey>, sharing shared: [ThreadTask]) -> ThreadTask? {
+        for list in [tasks, shared] {
+            for chapter in ThreadChapter.taskBearing {
+                // Before the flight, the close chapter isn't the pilot's problem yet.
+                if chapter == .close && state != .closeOut && state != .done { continue }
+                if let task = list.first(where: { $0.chapter == chapter && $0.state == .pending && !keys.contains($0.key) }) {
+                    return task
+                }
             }
         }
         return nil

@@ -695,8 +695,11 @@ struct FlightThreadView: View {
     private func stateChip(_ thread: FlightThread) -> some View {
         let (label, color): (String, Color) = {
             switch thread.state {
-            case .planned:  return (L10n.Thread.statePlanned, .aviationGold)
-            case .ready:    return (L10n.Thread.stateReady, .aviationGreen)
+            // Before the flight, as the ring counts: a leg with its trip's weather open isn't READY. (6.5.0)
+            case .planned, .ready:
+                let p = thread.preFlightProgress(sharing: sharedTasks(of: thread))
+                return p.total > 0 && p.done >= p.total ? (L10n.Thread.stateReady, .aviationGreen)
+                                                         : (L10n.Thread.statePlanned, .aviationGold)
             case .flying:   return (L10n.Thread.stateFlying, .altimeterBlue)
             case .closeOut: return (L10n.Thread.stateCloseOut, .aviationAmber)
             case .done:     return (L10n.Thread.stateDone, .secondaryText)
@@ -715,8 +718,14 @@ struct FlightThreadView: View {
             let p = thread.closeOutProgress
             return L10n.Thread.closedProgress(p.done, p.total)
         }
-        let p = thread.preFlightProgress
+        let p = thread.preFlightProgress(sharing: sharedTasks(of: thread))
         return L10n.Thread.readiness(p.done, p.total)
+    }
+
+    /// A leg's trip tasks as the leg sees them; none for a flight on its own. Counted with its own everywhere on the page:
+    /// the ring, the state, the chapters, NEXT and "Everything done" (the author's device check, 23 Oct 2026). (6.5.0)
+    private func sharedTasks(of thread: FlightThread) -> [ThreadTask] {
+        Trip.sharedTasks(for: thread, in: threadManager.trips)
     }
 
     // MARK: - Next task (v6.0 · D3)
@@ -728,7 +737,7 @@ struct FlightThreadView: View {
     @ViewBuilder
     private func nextTaskCard(_ thread: FlightThread) -> some View {
         if thread.state != .flying {
-            if let task = thread.nextTaskBesideOpenFlightPlan {
+            if let task = thread.nextTaskBesideOpenFlightPlan(sharing: sharedTasks(of: thread)) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(L10n.Thread.nextUp.uppercased())
                         .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
@@ -738,6 +747,8 @@ struct FlightThreadView: View {
                         .padding(.top, 12)
                     if task.key.isWeatherBlock {
                         nextWeatherRow(thread)
+                    } else if let trip = threadManager.trip(forThreadId: thread.id), trip.task(withId: task.id) != nil {
+                        sharedTaskRow(task, trip: trip, leg: thread)
                     } else {
                         taskRow(task, in: thread, prominent: true)
                     }
@@ -808,6 +819,25 @@ struct FlightThreadView: View {
         .padding(.vertical, 11)
     }
 
+    /// NEXT is one of the trip's tasks (a leg's own are all done): its row, ticked on the trip from this leg, as the band
+    /// ticks it. (6.5.0)
+    private func sharedTaskRow(_ task: ThreadTask, trip: Trip, leg: FlightThread) -> some View {
+        ThreadTaskRow(
+            task: task,
+            onToggle: {
+                threadManager.setSharedTaskState(task.state == .done ? .pending : .done, taskId: task.id,
+                                                 tripId: trip.id, fromLegId: leg.id)
+            },
+            onDismissTask: {
+                threadManager.setSharedTaskState(.notApplicable, taskId: task.id, tripId: trip.id, fromLegId: leg.id)
+            },
+            onOpen: { url in openURL(url) },
+            touchesSwitzerland: leg.countries?.contains("CH") ?? false,
+            briefing: briefing(for: leg),
+            prominent: true
+        )
+    }
+
     private func taskRow(_ task: ThreadTask, in thread: FlightThread, prominent: Bool = false) -> some View {
         ThreadTaskRow(
             task: task,
@@ -850,7 +880,7 @@ struct FlightThreadView: View {
     private func readinessRing(_ thread: FlightThread) -> some View {
         let progress = (thread.state == .closeOut || thread.state == .done)
             ? thread.closeOutProgress
-            : thread.preFlightProgress
+            : thread.preFlightProgress(sharing: sharedTasks(of: thread))
         let fraction = progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0
         return ZStack {
             Circle().stroke(Color.white.opacity(0.12), lineWidth: 4)
@@ -1209,7 +1239,7 @@ struct FlightThreadView: View {
     }
 
     private func chapterChip(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
-        let tasks = thread.tasks(in: chapter)
+        let tasks = thread.tasks(in: chapter) + sharedTasks(of: thread).filter { $0.chapter == chapter }
         let done = tasks.filter { $0.state == .done }.count
         let relevant = tasks.filter { $0.state != .notApplicable }.count
         let isComplete = relevant > 0 && done >= relevant
@@ -1394,7 +1424,12 @@ struct FlightThreadView: View {
         case .startEarly:
             if let onStartFlight { earlyStart(thread, onStart: onStartFlight) }
         case .start:
-            if let onStartFlight {
+            if let onStartFlight, let country = briefing(for: thread).prohibited.first?.country {
+                prohibitedStart(country, title: thread.profile == .local ? L10n.Button.circuits : L10n.Button.startFlight) {
+                    onStartFlight(thread.profile == .local)
+                }
+                .coachTarget(.startFlight)
+            } else if let onStartFlight {
                 Button {
                     onStartFlight(thread.profile == .local)
                 } label: {
@@ -1445,24 +1480,39 @@ struct FlightThreadView: View {
                     .scaledFont(size: 13, relativeTo: .footnote)
                     .foregroundColor(.secondaryText)
             }
-            Button { confirmingEarlyStart = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: thread.profile == .local ? "arrow.triangle.2.circlepath" : "play.fill")
-                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                    Text(L10n.Thread.startNow)
-                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+            if let country = briefing(for: thread).prohibited.first?.country {
+                prohibitedStart(country, title: L10n.Thread.startNow) { confirmingEarlyStart = true }
+            } else {
+                Button { confirmingEarlyStart = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: thread.profile == .local ? "arrow.triangle.2.circlepath" : "play.fill")
+                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        Text(L10n.Thread.startNow)
+                            .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(SecondaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen,
+                                                  isLarge: false))
             }
-            .buttonStyle(SecondaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen,
-                                              isLarge: false))
-            .confirmationDialog(L10n.Thread.startEarlyTitle, isPresented: $confirmingEarlyStart,
-                                titleVisibility: .visible) {
-                Button(L10n.Thread.startNow) { onStart(thread.profile == .local) }
-                Button(L10n.Button.cancel, role: .cancel) {}
-            } message: {
-                if !when.isEmpty { Text(L10n.Thread.startEarlyMessage(when)) }
-            }
+        }
+        .confirmationDialog(L10n.Thread.startEarlyTitle, isPresented: $confirmingEarlyStart,
+                            titleVisibility: .visible) {
+            Button(L10n.Thread.startNow) { onStart(thread.profile == .local) }
+            Button(L10n.Button.cancel, role: .cancel) {}
+        } message: {
+            if !when.isEmpty { Text(L10n.Thread.startEarlyMessage(when)) }
+        }
+    }
+
+    /// A route through a country where flights are prohibited (Belarus): its line in red over START, red too, which
+    /// starts after a one-second hold, as the cockpit's go-around does (the author's v65-13, 23 Oct 2026). (6.5.0)
+    private func prohibitedStart(_ country: String, title: String, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.Thread.prohibitedTitle(OpenAIPConfig.countryName(for: country)), systemImage: "nosign")
+                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                .foregroundColor(.aviationRed)
+            HoldToConfirmButton(title: title, systemImage: "play.fill", tint: .aviationRed, action: action)
         }
     }
 

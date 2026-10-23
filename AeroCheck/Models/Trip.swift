@@ -155,6 +155,13 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
         legIds.firstIndex(of: threadId).map { $0 + 1 }
     }
 
+    /// A leg's trip tasks as the leg sees them, from `trips`; none for a flight on its own. What its readiness, its NEXT
+    /// and "Everything done" count with its own. (6.5.0)
+    static func sharedTasks(for thread: FlightThread, in trips: [Trip]) -> [ThreadTask] {
+        guard let tripId = thread.tripId, let trip = trips.first(where: { $0.id == tripId }) else { return [] }
+        return trip.tasks(forLegDeparting: thread.scheduledDeparture, legId: thread.id)
+    }
+
     /// Shared tasks as this leg should see them: a staleable tick that no longer covers the leg's
     /// departure reads as pending again, carrying when it was last done so the pilot can tell a
     /// refresh from something they forgot.

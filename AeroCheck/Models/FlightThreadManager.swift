@@ -224,7 +224,7 @@ class FlightThreadManager: ObservableObject {
             threads[index].arrivalCountry = context.arrivalCountry
         }
         threads[index].tasks = regenerated
-        threads[index].settleReadiness()
+        settleReadiness(at: index)
 
         // The cached departure drives "is this today?" and the preparation reminder. Left stale it
         // reads a date the plan no longer has, which is how a flight moved to tomorrow kept being
@@ -330,6 +330,7 @@ class FlightThreadManager: ObservableObject {
         trip.sharedTasks = liftSharedTasks(from: threadIds, into: [])
         adopt(threadIds, into: trip.id)
         trips.append(trip)
+        settleLegs(of: trip.id)
         saveThreads()
         saveTrips()
         return trip
@@ -379,6 +380,7 @@ class FlightThreadManager: ObservableObject {
             }
         }
         trips[tripIndex].touch()
+        settleLegs(of: trips[tripIndex].id)
         saveThreads()
         saveTrips()
         return trips[tripIndex]
@@ -526,6 +528,21 @@ class FlightThreadManager: ObservableObject {
         saveThreads()
     }
 
+    /// READY when everything before the flight is done, a leg's trip tasks included (`Trip.sharedTasks(for:in:)`). (6.5.0)
+    private func settleReadiness(at index: Int) {
+        threads[index].settleReadiness(sharing: Trip.sharedTasks(for: threads[index], in: trips))
+    }
+
+    /// Every leg of `tripId` settled again, after the trip's shared tasks changed: a leg whose own tasks are done is READY
+    /// only once the trip's are too. The caller saves. (6.5.0)
+    private func settleLegs(of tripId: UUID) {
+        for index in threads.indices where threads[index].tripId == tripId {
+            let before = threads[index].state
+            settleReadiness(at: index)
+            if threads[index].state != before { threads[index].touch() }
+        }
+    }
+
     /// Tick a shared task. Reached from whichever leg the pilot happens to be looking at — the state
     /// lives on the trip, so all of them see it at once.
     /// `fromLegId` is the leg the pilot was looking at when they ticked. A tick made there covers
@@ -546,6 +563,8 @@ class FlightThreadManager: ObservableObject {
             trips[index].sharedTasks[taskIndex].acknowledgedLegIds = []
         }
         trips[index].touch()
+        settleLegs(of: tripId)
+        saveThreads()
         saveTrips()
     }
 
@@ -570,6 +589,8 @@ class FlightThreadManager: ObservableObject {
                 }
             }
             trips[index].touch()
+            settleLegs(of: tripId)
+            saveThreads()
             saveTrips()
         } else if let index = threads.firstIndex(where: { $0.id == threadId }) {
             let block = threads[index].tasks.filter { $0.key.isWeatherBlock }
@@ -577,7 +598,7 @@ class FlightThreadManager: ObservableObject {
                 if keeps(task, of: block) { continue }
                 threads[index].setState(state, forTaskWithId: task.id)
             }
-            threads[index].settleReadiness()
+            settleReadiness(at: index)
             saveThreads()
         }
     }
@@ -600,6 +621,7 @@ class FlightThreadManager: ObservableObject {
                let index = threads.firstIndex(where: { $0.id == survivor }) {
                 threads[index].tripId = nil
                 threads[index].tasks.append(contentsOf: shared)
+                settleReadiness(at: index)
                 threads[index].touch()
             }
             // Dissolved: recorded, so the other store's trips.json does not bring it back. (6.1)
@@ -732,7 +754,7 @@ class FlightThreadManager: ObservableObject {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         let wasOpen = threads[index].hasOpenFlightPlan
         threads[index].setState(state, forTaskWithId: taskId)
-        threads[index].settleReadiness()
+        settleReadiness(at: index)
 
         let task = threads[index].tasks.first { $0.id == taskId }
 
@@ -768,7 +790,7 @@ class FlightThreadManager: ObservableObject {
         context.hasRoute = existing.contains { $0.key == .routePlanned && $0.state == .done }
         let enriched = enrich(context, from: threads[index])
         threads[index].tasks = ThreadTaskEngine.generate(context: enriched, existing: existing)
-        threads[index].settleReadiness()
+        settleReadiness(at: index)
         threads[index].touch()
     }
 

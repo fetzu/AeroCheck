@@ -293,6 +293,16 @@ final class FlightPageBlocksTests: XCTestCase {
         XCTAssertNil(FlightBlockDeadline.fileBy(departure: nil, leadMinutes: 60))
     }
 
+    func testAFlightThatStaysInItsCountryUsesTheShorterDomesticTime() throws {
+        let json = #"{"v":1,"countries":{"FR":{"filingLeadMinutes":60,"filingLeadMinutesDomestic":30},"DE":{"filingLeadMinutes":60}}}"#
+        let registry = try JSONDecoder().decode(BriefingRegistry.self, from: Data(json.utf8))
+        XCTAssertEqual(FlightBlockDeadline.leadMinutes(registry.country("FR"), countries: ["FR"], departureCountry: "FR"), 30)
+        XCTAssertEqual(FlightBlockDeadline.leadMinutes(registry.country("FR"), countries: ["FR", "CH"], departureCountry: "FR"), 60,
+                       "across a border: the longer time")
+        XCTAssertEqual(FlightBlockDeadline.leadMinutes(registry.country("DE"), countries: ["DE"], departureCountry: "DE"), 60)
+        XCTAssertNil(FlightBlockDeadline.leadMinutes(registry.country("CH"), countries: ["CH"], departureCountry: "CH"))
+    }
+
     func testTheRegistryReadsALeadTimeAndDropsANonsenseOne() throws {
         let json = #"{"v":1,"countries":{"CH":{"filingLeadMinutes":60},"DE":{"filingLeadMinutes":-5},"FR":{}}}"#
         let registry = try JSONDecoder().decode(BriefingRegistry.self, from: Data(json.utf8))

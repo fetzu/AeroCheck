@@ -699,6 +699,66 @@ enum L10n {
         static let sigmet = String(localized: "flightPage.sigmet")
     }
 
+    // MARK: - A report in words (6.6.0, WeatherWords)
+    enum Weather {
+        static func temperature(_ a: String) -> String { String(format: String(localized: "wx.temperature"), a) }
+        static func temperatureDewpoint(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.temperatureDewpoint"), a, b) }
+        static func altimeter(_ a: String) -> String { String(format: String(localized: "wx.altimeter"), a) }
+        static func qnh(_ a: String) -> String { String(format: String(localized: "wx.qnh"), a) }
+        static func recent(_ a: String) -> String { String(format: String(localized: "wx.recent"), a) }
+        static func windShear(_ a: String) -> String { String(format: String(localized: "wx.windShear"), a) }
+        static let allRunways = String(localized: "wx.allRunways")
+        static let nosig = String(localized: "wx.nosig")
+        static func trendFrom(_ a: String) -> String { String(format: String(localized: "wx.trendFrom"), a) }
+        static func trendUntil(_ a: String) -> String { String(format: String(localized: "wx.trendUntil"), a) }
+        static func trendAt(_ a: String) -> String { String(format: String(localized: "wx.trendAt"), a) }
+        static let temporarily = String(localized: "wx.temporarily")
+        static let becoming = String(localized: "wx.becoming")
+        static func utc(_ a: String) -> String { String(format: String(localized: "wx.utc"), a) }
+        static func until(_ a: String) -> String { String(format: String(localized: "wx.until"), a) }
+        static func from(_ a: String) -> String { String(format: String(localized: "wx.from"), a) }
+        static func becomingBetween(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.becomingBetween"), a, b) }
+        static func atTimesBetween(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.atTimesBetween"), a, b) }
+        static func atIntervalsBetween(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.atIntervalsBetween"), a, b) }
+        static let nsw = String(localized: "wx.nsw")
+        static let calm = String(localized: "wx.calm")
+        static func moreThan(_ a: String) -> String { String(format: String(localized: "wx.moreThan"), a) }
+        static func lessThan(_ a: String) -> String { String(format: String(localized: "wx.lessThan"), a) }
+        static func orMore(_ a: String) -> String { String(format: String(localized: "wx.orMore"), a) }
+        static func windVariable(_ a: String) -> String { String(format: String(localized: "wx.windVariable"), a) }
+        static func wind(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.wind"), a, b) }
+        static func gusts(_ a: String) -> String { String(format: String(localized: "wx.gusts"), a) }
+        static func minimumToward(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.minimumToward"), a, b) }
+        static func minimum(_ a: String) -> String { String(format: String(localized: "wx.minimum"), a) }
+        static let rising = String(localized: "wx.rising")
+        static let falling = String(localized: "wx.falling")
+        static func rvr(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.rvr"), a, b) }
+        static let few = String(localized: "wx.few")
+        static func fewAt(_ a: String) -> String { String(format: String(localized: "wx.fewAt"), a) }
+        static let scattered = String(localized: "wx.scattered")
+        static func scatteredAt(_ a: String) -> String { String(format: String(localized: "wx.scatteredAt"), a) }
+        static let broken = String(localized: "wx.broken")
+        static func brokenAt(_ a: String) -> String { String(format: String(localized: "wx.brokenAt"), a) }
+        static let overcast = String(localized: "wx.overcast")
+        static func overcastAt(_ a: String) -> String { String(format: String(localized: "wx.overcastAt"), a) }
+        static func verticalVisibility(_ a: String) -> String { String(format: String(localized: "wx.verticalVisibility"), a) }
+        static let skyObscured = String(localized: "wx.skyObscured")
+        static let cloud = String(localized: "wx.cloud")
+        static func cloudAt(_ a: String) -> String { String(format: String(localized: "wx.cloudAt"), a) }
+        static let nsc = String(localized: "wx.nsc")
+        static let ncd = String(localized: "wx.ncd")
+        static let skc = String(localized: "wx.skc")
+        static let clr = String(localized: "wx.clr")
+        /// The toggle under a station's words, for VoiceOver.
+        static let rawReports = String(localized: "wx.rawReports")
+        static func chance(_ a: String, _ b: String, _ percent: Int) -> String {
+            String(format: String(localized: "wx.chance"), a, b, percent)
+        }
+        static func chanceAtTimes(_ a: String, _ b: String, _ percent: Int) -> String {
+            String(format: String(localized: "wx.chanceAtTimes"), a, b, percent)
+        }
+    }
+
     // MARK: - Prepare's weather (6.5.0)
     enum PrepareWeather {
         static let title = String(localized: "prepareWeather.title")

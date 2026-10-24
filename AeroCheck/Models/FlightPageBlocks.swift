@@ -250,6 +250,16 @@ struct FlightPage: Equatable, Sendable {
 // MARK: - Deadlines (6.6.0, f7 A)
 
 enum FlightBlockDeadline {
+    /// The departure country's lead time for this flight: its domestic one when the route never leaves the country
+    /// (`countries` the departure's alone) and the AIP sets one, else the one across a border.
+    static func leadMinutes(_ country: BriefingRegistry.Country?, countries: [String], departureCountry: String?) -> Int? {
+        guard let country else { return nil }
+        if let domestic = country.filingLeadMinutesDomestic, let home = departureCountry, countries == [home] {
+            return domestic
+        }
+        return country.filingLeadMinutes
+    }
+
     /// When the ATC flight plan must be filed: `leadMinutes` before off-block, from the departure country's AIP
     /// (the briefing registry's `filingLeadMinutes`). Nil without a departure or a lead time: the head then says
     /// "file before off-block", never a time the app made up.

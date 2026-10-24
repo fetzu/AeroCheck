@@ -11,13 +11,15 @@ struct ThreadWeatherBody: View {
     let route: [CLLocationCoordinate2D]
     /// Every country's weather and area-forecast pages, a page once (`ThreadBriefing.weatherLinks`).
     let links: [ThreadTaskLink]
+    /// When the flight leaves: the TAF's words keep the periods that matter for it.
+    var departure: Date?
     let onOpen: (URL) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !fields.isEmpty {
                 Divider().overlay(Color.white.opacity(0.06))
-                PrepareWeatherReports(threadId: threadId, fields: fields, route: route)
+                PrepareWeatherReports(threadId: threadId, fields: fields, route: route, departure: departure)
             }
             if !links.isEmpty {
                 Text(L10n.Thread.briefOfficially.uppercased())
@@ -78,8 +80,11 @@ struct PrepareWeatherReports: View {
     let threadId: UUID
     let fields: [PrepareWeather.Field]
     let route: [CLLocationCoordinate2D]
+    var departure: Date?
 
     @ObservedObject private var service = PrepareWeatherService.shared
+    /// The stations whose raw reports are open under their words. (6.6.0)
+    @State private var showsRaw: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -144,8 +149,48 @@ struct PrepareWeatherReports: View {
                     .foregroundColor(.dimText)
                     .tracking(0.6)
             }
-            if let metar = station.metar { report(Self.labelled(metar, as: "METAR", or: ["METAR", "SPECI"])) }
-            if let taf = station.taf { report(Self.labelled(taf, as: "TAF", or: ["TAF"])) }
+            // The words first, the raw reports on a tap (the author's q5 B); a report the proxy couldn't decode
+            // whole shows raw, as before. (6.6.0)
+            let metarWords = station.metarDecoded.flatMap(WeatherWords.metar)
+            let tafWords = station.tafDecoded.map { WeatherWords.taf($0, departure: departure) } ?? []
+            let decoded = metarWords != nil || !tafWords.isEmpty
+            if let metarWords {
+                Text(metarWords)
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let metar = station.metar {
+                report(Self.labelled(metar, as: "METAR", or: ["METAR", "SPECI"]))
+            }
+            if !tafWords.isEmpty {
+                ForEach(tafWords, id: \.self) { line in
+                    (Text("TAF  ").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.dimText)
+                     + Text(line))
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else if let taf = station.taf {
+                report(Self.labelled(taf, as: "TAF", or: ["TAF"]))
+            }
+            if decoded {
+                let open = showsRaw.contains(station.ident)
+                Button {
+                    if open { showsRaw.remove(station.ident) } else { showsRaw.insert(station.ident) }
+                } label: {
+                    Text(open ? "RAW ⌃" : "RAW ⌄")
+                        .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                        .foregroundColor(.aviationGold)
+                        .frame(minHeight: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Weather.rawReports)
+                if open {
+                    if let metar = station.metar { report(Self.labelled(metar, as: "METAR", or: ["METAR", "SPECI"])) }
+                    if let taf = station.taf { report(Self.labelled(taf, as: "TAF", or: ["TAF"])) }
+                }
+            }
             if let note = Self.note(for: station) {
                 Text(note)
                     .scaledFont(size: 12, relativeTo: .caption)
@@ -155,7 +200,7 @@ struct PrepareWeatherReports: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     private func report(_ text: String) -> some View {

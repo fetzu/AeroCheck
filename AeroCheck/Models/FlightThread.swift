@@ -316,6 +316,10 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
 
     var isFinished: Bool { state == .done }
 
+    /// The countries of the flight's border blocks: where it lands abroad, never the route's 10 NM `countries`. What
+    /// Today's border chips name. (6.6.0)
+    var borderCountries: [String] { tasks.filter { $0.key == .customsNotified }.compactMap(\.subject) }
+
     mutating func touch() { updatedAt = Date() }
 
     // MARK: - Mutation

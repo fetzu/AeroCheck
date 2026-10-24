@@ -96,19 +96,22 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertFalse(Set(keys(french)).contains(.gaforChecked), "GAFOR is a Swiss product")
     }
 
-    func testCustomsTaskAppearsOncePerForeignCountry() {
-        var c = context(countries: ["CH", "FR", "DE"])
+    func testTheBorderBlockIsTheCountryTheFlightLandsIn() {
+        // The route's countries reach 10 NM past it, for the data; the border block is the arrival's alone. (6.6.0)
+        var c = context(countries: ["CH", "DE", "FR"])
         c.homeCountry = "CH"
-        let tasks = ThreadTaskEngine.generate(context: c)
-        let customs = tasks.filter { $0.key == .customsNotified }
-
-        XCTAssertEqual(customs.count, 2)
-        XCTAssertEqual(Set(customs.compactMap(\.subject)), ["FR", "DE"])
+        c.arrivalCountry = "FR"
+        let customs = ThreadTaskEngine.generate(context: c).filter { $0.key == .customsNotified }
+        XCTAssertEqual(customs.map(\.subject), ["FR"])
     }
 
     func testNoCustomsTaskWhenTheRouteStaysHome() {
-        let tasks = ThreadTaskEngine.generate(context: context(countries: ["CH"]))
-        XCTAssertTrue(tasks.filter { $0.key == .customsNotified }.isEmpty)
+        XCTAssertTrue(ThreadTaskEngine.generate(context: context(countries: ["CH"]))
+            .filter { $0.key == .customsNotified }.isEmpty)
+        // A neighbour 10 NM off the route is no border.
+        var c = context(countries: ["CH", "FR"])
+        c.arrivalCountry = "CH"
+        XCTAssertTrue(ThreadTaskEngine.generate(context: c).filter { $0.key == .customsNotified }.isEmpty)
     }
 
     func testPPRTaskIsPerAerodrome() {
@@ -1581,5 +1584,102 @@ extension FlightThreadTests {
 
         XCTAssertEqual(appState.pendingThreadToOpen, tomorrow.id)
         XCTAssertEqual(manager.currentThreadId, tomorrow.id)
+    }
+}
+
+
+// MARK: - Border blocks: where the flight lands (6.6.0)
+
+/// One border block, for the arrival's country (the author's answer, 24 Oct 2026): the route's 10 NM `countries` are
+/// the data's margin and stay so. Real coordinates, on the bundled borders.
+extension FlightThreadTests {
+
+    private func route(_ points: [(String, Double, Double)]) -> FlightPlan {
+        var plan = FlightPlan(name: points.map(\.0).joined(separator: " → "))
+        plan.waypoints = points.map { waypoint($0.0, lat: $0.1, lon: $0.2) }
+        return plan
+    }
+
+    private var bressaucourt: (String, Double, Double) { ("LSZQ", 47.392408, 7.028956) }
+    private var toColmar: FlightPlan { route([bressaucourt, ("LFGA", 48.109901, 7.35901)]) }
+    private var toFreiburg: FlightPlan { route([bressaucourt, ("EDTF", 48.022778, 7.8325)]) }
+
+    @MainActor
+    func testBressaucourtToColmarHasFranceOnly() {
+        // West of the Rhine, Germany within 10 NM: it gave a German block.
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: toColmar, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.borderCountries, ["FR"])
+        XCTAssertTrue(thread.countries?.contains("DE") ?? false, "the data keeps its margin: \(thread.countries ?? [])")
+    }
+
+    @MainActor
+    func testBressaucourtToFreiburgHasGermanyOnly() {
+        // Over Alsace on the way, landing in Germany: customs follows the landing.
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: toFreiburg, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.borderCountries, ["DE"])
+        XCTAssertTrue(thread.countries?.contains("FR") ?? false, "got \(thread.countries ?? [])")
+    }
+
+    @MainActor
+    func testALocalFlightAtBressaucourtHasNoBorderBlock() {
+        // The guided dry run's triangle, 6 NM out with France 3 NM away, gave a French block; circuits there too.
+        let manager = makeTestThreadManager()
+        let triangle = manager.createThread(from: DryRunChapters.route(from: .lszq), profile: .full)
+        let circuits = manager.createThread(from: nil, profile: .local)
+        defer { manager.deleteThread(threadId: triangle.id); manager.deleteThread(threadId: circuits.id) }
+
+        XCTAssertEqual(triangle.borderCountries, [])
+        XCTAssertTrue(triangle.countries?.contains("FR") ?? false, "got \(triangle.countries ?? [])")
+        XCTAssertEqual(circuits.borderCountries, [])
+    }
+
+    @MainActor
+    func testTheWayHomeHasTheHomeCountrysBlock() {
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: route([("LFGA", 48.109901, 7.35901), bressaucourt]), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.homeCountry, "FR")
+        XCTAssertEqual(thread.borderCountries, ["CH"])
+    }
+
+    @MainActor
+    func testFilingTheFlightPlanKeepsTheBorderBlock() throws {
+        // Filing rebuilds the tasks without the plan, from what the thread recorded.
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: toColmar, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+        let filed = try XCTUnwrap(thread.tasks.first { $0.key == .flightPlanFiled })
+
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+
+        let after = try XCTUnwrap(manager.thread(withId: thread.id))
+        XCTAssertTrue(after.tasks.contains { $0.key == .flightPlanClosed }, "the filing went through")
+        XCTAssertEqual(after.borderCountries, ["FR"])
+    }
+
+    @MainActor
+    func testABorderBlockThatNoLongerAppliesGoesTickedOrNot() {
+        // A flight to Colmar made before 6.6.0 had a German block too. The next rebuild drops it, ticked as it is,
+        // and France keeps its tick.
+        var france = ThreadTask(key: .customsNotified, subject: "FR", kind: .check)
+        france.state = .done
+        var germany = ThreadTask(key: .customsNotified, subject: "DE", kind: .check)
+        germany.state = .done
+        germany.note = "Called Freiburg"
+
+        let rebuilt = ThreadTaskEngine.generate(context: FlightThreadManager.context(for: toColmar, profile: .full),
+                                                existing: [france, germany])
+
+        let customs = rebuilt.filter { $0.key == .customsNotified }
+        XCTAssertEqual(customs.map(\.subject), ["FR"])
+        XCTAssertEqual(customs.first?.id, france.id)
+        XCTAssertEqual(customs.first?.state, .done)
     }
 }

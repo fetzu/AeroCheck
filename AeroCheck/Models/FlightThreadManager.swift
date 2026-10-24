@@ -471,6 +471,13 @@ class FlightThreadManager: ObservableObject {
               plannedIdent.uppercased() != landedIdent.uppercased() else { return }
         threads[index].landedElsewhere = LandedElsewhere(plannedIdent: plannedIdent, landedIdent: landedIdent,
                                                          landedName: landedName)
+        // A PPR for the field not landed at doesn't apply any more: set aside, kept so the record shows it. A
+        // tick stays a tick. (6.6.0, the author's t4 A)
+        for i in threads[index].tasks.indices
+        where threads[index].tasks[i].key == .pprObtained && threads[index].tasks[i].state == .pending
+            && threads[index].tasks[i].subject?.uppercased() == plannedIdent.uppercased() {
+            threads[index].tasks[i].state = .notApplicable
+        }
         // The flight as flown: "LSZS → LSZE". A trip's label is built from its legs' labels, so this is
         // also what keeps "LSZS → LSZE → LSZQ" right once the continuation is added.
         let origin = threads[index].routeLabel.components(separatedBy: " → ").first ?? ""
@@ -1328,7 +1335,11 @@ class FlightThreadManager: ObservableObject {
 
         // Only landings AWAY from the departure field can attract a fee. Waypoint names are free
         // text (they can be "JORAT VOR"), so restrict this to things shaped like an ICAO ident.
-        if let arrival = context.arrivalIdent,
+        // Landed elsewhere (the diversion END FLIGHT settled): the fee is the field landed at's, with its tariff and its
+        // chart; the route itself is never rewritten by a diversion. (6.6.0, the author's t4 A)
+        let landedAt = plan.diversion?.landedAt != nil
+            ? plan.diversion?.ident.trimmingCharacters(in: .whitespaces).uppercased() : nil
+        if let arrival = landedAt ?? context.arrivalIdent,
            arrival != context.departureIdent,
            Self.looksLikeICAO(arrival) {
             context.feeIdents = [arrival]

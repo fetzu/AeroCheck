@@ -3088,6 +3088,10 @@ enum L10n {
             String(format: String(localized: "trip.continueExplainer"), from, to)
         }
         static let finishHere = String(localized: "trip.finishHere")
+        /// "Finish here" on a trip's leg: the later legs, named, and what to do with them. (6.6.0, t5)
+        static let laterLegsTitle = String(localized: "trip.laterLegsTitle")
+        static let cancelLaterLegs = String(localized: "trip.cancelLaterLegs")
+        static let keepLaterLegs = String(localized: "trip.keepLaterLegs")
         /// "Tell Zurich FIC you landed at LSZE, not LSZQ."
         static func tellFICLanded(_ landed: String, _ planned: String) -> String {
             String(format: String(localized: "trip.tellFICLanded"), landed, planned)

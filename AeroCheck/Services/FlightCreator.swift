@@ -446,6 +446,26 @@ enum FlightCreator {
         if let ownPlan { plans.deleteFlightPlan(ownPlan) }
     }
 
+    /// The legs of `threadId`'s trip after it that haven't flown, numbered as the leg strip numbers them: what "Finish
+    /// here" asks about after landing elsewhere. None for a flight on its own. (6.6.0, the author's t5 A)
+    static func laterLegs(after threadId: UUID, threads: FlightThreadManager) -> [(number: Int, leg: FlightThread)] {
+        guard let trip = threads.trip(forThreadId: threadId) else { return [] }
+        let legs = threads.legs(of: trip)
+        guard let position = legs.firstIndex(where: { $0.id == threadId }) else { return [] }
+        return legs.enumerated()
+            .filter { $0.offset > position && !FlightThreadManager.isFlownOrFlying($0.element) }
+            .map { (number: $0.offset + 1, leg: $0.element) }
+    }
+
+    /// "Finish here" after landing elsewhere: no continuation, and, when the pilot said so, the trip's later legs
+    /// cancelled as "Cancel this leg" cancels one. (6.6.0, t5 A)
+    static func finishHere(_ threadId: UUID, cancellingLaterLegs: Bool, plans: FlightPlanManager,
+                           threads: FlightThreadManager, logbookPlanIds: Set<UUID>) {
+        let later = cancellingLaterLegs ? laterLegs(after: threadId, threads: threads).map(\.leg.id) : []
+        threads.dismissContinuation(threadId: threadId)
+        for id in later { cancelLeg(id, plans: plans, threads: threads, logbookPlanIds: logbookPlanIds) }
+    }
+
     /// "Cancel trip": every leg neither flown nor flying (`FlightThreadManager.legsToCancel`), each
     /// cancelled by `cancelLeg`. Returns the legs removed.
     ///

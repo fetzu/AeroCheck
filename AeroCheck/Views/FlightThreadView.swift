@@ -1703,55 +1703,20 @@ struct FlightThreadView: View {
     @ViewBuilder
     private func continuationCard(_ thread: FlightThread) -> some View {
         if let landed = thread.landedElsewhere, !landed.offerDismissed, !landed.continued {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                        .scaledFont(size: 18, relativeTo: .title3)
-                        .foregroundColor(.aviationGold)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.Trip.landedAt(landed.landedIdent))
-                            .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
-                            .foregroundColor(.primaryText)
-                        Text("\(landed.landedName) · \(L10n.Trip.planned(landed.plannedIdent))")
-                            .scaledFont(size: 12, relativeTo: .caption)
-                            .foregroundColor(.secondaryText)
+            LandedElsewhereOffer(
+                landed: landed,
+                laterLegs: FlightCreator.laterLegs(after: thread.id, threads: threadManager)
+                    .map { L10n.Trip.cancelConfirmLeg($0.number, $0.leg.displayName) },
+                onContinue: {
+                    if let leg = FlightCreator.continueAfterDiversion(from: thread.id, plans: flightPlanManager,
+                                                                     threads: threadManager, airports: airportDataService) {
+                        onOpenLeg?(leg.id)
                     }
-                    Spacer()
-                }
-                Text(L10n.Trip.continueExplainer(landed.landedIdent, landed.plannedIdent))
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    Button {
-                        if let leg = FlightCreator.continueAfterDiversion(from: thread.id, plans: flightPlanManager,
-                                                                         threads: threadManager,
-                                                                         airports: airportDataService) {
-                            onOpenLeg?(leg.id)
-                        }
-                    } label: {
-                        Text(L10n.Trip.continueTo(landed.plannedIdent))
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(isLarge: false))
-                    Button {
-                        threadManager.dismissContinuation(threadId: thread.id)
-                    } label: {
-                        Text(L10n.Trip.finishHere)
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(SecondaryButtonStyle(isLarge: false))
-                }
-            }
-            .padding(14)
-            .background(Color.aviationGold.opacity(0.10))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1)
-            )
+                },
+                onFinish: { cancelling in
+                    FlightCreator.finishHere(thread.id, cancellingLaterLegs: cancelling, plans: flightPlanManager,
+                                             threads: threadManager, logbookPlanIds: logbookPlanIds)
+                })
         }
     }
 

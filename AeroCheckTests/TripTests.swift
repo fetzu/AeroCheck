@@ -1019,6 +1019,59 @@ extension TripTests {
         XCTAssertEqual(m.thread(withId: a.id)?.landedElsewhere?.offerDismissed, true)
     }
 
+    /// After landing elsewhere, the landing fee is the field landed at's; the route stays as planned. (6.6.0, t4 A)
+    func testTheLandingFeeFollowsTheFieldLandedAt() {
+        var flown = FlightPlan(name: "Leg 2")
+        flown.waypoints = [FlightPlanWaypoint(name: "LFGA", coordinate: .init(latitude: 48.11, longitude: 7.36)),
+                           FlightPlanWaypoint(name: "EDTF", coordinate: .init(latitude: 47.99, longitude: 7.83))]
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).feeIdents, ["EDTF"])
+        flown.diversion = Diversion(ident: "EDSB", name: "Karlsruhe/Baden-Baden", latitude: 48.78, longitude: 8.08,
+                                    leftRouteAt: 1, landedAt: Date())
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).feeIdents, ["EDSB"])
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).arrivalIdent, "EDTF",
+                       "the route isn't rewritten by a diversion")
+        flown.diversion?.landedAt = nil
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).feeIdents, ["EDTF"],
+                       "a diversion still in the air lands nowhere yet")
+    }
+
+    /// "Finish here" on a trip's leg names its later legs and cancels them only when asked. (6.6.0, t5 A)
+    @MainActor
+    func testFinishingHereCancelsTheLaterLegsOnlyWhenAsked() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, _) = threeLegTrip(m)
+        defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
+        fly(m, legs[0].id)
+        m.recordLanding(threadId: legs[0].id, plannedIdent: "LSGE", landedIdent: "LSGG", landedName: "Genève")
+        XCTAssertEqual(FlightCreator.laterLegs(after: legs[0].id, threads: m).map(\.number), [2, 3])
+
+        FlightCreator.finishHere(legs[0].id, cancellingLaterLegs: false, plans: plans, threads: m, logbookPlanIds: [])
+        XCTAssertEqual(m.thread(withId: legs[0].id)?.landedElsewhere?.offerDismissed, true)
+        XCTAssertNotNil(m.thread(withId: legs[2].id), "kept")
+
+        FlightCreator.finishHere(legs[0].id, cancellingLaterLegs: true, plans: plans, threads: m, logbookPlanIds: [])
+        XCTAssertNil(m.thread(withId: legs[1].id))
+        XCTAssertNil(m.thread(withId: legs[2].id))
+        XCTAssertNotNil(m.thread(withId: legs[0].id), "the flown leg stays")
+    }
+
+    /// The planned field's PPR doesn't apply once the flight landed elsewhere: set aside, kept, a tick left as it was.
+    @MainActor
+    func testLandingElsewhereSetsThePlannedFieldsPPRAside() throws {
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: plan("LSZS", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id) }
+        let index = try XCTUnwrap(m.threads.firstIndex { $0.id == a.id })
+        m.threads[index].tasks += [ThreadTask(key: .pprObtained, subject: "LSZQ", kind: .check),
+                                   ThreadTask(key: .pprObtained, subject: "LSZE", kind: .check, state: .done)]
+        m.recordLanding(threadId: a.id, plannedIdent: "LSZQ", landedIdent: "LSZE", landedName: "Bad Ragaz")
+        let after = try XCTUnwrap(m.thread(withId: a.id))
+        XCTAssertEqual(after.tasks.first { $0.key == .pprObtained && $0.subject == "LSZQ" }?.state, .notApplicable)
+        XCTAssertEqual(after.tasks.first { $0.key == .pprObtained && $0.subject == "LSZE" }?.state, .done)
+    }
+
     @MainActor
     func testContinuingMakesTheNextLegFromTheDiversionField() {
         let datastore = makeTestDatastore()
@@ -1446,6 +1499,16 @@ extension TripTests {
         XCTAssertEqual(StartFlightLabel.make(hero: hero, trip: card(m, focus: hero, plans: plans)),
                        StartFlightLabel(title: L10n.Home.resumeThisFlight,
                                         leg: L10n.TripCard.startLeg(1, "LSZQ → LSGE")))
+    }
+
+    /// A leg that landed elsewhere leaves the next one starting from another field: the chain says so. (6.6.0)
+    func testTheChainRestartsWhereALegDoesntLeaveFromTheLastLanding() throws {
+        let leg1 = FlightThread(routeLabel: "LSZQ → LFGA")
+        let leg2 = FlightThread(routeLabel: "LFGA → EDSB")
+        let leg3 = FlightThread(routeLabel: "EDTF → LSZQ")
+        let trip = Trip(legIds: [leg1.id, leg2.id, leg3.id])
+        let overview = try XCTUnwrap(TripOverview(trip: trip, legs: [leg1, leg2, leg3], focus: leg2.id) { _ in nil })
+        XCTAssertEqual(overview.chain, "LSZQ → LFGA → EDSB · EDTF → LSZQ")
     }
 
     func testAFocusThatIsntALegShowsNoTrip() throws {

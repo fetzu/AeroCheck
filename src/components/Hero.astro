@@ -9,7 +9,7 @@ import Callouts from './Callouts.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
 const h = site.hero;
-const cockpit = shot(h.shot);
+const cockpit = shot(h.shot, site.lang);
 await warnIfShotsAreOld();
 ---
 <section class="hero">

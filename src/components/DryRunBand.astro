@@ -1,14 +1,16 @@
 ---
 // The way in for a newcomer, right under the first screen (6.4.0 site, Q4): fly a whole flight on the ground
 // before taking the app into the air. The hatched ground is the dry run's own band in the app.
+import type { Lang } from '../lib/site';
 import { shot } from '../lib/shots';
 interface Props {
   dry: { band: string; title: string; text: string; link: { label: string; href: string }; shot: string; alt: string };
   device?: 'iphone' | 'ipad';
   id?: string;
+  lang?: Lang;
 }
-const { dry, device = 'iphone', id = 'dry-run' } = Astro.props;
-const s = shot(dry.shot);
+const { dry, device = 'iphone', id = 'dry-run', lang } = Astro.props;
+const s = shot(dry.shot, lang);
 const src = device === 'ipad' ? s.ipad : s.iphone;
 ---
 <section {id} class="dry reveal">

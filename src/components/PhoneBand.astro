@@ -1,11 +1,11 @@
 ---
 // The iPhone in the FLY band: the same Cockpit in portrait, then on its side, where the controls move
 // to a column and the map takes the rest. (6.0)
-import type { PhoneBand } from '../lib/site';
+import type { Lang, PhoneBand } from '../lib/site';
 import { shot } from '../lib/shots';
-interface Props { band: PhoneBand; labels: { iphone: string }; }
-const { band, labels } = Astro.props;
-const [portrait, side] = band.shots.map((k) => shot(k));
+interface Props { band: PhoneBand; labels: { iphone: string }; lang?: Lang; }
+const { band, labels, lang } = Astro.props;
+const [portrait, side] = band.shots.map((k) => shot(k, lang));
 ---
 <div class="phone-band reveal">
   <div class="phone-copy">

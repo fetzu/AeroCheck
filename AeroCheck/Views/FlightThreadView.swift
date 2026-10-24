@@ -49,6 +49,11 @@ struct ThreadTaskPresentation {
                 guard let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) else {
                     return L10n.Border.notCurated
                 }
+                // Checked for Switzerland's crossings: France's "not required" is wrong for a flight from the UK,
+                // which its préavis catches. The official link stays. (6.6.0)
+                guard BorderCrossingGuide.factsApply(to: country, from: briefing?.departureCountry) else {
+                    return L10n.Border.swissCrossingsOnly
+                }
                 var parts = ["\(L10n.Border.customsAerodrome): \(rule.customsAerodrome.label)",
                              "\(L10n.Border.priorNotification): \(rule.priorNotification.label)"]
                 if let lead = rule.noticeLeadTime {
@@ -137,7 +142,8 @@ struct ThreadTaskPresentation {
             if let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) {
                 links.append(ThreadTaskLink(label: L10n.Border.openOfficial, url: rule.officialURL))
             }
-            if touchesSwitzerland {
+            // Once: the block into Switzerland already links its page. (6.6.0)
+            if touchesSwitzerland, !links.contains(where: { $0.url == BorderCrossingGuide.switzerland.officialURL }) {
                 links.append(ThreadTaskLink(label: L10n.Border.swissSide, url: BorderCrossingGuide.switzerland.officialURL))
             }
             return links
@@ -1343,6 +1349,8 @@ struct FlightThreadView: View {
             if let by = fileBy(for: thread) { return FlightBlockMeta(text: L10n.FlightPage.fileBy(shortTime(by)), tone: .deadline) }
             return FlightBlockMeta(text: L10n.FlightPage.fileBeforeOffBlock)
         case .border(let country):
+            // A notice time is one of the facts: only on a crossing to or from Switzerland, as the hint. (6.6.0)
+            guard BorderCrossingGuide.factsApply(to: country, from: thread.homeCountry) else { return nil }
             return BorderCrossingGuide.rule(for: country)?.noticeLeadTime.map {
                 FlightBlockMeta(text: L10n.FlightPage.notice($0), tone: .deadline)
             }

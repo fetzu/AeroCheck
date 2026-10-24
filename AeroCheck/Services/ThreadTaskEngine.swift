@@ -68,8 +68,10 @@ enum ThreadTaskEngine {
         /// The country the flight lands in when it is not the one it leaves: its one border block. Customs follows the
         /// landing (the author's answer, 24 Oct 2026): a country only flown over, or only within `countries`' 10 NM,
         /// has none. Nil without an arrival. (6.6.0)
+        /// Between two EU countries in Schengen there is none: no customs, no passport control.
         var borderCountry: String? {
-            guard let arrivalCountry, !arrivalCountry.isEmpty, arrivalCountry != homeCountry else { return nil }
+            guard let arrivalCountry, !arrivalCountry.isEmpty,
+                  BorderCrossingGuide.hasFormalities(from: homeCountry, to: arrivalCountry) else { return nil }
             return arrivalCountry
         }
     }

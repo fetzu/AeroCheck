@@ -239,9 +239,6 @@ enum L10n {
         static func legOf(_ index: Int, _ total: Int) -> String {
             String(localized: "Leg \(index) of \(total)")
         }
-        static func tripProgress(_ done: Int, _ total: Int) -> String {
-            String(localized: "TRIP · \(done) of \(total)")
-        }
         static func recheckForThisLeg(_ when: String) -> String {
             String(localized: "Checked \(when), re-check for this leg")
         }
@@ -512,8 +509,6 @@ enum L10n {
         static func weatherBriefedAt(_ time: String) -> String {
             String(format: String(localized: "thread.weather.briefedAt"), time)
         }
-        static let weatherNotTicked = String(localized: "thread.weather.notTicked")
-        static let weatherBelow = String(localized: "thread.weather.below")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
         static let markFlightPlanClosed = String(localized: "Mark closed")
@@ -528,13 +523,6 @@ enum L10n {
         static func readiness(_ done: Int, _ total: Int) -> String {
             String(localized: "\(done) of \(total) done")
         }
-        /// After the flight: "3 of 4 closed". (v6.0 · D3)
-        static func closedProgress(_ done: Int, _ total: Int) -> String {
-            String(localized: "\(done) of \(total) closed")
-        }
-        /// A chapter's ticked tasks, folded into one row. (v6.0 · D3)
-        static func doneCount(_ count: Int) -> String { String(localized: "\(count) done") }
-        static let nextUp = String(localized: "Next")
         static let allDone = String(localized: "Everything done")
 
         // Notifications
@@ -614,6 +602,8 @@ enum L10n {
         static let undated = String(localized: "flightPage.status.undated")
         static func ready(_ when: String) -> String { String(format: String(localized: "flightPage.status.ready"), when) }
         static func left(_ count: Int, _ list: String) -> String { String(localized: "\(count) left: \(list)") }
+        /// "4 left", where the list doesn't fit (Today's strip).
+        static func leftCount(_ count: Int) -> String { String(localized: "\(count) left") }
         static func now(_ list: String) -> String { String(format: String(localized: "flightPage.status.now"), list) }
         static func moreOnTheDay(_ count: Int, _ list: String) -> String {
             String(localized: "\(count) more on the day: \(list).")
@@ -825,12 +815,6 @@ enum L10n {
         static let flyWithoutAPlan = String(localized: "Fly without a plan")
         static let today = String(localized: "Today")
         static let readyToFly = String(localized: "Everything ticked, ready to fly")
-        static func nextOnly(_ task: String) -> String {
-            String(localized: "Next: \(task)")
-        }
-        static func nextAndRemaining(_ task: String, _ remaining: Int) -> String {
-            String(localized: "Next: \(task) · \(remaining) open in Plan and Prepare")
-        }
         static func flightPlanWaypointCount(_ count: Int) -> String {
             String(format: String(localized: "home.flightPlanWaypointCount"), count)
         }
@@ -2130,9 +2114,6 @@ enum L10n {
         static func progress(_ done: Int, _ total: Int) -> String {
             String(format: String(localized: "flightsPage.progress"), done, total)
         }
-        static func progressNext(_ done: Int, _ total: Int, _ next: String) -> String {
-            String(format: String(localized: "flightsPage.progressNext"), done, total, next)
-        }
     }
 
     /// Plan new flight. (planning proposal B)
@@ -2759,22 +2740,6 @@ enum L10n {
     enum TripCard {
         /// The card's kind, where a single flight's card has its date: "Trip".
         static let kind = String(localized: "tripCard.kind")
-        /// "Next: Fuel plan for leg 1"
-        static func nextForLeg(_ task: String, _ leg: Int) -> String {
-            String(format: String(localized: "tripCard.nextForLeg"), task, leg)
-        }
-        /// "Next: Weather briefing for the trip"
-        static func nextForTrip(_ task: String) -> String {
-            String(format: String(localized: "tripCard.nextForTrip"), task)
-        }
-        /// "Leg 2: everything ticked"
-        static func legAllTicked(_ leg: Int) -> String {
-            String(format: String(localized: "tripCard.legAllTicked"), leg)
-        }
-        /// "1/6 trip checks done"
-        static func tripChecks(_ done: Int, _ total: Int) -> String {
-            String(format: String(localized: "tripCard.tripChecks"), done, total)
-        }
         /// Under START FLIGHT: "Leg 1 · LSZQ → LSGE"
         static func startLeg(_ leg: Int, _ route: String) -> String {
             String(format: String(localized: "tripCard.startLeg"), leg, route)

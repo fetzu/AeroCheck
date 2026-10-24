@@ -33,6 +33,65 @@
         }
       }
     },
+    "%lld left": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Noch %lld offen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Noch %lld offen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld left"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld left"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld à faire"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld à faire"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld left: %@": {
       "extractionState": "manual",
       "localizations": {
@@ -15601,29 +15660,6 @@
         }
       }
     },
-    "thread.weather.below": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unten: die Meldungen und das offizielle Briefing."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Below: the reports and the official briefing."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ci-dessous : les observations et le briefing officiel."
-          }
-        }
-      }
-    },
     "thread.weather.briefOfficially": {
       "extractionState": "manual",
       "localizations": {
@@ -15666,29 +15702,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Consultée à %@"
-          }
-        }
-      }
-    },
-    "thread.weather.notTicked": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nicht abgehakt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not ticked"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pas cochée"
           }
         }
       }
@@ -24162,98 +24175,6 @@
         }
       }
     },
-    "tripCard.nextForLeg": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Als Nächstes: %1$@ für Etappe %2$d"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next: %1$@ for leg %2$d"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suivant : %1$@ pour l'étape %2$d"
-          }
-        }
-      }
-    },
-    "tripCard.nextForTrip": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Als Nächstes: %@ für die Reise"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next: %@ for the trip"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suivant : %@ pour le voyage"
-          }
-        }
-      }
-    },
-    "tripCard.legAllTicked": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Etappe %d: alles abgehakt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leg %d: everything ticked"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Étape %d : tout est coché"
-          }
-        }
-      }
-    },
-    "tripCard.tripChecks": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d/%2$d gemeinsame Aufgaben erledigt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d/%2$d trip checks done"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d/%2$d vérifications du voyage faites"
-          }
-        }
-      }
-    },
     "tripCard.startLeg": {
       "extractionState": "manual",
       "localizations": {
@@ -24365,29 +24286,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d sur %2$d faits"
-          }
-        }
-      }
-    },
-    "flightsPage.progressNext": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d von %2$d · als Nächstes: %3$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d of %2$d · next: %3$@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d sur %2$d · suivant : %3$@"
           }
         }
       }
@@ -26803,87 +26701,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Changer d’avion"
-          }
-        }
-      }
-    },
-    "%lld done" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld erledigt"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld erledigt"
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld done"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld done"
-                }
-              }
-            }
-          }
-        },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld fait"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld faits"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld of %lld closed": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld von %lld abgeschlossen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld of %lld closed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld sur %lld clôturés"
           }
         }
       }
@@ -31831,38 +31648,6 @@
         }
       }
     },
-    "Next: %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als Nächstes: %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant : %@"
-          }
-        }
-      }
-    },
-    "Next: %@ · %lld open in Plan and Prepare" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als Nächstes: %1$@ · %2$lld offen in Planen und Vorbereiten"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant : %1$@ · %2$lld ouvert(s) dans Planifier et Préparer"
-          }
-        }
-      }
-    },
     "Show on map" : {
       "localizations" : {
         "de" : {
@@ -33639,22 +33424,6 @@
         }
       }
     },
-    "TRIP · %lld of %lld" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "REISE · %1$lld von %2$lld"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VOYAGE · %1$lld sur %2$lld"
-          }
-        }
-      }
-    },
     "Flights" : {
       "localizations" : {
         "de" : {
@@ -33843,22 +33612,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld sur %lld faits"
-          }
-        }
-      }
-    },
-    "Next" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als Nächstes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant"
           }
         }
       }

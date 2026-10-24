@@ -145,3 +145,67 @@ enum FlightPageWords {
         text.prefix(1).uppercased(with: c.locale) + text.dropFirst()
     }
 }
+
+// MARK: - One flight's status, wherever it shows (6.6.0, f9 A)
+
+/// A flight's blocks and its status line, from what the app holds: the flight page's line under the title, Today's
+/// cards and Plan › Flights read the same words and the same counts in blocks.
+@MainActor
+enum FlightPageSummary {
+    struct Summary {
+        let page: FlightPage
+        let status: FlightPageStatus
+        let title: String
+        let detail: String
+        /// The blocks the detail names, with their words there, for the page's taps.
+        let items: [(kind: FlightBlockKind, words: String)]
+        let context: FlightPageWords.Context
+        let departure: Date?
+
+        /// What's left, in blocks, for a question or a count.
+        var left: Int {
+            switch status {
+            case let .before(_, now, day): return now.count + day.count
+            case let .landed(_, _, left): return left.count
+            default: return 0
+            }
+        }
+    }
+
+    static func make(_ thread: FlightThread, trips: [Trip], plans: [FlightPlan], flights: [Flight],
+                     currentFlight: Flight?, registry: BriefingRegistry?, now: Date = Date()) -> Summary {
+        let plan = thread.flightPlanId.flatMap { id in plans.first { $0.id == id } }
+        let departure = thread.scheduledDeparture ?? (plan?.departureIsEstimate == true ? plan?.plannedDepartureTime : nil)
+        let page = FlightPage.make(thread: thread, shared: Trip.sharedTasks(for: thread, in: trips), departure: departure,
+                                   now: now)
+        let countries = thread.countries ?? []
+        let departureCountry = FlightThreadManager.departureCountry(of: plan) ?? countries.first
+        let lead = FlightBlockDeadline.leadMinutes(registry?.country(departureCountry), countries: countries,
+                                                   departureCountry: departureCountry)
+        var context = FlightPageWords.Context()
+        context.now = now
+        context.fileBy = FlightBlockDeadline.fileBy(departure: departure, leadMinutes: lead)
+
+        let landed = thread.landedElsewhere?.landedIdent ?? thread.arrivalIdent
+        var flown = FlightPage.Flown(landedIdent: landed)
+        if thread.state == .flying {
+            flown.takeoff = currentFlight?.lineUpTime
+        } else if let id = thread.flightId, let flight = flights.first(where: { $0.id == id }) {
+            flown.takeoff = flight.lineUpTime ?? flight.startTime
+            flown.landing = flight.landingTime ?? flight.stopTime
+        }
+        let status = page.status(flown: flown, departure: departure)
+        let words = FlightPageWords.status(status, context)
+        let kinds: [FlightBlockKind] = {
+            switch status {
+            case let .before(_, now, day): return now + day
+            case let .landed(_, _, left): return left
+            default: return []
+            }
+        }()
+        let borders = kinds.filter { if case .border = $0 { return true } else { return false } }.count
+        return Summary(page: page, status: status, title: words.title, detail: words.detail,
+                       items: kinds.map { ($0, FlightPageWords.item($0, borders: borders, context)) },
+                       context: context, departure: departure)
+    }
+}

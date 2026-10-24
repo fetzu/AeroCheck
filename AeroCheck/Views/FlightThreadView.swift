@@ -984,22 +984,17 @@ struct FlightThreadView: View {
                      landedIdent: landed)
     }
 
+    /// The flight's status in one place, as Today and Plan › Flights read it (f9 A).
+    private func summary(_ thread: FlightThread) -> FlightPageSummary.Summary {
+        FlightPageSummary.make(thread, trips: threadManager.trips, plans: flightPlanManager.flightPlans,
+                               flights: appState.flights, currentFlight: appState.currentFlight,
+                               registry: briefingRegistry.registry)
+    }
+
     private func statusLine(_ thread: FlightThread) -> some View {
-        let page = page(for: thread)
-        let context = wordsContext(for: thread)
-        let status = page.status(flown: flown(thread), departure: departure(of: thread))
-        let words = FlightPageWords.status(status, context)
-        let kinds: [FlightBlockKind] = {
-            switch status {
-            case let .before(_, now, day): return now + day
-            case let .landed(_, _, left): return left
-            default: return []
-            }
-        }()
-        let borders = kinds.filter { if case .border = $0 { return true } else { return false } }.count
-        return FlightStatusLine(title: words.title, detail: words.detail,
-                                items: kinds.map { ($0, FlightPageWords.item($0, borders: borders, context)) },
-                                isReady: status.isReady) { scrollToBlock = $0 }
+        let summary = summary(thread)
+        return FlightStatusLine(title: summary.title, detail: summary.detail, items: summary.items,
+                                isReady: summary.status.isReady) { scrollToBlock = $0 }
             .padding(.leading, usesCompactHeader ? 16 : 72)
             .padding(.trailing, 16)
             .padding(.bottom, 10)

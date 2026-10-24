@@ -287,6 +287,19 @@ struct ContentView: View {
                 return
             }
             guard let key = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() else { return }
+            // The device checks' routes and flights, dated from today (`DevCheckScene`): not a marketing scene, so
+            // no marketing mode, and only the scene's own items are replaced. (6.6.0)
+            if key == "devcheck" {
+                if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
+                if !appState.hasSeenOnboarding { appState.completeOnboarding() }
+                for _ in 0..<40 where !(threadManager.hasLoadedThreads && threadManager.hasLoadedTrips
+                                        && flightPlanManager.hasLoadedPlans) {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+                await DevCheckScene.inject(appState: appState, plans: flightPlanManager, threads: threadManager,
+                                           airports: airportDataService)
+                return
+            }
             let scene: MarketingScene?
             switch key {
             case "home", "home2aircraft":       scene = .home2Aircraft

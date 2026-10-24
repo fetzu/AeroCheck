@@ -877,6 +877,8 @@ class FlightThreadManager: ObservableObject {
         // with home hard-coded to CH that put Switzerland on every route in the world, which is
         // exactly how a Slovakia → Germany flight grew a DABS task and a "Swiss side" link.
         result.countries = thread.countries ?? []
+        // The border block is the arrival's country: without it, ticking "flight plan filed" dropped the block. (6.6.0)
+        result.arrivalCountry = thread.arrivalCountry
         // Keep the computed auto-task details rather than recomputing them from a context that no
         // longer has the plan.
         if let fuel = tasks.first(where: { $0.key == .fuelPlanned }), fuel.state == .done {

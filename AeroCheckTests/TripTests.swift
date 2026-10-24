@@ -188,6 +188,28 @@ final class TripTests: XCTestCase {
         }
     }
 
+    /// Each leg has the border block of where it lands (6.6.0): France out, Switzerland back, never Germany, 10 NM off
+    /// both.
+    @MainActor
+    func testEachLegHasTheBorderBlockOfWhereItLands() {
+        let bressaucourt = FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.392408, longitude: 7.028956))
+        let colmar = FlightPlanWaypoint(name: "LFGA", coordinate: .init(latitude: 48.109901, longitude: 7.35901))
+        var out = FlightPlan(name: "LSZQ → LFGA")
+        out.waypoints = [bressaucourt, colmar]
+        var back = FlightPlan(name: "LFGA → LSZQ")
+        back.waypoints = [colmar, bressaucourt]
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: out)
+        let b = m.createThread(from: back)
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        XCTAssertNotNil(m.formTrip(from: [a.id, b.id]))
+
+        XCTAssertEqual(m.thread(withId: a.id)?.borderCountries, ["FR"])
+        XCTAssertEqual(m.thread(withId: b.id)?.borderCountries, ["CH"])
+        XCTAssertNil(m.trip(forThreadId: a.id)?.sharedTasks.first { $0.key == .customsNotified }, "a border is a leg's")
+    }
+
     @MainActor
     func testATripNeedsTwoLegs() {
         let m = makeTestThreadManager()

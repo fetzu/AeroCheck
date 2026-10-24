@@ -228,7 +228,7 @@ struct UpcomingFlightsList: View {
                                 .scaledFont(size: 13, relativeTo: .caption)
                                 .foregroundColor(.dimText)
                         }
-                        let borders = foreignCountries(thread)
+                        let borders = borderCountries(thread)
                         if !borders.isEmpty {
                             FlowLayout(spacing: 8) {
                                 ForEach(borders, id: \.self) { name in
@@ -672,12 +672,12 @@ struct UpcomingFlightsList: View {
         return points
     }
 
-    /// The countries the trip crosses other than the one it leaves from. Measured against the first
-    /// leg's country, so the way home isn't a border into the pilot's own country.
+    /// The countries the trip's legs land in abroad (their border blocks'). Measured against the first leg's country,
+    /// so the way home isn't a border into the pilot's own country.
     private func tripForeignCountries(_ legs: [FlightThread]) -> [String] {
         let home = legs.first?.homeCountry
         var seen: [String] = []
-        for code in legs.flatMap({ $0.countries ?? [] }) where code != home && !seen.contains(code) {
+        for code in legs.flatMap(\.borderCountries) where code != home && !seen.contains(code) {
             seen.append(code)
         }
         return seen.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
@@ -993,11 +993,9 @@ struct UpcomingFlightsList: View {
         return day
     }
 
-    /// The countries the route crosses other than the one it leaves from, by name.
-    private func foreignCountries(_ thread: FlightThread) -> [String] {
-        let home = thread.homeCountry
-        return (thread.countries ?? []).filter { $0 != home }
-            .map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
+    /// The countries the flight lands in abroad, by name: its border blocks'. (6.6.0)
+    private func borderCountries(_ thread: FlightThread) -> [String] {
+        thread.borderCountries.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
     }
 
     /// Built from the legs rather than stored, so it stays right when one is added or removed.

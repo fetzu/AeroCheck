@@ -370,4 +370,11 @@ final class FlightPageWordsTests: XCTestCase {
                        "the border (France), the border (Germany)")
         XCTAssertEqual(FlightPageWords.list([.border("DE")], among: [.border("DE")], c), "the border")
     }
+
+    /// The screenshot tour opens a block by its identifier: one per kind, a country's in it.
+    func testABlocksIdentifierNamesItsKind() {
+        XCTAssertEqual(FlightThreadView.blockIdentifier(.notamsAndAirspace), "flightPage.block.notamsAndAirspace")
+        XCTAssertEqual(FlightThreadView.blockIdentifier(.border("FR")), "flightPage.block.border.FR")
+        XCTAssertEqual(FlightThreadView.blockIdentifier(.weather), "flightPage.block.weather")
+    }
 }

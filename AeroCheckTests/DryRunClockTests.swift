@@ -26,6 +26,14 @@ final class DryRunClockTests: XCTestCase {
         XCTAssertEqual(FlightClock.now.timeIntervalSinceNow, 0, accuracy: 0.5)
     }
 
+    /// The times shown of the world outside the flight (the weather's) stay on the wall clock while a dry run runs its
+    /// own: without the capture clock in the environment, `displayNow` is the wall's.
+    func testTheWeathersClockIsTheWallsEvenInADryRun() {
+        XCTAssertEqual(FlightClock.displayNow.timeIntervalSinceNow, 0, accuracy: 0.5)
+        FlightClock.runVirtual(from: start, rate: 4)
+        XCTAssertEqual(FlightClock.displayNow.timeIntervalSinceNow, 0, accuracy: 0.5)
+    }
+
     /// 4×, paused, then 10×: the time goes on from where it was at each change, and stands still paused.
     func testARateChangeGoesOnFromWhereTheClockIsWithoutAJump() {
         let wall = Date()

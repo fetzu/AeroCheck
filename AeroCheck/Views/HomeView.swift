@@ -1161,6 +1161,7 @@ struct HomeView: View {
         .accessibilityLabel(
             [L10n.Home.flightPlan, badge, title, detail.first].compactMap { $0 }.joined(separator: ", ")
         )
+        .accessibilityIdentifier("today.route")
     }
 
     /// Overload keeping the single-detail call sites unchanged.

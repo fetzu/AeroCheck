@@ -975,7 +975,8 @@ enum MarketingSceneInjector {
         guard let thread = threadManager.thread(withId: threadId) else { return }
         for task in thread.tasks where task.kind != .auto && !open.contains(task.key)
             && (includingClose || task.chapter != .close) {
-            threadManager.setTaskState(.done, taskId: task.id, threadId: threadId, now: FlightClock.now)
+            threadManager.setTaskState(.done, taskId: task.id, threadId: threadId,
+                                       now: FlightClock.captureStart ?? FlightClock.now)
         }
     }
 
@@ -1372,3 +1373,17 @@ struct MarketingControlsView: View {
         .environmentObject(FlightPlanManager())
         .environmentObject(AirportDataService())
 }
+
+#if DEBUG
+/// DEV-ONLY: "the scene is up", for the screenshot tour (a UI test outside this repository that drives the app by
+/// its bundle id): a Darwin notification, posted once a launch scene is injected (`ContentView`) or the dry run's
+/// autopilot holds where it was asked to stop (`DryRunAutopilot`). The tour waits for it instead of a fixed time.
+enum CaptureSignal {
+    static let sceneReady = "com.fetzu.aerocheck.debug.sceneReady"
+
+    static func post() {
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(sceneReady as CFString), nil, nil, true)
+    }
+}
+#endif

@@ -469,6 +469,7 @@ struct ChecklistView: View {
                                     isCompact: isCompact
                                 )
                                 .padding(.vertical, 4)
+                                .accessibilityIdentifier("checklist.currentItem")
                             } else if let onToggleItem, isCompleted || isDeferred, !item.isHeader {
                                 // The Cockpit: a checked row reopens that item alone; an open one
                                 // (reopened, or deferred) is checked. Nothing else moves.

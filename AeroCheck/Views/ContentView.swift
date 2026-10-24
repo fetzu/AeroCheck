@@ -298,6 +298,7 @@ struct ContentView: View {
                 }
                 await DevCheckScene.inject(appState: appState, plans: flightPlanManager, threads: threadManager,
                                            airports: airportDataService)
+                CaptureSignal.post()
                 return
             }
             let scene: MarketingScene?
@@ -459,6 +460,8 @@ struct ContentView: View {
                                                  "aircraft": .aircraft, "settings": .settings]
                 if let tab = tabs[name] { appState.groundTab = tab }
             }
+            // The scene is up, with its extras: the screenshot tour takes it from here.
+            CaptureSignal.post()
         }
         #endif
         .onShake {

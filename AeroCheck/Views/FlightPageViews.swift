@@ -262,6 +262,8 @@ struct FlightBlockRow: View {
     let onTick: (() -> Void)?
     let onOpen: () -> Void
     var tickTarget: DryRunCoachStep.Target?
+    /// The open part's accessibility identifier: the block's (`FlightThreadView.blockIdentifier`).
+    var openIdentifier = ""
 
     var body: some View {
         HStack(spacing: 8) {
@@ -305,6 +307,7 @@ struct FlightBlockRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(openIdentifier)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 2)

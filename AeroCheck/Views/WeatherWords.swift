@@ -52,7 +52,7 @@ enum WeatherWords {
     /// The forecast's periods that matter for a flight leaving at `departure` (nil: now): every one still running at
     /// `now` and starting before `departure` plus four hours, a line each: "Until 18 UTC: wind 240° 10 kt · 10 km or
     /// more", "14–18 UTC, at times: 4000 m · rain showers · broken at 2500 ft".
-    static func taf(_ d: DecodedTaf, now: Date = Date(), departure: Date? = nil) -> [String] {
+    static func taf(_ d: DecodedTaf, now: Date = FlightClock.displayNow, departure: Date? = nil) -> [String] {
         let horizon = (departure ?? now).addingTimeInterval(4 * 3600)
         return d.periods.filter { $0.to > now && $0.from < horizon }.compactMap { period in
             let words = conditions(period.conditions)
@@ -108,7 +108,7 @@ enum WeatherWords {
 
     /// The rest of it: "surface to FL040 · moving ENE 40 kt, no change · 14–18 UTC · Brest FIR". The levels as the text
     /// writes them when the proxy is sure of them, else AWC's feet.
-    static func sigmetDetail(_ s: AviationWeatherService.Sigmet, now: Date = Date()) -> String {
+    static func sigmetDetail(_ s: AviationWeatherService.Sigmet, now: Date = FlightClock.displayNow) -> String {
         var parts: [String] = []
         if let levels = s.levels.flatMap(sigmetLevels) ?? sigmetFeet(s) { parts.append(levels) }
         let motion = [s.movement.flatMap(sigmetMovement), s.change.flatMap(sigmetChange)].compactMap { $0 }

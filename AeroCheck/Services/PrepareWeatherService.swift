@@ -170,7 +170,7 @@ final class PrepareWeatherService: ObservableObject {
     /// be fetched", with the next load turned away because the first was still loading (the author's device check,
     /// 23 Oct 2026).
     func load(threadId: UUID, fields: [PrepareWeather.Field], route: [CLLocationCoordinate2D], force: Bool = false,
-              now: Date = Date()) async {
+              now: Date = FlightClock.displayNow) async {
         guard !fields.isEmpty else { states[threadId] = nil; return }
         if !force, keys[threadId] == fields, case .loaded(let weather)? = states[threadId],
            now.timeIntervalSince(weather.fetchedAt) < Self.maxAge { return }
@@ -186,7 +186,7 @@ final class PrepareWeatherService: ObservableObject {
         guard generations[threadId] == generation else { return }
         if outcome.anything || outcome.sigmets != nil {
             states[threadId] = .loaded(PrepareWeather.assemble(fields: fields, fetched: outcome.fetched,
-                                                               sigmets: outcome.sigmets, at: Date()))
+                                                               sigmets: outcome.sigmets, at: FlightClock.displayNow))
             refreshFailed.remove(threadId)
         } else if let shown {
             states[threadId] = .loaded(shown)

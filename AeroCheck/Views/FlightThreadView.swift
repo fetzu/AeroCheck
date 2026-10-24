@@ -1188,9 +1188,11 @@ struct FlightThreadView: View {
         Group {
             if block.state == .pending && block.waitsForDay && !open {
                 FlightFoldedLine(look: .waiting, title: title, detail: waitingLine(block, thread), action: unfold)
+                    .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else if block.state != .pending && !open {
                 FlightFoldedLine(look: block.state == .done ? .done : .notApplicable, title: title,
                                  detail: FlightPageWords.doneWords(block, wordsContext(for: thread)), action: unfold)
+                    .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else {
                 blockCard(block, thread, foldable: true)
             }
@@ -1246,7 +1248,8 @@ struct FlightThreadView: View {
                        meta: rowMeta(block, thread),
                        onTick: block.isAuto ? nil : { tick(block, thread) },
                        onOpen: { openRow(block, thread) },
-                       tickTarget: Self.tickTarget(block.kind))
+                       tickTarget: Self.tickTarget(block.kind),
+                       openIdentifier: Self.blockIdentifier(block.kind))
             .id(AnyHashable(block.kind))
             // The reports load from the weather's row, the sheet's being closed: its verdict needs them.
             .task(id: block.kind == .weather ? weatherFields(thread).map(\.ident).joined(separator: " ") : "") {
@@ -1317,6 +1320,14 @@ struct FlightThreadView: View {
         } else {
             action()
         }
+    }
+
+    /// A block's accessibility identifier, where a tap opens it (its folded line, the iPhone's row): "flightPage.block.
+    /// notamsAndAirspace", "flightPage.block.border.FR". The screenshot tour opens blocks by it.
+    static func blockIdentifier(_ kind: FlightBlockKind) -> String {
+        let name = String(describing: kind)
+            .replacingOccurrences(of: "(\"", with: ".").replacingOccurrences(of: "\")", with: "")
+        return "flightPage.block." + name
     }
 
     /// Where a dry run's coach rings a block, or its tick. (6.4.0, the rows' then)

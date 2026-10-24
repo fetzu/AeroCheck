@@ -116,6 +116,7 @@ struct GroundTabBar: View {
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityValue(tab == .today && badge > 0 ? "\(badge)" : "")
+        .accessibilityIdentifier("tab.\(tab)")
     }
 }
 

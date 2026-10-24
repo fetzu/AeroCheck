@@ -32,7 +32,12 @@ struct FlightPlanMapBuilderView: View {
 
     let planId: UUID
 
-    @State private var selectedLayer: WaypointPickerMapLayer = .icao
+    /// The device's one chart, as Plan › Map, the Cockpit and the dry run have it: until 6.5.0 the builder kept its
+    /// own, the ICAO chart at every opening (the author's device check, 23 Oct 2026).
+    private var selectedLayer: Binding<WaypointPickerMapLayer> {
+        Binding(get: { WaypointPickerMapLayer(appState.navigationMapState.selectedLayer) },
+                set: { appState.selectMapLayer($0.mapLayerType) })
+    }
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Swiss Jura default
         span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
@@ -106,18 +111,7 @@ struct FlightPlanMapBuilderView: View {
     /// highlighted in all three where it stands. (planning proposal D3)
     @State private var selectedLeg: Int?
     @State private var profileCollapsed = false
-    @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
     @State private var showDeactivateConfirm = false   // v4.4.0 — arm/disarm from the builder
-    @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
-    /// Which of the per-country layers is being fetched, so the banner can count instead of spin.
-    @State private var prefetchStep = 0
-    @State private var prefetchTotal = 0
-    @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?   // v4.4.0 — what the offer costs
-    @State private var tripSizeEstimateKey = ""      // the missing-set the estimate above belongs to
-    @State private var isPrefetchingTrip = false
-    /// Cached route→countries (the expensive resample+bbox scan) — recomputed only on route change, not
-    /// every render. The cheap coverage diff stays in `tripNeededCountries`. (review #12)
-    @State private var routeCountriesCache: [String] = []
 
     /// Live plan from the manager (single source of truth).
     private var plan: FlightPlan? {
@@ -125,162 +119,6 @@ struct FlightPlanMapBuilderView: View {
     }
 
     private var waypoints: [FlightPlanWaypoint] { plan?.waypoints ?? [] }
-
-    // MARK: - Trip-aware prefetch (v4.1.0)
-
-    /// Per-country OpenAIP layers the route crosses but that aren't fully downloaded. Computed from the
-    /// services directly (the builder reaches the singletons + the injected airspace service), avoiding
-    /// the fragile env-injection of DataStatusManager through this full-screen cover.
-    /// Recompute the cached route→countries set (the expensive part). Call on appear + route change.
-    private func updateRouteCountriesCache() {
-        routeCountriesCache = waypoints.count >= 2
-            ? RouteDataCalculator.countries(crossing: waypoints.map { $0.coordinate })
-            : []
-    }
-
-    /// The per-country layers of the trip top-up: the same providers, in the same order, as
-    /// `DataStatusManager` checks (airspace, navaids, obstacles, reporting points, VFR procedures),
-    /// built on the services because the manager isn't injected into this cover. The OpenAIP airport
-    /// layer stays out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0, was four hard-coded layers)
-    private var tripProviders: [DataSetProvider] {
-        DataStatusManager.tripProviders(airspace: openAIPDataService, navaids: .shared, obstacles: .shared,
-                                        reportingPoints: .shared, vfrProcedures: .shared)
-    }
-
-    /// Missing countries PER LAYER, which is how coverage actually works: a device can hold Swiss
-    /// airspace and no Swiss obstacles. Quoting a size for data already on disk would overstate the
-    /// download, so the estimate needs the split even though the banner shows the union. A country a
-    /// layer's source doesn't publish (open flightmaps outside its 22 countries) is no gap. (review #7)
-    private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
-        guard waypoints.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
-        return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)
-    }
-
-    private var tripNeededCountries: [String] {
-        Set(tripMissingByLayer.values.flatMap { $0 }).sorted()
-    }
-
-    /// Download the per-country layers for the route's missing countries (merged with what's cached).
-    ///
-    /// If coverage is still incomplete afterwards the banner says the download failed rather than
-    /// resetting to the same "Download data" offer — pressing a button, watching a spinner for ten
-    /// seconds and getting the identical banner back tells a pilot nothing about whether they have the
-    /// data. (device-test feedback, v4.4.0)
-    private func prefetchTripData() async {
-        let needed = tripNeededCountries
-        guard !needed.isEmpty else { return }
-        isPrefetchingTrip = true
-        tripPrefetchFailed = false
-
-        // Counted rather than spun. Each per-country layer is a separate download that can take tens
-        // of seconds on a clubhouse hotspot — an indeterminate spinner for all of them tells the pilot
-        // nothing about whether to keep waiting. (device pass) Each provider adds the countries to what
-        // its layer holds (the union, so nothing is pruned) and skips what is already on disk.
-        // OpenAIP's airports with them, for the frequencies' names: no gap of its own (`OpenAIPAirportProvider`). (6.4.2)
-        let providers = tripProviders + [OpenAIPAirportProvider(service: .shared)]
-        prefetchStep = 0
-        prefetchTotal = providers.count
-        for provider in providers {
-            await provider.prefetch(countries: needed)
-            prefetchStep += 1
-        }
-        isPrefetchingTrip = false
-        tripPrefetchFailed = !tripNeededCountries.isEmpty
-    }
-
-    /// `"France, Germany · ≈ 12 MB"`, dropping the size until the estimate lands (a few small
-    /// requests) so the banner never blocks on the network to say what it already knows.
-    private func tripDetailLine(_ needed: [String]) -> String {
-        let names = needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")
-        guard let size = tripSizeEstimate.flatMap(TripDataSizeEstimator.displayString) else { return names }
-        return "\(names) · \(size)"
-    }
-
-    /// Fetch the size estimate for whatever is currently missing. Keyed on the missing set so a route
-    /// edit that doesn't change coverage doesn't re-query, and so a stale figure never survives a
-    /// change that would invalidate it.
-    private func refreshTripSizeEstimate() async {
-        let missing = tripMissingByLayer
-        let key = missing.keys.sorted { $0.rawValue < $1.rawValue }
-            .map { "\($0.rawValue):\((missing[$0] ?? []).sorted().joined(separator: ","))" }
-            .joined(separator: "|")
-        guard key != tripSizeEstimateKey else { return }
-        tripSizeEstimateKey = key
-        tripSizeEstimate = nil
-        guard !missing.isEmpty else { return }
-        let estimate = await TripDataSizeEstimator.estimate(countriesByLayer: missing)
-        // A later edit may have moved on while this was in flight; only publish if still current.
-        guard key == tripSizeEstimateKey else { return }
-        tripSizeEstimate = estimate.isEmpty ? nil : estimate
-    }
-
-    /// Floating, dismissible banner offered when the route crosses areas without downloaded data.
-    @ViewBuilder
-    private var tripDataBanner: some View {
-        let needed = tripNeededCountries
-        if !tripBannerDismissed, !needed.isEmpty {
-            let tint: Color = tripPrefetchFailed ? .aviationAmber : .aviationGold
-            HStack(spacing: 10) {
-                Image(systemName: tripPrefetchFailed ? "exclamationmark.triangle" : "square.and.arrow.down")
-                    .font(.aero(size: 15, weight: .semibold))
-                    .foregroundColor(tint)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed : L10n.Nav.tripDataMissing)
-                        .font(.aero(size: 13, weight: .semibold))
-                        .foregroundColor(.primaryText)
-                    // Countries AND size. The offer used to name the countries and stop there, which
-                    // hid the fact that adding Germany means ~30 000 obstacle records while adding
-                    // Switzerland means a few hundred — the same sentence for a 200 KB download and a
-                    // 12 MB one, quite possibly on a clubhouse hotspot. (v4.4.0)
-                    Text(tripPrefetchFailed
-                         ? L10n.Nav.tripDataFailedDetail
-                         : tripDetailLine(needed))
-                        .font(.aero(size: 11))
-                        .foregroundColor(.secondaryText)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 8)
-                if isPrefetchingTrip {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small)
-                        Text(L10n.Nav.tripDataProgress(prefetchStep, prefetchTotal))
-                            .font(.aero(size: 11, design: .monospaced))
-                            .foregroundColor(.secondaryText)
-                    }
-                } else {
-                    Button(tripPrefetchFailed ? L10n.Button.retry : L10n.Settings.downloadData) {
-                        Task { await prefetchTripData() }
-                    }
-                    .font(.aero(size: 13, weight: .semibold))
-                    .foregroundColor(tint)
-                    Button {
-                        tripBannerDismissed = true
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.aero(size: 11, weight: .semibold))
-                            .foregroundColor(.secondaryText)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(L10n.Button.close)
-                }
-            }
-            .padding(.leading, 14)
-            .padding(.trailing, 4)
-            .padding(.vertical, 4)
-            // Near-opaque, as the From/To bar was: it sits over the chart now, and glass over a busy
-            // ICAO chart left it unreadable. (planning proposal D)
-            .background(Color.panelBackground.opacity(0.95), in: RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(tint.opacity(0.35), lineWidth: 1)
-            )
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
 
     var body: some View {
         NavigationStack {
@@ -337,7 +175,6 @@ struct FlightPlanMapBuilderView: View {
                 .ignoresSafeArea(.keyboard)
             }
             .background(Color.cockpitBackground)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty) // (UX-18)
             .navigationBarTitleDisplayMode(.inline)
             // Direction B: the bar stays, but the dead "Flight plan" title is replaced by the live
             // route summary, so the right column drops its summary row and starts at the toggle. (#4)
@@ -442,8 +279,6 @@ struct FlightPlanMapBuilderView: View {
                 scheduleNavaidUpdate()
             }
             initialFitIfNeeded()
-            updateRouteCountriesCache()
-            Task { await refreshTripSizeEstimate() }
             scheduleAirspaceUpdate()
             scheduleTerrainUpdate()
             scheduleWindsAloftUpdate()
@@ -457,8 +292,6 @@ struct FlightPlanMapBuilderView: View {
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
         .onChange(of: routeGeometryKey) { _, _ in
             selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); scheduleWindsAloftUpdate()
-            updateRouteCountriesCache()
-            Task { await refreshTripSizeEstimate() }
         }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
         // isDataAvailable is metadata-restored at launch (already true before first appear), so the
@@ -482,7 +315,7 @@ struct FlightPlanMapBuilderView: View {
     private var mapArea: some View {
         RouteBuilderMapView(
             waypoints: waypoints,
-            mapLayer: selectedLayer,
+            mapLayer: .shown(for: appState.navigationMapState.selectedLayer, over: region),
             airports: visibleAirports,
             navaids: visibleNavaids,
             reportingPoints: visibleReportingPoints,
@@ -509,7 +342,7 @@ struct FlightPlanMapBuilderView: View {
         .ignoresSafeArea(edges: .bottom)
         // From and To sit above the map now, not over it (planning proposal D1); what they find
         // drops over the map's top, under them, as does the missing-data banner (it covered them).
-        .overlay(alignment: .top) { tripDataBanner }
+        .overlay(alignment: .top) { TripDataBanner(route: waypoints.map(\.coordinate)) }
         .overlay(alignment: .top) {
             if viaFocused, !viaResultsQuery.isEmpty,
                viaResultsQuery == viaText.trimmingCharacters(in: .whitespaces) {
@@ -858,7 +691,7 @@ struct FlightPlanMapBuilderView: View {
     /// the ICAO chart's aeroplane read as a flight button (the author's device check mp-1, 6.4.2).
     private var mapTypeButton: some View {
         Menu {
-            Picker("Map layer", selection: $selectedLayer) {
+            Picker("Map layer", selection: selectedLayer) {
                 ForEach(WaypointPickerMapLayer.allCases) { layer in
                     Label(layer.title, systemImage: layer.icon).tag(layer)
                 }
@@ -3491,4 +3324,200 @@ private struct RouteProfileView: View {
         if lo <= total * 0.02, hi >= total * 0.98 { return nil }
         return (lo, hi)
     }
+}
+
+// MARK: - Trip-aware prefetch (v4.1.0)
+
+/// The route's countries without their per-country data, with its size and a download, over the route builder's map
+/// and since 6.5.0 over Plan › Map's: Palo Alto drew no runway and no circuit there, and nothing said the data was
+/// missing (the author's v65-14, 23 Oct 2026). Computed from the services directly (the singletons and the injected
+/// airspace service), avoiding the fragile env-injection of DataStatusManager through the builder's full-screen cover.
+struct TripDataBanner: View {
+    let route: [CLLocationCoordinate2D]
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var dismissed = false
+    @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
+    /// Which of the per-country layers is being fetched, so the banner can count instead of spin.
+    @State private var prefetchStep = 0
+    @State private var prefetchTotal = 0
+    @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?   // v4.4.0 — what the offer costs
+    @State private var tripSizeEstimateKey = ""      // the missing-set the estimate above belongs to
+    @State private var isPrefetchingTrip = false
+    /// Cached route→countries (the expensive resample+bbox scan) — recomputed only on route change, not
+    /// every render. The cheap coverage diff stays in `tripNeededCountries`. (review #12)
+    @State private var routeCountriesCache: [String] = []
+
+    /// The route, to the metre: its countries are worked out again when it changes.
+    private var routeKey: String {
+        route.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: ";")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Always there, so the route's countries are worked out while the banner itself is empty.
+            Color.clear.frame(height: 0)
+                .task(id: routeKey) {
+                    updateRouteCountriesCache()
+                    await refreshTripSizeEstimate()
+                }
+            banner
+        }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty) // (UX-18)
+    }
+
+    /// Recompute the cached route→countries set (the expensive part), on appear and when the route changes.
+    private func updateRouteCountriesCache() {
+        routeCountriesCache = route.count >= 2 ? RouteDataCalculator.countries(crossing: route) : []
+    }
+
+    /// The per-country layers of the trip top-up: the same providers, in the same order, as
+    /// `DataStatusManager` checks (airspace, navaids, obstacles, reporting points, VFR procedures),
+    /// built on the services because the manager isn't injected into this cover. The OpenAIP airport
+    /// layer stays out (`OpenAIPAirportProvider.perCountryCoverage`). (6.2.0, was four hard-coded layers)
+    private var tripProviders: [DataSetProvider] {
+        DataStatusManager.tripProviders(airspace: openAIPDataService, navaids: .shared, obstacles: .shared,
+                                        reportingPoints: .shared, vfrProcedures: .shared)
+    }
+
+    /// Missing countries PER LAYER, which is how coverage actually works: a device can hold Swiss
+    /// airspace and no Swiss obstacles. Quoting a size for data already on disk would overstate the
+    /// download, so the estimate needs the split even though the banner shows the union. A country a
+    /// layer's source doesn't publish (open flightmaps outside its 22 countries) is no gap. (review #7)
+    private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
+        guard route.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
+        return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)
+    }
+
+    private var tripNeededCountries: [String] {
+        Set(tripMissingByLayer.values.flatMap { $0 }).sorted()
+    }
+
+    /// Download the per-country layers for the route's missing countries (merged with what's cached).
+    ///
+    /// If coverage is still incomplete afterwards the banner says the download failed rather than
+    /// resetting to the same "Download data" offer — pressing a button, watching a spinner for ten
+    /// seconds and getting the identical banner back tells a pilot nothing about whether they have the
+    /// data. (device-test feedback, v4.4.0)
+    private func prefetchTripData() async {
+        let needed = tripNeededCountries
+        guard !needed.isEmpty else { return }
+        isPrefetchingTrip = true
+        tripPrefetchFailed = false
+
+        // Counted rather than spun. Each per-country layer is a separate download that can take tens
+        // of seconds on a clubhouse hotspot — an indeterminate spinner for all of them tells the pilot
+        // nothing about whether to keep waiting. (device pass) Each provider adds the countries to what
+        // its layer holds (the union, so nothing is pruned) and skips what is already on disk.
+        // OpenAIP's airports with them, for the frequencies' names: no gap of its own (`OpenAIPAirportProvider`). (6.4.2)
+        // Side by side, each its own service: one after the other, the US's airspace held "0/6" for over a minute
+        // before the rest came in seconds (the author's v65-36, 23 Oct 2026). The count moves as each lands. (6.5.0)
+        let providers = tripProviders + [OpenAIPAirportProvider(service: .shared)]
+        prefetchStep = 0
+        prefetchTotal = providers.count
+        await withTaskGroup(of: Void.self) { group in
+            for provider in providers {
+                group.addTask { @MainActor in await provider.prefetch(countries: needed) }
+            }
+            for await _ in group { prefetchStep += 1 }
+        }
+        isPrefetchingTrip = false
+        tripPrefetchFailed = !tripNeededCountries.isEmpty
+    }
+
+    /// `"France, Germany · ≈ 12 MB"`, dropping the size until the estimate lands (a few small
+    /// requests) so the banner never blocks on the network to say what it already knows.
+    private func tripDetailLine(_ needed: [String]) -> String {
+        let names = needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")
+        guard let size = tripSizeEstimate.flatMap(TripDataSizeEstimator.displayString) else { return names }
+        return "\(names) · \(size)"
+    }
+
+    /// Fetch the size estimate for whatever is currently missing. Keyed on the missing set so a route
+    /// edit that doesn't change coverage doesn't re-query, and so a stale figure never survives a
+    /// change that would invalidate it.
+    private func refreshTripSizeEstimate() async {
+        let missing = tripMissingByLayer
+        let key = missing.keys.sorted { $0.rawValue < $1.rawValue }
+            .map { "\($0.rawValue):\((missing[$0] ?? []).sorted().joined(separator: ","))" }
+            .joined(separator: "|")
+        guard key != tripSizeEstimateKey else { return }
+        tripSizeEstimateKey = key
+        tripSizeEstimate = nil
+        guard !missing.isEmpty else { return }
+        let estimate = await TripDataSizeEstimator.estimate(countriesByLayer: missing)
+        // A later edit may have moved on while this was in flight; only publish if still current.
+        guard key == tripSizeEstimateKey else { return }
+        tripSizeEstimate = estimate.isEmpty ? nil : estimate
+    }
+
+    /// Floating, dismissible banner offered when the route crosses areas without downloaded data.
+    @ViewBuilder
+    private var banner: some View {
+        let needed = tripNeededCountries
+        if !dismissed, !needed.isEmpty {
+            let tint: Color = tripPrefetchFailed ? .aviationAmber : .aviationGold
+            HStack(spacing: 10) {
+                Image(systemName: tripPrefetchFailed ? "exclamationmark.triangle" : "square.and.arrow.down")
+                    .font(.aero(size: 15, weight: .semibold))
+                    .foregroundColor(tint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed : L10n.Nav.tripDataMissing)
+                        .font(.aero(size: 13, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                    // Countries AND size. The offer used to name the countries and stop there, which
+                    // hid the fact that adding Germany means ~30 000 obstacle records while adding
+                    // Switzerland means a few hundred — the same sentence for a 200 KB download and a
+                    // 12 MB one, quite possibly on a clubhouse hotspot. (v4.4.0)
+                    Text(tripPrefetchFailed
+                         ? L10n.Nav.tripDataFailedDetail
+                         : tripDetailLine(needed))
+                        .font(.aero(size: 11))
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if isPrefetchingTrip {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.Nav.tripDataProgress(prefetchStep, prefetchTotal))
+                            .font(.aero(size: 11, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                    }
+                } else {
+                    Button(tripPrefetchFailed ? L10n.Button.retry : L10n.Settings.downloadData) {
+                        Task { await prefetchTripData() }
+                    }
+                    .font(.aero(size: 13, weight: .semibold))
+                    .foregroundColor(tint)
+                    Button {
+                        dismissed = true
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.aero(size: 11, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(L10n.Button.close)
+                }
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 4)
+            .padding(.vertical, 4)
+            // Near-opaque, as the From/To bar was: it sits over the chart now, and glass over a busy
+            // ICAO chart left it unreadable. (planning proposal D)
+            .background(Color.panelBackground.opacity(0.95), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(tint.opacity(0.35), lineWidth: 1)
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
 }

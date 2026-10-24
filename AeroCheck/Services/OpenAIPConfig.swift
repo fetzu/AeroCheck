@@ -28,8 +28,11 @@ enum OpenAIPConfig {
     /// Core REST API base URL for structured data (airports, airspaces, navaids)
     static let coreAPIBaseURL = "https://api.core.openaip.net/api"
 
-    /// Subdomains for tile load balancing
-    static let tileSubdomains = ["a", "b", "c"]
+    /// OpenAIP's tile host. Its per-subdomain addresses (`a.`, `b.`, `c.api.tiles.openaip.net`, rotated for load
+    /// balancing until 6.5.0) were retired when the tiles moved to new infrastructure ("we are EOLing the XYZ tiles
+    /// subdomains schema", openaip.net/blog, Oct 2026): on 23 Oct `a.api.tiles.openaip.net` no longer answered, so the
+    /// OpenAIP layer drew nothing and its tiles didn't download, in every build. One host, as OpenAIP asks. (6.5.0)
+    static let tileHost = "api.tiles.openaip.net"
 
     /// HTTP header carrying the API key. The REST endpoints already authenticate this way; tiles
     /// now do too. (SA-11)
@@ -43,13 +46,13 @@ enum OpenAIPConfig {
     /// (`OpenAIPDataService`) already sent it as a header, so the query-string form was an
     /// internal inconsistency rather than a platform constraint. Build requests with
     /// `tileRequest(...)` so the header is never forgotten.
-    static func tileURL(subdomain: String, z: Int, x: Int, y: Int) -> URL? {
-        URL(string: "https://\(subdomain).api.tiles.openaip.net/api/data/openaip/\(z)/\(x)/\(y).png")
+    static func tileURL(z: Int, x: Int, y: Int) -> URL? {
+        URL(string: "https://\(tileHost)/api/data/openaip/\(z)/\(x)/\(y).png")
     }
 
     /// An authenticated tile request. The single place the tile key meets the network.
-    static func tileRequest(subdomain: String, z: Int, x: Int, y: Int) -> URLRequest? {
-        guard let url = tileURL(subdomain: subdomain, z: z, x: x, y: y) else { return nil }
+    static func tileRequest(z: Int, x: Int, y: Int) -> URLRequest? {
+        guard let url = tileURL(z: z, x: x, y: y) else { return nil }
         var request = URLRequest(url: url)
         request.setValue(apiKey, forHTTPHeaderField: apiKeyHeader)
         return request
@@ -274,6 +277,9 @@ enum OpenAIPConfig {
     /// limit and any future change of heart.
     static let geoJSONExportHost = "s3.openaip.net"
     static let geoJSONExportBaseURL = "https://\(geoJSONExportHost)/openaip-system-exports"
+
+    /// The airspace layer's suffix on the exports host (`ch_asp.geojson`), read before the core API since 6.5.0.
+    static let airspaceExportSuffix = "asp"
 
     /// The export URL of one layer for one country (lowercased ISO-2 code, as the host names them).
     static func geoJSONExportURL(country: String, layerSuffix: String) -> URL? {

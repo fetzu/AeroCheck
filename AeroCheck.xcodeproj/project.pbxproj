@@ -43,6 +43,9 @@
 		A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000029111111110000001 /* RouteDataCalculatorTests.swift */; };
 		A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */; };
 		A500002F111111110000002 /* FlightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002F111111110000001 /* FlightThreadTests.swift */; };
+		A50000F8111111110000002 /* BriefingRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000F8111111110000001 /* BriefingRegistryTests.swift */; };
+		A50000F9111111110000002 /* PrepareWeatherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000F9111111110000001 /* PrepareWeatherTests.swift */; };
+		A50000FA111111110000002 /* TrafficPatternTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000FA111111110000001 /* TrafficPatternTests.swift */; };
 		A5000030111111110000002 /* FlightNumbersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000030111111110000001 /* FlightNumbersTests.swift */; };
 		A5000032111111110000002 /* BorderCrossingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000032111111110000001 /* BorderCrossingTests.swift */; };
 		A5000033111111110000002 /* LogbookPDFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000033111111110000001 /* LogbookPDFTests.swift */; };
@@ -237,6 +240,10 @@
 		A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */; };
 		A1000001211111110000C62 /* OFMDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C62 /* OFMDataService.swift */; };
 		A1000001211111110000C80 /* OfficialChartService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C80 /* OfficialChartService.swift */; };
+		A1000001211111110000B01 /* BriefingRegistryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B01 /* BriefingRegistryService.swift */; };
+		A1000001211111110000B02 /* PrepareWeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B02 /* PrepareWeatherService.swift */; };
+		A1000001211111110000B04 /* NASRPatternService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B04 /* NASRPatternService.swift */; };
+		A1000001211111110000B03 /* PrepareWeatherCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B03 /* PrepareWeatherCard.swift */; };
 		A1000001211111110000E91 /* ReportingPointCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000E91 /* ReportingPointCatalog.swift */; };
 		A1000001211111110000074 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000074 /* NotificationService.swift */; };
 		A1000001211111110000076 /* AirfieldTariffService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000076 /* AirfieldTariffService.swift */; };
@@ -276,6 +283,7 @@
 		A4000001211111110000001 /* AeroCheckWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000001 /* AeroCheckWatchApp.swift */; };
 		A4000001211111110000002 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000002 /* WatchContentView.swift */; };
 		A4000001211111110000007 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000007 /* Localizable.xcstrings */; };
+		A2000001211111110000A40 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A2000001111111110000A40 /* Localizable.xcstrings */; };
 		A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000003 /* WatchConnectivityManager.swift */; };
 		A4000001211111110000004 /* WatchConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001111111110000002 /* WatchConnectivityData.swift */; };
 		A3000009211111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
@@ -305,6 +313,7 @@
 		C1000001211111110000A34 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000A34 /* InfoPlist.xcstrings */; };
 		D1000001211111110000001 /* BundledChecklistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000001 /* BundledChecklistService.swift */; };
 		D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000002 /* wt9-dynamic-bundled.json */; };
+		D1000001211111110000015 /* briefing-registry.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000015 /* briefing-registry.json */; };
 		D1000001211111110000014 /* OFL-B612.txt in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000014 /* OFL-B612.txt */; };
 		D1000001211111110000013 /* B612Mono-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000013 /* B612Mono-Bold.ttf */; };
 		D1000001211111110000012 /* B612Mono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000012 /* B612Mono-Regular.ttf */; };
@@ -329,6 +338,9 @@
 		E1000001211111110000030 /* NewFlightIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000030 /* NewFlightIntent.swift */; };
 		HB0A0001211111110000001 /* HomeAerodrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000001 /* HomeAerodrome.swift */; };
 		E1000001211111110000031 /* Trip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000031 /* Trip.swift */; };
+		E1000001211111110000042 /* BriefingRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000042 /* BriefingRegistry.swift */; };
+		E1000001211111110000043 /* CloseOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000043 /* CloseOut.swift */; };
+		E1000001211111110000041 /* ICAOCountry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000041 /* ICAOCountry.swift */; };
 		TC0A0001211111110000001 /* TripOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = TC0A0001111111110000001 /* TripOverview.swift */; };
 		E1000001211111110000027 /* FlightCost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000027 /* FlightCost.swift */; };
 		E1000001211111110000026 /* LogbookEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000026 /* LogbookEntry.swift */; };
@@ -466,6 +478,9 @@
 		A5000029111111110000001 /* RouteDataCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculatorTests.swift; sourceTree = "<group>"; };
 		A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportMergeTests.swift; sourceTree = "<group>"; };
 		A500002F111111110000001 /* FlightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadTests.swift; sourceTree = "<group>"; };
+		A50000F8111111110000001 /* BriefingRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistryTests.swift; sourceTree = "<group>"; };
+		A50000F9111111110000001 /* PrepareWeatherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrepareWeatherTests.swift; sourceTree = "<group>"; };
+		A50000FA111111110000001 /* TrafficPatternTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrafficPatternTests.swift; sourceTree = "<group>"; };
 		A5000030111111110000001 /* FlightNumbersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightNumbersTests.swift; sourceTree = "<group>"; };
 		A5000032111111110000001 /* BorderCrossingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderCrossingTests.swift; sourceTree = "<group>"; };
 		A5000033111111110000001 /* LogbookPDFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFTests.swift; sourceTree = "<group>"; };
@@ -664,6 +679,10 @@
 		A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunwayDesignatorOverrides.swift; sourceTree = "<group>"; };
 		A1000001111111110000C62 /* OFMDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OFMDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000C80 /* OfficialChartService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartService.swift; sourceTree = "<group>"; };
+		A1000001111111110000B01 /* BriefingRegistryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistryService.swift; sourceTree = "<group>"; };
+		A1000001111111110000B02 /* PrepareWeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrepareWeatherService.swift; sourceTree = "<group>"; };
+		A1000001111111110000B04 /* NASRPatternService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NASRPatternService.swift; sourceTree = "<group>"; };
+		A1000001111111110000B03 /* PrepareWeatherCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrepareWeatherCard.swift; sourceTree = "<group>"; };
 		A1000001111111110000E91 /* ReportingPointCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPointCatalog.swift; sourceTree = "<group>"; };
 		A1000001111111110000074 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		A1000001111111110000076 /* AirfieldTariffService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirfieldTariffService.swift; sourceTree = "<group>"; };
@@ -707,6 +726,7 @@
 		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
 		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A4000001111111110000007 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A2000001111111110000A40 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A4000001111111110000003 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		A4000001111111110000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A4000001111111110000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -723,6 +743,7 @@
 		C1000001111111110000A34 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		D1000001111111110000001 /* BundledChecklistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledChecklistService.swift; sourceTree = "<group>"; };
 		D1000001111111110000002 /* wt9-dynamic-bundled.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled.json"; sourceTree = "<group>"; };
+		D1000001111111110000015 /* briefing-registry.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "briefing-registry.json"; sourceTree = "<group>"; };
 		D1000001111111110000014 /* OFL-B612.txt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OFL-B612.txt"; sourceTree = "<group>"; };
 		D1000001111111110000013 /* B612Mono-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "B612Mono-Bold.ttf"; sourceTree = "<group>"; };
 		D1000001111111110000012 /* B612Mono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "B612Mono-Regular.ttf"; sourceTree = "<group>"; };
@@ -747,6 +768,9 @@
 		E1000001111111110000030 /* NewFlightIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntent.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000001 /* HomeAerodrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAerodrome.swift; sourceTree = "<group>"; };
 		E1000001111111110000031 /* Trip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trip.swift; sourceTree = "<group>"; };
+		E1000001111111110000042 /* BriefingRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistry.swift; sourceTree = "<group>"; };
+		E1000001111111110000043 /* CloseOut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseOut.swift; sourceTree = "<group>"; };
+		E1000001111111110000041 /* ICAOCountry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICAOCountry.swift; sourceTree = "<group>"; };
 		TC0A0001111111110000001 /* TripOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripOverview.swift; sourceTree = "<group>"; };
 		E1000001111111110000027 /* FlightCost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCost.swift; sourceTree = "<group>"; };
 		E1000001111111110000026 /* LogbookEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookEntry.swift; sourceTree = "<group>"; };
@@ -875,6 +899,9 @@
 				A5000029111111110000001 /* RouteDataCalculatorTests.swift */,
 				A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */,
 				A500002F111111110000001 /* FlightThreadTests.swift */,
+				A50000F8111111110000001 /* BriefingRegistryTests.swift */,
+				A50000F9111111110000001 /* PrepareWeatherTests.swift */,
+				A50000FA111111110000001 /* TrafficPatternTests.swift */,
 				A5000030111111110000001 /* FlightNumbersTests.swift */,
 				A5000032111111110000001 /* BorderCrossingTests.swift */,
 				A5000033111111110000001 /* LogbookPDFTests.swift */,
@@ -1020,6 +1047,7 @@
 			isa = PBXGroup;
 			children = (
 				D1000001111111110000002 /* wt9-dynamic-bundled.json */,
+				D1000001111111110000015 /* briefing-registry.json */,
 				D1000001111111110000014 /* OFL-B612.txt */,
 				D1000001111111110000013 /* B612Mono-Bold.ttf */,
 				D1000001111111110000012 /* B612Mono-Regular.ttf */,
@@ -1096,6 +1124,7 @@
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
 				F1000001111111110000003 /* FlightThreadView.swift */,
+				A1000001111111110000B03 /* PrepareWeatherCard.swift */,
 				A5000051111111110000001 /* FuelOnBoardSheet.swift */,
 				F1000001111111110000033 /* PlanNewFlightView.swift */,
 				HB0A0001111111110000002 /* AerodromeIdentField.swift */,
@@ -1144,6 +1173,9 @@
 				E1000001111111110000030 /* NewFlightIntent.swift */,
 				HB0A0001111111110000001 /* HomeAerodrome.swift */,
 				E1000001111111110000031 /* Trip.swift */,
+				E1000001111111110000042 /* BriefingRegistry.swift */,
+				E1000001111111110000043 /* CloseOut.swift */,
+				E1000001111111110000041 /* ICAOCountry.swift */,
 				TC0A0001111111110000001 /* TripOverview.swift */,
 				E1000001111111110000027 /* FlightCost.swift */,
 				E1000001111111110000026 /* LogbookEntry.swift */,
@@ -1214,6 +1246,9 @@
 				A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */,
 				A1000001111111110000C62 /* OFMDataService.swift */,
 				A1000001111111110000C80 /* OfficialChartService.swift */,
+				A1000001111111110000B01 /* BriefingRegistryService.swift */,
+				A1000001111111110000B02 /* PrepareWeatherService.swift */,
+				A1000001111111110000B04 /* NASRPatternService.swift */,
 				A1000001111111110000E91 /* ReportingPointCatalog.swift */,
 				A1000001111111110000074 /* NotificationService.swift */,
 				A1000001111111110000076 /* AirfieldTariffService.swift */,
@@ -1270,6 +1305,7 @@
 				A9000001111111110000003 /* FlightLiveActivity.swift */,
 				A2000001111111110000004 /* Info.plist */,
 				A2000001111111110000A32 /* PrivacyInfo.xcprivacy */,
+				A2000001111111110000A40 /* Localizable.xcstrings */,
 			);
 			path = AeroCheckWidget;
 			sourceTree = "<group>";
@@ -1485,6 +1521,7 @@
 				C1000001211111110000002 /* Localizable.xcstrings in Resources */,
 				C1000001211111110000A34 /* InfoPlist.xcstrings in Resources */,
 				D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */,
+				D1000001211111110000015 /* briefing-registry.json in Resources */,
 				D1000001211111110000014 /* OFL-B612.txt in Resources */,
 				D1000001211111110000013 /* B612Mono-Bold.ttf in Resources */,
 				D1000001211111110000012 /* B612Mono-Regular.ttf in Resources */,
@@ -1501,6 +1538,7 @@
 			files = (
 				A2000001211111110000004 /* Assets.xcassets in Resources */,
 				A2000001211111110000A32 /* PrivacyInfo.xcprivacy in Resources */,
+				A2000001211111110000A40 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1561,6 +1599,9 @@
 				A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */,
 				A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */,
 				A500002F111111110000002 /* FlightThreadTests.swift in Sources */,
+				A50000F8111111110000002 /* BriefingRegistryTests.swift in Sources */,
+				A50000F9111111110000002 /* PrepareWeatherTests.swift in Sources */,
+				A50000FA111111110000002 /* TrafficPatternTests.swift in Sources */,
 				A5000030111111110000002 /* FlightNumbersTests.swift in Sources */,
 				A5000032111111110000002 /* BorderCrossingTests.swift in Sources */,
 				A5000033111111110000002 /* LogbookPDFTests.swift in Sources */,
@@ -1757,6 +1798,10 @@
 				A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */,
 				A1000001211111110000C62 /* OFMDataService.swift in Sources */,
 				A1000001211111110000C80 /* OfficialChartService.swift in Sources */,
+				A1000001211111110000B01 /* BriefingRegistryService.swift in Sources */,
+				A1000001211111110000B02 /* PrepareWeatherService.swift in Sources */,
+				A1000001211111110000B04 /* NASRPatternService.swift in Sources */,
+				A1000001211111110000B03 /* PrepareWeatherCard.swift in Sources */,
 				A1000001211111110000E91 /* ReportingPointCatalog.swift in Sources */,
 				A1000001211111110000074 /* NotificationService.swift in Sources */,
 				A1000001211111110000076 /* AirfieldTariffService.swift in Sources */,
@@ -1822,6 +1867,9 @@
 				E1000001211111110000030 /* NewFlightIntent.swift in Sources */,
 				HB0A0001211111110000001 /* HomeAerodrome.swift in Sources */,
 				E1000001211111110000031 /* Trip.swift in Sources */,
+				E1000001211111110000042 /* BriefingRegistry.swift in Sources */,
+				E1000001211111110000043 /* CloseOut.swift in Sources */,
+				E1000001211111110000041 /* ICAOCountry.swift in Sources */,
 				TC0A0001211111110000001 /* TripOverview.swift in Sources */,
 				E1000001211111110000027 /* FlightCost.swift in Sources */,
 				E1000001211111110000026 /* LogbookEntry.swift in Sources */,

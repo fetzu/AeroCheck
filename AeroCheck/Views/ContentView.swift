@@ -129,14 +129,16 @@ struct ContentView: View {
                 }
 
                 // v5.0.0: a filed VFR flight plan that is still open after landing. Deliberately the
-                // most insistent banner in the app and the only one in red — Zurich RCC is alerted 30
-                // minutes after the ETA, so this is the one piece of admin with a search-and-rescue
-                // consequence for forgetting it.
+                // most insistent banner in the app and the only one in red — search and rescue is alerted
+                // after the ETA (30 minutes in Switzerland), so this is the one piece of admin with a
+                // search-and-rescue consequence for forgetting it. Since 6.5.0, by the country landed in.
                 if let notice = threadManager.openFlightPlanNotice, !appState.isFlightActive,
                    !appState.needsDisclaimerAcceptance {
                     VStack {
                         OpenFlightPlanBanner(
                             routeLabel: notice.routeLabel,
+                            closeOut: threadManager.thread(withId: notice.threadId).map { threadManager.closeOut(for: $0) }
+                                ?? CloseOut(),
                             onMarkClosed: { threadManager.markFlightPlanClosed(threadId: notice.threadId) },
                             onOpen: { appState.pendingThreadToOpen = notice.threadId },
                             onDismiss: { threadManager.openFlightPlanNotice = nil }
@@ -695,6 +697,8 @@ struct LanguageFallbackBanner: View {
 /// closed — the app's job is to remember, not to file.
 struct OpenFlightPlanBanner: View {
     let routeLabel: String
+    /// The rule and the numbers of the country landed in. (6.5.0)
+    let closeOut: CloseOut
     let onMarkClosed: () -> Void
     let onOpen: () -> Void
     let onDismiss: () -> Void
@@ -710,21 +714,31 @@ struct OpenFlightPlanBanner: View {
                 Text(L10n.Thread.closeFlightPlanTitle)
                     .font(.aero(size: 14, weight: .semibold))
                     .foregroundColor(.primaryText)
-                Text(L10n.Thread.closeFlightPlanBody(routeLabel))
+                Text(L10n.Thread.closeFlightPlanBody(routeLabel, rule: closeOut.rule))
                     .font(.aero(size: 12))
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    Button {
-                        if let url = URL(string: "tel://0800437837") { openURL(url) }
-                    } label: {
-                        Text(L10n.Thread.callFIC)
-                            .font(.aero(size: 12, weight: .semibold))
-                            .foregroundColor(.aviationRed)
-                            .padding(.horizontal, 12).frame(minHeight: 34)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationRed.opacity(0.5), lineWidth: 1)))
-                            .contentShape(Rectangle())
+                FlowLayout(spacing: 8) {
+                    // The numbers of the country landed in, two at most as on the flight's page: Sweden's two ACCs
+                    // are for the north and the south, so the first alone was half the answer (the author's v65-12,
+                    // 23 Oct 2026). Wrapped onto a second line where they don't fit. (6.5.0)
+                    ForEach(closeOut.phones.prefix(2), id: \.number) { phone in
+                        if let url = CloseOut.callURL(phone) {
+                            Button {
+                                openURL(url)
+                            } label: {
+                                Text(L10n.CloseOut.call(phone.name))
+                                    .font(.aero(size: 12, weight: .semibold))
+                                    .foregroundColor(.aviationRed)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .padding(.horizontal, 12).frame(minHeight: 34)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationRed.opacity(0.5), lineWidth: 1)))
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityValue(phone.number)
+                        }
                     }
                     Button(action: onMarkClosed) {
                         Text(L10n.Thread.markFlightPlanClosed)

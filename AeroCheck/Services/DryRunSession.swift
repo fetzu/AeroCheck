@@ -744,7 +744,8 @@ final class DryRunCenter: ObservableObject {
         services = (settings, airports, aircraftData)
         // Where the detector finds the aerodromes, and the map their frequencies.
         await airports.ensureLoaded()
-        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided), aircraft: setup.aircraft)
+        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided), aircraft: setup.aircraft,
+                                mapLayer: NavigationMapState.savedLayer(in: .standard))
         guard await world.loadChecklist(aircraftDataService: aircraftData) else {
             world.tearDown()
             return .checklistUnavailable
@@ -831,6 +832,7 @@ final class DryRunCenter: ObservableObject {
         guard let airport = airports.findAirport(byIdent: code) else { return nil }
         return DryRunAerodrome.make(airport: airport, runways: airports.getRunways(for: code),
                                     thresholds: OFMDataService.shared.thresholds(forAerodrome: code),
-                                    circuits: OFMDataService.shared.procedures(forAerodrome: code))
+                                    circuits: OFMDataService.shared.procedures(forAerodrome: code),
+                                    pattern: airport.isoCountry == "US" ? NASRPatternService.shared.aerodrome(code) : nil)
     }
 }

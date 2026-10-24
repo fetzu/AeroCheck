@@ -25,7 +25,8 @@ import CoreLocation
 // | reporting points it flies| the last, its zone entered or not                               |        |
 //
 // NEXT is NOW at the next change ahead on another frequency, unless a LISTEN item is in its window. Minutes are
-// turned into miles at the aircraft's ground speed, so a slow aircraft gets its calls earlier on the map.
+// turned into miles at the aircraft's ground speed: the same minutes before a boundary, so a slow aircraft gets its
+// calls nearer to it on the map, a fast one further out.
 
 /// The flight's radio along its route. Distances are NM along the route from the departure.
 struct RadioTimeline: Equatable {

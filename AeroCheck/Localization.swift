@@ -99,6 +99,10 @@ enum L10n {
         static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
         static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")
         static let sourceObservations = String(localized: "METAR / TAF / SIGMET · NOAA Aviation Weather Center, public domain")
+        /// Prepare's and the close-out's links, and the US traffic patterns. (6.5.0)
+        static let sourceBriefingName = String(localized: "settings.source.briefingName")
+        static let sourceBriefing = String(localized: "settings.source.briefing")
+        static let sourcePatterns = String(localized: "settings.source.patterns")
         static let sourceTypeface = String(localized: "dataStorage.source.typeface")
         static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")
@@ -441,9 +445,14 @@ enum L10n {
         static let taskMassBalance = String(localized: "Mass & balance")
         static let taskReservation = String(localized: "Aircraft reserved")
         static let taskWeather = String(localized: "Weather briefed")
-        static let taskDabs = String(localized: "DABS checked")
-        static let taskGafor = String(localized: "GAFOR checked")
         static let taskNotam = String(localized: "NOTAMs checked")
+        /// A country's airspace activity and area forecast, one task each: "Airspace activity CH". (6.5.0)
+        static func taskAirspace(_ country: String) -> String {
+            String(format: String(localized: "thread.task.airspace"), country)
+        }
+        static func taskForecast(_ country: String) -> String {
+            String(format: String(localized: "thread.task.forecast"), country)
+        }
         static let taskFlightPlanFiled = String(localized: "Flight plan filed")
         static let taskNavLog = String(localized: "Nav log ready")
         static let taskFlightPlanClose = String(localized: "Close the flight plan")
@@ -458,10 +467,31 @@ enum L10n {
         // Task subtitles
         static let hintFuel = String(localized: "REQ = trip + alternate + 45-min final reserve + extra. FOB = what you plan to carry.")
         static let hintMassBalance = String(localized: "Check the load sheet against the envelope in the POH")
-        static let hintDabs = String(localized: "Daily Airspace Bulletin Switzerland")
-        static let hintGafor = String(localized: "Route forecast (opens MeteoSwiss)")
-        static let hintFlightPlanFiled = String(localized: "Copy the ICAO plan, then file it on skybriefing")
-        static let hintFlightPlanClose = String(localized: "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA")
+        /// A page by day, said for this flight's day only (the author's v65-2, 22 Oct 2026): "DABS for today.",
+        /// "DABS for tomorrow.", "Tomorrow's DABS comes out today at 16:00.", "The DABS for Saturday 24 October comes out
+        /// on Friday 23 October at 16:00." (6.5.0)
+        static func byDayToday(_ name: String) -> String {
+            String(format: String(localized: "thread.byDay.today"), name)
+        }
+        static func byDayTomorrow(_ name: String) -> String {
+            String(format: String(localized: "thread.byDay.tomorrow"), name)
+        }
+        static func byDayLaterToday(_ name: String, at time: String) -> String {
+            String(format: String(localized: "thread.byDay.laterToday"), name, time)
+        }
+        static func byDayLater(_ name: String, for flightDay: String, on publishDay: String, at time: String) -> String {
+            String(format: String(localized: "thread.byDay.later"), name, flightDay, publishDay, time)
+        }
+        static let hintFlightPlanFiled = String(localized: "thread.hint.flightPlanFiled")
+        /// A plan filed from a field without ATS, in a country that wants the pilot to activate it. (6.5.0)
+        static func activateWithoutATS(_ ident: String) -> String {
+            String(format: String(localized: "thread.activation"), ident)
+        }
+        /// A route through a country whose airspace is closed. (6.5.0)
+        static func prohibitedTitle(_ country: String) -> String {
+            String(format: String(localized: "thread.prohibited.title"), country)
+        }
+        static let prohibitedHint = String(localized: "thread.prohibited.hint")
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
         static let hintPPR = String(localized: "Prior permission required: call ahead")
@@ -469,15 +499,24 @@ enum L10n {
         // Actions
         static let markDone = String(localized: "Mark done")
         static let markNotApplicable = String(localized: "Not applicable")
-        static let openSkybriefing = String(localized: "Open skybriefing")
-        static let openDabs = String(localized: "Open DABS")
-        static let openNotamBriefing = String(localized: "Open NOTAM briefing")
-        static let openWeatherBriefing = String(localized: "Open weather briefing")
+        // What a briefing link takes, under its name. (6.5.0)
+        static let accessAccount = String(localized: "thread.access.account")
+        static let accessPaid = String(localized: "thread.access.paid")
+        static let accessRestricted = String(localized: "thread.access.restricted")
+        static let linkGeneral = String(localized: "thread.link.general")
+        /// What a weather block's link gives, beside its country: "Weather", "Area forecast", both. (6.5.0)
+        static let linkWeather = String(localized: "thread.link.weather")
+        static let linkForecast = String(localized: "thread.link.forecast")
+        /// The weather block (6.5.0, v65-1): its links' heading, its folded line, and the NEXT card pointing to it.
+        static let briefOfficially = String(localized: "thread.weather.briefOfficially")
+        static func weatherBriefedAt(_ time: String) -> String {
+            String(format: String(localized: "thread.weather.briefedAt"), time)
+        }
+        static let weatherNotTicked = String(localized: "thread.weather.notTicked")
+        static let weatherBelow = String(localized: "thread.weather.below")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
-        static let openMeteoSwiss = String(localized: "Open MeteoSwiss")
         static let markFlightPlanClosed = String(localized: "Mark closed")
-        static let callFIC = String(localized: "Call 0800 437 837")
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.
         static let deleteThread = String(localized: "Cancel flight")
@@ -500,16 +539,96 @@ enum L10n {
 
         // Notifications
         static let closeFlightPlanTitle = String(localized: "Close your flight plan")
-        static func closeFlightPlanBody(_ route: String) -> String {
-            String(localized: "Your ATC flight plan for \(route) is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
+        /// The route, then the close-out's rule for the country landed in. (6.5.0)
+        static func closeFlightPlanBody(_ route: String, rule: String) -> String {
+            String(format: String(localized: "thread.closeFlightPlan.body"), route, rule)
         }
         static let prepareReminderTitle = String(localized: "Flight tomorrow")
         static func prepareReminderBody(_ route: String) -> String {
-            String(localized: "\(route): time to check the weather, DABS and any PPR.")
+            String(localized: "\(route): time to check the weather, the airspace activity and any PPR.")
         }
 
         // Banner
         static let openFlightPlanBanner = String(localized: "Flight plan not marked closed")
+    }
+
+    // MARK: - Download and import errors, in the app's language (6.5.0, q8)
+    enum DataErrors {
+        static func invalidJSON(_ detail: String) -> String {
+            String(format: String(localized: "error.import.json"), detail)
+        }
+        static let invalidGPX = String(localized: "error.import.gpx")
+        static let invalidCoordinates = String(localized: "error.import.coordinates")
+        static let invalidURL = String(localized: "error.download.invalidURL")
+        static func http(_ status: Int) -> String { String(format: String(localized: "error.download.http"), status) }
+        static let unreadable = String(localized: "error.download.unreadable")
+        static let hostNotAllowed = String(localized: "error.download.hostNotAllowed")
+        static func tooLarge(_ bytes: Int) -> String { String(format: String(localized: "error.download.tooLarge"), bytes) }
+        static let checksum = String(localized: "error.download.checksum")
+        static func wrongCountry(_ country: String) -> String {
+            String(format: String(localized: "error.download.wrongCountry"), country)
+        }
+    }
+
+    // MARK: - Closing a flight plan, by country (6.5.0)
+    enum CloseOut {
+        static func ruleAlert(_ country: String, minutes: Int) -> String {
+            String(format: String(localized: "closeOut.rule.alert"), country, minutes)
+        }
+        static func ruleReport(_ country: String, minutes: Int) -> String {
+            String(format: String(localized: "closeOut.rule.report"), country, minutes)
+        }
+        static func ruleReportTo(_ country: String, _ unit: String) -> String {
+            String(format: String(localized: "closeOut.rule.reportTo"), country, unit)
+        }
+        static func ruleNoDelay(_ country: String) -> String {
+            String(format: String(localized: "closeOut.rule.noDelay"), country)
+        }
+        static let ruleUnknown = String(localized: "closeOut.rule.unknown")
+        static let atsSera = String(localized: "closeOut.ats.sera")
+        static let atsControlled = String(localized: "closeOut.ats.controlled")
+        static func notControlled(_ aerodrome: String) -> String {
+            String(format: String(localized: "closeOut.ats.notControlled"), aerodrome)
+        }
+        static let atsATSU = String(localized: "closeOut.ats.atsu")
+        static let atsReport = String(localized: "closeOut.ats.report")
+        /// "Call skyguide ARO".
+        static func call(_ unit: String) -> String { String(format: String(localized: "closeOut.call"), unit) }
+    }
+
+    // MARK: - Prepare's weather (6.5.0)
+    enum PrepareWeather {
+        static let title = String(localized: "prepareWeather.title")
+        static let departure = String(localized: "prepareWeather.role.departure")
+        static let destination = String(localized: "prepareWeather.role.destination")
+        static let alternate = String(localized: "prepareWeather.role.alternate")
+        static let nearest = String(localized: "prepareWeather.role.nearest")
+        /// "No METAR or TAF · nearest LFSB, 19 NM".
+        static func noMetarOrTaf(nearest: String, distanceNm: Int) -> String {
+            String(format: String(localized: "prepareWeather.noMetarOrTaf"), nearest, distanceNm)
+        }
+        static func noTaf(nearest: String, distanceNm: Int) -> String {
+            String(format: String(localized: "prepareWeather.noTaf"), nearest, distanceNm)
+        }
+        static let nothingWithin = String(localized: "prepareWeather.nothingWithin")
+        static let noTafWithin = String(localized: "prepareWeather.noTafWithin")
+        static let noMetar = String(localized: "prepareWeather.noMetar")
+        /// After a nearest station whose row is higher up the card.
+        static let above = String(localized: "prepareWeather.above")
+        static func noSigmetAlongRoute(_ received: Int) -> String {
+            String(localized: "No SIGMET along the route · \(received) received")
+        }
+        static let noSigmetReceived = String(localized: "prepareWeather.noSigmetReceived")
+        static let sigmetFailed = String(localized: "prepareWeather.sigmetFailed")
+        static let sigmetsAlongRoute = String(localized: "prepareWeather.sigmetsAlongRoute")
+        static let source = String(localized: "prepareWeather.source")
+        static let loading = String(localized: "prepareWeather.loading")
+        static let failed = String(localized: "prepareWeather.failed")
+        /// A refresh that failed with reports on the card: they stay, with their time. (6.5.0, the author's v65-18)
+        static func refreshFailed(_ time: String) -> String {
+            String(format: String(localized: "prepareWeather.refreshFailed"), time)
+        }
+        static let refresh = String(localized: "prepareWeather.refresh")
     }
 
     // MARK: - Home
@@ -774,6 +893,21 @@ enum L10n {
         static let close = String(localized: "briefing.close")
         static let airport = String(localized: "briefing.airport")
         static let elevation = String(localized: "briefing.elevation")
+        // A US destination's traffic pattern (6.5.0)
+        static let trafficPattern = String(localized: "briefing.trafficPattern")
+        static func patternTraffic(_ side: NASRPatterns.Side) -> String {
+            String(localized: side == .right ? "briefing.pattern.right" : "briefing.pattern.left")
+        }
+        static func patternAltitude(msl: Int, agl: Int) -> String {
+            String(format: String(localized: "briefing.tpa.value"), msl, agl)
+        }
+        static func patternAltitudeAGL(_ agl: Int) -> String { String(format: String(localized: "briefing.tpa.agl"), agl) }
+        static let patternSeeRemark = String(localized: "briefing.tpa.seeRemark")
+        static func patternRecommended(_ agl: Int) -> String {
+            String(format: String(localized: "briefing.tpa.recommended"), agl)
+        }
+        static let asWrittenByFAA = String(localized: "briefing.tpa.asWritten")
+        static let checkChartSupplement = String(localized: "briefing.checkChartSupplement")
         static let wind = String(localized: "briefing.wind")
         static let runway = String(localized: "briefing.runway")
         static let notDetected = String(localized: "briefing.notDetected")
@@ -964,6 +1098,10 @@ enum L10n {
         static let tileCache = String(localized: "settings.openAIP.tileCache")
         static let updateData = String(localized: "settings.openAIP.updateData")
         static let downloadData = String(localized: "settings.openAIP.downloadData")
+        /// Under Download data while a layer is still downloading: "Still downloading: Airspace, Obstacles." (6.5.0)
+        static func stillDownloading(_ layers: String) -> String {
+            String(format: String(localized: "settings.openAIP.stillDownloading"), layers)
+        }
         static let airspaceNoDataHint = String(localized: "settings.openAIP.noDataHint")
         static let deleteOpenAIPData = String(localized: "settings.openAIP.deleteData")
         static let deleteOpenAIPTitle = String(localized: "settings.openAIP.deleteTitle")
@@ -1738,6 +1876,10 @@ enum L10n {
         static let swissimage = String(localized: "mapLayer.swissimage")
         static let satellite = String(localized: "mapLayer.satellite")
         static let standard = String(localized: "mapLayer.standard")
+        /// Under the Map sheet's charts, outside Switzerland: "ICAO chart: Switzerland only. Here, Apple Maps." (6.5.0)
+        static func switzerlandOnly(_ chart: String, _ shown: String) -> String {
+            String(format: String(localized: "mapLayer.switzerlandOnly"), chart, shown)
+        }
     }
 
     // MARK: - Flight Plan Overlay
@@ -2905,6 +3047,17 @@ enum L10n {
     /// Aerodrome procedures from open flightmaps on the maps: the switches, the labels, the callout and
     /// the credit. (6.2.0)
     enum VFRMap {
+        // A US field's traffic pattern, from the FAA's NASR (6.5.0)
+        static let patternRight = String(localized: "vfrMap.pattern.right")
+        static let patternLeft = String(localized: "vfrMap.pattern.left")
+        /// "right-hand traffic", for VoiceOver after the runway.
+        static func patternTraffic(_ side: NASRPatterns.Side) -> String {
+            String(localized: side == .right ? "vfrMap.pattern.rightTraffic" : "vfrMap.pattern.leftTraffic")
+        }
+        /// "TPA 806 ft".
+        static func patternAltitude(_ feet: Int) -> String {
+            String(format: String(localized: "vfrMap.pattern.altitude"), feet)
+        }
         static let aerodromeProcedures = String(localized: "Aerodrome procedures")
         static let showCircuits = String(localized: "Traffic circuits")
         static let showRoutes = String(localized: "Arrival & departure routes (with sectors)")

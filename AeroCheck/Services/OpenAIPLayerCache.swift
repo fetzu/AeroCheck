@@ -324,9 +324,10 @@ enum OpenAIPLayerCacheError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Invalid OpenAIP URL"
-        case .apiError(let statusCode): return "OpenAIP API error \(statusCode)"
-        case .malformedResponse: return "Malformed OpenAIP response"
+        // In the app's language since 6.5.0. (q8)
+        case .invalidURL: return L10n.DataErrors.invalidURL
+        case .apiError(let statusCode): return L10n.DataErrors.http(statusCode)
+        case .malformedResponse: return L10n.DataErrors.unreadable
         }
     }
 }

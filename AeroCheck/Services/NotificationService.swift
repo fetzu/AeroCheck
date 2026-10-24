@@ -137,19 +137,22 @@ final class NotificationService: NSObject, ObservableObject {
     ///
     /// `landingDelay` is the safety net for the pilot who lands, shuts down and walks away without
     /// pressing anything. It has to be long enough not to fire during the roll-out and short enough
-    /// to leave usable margin inside the 30-minute RCC window, so it sits at the halfway mark.
+    /// to leave usable margin inside the 30-minute RCC window, so it sits at the halfway mark. Since 6.5.0 a
+    /// full stop uses the landing country's own: half its alerting delay, this where none is published
+    /// (`CloseOut.reminderDelay`).
     /// Scheduling replaces by identifier, so a later END FLIGHT simply supersedes it.
     // Plain constants, readable from any isolation: they are default arguments of nonisolated callers.
     nonisolated static let postFlightDelay: TimeInterval = 120
     nonisolated static let landingDelay: TimeInterval = 15 * 60
 
-    func scheduleFlightPlanCloseReminder(threadId: UUID, routeLabel: String,
+    /// `rule` is the close-out's sentence for the country landed in (`CloseOut.rule`). (6.5.0)
+    func scheduleFlightPlanCloseReminder(threadId: UUID, routeLabel: String, rule: String,
                                          delay: TimeInterval = NotificationService.postFlightDelay) async {
         guard await hasPermission() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = L10n.Thread.closeFlightPlanTitle
-        content.body = L10n.Thread.closeFlightPlanBody(routeLabel)
+        content.body = L10n.Thread.closeFlightPlanBody(routeLabel, rule: rule)
         content.sound = .default
         content.categoryIdentifier = Category.flightPlanClose
         content.userInfo = [Self.threadIdKey: threadId.uuidString]

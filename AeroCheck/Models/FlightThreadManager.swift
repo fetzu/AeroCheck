@@ -156,6 +156,8 @@ class FlightThreadManager: ObservableObject {
         context.destinationFuels = destinationFuels ?? Self.destinationFuels(on: plan)
         thread.countries = context.countries
         thread.homeCountry = context.homeCountry
+        thread.arrivalIdent = context.arrivalIdent
+        thread.arrivalCountry = context.arrivalCountry
         thread.tasks = ThreadTaskEngine.generate(context: context)
         thread.settleReadiness()
 
@@ -206,16 +208,23 @@ class FlightThreadManager: ObservableObject {
         // for no change at all. Replacing rows underneath a finger is a plausible cause of the crash
         // reported when ticking a task on a freshly created flight, and it is churn worth removing
         // either way. (device pass)
+        let arrivalChanged = plan != nil && (threads[index].arrivalIdent != context.arrivalIdent
+                                             || threads[index].arrivalCountry != context.arrivalCountry)
         guard regenerated != existing
                 || threads[index].countries != context.countries
                 || threads[index].homeCountry != context.homeCountry
+                || arrivalChanged
                 || (plan != nil && plan?.firmDepartureTime != threads[index].scheduledDeparture)
         else { return }
 
         threads[index].countries = context.countries
         threads[index].homeCountry = context.homeCountry
+        if plan != nil {
+            threads[index].arrivalIdent = context.arrivalIdent
+            threads[index].arrivalCountry = context.arrivalCountry
+        }
         threads[index].tasks = regenerated
-        threads[index].settleReadiness()
+        settleReadiness(at: index)
 
         // The cached departure drives "is this today?" and the preparation reminder. Left stale it
         // reads a date the plan no longer has, which is how a flight moved to tomorrow kept being
@@ -321,6 +330,7 @@ class FlightThreadManager: ObservableObject {
         trip.sharedTasks = liftSharedTasks(from: threadIds, into: [])
         adopt(threadIds, into: trip.id)
         trips.append(trip)
+        settleLegs(of: trip.id)
         saveThreads()
         saveTrips()
         return trip
@@ -370,6 +380,7 @@ class FlightThreadManager: ObservableObject {
             }
         }
         trips[tripIndex].touch()
+        settleLegs(of: trips[tripIndex].id)
         saveThreads()
         saveTrips()
         return trips[tripIndex]
@@ -517,6 +528,21 @@ class FlightThreadManager: ObservableObject {
         saveThreads()
     }
 
+    /// READY when everything before the flight is done, a leg's trip tasks included (`Trip.sharedTasks(for:in:)`). (6.5.0)
+    private func settleReadiness(at index: Int) {
+        threads[index].settleReadiness(sharing: Trip.sharedTasks(for: threads[index], in: trips))
+    }
+
+    /// Every leg of `tripId` settled again, after the trip's shared tasks changed: a leg whose own tasks are done is READY
+    /// only once the trip's are too. The caller saves. (6.5.0)
+    private func settleLegs(of tripId: UUID) {
+        for index in threads.indices where threads[index].tripId == tripId {
+            let before = threads[index].state
+            settleReadiness(at: index)
+            if threads[index].state != before { threads[index].touch() }
+        }
+    }
+
     /// Tick a shared task. Reached from whichever leg the pilot happens to be looking at — the state
     /// lives on the trip, so all of them see it at once.
     /// `fromLegId` is the leg the pilot was looking at when they ticked. A tick made there covers
@@ -537,7 +563,44 @@ class FlightThreadManager: ObservableObject {
             trips[index].sharedTasks[taskIndex].acknowledgedLegIds = []
         }
         trips[index].touch()
+        settleLegs(of: tripId)
+        saveThreads()
         saveTrips()
+    }
+
+    /// The weather block's one tick: "Weather briefed" and every country's area forecast at once, on the flight, or on its
+    /// trip when it is a leg of one (where the briefing lives). A task marked not applicable stays so, unless the block
+    /// itself is being marked not applicable, or the whole block was and is ticked again. One save. (6.5.0, the
+    /// author's v65-1 and q4, 22 Oct 2026)
+    func setWeatherState(_ state: ThreadTaskState, threadId: UUID) {
+        func keeps(_ task: ThreadTask, of block: [ThreadTask]) -> Bool {
+            task.state == .notApplicable && state != .notApplicable && !block.allSatisfy { $0.state == .notApplicable }
+        }
+        if let tripId = thread(withId: threadId)?.tripId, let index = trips.firstIndex(where: { $0.id == tripId }) {
+            let block = trips[index].sharedTasks.filter { $0.key.isWeatherBlock }
+            for i in trips[index].sharedTasks.indices where trips[index].sharedTasks[i].key.isWeatherBlock {
+                if keeps(trips[index].sharedTasks[i], of: block) { continue }
+                trips[index].sharedTasks[i].state = state
+                trips[index].sharedTasks[i].completedAt = (state == .done) ? Date() : nil
+                if state == .done {
+                    trips[index].sharedTasks[i].acknowledgedLegIds.insert(threadId)
+                } else {
+                    trips[index].sharedTasks[i].acknowledgedLegIds = []
+                }
+            }
+            trips[index].touch()
+            settleLegs(of: tripId)
+            saveThreads()
+            saveTrips()
+        } else if let index = threads.firstIndex(where: { $0.id == threadId }) {
+            let block = threads[index].tasks.filter { $0.key.isWeatherBlock }
+            for task in block {
+                if keeps(task, of: block) { continue }
+                threads[index].setState(state, forTaskWithId: task.id)
+            }
+            settleReadiness(at: index)
+            saveThreads()
+        }
     }
 
     /// Remove a leg, and dissolve the trip when it stops being one.
@@ -558,6 +621,7 @@ class FlightThreadManager: ObservableObject {
                let index = threads.firstIndex(where: { $0.id == survivor }) {
                 threads[index].tripId = nil
                 threads[index].tasks.append(contentsOf: shared)
+                settleReadiness(at: index)
                 threads[index].touch()
             }
             // Dissolved: recorded, so the other store's trips.json does not bring it back. (6.1)
@@ -637,7 +701,7 @@ class FlightThreadManager: ObservableObject {
     /// - Legs go in the order they were created, the only order a leg records (the real order lived
     ///   on the trip). A leg another trip lists stays with that trip.
     /// - The shared preparation is lost with the trip: its rows come back unticked, for each thing
-    ///   any leg needs (DABS when one touches Switzerland), plus any trip-scoped row a leg still
+    ///   any leg needs (a country's airspace activity on a route through it), plus any trip-scoped row a leg still
     ///   carries. The pilot re-ticks a weather briefing; nothing claims one was done.
     /// - Built in memory only. Nothing is written at load: it reaches `trips.json` with the next trip
     ///   save, so a load of an evicted file never writes over it.
@@ -672,9 +736,11 @@ class FlightThreadManager: ObservableObject {
             }
         }
         for leg in legs {
-            let context = context(for: nil, profile: leg.profile,
+            var context = context(for: nil, profile: leg.profile,
                                   homeCountry: leg.homeCountry ?? deviceCountry(),
                                   countries: leg.countries ?? [])
+            // At load, off the main actor: the copy the app shipped with. (6.5.0)
+            context.registry = BriefingRegistryService.shipped
             for task in ThreadTaskEngine.generate(context: context) where task.key.scope == .trip {
                 if shared[task.matchToken] == nil { shared[task.matchToken] = task }
             }
@@ -688,7 +754,7 @@ class FlightThreadManager: ObservableObject {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         let wasOpen = threads[index].hasOpenFlightPlan
         threads[index].setState(state, forTaskWithId: taskId)
-        threads[index].settleReadiness()
+        settleReadiness(at: index)
 
         let task = threads[index].tasks.first { $0.id == taskId }
 
@@ -724,7 +790,7 @@ class FlightThreadManager: ObservableObject {
         context.hasRoute = existing.contains { $0.key == .routePlanned && $0.state == .done }
         let enriched = enrich(context, from: threads[index])
         threads[index].tasks = ThreadTaskEngine.generate(context: enriched, existing: existing)
-        threads[index].settleReadiness()
+        settleReadiness(at: index)
         threads[index].touch()
     }
 
@@ -939,17 +1005,42 @@ class FlightThreadManager: ObservableObject {
     /// `delay` distinguishes the two arming points. END FLIGHT uses the short one: the pilot has the
     /// app open and the in-app banner is already up. A confirmed full-stop landing uses the long
     /// one, and is the case that actually needs a notification — the pilot who lands, shuts down and
-    /// walks away without pressing anything used to get NO prompt at all before Skyguide's RCC
-    /// alerted at ETA+30, because this was only ever called from `beginCloseOut` despite the comment
+    /// walks away without pressing anything used to get NO prompt at all before search and rescue
+    /// was alerted (Skyguide's RCC at ETA+30 in Switzerland), because this was only ever called from `beginCloseOut` despite the comment
     /// here claiming the detector called it. (review F6)
     func scheduleCloseReminderIfNeeded(threadId: UUID,
                                        delay: TimeInterval = NotificationService.postFlightDelay) {
         guard let thread = thread(withId: threadId), thread.hasOpenFlightPlan else { return }
+        let rule = closeOut(for: thread).rule
         Task { [notifications] in
             await notifications.scheduleFlightPlanCloseReminder(threadId: thread.id,
                                                                routeLabel: thread.routeLabel,
+                                                               rule: rule,
                                                                delay: delay)
         }
+    }
+
+    /// How this flight's plan is closed: by the rule of the country it landed in, the diversion's after a
+    /// diversion. `aerodromeHasTower` answers for a country where only a controlled aerodrome closes it. (6.5.0)
+    func closeOut(for thread: FlightThread, aerodromeHasTower: ((String) -> Bool?)? = nil) -> CloseOut {
+        Self.closeOut(for: thread, registry: BriefingRegistryService.shared.registry, aerodromeHasTower: aerodromeHasTower)
+    }
+
+    nonisolated static func closeOut(for thread: FlightThread, registry: BriefingRegistry?,
+                                     aerodromeHasTower: ((String) -> Bool?)? = nil) -> CloseOut {
+        let aerodrome = thread.landedElsewhere?.landedIdent ?? thread.arrivalIdent ?? arrival(inLabel: thread.routeLabel)
+        // A field landed at that no ICAO prefix places (a private strip): the planned destination's country, the
+        // likeliest; a thread from before 6.5.0 has none recorded until its next regeneration.
+        let country = aerodrome.flatMap { ICAOCountry.country(of: $0) } ?? thread.arrivalCountry
+        return CloseOut.make(registry: registry, country: country, aerodrome: aerodrome,
+                             aerodromeHasTower: aerodrome.flatMap { aerodromeHasTower?($0) ?? nil })
+    }
+
+    /// "LSZQ" from the label "LSGS → LSZQ" (`routeLabel(for:)`), for a thread written before `arrivalIdent`.
+    nonisolated static func arrival(inLabel label: String) -> String? {
+        guard let last = label.components(separatedBy: " → ").dropFirst().last?.trimmingCharacters(in: .whitespaces),
+              looksLikeICAO(last) else { return nil }
+        return last
     }
 
     /// A full-stop landing was confirmed for the running flight: arm the close reminder on whatever
@@ -961,7 +1052,8 @@ class FlightThreadManager: ObservableObject {
     /// correct — so it must not guess. (review F6)
     func noteFullStopLanding(flightId: UUID) {
         guard let thread = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) else { return }
-        scheduleCloseReminderIfNeeded(threadId: thread.id, delay: NotificationService.landingDelay)
+        // Half the alerting delay of the country landed in, 15 min where none is published. (6.5.0)
+        scheduleCloseReminderIfNeeded(threadId: thread.id, delay: closeOut(for: thread).reminderDelay)
     }
 
     /// A close requested before the threads finished loading, replayed once they have.
@@ -1116,10 +1208,16 @@ class FlightThreadManager: ObservableObject {
                 CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
             })
         } ?? []
-        return context(for: plan,
-                       profile: profile,
-                       homeCountry: homeCountry ?? departureCountry(of: plan) ?? deviceCountry(),
-                       countries: crossed)
+        let departure = departureCountry(of: plan)
+        let arrival = arrivalCountry(of: plan)
+        var built = context(for: plan,
+                            profile: profile,
+                            homeCountry: homeCountry ?? departure ?? deviceCountry(),
+                            countries: ordered(crossed, departure: departure, arrival: arrival))
+        built.departureCountry = departure
+        built.arrivalCountry = arrival
+        built.registry = BriefingRegistryService.shared.registry
+        return built
     }
 
     /// The country you are departing FROM, which is what decides which of the crossed countries are
@@ -1127,8 +1225,36 @@ class FlightThreadManager: ObservableObject {
     /// customs into their own country, and that Switzerland was somehow involved.
     static func departureCountry(of plan: FlightPlan?) -> String? {
         guard let first = plan?.waypoints.first else { return nil }
-        let at = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+        return aerodromeCountry(ident: first.name, latitude: first.latitude, longitude: first.longitude)
+    }
+
+    /// The country the route ends in: where the flight plan is closed, by that country's rule. (6.5.0)
+    static func arrivalCountry(of plan: FlightPlan?) -> String? {
+        guard let waypoints = plan?.waypoints, waypoints.count >= 2, let last = waypoints.last else { return nil }
+        return aerodromeCountry(ident: last.name, latitude: last.latitude, longitude: last.longitude)
+    }
+
+    /// The country an aerodrome is in: its ICAO code's (`ICAOCountry`), else the boundary polygon it lies in when
+    /// only one holds it, else the nearest country as the route's crossing test finds it. The route's own list was
+    /// the answer until 6.5.0: alphabetical and widened by 10 NM, it gave Basel-Mulhouse to Switzerland.
+    static func aerodromeCountry(ident: String?, latitude: Double, longitude: Double) -> String? {
+        if let country = ICAOCountry.country(of: ident) { return country }
+        let at = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let inside = CountryBoundaries.shared.countries(near: at, bufferNm: 0)
+        if inside.count == 1 { return inside.first }
         return RouteDataCalculator.countries(crossing: [at]).first
+    }
+
+    /// The route's countries with the departure's first and the arrival's in: the crossing test samples every
+    /// 10 NM with a 10 NM margin and returns them sorted, so an aerodrome's own country could be missing from it
+    /// or come after its neighbour's.
+    nonisolated static func ordered(_ crossed: [String], departure: String?, arrival: String?) -> [String] {
+        var countries = crossed
+        for country in [arrival, departure].compactMap({ $0 }) where !countries.contains(country) {
+            countries.append(country)
+        }
+        let rest = countries.filter { $0 != departure }.sorted()
+        return (departure.map { [$0] } ?? []) + rest
     }
 
     /// Last resort for a thread with no route at all — circuits with no plan, typically flown at

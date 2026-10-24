@@ -1464,12 +1464,43 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
     case nationalMap = "National Map"
     case swissimage = "SwissImage"
     case apple = "Apple Maps"
+    /// Plan › Map has it, and the choice is one for every map since 6.5.0.
+    case appleSatellite = "Apple Maps Satellite"
 
     var id: String { rawValue }
+
+    /// The device's one choice (`AppState.navigationMapState.selectedLayer`), as these maps name it: picked here or on
+    /// Plan › Map, the Cockpit or a dry run, it is the chart of all of them (the author's device check, 23 Oct 2026).
+    /// (6.5.0)
+    init(_ layer: MapLayerType) {
+        switch layer {
+        case .icao: self = .icao
+        case .landeskarten: self = .nationalMap
+        case .swissimage: self = .swissimage
+        case .standard: self = .apple
+        case .satellite: self = .appleSatellite
+        }
+    }
+
+    var mapLayerType: MapLayerType {
+        switch self {
+        case .icao: return .icao
+        case .nationalMap: return .landeskarten
+        case .swissimage: return .swissimage
+        case .apple: return .standard
+        case .appleSatellite: return .satellite
+        }
+    }
+
+    /// The layer these maps draw for the device's choice over `region`: Apple's map outside the Swiss charts. (6.5.0)
+    static func shown(for choice: MapLayerType, over region: MKCoordinateRegion) -> WaypointPickerMapLayer {
+        WaypointPickerMapLayer(choice.shown(over: region))
+    }
 
     var icon: String {
         switch self {
         case .apple: return "map"
+        case .appleSatellite: return "globe.americas"
         case .icao: return "airplane"
         case .nationalMap: return "mountain.2"
         case .swissimage: return "photo"
@@ -1480,6 +1511,7 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .apple: return L10n.MapLayer.standard
+        case .appleSatellite: return L10n.MapLayer.satellite
         case .icao: return L10n.MapLayer.icaoGliderNational
         case .nationalMap: return L10n.MapLayer.landeskarte
         case .swissimage: return L10n.MapLayer.swissimage
@@ -1491,7 +1523,7 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
     /// chart, about z10, and the glider chart never showed (device check, 19 Oct 2026).
     var cameraZoomRange: MKMapView.CameraZoomRange? {
         switch self {
-        case .apple:
+        case .apple, .appleSatellite:
             return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)
         case .icao, .nationalMap, .swissimage:
             return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)
@@ -1508,6 +1540,9 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         switch self {
         case .apple:
             mapView.mapType = .standard
+            return
+        case .appleSatellite:
+            mapView.mapType = .satellite
             return
         case .icao:
             mapView.mapType = .standard

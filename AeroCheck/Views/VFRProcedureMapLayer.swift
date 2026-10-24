@@ -1447,12 +1447,16 @@ enum VFRMapLayer {
         view.collisionMode = .rectangle
         view.isAccessibilityElement = true
         switch annotation.kind {
-        case .runway(let ident, let inUse):
-            view.image = VFRApproachImages.runway(ident, inUse: inUse, palette: palette)
-            view.accessibilityLabel = inUse ? L10n.VFRMap.runwayInUse(ident) : L10n.VFRMap.runway(ident)
+        case .runway(let ident, let inUse, let pattern):
+            view.image = VFRApproachImages.runway(ident, inUse: inUse, pattern: pattern, palette: palette)
+            let runway = inUse ? L10n.VFRMap.runwayInUse(ident) : L10n.VFRMap.runway(ident)
+            view.accessibilityLabel = pattern.map { "\(runway), \(L10n.VFRMap.patternTraffic($0))" } ?? runway
         case .parachute:
             view.image = VFRApproachImages.parachute(palette: palette)
             view.accessibilityLabel = L10n.VFRMap.parachuting
+        case .patternAltitude(let feet):
+            view.image = VFRApproachImages.patternAltitude(feet, palette: palette)
+            view.accessibilityLabel = L10n.VFRMap.patternAltitude(feet)
         }
         return view
     }
@@ -1699,6 +1703,11 @@ struct OFMErrorReport: Equatable {
 // MARK: - Names
 
 enum VFRMapStrings {
+    /// "RIGHT", "LEFT": a US runway end's pattern side, after its number. (6.5.0)
+    static func patternSide(_ side: NASRPatterns.Side) -> String {
+        side == .right ? L10n.VFRMap.patternRight : L10n.VFRMap.patternLeft
+    }
+
     static func kindName(_ kind: VFRProcedure.Kind) -> String {
         switch kind {
         case .circuit: return L10n.VFRMap.trafficCircuit

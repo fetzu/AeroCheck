@@ -247,11 +247,38 @@ final class OfficialChartTests: XCTestCase {
 
     func testEveryCountryHasItsLettersItsDomainAndItsName() {
         let countries = Set(OfficialChartRegistry.publisherDomains.keys)
-        XCTAssertEqual(countries.count, 18)
+        XCTAssertEqual(countries.count, 21, "18, and the US, Australia and New Zealand since 6.5.0")
         XCTAssertEqual(Set(OfficialChartRegistry.icaoPrefixes.keys), countries)
         XCTAssertEqual(Set(OfficialChartRegistry.publisherNames.keys), countries)
         XCTAssertFalse(countries.contains("IT"), "ENAV needs written authorisation for any link")
         XCTAssertFalse(countries.contains("BE"), "skeyes allows its home page only, for personal use")
+    }
+
+    /// The US: the FAA's Chart Supplement, a page per airport, keyed by its ICAO code or, for a field without one,
+    /// its FAA identifier. Australia and New Zealand: their AIP's start page, as their terms allow. (6.5.0)
+    func testTheUSAustraliaAndNewZealandHaveTheirCharts() throws {
+        let charts = try registry("""
+        { "v": 1, "countries": {
+            "US": { "kind": "pages", "base": "https://aeronav.faa.gov/afd/03sep2026/", "until": "2026-10-29T09:01:00Z",
+                    "pages": { "KPAO": "sw_238_03SEP2026.pdf", "1N7": "ne_12_03SEP2026.pdf" } },
+            "AU": { "kind": "url", "url": "https://www.airservicesaustralia.com/aip/aip.asp" },
+            "NZ": { "kind": "url", "url": "https://www.aip.net.nz/" } } }
+        """)
+        let palo = try XCTUnwrap(charts.link(for: "KPAO", type: .smallAirport, now: october2))
+        XCTAssertEqual(palo.url.absoluteString, "https://aeronav.faa.gov/afd/03sep2026/sw_238_03SEP2026.pdf")
+        XCTAssertEqual(palo.publisher, "FAA")
+        XCTAssertNil(palo.note, "public, no sign-in")
+        XCTAssertEqual(charts.link(for: "1N7", type: .smallAirport, now: october2)?.url.lastPathComponent, "ne_12_03SEP2026.pdf",
+                       "a field without an ICAO code, by its FAA identifier")
+        XCTAssertNil(charts.link(for: "KSQL", type: .smallAirport, now: october2), "not in this edition's table")
+        XCTAssertNil(charts.link(for: "KPAO", type: .smallAirport, now: utc(2026, 10, 29, 10)), "past the next edition")
+        XCTAssertEqual(charts.link(for: "YSSY", type: .largeAirport, now: october2)?.url.host, "www.airservicesaustralia.com")
+        XCTAssertEqual(charts.link(for: "NZAA", type: .largeAirport, now: october2)?.url.host, "www.aip.net.nz")
+        XCTAssertNil(charts.link(for: "LSZQ", type: .smallAirport, now: october2), "no Swiss entry in this file")
+        XCTAssertTrue(OfficialChartRegistry.isAerodromeCode("1N7"))
+        XCTAssertFalse(OfficialChartRegistry.isAerodromeCode("N7"))
+        XCTAssertFalse(OfficialChartRegistry.isAerodromeCode("LS-1"))
+        XCTAssertNil(OfficialChartRegistry.publisherURL("https://www.faa.gov/x.pdf", country: "US"), "the Chart Supplement's host only")
     }
 
     /// A link off its publisher's domain, not HTTPS, or a page id that could leave DFS's folder is
@@ -318,8 +345,8 @@ final class OfficialChartTests: XCTestCase {
         let charts = try registry()
         XCTAssertTrue(OfficialChartService.isStale(registry: nil, fetchedAt: october2, now: october2))
         XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: nil, now: october2))
-        XCTAssertFalse(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + 6 * day))
-        XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + 7 * day))
+        XCTAssertFalse(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + day))
+        XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: october2, now: october2 + 2 * day))
         XCTAssertTrue(OfficialChartService.isStale(registry: charts, fetchedAt: october2 + day, now: october2),
                       "a clock that went back")
         // A new cycle while the file names 2610's French folder: once an hour until the job's new file.

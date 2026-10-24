@@ -1,0 +1,11 @@
+6.5.0 spricht Deutsch und bereitet einen Flug für die Länder vor, in die er führt: Briefing-Links, Wetter und das Schliessen des ATC-Flugplans folgen den Regeln des jeweiligen Landes.
+
+Zum Ausprobieren:
+- Deutsch: Stellen Sie das Gerät auf Deutsch (Einstellungen › Allgemein › Sprache & Region) oder nur die App (Einstellungen › AéroCheck › Sprache). Jeder Bildschirm, auch die Tasten im Cockpit: Melden Sie, was falsch klingt.
+- Die Seite eines Flugs, Vorbereiten: der Block Wetter über den Aufgaben, mit METAR und TAF jedes Flugplatzes (der nächstgelegene TAF für einen Flugplatz ohne eigenen), den SIGMET entlang der Route und den Wetter- und Gebietsvorhersage-Seiten jedes Landes als Zeilen. Ein Haken für alles; abgehakt klappt der Block zu einer Zeile zu. Das DABS sagt, für welchen Tag es gilt oder wann das des Flugtags erscheint.
+- Eine Route ins Ausland, zum Beispiel Bressaucourt–Freiburg: die deutschen Links und nach der Landung die Karte zum Schliessen mit der Regel und der Nummer Deutschlands. Eine Landung in der Schweiz behält die Nummer von skyguide. Auf einer Reise zählt jede Etappe die Vorbereitung der Reise mit.
+- Ein Abflug von einem schwedischen Flugplatz ohne Tower: die Zeile, den Flugplan selbst zu aktivieren. Eine Route über Belarus: die rote Zeile, und FLUG BEGINNEN eine Sekunde gedrückt halten.
+- Die Karten teilen eine Grundkarte; ausserhalb der Schweiz zeigen sie Apple Karten statt der ICAO-Karte. Die OpenAIP-Ebene erscheint wieder (OpenAIP hat seine Kacheln umgezogen), und Einstellungen › Daten & Speicher lädt schneller: Der Luftraum kommt jetzt aus den eigenen Dateien von OpenAIP.
+- In den USA bei Palo Alto (KPAO) oder San Carlos (KSQL): die Seite der Platzrunde an jedem Pistenende und die TPA in der Anflugansicht. Offizielle Karten für die USA, Australien und Neuseeland.
+
+Senden Sie Ihre Hinweise aus der TestFlight-App: Ein Screenshot mit einer Zeile Text ist am schnellsten.

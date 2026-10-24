@@ -175,6 +175,13 @@ struct AboutSettingsView: View {
             // licence — but attribution is still the honest thing to show a pilot who is about to
             // act on an observation, alongside the two sources it is chosen over.
             dataSourceRow(name: "NOAA Aviation Weather Center", detail: L10n.DataStorage.sourceObservations, url: "https://aviationweather.gov")
+            // Prepare's and the close-out's links: each country's own publishers, each named on its link as
+            // some ask (SOFIA-Briefing (DGAC), MeteoAM (Aeronautica Militare)). No page of their own to open. (6.5.0)
+            dataSourceRow(name: L10n.DataStorage.sourceBriefingName, detail: L10n.DataStorage.sourceBriefing, url: nil)
+            // The FAA's NASR is a US Government work, public domain, and asks for no credit: given anyway, as for
+            // NOAA. (6.5.0)
+            dataSourceRow(name: "FAA NASR", detail: L10n.DataStorage.sourcePatterns,
+                          url: "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/")
             dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
             // Natural Earth is public domain and explicitly waives attribution, so this is courtesy
             // rather than obligation — but the bundled borders decide which countries a trip prefetch
@@ -186,10 +193,12 @@ struct AboutSettingsView: View {
         }
     }
 
-    private func dataSourceRow(name: String, detail: String, url: String) -> some View {
-        SettingsButtonRow(icon: "link", title: name, subtitle: detail, tint: tint, showsChevron: false) {
-            if let link = URL(string: url) { openURL(link) }
+    private func dataSourceRow(name: String, detail: String, url: String?) -> some View {
+        SettingsButtonRow(icon: url == nil ? "building.columns" : "link", title: name, subtitle: detail, tint: tint,
+                          showsChevron: false) {
+            if let url, let link = URL(string: url) { openURL(link) }
         }
+        .disabled(url == nil)
     }
 
     /// App version + 5-tap reveal gesture. Houses the version value (and the conditional changelog

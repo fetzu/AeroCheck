@@ -155,6 +155,13 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
         legIds.firstIndex(of: threadId).map { $0 + 1 }
     }
 
+    /// A leg's trip tasks as the leg sees them, from `trips`; none for a flight on its own. What its readiness, its NEXT
+    /// and "Everything done" count with its own. (6.5.0)
+    static func sharedTasks(for thread: FlightThread, in trips: [Trip]) -> [ThreadTask] {
+        guard let tripId = thread.tripId, let trip = trips.first(where: { $0.id == tripId }) else { return [] }
+        return trip.tasks(forLegDeparting: thread.scheduledDeparture, legId: thread.id)
+    }
+
     /// Shared tasks as this leg should see them: a staleable tick that no longer covers the leg's
     /// departure reads as pending again, carrying when it was last done so the pilot can tell a
     /// refresh from something they forgot.
@@ -213,4 +220,20 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
     /// The `updatedAt` of a trip rebuilt from its legs (`FlightThreadManager.rebuiltTrips`): older
     /// than any real edit, so a surviving copy of the real trip replaces it wherever the two meet.
     static let rebuiltStamp = Date(timeIntervalSince1970: 0)
+}
+
+// Written by hand for the shared tasks: a task this build can't read is skipped, not the whole trip (`LossyTaskList`,
+// 6.5.0). Every other field as the synthesised decoder read it, defaults where a file lacks one. In an extension, so
+// the memberwise initialiser stays; encoding stays synthesised.
+extension Trip {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        legIds = try c.decodeIfPresent([UUID].self, forKey: .legIds) ?? []
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        sharedTasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .sharedTasks)?.tasks ?? []
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
+        scheduledStart = try c.decodeIfPresent(Date.self, forKey: .scheduledStart)
+    }
 }

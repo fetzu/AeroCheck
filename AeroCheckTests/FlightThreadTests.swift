@@ -286,16 +286,279 @@ final class FlightThreadTests: XCTestCase {
                        "READY exactly when the ring is full (\(String(describing: progress)))")
     }
 
-    /// Weather briefed has somewhere to go, like the other briefings: skybriefing's weather briefing, and
-    /// MeteoSwiss's aviation weather when the flight touches Switzerland. (6.4.0)
-    func testWeatherBriefedLinksToTheBriefing() {
-        let weather = ThreadTask(key: .weatherBriefed, kind: .check)
-        let abroad = ThreadTaskPresentation.links(for: weather)
-        XCTAssertEqual(abroad.map(\.url.absoluteString), ["https://www.skybriefing.com/services/weather-briefing"])
-        XCTAssertEqual(abroad.map(\.label), [L10n.Thread.openWeatherBriefing])
-        let swiss = ThreadTaskPresentation.links(for: weather, touchesSwitzerland: true)
-        XCTAssertEqual(swiss.count, 2)
-        XCTAssertEqual(swiss.last?.label, L10n.Thread.openMeteoSwiss)
+    // MARK: - Briefing by country (6.5.0)
+
+    /// A registry like the server's, three countries: Switzerland's DABS by day, France's pages behind a free
+    /// account, Italy's airspace from the EAUP (a general page) and no NOTAM page, Sweden's plan activated by the
+    /// pilot, Belarus closed.
+    private let registry: BriefingRegistry = {
+        typealias Link = BriefingRegistry.Link
+        func url(_ s: String) -> URL { URL(string: s)! }
+        let dabs = Link(name: "DABS", url: url("https://www.skybriefing.com/o/dabs?today"),
+                        byDay: .init(tomorrow: url("https://www.skybriefing.com/o/dabs?tomorrow"), from: "16:00", tz: "Europe/Zurich"))
+        let eaup = Link(name: "EUROCONTROL EAUP", url: url("https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html"))
+        return BriefingRegistry(countries: [
+            "CH": .init(weather: [Link(name: "skybriefing", url: url("https://www.skybriefing.com/services/weather-briefing"), access: .paid),
+                                  Link(name: "MeteoSwiss", url: url("https://www.meteoswiss.admin.ch/aviation"),
+                                       names: ["fr": "MétéoSuisse", "de": "MeteoSchweiz"])],
+                        notam: [Link(name: "skybriefing", url: url("https://www.skybriefing.com/services/notam-briefing"), access: .paid)],
+                        airspace: [dabs],
+                        forecast: [Link(name: "MeteoSwiss", url: url("https://www.meteoswiss.admin.ch/aviation"))],
+                        filing: [Link(name: "skybriefing", url: url("https://www.skybriefing.com/services/flightplan-services"), access: .paid)]),
+            "FR": .init(weather: [Link(name: "Aéroweb (Météo-France)", url: url("https://aviation.meteo.fr"), access: .account)],
+                        notam: [Link(name: "SOFIA-Briefing (DGAC)", url: url("https://sofia-briefing.aviation-civile.gouv.fr"))],
+                        airspace: [Link(name: "SIA AZBA", url: url("https://www.sia.aviation-civile.gouv.fr/azba"))],
+                        forecast: [Link(name: "Aéroweb (Météo-France)", url: url("https://aviation.meteo.fr"), access: .account)],
+                        filing: [Link(name: "SOFIA-Briefing (DGAC)", url: url("https://sofia-briefing.aviation-civile.gouv.fr"), access: .account)]),
+            "IT": .init(weather: [Link(name: "MeteoAM", url: url("https://www.meteoam.it/aero"))],
+                        airspace: [eaup], generic: ["airspace"]),
+            "SE": .init(filing: [Link(name: "AROWeb (LFV)", url: url("https://aro.lfv.se"), access: .account)], activation: "no-ats"),
+            "BY": .init(prohibited: Link(name: "EASA SD-2021-02", url: url("https://ad.easa.europa.eu/ad/SD-2021-02"))),
+        ])
+    }()
+
+    /// Airspace activity and the area forecast, one task per country that publishes them, on the keys they had as
+    /// Swiss tasks: Switzerland's without a subject (as before, so a tick carries over and a 6.4 build adds no
+    /// twin), another country's with its code. Weather and NOTAMs stay one task each. (q2)
+    func testAirspaceAndForecastAreOneTaskPerCountryThatPublishesThem() {
+        var c = context(countries: ["CH", "FR", "IT", "AT"])
+        c.registry = registry
+        let tasks = ThreadTaskEngine.generate(context: c)
+        XCTAssertEqual(tasks.filter { $0.key == .dabsChecked }.map(\.subject), [nil, "FR", "IT"], "AT isn't in this registry")
+        XCTAssertEqual(tasks.filter { $0.key == .gaforChecked }.map(\.subject), [nil, "FR"], "Italy publishes no forecast here")
+        XCTAssertEqual(tasks.filter { $0.key == .weatherBriefed }.count, 1)
+        XCTAssertEqual(tasks.filter { $0.key == .notamChecked }.count, 1)
+        // Prepare's order, as the decision's mockup: weather, NOTAMs, airspace by country, forecast by country, filing.
+        let prepare = tasks.filter { $0.chapter == .prepare }.map(\.key)
+        XCTAssertEqual(Array(prepare.prefix(7)), [.weatherBriefed, .notamChecked, .dabsChecked, .dabsChecked, .dabsChecked,
+                                                  .gaforChecked, .gaforChecked])
+        // A Swiss tick from 6.4 carries over.
+        var ticked = ThreadTask(key: .dabsChecked, kind: .check)
+        ticked.state = .done
+        let again = ThreadTaskEngine.generate(context: c, existing: [ticked])
+        XCTAssertEqual(again.first { $0.key == .dabsChecked && $0.subject == nil }?.state, .done)
+        XCTAssertEqual(again.first { $0.key == .dabsChecked && $0.subject == "FR" }?.state, .pending)
+        // A local flight: its country's airspace activity alone.
+        var local = context(profile: .local, countries: ["FR"])
+        local.registry = registry
+        XCTAssertEqual(ThreadTaskEngine.generate(context: local).filter { $0.key == .dabsChecked }.map(\.subject), ["FR"])
+    }
+
+    func testTheBriefingTasksAreTitledByTheirCountry() {
+        var fr = ThreadTask(key: .dabsChecked, kind: .check)
+        fr.subject = "FR"
+        XCTAssertEqual(ThreadTaskPresentation.make(for: fr).title, L10n.Thread.taskAirspace("FR"))
+        XCTAssertEqual(ThreadTaskPresentation.make(for: ThreadTask(key: .gaforChecked, kind: .check)).title,
+                       L10n.Thread.taskForecast("CH"))
+        XCTAssertTrue(L10n.Thread.taskAirspace("FR").hasSuffix("FR"))
+    }
+
+    /// Weather and NOTAMs: a chip per country's page, the departure's first, a page two countries share once;
+    /// under a name, what it takes in words. (q2)
+    func testWeatherAndNotamsLinkEachCountrysPages() {
+        let briefing = ThreadBriefing(registry: registry, countries: ["CH", "FR", "IT"], departureCountry: "CH", language: "en")
+        let weather = ThreadTaskPresentation.links(for: ThreadTask(key: .weatherBriefed, kind: .check), briefing: briefing)
+        XCTAssertEqual(weather.map(\.label), ["skybriefing", "MeteoSwiss", "Aéroweb (Météo-France)", "MeteoAM"])
+        XCTAssertEqual(weather.map(\.detail), [L10n.Thread.accessPaid, nil, L10n.Thread.accessAccount, nil])
+        let notam = ThreadTaskPresentation.links(for: ThreadTask(key: .notamChecked, kind: .check), briefing: briefing)
+        XCTAssertEqual(notam.map(\.label), ["skybriefing", "SOFIA-Briefing (DGAC)"], "Italy has no NOTAM page here: no chip")
+        // The publisher's own name in the app's language.
+        let german = ThreadBriefing(registry: registry, countries: ["CH"], language: "de")
+        XCTAssertEqual(german.links(.weather, in: ["CH"]).last?.label, "MeteoSchweiz")
+        // A general page says so.
+        var italy = ThreadTask(key: .dabsChecked, kind: .check)
+        italy.subject = "IT"
+        XCTAssertEqual(ThreadTaskPresentation.links(for: italy, briefing: briefing).map(\.detail), [L10n.Thread.linkGeneral])
+        // No registry, no links: never a guess.
+        XCTAssertTrue(ThreadTaskPresentation.links(for: ThreadTask(key: .weatherBriefed, kind: .check)).isEmpty)
+    }
+
+    /// Filing opens the departure country's portal, wherever the flight goes. (q2)
+    func testFilingOpensTheDeparturesPortal() {
+        let filed = ThreadTask(key: .flightPlanFiled, kind: .check)
+        let fromFrance = ThreadBriefing(registry: registry, countries: ["FR", "CH"], departureCountry: "FR", language: "en")
+        XCTAssertEqual(ThreadTaskPresentation.links(for: filed, briefing: fromFrance).map(\.label), ["SOFIA-Briefing (DGAC)"])
+        let fromSwitzerland = ThreadBriefing(registry: registry, countries: ["CH", "FR"], departureCountry: "CH", language: "en")
+        XCTAssertEqual(ThreadTaskPresentation.links(for: filed, briefing: fromSwitzerland).map(\.label), ["skybriefing"])
+    }
+
+    /// The DABS by the flight's day, in plain words (the author's v65-2, 22 Oct 2026): the link opens the flight's day
+    /// once it is out (16:00 in Zurich, the day before) and isn't there before; the hint says which day's it opens, or
+    /// when the flight's comes out. (decided with the registry, 18 Oct)
+    func testTheDABSOpensTheFlightsDay() throws {
+        var zurich = Calendar(identifier: .gregorian)
+        zurich.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Zurich"))
+        func at(_ day: Int, _ hour: Int) throws -> Date {
+            try XCTUnwrap(zurich.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour)))
+        }
+        let dabs = ThreadTask(key: .dabsChecked, kind: .check)
+        func page(flying day: Date?, now: Date) -> (link: String?, hint: String?) {
+            let briefing = ThreadBriefing(registry: registry, countries: ["CH"], flightDay: day, language: "en", now: now)
+            return (ThreadTaskPresentation.links(for: dabs, briefing: briefing).first?.url.absoluteString,
+                    ThreadTaskPresentation.make(for: dabs, briefing: briefing).hint)
+        }
+        let four = ThreadBriefing.localTime("16:00", tz: "Europe/Zurich")
+        // Today's flight: today's DABS, and nothing about tomorrow's.
+        let today = page(flying: try at(22, 15), now: try at(22, 12))
+        XCTAssertEqual(today.link, "https://www.skybriefing.com/o/dabs?today")
+        XCTAssertEqual(today.hint, L10n.Thread.byDayToday("DABS"))
+        XCTAssertEqual(page(flying: nil, now: try at(22, 12)).hint, L10n.Thread.byDayToday("DABS"), "no day: today's")
+        // Tomorrow's, at noon: not out yet, so no link (today's isn't the flight's), and when it comes.
+        let noon = page(flying: try at(23, 10), now: try at(22, 12))
+        XCTAssertNil(noon.link)
+        XCTAssertEqual(noon.hint, L10n.Thread.byDayLaterToday("DABS", at: four))
+        // Tomorrow's, in the evening: out.
+        let evening = page(flying: try at(23, 10), now: try at(22, 17))
+        XCTAssertEqual(evening.link, "https://www.skybriefing.com/o/dabs?tomorrow")
+        XCTAssertEqual(evening.hint, L10n.Thread.byDayTomorrow("DABS"))
+        // Saturday's, on Thursday: out on Friday at four.
+        let saturday = page(flying: try at(24, 10), now: try at(22, 17))
+        XCTAssertNil(saturday.link)
+        let words = try XCTUnwrap(saturday.hint)
+        XCTAssertTrue(words.contains("Saturday") && words.contains("Friday") && words.contains(four), words)
+    }
+
+    /// The weather block's pages: each country's weather, then its area forecast, a page once with what it gives, and
+    /// its country named on a route through several. (the author's v65-1, 22 Oct 2026)
+    func testTheWeatherBlockListsEachCountrysPagesOnce() {
+        let briefing = ThreadBriefing(registry: registry, countries: ["CH", "FR"], departureCountry: "CH", language: "en")
+        let links = briefing.weatherLinks()
+        let both = "\(L10n.Thread.linkWeather) · \(L10n.Thread.linkForecast)"
+        XCTAssertEqual(links.map(\.label), ["skybriefing", "MeteoSwiss", "Aéroweb (Météo-France)"])
+        XCTAssertEqual(links.map(\.purpose), [L10n.Thread.linkWeather, both, both])
+        XCTAssertEqual(links.map(\.country), ["CH", "CH", "FR"])
+        XCTAssertEqual(links.map(\.detail), [L10n.Thread.accessPaid, nil, L10n.Thread.accessAccount])
+        XCTAssertNil(ThreadBriefing(registry: registry, countries: ["CH"], language: "en").weatherLinks().first?.country,
+                     "one country: whose goes without saying")
+        XCTAssertTrue(ThreadBriefing(countries: ["CH"]).weatherLinks().isEmpty, "no registry, no links")
+    }
+
+    /// The weather block's one tick: "Weather briefed" and every area forecast at once. A forecast marked not applicable
+    /// stays so; the whole block marked not applicable, then ticked, comes back whole. (the author's v65-1, q4)
+    @MainActor
+    func testTheWeatherBlockTicksAsOne() throws {
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+        let index = try XCTUnwrap(manager.threads.firstIndex { $0.id == thread.id })
+        var france = ThreadTask(key: .gaforChecked, kind: .check)
+        france.subject = "FR"
+        manager.threads[index].tasks.append(france)
+        func block() -> [ThreadTask] { manager.thread(withId: thread.id)?.tasks.filter { $0.key.isWeatherBlock } ?? [] }
+        XCTAssertGreaterThanOrEqual(block().count, 2)
+
+        manager.setWeatherState(.done, threadId: thread.id)
+        XCTAssertTrue(block().allSatisfy { $0.state == .done && $0.completedAt != nil })
+        XCTAssertEqual(manager.thread(withId: thread.id)?.tasks.first { $0.key == .notamChecked }?.state, .pending,
+                       "the weather's tick, not the NOTAMs'")
+
+        manager.setTaskState(.notApplicable, taskId: france.id, threadId: thread.id)
+        manager.setWeatherState(.pending, threadId: thread.id)
+        XCTAssertEqual(block().first { $0.id == france.id }?.state, .notApplicable)
+        XCTAssertTrue(block().filter { $0.id != france.id }.allSatisfy { $0.state == .pending })
+
+        manager.setWeatherState(.notApplicable, threadId: thread.id)
+        XCTAssertTrue(block().allSatisfy { $0.state == .notApplicable })
+        manager.setWeatherState(.done, threadId: thread.id)
+        XCTAssertTrue(block().allSatisfy { $0.state == .done })
+    }
+
+    /// A plan from a field without ATS, where the country wants the pilot to activate it: the line, from the
+    /// field's frequencies; never for a field the data doesn't know. (q4)
+    func testAPlanFromAFieldWithoutATSIsActivatedByThePilot() {
+        let sweden = registry.country("SE")
+        XCTAssertTrue(ThreadBriefing.needsActivation(country: sweden, fieldKnown: true, frequencyTypes: ["A/G", "CTAF"]))
+        XCTAssertTrue(ThreadBriefing.needsActivation(country: sweden, fieldKnown: true, frequencyTypes: []))
+        XCTAssertFalse(ThreadBriefing.needsActivation(country: sweden, fieldKnown: true, frequencyTypes: ["TWR", "GND"]))
+        XCTAssertFalse(ThreadBriefing.needsActivation(country: sweden, fieldKnown: true, frequencyTypes: ["AFIS"]))
+        XCTAssertFalse(ThreadBriefing.needsActivation(country: sweden, fieldKnown: false, frequencyTypes: []))
+        XCTAssertFalse(ThreadBriefing.needsActivation(country: registry.country("FR"), fieldKnown: true, frequencyTypes: []))
+        XCTAssertTrue(L10n.Thread.activateWithoutATS("ESKT").hasPrefix("ESKT"))
+    }
+
+    // MARK: - Closing the plan by country (6.5.0)
+
+    /// The close-out kinds the registry has: an alerting delay (CH), a deadline (SE), neither (DE, with only a
+    /// controlled aerodrome closing it), an aerodrome's own number (Spain), nothing checked (Italy).
+    private let closing: BriefingRegistry = {
+        typealias Phone = BriefingRegistry.Phone
+        var ch = BriefingRegistry.Country()
+        ch.closing = .init(phones: [Phone(number: "+41800437837", name: "skyguide ARO")], alertMinutes: 30, atsClose: .sera,
+                           links: [.init(name: "Swiss SAR Alerts (FOCA)", url: URL(string: "https://apps.apple.com/ch/app/id1496031677")!)])
+        var se = BriefingRegistry.Country()
+        se.closing = .init(phones: [Phone(number: "+46858554505", name: "Stockholm ACC"), Phone(number: "+4640613350", name: "Malmö ACC")],
+                           reportMinutes: 30, atsClose: .sera)
+        var de = BriefingRegistry.Country()
+        de.closing = .init(phones: [Phone(number: "+4961037075500", name: "AIS-C (DFS)")], atsClose: .controlled)
+        var es = BriefingRegistry.Country()
+        es.closing = .init(atsClose: .sera, aerodromes: ["LEIG": [Phone(number: "+34918603561", name: "Centralised ARO, area 6")]])
+        return BriefingRegistry(countries: ["CH": ch, "SE": se, "DE": de, "ES": es, "IT": .init()])
+    }()
+
+    func testTheCloseOutSaysTheRuleOfTheCountryLandedIn() {
+        func name(_ code: String) -> String { OpenAIPConfig.countryName(for: code) }
+        let ch = CloseOut.make(registry: closing, country: "CH", aerodrome: "LSZQ")
+        XCTAssertEqual(ch.rule, L10n.CloseOut.ruleAlert(name("CH"), minutes: 30))
+        XCTAssertEqual(ch.phones.map(\.number), ["+41800437837"])
+        XCTAssertEqual(ch.atsLine, L10n.CloseOut.atsSera)
+        XCTAssertEqual(ch.reminderDelay, 15 * 60, "half the alerting delay")
+
+        let se = CloseOut.make(registry: closing, country: "SE", aerodrome: "ESKT")
+        XCTAssertEqual(se.rule, L10n.CloseOut.ruleReport(name("SE"), minutes: 30), "a deadline, not an alerting delay")
+        XCTAssertEqual(se.phones.map(\.name), ["Stockholm ACC", "Malmö ACC"])
+        XCTAssertEqual(se.reminderDelay, NotificationService.landingDelay)
+
+        let de = CloseOut.make(registry: closing, country: "DE", aerodrome: "EDTF", aerodromeHasTower: false)
+        XCTAssertEqual(de.rule, L10n.CloseOut.ruleReportTo(name("DE"), "AIS-C (DFS)"))
+        XCTAssertEqual(de.atsLine, "\(L10n.CloseOut.atsControlled) \(L10n.CloseOut.notControlled("EDTF"))")
+        XCTAssertEqual(CloseOut.make(registry: closing, country: "DE", aerodrome: "EDNY", aerodromeHasTower: true).atsLine,
+                       L10n.CloseOut.atsControlled)
+
+        let es = CloseOut.make(registry: closing, country: "ES", aerodrome: "LEIG")
+        XCTAssertEqual(es.phones.map(\.name), ["Centralised ARO, area 6"], "the aerodrome's own ARO")
+        XCTAssertEqual(es.rule, L10n.CloseOut.ruleReportTo(name("ES"), "Centralised ARO, area 6"))
+        XCTAssertEqual(CloseOut.make(registry: closing, country: "ES", aerodrome: "LEZZ").rule, L10n.CloseOut.ruleUnknown,
+                       "a Spanish field the registry has no number for: nothing checked, the rule for everywhere")
+
+        let italy = CloseOut.make(registry: closing, country: "IT", aerodrome: "LIMJ")
+        XCTAssertEqual(italy.rule, L10n.CloseOut.ruleUnknown)
+        XCTAssertTrue(italy.phones.isEmpty, "never another country's number")
+        XCTAssertEqual(CloseOut.make(registry: nil, country: "CH", aerodrome: "LSZQ").rule, L10n.CloseOut.ruleUnknown)
+    }
+
+    /// The country landed in: the diversion's after a diversion, else the route's end; a thread from before 6.5.0
+    /// reads its arrival from its label. The task and the red card call its numbers.
+    func testTheCloseOutFollowsWhereTheFlightLanded() {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGS")
+        thread.arrivalIdent = "LSGS"
+        thread.arrivalCountry = "CH"
+        XCTAssertEqual(FlightThreadManager.closeOut(for: thread, registry: closing).country, "CH")
+        thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSGS", landedIdent: "EDTF", landedName: "Freiburg")
+        let diverted = FlightThreadManager.closeOut(for: thread, registry: closing) { _ in false }
+        XCTAssertEqual(diverted.country, "DE")
+        XCTAssertEqual(diverted.aerodrome, "EDTF")
+        XCTAssertEqual(diverted.aerodromeHasTower, false)
+
+        let old = FlightThread(routeLabel: "LSGS → LSZQ")
+        XCTAssertEqual(FlightThreadManager.closeOut(for: old, registry: closing).aerodrome, "LSZQ")
+        XCTAssertEqual(FlightThreadManager.closeOut(for: old, registry: closing).country, "CH")
+        XCTAssertNil(FlightThreadManager.arrival(inLabel: "Rhine valley"))
+
+        let briefing = ThreadBriefing(registry: closing, language: "en",
+                                      closeOut: CloseOut.make(registry: closing, country: "CH", aerodrome: "LSZQ"))
+        let links = ThreadTaskPresentation.links(for: ThreadTask(key: .flightPlanClosed, kind: .reminder), briefing: briefing)
+        XCTAssertEqual(links.map(\.url.absoluteString), ["tel:+41800437837", "https://apps.apple.com/ch/app/id1496031677"])
+        XCTAssertEqual(links.first?.label, L10n.CloseOut.call("skyguide ARO"))
+        XCTAssertEqual(ThreadTaskPresentation.make(for: ThreadTask(key: .flightPlanClosed, kind: .reminder), briefing: briefing).hint,
+                       briefing.closeOut?.rule)
+    }
+
+    /// A route through a closed country: its row, with the directive; nothing else changes. (q5)
+    func testAProhibitedCountryOnTheRouteIsNamed() {
+        let briefing = ThreadBriefing(registry: registry, countries: ["PL", "BY"])
+        XCTAssertEqual(briefing.prohibited.map(\.country), ["BY"])
+        XCTAssertEqual(briefing.prohibited.first?.directive.name, "EASA SD-2021-02")
+        XCTAssertTrue(ThreadBriefing(registry: registry, countries: ["CH", "FR"]).prohibited.isEmpty)
     }
 
     /// The Settings row has its page's name: the page holds the pilot, the home aerodrome and the cost, not
@@ -387,6 +650,8 @@ final class FlightThreadTests: XCTestCase {
         thread.tripId = UUID()
         thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSZE", landedIdent: "LSZS", landedName: "Samedan")
         thread.homeCountry = "CH"
+        thread.arrivalIdent = "LSZE"
+        thread.arrivalCountry = "CH"
         thread.tasks = [task]
         thread.flightPlanFiledAt = date
         thread.flightPlanClosedAt = date.addingTimeInterval(3600)
@@ -449,11 +714,76 @@ final class FlightThreadTests: XCTestCase {
         let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
         XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
                                       "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
-                                      "landedElsewhere", "homeCountry", "tasks", "flightPlanFiledAt",
+                                      "landedElsewhere", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
+                                      "flightPlanFiledAt",
                                       "flightPlanClosedAt", "createdAt", "updatedAt"])
         let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))
         XCTAssertEqual(taskFields, ["id", "key", "subject", "kind", "state", "completedAt", "note", "detail",
                                     "isUrgent", "acknowledgedLegIds"])
+    }
+
+    /// A device still on an older build reads what a newer one wrote to the shared iCloud datastore. A task key it
+    /// doesn't know made `ThreadTask.init(from:)` throw, the whole thread failed, and a thread that fails is not
+    /// shown at all. Now the task is skipped and the thread stays, for a thread and for a trip's shared tasks. (6.5.0)
+    func testATaskThisBuildCannotReadIsSkippedNotItsThread() throws {
+        var json = try encoded(populatedThread())
+        var tasks = try XCTUnwrap(json["tasks"] as? [[String: Any]])
+        let kept = tasks.count
+        var future = try XCTUnwrap(tasks.first)
+        future["key"] = "prepare.somethingNewer"
+        future["id"] = UUID().uuidString
+        tasks.insert(future, at: 0)
+        json["tasks"] = tasks
+        let thread = try decoded(json)
+        XCTAssertEqual(thread.tasks.count, kept, "every task but the unknown one")
+        XCTAssertEqual(thread.routeLabel, populatedThread().routeLabel)
+
+        let trip = Trip(legIds: [UUID(), UUID()], sharedTasks: [ThreadTask(key: .notamChecked, kind: .check)])
+        var tripJSON = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(trip)) as? [String: Any])
+        var shared = try XCTUnwrap(tripJSON["sharedTasks"] as? [[String: Any]])
+        var newer = try XCTUnwrap(shared.first)
+        newer["key"] = "prepare.somethingNewer"
+        shared.append(newer)
+        tripJSON["sharedTasks"] = shared
+        let read = try JSONDecoder().decode(Trip.self, from: JSONSerialization.data(withJSONObject: tripJSON))
+        XCTAssertEqual(read.sharedTasks.map(\.key), [.notamChecked])
+        XCTAssertEqual(read.legIds, trip.legIds)
+        XCTAssertEqual(try JSONDecoder().decode(Trip.self, from: JSONEncoder().encode(trip)), trip, "a round trip unchanged")
+        let tripFields = Set(Mirror(reflecting: trip).children.compactMap(\.label))
+        XCTAssertEqual(tripFields, ["id", "legIds", "name", "sharedTasks", "createdAt", "updatedAt", "scheduledStart"],
+                       "a new trip field is read in Trip's init(from:) too")
+    }
+
+    /// An aerodrome's country comes from its ICAO code: the boundary polygons put Bressaucourt in Switzerland and
+    /// France, and the route's countries (alphabetical, widened by 10 NM) gave Basel-Mulhouse to Switzerland. (6.5.0)
+    func testAnAerodromesCountryComesFromItsICAOCode() {
+        let expected = ["LSZQ": "CH", "LFSB": "FR", "EDTF": "DE", "ETSN": "DE", "LOWS": "AT", "EGNS": "IM", "EGKA": "GB",
+                        "EKVG": "FO", "EKRK": "DK", "BIRK": "IS", "LEIG": "ES", "GCLP": "ES", "LYPG": "ME", "LYBE": "RS",
+                        "UMMS": "BY", "KPAO": "US", "PANC": "US", "YSSY": "AU", "NZAA": "NZ", "CYUL": "CA"]
+        for (ident, country) in expected {
+            XCTAssertEqual(ICAOCountry.country(of: ident), country, ident)
+        }
+        XCTAssertNil(ICAOCountry.country(of: "JORAT VOR"))
+        XCTAssertNil(ICAOCountry.country(of: "1N7"), "a US location identifier without an ICAO code")
+        XCTAssertNil(ICAOCountry.country(of: nil))
+        XCTAssertEqual(ICAOCountry.country(of: " lfsb "), "FR")
+    }
+
+    @MainActor
+    func testADepartureNearABorderIsInItsOwnCountry() {
+        var plan = FlightPlan(name: "Basel")
+        plan.waypoints = [waypoint("LSZQ", lat: 47.4489, lon: 7.1003), waypoint("LFSB", lat: 47.5896, lon: 7.5299)]
+        XCTAssertEqual(FlightThreadManager.departureCountry(of: plan), "CH")
+        XCTAssertEqual(FlightThreadManager.arrivalCountry(of: plan), "FR")
+        let c = FlightThreadManager.context(for: plan, profile: .full)
+        XCTAssertEqual(c.homeCountry, "CH")
+        XCTAssertEqual(c.departureCountry, "CH")
+        XCTAssertEqual(c.arrivalCountry, "FR")
+        XCTAssertEqual(c.countries.first, "CH", "the departure's country first")
+        XCTAssertTrue(c.countries.contains("FR"))
+        // A waypoint that is no aerodrome falls back to the polygon it lies in.
+        XCTAssertEqual(FlightThreadManager.aerodromeCountry(ident: "JORAT VOR", latitude: 46.58, longitude: 6.71), "CH")
+        XCTAssertEqual(FlightThreadManager.ordered(["CH", "DE", "FR"], departure: "FR", arrival: "IT"), ["FR", "CH", "DE", "IT"])
     }
 
     // MARK: - Context building
@@ -939,8 +1269,9 @@ final class FlightThreadTests: XCTestCase {
         defer { manager.deleteThread(threadId: thread.id) }
 
         XCTAssertFalse(thread.countries?.contains("CH") ?? true, "got \(thread.countries ?? [])")
-        XCTAssertNil(thread.tasks.first { $0.key == .dabsChecked }, "DABS is a Swiss product")
-        XCTAssertNil(thread.tasks.first { $0.key == .gaforChecked }, "GAFOR is a Swiss product")
+        // Since 6.5.0 each country's own airspace activity and forecast, never Switzerland's (no subject).
+        XCTAssertNil(thread.tasks.first { $0.key == .dabsChecked && $0.subject == nil }, "DABS is a Swiss product")
+        XCTAssertNil(thread.tasks.first { $0.key == .gaforChecked && $0.subject == nil }, "GAFOR is a Swiss product")
     }
 
     @MainActor
@@ -960,8 +1291,10 @@ final class FlightThreadTests: XCTestCase {
         let after = manager.thread(withId: thread.id)
         XCTAssertNotNil(after?.tasks.first { $0.key == .flightPlanClosed },
                         "filing should still add the close-out reminder")
-        XCTAssertNil(after?.tasks.first { $0.key == .dabsChecked }, "DABS appeared after filing")
-        XCTAssertNil(after?.tasks.first { $0.key == .gaforChecked }, "GAFOR appeared after filing")
+        XCTAssertNil(after?.tasks.first { $0.key == .dabsChecked && $0.subject == nil }, "DABS appeared after filing")
+        XCTAssertNil(after?.tasks.first { $0.key == .gaforChecked && $0.subject == nil }, "GAFOR appeared after filing")
+        XCTAssertEqual(after?.tasks.filter { $0.key == .dabsChecked }.map(\.subject),
+                       thread.tasks.filter { $0.key == .dabsChecked }.map(\.subject), "the same countries after filing")
         XCTAssertFalse(after?.countries?.contains("CH") ?? true, "got \(after?.countries ?? [])")
     }
 

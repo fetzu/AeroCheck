@@ -431,9 +431,29 @@ struct OpenAIPDownloadSheet: View {
     @Environment(\.dismiss) var dismiss
     /// Which selected countries also get open flightmaps' circuits and VFR routes. (6.2.0)
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
+    // The other layers, for what is still downloading. (6.5.0)
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var openAIPAirportService = OpenAIPAirportDataService.shared
 
     /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.
     var asPage: Bool = false
+
+    /// The layers still downloading, by name, in the order Data & Storage lists them. A layer that is downloading
+    /// ignores a new request, so Download data said nothing while one started during OpenAIP's outage of 23 Oct
+    /// was still retrying (the author's v65-43). The buttons wait for them, and say which. (6.5.0)
+    private var busyLayers: [String] {
+        [(openAIPDataService.isDownloading, L10n.DataStorage.airspaceName),
+         (openAIPNavaidDataService.isDownloading, L10n.DataStorage.navaidsName),
+         (obstacleService.isDownloading, L10n.DataStorage.obstaclesName),
+         (reportingPointService.isDownloading, L10n.DataStorage.reportingPointsName),
+         (openAIPAirportService.isDownloading, L10n.DataStorage.openAIPAirportsName),
+         (vfrProcedureService.isDownloading, L10n.DataStorage.vfrProceduresName),
+         (openAIPCacheManager.isDownloading, L10n.DataStorage.openAIPTilesName)]
+            .filter(\.0).map(\.1)
+    }
+
+    private var canDownload: Bool { !selectedCountries.isEmpty && busyLayers.isEmpty }
 
     @State private var selectedCountries: Set<String> = []
     @State private var showTilesConfirm = false
@@ -584,10 +604,22 @@ struct OpenAIPDownloadSheet: View {
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedCountries.isEmpty ? Color.gray : Color.aviationGold)
+                                    .fill(canDownload ? Color.aviationGold : Color.gray)
                             )
                         }
-                        .disabled(selectedCountries.isEmpty)
+                        .disabled(!canDownload)
+
+                        if !busyLayers.isEmpty {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text(L10n.Settings.stillDownloading(busyLayers.joined(separator: ", ")))
+                                    .scaledFont(size: 13, relativeTo: .footnote)
+                                    .foregroundColor(.secondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
 
                         // Secondary: optionally add the large raster map tiles — confirm first.
                         Button(action: { showTilesConfirm = true }) {
@@ -601,7 +633,7 @@ struct OpenAIPDownloadSheet: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                         }
-                        .disabled(selectedCountries.isEmpty)
+                        .disabled(!canDownload)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -682,57 +714,46 @@ struct OpenAIPDownloadSheet: View {
         // The countries open flightmaps covers get their circuits and VFR routes with the rest; the
         // selection is the union, so a country left out is pruned like the OpenAIP layers'. (6.2.0)
         let ofmService = OFMDataService.shared
+        // A layer whose countries are the selection is updated: every country fetched again. One whose countries
+        // differ takes only what it lacks and drops what was deselected: taking the US off re-fetched Switzerland,
+        // Germany and France for every layer, minutes while OpenAIP's API was slow (the author's v65-42, 23 Oct
+        // 2026). Open flightmaps compares each file's hash already. (6.5.0)
+        let selection = Set(countries)
+        func onlyChanges(_ downloaded: [String]) -> Bool { Set(downloaded) != selection }
+        let airspaceOnly = onlyChanges(openAIPDataService.downloadedCountries)
+        let navaidsOnly = onlyChanges(openAIPNavaidDataService.downloadedCountries)
+        let obstaclesOnly = onlyChanges(obstacleService.downloadedCountries)
+        let pointsOnly = onlyChanges(reportingPointService.downloadedCountries)
+        let airportsOnly = onlyChanges(openAIPAirportService.downloadedCountries)
 
         Task {
-            if tilesAndData {
-                // Download tiles + airspace data + navaids + obstacles in parallel
-                await withTaskGroup(of: Void.self) { group in
+            // Structured data (airspace, navaids, obstacles, reporting points, airports, procedures: small, ~100s KB),
+            // and the raster tiles with them when asked, all in parallel.
+            await withTaskGroup(of: Void.self) { group in
+                if tilesAndData {
                     group.addTask {
                         await openAIPCacheManager.downloadTiles(for: countries)
                     }
-                    group.addTask {
-                        await openAIPDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPNavaidDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await obstacleService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await reportingPointService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPAirportService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await ofmService.downloadData(for: countries)
-                    }
-                    await group.waitForAll()
                 }
-            } else {
-                // Download structured data only (airspace + navaids + obstacles — small, ~100s KB)
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask {
-                        await openAIPDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPNavaidDataService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await obstacleService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await reportingPointService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await openAIPAirportService.downloadData(for: countries)
-                    }
-                    group.addTask {
-                        await ofmService.downloadData(for: countries)
-                    }
-                    await group.waitForAll()
+                group.addTask {
+                    await openAIPDataService.downloadData(for: countries, skippingCached: airspaceOnly)
                 }
+                group.addTask {
+                    await openAIPNavaidDataService.downloadData(for: countries, skippingCached: navaidsOnly)
+                }
+                group.addTask {
+                    await obstacleService.downloadData(for: countries, skippingCached: obstaclesOnly)
+                }
+                group.addTask {
+                    await reportingPointService.downloadData(for: countries, skippingCached: pointsOnly)
+                }
+                group.addTask {
+                    await openAIPAirportService.downloadData(for: countries, skippingCached: airportsOnly)
+                }
+                group.addTask {
+                    await ofmService.downloadData(for: countries)
+                }
+                await group.waitForAll()
             }
         }
     }

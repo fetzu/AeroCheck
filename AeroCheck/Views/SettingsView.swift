@@ -15,6 +15,8 @@ struct SettingsView: View {
     /// The Settings tab: no Done button, and a page requested elsewhere (`pendingSettingsSection`, the
     /// Data chip on Today) opens when the tab shows. (v6.0 · P1)
     var isEmbedded: Bool = false
+    /// The iPad's Settings tab: the ground's tab bar is drawn here, over the two columns. (6.5.0)
+    @Environment(\.ownsGroundTabBar) private var ownsGroundTabBar
 
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
     @State private var selection: Section? = .aircraft
@@ -95,19 +97,23 @@ struct SettingsView: View {
             if horizontalSizeClass == .regular {
                 // iPad: a FIXED two-column layout (sidebar + detail). Replaces NavigationSplitView so
                 // the sidebar can't be collapsed. (v4 UI/UX Revamp — user feedback)
-                HStack(spacing: 0) {
-                    NavigationStack { sidebar(twoColumn: true) }
-                        .frame(width: 340)
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).ignoresSafeArea()
-                    NavigationStack {
-                        detailView(for: selection)
-                            .navigationBarTitleDisplayMode(.inline)
+                VStack(spacing: 0) {
+                    // The ground's tab bar over both columns, where the system's sat. (6.5.0)
+                    if isEmbedded && ownsGroundTabBar { GroundTabBar() }
+                    HStack(spacing: 0) {
+                        NavigationStack { sidebar(twoColumn: true) }
+                            .frame(width: 340)
+                        Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).ignoresSafeArea()
+                        NavigationStack {
+                            detailView(for: selection)
+                                .navigationBarTitleDisplayMode(.inline)
+                        }
+                        // Fresh stack per category so tapping a sidebar item always shows that category's
+                        // content — without this, a pushed sub-page (e.g. OpenAIP Data) stayed on top and the
+                        // user had to tap back first. (settings nav fix)
+                        .id(selection)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    // Fresh stack per category so tapping a sidebar item always shows that category's
-                    // content — without this, a pushed sub-page (e.g. OpenAIP Data) stayed on top and the
-                    // user had to tap back first. (settings nav fix)
-                    .id(selection)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .background(Color.cockpitBackground.ignoresSafeArea())
             } else {

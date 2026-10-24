@@ -23,6 +23,10 @@ enum ThreadTaskEngine {
         var feeIdents: [String] = []
         /// ISO-2 countries the route touches, departure first.
         var countries: [String] = []
+        /// The countries of the departure and the destination aerodromes (`ICAOCountry` first): filing goes by
+        /// the one, closing by the other. Nil without a route. (6.5.0)
+        var departureCountry: String?
+        var arrivalCountry: String?
         /// The pilot's home country — a route that stays inside it needs no customs prompt.
         var homeCountry: String = "CH"
         /// Aerodromes flagged PPR upstream. Empty until the openAIP `ppr` field is parsed; a pilot can
@@ -46,9 +50,19 @@ enum ThreadTaskEngine {
         /// Whether a flight plan has been filed for this thread — the close-out reminder only exists
         /// once there is something to close.
         var flightPlanFiled: Bool = false
+        /// The server's briefing registry: which of the route's countries publish an airspace activity page and an
+        /// area forecast, each its own task. Nil (a trip rebuilt at load), the rule before 6.5.0: Switzerland's
+        /// DABS and GAFOR on a route through it. (6.5.0)
+        var registry: BriefingRegistry?
 
-        /// DABS and GAFOR are Swiss products, so they only appear on a route that touches Switzerland.
+        /// A route that touches Switzerland: the Swiss side of a customs task.
         var touchesSwitzerland: Bool { countries.contains("CH") }
+
+        /// The route's countries whose registry entry has pages for `category`, the departure's first.
+        func countries(publishing category: BriefingRegistry.Category) -> [String] {
+            guard let registry else { return touchesSwitzerland ? ["CH"] : [] }
+            return countries.filter { !(registry.country($0)?.links(category).isEmpty ?? true) }
+        }
 
         /// Countries other than home that the route touches. Drives the customs prompt.
         var foreignCountries: [String] { countries.filter { $0 != homeCountry } }
@@ -123,12 +137,12 @@ enum ThreadTaskEngine {
         specs.append(Spec(key: .aircraftReserved, kind: .check))
 
         // --- PREPARE ---
+        // Weather and NOTAMs one task each, a link per country; airspace activity and the area forecast one task
+        // per country that publishes them (the author's q2, 22 Oct 2026). (6.5.0)
         specs.append(Spec(key: .weatherBriefed, kind: .check, detail: c.weatherSummary))
-        if c.touchesSwitzerland {
-            specs.append(Spec(key: .dabsChecked, kind: .check))
-            specs.append(Spec(key: .gaforChecked, kind: .check))
-        }
         specs.append(Spec(key: .notamChecked, kind: .check))
+        specs += briefingSpecs(c, .airspace, key: .dabsChecked)
+        specs += briefingSpecs(c, .forecast, key: .gaforChecked)
 
         // PPR is per-aerodrome and only appears where the data says it is needed.
         for ident in c.pprIdents.sorted() {
@@ -143,8 +157,8 @@ enum ThreadTaskEngine {
 
         // --- CLOSE ---
         if c.flightPlanFiled {
-            // The one task with a real-world consequence for forgetting it: Zurich RCC alerts 30 min
-            // after the ETA on an unclosed plan.
+            // The one task with a real-world consequence for forgetting it: search and rescue is alerted
+            // after the ETA on an unclosed plan (30 min in Switzerland; each country's rule, `CloseOut`).
             specs.append(Spec(key: .flightPlanClosed, kind: .reminder, isUrgent: true))
         }
         for ident in c.tracksCost ? c.feeIdents.sorted() : [] {
@@ -163,11 +177,18 @@ enum ThreadTaskEngine {
             Spec(key: .aircraftReserved, kind: .check),
             Spec(key: .weatherBriefed, kind: .check, detail: c.weatherSummary)
         ]
-        if c.touchesSwitzerland {
-            specs.append(Spec(key: .dabsChecked, kind: .check))
-        }
+        specs += briefingSpecs(c, .airspace, key: .dabsChecked)
         specs.append(Spec(key: .logbookEntry, kind: .check))
         return specs
+    }
+
+    /// One task per country publishing `category`, on the key it had as a Swiss task: `prepare.dabs` is airspace
+    /// activity, `prepare.gafor` the area forecast. A new key would make a 6.4 build drop the whole thread it
+    /// reads from iCloud. Switzerland's subject stays nil, today's identity, so an older build doesn't add a
+    /// twin of its tick; another country's is its code. (6.5.0)
+    private static func briefingSpecs(_ c: Context, _ category: BriefingRegistry.Category,
+                                      key: ThreadTaskKey) -> [Spec] {
+        c.countries(publishing: category).map { Spec(key: key, subject: ThreadTask.briefingSubject($0), kind: .check) }
     }
 
     // MARK: - Computed details

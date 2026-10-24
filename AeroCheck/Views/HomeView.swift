@@ -182,11 +182,15 @@ struct HomeView: View {
         /// The route on the map belongs to a flight planned for another day (or not dated): starting
         /// would fly THAT flight now. (v6.0 review)
         case otherDayFlight(thread: FlightThread)
+        /// Today's flight crosses a country where flights are prohibited (Belarus): asked first, as its page holds
+        /// START a second (the author's v65-13, 23 Oct 2026). (6.5.0)
+        case prohibited(thread: FlightThread, country: String)
 
         var id: String {
             switch self {
             case .outstanding(let thread, _): return "outstanding-\(thread.id)"
             case .otherDayFlight(let thread): return "other-day-\(thread.id)"
+            case .prohibited(let thread, _): return "prohibited-\(thread.id)"
             }
         }
     }
@@ -289,6 +293,18 @@ struct HomeView: View {
                 }
                 Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
 
+            case .prohibited(let thread, _):
+                Button(L10n.Home.reviewFlightFirst) {
+                    let id = thread.id
+                    startPrompt = nil
+                    threadToOpen = id
+                }
+                Button(L10n.Home.startAnyway, role: .destructive) {
+                    startPrompt = nil
+                    launch(thread)
+                }
+                Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
+
             case .otherDayFlight(let thread):
                 Button(L10n.Home.flyItNow) {
                     startPrompt = nil
@@ -307,6 +323,8 @@ struct HomeView: View {
             switch startPrompt {
             case .outstanding(let thread, let remaining):
                 Text(L10n.Home.outstandingBeforeFlight(thread.displayName, remaining))
+            case .prohibited:
+                Text(L10n.Thread.prohibitedHint)
             case .otherDayFlight(let thread):
                 if let departure = thread.scheduledDeparture {
                     Text(L10n.Home.otherDayMessage(
@@ -491,6 +509,7 @@ struct HomeView: View {
         switch startPrompt {
         case .outstanding: return L10n.Home.outstandingTitle
         case .otherDayFlight: return L10n.Home.otherDayTitle
+        case .prohibited(_, let country): return L10n.Thread.prohibitedTitle(OpenAIPConfig.countryName(for: country))
         case nil: return ""
         }
     }
@@ -671,7 +690,7 @@ struct HomeView: View {
     /// Today's flight: how ready it is and what is left. The whole card opens it; START is the button
     /// below, in the same place whether or not a flight is planned.
     private func flightHeroCard(_ thread: FlightThread, isCompact: Bool) -> some View {
-        let progress = thread.preFlightProgress
+        let progress = thread.preFlightProgress(sharing: sharedTasks(of: thread))
         let remaining = progress.total - progress.done
         let inFlight = thread.state == .flying
         let accent: Color = inFlight ? .altimeterBlue : .aviationGold
@@ -741,8 +760,14 @@ struct HomeView: View {
         return "\(L10n.Home.today.uppercased()) \(departure.formatted(date: .omitted, time: .shortened))"
     }
 
+    /// A leg's trip tasks as the leg sees them, counted with its own: "Ready to fly" with the trip's weather open was the
+    /// flight page's "Everything done" (the author's device check, 23 Oct 2026). (6.5.0)
+    private func sharedTasks(of thread: FlightThread) -> [ThreadTask] {
+        Trip.sharedTasks(for: thread, in: threadManager.trips)
+    }
+
     private func heroDetail(_ thread: FlightThread, remaining: Int) -> String {
-        if let next = thread.nextTask {
+        if let next = thread.nextTask(sharing: sharedTasks(of: thread)) {
             let title = ThreadTaskPresentation.make(for: next).title
             return remaining > 1
                 ? L10n.Home.nextAndRemaining(title, remaining)
@@ -1146,7 +1171,7 @@ struct HomeView: View {
         // Home red for it teaches the pilot to ignore the colour that matters after landing.
         let urgent = thread.hasOpenFlightPlan && isCloseOut
         let accent: Color = urgent ? .aviationRed : (isCloseOut ? .aviationAmber : .aviationGold)
-        let progress = isCloseOut ? thread.closeOutProgress : thread.preFlightProgress
+        let progress = isCloseOut ? thread.closeOutProgress : thread.preFlightProgress(sharing: sharedTasks(of: thread))
 
         return Button { threadToOpen = thread.id } label: {
             HStack(spacing: 10) {
@@ -1264,9 +1289,10 @@ struct HomeView: View {
 
     /// Longest-first detail candidates: the next task if there is one, else the readiness count.
     private func threadDetail(_ thread: FlightThread) -> [String] {
-        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress
+        let shared = sharedTasks(of: thread)
+        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress(sharing: shared)
         let count = L10n.Thread.readiness(progress.done, progress.total)
-        guard let next = thread.nextTask else { return [L10n.Thread.allDone] }
+        guard let next = thread.nextTask(sharing: shared) else { return [L10n.Thread.allDone] }
         let title = ThreadTaskPresentation.make(for: next).title
         return ["\(L10n.Thread.nextUp): \(title)", title, count]
     }
@@ -1454,7 +1480,13 @@ struct HomeView: View {
         // one left in FLY, which is a session the pilot abandoned and is coming back to. Asking
         // about tomorrow's plan while today's flight sits half-flown was the confusing case.
         if let followed = threadManager.startableFlightToday {
-            let remaining = followed.preFlightProgress.total - followed.preFlightProgress.done
+            let briefing = ThreadBriefing(registry: BriefingRegistryService.shared.registry, countries: followed.countries ?? [])
+            if let country = briefing.prohibited.first?.country {
+                startPrompt = .prohibited(thread: followed, country: country)
+                return
+            }
+            let progress = followed.preFlightProgress(sharing: sharedTasks(of: followed))
+            let remaining = progress.total - progress.done
             if remaining > 0 {
                 startPrompt = .outstanding(thread: followed, remaining: remaining)
                 return

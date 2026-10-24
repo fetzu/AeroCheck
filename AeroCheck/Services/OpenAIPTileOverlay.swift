@@ -17,8 +17,6 @@ class OpenAIPTileOverlay: MKTileOverlay, ChartTileSource {
     /// The session network tiles come over; a stub in tests.
     var tileSession = ExternalRequest.session
 
-    private let subdomains = OpenAIPConfig.tileSubdomains
-
     /// Largest tile edge accepted from the origin. Standard tiles are 256; @2x/@3x variants reach
     /// 768. 2048 leaves generous headroom while making an OOM impossible. (SEC-C34)
     private static let maxTileDimension = ChartTileLoader.maxTileDimension
@@ -43,7 +41,7 @@ class OpenAIPTileOverlay: MKTileOverlay, ChartTileSource {
         // Placeholder URL template — `spec(for:)` says where each tile comes from. It carries NO api key (SA-11):
         // the key goes in the x-openaip-api-key header of the request, so it can never leak into a URLCache entry, a
         // proxy log, or OpenAIP's access logs.
-        let urlTemplate = "https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png"
+        let urlTemplate = "https://\(OpenAIPConfig.tileHost)/api/data/openaip/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
         self.minimumZ = OpenAIPConfig.tileMinZoom
@@ -55,13 +53,11 @@ class OpenAIPTileOverlay: MKTileOverlay, ChartTileSource {
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        // Rotate subdomains for load balancing
-        let subdomain = subdomains[abs(path.x + path.y) % subdomains.count]
-        return OpenAIPConfig.tileURL(subdomain: subdomain, z: path.z, x: path.x, y: path.y)
+        OpenAIPConfig.tileURL(z: path.z, x: path.x, y: path.y)
             ?? URL(string: "about:blank")!
     }
 
-    /// The downloaded copy first, then the network unless offline, with subdomain rotation and the key in a header
+    /// The downloaded copy first, then the network unless offline, from OpenAIP's one tile host with the key in a header
     /// (SA-11); every tile's fills stripped (`strippingFills`). Drawn by `ChartTileRenderer`, which keeps the stripped
     /// image: until 6.4.2 MapKit's renderer dropped some of them, as it did the charts', and a failed tile was a
     /// transparent one never asked again (the map tile review, F8).
@@ -70,8 +66,7 @@ class OpenAIPTileOverlay: MKTileOverlay, ChartTileSource {
                                  disk: OpenAIPCacheManager.tileFileURL(z: tile.z, x: tile.x, y: tile.y))
         spec.process = { Self.strippingFills(of: $0) }
         guard !isStrictOfflineMode else { return spec }
-        let subdomain = subdomains[abs(tile.x + tile.y) % subdomains.count]
-        guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: tile.z, x: tile.x, y: tile.y) else {
+        guard let request = OpenAIPConfig.tileRequest(z: tile.z, x: tile.x, y: tile.y) else {
             return spec
         }
         let session = tileSession

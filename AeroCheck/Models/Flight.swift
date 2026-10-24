@@ -1377,12 +1377,13 @@ extension Flight {
 
         var errorDescription: String? {
             switch self {
+            // In the app's language since 6.5.0: a pilot reads these. (q8)
             case .invalidJSON(let underlying):
-                return "Invalid JSON format: \(underlying.localizedDescription)"
+                return L10n.DataErrors.invalidJSON(underlying.localizedDescription)
             case .invalidGPX:
-                return "Invalid GPX format"
+                return L10n.DataErrors.invalidGPX
             case .invalidCoordinates:
-                return "Import contains invalid coordinates (out of range or not a number)"
+                return L10n.DataErrors.invalidCoordinates
             }
         }
     }

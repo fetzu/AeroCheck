@@ -356,6 +356,73 @@ extension TripTests {
         XCTAssertEqual(stored?.acknowledgedLegIds, [b.id])
     }
 
+    /// A leg is ready when everything before its flight is, the trip's preparation included: its own tasks all done and
+    /// the trip's weather open read "7 of 7, Everything done" (the author's device check, 23 Oct 2026). (6.5.0)
+    @MainActor
+    func testALegIsReadyOnlyWithItsTripsPreparation() throws {
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: plan("LSZR", "LOWI"))
+        let b = m.createThread(from: plan("LOWI", "LSZR"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+        let index = try XCTUnwrap(m.threads.firstIndex { $0.id == a.id })
+        for i in m.threads[index].tasks.indices where m.threads[index].tasks[i].chapter != .close {
+            m.threads[index].tasks[i].state = .done
+        }
+        let own = try XCTUnwrap(m.threads[index].tasks.first { $0.kind != .auto && $0.chapter != .close })
+        m.setTaskState(.done, taskId: own.id, threadId: a.id)
+        var leg = try XCTUnwrap(m.thread(withId: a.id))
+        XCTAssertNil(leg.nextTask, "its own tasks are done")
+        XCTAssertEqual(leg.state, .planned, "but not the trip's")
+        var shared = Trip.sharedTasks(for: leg, in: m.trips)
+        XCTAssertFalse(shared.isEmpty)
+        let progress = leg.preFlightProgress(sharing: shared)
+        XCTAssertLessThan(progress.done, progress.total)
+        XCTAssertNotNil(leg.nextTask(sharing: shared), "NEXT goes on to the trip's")
+
+        for task in shared where !task.key.isWeatherBlock {
+            m.setSharedTaskState(.done, taskId: task.id, tripId: trip.id, fromLegId: a.id)
+        }
+        leg = try XCTUnwrap(m.thread(withId: a.id))
+        shared = Trip.sharedTasks(for: leg, in: m.trips)
+        XCTAssertEqual(leg.state, .planned)
+        XCTAssertEqual(leg.nextTask(sharing: shared)?.key.isWeatherBlock, true, "the weather is what is left")
+
+        m.setWeatherState(.done, threadId: a.id)
+        leg = try XCTUnwrap(m.thread(withId: a.id))
+        XCTAssertEqual(leg.state, .ready, "everything means everything")
+        XCTAssertNil(leg.nextTask(sharing: Trip.sharedTasks(for: leg, in: m.trips)))
+        var alone = try XCTUnwrap(m.thread(withId: b.id))
+        alone.tripId = nil
+        XCTAssertTrue(Trip.sharedTasks(for: alone, in: m.trips).isEmpty, "a flight on its own shares nothing")
+    }
+
+    /// The weather block on a leg ticks the trip's briefing, the weather and every area forecast, from that leg. (6.5.0)
+    @MainActor
+    func testTheWeatherBlockOnALegTicksTheTripsBriefing() throws {
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+        let index = try XCTUnwrap(m.trips.firstIndex { $0.id == trip.id })
+        var france = ThreadTask(key: .gaforChecked, kind: .check)
+        france.subject = "FR"
+        m.trips[index].sharedTasks.append(france)
+
+        m.setWeatherState(.done, threadId: b.id)
+        let shared = m.trip(withId: trip.id)?.sharedTasks ?? []
+        let weather = shared.filter { $0.key.isWeatherBlock }
+        XCTAssertGreaterThanOrEqual(weather.count, 2)
+        XCTAssertTrue(weather.allSatisfy { $0.state == .done && $0.acknowledgedLegIds == [b.id] })
+        XCTAssertEqual(shared.first { $0.key == .notamChecked }?.state, .pending)
+        XCTAssertTrue(m.thread(withId: b.id)?.tasks.contains { $0.key.isWeatherBlock } == false, "the leg has none of its own")
+
+        m.setWeatherState(.pending, threadId: b.id)
+        XCTAssertTrue(m.trip(withId: trip.id)?.sharedTasks.filter { $0.key.isWeatherBlock }
+            .allSatisfy { $0.state == .pending && $0.acknowledgedLegIds.isEmpty } ?? false)
+    }
+
     @MainActor
     func testUntickingRetractsTheAcknowledgementEverywhere() {
         let m = makeTestThreadManager()

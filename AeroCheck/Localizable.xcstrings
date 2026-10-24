@@ -1,18 +1,18 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "%@: time to check the weather, DABS and any PPR.": {
+    "%@: time to check the weather, the airspace activity and any PPR.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: Zeit, Wetter, DABS und allfällige PPR zu prüfen."
+            "value": "%@: Zeit, Wetter, Luftraumstatus und allfällige PPR zu prüfen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : il est temps de vérifier la météo, le DABS et les éventuels PPR."
+            "value": "%@ : il est temps de vérifier la météo, l'activité de l'espace aérien et les éventuels PPR."
           }
         }
       }
@@ -575,6 +575,64 @@
         }
       }
     },
+    "No SIGMET along the route · %lld received": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kein SIGMET entlang der Route · %lld empfangen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kein SIGMET entlang der Route · %lld empfangen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No SIGMET along the route · %lld received"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No SIGMET along the route · %lld received"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aucun SIGMET le long de la route · %lld reçu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Aucun SIGMET le long de la route · %lld reçus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "No envelope entered: mass and CG only": {
       "localizations": {
         "de": {
@@ -751,22 +809,6 @@
         }
       }
     },
-    "Route forecast (opens MeteoSwiss)": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Streckenprognose (öffnet MeteoSchweiz)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prévision de route (ouvre MétéoSuisse)"
-          }
-        }
-      }
-    },
     "Some stations have no mass, so this is not a valid check": {
       "localizations": {
         "de": {
@@ -923,22 +965,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Utilisé pour la colonne PIC et pour le nom du titulaire sur le PDF du carnet."
-          }
-        }
-      }
-    },
-    "Your ATC flight plan for %@ is not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ihr ATC-Flugplan für %@ ist nicht als geschlossen markiert. Hat der Tower ihn nicht für Sie geschlossen, wird das RCC Zürich 30 min nach Ihrer ETA alarmiert."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre plan de vol ATC pour %@ n'est pas marqué comme clôturé. Si la tour ne l'a pas clôturé pour vous, le RCC de Zurich est alerté 30 min après votre ETA."
           }
         }
       }
@@ -4324,6 +4350,213 @@
         }
       }
     },
+    "briefing.checkChartSupplement": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfen Sie das Chart Supplement."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the Chart Supplement."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez le Chart Supplement."
+          }
+        }
+      }
+    },
+    "briefing.pattern.left": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linksplatzrunde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left traffic"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tour de piste à gauche"
+          }
+        }
+      }
+    },
+    "briefing.pattern.right": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechtsplatzrunde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right traffic"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tour de piste à droite"
+          }
+        }
+      }
+    },
+    "briefing.tpa.agl": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ft AGL"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ft AGL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ft AGL"
+          }
+        }
+      }
+    },
+    "briefing.tpa.asWritten": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(FAA NASR, im Wortlaut)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(FAA NASR, as written)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(FAA NASR, tel quel)"
+          }
+        }
+      }
+    },
+    "briefing.tpa.recommended": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ft AGL empfohlen (AIM)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ft AGL recommended (AIM)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ft AGL recommandés (AIM)"
+          }
+        }
+      }
+    },
+    "briefing.tpa.seeRemark": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siehe Bemerkung der FAA"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See the FAA's remark"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir la remarque de la FAA"
+          }
+        }
+      }
+    },
+    "briefing.tpa.value": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ft (%2$lld ft AGL)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ft (%2$lld ft AGL)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ft (%2$lld ft AGL)"
+          }
+        }
+      }
+    },
+    "briefing.trafficPattern": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traffic pattern"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tour de piste"
+          }
+        }
+      }
+    },
     "circuits.skippedInCircuits": {
       "extractionState": "manual",
       "localizations": {
@@ -4527,6 +4760,259 @@
           "stringUnit": {
             "state": "translated",
             "value": "tour %lld : %@"
+          }
+        }
+      }
+    },
+    "closeOut.ats.atsu": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf einem Flugplatz mit ATSU schliesst die ATSU ihn."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At an aerodrome with an ATSU, the ATSU closes it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur un aérodrome doté d'un ATSU, l'ATSU le clôture."
+          }
+        }
+      }
+    },
+    "closeOut.ats.controlled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur ein kontrollierter Flugplatz schliesst ihn für Sie."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only a controlled aerodrome closes it for you."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seul un aérodrome contrôlé le clôture pour vous."
+          }
+        }
+      }
+    },
+    "closeOut.ats.notControlled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist keiner: Schliessen Sie ihn selbst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is not one: close it yourself."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n'en est pas un : clôturez-le vous-même."
+          }
+        }
+      }
+    },
+    "closeOut.ats.report": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melden Sie Ihre Ankunft auch auf einem Flugplatz mit ATS."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report your arrival even at an aerodrome with ATS."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signalez votre arrivée même sur un aérodrome doté d'un organisme ATS."
+          }
+        }
+      }
+    },
+    "closeOut.ats.sera": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Flugplatz mit ATS, der Ihre Landung beobachtet hat, schliesst ihn: nichts zu tun."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An aerodrome with ATS that saw you land closes it: nothing to do."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un aérodrome doté d'un organisme ATS qui vous a vu atterrir le clôture : rien à faire."
+          }
+        }
+      }
+    },
+    "closeOut.call": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ anrufen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appeler %@"
+          }
+        }
+      }
+    },
+    "closeOut.rule.alert": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Ist er noch offen, werden die Rettungsdienste %2$lld min nach Ihrer ETA alarmiert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: if it is still open, search and rescue starts %2$lld min after your ETA."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : s'il est encore ouvert, les secours sont alertés %2$lld min après votre ETA."
+          }
+        }
+      }
+    },
+    "closeOut.rule.noDelay": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: Melden Sie Ihre Ankunft. Es ist keine Frist veröffentlicht; bleibt er offen, können die Rettungsdienste alarmiert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: report your arrival. No delay is published; if it stays open, search and rescue may be started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : signalez votre arrivée. Aucun délai n'est publié ; s'il reste ouvert, les secours peuvent être alertés."
+          }
+        }
+      }
+    },
+    "closeOut.rule.report": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Melden Sie Ihre Ankunft innerhalb von %2$lld min nach der Landung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: report your arrival within %2$lld min of landing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : signalez votre arrivée dans les %2$lld min suivant l'atterrissage."
+          }
+        }
+      }
+    },
+    "closeOut.rule.reportTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Melden Sie Ihre Ankunft bei %2$@. Es ist keine Frist veröffentlicht; bleibt er offen, können die Rettungsdienste alarmiert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: report your arrival to %2$@. No delay is published; if it stays open, search and rescue may be started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : signalez votre arrivée à %2$@. Aucun délai n'est publié ; s'il reste ouvert, les secours peuvent être alertés."
+          }
+        }
+      }
+    },
+    "closeOut.rule.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schliessen Sie ihn bei der ATS-Stelle des Flugplatzes oder der nächstgelegenen. Bleibt er offen, können die Rettungsdienste alarmiert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close it with the aerodrome's ATS unit, or the nearest one. If it stays open, search and rescue may be started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôturez-le auprès de l'organisme ATS de l'aérodrome, ou du plus proche. S'il reste ouvert, les secours peuvent être alertés."
           }
         }
       }
@@ -9183,7 +9669,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App hat das Durchstarten erkannt und automatisch aufgezeichnet: Die Kontrollen sind zur Steigflugkontrolle zurückgekehrt. War es keines, nimmt WIDERRUFEN es während einiger Sekunden zurück. Nach einem echten Flug bestätigen Sie es in der Flugauswertung."
+            "value": "Die App hat das Durchstarten erkannt und automatisch aufgezeichnet: Die Kontrollen sind zur Steigflugkontrolle zurückgekehrt. War es keines, nimmt STORNO es während einiger Sekunden zurück. Nach einem echten Flug bestätigen Sie es in der Flugauswertung."
           }
         },
         "en": {
@@ -9436,7 +9922,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NÄCHSTE ist umrandet: Es ist Zeit, dorthin zu wechseln, und die Linie an seinem Fuss läuft bis zu der Stelle ab, an der die App von selbst wechselt. Wenn Sie die Frequenz wechseln, tippen Sie auf NÄCHSTE (auf dem iPhone auf die AKT.-Zeile), und daraus wird AKT. Mit WIDERRUFEN nehmen Sie das zurück."
+            "value": "NÄCHSTE ist umrandet: Es ist Zeit, dorthin zu wechseln, und die Linie an seinem Fuss läuft bis zu der Stelle ab, an der die App von selbst wechselt. Wenn Sie die Frequenz wechseln, tippen Sie auf NÄCHSTE (auf dem iPhone auf die AKT.-Zeile), und daraus wird AKT. Mit STORNO nehmen Sie das zurück."
           }
         },
         "en": {
@@ -9574,19 +10060,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website. Tippen Sie auf «NOTAM-Briefing öffnen»: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
+            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website, mit einem Hinweis unter dem Namen, wenn es ein Konto braucht oder etwas kostet. Tippen Sie auf die markierte: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gold buttons stay in the app; blue ones open a website. Tap Open NOTAM briefing: in a dry run, the app only tells you where it would go."
+            "value": "Gold buttons stay in the app; blue ones open a website, with a word under the name when it needs an account or costs money. Tap the ringed one: in a dry run, the app only tells you where it would go."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site. Touchez Ouvrir le briefing NOTAM : en vol à blanc, l'app indique seulement où il mènerait."
+            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site, avec un mot sous le nom s'il faut un compte ou s'il est payant. Touchez celui qui est entouré : en vol à blanc, l'app indique seulement où il mènerait."
           }
         }
       }
@@ -10517,7 +11003,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App hat den Überflug dieses Kontrollpunkts erkannt, die Überflugzeit auf ROUTE erfasst und ist automatisch zur nächsten Teilstrecke gewechselt. War das zu früh, nimmt WIDERRUFEN es hier zurück."
+            "value": "Die App hat den Überflug dieses Kontrollpunkts erkannt, die Überflugzeit auf ROUTE erfasst und ist automatisch zur nächsten Teilstrecke gewechselt. War das zu früh, nimmt STORNO es hier zurück."
           }
         },
         "en": {
@@ -11454,6 +11940,236 @@
         }
       }
     },
+    "error.download.checksum": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei stimmt nicht mit ihrem Index überein (SHA-256)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file doesn't match its index (SHA-256)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier ne correspond pas à son index (SHA-256)"
+          }
+        }
+      }
+    },
+    "error.download.hostNotAllowed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Adresse ist keine zugelassene Quelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The address is not an allowed source"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'adresse n'est pas une source autorisée"
+          }
+        }
+      }
+    },
+    "error.download.http": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server antwortete mit HTTP %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server answered HTTP %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur a répondu HTTP %lld"
+          }
+        }
+      }
+    },
+    "error.download.invalidURL": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültige Download-Adresse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid download address"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse de téléchargement invalide"
+          }
+        }
+      }
+    },
+    "error.download.tooLarge": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei zu gross (%lld Bytes)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File too large (%lld bytes)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier trop volumineux (%lld octets)"
+          }
+        }
+      }
+    },
+    "error.download.unreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die heruntergeladenen Daten konnten nicht gelesen werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded data could not be read"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données téléchargées sont illisibles"
+          }
+        }
+      }
+    },
+    "error.download.wrongCountry": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei gilt für %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file is for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier concerne %@"
+          }
+        }
+      }
+    },
+    "error.import.coordinates": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Import enthält ungültige Koordinaten (ausserhalb des Bereichs oder keine Zahl)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import contains invalid coordinates (out of range or not a number)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'import contient des coordonnées invalides (hors limites ou non numériques)"
+          }
+        }
+      }
+    },
+    "error.import.gpx": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültiges GPX-Format"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid GPX format"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format GPX invalide"
+          }
+        }
+      }
+    },
+    "error.import.json": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültiges JSON-Format: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid JSON format: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format JSON invalide : %@"
+          }
+        }
+      }
+    },
     "flightDetail.touchAndGo": {
       "extractionState": "manual",
       "localizations": {
@@ -11542,6 +12258,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Escale"
+          }
+        }
+      }
+    },
+    "mapLayer.switzerlandOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: nur Schweiz. Hier %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: Switzerland only. Here, %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : Suisse seulement. Ici, %2$@."
           }
         }
       }
@@ -12106,6 +12845,443 @@
         }
       }
     },
+    "prepareWeather.above": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(oben)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(above)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(ci-dessus)"
+          }
+        }
+      }
+    },
+    "prepareWeather.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Wetter konnte nicht abgerufen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The weather could not be fetched. Check the connection, then try again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo n'a pas pu être récupérée. Vérifiez la connexion, puis réessayez."
+          }
+        }
+      }
+    },
+    "prepareWeather.loading": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "METAR, TAF und SIGMET werden abgerufen…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetching METAR, TAF and SIGMET…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupération des METAR, TAF et SIGMET…"
+          }
+        }
+      }
+    },
+    "prepareWeather.noMetar": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein METAR"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No METAR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de METAR"
+          }
+        }
+      }
+    },
+    "prepareWeather.noMetarOrTaf": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein METAR und kein TAF · nächstgelegen %1$@, %2$lld NM"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No METAR or TAF · nearest %1$@, %2$lld NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ni METAR ni TAF · le plus proche : %1$@, %2$lld NM"
+          }
+        }
+      }
+    },
+    "prepareWeather.noSigmetReceived": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine SIGMET-Daten empfangen: Prüfen Sie das offizielle Briefing"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No SIGMET data received: check the official briefing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune donnée SIGMET reçue : consultez le briefing officiel"
+          }
+        }
+      }
+    },
+    "prepareWeather.noTaf": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein TAF · nächstgelegen %1$@, %2$lld NM"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No TAF · nearest %1$@, %2$lld NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de TAF · le plus proche : %1$@, %2$lld NM"
+          }
+        }
+      }
+    },
+    "prepareWeather.noTafWithin": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein TAF im Umkreis von 60 NM"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No TAF within 60 NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de TAF à moins de 60 NM"
+          }
+        }
+      }
+    },
+    "prepareWeather.nothingWithin": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein METAR und kein TAF im Umkreis von 60 NM"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No METAR or TAF within 60 NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ni METAR ni TAF à moins de 60 NM"
+          }
+        }
+      }
+    },
+    "prepareWeather.refresh": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wetter aktualisieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh the weather"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser la météo"
+          }
+        }
+      }
+    },
+    "prepareWeather.refreshFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierung nicht möglich: Dies sind die Meldungen von %@. Prüfen Sie die Verbindung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not refresh: these are the reports of %@. Check the connection."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualisation impossible : voici les observations de %@. Vérifiez la connexion."
+          }
+        }
+      }
+    },
+    "prepareWeather.role.alternate": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausweichflugplatz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alternate"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dégagement"
+          }
+        }
+      }
+    },
+    "prepareWeather.role.departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abflug"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ"
+          }
+        }
+      }
+    },
+    "prepareWeather.role.destination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination"
+          }
+        }
+      }
+    },
+    "prepareWeather.role.nearest": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächstgelegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nearest"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus proche"
+          }
+        }
+      }
+    },
+    "prepareWeather.sigmetFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die SIGMET konnten nicht abgerufen werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The SIGMETs could not be fetched"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les SIGMET n'ont pas pu être récupérés"
+          }
+        }
+      }
+    },
+    "prepareWeather.sigmetsAlongRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET entlang der Route"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET along the route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET le long de la route"
+          }
+        }
+      }
+    },
+    "prepareWeather.source": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "METAR, TAF, SIGMET · NOAA Aviation Weather Center"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "METAR, TAF, SIGMET · NOAA Aviation Weather Center"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "METAR, TAF, SIGMET · NOAA Aviation Weather Center"
+          }
+        }
+      }
+    },
+    "prepareWeather.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wetter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Météo"
+          }
+        }
+      }
+    },
     "read.a11y.bearing": {
       "extractionState": "manual",
       "localizations": {
@@ -12382,6 +13558,98 @@
         }
       }
     },
+    "settings.openAIP.stillDownloading": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird noch heruntergeladen: %@. Danach können Sie erneut laden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still downloading: %@. Download data again once it is done."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement en cours : %@. Vous pourrez relancer une fois terminé."
+          }
+        }
+      }
+    },
+    "settings.source.briefing": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wetter-, NOTAM-, Luftraum-, Flugplan- und Abschlussseiten · die offiziellen Herausgeber jedes Landes, auf jedem Link genannt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather, NOTAM, airspace, filing and closing pages · each country's own publishers, named on each link"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages météo, NOTAM, espace aérien, dépôt et clôture · les éditeurs officiels de chaque pays, nommés sur chaque lien"
+          }
+        }
+      }
+    },
+    "settings.source.briefingName": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefing-Links"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefing links"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liens de briefing"
+          }
+        }
+      }
+    },
+    "settings.source.patterns": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunden in den USA · FAA, gemeinfrei"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "US traffic patterns · FAA, public domain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste aux États-Unis · FAA, domaine public"
+          }
+        }
+      }
+    },
     "swisstopo has released a new version of the ICAO Aeronautical Chart. The chart is updated every year in April. Update your saved chart to keep your navigation data accurate.": {
       "localizations": {
         "de": {
@@ -12394,6 +13662,213 @@
           "stringUnit": {
             "state": "translated",
             "value": "swisstopo a publié une nouvelle version de la carte aéronautique OACI. La carte est mise à jour chaque année en avril. Mettez à jour votre carte enregistrée pour garder des données de navigation exactes."
+          }
+        }
+      }
+    },
+    "thread.access.account": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratiskonto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "free account"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "compte gratuit"
+          }
+        }
+      }
+    },
+    "thread.access.paid": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kostenpflichtig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "paid"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "payant"
+          }
+        }
+      }
+    },
+    "thread.access.restricted": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nur Berechtigte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "authorised users"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "utilisateurs autorisés"
+          }
+        }
+      }
+    },
+    "thread.activation": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat keine ATS: Aktivieren Sie den Flugplan nach dem Start selbst, per Funk oder Telefon."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ has no ATS: activate the plan yourself after take-off, by radio or phone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ n'a pas d'ATS : activez le plan vous-même après le décollage, par radio ou par téléphone."
+          }
+        }
+      }
+    },
+    "thread.byDay.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das %1$@ für %2$@ erscheint am %3$@ um %4$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The %1$@ for %2$@ comes out on %3$@ at %4$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La %1$@ du %2$@ paraît le %3$@ à %4$@."
+          }
+        }
+      }
+    },
+    "thread.byDay.laterToday": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das %1$@ für morgen erscheint heute um %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow's %1$@ comes out today at %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La %1$@ de demain paraît aujourd'hui à %2$@."
+          }
+        }
+      }
+    },
+    "thread.byDay.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ für heute."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ for today."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ du jour."
+          }
+        }
+      }
+    },
+    "thread.byDay.tomorrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ für morgen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ for tomorrow."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de demain."
+          }
+        }
+      }
+    },
+    "thread.closeFlightPlan.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr ATC-Flugplan für %1$@ ist nicht als geschlossen markiert. %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your ATC flight plan for %1$@ is not marked closed. %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre plan de vol ATC pour %1$@ n'est pas marqué comme clôturé. %2$@"
           }
         }
       }
@@ -12440,6 +13915,397 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce qui s'est bien passé, ce qu'il faut changer. Cela devient les notes du vol dans le carnet."
+          }
+        }
+      }
+    },
+    "thread.hint.flightPlanFiled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren Sie den ATC-Flugplan und geben Sie ihn im Abflugland auf"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy the ATC flight plan, then file it in the departure's country"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le plan de vol ATC, puis le déposer dans le pays de départ"
+          }
+        }
+      }
+    },
+    "thread.link.forecast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebietsvorhersage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Area forecast"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévision de zone"
+          }
+        }
+      }
+    },
+    "thread.link.general": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "allgemeine Seite"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "general page"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "page générale"
+          }
+        }
+      }
+    },
+    "thread.link.weather": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wetter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Météo"
+          }
+        }
+      }
+    },
+    "thread.prohibited.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flüge in diesem Luftraum sind verboten. Ändern Sie die Route."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Operations in this airspace are prohibited. Change the route."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les opérations dans cet espace aérien sont interdites. Modifiez la route."
+          }
+        }
+      }
+    },
+    "thread.prohibited.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: Flüge verboten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: flights prohibited"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : vols interdits"
+          }
+        }
+      }
+    },
+    "thread.task.airspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumstatus %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace activity %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activité de l'espace aérien %@"
+          }
+        }
+      }
+    },
+    "thread.task.forecast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebietsvorhersage %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Area forecast %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévision de zone %@"
+          }
+        }
+      }
+    },
+    "thread.weather.below": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unten: die Meldungen und das offizielle Briefing."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Below: the reports and the official briefing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ci-dessous : les observations et le briefing officiel."
+          }
+        }
+      }
+    },
+    "thread.weather.briefOfficially": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offizielles Briefing"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brief officially"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefing officiel"
+          }
+        }
+      }
+    },
+    "thread.weather.briefedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefed at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultée à %@"
+          }
+        }
+      }
+    },
+    "thread.weather.notTicked": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht abgehakt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not ticked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas cochée"
+          }
+        }
+      }
+    },
+    "vfrMap.pattern.altitude": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TPA %lld ft"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TPA %lld ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TPA %lld ft"
+          }
+        }
+      }
+    },
+    "vfrMap.pattern.left": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LINKS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LEFT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GAUCHE"
+          }
+        }
+      }
+    },
+    "vfrMap.pattern.leftTraffic": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linksplatzrunde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "left-hand traffic"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tour de piste à gauche"
+          }
+        }
+      }
+    },
+    "vfrMap.pattern.right": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RECHTS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RIGHT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DROITE"
+          }
+        }
+      }
+    },
+    "vfrMap.pattern.rightTraffic": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechtsplatzrunde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "right-hand traffic"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tour de piste à droite"
           }
         }
       }
@@ -14208,7 +16074,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "überfällig · vor dem Horizontalflug nicht erledigt"
+            "value": "überfällig · vor dem Reiseflug nicht erledigt"
           }
         },
         "en": {
@@ -21713,7 +23579,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "SWISSIMAGE Luftbild"
+            "value": "SWISSIMAGE"
           }
         },
         "en": {
@@ -21736,7 +23602,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Satellit"
+            "value": "Apple Karten (Satellit)"
           }
         },
         "en": {
@@ -21759,7 +23625,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standardkarte"
+            "value": "Apple Karten"
           }
         },
         "en": {
@@ -22773,19 +24639,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Melden Sie dem FIC Zürich, dass Sie in %1$@ gelandet sind, nicht in %2$@."
+            "value": "Melden Sie, dass Sie in %1$@ gelandet sind, nicht in %2$@."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tell Zurich FIC you landed at %1$@, not %2$@."
+            "value": "Say you landed at %1$@, not %2$@."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Annoncez au FIC de Zurich votre atterrissage à %1$@ et non à %2$@."
+            "value": "Précisez que vous avez atterri à %1$@ et non à %2$@."
           }
         }
       }
@@ -27057,38 +28923,6 @@
         }
       }
     },
-    "DABS checked" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DABS geprüft"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DABS consulté"
-          }
-        }
-      }
-    },
-    "GAFOR checked" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GAFOR geprüft"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GAFOR consulté"
-          }
-        }
-      }
-    },
     "NOTAMs checked" : {
       "localizations" : {
         "de" : {
@@ -27687,54 +29521,6 @@
         }
       }
     },
-    "Daily Airspace Bulletin Switzerland" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Daily Airspace Bulletin Switzerland"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Daily Airspace Bulletin Switzerland"
-          }
-        }
-      }
-    },
-    "Copy the ICAO plan, then file it on skybriefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kopieren Sie den ATC-Flugplan und geben Sie ihn auf skybriefing auf"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copier le plan OACI, puis le déposer sur skybriefing"
-          }
-        }
-      }
-    },
-    "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wurde er bei der Ankunft nicht geschlossen, wird das RCC Zürich 30 min nach Ihrer ETA alarmiert"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "S'il n'a pas été clôturé à l'arrivée, le RCC de Zurich est alerté 30 min après votre ETA"
-          }
-        }
-      }
-    },
     "Booked with your club" : {
       "localizations" : {
         "de" : {
@@ -27831,86 +29617,6 @@
         }
       }
     },
-    "Open NOTAM briefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NOTAM-Briefing öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir le briefing NOTAM"
-          }
-        }
-      }
-    },
-    "Open weather briefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wetterbriefing öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir le briefing météo"
-          }
-        }
-      }
-    },
-    "Open skybriefing" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "skybriefing öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir skybriefing"
-          }
-        }
-      }
-    },
-    "Open DABS" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DABS öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir le DABS"
-          }
-        }
-      }
-    },
-    "Open MeteoSwiss" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MeteoSchweiz öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir MétéoSuisse"
-          }
-        }
-      }
-    },
     "Mark closed" : {
       "localizations" : {
         "de" : {
@@ -27923,22 +29629,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Marquer clôturé"
-          }
-        }
-      }
-    },
-    "Call 0800 437 837" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "0800 437 837 anrufen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appeler 0800 437 837"
           }
         }
       }
@@ -28250,19 +29940,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lufträume, Flugplätze, Frequenzen, Hindernisse, Gelände und Wetter stammen von Dritten, und es ist nicht garantiert, dass sie aktuell sind. Gleichen Sie sie mit dem offiziellen AIP, den NOTAM und einem ordnungsgemässen Briefing vor dem Flug ab."
+            "value": "Lufträume, Flugplätze, Frequenzen, Platzrunden, Hindernisse, Gelände und Wetter stammen von Dritten, und es ist nicht garantiert, dass sie aktuell sind. Gleichen Sie sie mit dem offiziellen AIP, den NOTAM und einem ordnungsgemässen Briefing vor dem Flug ab."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Airspace, airports, frequencies, obstacles, terrain and weather come from third parties and are not guaranteed to be current. Verify against the official AIP, NOTAMs and a proper pre-flight briefing."
+            "value": "Airspace, airports, frequencies, traffic circuits, obstacles, terrain and weather come from third parties and are not guaranteed to be current. Verify against the official AIP, NOTAMs and a proper pre-flight briefing."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Espaces aériens, aérodromes, fréquences, obstacles, relief et météo proviennent de tiers et ne sont pas garantis à jour. Vérifiez avec l'AIP officielle, les NOTAM et un briefing avant vol en règle."
+            "value": "Espaces aériens, aérodromes, fréquences, tours de piste, obstacles, relief et météo proviennent de tiers et ne sont pas garantis à jour. Vérifiez avec l'AIP officielle, les NOTAM et un briefing avant vol en règle."
           }
         }
       }
@@ -29153,7 +30843,21 @@
     },
     "All aircraft": {
       "comment": "A label for the \"All aircraft\" option in the filter menu.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Flugzeuge"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les avions"
+          }
+        }
+      }
     },
     "All flights (%lld)": {
       "comment": "A menu item that lets the user export all flights.",
@@ -29303,7 +31007,22 @@
         }
       }
     },
-    "CACHED": {},
+    "CACHED": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GESPEICHERT"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EN CACHE"
+          }
+        }
+      }
+    },
     "COMPANION": {
       "comment": "The name of the companion app.",
       "isCommentAutoGenerated": true,
@@ -29821,7 +31540,21 @@
     },
     "Duration %@": {
       "comment": "A label that describes the duration of a flight. The argument is the duration.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dauer %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durée %@"
+          }
+        }
+      }
     },
     "EST. IAS": {
       "comment": "A label indicating the estimated indicator airspeed (IAS).",
@@ -30605,7 +32338,21 @@
     },
     "Fit route": {
       "comment": "A button that fits the map view to the route.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route einpassen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cadrer la route"
+          }
+        }
+      }
     },
     "Flight": {
       "localizations": {
@@ -30714,7 +32461,21 @@
     "GPS": {},
     "GPS signal": {
       "comment": "A label for the GPS signal indicator.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS-Signal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signal GPS"
+          }
+        }
+      }
     },
     "GPS signal lost": {
       "localizations": {
@@ -31189,7 +32950,21 @@
     },
     "Map layer": {
       "comment": "A label for the map layer picker.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kartenebene"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couche carte"
+          }
+        }
+      }
     },
     "Map markers": {
       "localizations": {
@@ -31273,7 +33048,21 @@
     },
     "Max crosswind": {
       "comment": "A label displayed under the V-speeds, indicating the maximum crosswind limits.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max. Seitenwind"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent de travers max"
+          }
+        }
+      }
     },
     "Airspace data missing near your route": {
       "localizations": {
@@ -31479,7 +33268,21 @@
     },
     "No flights in this period": {
       "comment": "A message displayed when there are no flights to show in the log.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Flüge in diesem Zeitraum"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun vol sur cette période"
+          }
+        }
+      }
     },
     "Not downloaded": {
       "localizations": {
@@ -31783,7 +33586,21 @@
     },
     "Planned altitude in feet": {
       "comment": "A label for the altitude of a waypoint.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geplante Höhe in Fuss"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude prévue en pieds"
+          }
+        }
+      }
     },
     "Position: %@, %@": {
       "localizations": {
@@ -31999,7 +33816,21 @@
     },
     "Search an ICAO above, or press and\nhold the map to drop a waypoint": {
       "comment": "A hint to the user to search for an ICAO or tap the map to add a waypoint.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchen Sie oben einen ICAO-Code oder halten Sie\ndie Karte gedrückt, um einen Wegpunkt zu setzen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cherchez un code OACI ci-dessus, ou appuyez longuement\nsur la carte pour poser un point"
+          }
+        }
+      }
     },
     "See AéroCheck Pro": {
       "localizations": {
@@ -32019,7 +33850,21 @@
     },
     "Select a flight": {
       "comment": "A label displayed in the Flight Log view when a flight is not selected.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie einen Flug"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez un vol"
+          }
+        }
+      }
     },
     "Select countries": {
       "localizations": {
@@ -32055,7 +33900,22 @@
         }
       }
     },
-    "Series": {},
+    "Series": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenreihe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Série"
+          }
+        }
+      }
+    },
     "Share": {
       "localizations": {
         "de": {
@@ -33099,7 +34959,21 @@
     },
     "Year": {
       "comment": "A label for the year picker in the flight log.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jahr"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année"
+          }
+        }
+      }
     },
     "Your active flight plan crosses areas without downloaded data:": {
       "localizations": {
@@ -38120,7 +39994,21 @@
     },
     "degraded": {
       "comment": "A label describing a degraded GPS signal.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ungenau"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dégradé"
+          }
+        }
+      }
     },
     "dest.a11y.destination": {
       "extractionState": "manual",
@@ -41979,7 +43867,21 @@
     },
     "lost": {
       "comment": "A label for a GPS signal that is lost.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verloren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "perdu"
+          }
+        }
+      }
     },
     "mapLayer.title": {
       "extractionState": "manual",
@@ -53220,7 +55122,21 @@
     },
     "track": {
       "comment": "A label for the heading of the aircraft.",
-      "isCommentAutoGenerated": true
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "route"
+          }
+        }
+      }
     },
     "unit.ft": {
       "extractionState": "manual",

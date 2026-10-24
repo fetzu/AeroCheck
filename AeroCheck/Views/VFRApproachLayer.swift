@@ -241,18 +241,24 @@ struct VFRApproachField: Equatable, Sendable {
     let parachuting: Bool
     /// Where the parachute goes: beside the field, away from its circuits.
     let parachutePosition: VFRCoordinate?
+    /// A US field's traffic pattern by runway end ("31": right), from the FAA's NASR: the side it turns, never a
+    /// shape, for none is published. (6.5.0, q6)
+    var patternSides: [String: NASRPatterns.Side] = [:]
+    /// The pattern altitude where the FAA publishes one, feet above sea level.
+    var patternAltitude: Int?
     /// The centreline past each threshold.
     static let centrelineNM = 2.0
 
     var drawKey: String {
-        "approach|\(ident)|\(runwayInUse ?? "-")|\(parachuting)|\(arrows.count)|\(runways.count)"
+        "approach|\(ident)|\(runwayInUse ?? "-")|\(parachuting)|\(arrows.count)|\(runways.count)|\(patternSides.count)|\(patternAltitude ?? 0)"
     }
 
     /// - Parameters:
     ///   - circuits: the aerodrome's circuits as drawn, for the direction arrows.
     ///   - windFrom: the wind's direction (degrees true), in flight; nil on the ground.
+    ///   - pattern: a US field's, from NASR: each runway end's side and the pattern altitude. (6.5.0)
     static func make(ident: String, reference: VFRCoordinate, runways: [VFRRunwayEnds], circuits: [VFRProcedure],
-                     windFrom: Double?, parachuting: Bool) -> VFRApproachField {
+                     windFrom: Double?, parachuting: Bool, pattern: NASRPatterns.Aerodrome? = nil) -> VFRApproachField {
         let inUse = VFRRunwayEnds.endInUse(of: runways, windFrom: windFrom)
         // The longest runway, and the one in use if it is another: Bern's parallel strips put four
         // numbers on top of each other at the end of their centrelines.
@@ -266,9 +272,14 @@ struct VFRApproachField: Equatable, Sendable {
                 arrows += directionArrows(on: circuit.line, landing: inUse.trueBearing)
             }
         }
+        var sides: [String: NASRPatterns.Side] = [:]
+        for end in runways.flatMap({ [$0.first, $0.second] }) {
+            if let side = pattern?.side(of: end.ident) { sides[end.ident] = side }
+        }
         return VFRApproachField(ident: ident, reference: reference, runways: runways, runwayInUse: inUse?.ident,
                                 arrows: arrows, parachuting: parachuting,
-                                parachutePosition: parachuting ? parachuteSpot(reference: reference, runways: runways, circuits: circuits) : nil)
+                                parachutePosition: parachuting ? parachuteSpot(reference: reference, runways: runways, circuits: circuits) : nil,
+                                patternSides: sides, patternAltitude: pattern?.tpa?.msl)
     }
 
     /// The circuit's direction for the runway landed on: two arrowheads on the downwind. Open
@@ -310,9 +321,11 @@ struct VFRApproachField: Equatable, Sendable {
 /// A runway number at the end of its extended centreline, or the parachute beside the field.
 final class VFRApproachAnnotation: NSObject, MKAnnotation {
     enum Kind: Equatable {
-        /// The number, and whether it is the runway in use (filled).
-        case runway(String, inUse: Bool)
+        /// The number, whether it is the runway in use (filled), and a US field's pattern side ("31 RIGHT").
+        case runway(String, inUse: Bool, pattern: NASRPatterns.Side? = nil)
         case parachute
+        /// "TPA 806 ft", beside a US field that publishes one. (6.5.0)
+        case patternAltitude(Int)
     }
 
     let kind: Kind
@@ -328,8 +341,10 @@ final class VFRApproachAnnotation: NSObject, MKAnnotation {
 
     var labelKey: String {
         switch kind {
-        case .runway(let ident, let inUse): return "approach|\(field)|rwy|\(ident)|\(inUse)|\(coordinate.latitude),\(coordinate.longitude)"
+        case .runway(let ident, let inUse, let pattern):
+            return "approach|\(field)|rwy|\(ident)|\(inUse)|\(pattern?.rawValue ?? "-")|\(coordinate.latitude),\(coordinate.longitude)"
         case .parachute: return "approach|\(field)|para|\(coordinate.latitude),\(coordinate.longitude)"
+        case .patternAltitude(let feet): return "approach|\(field)|tpa|\(feet)|\(coordinate.latitude),\(coordinate.longitude)"
         }
     }
 
@@ -343,12 +358,19 @@ final class VFRApproachAnnotation: NSObject, MKAnnotation {
                 // An end's number where the pilot lands on it: on the approach side, past the centreline.
                 let outward = VFRSectorGeometry.bearing(other.threshold, end.threshold)
                 let at = VFRSectorGeometry.offset(end.threshold, bearing: outward, meters: reach)
-                out.append(VFRApproachAnnotation(kind: .runway(end.ident, inUse: end.ident == field.runwayInUse),
+                out.append(VFRApproachAnnotation(kind: .runway(end.ident, inUse: end.ident == field.runwayInUse,
+                                                                pattern: field.patternSides[end.ident]),
                                                  field: field.ident, coordinate: at.coordinate))
             }
         }
         if let spot = field.parachutePosition {
             out.append(VFRApproachAnnotation(kind: .parachute, field: field.ident, coordinate: spot.coordinate))
+        }
+        // The pattern altitude by the field, square to its runway: 0.45 NM, where no number sits. (6.5.0)
+        if let feet = field.patternAltitude {
+            let side = (field.runways.first?.first.trueBearing ?? 0) + 90
+            let at = VFRSectorGeometry.offset(field.reference, bearing: side.truncatingRemainder(dividingBy: 360), meters: 0.45 * 1852)
+            out.append(VFRApproachAnnotation(kind: .patternAltitude(feet), field: field.ident, coordinate: at.coordinate))
         }
         return out
     }
@@ -379,8 +401,10 @@ enum VFRApproachImages {
         return image
     }
 
-    /// A runway number: ink with a halo, or filled for the runway in use.
-    static func runway(_ ident: String, inUse: Bool, palette: VFRMapPalette) -> UIImage {
+    /// A runway number: ink with a halo, or filled for the runway in use. A US field's pattern side after it, "31
+    /// RIGHT". (6.5.0)
+    static func runway(_ ident: String, inUse: Bool, pattern: NASRPatterns.Side? = nil, palette: VFRMapPalette) -> UIImage {
+        let ident = pattern.map { "\(ident) \(VFRMapStrings.patternSide($0))" } ?? ident
         let key = "rwy|\(ident)|\(inUse)|\(palette.rawValue)"
         if let cached = cache[key] { return cached }
         let font = UIFont.aero(size: 19, weight: .bold)
@@ -404,6 +428,24 @@ enum VFRApproachImages {
                                                                       .strokeWidth: 8, .foregroundColor: palette.labelFill])
                 (ident as NSString).draw(at: origin, withAttributes: [.font: font, .foregroundColor: palette.procedure])
             }
+        }
+        cache[key] = image
+        return image
+    }
+
+    /// "TPA 806 ft" in ink with a halo, as a runway number not in use, smaller. (6.5.0)
+    static func patternAltitude(_ feet: Int, palette: VFRMapPalette) -> UIImage {
+        let text = L10n.VFRMap.patternAltitude(feet)
+        let key = "tpa|\(text)|\(palette.rawValue)"
+        if let cached = cache[key] { return cached }
+        let font = UIFont.aero(size: 15, weight: .bold)
+        let textSize = (text as NSString).size(withAttributes: [.font: font])
+        let canvas = CGSize(width: max(44, ceil(textSize.width) + 12), height: max(44, ceil(textSize.height) + 8))
+        let image = UIGraphicsImageRenderer(size: canvas).image { _ in
+            let origin = CGPoint(x: (canvas.width - textSize.width) / 2, y: (canvas.height - textSize.height) / 2)
+            (text as NSString).draw(at: origin, withAttributes: [.font: font, .strokeColor: palette.labelFill,
+                                                                 .strokeWidth: 8, .foregroundColor: palette.labelFill])
+            (text as NSString).draw(at: origin, withAttributes: [.font: font, .foregroundColor: palette.procedure])
         }
         cache[key] = image
         return image

@@ -229,6 +229,8 @@ struct FlightLogView: View {
                 }
             }
         }
+        // The Logbook tab's: the iPad's tab bar beside the import, as the system's sat. (6.5.0)
+        .groundTabBarInToolbar(mode == .logbook)
     }
 
     var body: some View {

@@ -1,5 +1,6 @@
 import SwiftUI
 import QuickLook
+import CoreLocation
 
 // MARK: - Task presentation
 //
@@ -12,7 +13,8 @@ struct ThreadTaskPresentation {
     let hint: String?
     let icon: String
 
-    static func make(for task: ThreadTask) -> ThreadTaskPresentation {
+    /// `briefing` gives a country's airspace activity its hint (the DABS by day). (6.5.0)
+    static func make(for task: ThreadTask, briefing: ThreadBriefing? = nil) -> ThreadTaskPresentation {
         switch task.key {
         case .routePlanned:
             return .init(title: L10n.Thread.taskRoute, hint: nil, icon: "point.topleft.down.curvedto.point.bottomright.up")
@@ -25,9 +27,12 @@ struct ThreadTaskPresentation {
         case .weatherBriefed:
             return .init(title: L10n.Thread.taskWeather, hint: nil, icon: "cloud.sun")
         case .dabsChecked:
-            return .init(title: L10n.Thread.taskDabs, hint: L10n.Thread.hintDabs, icon: "doc.text")
+            // One per country since 6.5.0, "Airspace activity CH" as decided (q2). The DABS says which day's it opens,
+            // or when the flight's day comes out (the author's v65-2).
+            let country = task.briefingCountry
+            return .init(title: L10n.Thread.taskAirspace(country), hint: briefing?.dayWords(country), icon: "doc.text")
         case .gaforChecked:
-            return .init(title: L10n.Thread.taskGafor, hint: L10n.Thread.hintGafor, icon: "map")
+            return .init(title: L10n.Thread.taskForecast(task.briefingCountry), hint: nil, icon: "map")
         case .notamChecked:
             return .init(title: L10n.Thread.taskNotam, hint: nil, icon: "exclamationmark.bubble")
         case .flightPlanFiled:
@@ -69,7 +74,9 @@ struct ThreadTaskPresentation {
             let country = task.subject.map { OpenAIPConfig.countryName(for: $0) } ?? ""
             return .init(title: L10n.Thread.taskCustoms(country), hint: hint, icon: "globe.europe.africa")
         case .flightPlanClosed:
-            return .init(title: L10n.Thread.taskFlightPlanClose, hint: L10n.Thread.hintFlightPlanClose, icon: "checkmark.shield")
+            // The rule of the country landed in. (6.5.0)
+            return .init(title: L10n.Thread.taskFlightPlanClose, hint: briefing?.closeOut?.rule ?? L10n.CloseOut.ruleUnknown,
+                         icon: "checkmark.shield")
         case .feesPaid:
             return .init(title: L10n.Thread.taskFees(task.subject ?? ""), hint: nil, icon: "banknote")
         case .logbookEntry:
@@ -89,36 +96,31 @@ struct ThreadTaskPresentation {
     /// involved that is 300 km away.
     /// `chartLink` is the task's aerodrome's official chart, resolved by the caller like the tariff.
     /// (6.2.0)
+    /// `briefing` holds the server's registry and the flight's countries: the briefing tasks' links are its official
+    /// pages, a chip each, for every country the route touches (weather, NOTAMs), for the task's country (airspace
+    /// activity, area forecast) or the departure's (filing). Until 6.5.0 they were skybriefing's and MeteoSwiss's
+    /// wherever the flight went. Without a registry they have none.
     static func links(for task: ThreadTask,
                       tariffURL: URL? = nil,
                       chartLink: OfficialChartLink? = nil,
-                      touchesSwitzerland: Bool = false) -> [(label: String, url: URL)] {
-        let chart = chartLink.map { [(label: $0.title, url: $0.url)] } ?? []
+                      touchesSwitzerland: Bool = false,
+                      briefing: ThreadBriefing? = nil) -> [ThreadTaskLink] {
+        let chart = chartLink.map { [ThreadTaskLink(label: $0.title, url: $0.url)] } ?? []
         switch task.key {
         case .flightPlanFiled:
-            return [(L10n.Thread.openSkybriefing,
-                     URL(string: "https://www.skybriefing.com/services/flightplan-services")!)]
+            return briefing?.links(.filing, in: [briefing?.departureCountry].compactMap { $0 }) ?? []
         case .notamChecked:
-            // Was a bare tick with nowhere to go, which is the one task state that teaches a pilot to
-            // tick without doing. skybriefing is the Swiss briefing channel, same as for filing.
-            return [(L10n.Thread.openNotamBriefing,
-                     URL(string: "https://www.skybriefing.com/services/notam-briefing")!)]
+            return briefing?.links(.notam, in: briefing?.countries ?? []) ?? []
         case .weatherBriefed:
-            // The same: the weather was the one briefing with nowhere to go. skybriefing's weather briefing,
-            // and MeteoSwiss's aviation weather when the flight touches Switzerland. (6.4.0)
-            let skybriefing = [(label: L10n.Thread.openWeatherBriefing,
-                                url: URL(string: "https://www.skybriefing.com/services/weather-briefing")!)]
-            let swiss = [(label: L10n.Thread.openMeteoSwiss,
-                          url: URL(string: "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html")!)]
-            return skybriefing + (touchesSwitzerland ? swiss : [])
+            return briefing?.links(.weather, in: briefing?.countries ?? []) ?? []
         case .dabsChecked:
-            return [(L10n.Thread.openDabs, URL(string: "https://www.skybriefing.com/dabs")!)]
+            return briefing?.links(.airspace, in: [task.briefingCountry]) ?? []
         case .gaforChecked:
-            return [(L10n.Thread.openMeteoSwiss,
-                     URL(string: "https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/aviation-weather.html")!)]
+            return briefing?.links(.forecast, in: [task.briefingCountry]) ?? []
         case .flightPlanClosed:
-            // Skyguide's free flight-plan closing number. A `tel:` link is the whole feature here.
-            return [(L10n.Thread.callFIC, URL(string: "tel://0800437837")!)]
+            // The numbers of the country landed in, then its own links (Swiss SAR Alerts, the online arrival report).
+            // A `tel:` link is the whole feature here. Until 6.5.0, Skyguide's wherever the flight landed.
+            return briefing?.closeOutLinks ?? []
         case .pprObtained:
             // The chart is where the aerodrome's PPR telephone and hours are. (6.2.0)
             return chart
@@ -126,22 +128,163 @@ struct ThreadTaskPresentation {
             // The operator's OWN tariff page, from the server registry. Absent for an aerodrome
             // nobody has verified yet, which is the honest state rather than a guessed link. The
             // field's official chart next to it. (6.2.0)
-            return (tariffURL.map { [(label: L10n.Cost.openTariff, url: $0)] } ?? []) + chart
+            return (tariffURL.map { [ThreadTaskLink(label: L10n.Cost.openTariff, url: $0)] } ?? []) + chart
         case .customsNotified:
             // The authority's own page, in its own language, is the source — the app only points at
             // it. The Swiss side applies whichever country is at the other end, but only when the
             // flight actually touches Switzerland.
-            var links: [(label: String, url: URL)] = []
+            var links: [ThreadTaskLink] = []
             if let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) {
-                links.append((L10n.Border.openOfficial, rule.officialURL))
+                links.append(ThreadTaskLink(label: L10n.Border.openOfficial, url: rule.officialURL))
             }
             if touchesSwitzerland {
-                links.append((L10n.Border.swissSide, BorderCrossingGuide.switzerland.officialURL))
+                links.append(ThreadTaskLink(label: L10n.Border.swissSide, url: BorderCrossingGuide.switzerland.officialURL))
             }
             return links
         default:
             return []
         }
+    }
+}
+
+/// One of a task's links: a row that leaves the app (`ThreadLinkRow`), its publisher's name and what the page takes
+/// (a free account, paid, authorised users) or that it is a general page, not one for this task. In the weather block,
+/// what it is for and, on a route through several countries, whose it is. (6.5.0, q3)
+struct ThreadTaskLink: Equatable {
+    let label: String
+    var detail: String?
+    let url: URL
+    var country: String?
+    var purpose: String?
+}
+
+/// What the briefing tasks' links and hints are made from, resolved by the flight's page on the main actor like the
+/// tariff: the server's registry, the route's countries (the departure's first), the departure's country, the day of
+/// the flight (the DABS by day) and the app's language. (6.5.0)
+struct ThreadBriefing {
+    var registry: BriefingRegistry?
+    var countries: [String] = []
+    var departureCountry: String?
+    var flightDay: Date?
+    var language: String = AppLanguage.current
+    var now: Date = Date()
+    /// How the plan is closed where the flight lands. (q3)
+    var closeOut: CloseOut?
+
+    /// The close-out's numbers, each a call, then the country's links.
+    var closeOutLinks: [ThreadTaskLink] {
+        guard let closeOut else { return [] }
+        let calls = closeOut.phones.compactMap { phone in
+            CloseOut.callURL(phone).map { ThreadTaskLink(label: L10n.CloseOut.call(phone.name), detail: phone.number, url: $0) }
+        }
+        let links = closeOut.links.map {
+            ThreadTaskLink(label: $0.displayName(language: language), detail: Self.accessWord($0.access), url: $0.url)
+        }
+        return calls + links
+    }
+
+    /// `category`'s pages for each of `countries`, in their order, a page that two countries share once. A page by day
+    /// whose day for the flight isn't out yet is left out: its hint says when it comes (the author's v65-2).
+    func links(_ category: BriefingRegistry.Category, in countries: [String]) -> [ThreadTaskLink] {
+        guard let registry else { return [] }
+        var seen = Set<URL>()
+        var links: [ThreadTaskLink] = []
+        for code in countries {
+            guard let country = registry.country(code) else { continue }
+            for link in country.links(category) {
+                if let page = link.dayPage(forFlightOn: flightDay, now: now), !page.isOut { continue }
+                let url = link.url(forFlightOn: flightDay, now: now)
+                guard seen.insert(url).inserted else { continue }
+                let words = [Self.accessWord(link.access),
+                             country.generic.contains(category.rawValue) ? L10n.Thread.linkGeneral : nil]
+                    .compactMap { $0 }
+                links.append(ThreadTaskLink(label: link.displayName(language: language),
+                                            detail: words.isEmpty ? nil : words.joined(separator: " · "), url: url,
+                                            country: self.countries.count > 1 ? code : nil))
+            }
+        }
+        return links
+    }
+
+    /// The weather block's pages: each country's weather, then its area forecast, a page once, what it is for beside it
+    /// ("Weather · Area forecast" for a page that gives both). (6.5.0, the author's v65-1)
+    func weatherLinks() -> [ThreadTaskLink] {
+        var links: [ThreadTaskLink] = []
+        for code in countries {
+            for (category, purpose) in [(BriefingRegistry.Category.weather, L10n.Thread.linkWeather),
+                                        (.forecast, L10n.Thread.linkForecast)] {
+                for link in self.links(category, in: [code]) {
+                    if let index = links.firstIndex(where: { $0.url == link.url }) {
+                        if links[index].purpose?.contains(purpose) == false {
+                            links[index].purpose = [links[index].purpose, purpose].compactMap { $0 }.joined(separator: " · ")
+                        }
+                    } else {
+                        var link = link
+                        link.purpose = purpose
+                        links.append(link)
+                    }
+                }
+            }
+        }
+        return links
+    }
+
+    /// What a country's airspace activity by day says (the author's v65-2, 22 Oct 2026): which day's the link opens, or
+    /// when the flight's day comes out. The flight's day and the publisher's days in the publisher's clock, the time in
+    /// the device's. Nil for a country without a page by day, or a flight already past.
+    func dayWords(_ code: String) -> String? {
+        guard let link = registry?.country(code)?.airspace.first(where: { $0.byDay != nil }), let byDay = link.byDay,
+              let page = link.dayPage(forFlightOn: flightDay, now: now) else { return nil }
+        let name = link.displayName(language: language)
+        let time = Self.localTime(byDay.from, tz: byDay.tz, now: now)
+        switch page {
+        case .today: return L10n.Thread.byDayToday(name)
+        case .tomorrow: return L10n.Thread.byDayTomorrow(name)
+        case .comesOutToday: return L10n.Thread.byDayLaterToday(name, at: time)
+        case .comesOut(on: let day):
+            // The app's language in the device's region: "Saturday, 24 October" on a Swiss iPad in English.
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: Locale.current.region.map { "\(language)_\($0.identifier)" } ?? language)
+            formatter.timeZone = TimeZone(identifier: byDay.tz)
+            formatter.setLocalizedDateFormatFromTemplate("EEEEdMMMM")
+            return L10n.Thread.byDayLater(name, for: formatter.string(from: flightDay ?? now),
+                                          on: formatter.string(from: day), at: time)
+        case .past: return nil
+        }
+    }
+
+    /// What a page takes, in words (q2: on the chip's second line, as on the official-chart button). Open says nothing.
+    static func accessWord(_ access: BriefingRegistry.Access?) -> String? {
+        switch access {
+        case .account: return L10n.Thread.accessAccount
+        case .paid: return L10n.Thread.accessPaid
+        case .restricted: return L10n.Thread.accessRestricted
+        case .open, nil: return nil
+        }
+    }
+
+    /// The route's countries where operations are prohibited, with the directive that says so (Belarus). (q5)
+    var prohibited: [(country: String, directive: BriefingRegistry.Link)] {
+        countries.compactMap { code in registry?.country(code)?.prohibited.map { (code, $0) } }
+    }
+
+    /// "16:00" in `tz` (the publisher's), today, as the device's clock reads it.
+    static func localTime(_ time: String, tz: String, now: Date = Date()) -> String {
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        var calendar = Calendar(identifier: .gregorian)
+        guard parts.count == 2, let zone = TimeZone(identifier: tz) else { return time }
+        calendar.timeZone = zone
+        guard let date = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: now) else { return time }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// The departure's aerodrome files from a country that wants a plan activated by the pilot when the field has no
+    /// ATS (`activation: "no-ats"`), and the field has neither a tower nor an AFIS in the app's data. A field the
+    /// data doesn't know says nothing. (q4)
+    static func needsActivation(country: BriefingRegistry.Country?, fieldKnown: Bool,
+                                frequencyTypes: [String]) -> Bool {
+        guard country?.activatesWithoutATS == true, fieldKnown else { return false }
+        return !frequencyTypes.contains { AirportDataService.isContactType($0, "TWR") || AirportDataService.isContactType($0, "AFIS") }
     }
 }
 
@@ -172,6 +315,8 @@ struct FlightThreadView: View {
     @Environment(\.dryRunSession) private var dryRunSession
     /// The official-chart registry: a PPR or fee task's chart turns up when it arrives. (6.2.0)
     @ObservedObject private var officialCharts = OfficialChartService.shared
+    /// The briefing registry: the briefing tasks' links when it arrives. (6.5.0)
+    @ObservedObject private var briefingRegistry = BriefingRegistryService.shared
 
     /// The chapter whose chip was tapped: the page goes to it.
     @State private var scrollToChapter: ThreadChapter?
@@ -216,6 +361,8 @@ struct FlightThreadView: View {
     @State private var confirmingEarlyStart = false
     /// The trip's flown legs, shared as one card from beside the leg strip. (6.1)
     @State private var journeyShare: JourneyShareRequest?
+    /// The NEXT card's weather line was tapped: the page goes to the weather block. (6.5.0)
+    @State private var scrollToWeather = false
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -246,6 +393,7 @@ struct FlightThreadView: View {
                             stopActions(thread)
                             continuationCard(thread)
                             ForEach(ThreadChapter.allCases) { chapter in
+                                if chapter == .prepare { weatherBlock(thread) }
                                 chapterSection(thread, chapter: chapter)
                                     .id(chapter)
                             }
@@ -267,6 +415,11 @@ struct FlightThreadView: View {
                 .onDryRunCoachStep(dryRunSession) { step in
                     guard step.screen == .flightPage, let id = Self.scrollTarget(of: step, in: thread) else { return }
                     withAnimation(.easeInOut(duration: 0.3)) { scroller.scrollTo(id, anchor: UnitPoint(x: 0.5, y: 0.25)) }
+                }
+                .onChange(of: scrollToWeather) { _, go in
+                    guard go else { return }
+                    scrollToWeather = false
+                    withAnimation(.easeInOut(duration: 0.25)) { scroller.scrollTo(Self.weatherId, anchor: .top) }
                 }
                 .onChange(of: scrollToChapter) { _, chapter in
                     guard let chapter else { return }
@@ -542,8 +695,11 @@ struct FlightThreadView: View {
     private func stateChip(_ thread: FlightThread) -> some View {
         let (label, color): (String, Color) = {
             switch thread.state {
-            case .planned:  return (L10n.Thread.statePlanned, .aviationGold)
-            case .ready:    return (L10n.Thread.stateReady, .aviationGreen)
+            // Before the flight, as the ring counts: a leg with its trip's weather open isn't READY. (6.5.0)
+            case .planned, .ready:
+                let p = thread.preFlightProgress(sharing: sharedTasks(of: thread))
+                return p.total > 0 && p.done >= p.total ? (L10n.Thread.stateReady, .aviationGreen)
+                                                         : (L10n.Thread.statePlanned, .aviationGold)
             case .flying:   return (L10n.Thread.stateFlying, .altimeterBlue)
             case .closeOut: return (L10n.Thread.stateCloseOut, .aviationAmber)
             case .done:     return (L10n.Thread.stateDone, .secondaryText)
@@ -562,8 +718,14 @@ struct FlightThreadView: View {
             let p = thread.closeOutProgress
             return L10n.Thread.closedProgress(p.done, p.total)
         }
-        let p = thread.preFlightProgress
+        let p = thread.preFlightProgress(sharing: sharedTasks(of: thread))
         return L10n.Thread.readiness(p.done, p.total)
+    }
+
+    /// A leg's trip tasks as the leg sees them; none for a flight on its own. Counted with its own everywhere on the page:
+    /// the ring, the state, the chapters, NEXT and "Everything done" (the author's device check, 23 Oct 2026). (6.5.0)
+    private func sharedTasks(of thread: FlightThread) -> [ThreadTask] {
+        Trip.sharedTasks(for: thread, in: threadManager.trips)
     }
 
     // MARK: - Next task (v6.0 · D3)
@@ -575,7 +737,7 @@ struct FlightThreadView: View {
     @ViewBuilder
     private func nextTaskCard(_ thread: FlightThread) -> some View {
         if thread.state != .flying {
-            if let task = thread.nextTaskBesideOpenFlightPlan {
+            if let task = thread.nextTaskBesideOpenFlightPlan(sharing: sharedTasks(of: thread)) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(L10n.Thread.nextUp.uppercased())
                         .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
@@ -583,7 +745,13 @@ struct FlightThreadView: View {
                         .tracking(0.8)
                         .padding(.horizontal, 14)
                         .padding(.top, 12)
-                    taskRow(task, in: thread, prominent: true)
+                    if task.key.isWeatherBlock {
+                        nextWeatherRow(thread)
+                    } else if let trip = threadManager.trip(forThreadId: thread.id), trip.task(withId: task.id) != nil {
+                        sharedTaskRow(task, trip: trip, leg: thread)
+                    } else {
+                        taskRow(task, in: thread, prominent: true)
+                    }
                 }
                 .background(Color.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -612,6 +780,64 @@ struct FlightThreadView: View {
         }
     }
 
+    /// NEXT is the weather: its tick (the block's) and a line that takes the page to the block, where the reports and the
+    /// links are. The block's tasks in one row, not the first of them alone. (6.5.0, the author's v65-1)
+    private func nextWeatherRow(_ thread: FlightThread) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Button { threadManager.setWeatherState(.done, threadId: thread.id) } label: {
+                Circle()
+                    .strokeBorder(Color.dimText, lineWidth: 2)
+                    .frame(width: 22, height: 22)
+                    .frame(width: 44, height: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.Thread.taskWeather)
+            Button { scrollToWeather = true } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.PrepareWeather.title)
+                            .scaledFont(size: 20, weight: .semibold, relativeTo: .title3)
+                            .foregroundColor(.primaryText)
+                        Text(L10n.Thread.weatherBelow)
+                            .scaledFont(size: 15, relativeTo: .subheadline)
+                            .foregroundColor(.dimText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrow.down")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .footnote)
+                        .foregroundColor(.aviationGold)
+                        .padding(.top, 4)
+                }
+                .padding(.top, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    /// NEXT is one of the trip's tasks (a leg's own are all done): its row, ticked on the trip from this leg, as the band
+    /// ticks it. (6.5.0)
+    private func sharedTaskRow(_ task: ThreadTask, trip: Trip, leg: FlightThread) -> some View {
+        ThreadTaskRow(
+            task: task,
+            onToggle: {
+                threadManager.setSharedTaskState(task.state == .done ? .pending : .done, taskId: task.id,
+                                                 tripId: trip.id, fromLegId: leg.id)
+            },
+            onDismissTask: {
+                threadManager.setSharedTaskState(.notApplicable, taskId: task.id, tripId: trip.id, fromLegId: leg.id)
+            },
+            onOpen: { url in openURL(url) },
+            touchesSwitzerland: leg.countries?.contains("CH") ?? false,
+            briefing: briefing(for: leg),
+            prominent: true
+        )
+    }
+
     private func taskRow(_ task: ThreadTask, in thread: FlightThread, prominent: Bool = false) -> some View {
         ThreadTaskRow(
             task: task,
@@ -621,6 +847,8 @@ struct FlightThreadView: View {
             tariffURL: tariffURL(for: task),
             chartLink: chartLink(for: task),
             touchesSwitzerland: thread.countries?.contains("CH") ?? false,
+            briefing: briefing(for: thread),
+            caution: task.key == .flightPlanFiled ? activationLine(for: thread) : nil,
             // v5.0.0: three tasks now open a calculator instead of only taking a tick.
             // The tick still works on its own — the tool is an aid, not a gate.
             toolLabel: toolLabel(for: task, in: thread),
@@ -652,7 +880,7 @@ struct FlightThreadView: View {
     private func readinessRing(_ thread: FlightThread) -> some View {
         let progress = (thread.state == .closeOut || thread.state == .done)
             ? thread.closeOutProgress
-            : thread.preFlightProgress
+            : thread.preFlightProgress(sharing: sharedTasks(of: thread))
         let fraction = progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0
         return ZStack {
             Circle().stroke(Color.white.opacity(0.12), lineWidth: 4)
@@ -714,7 +942,9 @@ struct FlightThreadView: View {
             legStrip(trip, current: leg)
             stopoverLine(leg, in: trip)
 
-            ForEach(tasks) { task in
+            // The weather in its block, beside Prepare; the band counts it all the same. (6.5.0)
+            let rows = tasks.filter { !$0.key.isWeatherBlock }
+            ForEach(rows) { task in
                 let presentation = ThreadTaskPresentation.make(for: task)
                 Button {
                     threadManager.setSharedTaskState(task.state == .done ? .pending : .done,
@@ -745,7 +975,7 @@ struct FlightThreadView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                if task.id != tasks.last?.id {
+                if task.id != rows.last?.id {
                     Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
                 }
             }
@@ -1009,7 +1239,7 @@ struct FlightThreadView: View {
     }
 
     private func chapterChip(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
-        let tasks = thread.tasks(in: chapter)
+        let tasks = thread.tasks(in: chapter) + sharedTasks(of: thread).filter { $0.chapter == chapter }
         let done = tasks.filter { $0.state == .done }.count
         let relevant = tasks.filter { $0.state != .notApplicable }.count
         let isComplete = relevant > 0 && done >= relevant
@@ -1048,6 +1278,7 @@ struct FlightThreadView: View {
 
     private static let footerId = "footer"
     private static let debriefId = "debrief"
+    private static let weatherId = "weather"
 
     /// Where the page goes for a dry run's step: the row its ring is on, the Fly chapter's START FLIGHT, the
     /// footer's Finish. (6.4.0)
@@ -1078,7 +1309,8 @@ struct FlightThreadView: View {
 
     @ViewBuilder
     private func chapterSection(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
-        let tasks = thread.tasks(in: chapter)
+        // The weather and the area forecasts are the weather block's, above the chapter. (6.5.0)
+        let tasks = thread.tasks(in: chapter).filter { !$0.key.isWeatherBlock }
         if chapter == .fly {
             flyChapterCard(thread)
         } else if !tasks.isEmpty || (chapter == .close && thread.flightId != nil) {
@@ -1093,6 +1325,13 @@ struct FlightThreadView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .background(Color.panelBackground)
+
+                if chapter == .prepare {
+                    ForEach(briefing(for: thread).prohibited, id: \.country) { prohibited in
+                        ProhibitedCountryRow(country: prohibited.country, directive: prohibited.directive) { openURL($0) }
+                        Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
+                    }
+                }
 
                 // What is left first; the ticked (and not-applicable) ones fold into one row, so a
                 // chapter reads as its open work. (v6.0 · D3)
@@ -1185,7 +1424,12 @@ struct FlightThreadView: View {
         case .startEarly:
             if let onStartFlight { earlyStart(thread, onStart: onStartFlight) }
         case .start:
-            if let onStartFlight {
+            if let onStartFlight, let country = briefing(for: thread).prohibited.first?.country {
+                prohibitedStart(country, title: thread.profile == .local ? L10n.Button.circuits : L10n.Button.startFlight) {
+                    onStartFlight(thread.profile == .local)
+                }
+                .coachTarget(.startFlight)
+            } else if let onStartFlight {
                 Button {
                     onStartFlight(thread.profile == .local)
                 } label: {
@@ -1236,24 +1480,39 @@ struct FlightThreadView: View {
                     .scaledFont(size: 13, relativeTo: .footnote)
                     .foregroundColor(.secondaryText)
             }
-            Button { confirmingEarlyStart = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: thread.profile == .local ? "arrow.triangle.2.circlepath" : "play.fill")
-                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                    Text(L10n.Thread.startNow)
-                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+            if let country = briefing(for: thread).prohibited.first?.country {
+                prohibitedStart(country, title: L10n.Thread.startNow) { confirmingEarlyStart = true }
+            } else {
+                Button { confirmingEarlyStart = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: thread.profile == .local ? "arrow.triangle.2.circlepath" : "play.fill")
+                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        Text(L10n.Thread.startNow)
+                            .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(SecondaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen,
+                                                  isLarge: false))
             }
-            .buttonStyle(SecondaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen,
-                                              isLarge: false))
-            .confirmationDialog(L10n.Thread.startEarlyTitle, isPresented: $confirmingEarlyStart,
-                                titleVisibility: .visible) {
-                Button(L10n.Thread.startNow) { onStart(thread.profile == .local) }
-                Button(L10n.Button.cancel, role: .cancel) {}
-            } message: {
-                if !when.isEmpty { Text(L10n.Thread.startEarlyMessage(when)) }
-            }
+        }
+        .confirmationDialog(L10n.Thread.startEarlyTitle, isPresented: $confirmingEarlyStart,
+                            titleVisibility: .visible) {
+            Button(L10n.Thread.startNow) { onStart(thread.profile == .local) }
+            Button(L10n.Button.cancel, role: .cancel) {}
+        } message: {
+            if !when.isEmpty { Text(L10n.Thread.startEarlyMessage(when)) }
+        }
+    }
+
+    /// A route through a country where flights are prohibited (Belarus): its line in red over START, red too, which
+    /// starts after a one-second hold, as the cockpit's go-around does (the author's v65-13, 23 Oct 2026). (6.5.0)
+    private func prohibitedStart(_ country: String, title: String, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.Thread.prohibitedTitle(OpenAIPConfig.countryName(for: country)), systemImage: "nosign")
+                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                .foregroundColor(.aviationRed)
+            HoldToConfirmButton(title: title, systemImage: "play.fill", tint: .aviationRed, action: action)
         }
     }
 
@@ -1265,9 +1524,14 @@ struct FlightThreadView: View {
     // MARK: - Open flight plan card
 
     /// The headline: a filed plan that is still open after landing. Red, unmissable, and carrying the
-    /// two ways to actually close it.
+    /// ways to actually close it: since 6.5.0 by the rule of the country landed in, its numbers to call
+    /// (each named, in E.164 so they work from a foreign SIM too), what a field with ATS does, and its
+    /// own links (q3).
     private func openFlightPlanCard(_ thread: FlightThread) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let closeOut = closeOut(for: thread)
+        let links = ThreadBriefing(registry: briefingRegistry.registry, closeOut: closeOut).closeOutLinks
+            .filter { $0.url.scheme != "tel" }
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .scaledFont(size: 18, relativeTo: .title3)
@@ -1276,10 +1540,11 @@ struct FlightThreadView: View {
                     Text(L10n.Thread.closeFlightPlanTitle)
                         .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
-                    Text(L10n.Thread.hintFlightPlanClose)
+                    Text(closeOut.rule)
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
-                    // Landed elsewhere: RCC is counting towards the ETA at the PLANNED destination,
+                        .fixedSize(horizontal: false, vertical: true)
+                    // Landed elsewhere: the alerting counts towards the ETA at the PLANNED destination,
                     // so where the aircraft actually is is the thing to say. (v5.1)
                     if let landed = thread.landedElsewhere {
                         Text(L10n.Trip.tellFICLanded(landed.landedIdent, landed.plannedIdent))
@@ -1289,22 +1554,32 @@ struct FlightThreadView: View {
                 }
                 Spacer()
             }
-            // Equal width, deliberately. These two are peers — calling the FIC and marking the
-            // plan closed are both complete answers to the same urgent question — so neither should
-            // be typographically louder than the other. The sizes used to be driven entirely by
-            // label length ("Call 0800 437 837" against "Mark closed") plus two styles that
-            // disagreed on padding. (device pass)
+            // Equal width, deliberately. These are peers — calling and marking the plan closed are
+            // both complete answers to the same urgent question — so none should be typographically
+            // louder than the other. The sizes used to be driven entirely by label length plus two
+            // styles that disagreed on padding. (device pass)
             HStack(spacing: 8) {
-                if let url = URL(string: "tel://0800437837") {
-                    Button {
-                        openURL(url)
-                    } label: {
-                        Text(L10n.Thread.callFIC)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
+                ForEach(closeOut.phones.prefix(2), id: \.number) { phone in
+                    if let url = CloseOut.callURL(phone) {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            VStack(spacing: 1) {
+                                Text(L10n.CloseOut.call(phone.name))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
+                                Text(phone.number)
+                                    .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .opacity(0.85)
+                            }
                             .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle(color: .aviationRed, isLarge: false))
+                        .accessibilityLabel(L10n.CloseOut.call(phone.name))
+                        .accessibilityValue(phone.number)
                     }
-                    .buttonStyle(PrimaryButtonStyle(color: .aviationRed, isLarge: false))
                 }
                 Button {
                     threadManager.markFlightPlanClosed(threadId: thread.id)
@@ -1315,6 +1590,20 @@ struct FlightThreadView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle(isLarge: false))
+            }
+            if let atsLine = closeOut.atsLine {
+                Text(atsLine)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            // Rows, as everywhere on the page (q3). (6.5.0)
+            if !links.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(links, id: \.url) { link in
+                        ThreadLinkRow(link: link) { openURL(link.url) }
+                    }
+                }
             }
         }
         .padding(14)
@@ -1472,6 +1761,66 @@ struct FlightThreadView: View {
         return officialCharts.link(for: icao, type: airportDataService.findAirport(byIdent: icao)?.type)
     }
 
+    /// Prepare's weather as one block above its tasks (the author's v65-1): "Weather briefed" and the area forecasts,
+    /// the flight's or, on a trip's leg, its trip's as this leg sees them; the reports before the flight, for a route
+    /// with an aerodrome the app knows (q1), never in a dry run (its story has no network and its clock isn't today's);
+    /// each country's pages. After the flight it opens folded. (6.5.0)
+    @ViewBuilder
+    private func weatherBlock(_ thread: FlightThread) -> some View {
+        let trip = threadManager.trip(forThreadId: thread.id)
+        let tasks = (trip?.tasks(forLegDeparting: thread.scheduledDeparture, legId: thread.id) ?? thread.tasks)
+            .filter { $0.key.isWeatherBlock }
+        if !tasks.isEmpty {
+            let before = thread.state == .planned || thread.state == .ready
+            let plan = plan(for: thread)
+            let fields = dryRunSession == nil && before ? plan.map { PrepareWeather.fields(of: $0, airports: airportDataService) } ?? [] : []
+            ThreadWeatherBlock(
+                threadId: thread.id,
+                tasks: tasks,
+                fields: fields,
+                route: plan?.waypoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) } ?? [],
+                links: briefing(for: thread).weatherLinks(),
+                startsFolded: !before,
+                // A briefing ticked for an earlier leg that doesn't cover this one: when it was. (v5.x)
+                recheck: trip == nil ? nil : tasks.filter { $0.state == .pending }.compactMap(\.completedAt).max(),
+                onTick: { threadManager.setWeatherState($0, threadId: thread.id) },
+                onOpen: { openURL($0) }
+            )
+            .id(Self.weatherId)
+        }
+    }
+
+    /// The briefing tasks' registry and the flight's countries. The route's countries list the departure's first
+    /// since 6.5.0; an older thread's alphabetical list is right again at its next regeneration. (6.5.0)
+    private func briefing(for thread: FlightThread) -> ThreadBriefing {
+        let countries = thread.countries ?? []
+        return ThreadBriefing(registry: briefingRegistry.registry, countries: countries,
+                              departureCountry: FlightThreadManager.departureCountry(of: plan(for: thread)) ?? countries.first,
+                              flightDay: thread.scheduledDeparture,
+                              closeOut: thread.flightPlanFiledAt == nil ? nil : closeOut(for: thread))
+    }
+
+    /// How this flight's plan is closed, the field's tower known from the app's data. (6.5.0)
+    private func closeOut(for thread: FlightThread) -> CloseOut {
+        threadManager.closeOut(for: thread) { ident in
+            guard airportDataService.findAirport(byIdent: ident) != nil else { return nil }
+            return airportDataService.getFrequencies(for: ident).contains { AirportDataService.isContactType($0.type, "TWR") }
+        }
+    }
+
+    /// "ESKT has no ATS: activate the plan yourself after take-off, by radio or phone.", where the departure's
+    /// country asks for it and its field has no tower and no AFIS in the app's data. (6.5.0, q4)
+    private func activationLine(for thread: FlightThread) -> String? {
+        guard let first = plan(for: thread)?.waypoints.first else { return nil }
+        let ident = first.name.trimmingCharacters(in: .whitespaces).uppercased()
+        let briefing = briefing(for: thread)
+        let known = airportDataService.findAirport(byIdent: ident) != nil
+        guard ThreadBriefing.needsActivation(country: briefing.registry?.country(briefing.departureCountry), fieldKnown: known,
+                                             frequencyTypes: airportDataService.getFrequencies(for: ident).map(\.type))
+        else { return nil }
+        return L10n.Thread.activateWithoutATS(ident)
+    }
+
     /// The operator's tariff page for a fee task, when the registry has a verified one.
     private func tariffURL(for task: ThreadTask) -> URL? {
         guard task.key == .feesPaid, let icao = task.subject,
@@ -1605,6 +1954,47 @@ private struct FlightInProgressNote: View {
     }
 }
 
+// MARK: - A prohibited country (6.5.0)
+
+/// At the top of Prepare when the route touches a country whose airspace is closed (the registry's `prohibited`:
+/// Belarus, EASA SD-2021-02): red, with the directive. Not a task, so nothing to tick and nothing stored; it goes
+/// when the route does. Nothing is blocked. (q5)
+private struct ProhibitedCountryRow: View {
+    let country: String
+    let directive: BriefingRegistry.Link
+    let onOpen: (URL) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "nosign")
+                .scaledFont(size: 18, weight: .semibold, relativeTo: .body)
+                .foregroundColor(.aviationRed)
+                .frame(width: 44, height: 22, alignment: .leading)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.Thread.prohibitedTitle(OpenAIPConfig.countryName(for: country)))
+                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundColor(.aviationRed)
+                Text(L10n.Thread.prohibitedHint)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                // A row, as every link on the page. (6.5.0, q3)
+                ThreadLinkRow(link: ThreadTaskLink(label: directive.displayName(), url: directive.url)) {
+                    onOpen(directive.url)
+                }
+                .padding(.top, 4)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(Color.aviationRed.opacity(0.08))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("thread.prohibited.\(country)")
+    }
+}
+
 // MARK: - Task row
 
 /// One task. The tick is the whole point: same gesture, same feedback as a checklist item, applied to
@@ -1637,6 +2027,10 @@ struct ThreadTaskRow: View {
     var chartLink: OfficialChartLink?
     /// Whether this flight actually touches Switzerland, which gates the Swiss customs link.
     var touchesSwitzerland: Bool = false
+    /// The registry and the flight's countries, for the briefing tasks' links and hints. (6.5.0)
+    var briefing: ThreadBriefing?
+    /// A line in amber under the hint: on Flight plan filed, a plan to activate after take-off. (6.5.0, q4)
+    var caution: String?
     /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
     /// that is only ever a tick.
     var toolLabel: String?
@@ -1649,10 +2043,10 @@ struct ThreadTaskRow: View {
     /// The flight page's "Next" card: the title and hint read larger. (v6.0 · D3)
     var prominent: Bool = false
 
-    private var presentation: ThreadTaskPresentation { .make(for: task) }
-    private var links: [(label: String, url: URL)] {
+    private var presentation: ThreadTaskPresentation { .make(for: task, briefing: briefing) }
+    private var links: [ThreadTaskLink] {
         ThreadTaskPresentation.links(for: task, tariffURL: tariffURL, chartLink: chartLink,
-                                     touchesSwitzerland: touchesSwitzerland)
+                                     touchesSwitzerland: touchesSwitzerland, briefing: briefing)
     }
 
     var body: some View {
@@ -1685,6 +2079,12 @@ struct ThreadTaskRow: View {
                             .foregroundColor(.dimText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    if let caution, task.state != .notApplicable {
+                        Text(caution)
+                            .scaledFont(size: prominent ? 15 : 12, relativeTo: prominent ? .subheadline : .caption)
+                            .foregroundColor(.aviationAmber)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let note = task.note, !note.isEmpty {
                         Text(note)
                             .scaledFont(size: 12, relativeTo: .caption)
@@ -1702,7 +2102,7 @@ struct ThreadTaskRow: View {
                     // real width, so every chip sat a few points LEFT of the title it belonged to.
                     // Nesting them makes the alignment structural instead of a guess.
                     if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
-                        actionChips
+                        actions
                     }
                 }
                 Spacer(minLength: 0)
@@ -1745,40 +2145,28 @@ struct ThreadTaskRow: View {
         }
     }
 
-    /// The row's actions. Wraps rather than overflowing: a task can carry a tool button and two
-    /// links, which does not fit on one line on an iPhone.
-    private var actionChips: some View {
-        FlowLayout(spacing: 8) {
-                    if let toolLabel, let onOpenTool {
-                        // Gold rather than blue: this one stays inside the app, where the blue chips
-                        // all leave it.
-                        chip(toolLabel, color: .aviationGold, strokeOpacity: 0.5) { onOpenTool() }
-                            // The logbook line's button, not its row: the line opens from it (r6-13). (6.4.0)
-                            .coachTarget(ifAny: !prominent && task.key == .logbookEntry ? .logbookRow : nil)
-                    }
-                    ForEach(links, id: \.label) { link in
-                        chip(link.label, color: .altimeterBlue, strokeOpacity: 0.45) { onOpen(link.url) }
+    /// The row's actions: the in-app tool as a gold button, then the links as rows, one under the other (the author's q3,
+    /// 22 Oct 2026). Until 6.5.0 they were chips of two sizes, read as badges. (6.5.0)
+    private var actions: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let toolLabel, let onOpenTool {
+                // Gold rather than blue: this one stays inside the app, where the blue rows all leave it.
+                ThreadToolButton(label: toolLabel, action: onOpenTool)
+                    // The logbook line's button, not its row: the line opens from it (r6-13). (6.4.0)
+                    .coachTarget(ifAny: !prominent && task.key == .logbookEntry ? .logbookRow : nil)
+            }
+            if !links.isEmpty {
+                VStack(spacing: 0) {
+                    // By address: two publishers can share a name, never a page. (6.5.0)
+                    ForEach(links, id: \.url) { link in
+                        ThreadLinkRow(link: link) { onOpen(link.url) }
                             .coachTarget(ifAny: !prominent && task.key == .notamChecked && link.url == links.first?.url
                                          ? .notamLink : nil)
                     }
+                }
+            }
         }
-    }
-
-    /// One chip: the capsule as before, in a target at least 44 pt tall. The padding and the capsule
-    /// used to sit outside the button, so only the text took the tap. (6.2.0)
-    private func chip(_ label: String, color: Color, strokeOpacity: Double,
-                      action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-                .foregroundColor(color)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .overlay(Capsule().strokeBorder(color.opacity(strokeOpacity), lineWidth: 1))
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        .padding(.top, 2)
     }
 
     private var tickButton: some View {
@@ -1812,6 +2200,78 @@ struct ThreadTaskRow: View {
         case .notApplicable: return .dimText.opacity(0.5)
         case .pending:       return task.isUrgent ? .aviationRed : .dimText
         }
+    }
+}
+
+/// A link that leaves the app, as a row (the author's q3, 22 Oct 2026): the publisher in blue, what the page is for and
+/// its country under it, what it takes on the right, an arrow out (a phone for a call). Badges are information; a link is
+/// a row, as wide as its column, at least 44 pt tall. (6.5.0)
+struct ThreadLinkRow: View {
+    let link: ThreadTaskLink
+    let action: () -> Void
+
+    private var under: String? {
+        let words = [link.purpose, link.country.map { OpenAIPConfig.countryName(for: $0) }].compactMap { $0 }
+        return words.isEmpty ? nil : words.joined(separator: " · ")
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(link.label)
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.altimeterBlue)
+                        .multilineTextAlignment(.leading)
+                    if let under {
+                        Text(under)
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                Spacer(minLength: 8)
+                if let detail = link.detail {
+                    Text(detail)
+                        .scaledFont(size: 11, design: link.url.scheme == "tel" ? .monospaced : .default, relativeTo: .caption2)
+                        .foregroundColor(.secondaryText)
+                        .multilineTextAlignment(.trailing)
+                }
+                Image(systemName: link.url.scheme == "tel" ? "phone.fill" : "arrow.up.right")
+                    .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                    .foregroundColor(.altimeterBlue)
+            }
+            .padding(.vertical, 7)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+        }
+        .accessibilityLabel([link.label, under, link.detail].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityAddTraits(.isLink)
+    }
+}
+
+/// An in-app tool a task opens (the fuel on board, mass and balance, the nav log), in gold: it stays in the app. A button,
+/// not a chip. (6.5.0, q3)
+struct ThreadToolButton: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                .foregroundColor(.aviationGold)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

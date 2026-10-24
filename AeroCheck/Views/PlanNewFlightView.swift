@@ -77,6 +77,8 @@ struct PlanNewFlightView: View {
 
     /// The row being typed in, by id: rows move, and focus follows the row rather than a position.
     @FocusState private var focused: UUID?
+    /// What a field held when a tap emptied it, by row: it comes back if the pilot leaves without typing. (6.5.0)
+    @State private var typedOver: [UUID: String] = [:]
 
     /// The stop being dragged by its handle. (6.1)
     @State private var drag: StopDrag?
@@ -249,9 +251,22 @@ struct PlanNewFlightView: View {
         }
         .onChange(of: stops) { _, _ in search() }
         // Leaving a field settles what was typed there: a name that matches one aerodrome becomes its
-        // code, so "Grenchen" isn't kept as an ident nothing can find. (v6.0 review)
-        .onChange(of: focused) { previous, _ in
-            if let previous { resolveTyped(previous) }
+        // code, so "Grenchen" isn't kept as an ident nothing can find. (v6.0 review) Left empty after a tap
+        // emptied it, it gets its aerodrome back.
+        // A tap in a field with an aerodrome empties it, ready for the new one: the pilot had to delete
+        // the code first (the author's device check, 23 Oct 2026). (6.5.0)
+        .onChange(of: focused) { previous, current in
+            if let previous {
+                if let kept = typedOver.removeValue(forKey: previous),
+                   stops.rows.first(where: { $0.id == previous })?.ident.isEmpty == true {
+                    stops.setIdent(kept, for: previous)
+                }
+                resolveTyped(previous)
+            }
+            if let current, let ident = stops.rows.first(where: { $0.id == current })?.ident, !ident.isEmpty {
+                typedOver[current] = ident
+                stops.setIdent("", for: current)
+            }
         }
         .onChange(of: focused) { _, _ in search() }
     }

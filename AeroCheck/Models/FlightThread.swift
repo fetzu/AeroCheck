@@ -84,6 +84,10 @@ enum ThreadTaskKey: String, Codable, CaseIterable, Sendable {
             return .close
         }
     }
+
+    /// The tasks the flight page's weather block holds, under its one tick: "Weather briefed" and every country's area
+    /// forecast (the author's v65-1 and q4, 22 Oct 2026). Still separate tasks underneath, so a 6.4 build reads them.
+    var isWeatherBlock: Bool { self == .weatherBriefed || self == .gaforChecked }
 }
 
 /// One item of admin work on a thread.
@@ -121,6 +125,12 @@ struct ThreadTask: Codable, Identifiable, Equatable, Sendable {
 
     /// Identity for regeneration: the same key for the same subject is the same task.
     var matchToken: String { "\(key.rawValue)#\(subject ?? "")" }
+
+    /// The country of an airspace activity or area forecast task: its subject, Switzerland's when it has none
+    /// (a Swiss task before 6.5.0 had none, and keeps none). (6.5.0)
+    var briefingCountry: String { subject ?? "CH" }
+
+    static func briefingSubject(_ country: String) -> String? { country == "CH" ? nil : country }
 }
 
 /// Where a thread is in its life. Advancing is monotonic apart from `closeOut → done`, which the pilot
@@ -206,6 +216,12 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Slovakia.
     var homeCountry: String?
 
+    /// The aerodrome the route ends at and its country (`ICAOCountry` first): where the flight plan is closed, by that
+    /// country's rule. Recorded with `countries` for the same reason; nil on threads written before 6.5.0 until their
+    /// next regeneration. (6.5.0)
+    var arrivalIdent: String?
+    var arrivalCountry: String?
+
     var tasks: [ThreadTask] = []
 
     /// Set when the pilot ticks "flight plan filed". This is what arms the close reminder — a thread
@@ -225,8 +241,13 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Readiness over the pre-flight chapters only — the number Home shows. Tasks marked not
     /// applicable leave the denominator, so dismissing a PPR that turned out not to apply moves the
     /// ring to 100% rather than stranding it at 9/10.
-    var preFlightProgress: (done: Int, total: Int) {
-        let relevant = tasks.filter {
+    var preFlightProgress: (done: Int, total: Int) { preFlightProgress(sharing: []) }
+
+    /// The same, with `shared` counted in: a leg's trip tasks as the leg sees them (`Trip.sharedTasks(for:in:)`). A leg
+    /// is ready when everything before ITS flight is, the trip's weather and NOTAMs included: the leg's own tasks alone
+    /// said "7 of 7, Everything done" with the trip's weather open (the author's device check, 23 Oct 2026). (6.5.0)
+    func preFlightProgress(sharing shared: [ThreadTask]) -> (done: Int, total: Int) {
+        let relevant = (tasks + shared).filter {
             ($0.chapter == .plan || $0.chapter == .prepare) && $0.state != .notApplicable
         }
         return (relevant.filter { $0.state == .done }.count, relevant.count)
@@ -236,9 +257,9 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// state already says ("x of y done"); back to PLANNED when one is unticked or a new one appears. Before
     /// the flight only: FLY, CLOSE-OUT and DONE are the flight's. READY was only ever set when an abandoned
     /// flight was detached, so a flight with everything ticked still said PLANNED. (6.4.0)
-    mutating func settleReadiness() {
+    mutating func settleReadiness(sharing shared: [ThreadTask] = []) {
         guard state == .planned || state == .ready else { return }
-        let progress = preFlightProgress
+        let progress = preFlightProgress(sharing: shared)
         state = progress.total > 0 && progress.done >= progress.total ? .ready : .planned
     }
 
@@ -248,22 +269,30 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// The single next thing to do, in chapter order — what the Home strip advertises.
-    var nextTask: ThreadTask? { nextTask(skipping: []) }
+    var nextTask: ThreadTask? { nextTask(skipping: [], sharing: []) }
+
+    /// For a leg, its own next task, then its trip's (`shared`), as the trip card on Today has it. (6.5.0)
+    func nextTask(sharing shared: [ThreadTask]) -> ThreadTask? { nextTask(skipping: [], sharing: shared) }
 
     /// The next task for the flight page's NEXT card. The same as `nextTask`, except while the red
     /// open-plan card is up: that card already says "close your flight plan", with the call and the
     /// tick, so a gold NEXT card saying it again only pushed the rest of the page down. It moves on
     /// to the task after, or to nothing. Home keeps `nextTask`: its strip has no red card beside it.
-    var nextTaskBesideOpenFlightPlan: ThreadTask? {
-        nextTask(skipping: hasOpenFlightPlanAfterFlight ? [.flightPlanClosed] : [])
+    var nextTaskBesideOpenFlightPlan: ThreadTask? { nextTaskBesideOpenFlightPlan(sharing: []) }
+
+    func nextTaskBesideOpenFlightPlan(sharing shared: [ThreadTask]) -> ThreadTask? {
+        nextTask(skipping: hasOpenFlightPlanAfterFlight ? [.flightPlanClosed] : [], sharing: shared)
     }
 
-    private func nextTask(skipping keys: Set<ThreadTaskKey>) -> ThreadTask? {
-        for chapter in ThreadChapter.taskBearing {
-            // Before the flight, the close chapter isn't the pilot's problem yet.
-            if chapter == .close && state != .closeOut && state != .done { continue }
-            if let task = tasks(in: chapter).first(where: { $0.state == .pending && !keys.contains($0.key) }) {
-                return task
+    /// The flight's own tasks first, in chapter order, then `shared` (a leg's trip tasks) the same way.
+    private func nextTask(skipping keys: Set<ThreadTaskKey>, sharing shared: [ThreadTask]) -> ThreadTask? {
+        for list in [tasks, shared] {
+            for chapter in ThreadChapter.taskBearing {
+                // Before the flight, the close chapter isn't the pilot's problem yet.
+                if chapter == .close && state != .closeOut && state != .done { continue }
+                if let task = list.first(where: { $0.chapter == chapter && $0.state == .pending && !keys.contains($0.key) }) {
+                    return task
+                }
             }
         }
         return nil
@@ -373,12 +402,37 @@ extension FlightThread {
         tripId = try c.decodeIfPresent(UUID.self, forKey: .tripId)
         landedElsewhere = try c.decodeIfPresent(LandedElsewhere.self, forKey: .landedElsewhere)
         homeCountry = try c.decodeIfPresent(String.self, forKey: .homeCountry)
-        tasks = try c.decodeIfPresent([ThreadTask].self, forKey: .tasks) ?? []
+        arrivalIdent = try c.decodeIfPresent(String.self, forKey: .arrivalIdent)
+        arrivalCountry = try c.decodeIfPresent(String.self, forKey: .arrivalCountry)
+        tasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .tasks)?.tasks ?? []
         flightPlanFiledAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanFiledAt)
         flightPlanClosedAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanClosedAt)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }
+}
+
+/// A list of tasks that skips one this build can't read (a key a newer build added) instead of failing the whole
+/// thread or trip. Threads and trips sync through the shared iCloud datastore, so a device still on an older build
+/// reads what a newer one wrote; a task key it doesn't know made the thread fail to decode, and a thread that fails
+/// is not shown at all. The task comes back when the newer build regenerates. (6.5.0)
+struct LossyTaskList: Decodable {
+    let tasks: [ThreadTask]
+
+    init(from decoder: Decoder) throws {
+        var list = try decoder.unkeyedContainer()
+        var read: [ThreadTask] = []
+        while !list.isAtEnd {
+            if let task = try? list.decode(ThreadTask.self) {
+                read.append(task)
+            } else {
+                _ = try list.decode(Skipped.self)   // moves past the one it couldn't read
+            }
+        }
+        tasks = read
+    }
+
+    private struct Skipped: Decodable {}
 }
 
 // MARK: - Landing somewhere else (v5.1)

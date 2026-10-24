@@ -551,13 +551,13 @@ enum FlightCreator {
                                   threadId: threadId)
     }
 
-    /// "Cancel trip": every leg neither flown nor flying (`FlightThreadManager.legsToCancel`), each
-    /// cancelled by `cancelLeg`. Returns the legs removed.
+    /// "Cancel trip": every leg `FlightThreadManager.legsToCancel` lists, each cancelled by
+    /// `cancelLeg`. Returns the legs removed.
     ///
-    /// The legs that flew stay, with their flights in the logbook. Two or more of them left keep the
-    /// trip, as the record of what was flown; one left is a flight of its own again, with the trip's
-    /// preparation, as `removeLeg` decides for any leg. A leg in the air is never removed, whatever
-    /// the caller offered (`flyingPlanId`: the plan of the flight under way).
+    /// A leg that flew goes too, its flight staying in the logbook; one whose ATC flight plan is still
+    /// open stays until the plan is closed, alone a flight of its own again, as `removeLeg` decides
+    /// for any leg. A leg in the air is never removed, whatever the caller offered (`flyingPlanId`:
+    /// the plan of the flight under way). Until 6.6.0 the flown legs stayed and kept the trip.
     @discardableResult
     static func cancelTrip(_ tripId: UUID,
                            plans: FlightPlanManager,

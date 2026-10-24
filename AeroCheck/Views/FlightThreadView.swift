@@ -822,10 +822,11 @@ struct FlightThreadView: View {
         }
     }
 
-    /// "Cancel whole trip (n legs)", beside "Cancel this leg" at the foot of the page: every leg not
-    /// flown yet goes, each as "Cancel this leg" takes one (`FlightCreator.cancelTrip`). Offered while
-    /// a leg is left to cancel and none is in the air (`FlightThreadManager.canCancel`), and only when
-    /// it takes more than this leg. It sat under the leg strip, where it read as this leg's own
+    /// "Cancel whole trip (n legs)", beside "Cancel this leg" at the foot of the page: every leg goes,
+    /// each as "Cancel this leg" takes one (`FlightCreator.cancelTrip`), but a leg whose ATC flight
+    /// plan is still open (`FlightThreadManager.staysOnCancel`); a flown leg's flight stays in the
+    /// logbook. Offered on any leg's page while a leg is left to cancel, one is not finished and none
+    /// is in the air (`FlightThreadManager.canCancel`), and only when it takes more than this leg. It sat under the leg strip, where it read as this leg's own
     /// cancel (6.1.0 device check): both now sit at the foot, each naming what it takes, and the one
     /// at the foot that every flight has still takes the one leg. It asks first, naming the legs. (6.1)
     private func tripLegsToCancel(_ thread: FlightThread) -> (trip: Trip, legs: [FlightThread])? {
@@ -851,16 +852,20 @@ struct FlightThreadView: View {
         .buttonStyle(.plain)
     }
 
-    /// The legs that go, one a line ("Leg 2 · LSGE → LSGN", numbered as the strip numbers them), and
-    /// what stays: the legs already flown, with their flights in the logbook.
+    /// The legs that go, one a line ("Leg 2 · LSGE → LSGN", numbered as the strip numbers them; a flown one says its
+    /// flight stays in the logbook), and a leg that stays with its flight plan still open. (6.6.0, the author's C A)
     private func cancelTripMessage(_ trip: Trip) -> String {
-        let legs = threadManager.legs(of: trip)
-        let lines = legs.enumerated()
-            .filter { !FlightThreadManager.isFlownOrFlying($0.element, flyingPlanId: flyingPlanId) }
-            .map { L10n.Trip.cancelConfirmLeg($0.offset + 1, $0.element.displayName) }
-            .joined(separator: "\n")
-        let keepsFlown = legs.contains { FlightThreadManager.isFlownOrFlying($0, flyingPlanId: flyingPlanId) }
-        return L10n.Trip.cancelConfirmMessage(lines, keepsFlown: keepsFlown)
+        let legs = threadManager.legs(of: trip).enumerated()
+        let going = legs.filter { !FlightThreadManager.staysOnCancel($0.element, flyingPlanId: flyingPlanId) }
+            .map { leg in
+                FlightThreadManager.isFlownOrFlying(leg.element, flyingPlanId: flyingPlanId)
+                    ? L10n.Trip.cancelConfirmLegFlown(leg.offset + 1, leg.element.displayName)
+                    : L10n.Trip.cancelConfirmLeg(leg.offset + 1, leg.element.displayName)
+            }
+        let staying = legs.filter { FlightThreadManager.staysOnCancel($0.element, flyingPlanId: flyingPlanId) }
+            .map { L10n.Trip.cancelConfirmLegStays($0.offset + 1, $0.element.displayName) }
+        return L10n.Trip.cancelConfirmMessage(going.joined(separator: "\n"),
+                                              staying: staying.isEmpty ? nil : staying.joined(separator: "\n"))
     }
 
     /// This leg's stop, before it leaves: "Stop at LSGE", the time on the ground and the refuel,

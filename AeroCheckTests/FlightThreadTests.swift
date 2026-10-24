@@ -649,6 +649,7 @@ final class FlightThreadTests: XCTestCase {
         thread.countries = ["CH", "FR"]
         thread.tripId = UUID()
         thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSZE", landedIdent: "LSZS", landedName: "Samedan")
+        thread.skippedStop = SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN")
         thread.homeCountry = "CH"
         thread.arrivalIdent = "LSZE"
         thread.arrivalCountry = "CH"
@@ -714,7 +715,7 @@ final class FlightThreadTests: XCTestCase {
         let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
         XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
                                       "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
-                                      "landedElsewhere", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
+                                      "landedElsewhere", "skippedStop", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
                                       "flightPlanFiledAt",
                                       "flightPlanClosedAt", "createdAt", "updatedAt"])
         let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))

@@ -394,10 +394,62 @@ struct LandedElsewhereOffer: View {
     let laterLegs: [String]
     let onContinue: () -> Void
     let onFinish: (_ cancellingLaterLegs: Bool) -> Void
+    /// Landed at a later leg's destination (6.6.0, t3 A): its number and the stop flown past. The question comes
+    /// first, skipped stop or diversion; "It was a diversion" shows the offer above.
+    var skip: (number: Int, stop: String)?
+    var onSkip: (() -> Void)?
 
     @State private var asking = false
+    @State private var wasADiversion = false
 
     var body: some View {
+        if let skip, let onSkip, !wasADiversion {
+            skipQuestion(skip, onSkip: onSkip)
+        } else {
+            offer
+        }
+    }
+
+    private func skipQuestion(_ skip: (number: Int, stop: String), onSkip: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.right.circle.fill")
+                    .scaledFont(size: 18, relativeTo: .title3)
+                    .foregroundColor(.aviationGold)
+                Text(L10n.Trip.landedAtLegDestination(landed.landedIdent, skip.number))
+                    .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            Text(L10n.Trip.skipStopExplainer(landed.landedIdent))
+                .scaledFont(size: 12, relativeTo: .caption)
+                .foregroundColor(.dimText)
+                .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { skipButtons(skip, onSkip: onSkip) }
+                VStack(spacing: 8) { skipButtons(skip, onSkip: onSkip) }
+            }
+        }
+        .padding(14)
+        .background(Color.aviationGold.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func skipButtons(_ skip: (number: Int, stop: String), onSkip: @escaping () -> Void) -> some View {
+        Button(action: onSkip) {
+            Text(L10n.Trip.skipStop(skip.stop)).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(PrimaryButtonStyle(isLarge: false))
+        Button { wasADiversion = true } label: {
+            Text(L10n.Trip.itWasADiversion).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(SecondaryButtonStyle(isLarge: false))
+    }
+
+    private var offer: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
@@ -445,5 +497,39 @@ struct LandedElsewhereOffer: View {
         } message: {
             Text(laterLegs.joined(separator: "\n"))
         }
+    }
+}
+
+/// A skipped leg's ATC flight plan, still filed (6.6.0, t6 A: remind, never act): cancel it where it was filed, then
+/// Done. Not a task: nothing is stored but the reminder, and it goes with Done.
+struct SkippedPlanReminder: View {
+    let plans: String
+    let onDone: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .scaledFont(size: 16, relativeTo: .body)
+                .foregroundColor(.aviationAmber)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.Trip.cancelSkippedPlanTitle(plans))
+                    .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.Trip.cancelSkippedPlanBody)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 6)
+            Button(L10n.Button.done, action: onDone)
+                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                .foregroundColor(.aviationGold)
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(14)
+        .background(Color.aviationAmber.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.aviationAmber.opacity(0.5), lineWidth: 1))
     }
 }

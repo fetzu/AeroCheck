@@ -15706,6 +15706,29 @@
         }
       }
     },
+    "trip.cancelFiledLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Flugplan für %@ ist ebenfalls aufgegeben: Stornieren Sie ihn dort, wo Sie ihn aufgegeben haben, sobald Sie am Boden sind."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The flight plan for %@ is filed too: cancel it where you filed it, once on the ground."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le plan de vol pour %@ est aussi déposé : annulez-le là où vous l’avez déposé, une fois au sol."
+          }
+        }
+      }
+    },
     "trip.cancelLaterLegs": {
       "extractionState": "manual",
       "localizations": {
@@ -15725,6 +15748,167 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les annuler"
+          }
+        }
+      }
+    },
+    "trip.cancelSkippedPlanBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er wurde für eine Etappe aufgegeben, die dieser Flug übersprungen hat. Stornieren Sie ihn dort, wo Sie ihn aufgegeben haben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was filed for a leg this flight skipped. Cancel it where you filed it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il a été déposé pour une étape que ce vol a sautée. Annulez-le là où vous l’avez déposé."
+          }
+        }
+      }
+    },
+    "trip.cancelSkippedPlanTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stornieren Sie den Flugplan für %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel the flight plan for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulez le plan de vol pour %@"
+          }
+        }
+      }
+    },
+    "trip.flyOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiterfliegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly on"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer"
+          }
+        }
+      }
+    },
+    "trip.flyOnConfirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter nach %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly on to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer vers %@"
+          }
+        }
+      }
+    },
+    "trip.flyOnMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Route führt weiter entlang der nächsten Etappe; %@ wird ein Wegpunkt. Die übersprungenen Etappen verlassen die Reise."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route goes on along the next leg; %@ becomes a waypoint. The legs flown past leave the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route continue le long de l’étape suivante ; %@ devient un point. Les étapes survolées quittent le voyage."
+          }
+        }
+      }
+    },
+    "trip.flyOnTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter nach %1$@, ohne Zwischenhalt in %2$@?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly on to %1$@, without the stop at %2$@?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer vers %1$@ sans l’escale à %2$@ ?"
+          }
+        }
+      }
+    },
+    "trip.itWasADiversion": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es war ein Ausweichen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was a diversion"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C’était un déroutement"
           }
         }
       }
@@ -15752,6 +15936,52 @@
         }
       }
     },
+    "trip.keepStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalt beibehalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the stop"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder l’escale"
+          }
+        }
+      }
+    },
+    "trip.landedAtLegDestination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie sind in %1$@ gelandet, dem Ziel der Etappe %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You landed at %1$@, leg %2$lld's destination"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez atterri à %1$@, destination de l’étape %2$lld"
+          }
+        }
+      }
+    },
     "trip.laterLegsTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -15771,6 +16001,121 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annuler les étapes suivantes du voyage ?"
+          }
+        }
+      }
+    },
+    "trip.laterStops": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Zwischenhalte der Reise"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later stops of the trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escales suivantes du voyage"
+          }
+        }
+      }
+    },
+    "trip.legDestination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziel der Etappe %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %lld's destination"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination de l’étape %lld"
+          }
+        }
+      }
+    },
+    "trip.skipStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalt in %@ überspringen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip the stop at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer l’escale à %@"
+          }
+        }
+      }
+    },
+    "trip.skipStopExplainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalt überspringen: Dieser Flug bleibt wie geflogen, und die Etappen bis %@ verlassen die Reise."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip the stop: this flight stays as flown, and the legs up to %@ leave the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer l’escale : ce vol reste tel qu’il a été volé, et les étapes jusqu’à %@ quittent le voyage."
+          }
+        }
+      }
+    },
+    "trip.tellFISNewDestination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr ATC-Flugplan ist nach %1$@ aufgegeben: Melden Sie dem FIS Ihr neues Ziel, %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your ATC flight plan is filed to %1$@: tell the FIS your new destination, %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre plan de vol ATC est déposé pour %1$@ : annoncez au FIS votre nouvelle destination, %2$@."
           }
         }
       }

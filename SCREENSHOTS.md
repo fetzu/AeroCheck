@@ -179,7 +179,7 @@ and language. The sets as submitted are kept outside the repos, in `Marketing/Ap
 
 ## Adding a shot
 
-1. If it needs a state of its own: a case in `MarketingScene` with a one-line `detail`, a launch key in `ContentView`'s
+1. If it needs a state of its own: a case in `MarketingScene`, documented on the case, a launch key in `ContentView`'s
    DEBUG `.task` (the `switch key` block), and its injection in `MarketingSceneInjector` (reuse `makeDemoPlan`, `tick`,
    `importMarketingFlights`). Model state only.
 2. If it needs a gesture: an accessibility identifier on what it taps, and the steps in the manifest.

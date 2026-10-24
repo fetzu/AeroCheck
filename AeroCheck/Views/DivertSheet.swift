@@ -134,6 +134,7 @@ struct DivertSheet: View {
                     .background(RoundedRectangle(cornerRadius: 10).fill(theme.action))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("divert.flyOn.\(stop.ident)")
             // On the button, so the iPad's popover points at the row tapped.
             .confirmationDialog(L10n.Trip.flyOnTitle(stop.ident, stopIdent),
                                 isPresented: Binding(get: { flyingOnTo?.id == stop.id },

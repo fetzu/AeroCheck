@@ -17,6 +17,7 @@
 		C7A00008211111110000002 /* ChecksInFlightUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000002 /* ChecksInFlightUITests.swift */; };
 		C7A00008211111110000003 /* CircuitsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000003 /* CircuitsUITests.swift */; };
 		C7A00008211111110000004 /* FlightTimingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000004 /* FlightTimingUITests.swift */; };
+		FP6600091111111000002 /* TripReplayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600091111111000001 /* TripReplayUITests.swift */; };
 		C7A00008211111110000005 /* WaypointMarkingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000005 /* WaypointMarkingUITests.swift */; };
 		C7A00009211111110000001 /* Scenarios in Resources */ = {isa = PBXBuildFile; fileRef = C7A00009111111110000001 /* Scenarios */; };
 		A5000008111111110000002 /* GeoValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000001 /* GeoValidationTests.swift */; };
@@ -458,6 +459,7 @@
 		C7A00008111111110000002 /* ChecksInFlightUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecksInFlightUITests.swift; sourceTree = "<group>"; };
 		C7A00008111111110000003 /* CircuitsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitsUITests.swift; sourceTree = "<group>"; };
 		C7A00008111111110000004 /* FlightTimingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightTimingUITests.swift; sourceTree = "<group>"; };
+		FP6600091111111000001 /* TripReplayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripReplayUITests.swift; sourceTree = "<group>"; };
 		C7A00008111111110000005 /* WaypointMarkingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointMarkingUITests.swift; sourceTree = "<group>"; };
 		C7A00009111111110000001 /* Scenarios */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Scenarios; sourceTree = "<group>"; };
 		A5000001111111110000000 /* AeroCheckTests.xctest */ = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = AeroCheckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -879,6 +881,7 @@
 				C7A00008111111110000002 /* ChecksInFlightUITests.swift */,
 				C7A00008111111110000003 /* CircuitsUITests.swift */,
 				C7A00008111111110000004 /* FlightTimingUITests.swift */,
+				FP6600091111111000001 /* TripReplayUITests.swift */,
 				C7A00008111111110000005 /* WaypointMarkingUITests.swift */,
 			);
 			path = AeroCheckUITests;
@@ -1583,6 +1586,7 @@
 				C7A00008211111110000002 /* ChecksInFlightUITests.swift in Sources */,
 				C7A00008211111110000003 /* CircuitsUITests.swift in Sources */,
 				C7A00008211111110000004 /* FlightTimingUITests.swift in Sources */,
+				FP6600091111111000002 /* TripReplayUITests.swift in Sources */,
 				C7A00008211111110000005 /* WaypointMarkingUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

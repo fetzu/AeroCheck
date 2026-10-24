@@ -112,9 +112,11 @@ enum FlightCreator {
         plan.plannedDepartureTime = intent.departureTime
         // The flight's copy lives with the flight; the route stays in Routes, once. (review #4, R1)
         plan.flightOwned = true
-        // Times over recorded on a previous flight of this route belong to that flight.
+        // Times over recorded on a previous flight of this route belong to that flight, and its usual stops
+        // are the route's: the day's landings are the legs Plan new flight made. (6.6.0, t1)
         for index in plan.waypoints.indices {
             plan.waypoints[index].actualTimeOver = nil
+            plan.waypoints[index].stopover = nil
         }
         plan.calculateRouteData()
         return plan

@@ -62,6 +62,13 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     /// For a forecast, the hour it is valid for.
     var planningWindValidAt: Date?
 
+    /// The route's usual stop, on an aerodrome between a saved route's ends: Plan new flight starts with "Land
+    /// here" switched on there, with this time on the ground and refuel, and the pilot can still switch it off
+    /// for the day. A default, never a landing by itself, and a flight's own plan carries none
+    /// (`FlightCreator.plan(fromRoute:)`). Optional, like every field added to a persisted model: a build before
+    /// 6.6.0 drops it when it saves the route. (6.6.0, t1: the author reversed 6.1's M2, 24 Oct 2026)
+    var stopover: Stopover?
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -299,6 +306,16 @@ struct Stopover: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         groundMinutes = try c.decodeIfPresent(Int.self, forKey: .groundMinutes) ?? Stopover.defaultGroundMinutes
         refuel = try c.decodeIfPresent(Bool.self, forKey: .refuel) ?? false
+    }
+}
+
+extension FlightPlan {
+    /// A saved route's usual stops, in flying order: its waypoints between the ends that mark one. (6.6.0, t1)
+    var usualStops: [(ident: String, stopover: Stopover)] {
+        guard waypoints.count > 2 else { return [] }
+        return waypoints.dropFirst().dropLast().compactMap { waypoint in
+            waypoint.stopover.map { (waypoint.name.trimmingCharacters(in: .whitespaces).uppercased(), $0) }
+        }
     }
 }
 

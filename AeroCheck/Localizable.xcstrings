@@ -13842,6 +13842,52 @@
         }
       }
     },
+    "nav.usualStopHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Neuen Flug planen» beginnt mit diesem Zwischenhalt. Sie können ihn für den Tag noch ausschalten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan new flight starts with this stop on. You can still switch it off for the day."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifier un vol commence avec cette escale activée. Vous pouvez encore la désactiver pour ce jour-là."
+          }
+        }
+      }
+    },
+    "nav.whenRouteIsFlown": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn diese Route geflogen wird"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When this route is flown"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand cette route est volée"
+          }
+        }
+      }
+    },
     "open flightmaps · indicative": {
       "localizations": {
         "de": {
@@ -15069,6 +15115,52 @@
         }
       }
     },
+    "routes.stopAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Zwischenhalt in %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A stop at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une escale à %@"
+          }
+        }
+      }
+    },
+    "routes.stopsAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalte in %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stops at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escales à %@"
+          }
+        }
+      }
+    },
     "settings.flightLogging.confirmFlightEvents": {
       "extractionState": "manual",
       "localizations": {
@@ -16116,6 +16208,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre plan de vol ATC est déposé pour %1$@ : annoncez au FIS votre nouvelle destination, %2$@."
+          }
+        }
+      }
+    },
+    "trip.usualStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "üblicher Zwischenhalt: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usual stop: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "escale habituelle : %@"
           }
         }
       }

@@ -746,6 +746,12 @@ struct FlightPlanRow: View {
         return plan.name.isEmpty ? L10n.Nav.newFlightPlan : plan.name
     }
 
+    private var stopsLine: String? {
+        let idents = plan.usualStops.map(\.ident)
+        guard let first = idents.first else { return nil }
+        return idents.count == 1 ? L10n.Routes.stopAt(first) : L10n.Routes.stopsAt(idents.joined(separator: ", "))
+    }
+
     /// Relative recency ("2 days ago", "il y a 2 j"), localised. (revamp #1b)
     private var relativeDate: String {
         L10n.Time.relative(plan.updatedAt)
@@ -852,6 +858,13 @@ struct FlightPlanRow: View {
                 .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        // The route's usual stops: "A stop at LFGA". (6.6.0, t1)
+        if let stops = stopsLine {
+            Text(stops)
+                .scaledFont(size: 13, relativeTo: .caption)
+                .foregroundColor(.secondaryText)
+                .lineLimit(2)
         }
         // Metric strip — structured, not a flat dot-list.
         if plan.waypoints.count >= 2 {

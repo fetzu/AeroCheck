@@ -691,6 +691,8 @@ enum L10n {
         static func fileBy(_ time: String) -> String { String(format: String(localized: "flightPage.fileBy"), time) }
         static let fileBeforeOffBlock = String(localized: "flightPage.fileBeforeOffBlock")
         static func notice(_ lead: String) -> String { String(format: String(localized: "flightPage.notice"), lead) }
+        /// What an airspace-activity link is for, in the NOTAMs block.
+        static let purposeAirspace = String(localized: "flightPage.purpose.airspace")
         static let noSigmet = String(localized: "flightPage.noSigmet")
         static let sigmet = String(localized: "flightPage.sigmet")
     }

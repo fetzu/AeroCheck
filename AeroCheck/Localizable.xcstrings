@@ -7648,19 +7648,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Seite pro Flug, und was als Nächstes zu tun ist, steht immer zuoberst."
+            "value": "Eine Seite pro Flug, und was noch offen ist, steht immer unter dem Titel."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One page per flight, with the next thing to do always at the top."
+            "value": "One page per flight, with what is left always under the title."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une page par vol, avec la prochaine chose à faire toujours en haut."
+            "value": "Une page par vol, avec ce qui reste toujours sous le titre."
           }
         }
       }
@@ -8591,19 +8591,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLUG BEENDEN hat den Flug in den ABSCHLUSS gebracht, wo Sie finden, was noch abzuschliessen ist. Hätten Sie einen ATC-Flugplan aufgegeben, käme sein Schliessen zuerst, in Rot, mit der Nummer, die Sie anrufen."
+            "value": "FLUG BEENDEN hat den Flug in den ABSCHLUSS gebracht: Die Seite öffnet jetzt bei Abschliessen, und die Zeile unter dem Titel zählt, was noch offen ist. Hätten Sie einen ATC-Flugplan aufgegeben, käme sein Schliessen zuerst, in Rot, mit der Nummer, die Sie anrufen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "END FLIGHT moved the flight to CLOSE-OUT, where you find what is left to close. If you had filed a flight plan, closing it would come first, in red, with the number to call."
+            "value": "END FLIGHT moved the flight to CLOSE-OUT: the page now opens on Close, and the line under the title counts what is left. If you had filed a flight plan, closing it would come first, in red, with the number to call."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TERMINER LE VOL a mis le vol en CLÔTURE, où vous trouvez ce qui reste à clore. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
+            "value": "TERMINER LE VOL a mis le vol en CLÔTURE : la page s’ouvre maintenant sur Clôturer, et la ligne sous le titre compte ce qui reste. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
           }
         }
       }
@@ -9419,19 +9419,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jeder Flug hat seine eigene Seite, von der Planung bis zum Flugbuch: der Flugverlauf. Seine vier Kapitel (Planen, Vorbereiten, Fliegen und Abschliessen) folgen dem Ablauf jedes Flugs, und ein Tippen auf eines führt Sie dorthin. Der Kreis oben zeigt, wie viel erledigt ist."
+            "value": "Jeder Flug hat seine eigene Seite, von der Planung bis zum Flugbuch: der Flugverlauf. Seine vier Kapitel (Planen, Vorbereiten, Fliegen und Abschliessen) folgen dem Ablauf jedes Flugs; offen sind die, in denen jetzt etwas zu tun ist, die anderen stehen auf einer Zeile. Die Zeile unter dem Titel sagt, wann Sie abfliegen und was noch offen ist."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Each flight has its own page, from the plan to the logbook: the flight thread. Its four chapters (Plan, Prepare, Fly and Close) follow the stages of every flight, and a tap on one takes you there. The circle at the top shows how much is done."
+            "value": "Each flight has its own page, from the plan to the logbook: the flight thread. Its four chapters (Plan, Prepare, Fly and Close) follow the stages of every flight; those with something to do now are open, the others are one line. The line under the title says when you leave and what is left."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chaque vol a sa page, du plan au carnet : le fil du vol. Ses quatre chapitres (Planifier, Préparer, Voler et Clôturer) suivent les étapes de chaque vol, et un appui sur l'un d'eux vous y mène. Le cercle en haut montre ce qui est fait."
+            "value": "Chaque vol a sa page, du plan au carnet : le fil du vol. Ses quatre chapitres (Planifier, Préparer, Voler et Clôturer) suivent les étapes de chaque vol ; ceux où il y a à faire maintenant sont ouverts, les autres tiennent sur une ligne. La ligne sous le titre dit quand vous partez et ce qui reste."
           }
         }
       }
@@ -9511,19 +9511,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aufgaben mit AUTO werden automatisch aus der Route und dem Flugzeug ausgefüllt. Tippen Sie auf «Treibstoffplan»."
+            "value": "Route und Treibstoff werden aus der Route und dem Flugzeug berechnet: Ihre Kreise sind gestrichelt, sie haken sich selbst ab. Tippen Sie auf «Treibstoff»."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AUTO rows are filled in automatically from the route and the aircraft. Tap the fuel plan."
+            "value": "Route and Fuel are worked out from the route and the aircraft: their circles are dashed, they tick themselves. Tap Fuel."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les lignes AUTO se remplissent automatiquement à partir de la route et de l'avion. Touchez le plan carburant."
+            "value": "Route et Carburant se calculent à partir de la route et de l’avion : leurs cercles sont en pointillé, ils se cochent tout seuls. Touchez Carburant."
           }
         }
       }
@@ -10178,19 +10178,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website, mit einem Hinweis unter dem Namen, wenn es ein Konto braucht oder etwas kostet. Tippen Sie auf die markierte: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
+            "value": "Goldene Tasten bleiben in der App; blaue Zeilen öffnen eine Website, mit einem Hinweis neben dem Namen, wenn es ein Konto braucht oder etwas kostet. Tippen Sie auf die markierte: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gold buttons stay in the app; blue ones open a website, with a word under the name when it needs an account or costs money. Tap the ringed one: in a dry run, the app only tells you where it would go."
+            "value": "Gold buttons stay in the app; blue rows open a website, with a word beside the name when it needs an account or costs money. Tap the ringed one: in a dry run, the app only tells you where it would go."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site, avec un mot sous le nom s'il faut un compte ou s'il est payant. Touchez celui qui est entouré : en vol à blanc, l'app indique seulement où il mènerait."
+            "value": "Les boutons dorés restent dans l’app ; les lignes bleues ouvrent un site, avec un mot à côté du nom s’il faut un compte ou s’il est payant. Touchez celle qui est entourée : en vol à blanc, l’app indique seulement où elle mènerait."
           }
         }
       }
@@ -10500,19 +10500,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Was als Nächstes zu tun ist, steht immer zuoberst auf der Seite und auf Heute."
+            "value": "Was noch offen ist, steht immer in der Zeile unter dem Titel und auf Heute. Ein Tippen auf einen Eintrag führt Sie dorthin."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What to do next is always at the top of the page, and on Today."
+            "value": "What is left is always in the line under the title, and on Today. A tap on an item takes you to it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine chose à faire est toujours en haut de la page, et sur Aujourd'hui."
+            "value": "Ce qui reste est toujours dans la ligne sous le titre, et sur Aujourd’hui. Un appui sur un élément vous y mène."
           }
         }
       }
@@ -10523,19 +10523,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Nächste"
+            "value": "Was noch offen ist"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The next thing"
+            "value": "What is left"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine chose"
+            "value": "Ce qui reste"
           }
         }
       }
@@ -10546,19 +10546,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein lokaler Flug braucht keinen ATC-Flugplan: Drücken Sie lange auf «ATC-Flugplan aufgegeben» und wählen Sie dann «Entfällt»."
+            "value": "Ein lokaler Flug braucht keinen ATC-Flugplan: Drücken Sie lange auf «ATC-Flugplan» und wählen Sie dann «Entfällt»."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A local flight doesn't need a flight plan: long-press Flight plan filed, then choose Not applicable."
+            "value": "A local flight doesn't need a flight plan: long-press ATC flight plan, then choose Not applicable."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un vol local n'a pas besoin de plan de vol : touchez longuement Plan de vol ATC déposé, puis choisissez Non applicable."
+            "value": "Un vol local n’a pas besoin de plan de vol : touchez longuement Plan de vol ATC, puis choisissez Non applicable."
           }
         }
       }
@@ -11075,19 +11075,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sobald die NOTAM gelesen sind, haken Sie die zugehörige Aufgabe ab."
+            "value": "Sobald NOTAM und Luftraumstatus gelesen sind, haken Sie sie ab: ein Haken für alles."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Once the NOTAMs are read, tick their row."
+            "value": "Once the NOTAMs and the airspace activity are read, tick the block: one tick for all of them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une fois les NOTAM lus, cochez leur ligne."
+            "value": "Une fois les NOTAM et l’activité des espaces aériens lus, cochez le bloc : une seule coche pour tout."
           }
         }
       }
@@ -13250,6 +13250,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Planifier et Préparer"
+          }
+        }
+      }
+    },
+    "flightPage.purpose.airspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumstatus"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace activity"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activité de l’espace aérien"
           }
         }
       }

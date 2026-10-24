@@ -2451,9 +2451,12 @@ struct NavigationMapView: View {
     private func freqCell(tag: String, tint: Color, item: PhaseFrequency?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
+                // On one line, the station's name giving way: the German NÄCHSTE broke over two on an
+                // iPhone, "NÄCHST" above "E". (6.5.0, screenshots)
                 Text(tag)
                     .font(.aero(size: CockpitType.label, weight: .bold))
                     .foregroundColor(tint)
+                    .fixedSize()
                 Text(item?.station ?? "—")
                     .font(.aero(size: CockpitType.label))
                     .foregroundColor(theme.textSecondary)

@@ -750,10 +750,11 @@ class FlightThreadManager: ObservableObject {
 
     // MARK: - Task mutation
 
-    func setTaskState(_ state: ThreadTaskState, taskId: UUID, threadId: UUID) {
+    /// `now` is when a done task was done: the wall clock, but for the screenshots' scenes (their capture clock).
+    func setTaskState(_ state: ThreadTaskState, taskId: UUID, threadId: UUID, now: Date = Date()) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         let wasOpen = threads[index].hasOpenFlightPlan
-        threads[index].setState(state, forTaskWithId: taskId)
+        threads[index].setState(state, forTaskWithId: taskId, now: now)
         settleReadiness(at: index)
 
         let task = threads[index].tasks.first { $0.id == taskId }

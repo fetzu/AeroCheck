@@ -969,12 +969,13 @@ enum MarketingSceneInjector {
 
     /// Tick every check task except the ones named, so the ring reads done/total the way we want it.
     /// Close tasks stay open unless asked: a PLANNED flight with "Debrief written" ticked reads wrong.
+    /// Ticked on the flight clock, so the capture clock's 9:41 is what "Briefed at" says. (6.5.0)
     private static func tick(_ threadId: UUID, leaving open: Set<ThreadTaskKey>, includingClose: Bool = false,
                              threadManager: FlightThreadManager) {
         guard let thread = threadManager.thread(withId: threadId) else { return }
         for task in thread.tasks where task.kind != .auto && !open.contains(task.key)
             && (includingClose || task.chapter != .close) {
-            threadManager.setTaskState(.done, taskId: task.id, threadId: threadId)
+            threadManager.setTaskState(.done, taskId: task.id, threadId: threadId, now: FlightClock.now)
         }
     }
 

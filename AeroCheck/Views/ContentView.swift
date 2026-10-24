@@ -18,10 +18,12 @@ struct ContentView: View {
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
-    @State private var showMarketingControls: Bool = false
     /// Guards the one-shot route-date sweep, so a later load cannot run it twice.
     @State private var hasSweptRouteDates = false
+    #if DEBUG
+    /// The scenes' held GPS fix (`MarketingLocationProvider`), forwarded to the location manager below.
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
+    #endif
     /// A dry run's Cockpit covers the app while one runs. (6.4.0)
     @ObservedObject private var dryRuns = DryRunCenter.shared
 
@@ -83,23 +85,6 @@ struct ContentView: View {
                     RotateToPortraitView()
                         .transition(.opacity)
                 }
-
-                // Marketing controls overlay (shown when shaking with marketing mode enabled).
-                // SEC-C37: compiled out of Release along with the toggle that reveals it.
-                #if DEBUG
-                if showMarketingControls && appState.settings.marketingMode {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            MarketingControlsView()
-                                .padding(.top, 50)
-                                .padding(.trailing, 16)
-                        }
-                        Spacer()
-                    }
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
-                #endif
 
                 // PR-41: non-blocking banner when the checklist was served in a fallback language.
                 if let notice = appState.languageFallbackNotice, !appState.needsDisclaimerAcceptance {
@@ -184,7 +169,6 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: companionConnectivityManager.connectionState)
             .animation(.easeInOut(duration: 0.3), value: companionConnectivityManager.currentRole)
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
-            .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
             .animation(.easeInOut(duration: 0.3), value: appState.languageFallbackNotice)
             .animation(.easeInOut(duration: 0.3), value: dataStatusManager.showStaleNudge)
             .animation(.easeInOut(duration: 0.3), value: threadManager.openFlightPlanNotice)
@@ -243,7 +227,7 @@ struct ContentView: View {
         #if DEBUG
         .task {
             // DEV-ONLY: auto-inject a marketing scene at launch for deterministic screenshot capture,
-            // e.g. `SIMCTL_CHILD_AEROCHECK_SCENE=cruiseHUD xcrun simctl launch <dev> com.fetzu.aerocheck`.
+            // e.g. `SIMCTL_CHILD_AEROCHECK_SCENE=cruiseroute xcrun simctl launch <udid> com.fetzu.aerocheck`.
             // Compiled out of release builds entirely (this whole block is #if DEBUG).
             // A ground replay instead (`AEROCHECK_REPLAY`, GroundReplay.swift): never with a scene.
             if await GroundReplay.startIfRequested(appState: appState, locationManager: locationManager,
@@ -303,14 +287,9 @@ struct ContentView: View {
             }
             let scene: MarketingScene?
             switch key {
-            case "home", "home2aircraft":       scene = .home2Aircraft
-            case "cruise", "cruisehud":         scene = .cruiseHUD
-            case "landed", "landedcircuits":    scene = .cruiseHUD
-            case "cruiseroute", "companion":    scene = .cruiseRoute
+            case "cruiseroute":                 scene = .cruiseRoute
             case "cruisemap":                   scene = .cruiseMap
-            case "nav", "navplanactive":        scene = .navPlanActive
             case "conflicts", "planconflicts":  scene = .planConflicts
-            case "plan", "planbuilder":         scene = .planBuilder
             case "flightlog", "flightlogdetail": scene = .flightLogDetail
             case "flight", "flightfollowed":    scene = .flightFollowed
             case "prepare", "flightprepare":    scene = .flightPrepare
@@ -320,7 +299,6 @@ struct ContentView: View {
             default:                            scene = nil
             }
             guard let scene else { return }
-            appState.settings.marketingMode = true
             // A fresh simulator install would otherwise park the scene behind the safety gate and
             // onboarding; a scene launch means "show me the app", so both are treated as seen.
             if appState.needsDisclaimerAcceptance { appState.acceptDisclaimer() }
@@ -338,124 +316,13 @@ struct ContentView: View {
                 scene,
                 appState: appState,
                 locationManager: locationManager,
-                subscriptionManager: subscriptionManager,
                 aircraftDataService: aircraftDataService,
                 flightPlanManager: flightPlanManager,
                 airportDataService: airportDataService,
                 threadManager: threadManager
             )
-            // The Companion viewer of that cruise, with an item deferred so its list shows, and the
-            // run-up deferred whole so a check's RUN does too. (v6.0 review, J1)
-            if key == "companion" {
-                appState.deferHighlightedItem()
-                appState.resetHighlightedItem(for: .runup)
-                appState.deferredChecks = [.runup]
-                appState.phaseCompletionStatus[.runup] = .skipped
-                companionConnectivityManager.showAsViewerOfOwnFlight(
-                    appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
-            }
-            // Stopped on the runway at LSZQ on the LANDING check, the detector's full-stop card up
-            // and waiting: the card's device check, and where its CONFIRM goes (AFTER LANDING, then
-            // NEW CIRCUIT or the parking check with `landedcircuits`). (6.1.0; circuits 6.3.0)
-            if key == "landed" || key == "landedcircuits" {
-                appState.isCircuitMode = key == "landedcircuits"
-                for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.landing.rawValue {
-                    let flown = !phase.isSkippedInCircuitMode(appState.isCircuitMode)
-                    appState.phaseCompletionStatus[phase] = flown ? .completed : .skipped
-                    let count = appState.activeChecklist.visibleItemCount(
-                        for: phase, learningMode: appState.settings.learningMode)
-                    appState.currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
-                }
-                appState.highestCompletedPhase = .approach
-                appState.currentPhase = .landing
-                await airportDataService.ensureLoaded()
-                // After the cruise scene has held its own fix (it waits for the airports too).
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                let provider = MarketingLocationProvider.shared
-                provider.holdStaticFix(latitude: 47.3497, longitude: 7.0278, altitudeMeters: 1860 / 3.28084,
-                                       speedKnots: 0, headingDegrees: 232)
-                if let fix = provider.currentLocation { locationManager.injectMarketingStaticFix(fix) }
-                // The airport list may still be downloading on a fresh simulator.
-                let field = airportDataService.findAirport(byIdent: "LSZQ") ?? Airport(
-                    id: 0, ident: "LSZQ", type: .smallAirport, name: "Bressaucourt",
-                    latitude: 47.3497, longitude: 7.0278, elevation: 1860, continent: "EU",
-                    isoCountry: "CH", isoRegion: "CH-JU", municipality: nil, scheduledService: false,
-                    gpsCode: nil, iataCode: nil, localCode: nil)
-                flightEventDetector.pendingFullStop = DetectedFlightEvent(
-                    type: .fullStop, timestamp: Date().addingTimeInterval(-45), airport: field,
-                    message: FlightEventDetector.fullStopMessage(airport: field))
-                // The landed card answered, for the captures of what follows (6.1):
-                // `AEROCHECK_LANDED_ANSWER=yes|notSure`.
-                if let answer = ProcessInfo.processInfo.environment["AEROCHECK_LANDED_ANSWER"].flatMap(LandedAnswer.init(rawValue:)),
-                   appState.takeFullStopForLandedCard(flightEventDetector.pendingFullStop) {
-                    flightEventDetector.dismissFullStop()
-                    appState.answerLandedCard(answer)
-                }
-            }
-            // The in-flight scenes in another phase, with the Memory test on or off, for the check slot's
-            // captures: `SIMCTL_CHILD_AEROCHECK_PHASE=landing SIMCTL_CHILD_AEROCHECK_MEMORY_TEST=1`. The
-            // phases before it are left done, as the scene leaves them. (6.1)
-            let env = ProcessInfo.processInfo.environment
-            if let memoryTest = env["AEROCHECK_MEMORY_TEST"] {
-                appState.settings.learningMode = memoryTest != "1"
-            }
-            if appState.isFlightActive, let name = env["AEROCHECK_PHASE"]?.lowercased(),
-               let phase = ChecklistPhase.allCases.first(where: { "\($0)".lowercased() == name }) {
-                for earlier in ChecklistPhase.allCases where earlier.rawValue < phase.rawValue {
-                    appState.phaseCompletionStatus[earlier] = appState.phaseCompletionStatus[earlier] ?? .completed
-                }
-                appState.currentPhase = phase
-                appState.resetHighlightedItem(for: phase)
-                appState.phaseCompletionStatus[phase] = nil
-            }
-            // FREDA in cruise, for its captures (6.1): `AEROCHECK_FREDA=counting` (the cruise check done
-            // four minutes ago), `due` (the ten minutes up) or `waypoint` (due at a waypoint passed).
-            if let stage = env["AEROCHECK_FREDA"]?.lowercased(), appState.isFlightActive {
-                appState.currentPhase = .cruise
-                appState.markLastItemComplete(learningMode: appState.effectiveLearningMode)
-                let now = Date()
-                appState.startFredaForCapture(at: now.addingTimeInterval(stage == "counting" ? -4 * 60 : -11 * 60))
-                let passage = stage == "waypoint"
-                    ? FredaWaypointPassage(name: "SEGNELÉGIER", at: now.addingTimeInterval(-30)) : nil
-                if stage == "waypoint" { appState.startFredaForCapture(at: now.addingTimeInterval(-7 * 60)) }
-                appState.evaluateFreda(now: now, lastPassage: passage)
-            }
-            // The cues from the flight, for their captures (6.1): `AEROCHECK_CUES=takeoff,levelOff` fires
-            // them a minute apart as the detector would (a leg first), so a check open since an earlier
-            // cue turns owed as in flight; `AEROCHECK_OWED=climb:levelOff` makes one owed directly.
-            if appState.isFlightActive, let list = env["AEROCHECK_CUES"]?.lowercased() {
-                let cues = list.split(separator: ",").compactMap { name in
-                    FlightCue.allCases.first { $0.code.lowercased() == name }
-                }
-                var owed: [ChecklistPhase: FlightCue] = [:]
-                for pair in (env["AEROCHECK_OWED"] ?? "").lowercased().split(separator: ",") {
-                    let parts = pair.split(separator: ":").map(String.init)
-                    if parts.count == 2,
-                       let phase = ChecklistPhase.allCases.first(where: { "\($0)".lowercased() == parts[0] }),
-                       let cue = FlightCue.allCases.first(where: { $0.code.lowercased() == parts[1] }) {
-                        owed[phase] = cue
-                    }
-                }
-                appState.applyCuesForCapture(cues, owed: owed)
-            }
-            // The read band's captures (6.2): `AEROCHECK_NEXT_NAME=SAIGNELÉGIER` renames the waypoint flown
-            // to, `AEROCHECK_DIVERT=LSZG` diverts to a field (the airport database's, else Grenchen's
-            // coordinates).
-            if appState.isFlightActive, let name = env["AEROCHECK_NEXT_NAME"], !name.isEmpty,
-               var plan = flightPlanManager.activeFlightPlan, plan.waypoints.indices.contains(plan.currentWaypointIndex) {
-                plan.waypoints[plan.currentWaypointIndex].name = name
-                flightPlanManager.activeFlightPlan = plan
-            }
-            if appState.isFlightActive, let ident = env["AEROCHECK_DIVERT"]?.uppercased(), !ident.isEmpty {
-                let airport = airportDataService.findAirport(byIdent: ident)
-                flightPlanManager.divert(to: TripPlanner.Aerodrome(
-                    ident: ident, name: airport?.name ?? "Grenchen", latitude: airport?.latitude ?? 47.1820,
-                    longitude: airport?.longitude ?? 7.4170, elevationFeet: airport.map { Double($0.elevation ?? 0) },
-                    frequency: nil, isPPR: false))
-            }
-            // A ground tab, for captures that can't tap one (the Logbook's checks trend, 6.1):
-            // `AEROCHECK_TAB=logbook`.
-            if !appState.isFlightActive, let name = env["AEROCHECK_TAB"]?.lowercased() {
+            // A ground tab, for a shot that opens on one (the logbook's): `AEROCHECK_TAB=logbook`.
+            if !appState.isFlightActive, let name = environment["AEROCHECK_TAB"]?.lowercased() {
                 let tabs: [String: GroundTab] = ["today": .today, "plan": .plan, "logbook": .logbook,
                                                  "aircraft": .aircraft, "settings": .settings]
                 if let tab = tabs[name] { appState.groundTab = tab }
@@ -463,33 +330,14 @@ struct ContentView: View {
             // The scene is up, with its extras: the screenshot tour takes it from here.
             CaptureSignal.post()
         }
-        #endif
-        .onShake {
-            // SEC-C37: the shake trigger is Debug-only too. A shake is a plausible ACCIDENT in a
-            // cockpit (turbulence), and it was the entry point to a control panel that could
-            // discard an active flight.
-            #if DEBUG
-            if appState.settings.marketingMode {
-                showMarketingControls.toggle()
-            }
-            #endif
-        }
+        // The scenes' held fix into the location manager (`injectMarketingStaticFix` primes the smoothed speed and the
+        // cached heading too, which SPD and HDG read).
         .onChange(of: marketingProvider.currentLocation) { _, newLocation in
-            // Inject marketing location into LocationManager when active. Use injectMarketingStaticFix
-            // so the smoothed speed / cached heading are primed too — otherwise only ALT lights up
-            // (SPD/HDG read the smoothed caches, which didUpdateLocations skips in marketing mode).
-            if appState.settings.marketingMode && marketingProvider.isActive {
-                if let location = newLocation {
-                    locationManager.injectMarketingStaticFix(location)
-                }
+            if marketingProvider.isActive, let location = newLocation {
+                locationManager.injectMarketingStaticFix(location)
             }
         }
-        .onChange(of: marketingProvider.isActive) { _, isActive in
-            // When marketing mode stops, clear the GPS status override
-            if !isActive {
-                locationManager.clearGPSStatusOverride()
-            }
-        }
+        #endif
         // Post-flight reconciliation review (D2): presented over Home right after END
         // FLIGHT when the track re-analysis disagrees with the confirmed events. Swipe
         // dismissal is disabled inside the sheet; both exits are explicit buttons, and
@@ -976,42 +824,6 @@ enum ScreenAwakeRule {
                            companionState: CompanionConnectionState, isDryRunning: Bool = false) -> Bool {
         if isFlightActive || isDryRunning { return true }
         return companionRole == .viewer && (companionState == .connected || companionState == .reconnecting)
-    }
-}
-
-// MARK: - Shake Gesture Detection
-
-/// Notification name for shake gesture
-extension NSNotification.Name {
-    static let deviceDidShake = NSNotification.Name("deviceDidShake")
-}
-
-/// UIWindow extension to detect shake gestures
-extension UIWindow {
-    open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        super.motionEnded(motion, with: event)
-        if motion == .motionShake {
-            NotificationCenter.default.post(name: .deviceDidShake, object: nil)
-        }
-    }
-}
-
-/// View modifier to handle shake gestures
-struct ShakeGestureModifier: ViewModifier {
-    let action: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in
-                action()
-            }
-    }
-}
-
-extension View {
-    /// Adds an action to perform when the device is shaken
-    func onShake(perform action: @escaping () -> Void) -> some View {
-        modifier(ShakeGestureModifier(action: action))
     }
 }
 

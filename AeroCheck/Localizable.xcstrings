@@ -57090,52 +57090,6 @@
         }
       }
     },
-    "settings.developer.marketingMode": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing-Modus"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing Mode"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mode marketing"
-          }
-        }
-      }
-    },
-    "settings.developer.marketingModeDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing-Modus: Wenn eingeschaltet, schütteln Sie Ihr Gerät, um die Marketing-Steuerelemente für den Standort einzublenden. So können Sie GPS-Positionen für Bildschirmfotos simulieren."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mode marketing : Lorsqu'activé, secouez votre appareil pour afficher les contrôles de localisation marketing. Cela vous permet de simuler des positions GPS pour prendre des captures d'écran."
-          }
-        }
-      }
-    },
     "settings.developer.resetOnboarding": {
       "extractionState": "manual",
       "localizations": {

@@ -1507,15 +1507,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Send a command to the master device
     func sendCommand(_ command: CompanionCommand) {
-        #if DEBUG
-        // The debug viewer scene has no link: its commands act on the flight it shows, through the
-        // master's own code.
-        if debugLoopback, let flightPlanManager {
-            Self.apply(command, appState: appState, flightPlanManager: flightPlanManager,
-                       airports: airportDataService, radio: cockpitRadio)
-            return
-        }
-        #endif
         guard connectionState == .connected, sendHandler != nil else { return }
 
         do {
@@ -2342,43 +2333,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     // MARK: - Data Creation Helpers
-
-    #if DEBUG
-    private var debugLoopback = false
-
-    /// DEV-ONLY (`AEROCHECK_SCENE=companion`): this device shows the Companion viewer of its own flight,
-    /// refreshed every second from the local state, so the viewer can be checked and captured on one
-    /// simulator. Wi-Fi Aware needs two real devices. Its commands act on that same flight, through
-    /// `apply`, as the iPad would take them from a phone.
-    func showAsViewerOfOwnFlight(appState: AppState, locationManager: LocationManager,
-                                 flightPlanManager: FlightPlanManager) {
-        configure(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
-        debugLoopback = true
-        currentRole = .viewer
-        connectionState = .connected
-        connectedDeviceName = "iPad"
-        // No Cockpit on this screen: a radio of its own for NOW and NEXT, on this device's airport data,
-        // kept by the loop. (6.2.0)
-        let radio = CockpitRadio()
-        radio.publish = { _ in }
-        cockpitRadio = radio
-        let openAIP = OpenAIPDataService()
-        Task { @MainActor in
-            for _ in 0..<600 {
-                if let airports = airportDataService {
-                    radio.update(position: locationManager.currentLocation?.coordinate,
-                                 plan: flightPlanManager.activeFlightPlan, circuits: appState.isCircuitMode,
-                                 sources: .live(airports: airports, openAIP: openAIP))
-                }
-                lastReceivedData = createCompanionFlightData(appState: appState, locationManager: locationManager,
-                                                             flightPlanManager: flightPlanManager)
-                lastFlightPlanSnapshot = flightPlanManager.activeFlightPlan.map(Self.flightPlanSnapshot)
-                lastReceivedChecklist = Self.checklistSnapshot(of: appState, mayStreamItemText: true)
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-            }
-        }
-    }
-    #endif
 
     private static let sortedKeysEncoder: JSONEncoder = {
         let encoder = JSONEncoder()

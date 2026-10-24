@@ -1372,13 +1372,11 @@ enum L10n {
         static let totalGPSPoints = String(localized: "settings.data.totalGPSPoints")
 
         // Developer Options
-        static let marketingMode = String(localized: "settings.developer.marketingMode")
         static let simulateLSZS = String(localized: "Simulate position: LSZS (Samedan)")   // v4.1.0 dev (literal-keyed)
         static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
         static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")
         static let showSubscriptionLogs = String(localized: "settings.developer.showSubscriptionLogs")
         static let resetSubscription = String(localized: "settings.developer.resetSubscription")
-        static let marketingModeDesc = String(localized: "settings.developer.marketingModeDesc")
         static let forceNotSubscribedDesc = String(localized: "settings.developer.forceNotSubscribedDesc")
         static let showAllTransactionsDesc = String(localized: "settings.developer.showAllTransactionsDesc")
         static let showSubscriptionLogsDesc = String(localized: "settings.developer.showSubscriptionLogsDesc")

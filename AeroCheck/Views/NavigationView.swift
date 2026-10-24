@@ -358,7 +358,6 @@ struct NavigationMapView: View {
     @EnvironmentObject var windsAloftService: WindsAloftService
     /// For the one line a diversion shows when a flight plan was filed. (v5.1)
     @EnvironmentObject var threadManager: FlightThreadManager
-    @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The callouts' official chart opens in the browser. (6.2.0)
     @Environment(\.openURL) private var openURL
@@ -494,23 +493,9 @@ struct NavigationMapView: View {
     // Track actual map width for accurate scale bar
     @State private var mapWidth: CGFloat = 0
 
-    /// GPS track to display - uses marketing path when in marketing mode, otherwise flight track
+    /// The current flight's GPS track, drawn on the map.
     private var displayGpsTrack: [GPSPoint] {
-        // In marketing mode, convert the marketing path to GPSPoints
-        if appState.settings.marketingMode && marketingProvider.isActive {
-            return marketingProvider.previousPath.map { coord in
-                GPSPoint(
-                    latitude: coord.latitude,
-                    longitude: coord.longitude,
-                    altitude: 0,
-                    timestamp: Date(),
-                    speed: 0,
-                    course: 0
-                )
-            }
-        }
-        // Otherwise use the current flight's GPS track
-        return appState.currentFlight?.gpsTrack ?? []
+        appState.currentFlight?.gpsTrack ?? []
     }
 
     /// Current target speed from flight phase (if applicable)

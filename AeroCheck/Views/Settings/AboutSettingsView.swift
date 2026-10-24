@@ -15,7 +15,6 @@ struct AboutSettingsView: View {
     @State private var versionTapCount: Int = 0
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
-    @State private var marketingMode: Bool = false
     @State private var showSafetyNotice: Bool = false
     @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
@@ -33,14 +32,9 @@ struct AboutSettingsView: View {
         .navigationTitle(L10n.Settings.about)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            marketingMode = appState.settings.marketingMode
             // Keep the section revealed if developer mode was already enabled this run (it resets on
             // relaunch), e.g. after navigating away from About and back.
             if appState.settings.developerMode { showDeveloperOptions = true }
-        }
-        .onChange(of: marketingMode) { _, newValue in
-            appState.settings.marketingMode = newValue
-            appState.saveSettings() // UX-14: persist the toggle (was a mutation with no save)
         }
         .sheet(isPresented: $showSafetyNotice) {
             DisclaimerView(mode: .review)
@@ -288,21 +282,6 @@ struct AboutSettingsView: View {
         if showDeveloperOptions || appState.settings.developerMode {
             SettingsGroup(title: "Developer Options · \(L10n.Tag.dev)", tint: tint,
                           footer: developerOptionsFooter) {
-                // SEC-C37: Marketing Mode ships out of Release entirely.
-                //
-                // It was reachable in a shipped App Store build (five taps on the version row →
-                // this section → toggle → shake → "Inject Scene"), and the scene injector is NOT
-                // #if DEBUG: it calls appState.cancelFlight() with no confirmation — discarding an
-                // in-progress flight's recorded track — and writes fabricated historical flights
-                // into the REAL flight store via saveFlight, where they persist, appear in the
-                // Flight Log as genuine entries, sync to iCloud and export as GPX/JSON. Pilots use
-                // that log for currency records. The two inline comments claiming the side effects
-                // are "dev-gated by the caller" were describing a RUNTIME toggle as a build gate.
-                #if DEBUG
-                SettingsToggleRow(icon: "megaphone", title: L10n.Settings.marketingMode,
-                                  tint: tint, isOn: $marketingMode)
-                #endif
-
                 // v4.1.0: force the freshness surfaces (Home dot, nudge, on-map cue) to STALE for testing.
                 SettingsToggleRow(icon: "clock.badge.xmark", title: L10n.DataStorage.simulateStaleData,
                                   tint: tint, isOn: $dataStatusManager.debugForceStale)
@@ -386,7 +365,6 @@ struct AboutSettingsView: View {
 
     private var developerOptionsFooter: String {
         [
-            L10n.Settings.marketingModeDesc,
             L10n.Settings.forceNotSubscribedDesc,
             L10n.Settings.showAllTransactionsDesc,
             L10n.Settings.showSubscriptionLogsDesc,

@@ -52625,19 +52625,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weder ein Meldepunkt noch eine Navigationshilfe passt zu «%@»."
+            "value": "Kein Flugplatz, Meldepunkt oder Navigationshilfe passt zu «%@»."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No reporting point or navaid matches “%@”."
+            "value": "No aerodrome, reporting point or navaid matches “%@”."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun point de report ni balise ne correspond à « %@ »."
+            "value": "Aucun aérodrome, point de report ni balise ne correspond à « %@ »."
           }
         }
       }
@@ -52717,19 +52717,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Meldepunkt oder Navigationshilfe"
+            "value": "Flugplatz, Meldepunkt oder Navigationshilfe"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reporting point or navaid"
+            "value": "Aerodrome, reporting point or navaid"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Point de report ou balise"
+            "value": "Aérodrome, point de report ou balise"
           }
         }
       }

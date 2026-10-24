@@ -41,11 +41,22 @@ struct ReplayScenario: Decodable {
         expected?.cues.first { $0.type == type && !$0.implied && $0.t >= after }?.t
     }
 
-    static func load(_ name: String) -> (ReplayScenario, URL) {
+    /// A scenario's file: in the test bundle, or in the folder the runner names (`TEST_RUNNER_AEROCHECK_SCENARIOS`),
+    /// where scenarios made outside this repository are given.
+    static func url(_ name: String) -> URL? {
         let bundle = Bundle(for: CockpitPilot.self)
-        guard let url = bundle.url(forResource: name, withExtension: "json", subdirectory: "Scenarios")
-                ?? bundle.url(forResource: name, withExtension: "json") else {
-            fatalError("no scenario \(name) in the test bundle")
+        if let url = bundle.url(forResource: name, withExtension: "json", subdirectory: "Scenarios")
+            ?? bundle.url(forResource: name, withExtension: "json") {
+            return url
+        }
+        guard let folder = ProcessInfo.processInfo.environment["AEROCHECK_SCENARIOS"], !folder.isEmpty else { return nil }
+        let given = URL(fileURLWithPath: folder).appendingPathComponent(name + ".json")
+        return FileManager.default.fileExists(atPath: given.path) ? given : nil
+    }
+
+    static func load(_ name: String) -> (ReplayScenario, URL) {
+        guard let url = url(name) else {
+            fatalError("no scenario \(name) in the test bundle or the runner's folder")
         }
         do {
             return (try JSONDecoder().decode(ReplayScenario.self, from: Data(contentsOf: url)), url)
@@ -82,6 +93,25 @@ final class CockpitPilot {
     }
 
     var rate: Double { scenario.speedFactor }
+
+    /// The runner says the simulator's app holds the aeronautical data (`TEST_RUNNER_AEROCHECK_DEVICE_DATA=1`): what
+    /// Settings › Data & Storage downloads, put back after each clean install (`ground-replay.sh --after-install`).
+    static var simulatorHasData: Bool {
+        ProcessInfo.processInfo.environment["AEROCHECK_DEVICE_DATA"] == "1"
+    }
+
+    /// The pilot of a scenario flown on the simulator's own data (`deviceData`), or a skip: without the data a
+    /// fresh simulator has no frequency, no airspace, no FIS sector, and the radio would be read off nothing.
+    /// Such scenarios are made outside this repository and given in the runner's folder (`ReplayScenario.url`).
+    static func onDeviceData(_ test: XCTestCase, scenario name: String, page: String) throws -> CockpitPilot {
+        guard simulatorHasData else {
+            throw XCTSkip("\(name) flies on the simulator's own data: TEST_RUNNER_AEROCHECK_DEVICE_DATA=1 and a seeded simulator")
+        }
+        guard ReplayScenario.url(name) != nil else {
+            throw XCTSkip("no scenario \(name): TEST_RUNNER_AEROCHECK_SCENARIOS=<the folder it is in>")
+        }
+        return CockpitPilot(test, scenario: name, page: page)
+    }
 
     // MARK: Launch
 
@@ -711,8 +741,13 @@ final class CockpitPilot {
         // The tree, and each element's attributes (its traits among them), for what a person reads off it.
         let attributes = screen().filter { !$0.label.isEmpty }
             .map { "\($0.elementType.rawValue) \"\($0.label)\" \($0.dictionaryRepresentation.filter { "\($0.key)".lowercased().contains("trait") })" }
-        let attachment = XCTAttachment(string: app.debugDescription + "\n\n" + attributes.joined(separator: "\n"))
-        attachment.name = "tree-\(name)"
+        attach(app.debugDescription + "\n\n" + attributes.joined(separator: "\n"), name: "tree-\(name)")
+    }
+
+    /// A text kept with the run (a log, a tree).
+    func attach(_ text: String, name: String) {
+        let attachment = XCTAttachment(string: text)
+        attachment.name = name
         attachment.lifetime = .keepAlways
         test.add(attachment)
     }

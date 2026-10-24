@@ -380,6 +380,69 @@ extension TripTests {
                        "and only that leg — the others still go stale on their own terms")
     }
 
+    // MARK: - A later leg's weather (6.6.0, the author's R A)
+
+    /// The weather ticked from leg 1 is leg 2's to check again, an hour later or not; the NOTAMs ticked with it still
+    /// cover leg 2 within six hours of the same UTC day. Leg 1 sees its own tick.
+    func testALaterLegChecksTheWeatherAgainButNotTheNotams() {
+        let legA = UUID(), legB = UUID()
+        var trip = Trip(legIds: [legA, legB])
+        trip.sharedTasks = [ThreadTaskKey.weatherBriefed, .gaforChecked, .notamChecked].map { key in
+            var task = ThreadTask(key: key, kind: .check)
+            task.state = .done
+            task.completedAt = utc("2026-09-12T08:00:00Z")
+            task.acknowledgedLegIds = [legA]
+            return task
+        }
+        let legB09 = trip.tasks(forLegDeparting: utc("2026-09-12T09:00:00Z"), legId: legB)
+        XCTAssertEqual(legB09.filter { $0.key.isWeatherBlock }.map(\.state), [.pending, .pending])
+        XCTAssertTrue(legB09.filter { $0.key.isWeatherBlock }.allSatisfy { $0.completedAt != nil },
+                      "kept: “Checked at 08:00, re-check for this leg”")
+        XCTAssertEqual(legB09.first { $0.key == .notamChecked }?.state, .done)
+        XCTAssertTrue(trip.tasks(forLegDeparting: utc("2026-09-12T09:00:00Z"), legId: legA).allSatisfy { $0.state == .done })
+
+        var legacy = trip
+        legacy.sharedTasks = legacy.sharedTasks.map { var t = $0; t.acknowledgedLegIds = []; return t }
+        XCTAssertTrue(legacy.tasks(forLegDeparting: utc("2026-09-12T09:00:00Z"), legId: legB).allSatisfy { $0.state == .done },
+                      "a tick from before 6.6.0 recorded no leg: the time rule, as before")
+    }
+
+    /// A later leg's NOTAMs are measured against its own estimated departure, not the trip's start: ticked at 08:00 for
+    /// a leg 1 at 09:00, they cover a leg 2 estimated at 13:00, not one estimated at 15:00.
+    func testALaterLegsNotamsAreMeasuredAgainstItsEstimate() {
+        let legA = UUID(), legB = UUID()
+        var trip = Trip(legIds: [legA, legB])
+        trip.scheduledStart = utc("2026-09-12T09:00:00Z")
+        var notam = ThreadTask(key: .notamChecked, kind: .check)
+        notam.state = .done
+        notam.completedAt = utc("2026-09-12T08:00:00Z")
+        notam.acknowledgedLegIds = [legA]
+        trip.sharedTasks = [notam]
+        var leg2 = FlightThread(routeLabel: "LFGA → LSZQ")
+        leg2.tripId = trip.id
+        XCTAssertEqual(Trip.sharedTasks(for: leg2, in: [trip], departure: utc("2026-09-12T13:00:00Z")).first?.state, .done)
+        XCTAssertEqual(Trip.sharedTasks(for: leg2, in: [trip], departure: utc("2026-09-12T15:00:00Z")).first?.state, .pending)
+        XCTAssertEqual(Trip.sharedTasks(for: leg2, in: [trip]).first?.state, .done, "without one, the trip's start")
+    }
+
+    /// Leg 1 moved to another day moves the trip's start with it: until 6.6.0 the trip kept the date it was formed with,
+    /// and a later leg measured its ticks against that (the author's device check, v66-6).
+    @MainActor
+    func testMovingLegOneMovesTheTripsStart() throws {
+        let m = makeTestThreadManager()
+        var first = plan("LSZQ", "LFGA")
+        first.plannedDepartureTime = utc("2026-09-13T08:00:00Z")
+        let a = m.createThread(from: first)
+        let b = m.createThread(from: plan("LFGA", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+        XCTAssertEqual(trip.scheduledStart, utc("2026-09-13T08:00:00Z"))
+
+        first.plannedDepartureTime = utc("2026-09-12T15:00:00Z")
+        m.regenerateTasks(threadId: a.id, plan: first)
+        XCTAssertEqual(m.trip(withId: trip.id)?.scheduledStart, utc("2026-09-12T15:00:00Z"))
+    }
+
     /// The manager is what records the acknowledgement, from whichever leg the pilot ticked.
     @MainActor
     func testTickingFromALegRecordsThatLeg() {

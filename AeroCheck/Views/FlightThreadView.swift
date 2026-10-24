@@ -697,7 +697,8 @@ struct FlightThreadView: View {
     /// A leg's trip tasks as the leg sees them; none for a flight on its own. Counted with its own everywhere on the page:
     /// the ring, the state, the chapters, NEXT and "Everything done" (the author's device check, 23 Oct 2026). (6.5.0)
     private func sharedTasks(of thread: FlightThread) -> [ThreadTask] {
-        Trip.sharedTasks(for: thread, in: threadManager.trips)
+        Trip.sharedTasks(for: thread, in: threadManager.trips,
+                         departure: plan(for: thread).flatMap { $0.departureIsEstimate == true ? $0.plannedDepartureTime : nil })
     }
 
     /// Fuel on board short of what the flight requires, said on the flight's page and not only in

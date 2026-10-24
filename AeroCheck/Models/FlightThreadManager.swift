@@ -224,6 +224,7 @@ class FlightThreadManager: ObservableObject {
             threads[index].arrivalCountry = context.arrivalCountry
         }
         threads[index].tasks = regenerated
+        if let plan { estimatedDepartures[threadId] = plan.departureIsEstimate == true ? plan.plannedDepartureTime : nil }
         settleReadiness(at: index)
 
         // The cached departure drives "is this today?" and the preparation reminder. Left stale it
@@ -233,6 +234,7 @@ class FlightThreadManager: ObservableObject {
         if let plan, plan.firmDepartureTime != previousDeparture {
             threads[index].scheduledDeparture = plan.firmDepartureTime
             reschedulePreparationReminder(at: index, from: previousDeparture)
+            followTripStart(of: threads[index])
         }
         threads[index].touch()
         saveThreads()
@@ -554,7 +556,25 @@ class FlightThreadManager: ObservableObject {
 
     /// READY when everything before the flight is done, a leg's trip tasks included (`Trip.sharedTasks(for:in:)`). (6.5.0)
     private func settleReadiness(at index: Int) {
-        threads[index].settleReadiness(sharing: Trip.sharedTasks(for: threads[index], in: trips))
+        let thread = threads[index]
+        threads[index].settleReadiness(sharing: Trip.sharedTasks(for: thread, in: trips,
+                                                                 departure: estimatedDepartures[thread.id]))
+    }
+
+    /// A later leg's estimated departure (its plan's, from the stop before), by thread, as the last regeneration read it:
+    /// what its trip's NOTAMs and airspace are measured against. Not stored: every plan publish refreshes it. (6.6.0)
+    private var estimatedDepartures: [UUID: Date] = [:]
+
+    /// A trip measures an undated leg's shared ticks against its start, leg 1's departure: when leg 1 moves, the start
+    /// moves with it. It kept the date the trip was formed with until 6.6.0 (the author's device check, v66-6).
+    private func followTripStart(of thread: FlightThread) {
+        guard let tripId = thread.tripId, let departure = thread.scheduledDeparture,
+              let t = trips.firstIndex(where: { $0.id == tripId }), trips[t].legIds.first == thread.id,
+              trips[t].scheduledStart != departure else { return }
+        trips[t].scheduledStart = departure
+        trips[t].touch()
+        settleLegs(of: tripId)
+        saveTrips()
     }
 
     /// Every leg of `tripId` settled again, after the trip's shared tasks changed: a leg whose own tasks are done is READY

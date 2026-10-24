@@ -42,6 +42,22 @@ function start(data: Data): void {
   // Folded once the script runs; open without one, where the table is the page
   if (table) table.open = false;
 
+  // ---------- What sticks, and where ----------
+  // The table's header sticks under the site's nav, whatever its height. The map and its neighbours stick beside the
+  // country's blocks 15 px under the nav; a pair taller than the window (Germany's ten neighbours on a short screen)
+  // sticks by its foot instead, so the last neighbour is never out of reach. (24 Oct 2026)
+  const section = document.querySelector<HTMLElement>('.countries');
+  const nav = document.querySelector<HTMLElement>('.site-nav');
+  const side = document.querySelector<HTMLElement>('.c-side');
+  const place = () => {
+    const navHeight = nav?.offsetHeight ?? 61;
+    section?.style.setProperty('--nav-h', `${navHeight}px`);
+    if (side) side.style.setProperty('--side-top', `${Math.min(navHeight + 15, window.innerHeight - side.offsetHeight - 16)}px`);
+  };
+  place();
+  window.addEventListener('resize', place);
+  if (side && 'ResizeObserver' in window) new ResizeObserver(place).observe(side);
+
   // ---------- The map: frames the country and its neighbours ----------
   let view = svg.viewBox.baseVal ? [svg.viewBox.baseVal.x, svg.viewBox.baseVal.y, svg.viewBox.baseVal.width, svg.viewBox.baseVal.height] : [0, 0, 1000, 825];
   let animation = 0;

@@ -443,10 +443,12 @@ struct LandedElsewhereOffer: View {
             Text(L10n.Trip.skipStop(skip.stop)).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
         }
         .buttonStyle(PrimaryButtonStyle(isLarge: false))
+        .accessibilityIdentifier("landed.skipStop")
         Button { wasADiversion = true } label: {
             Text(L10n.Trip.itWasADiversion).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
         }
         .buttonStyle(SecondaryButtonStyle(isLarge: false))
+        .accessibilityIdentifier("landed.itWasADiversion")
     }
 
     private var offer: some View {
@@ -476,6 +478,7 @@ struct LandedElsewhereOffer: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle(isLarge: false))
+                .accessibilityIdentifier("landed.continue")
                 Button {
                     if laterLegs.isEmpty { onFinish(false) } else { asking = true }
                 } label: {

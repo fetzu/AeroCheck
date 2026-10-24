@@ -596,6 +596,105 @@ enum L10n {
         static func call(_ unit: String) -> String { String(format: String(localized: "closeOut.call"), unit) }
     }
 
+    // MARK: - The flight's page as blocks (6.6.0)
+    enum FlightPage {
+        // The status line under the title, also Today's (f9 A).
+        static func departureIn(_ duration: String) -> String {
+            String(format: String(localized: "flightPage.status.departureIn"), duration)
+        }
+        static let departureNow = String(localized: "flightPage.status.departureNow")
+        static func todayAt(_ time: String) -> String { String(format: String(localized: "flightPage.status.todayAt"), time) }
+        static func tomorrowAt(_ time: String) -> String {
+            String(format: String(localized: "flightPage.status.tomorrowAt"), time)
+        }
+        /// "Saturday at 14:30", "Sat 7 Nov at 14:30".
+        static func dayAt(_ day: String, _ time: String) -> String {
+            String(format: String(localized: "flightPage.status.dayAt"), day, time)
+        }
+        static let undated = String(localized: "flightPage.status.undated")
+        static func ready(_ when: String) -> String { String(format: String(localized: "flightPage.status.ready"), when) }
+        static func left(_ count: Int, _ list: String) -> String { String(localized: "\(count) left: \(list)") }
+        static func now(_ list: String) -> String { String(format: String(localized: "flightPage.status.now"), list) }
+        static func moreOnTheDay(_ count: Int, _ list: String) -> String {
+            String(localized: "\(count) more on the day: \(list).")
+        }
+        static func onTheDay(_ list: String) -> String {
+            String(format: String(localized: "flightPage.status.onTheDay"), list)
+        }
+        static func flyingSince(_ time: String) -> String {
+            String(format: String(localized: "flightPage.status.flyingSince"), time)
+        }
+        static let flying = String(localized: "flightPage.status.flying")
+        static let inTheCockpit = String(localized: "flightPage.status.inTheCockpit")
+        static func landedAt(_ ident: String, _ time: String) -> String {
+            String(format: String(localized: "flightPage.status.landedAt"), ident, time)
+        }
+        static func landedIn(_ ident: String) -> String {
+            String(format: String(localized: "flightPage.status.landedIn"), ident)
+        }
+        static let landed = String(localized: "flightPage.status.landed")
+        static let nothingLeft = String(localized: "flightPage.status.nothingLeft")
+        static func flownFromTo(_ day: String, _ from: String, _ to: String) -> String {
+            String(format: String(localized: "flightPage.status.flownFromTo"), day, from, to)
+        }
+        static let closed = String(localized: "flightPage.status.closed")
+
+        // The blocks, as the status line lists them.
+        static let itemRoute = String(localized: "flightPage.item.route")
+        static let itemFuel = String(localized: "flightPage.item.fuel")
+        static let itemMassBalance = String(localized: "flightPage.item.massBalance")
+        static let itemReservation = String(localized: "flightPage.item.reservation")
+        static let itemWeather = String(localized: "flightPage.item.weather")
+        static let itemNotams = String(localized: "flightPage.item.notams")
+        static let itemFlightPlan = String(localized: "flightPage.item.flightPlan")
+        static func itemFlightPlanBy(_ time: String) -> String {
+            String(format: String(localized: "flightPage.item.flightPlanBy"), time)
+        }
+        static let itemBorder = String(localized: "flightPage.item.border")
+        static func itemBorderNamed(_ country: String) -> String {
+            String(format: String(localized: "flightPage.item.borderNamed"), country)
+        }
+        static func itemPPR(_ ident: String) -> String { String(format: String(localized: "flightPage.item.ppr"), ident) }
+        static let itemNavLog = String(localized: "flightPage.item.navLog")
+        static let itemCloseFlightPlan = String(localized: "flightPage.item.closeFlightPlan")
+        static let itemFees = String(localized: "flightPage.item.fees")
+        static let itemLogbook = String(localized: "flightPage.item.logbook")
+
+        // The blocks' heads.
+        static let blockRoute = String(localized: "flightPage.block.route")
+        static let blockFuel = String(localized: "flightPage.block.fuel")
+        static let blockNotams = String(localized: "flightPage.block.notams")
+        static let blockFlightPlan = String(localized: "flightPage.block.flightPlan")
+        static let blockNavLog = String(localized: "flightPage.block.navLog")
+        static func blockFees(_ ident: String) -> String { String(format: String(localized: "flightPage.block.fees"), ident) }
+        static let blockLogbook = String(localized: "flightPage.block.logbook")
+
+        static func chapterCount(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "flightPage.chapterCount"), done, total)
+        }
+        static let afterLanding = String(localized: "flightPage.afterLanding")
+        static let onTheDayOfTheFlight = String(localized: "flightPage.onTheDay")
+        static func onTheDayFor(_ list: String) -> String {
+            String(format: String(localized: "flightPage.onTheDayFor"), list)
+        }
+        static let wholeTrip = String(localized: "flightPage.wholeTrip")
+        static func doneAt(_ time: String) -> String { String(format: String(localized: "flightPage.doneAt"), time) }
+        static func checkedAt(_ time: String) -> String { String(format: String(localized: "flightPage.checkedAt"), time) }
+        static func filedAt(_ time: String) -> String { String(format: String(localized: "flightPage.filedAt"), time) }
+        static func closedAt(_ time: String) -> String { String(format: String(localized: "flightPage.closedAt"), time) }
+        static let doneBeforeFlight = String(localized: "flightPage.doneBeforeFlight")
+        static let planAndPrepare = String(localized: "flightPage.planAndPrepare")
+        static func flown(_ from: String, _ to: String) -> String {
+            String(format: String(localized: "flightPage.flown"), from, to)
+        }
+        static let notApplicable = String(localized: "flightPage.notApplicable")
+        static func fileBy(_ time: String) -> String { String(format: String(localized: "flightPage.fileBy"), time) }
+        static let fileBeforeOffBlock = String(localized: "flightPage.fileBeforeOffBlock")
+        static func notice(_ lead: String) -> String { String(format: String(localized: "flightPage.notice"), lead) }
+        static let noSigmet = String(localized: "flightPage.noSigmet")
+        static let sigmet = String(localized: "flightPage.sigmet")
+    }
+
     // MARK: - Prepare's weather (6.5.0)
     enum PrepareWeather {
         static let title = String(localized: "prepareWeather.title")

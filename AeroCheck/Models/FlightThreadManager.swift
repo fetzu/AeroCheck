@@ -603,6 +603,47 @@ class FlightThreadManager: ObservableObject {
         }
     }
 
+    /// A block's one tick (6.6.0, round 1 q4 A): every task in it, the leg's own and its trip's, as the weather block's
+    /// tick does. A block of one task of the flight's own goes through `setTaskState`, so filing and closing the ATC
+    /// flight plan keep what they set off (the close-out task, the reminder). A task marked not applicable stays so,
+    /// unless the block itself is being marked not applicable, or the whole block was and is ticked again. One save.
+    func setBlockState(_ state: ThreadTaskState, block: FlightBlock, threadId: UUID) {
+        let own = block.tasks.filter { !block.sharedIds.contains($0.id) }
+        let shared = block.tasks.filter { block.sharedIds.contains($0.id) }
+        if shared.isEmpty, own.count == 1, let task = own.first {
+            setTaskState(state, taskId: task.id, threadId: threadId)
+            return
+        }
+        let allSetAside = block.tasks.allSatisfy { $0.state == .notApplicable }
+        func keeps(_ task: ThreadTask) -> Bool {
+            task.state == .notApplicable && state != .notApplicable && !allSetAside
+        }
+        let now = Date()
+        if !shared.isEmpty, let tripId = thread(withId: threadId)?.tripId,
+           let index = trips.firstIndex(where: { $0.id == tripId }) {
+            for task in shared where !keeps(task) {
+                guard let i = trips[index].sharedTasks.firstIndex(where: { $0.id == task.id }) else { continue }
+                trips[index].sharedTasks[i].state = state
+                trips[index].sharedTasks[i].completedAt = (state == .done) ? now : nil
+                if state == .done {
+                    trips[index].sharedTasks[i].acknowledgedLegIds.insert(threadId)
+                } else {
+                    trips[index].sharedTasks[i].acknowledgedLegIds = []
+                }
+            }
+            trips[index].touch()
+            saveTrips()
+        }
+        if let index = threads.firstIndex(where: { $0.id == threadId }) {
+            for task in own where !keeps(task) {
+                threads[index].setState(state, forTaskWithId: task.id, now: now)
+            }
+            settleReadiness(at: index)
+        }
+        if let tripId = thread(withId: threadId)?.tripId { settleLegs(of: tripId) }
+        saveThreads()
+    }
+
     /// Remove a leg, and dissolve the trip when it stops being one.
     ///
     /// A trip of one leg is just a flight, so the survivor gets its shared tasks back and becomes

@@ -74,14 +74,6 @@ struct DivertSheet: View {
         }
         .background(theme.background.ignoresSafeArea())
         .task { await load() }
-        .confirmationDialog(flyingOnTo.map { L10n.Trip.flyOnTitle($0.ident, stopIdent) } ?? "",
-                            isPresented: Binding(get: { flyingOnTo != nil }, set: { if !$0 { flyingOnTo = nil } }),
-                            titleVisibility: .visible, presenting: flyingOnTo) { stop in
-            Button(L10n.Trip.flyOnConfirm(stop.ident)) { flyOn(to: stop) }
-            Button(L10n.Trip.keepStop, role: .cancel) {}
-        } message: { stop in
-            Text(flyOnMessage(stop))
-        }
     }
 
     // MARK: - Flying on past the stop (6.6.0, t3 and t6)
@@ -114,29 +106,44 @@ struct DivertSheet: View {
         }()
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(stop.ident)
-                    .font(.aero(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
+                // The distance beside the ident: the button keeps its word whole (WEITERFLIEGEN).
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(stop.ident)
+                        .font(.aero(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundColor(theme.textPrimary)
+                    if let distance {
+                        Text(String(format: "%.0f NM", distance))
+                            .font(.aero(size: 16, weight: .semibold, design: .monospaced))
+                            .foregroundColor(theme.textPrimary)
+                    }
+                }
                 Text([airport?.name, L10n.Trip.legDestination(stop.number)].compactMap { $0 }.joined(separator: " · "))
                     .font(.aero(size: 13))
                     .foregroundColor(theme.textSecondary)
-                    .lineLimit(2)
+                    .lineLimit(3)
             }
             Spacer(minLength: 8)
-            if let distance {
-                Text(String(format: "%.0f NM", distance))
-                    .font(.aero(size: 16, weight: .semibold, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-            }
             Button { flyingOnTo = stop } label: {
                 Text(L10n.Trip.flyOn.uppercased())
                     .font(.aero(size: 15, weight: .bold))
+                    .lineLimit(1)
+                    .fixedSize()
                     .padding(.horizontal, 14)
                     .frame(minHeight: 48)
                     .foregroundColor(theme.actionText)
                     .background(RoundedRectangle(cornerRadius: 10).fill(theme.action))
             }
             .buttonStyle(.plain)
+            // On the button, so the iPad's popover points at the row tapped.
+            .confirmationDialog(L10n.Trip.flyOnTitle(stop.ident, stopIdent),
+                                isPresented: Binding(get: { flyingOnTo?.id == stop.id },
+                                                     set: { if !$0 { flyingOnTo = nil } }),
+                                titleVisibility: .visible) {
+                Button(L10n.Trip.flyOnConfirm(stop.ident)) { flyOn(to: stop) }
+                Button(L10n.Trip.keepStop, role: .cancel) {}
+            } message: {
+                Text(flyOnMessage(stop))
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)

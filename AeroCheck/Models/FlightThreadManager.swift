@@ -224,6 +224,7 @@ class FlightThreadManager: ObservableObject {
             threads[index].arrivalCountry = context.arrivalCountry
         }
         threads[index].tasks = regenerated
+        if let plan { estimatedDepartures[threadId] = plan.departureIsEstimate == true ? plan.plannedDepartureTime : nil }
         settleReadiness(at: index)
 
         // The cached departure drives "is this today?" and the preparation reminder. Left stale it
@@ -233,6 +234,7 @@ class FlightThreadManager: ObservableObject {
         if let plan, plan.firmDepartureTime != previousDeparture {
             threads[index].scheduledDeparture = plan.firmDepartureTime
             reschedulePreparationReminder(at: index, from: previousDeparture)
+            followTripStart(of: threads[index])
         }
         threads[index].touch()
         saveThreads()
@@ -554,7 +556,25 @@ class FlightThreadManager: ObservableObject {
 
     /// READY when everything before the flight is done, a leg's trip tasks included (`Trip.sharedTasks(for:in:)`). (6.5.0)
     private func settleReadiness(at index: Int) {
-        threads[index].settleReadiness(sharing: Trip.sharedTasks(for: threads[index], in: trips))
+        let thread = threads[index]
+        threads[index].settleReadiness(sharing: Trip.sharedTasks(for: thread, in: trips,
+                                                                 departure: estimatedDepartures[thread.id]))
+    }
+
+    /// A later leg's estimated departure (its plan's, from the stop before), by thread, as the last regeneration read it:
+    /// what its trip's NOTAMs and airspace are measured against. Not stored: every plan publish refreshes it. (6.6.0)
+    private var estimatedDepartures: [UUID: Date] = [:]
+
+    /// A trip measures an undated leg's shared ticks against its start, leg 1's departure: when leg 1 moves, the start
+    /// moves with it. It kept the date the trip was formed with until 6.6.0 (the author's device check, v66-6).
+    private func followTripStart(of thread: FlightThread) {
+        guard let tripId = thread.tripId, let departure = thread.scheduledDeparture,
+              let t = trips.firstIndex(where: { $0.id == tripId }), trips[t].legIds.first == thread.id,
+              trips[t].scheduledStart != departure else { return }
+        trips[t].scheduledStart = departure
+        trips[t].touch()
+        settleLegs(of: tripId)
+        saveTrips()
     }
 
     /// Every leg of `tripId` settled again, after the trip's shared tasks changed: a leg whose own tasks are done is READY
@@ -1212,12 +1232,12 @@ class FlightThreadManager: ObservableObject {
         return leg.flightPlanId == flyingPlanId
     }
 
-    /// Whether "Cancel trip" leaves a leg alone: it has flown, or it is flying.
+    /// Whether a leg has flown, or is flying.
     ///
     /// Flown means a flight is attached to it (`flightId`, set at START FLIGHT and kept through
     /// close-out), or its page is past READY (FLY, CLOSE, finished). Its flight is in the logbook or on
     /// its way there, and its page still carries the close-out: the flight plan to close, the logbook
-    /// line. Only a leg still PLANNED or READY, with no flight, is one the pilot can cancel.
+    /// line. Until 6.6.0 only a leg still PLANNED or READY, with no flight, was one "Cancel trip" took.
     nonisolated static func isFlownOrFlying(_ leg: FlightThread, flyingPlanId: UUID? = nil) -> Bool {
         if leg.flightId != nil || isFlying(leg, flyingPlanId: flyingPlanId) { return true }
         switch leg.state {
@@ -1226,20 +1246,31 @@ class FlightThreadManager: ObservableObject {
         }
     }
 
-    /// The legs "Cancel trip" removes, in flying order: every leg neither flown nor flying.
+    /// Whether "Cancel trip" leaves a leg alone: it is flying, or it has flown and its ATC flight plan is still open,
+    /// which keeps its page, and the plan's close-out, until the plan is closed. A leg that flew otherwise goes with
+    /// the others, its flight staying in the logbook (the author's C A, 24 Oct 2026). (6.6.0)
+    nonisolated static func staysOnCancel(_ leg: FlightThread, flyingPlanId: UUID? = nil) -> Bool {
+        isFlying(leg, flyingPlanId: flyingPlanId)
+            || (isFlownOrFlying(leg, flyingPlanId: flyingPlanId) && leg.hasOpenFlightPlan)
+    }
+
+    /// The legs "Cancel trip" removes, in flying order: every leg but those `staysOnCancel` keeps. Until 6.6.0 the
+    /// legs not flown yet only, so after a leg had flown the trip went one leg at a time (v66-9).
     nonisolated static func legsToCancel(in trip: Trip, threads: [FlightThread],
                                          flyingPlanId: UUID? = nil) -> [FlightThread] {
         trip.legIds
             .compactMap { id in threads.first { $0.id == id } }
-            .filter { !isFlownOrFlying($0, flyingPlanId: flyingPlanId) }
+            .filter { !staysOnCancel($0, flyingPlanId: flyingPlanId) }
     }
 
-    /// Whether a trip offers "Cancel trip": a leg is left to cancel, and none of its legs is in the
-    /// air. A trip is changed on the ground: in flight the action is not offered at all, and the
-    /// rest of the trip can be cancelled once the leg has landed. (6.1)
+    /// Whether a trip offers "Cancel trip": a leg is left to cancel, none of its legs is in the air, and one is not
+    /// finished yet (a trip flown to its end is the logbook's record, not a plan to cancel). A trip is changed on the
+    /// ground: in flight the action is not offered at all, and the trip can be cancelled once the leg has landed.
+    /// (6.1; 6.6.0: from any leg)
     nonisolated static func canCancel(_ trip: Trip, threads: [FlightThread], flyingPlanId: UUID? = nil) -> Bool {
         let legs = trip.legIds.compactMap { id in threads.first { $0.id == id } }
-        guard !legs.contains(where: { isFlying($0, flyingPlanId: flyingPlanId) }) else { return false }
+        guard !legs.contains(where: { isFlying($0, flyingPlanId: flyingPlanId) }),
+              legs.contains(where: { !$0.isFinished }) else { return false }
         return !legsToCancel(in: trip, threads: threads, flyingPlanId: flyingPlanId).isEmpty
     }
 

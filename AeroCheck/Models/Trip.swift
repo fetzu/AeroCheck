@@ -157,9 +157,11 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
 
     /// A leg's trip tasks as the leg sees them, from `trips`; none for a flight on its own. What its readiness, its NEXT
     /// and "Everything done" count with its own. (6.5.0)
-    static func sharedTasks(for thread: FlightThread, in trips: [Trip]) -> [ThreadTask] {
+    /// - Parameter departure: the leg's departure, its estimate for a later leg (its plan's); nil takes the leg's firm
+    ///   one, else the trip's start. (6.6.0: a later leg measured against the trip's start until then.)
+    static func sharedTasks(for thread: FlightThread, in trips: [Trip], departure: Date? = nil) -> [ThreadTask] {
         guard let tripId = thread.tripId, let trip = trips.first(where: { $0.id == tripId }) else { return [] }
-        return trip.tasks(forLegDeparting: thread.scheduledDeparture, legId: thread.id)
+        return trip.tasks(forLegDeparting: departure ?? thread.scheduledDeparture, legId: thread.id)
     }
 
     /// Shared tasks as this leg should see them: a staleable tick that no longer covers the leg's
@@ -171,10 +173,14 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
             // stale row was untickable: the tap re-stamped `completedAt` to now, the rule measured
             // that against the SAME leg departure, and it read stale again. (review F13)
             if let legId, task.acknowledgedLegIds.contains(legId) { return task }
-            guard task.key.goesStale, task.state == .done,
-                  TripTaskFreshness.isStale(tickedAt: task.completedAt,
-                                            forLegDeparting: departure,
-                                            reference: freshnessReference)
+            guard task.key.goesStale, task.state == .done else { return task }
+            // The weather and the area forecast change by the hour: ticked from another leg, they are this leg's to
+            // check again on its own page, whatever the clock says (the author's R A, 24 Oct 2026). NOTAMs and airspace
+            // keep the time rule. A tick from before 6.6.0 recorded no leg: it keeps the time rule too. (6.6.0)
+            let anotherLegs = legId != nil && task.key.isWeatherBlock && !task.acknowledgedLegIds.isEmpty
+            guard anotherLegs || TripTaskFreshness.isStale(tickedAt: task.completedAt,
+                                                           forLegDeparting: departure,
+                                                           reference: freshnessReference)
             else { return task }
             var stale = task
             stale.state = .pending

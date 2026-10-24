@@ -15814,6 +15814,75 @@
         }
       }
     },
+    "trip.cancelConfirm.legFlown": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etappe %1$lld · %2$@, geflogen: Ihr Flug bleibt im Flugbuch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$lld · %2$@, flown: its flight stays in the logbook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étape %1$lld · %2$@, volée : son vol reste dans le carnet de vol"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.legStays": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etappe %1$lld · %2$@ bleibt, bis ihr ATC-Flugplan geschlossen ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$lld · %2$@ stays until its ATC flight plan is closed."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’étape %1$lld · %2$@ reste jusqu’à la clôture de son plan de vol ATC."
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.messageStays": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Etappen der Reise werden gelöscht, mit ihren Seiten, Aufgaben und den für sie erstellten Kopien der Route:\n\n%1$@\n\n%2$@\n\nIhre Routen und das Flugbuch bleiben unberührt. Dies lässt sich nicht rückgängig machen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its legs are deleted, with their pages, tasks and the copies of the route made for them:\n\n%1$@\n\n%2$@\n\nYour routes and the logbook are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses étapes sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%1$@\n\n%2$@\n\nVos routes et le carnet de vol ne sont pas touchés. Cette action est irréversible."
+          }
+        }
+      }
+    },
     "trip.cancelFiledLater": {
       "extractionState": "manual",
       "localizations": {
@@ -30285,29 +30354,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ses étapes sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nVos routes et le carnet de vol ne sont pas touchés. Cette action est irréversible."
-          }
-        }
-      }
-    },
-    "trip.cancelConfirm.messageKeepsFlown": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die noch nicht geflogenen Etappen werden gelöscht, mit ihren Seiten, Aufgaben und den für sie erstellten Kopien der Route:\n\n%@\n\nDie bereits geflogenen Etappen bleiben, mit ihren Flügen im Flugbuch. Ihre Routen bleiben unberührt. Dies lässt sich nicht rückgängig machen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The legs not flown yet are deleted, with their pages, tasks and the copies of the route made for them:\n\n%@\n\nThe legs already flown stay, with their flights in the logbook. Your routes are not touched. This can't be undone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les étapes pas encore volées sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nLes étapes déjà volées restent, avec leurs vols dans le carnet de vol. Vos routes ne sont pas touchées. Cette action est irréversible."
           }
         }
       }

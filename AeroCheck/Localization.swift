@@ -3028,12 +3028,18 @@ enum L10n {
         static func cancelConfirmLeg(_ number: Int, _ label: String) -> String {
             String(format: String(localized: "trip.cancelConfirm.leg"), number, label)
         }
-        /// The legs that go, one a line, then what stays: the legs already flown, when there are any.
-        static func cancelConfirmMessage(_ legs: String, keepsFlown: Bool) -> String {
-            let format = keepsFlown
-                ? String(localized: "trip.cancelConfirm.messageKeepsFlown")
-                : String(localized: "trip.cancelConfirm.message")
-            return String(format: format, legs)
+        /// "Leg 1 · LSZQ → LFGA, flown: its flight stays in the logbook" (6.6.0)
+        static func cancelConfirmLegFlown(_ number: Int, _ label: String) -> String {
+            String(format: String(localized: "trip.cancelConfirm.legFlown"), number, label)
+        }
+        /// "Leg 1 · LSZQ → LFGA stays until its ATC flight plan is closed." (6.6.0)
+        static func cancelConfirmLegStays(_ number: Int, _ label: String) -> String {
+            String(format: String(localized: "trip.cancelConfirm.legStays"), number, label)
+        }
+        /// The legs that go, one a line, then a leg that stays with its flight plan open, when there is one.
+        static func cancelConfirmMessage(_ legs: String, staying: String?) -> String {
+            guard let staying else { return String(format: String(localized: "trip.cancelConfirm.message"), legs) }
+            return String(format: String(localized: "trip.cancelConfirm.messageStays"), legs, staying)
         }
         /// "≈ 15:10 (est.)"
         static func estimated(_ time: String) -> String {

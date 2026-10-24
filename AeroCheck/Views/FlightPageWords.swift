@@ -176,8 +176,8 @@ enum FlightPageSummary {
                      currentFlight: Flight?, registry: BriefingRegistry?, now: Date = Date()) -> Summary {
         let plan = thread.flightPlanId.flatMap { id in plans.first { $0.id == id } }
         let departure = thread.scheduledDeparture ?? (plan?.departureIsEstimate == true ? plan?.plannedDepartureTime : nil)
-        let page = FlightPage.make(thread: thread, shared: Trip.sharedTasks(for: thread, in: trips), departure: departure,
-                                   now: now)
+        let page = FlightPage.make(thread: thread, shared: Trip.sharedTasks(for: thread, in: trips, departure: departure),
+                                   departure: departure, now: now)
         let countries = thread.countries ?? []
         let departureCountry = FlightThreadManager.departureCountry(of: plan) ?? countries.first
         let lead = FlightBlockDeadline.leadMinutes(registry?.country(departureCountry), countries: countries,

@@ -9,7 +9,8 @@ import XCTest
 /// translated value only, where French word order needs them.
 ///
 /// Five keys had this during 6.1.0: the leg page's "Leg 3 of 3" and "TRIP · 1 of 6", the two
-/// "open in Plan and Prepare" lines, and the map data "3/5 layers" count.
+/// "open in Plan and Prepare" lines, and the map data "3/5 layers" count. (6.6.0 retired the trip strip's
+/// "TRIP · 1 of 6" and Today's "Next: … open" line: the page's status words replace them.)
 ///
 /// The French the 6.1 App Store captures found missing is locked here too: the Logbook, the flight
 /// detail, the Cockpit's NEXT column, the "1 FLIGHTS" plural and the relative times.
@@ -185,12 +186,10 @@ final class LocalizationCatalogTests: XCTestCase {
         let missing = "\u{1}missing"
         let expected = [
             "Leg %lld of %lld": "Étape %1$lld sur %2$lld",
-            "TRIP · %lld of %lld": "VOYAGE · %1$lld sur %2$lld",
             "%lld/%lld layers": "%1$lld/%2$lld couches",
             "Page %lld of %lld": "Page %1$lld sur %2$lld",
             "%@ still has %lld item(s) open in Plan and Prepare.":
                 "Il reste %2$lld élément(s) ouvert(s) dans Planifier et Préparer pour %1$@.",
-            "Next: %@ · %lld open in Plan and Prepare": "Suivant : %1$@ · %2$lld ouvert(s) dans Planifier et Préparer",
         ]
         for (key, value) in expected {
             let found = french.localizedString(forKey: key, value: missing, table: nil)

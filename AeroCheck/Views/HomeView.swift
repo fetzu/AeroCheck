@@ -648,6 +648,7 @@ struct HomeView: View {
             : isCloseOut ? .aviationAmber
             : leg.state == .flying ? .altimeterBlue : .aviationGold
         return TodayTripCard(trip: trip,
+                             line: heroDetail(summary(leg)),
                              when: tripWhen(leg, trip),
                              registration: leg.aircraftRegistration,
                              accent: accent,
@@ -690,8 +691,8 @@ struct HomeView: View {
     /// Today's flight: how ready it is and what is left. The whole card opens it; START is the button
     /// below, in the same place whether or not a flight is planned.
     private func flightHeroCard(_ thread: FlightThread, isCompact: Bool) -> some View {
-        let progress = thread.preFlightProgress(sharing: sharedTasks(of: thread))
-        let remaining = progress.total - progress.done
+        let summary = summary(thread)
+        let progress = summary.page.progress
         let inFlight = thread.state == .flying
         let accent: Color = inFlight ? .altimeterBlue : .aviationGold
 
@@ -723,7 +724,7 @@ struct HomeView: View {
                         .scaledFont(size: isCompact ? 14 : 17, weight: .semibold, relativeTo: .body)
                         .foregroundColor(.dimText)
                 }
-                Text(heroDetail(thread, remaining: remaining))
+                Text(heroDetail(summary))
                     .scaledFont(size: isCompact ? 13 : 16, relativeTo: .footnote)
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -760,20 +761,20 @@ struct HomeView: View {
         return "\(L10n.Home.today.uppercased()) \(departure.formatted(date: .omitted, time: .shortened))"
     }
 
-    /// A leg's trip tasks as the leg sees them, counted with its own: "Ready to fly" with the trip's weather open was the
-    /// flight page's "Everything done" (the author's device check, 23 Oct 2026). (6.5.0)
-    private func sharedTasks(of thread: FlightThread) -> [ThreadTask] {
-        Trip.sharedTasks(for: thread, in: threadManager.trips)
+    /// The flight page's status line, its words and its count in blocks (f9 A): "4 left: weather, NOTAMs and airspace,
+    /// the flight plan by 13:30, the border". (6.6.0)
+    private func summary(_ thread: FlightThread) -> FlightPageSummary.Summary {
+        FlightPageSummary.make(thread, trips: threadManager.trips, plans: flightPlanManager.flightPlans,
+                               flights: appState.flights, currentFlight: appState.currentFlight,
+                               registry: BriefingRegistryService.shared.registry)
     }
 
-    private func heroDetail(_ thread: FlightThread, remaining: Int) -> String {
-        if let next = thread.nextTask(sharing: sharedTasks(of: thread)) {
-            let title = ThreadTaskPresentation.make(for: next).title
-            return remaining > 1
-                ? L10n.Home.nextAndRemaining(title, remaining)
-                : L10n.Home.nextOnly(title)
+    private func heroDetail(_ summary: FlightPageSummary.Summary) -> String {
+        switch summary.status {
+        case .before where summary.status.isReady: return L10n.Home.readyToFly
+        case .flying: return summary.title
+        default: return summary.detail.isEmpty ? summary.title : summary.detail
         }
-        return L10n.Home.readyToFly
     }
 
     /// Label height for the shortcut row. Shorter than the hero's 46/52, and paired with the
@@ -1171,7 +1172,7 @@ struct HomeView: View {
         // Home red for it teaches the pilot to ignore the colour that matters after landing.
         let urgent = thread.hasOpenFlightPlan && isCloseOut
         let accent: Color = urgent ? .aviationRed : (isCloseOut ? .aviationAmber : .aviationGold)
-        let progress = isCloseOut ? thread.closeOutProgress : thread.preFlightProgress(sharing: sharedTasks(of: thread))
+        let progress = summary(thread).page.progress
 
         return Button { threadToOpen = thread.id } label: {
             HStack(spacing: 10) {
@@ -1287,14 +1288,13 @@ struct HomeView: View {
             .fixedSize()
     }
 
-    /// Longest-first detail candidates: the next task if there is one, else the readiness count.
+    /// Longest-first detail candidates: the flight page's status line, then its count in blocks. (6.6.0, f9 A)
     private func threadDetail(_ thread: FlightThread) -> [String] {
-        let shared = sharedTasks(of: thread)
-        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress(sharing: shared)
+        let summary = summary(thread)
+        let progress = summary.page.progress
+        guard summary.left > 0 else { return [L10n.Thread.allDone] }
         let count = L10n.Thread.readiness(progress.done, progress.total)
-        guard let next = thread.nextTask(sharing: shared) else { return [L10n.Thread.allDone] }
-        let title = ThreadTaskPresentation.make(for: next).title
-        return ["\(L10n.Thread.nextUp): \(title)", title, count]
+        return [summary.detail, L10n.FlightPage.leftCount(summary.left), count]
     }
 
     /// Departure → destination from a plan's first/last waypoint, else the plan name.
@@ -1485,8 +1485,8 @@ struct HomeView: View {
                 startPrompt = .prohibited(thread: followed, country: country)
                 return
             }
-            let progress = followed.preFlightProgress(sharing: sharedTasks(of: followed))
-            let remaining = progress.total - progress.done
+            // Counted in blocks, as the flight's page and Today count (f9 A). (6.6.0)
+            let remaining = summary(followed).left
             if remaining > 0 {
                 startPrompt = .outstanding(thread: followed, remaining: remaining)
                 return
@@ -1573,6 +1573,8 @@ struct HomeView: View {
 /// 1 MB main-thread stack, and a separate view keeps this tree out of it.
 private struct TodayTripCard: View {
     let trip: TripOverview
+    /// The focused leg's status line, as its page says it (f9 A). (6.6.0)
+    let line: String
     let when: String
     let registration: String?
     let accent: Color
@@ -1593,7 +1595,7 @@ private struct TodayTripCard: View {
                         chip(leg)
                     }
                 }
-                Text(trip.nextLine)
+                Text(line)
                     .scaledFont(size: isCompact ? 13 : 16, relativeTo: .footnote)
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1717,7 +1719,7 @@ private struct TodayTripCard: View {
             if leg.id == trip.focusId, !leg.isFlown { line += ", " + L10n.TripCard.nextLeg }
             parts.append(line)
         }
-        parts.append(trip.nextLine)
+        parts.append(line)
         return parts.joined(separator: ". ")
     }
 }

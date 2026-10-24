@@ -28,6 +28,13 @@ struct UpcomingFlightsList: View {
     var onOpenRoutes: (() -> Void)?
 
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @Environment(AppState.self) private var appState
+
+    /// The flight page's status and its counts in blocks, as the page and Today say them (f9 A). (6.6.0)
+    private func summary(_ thread: FlightThread) -> FlightPageSummary.Summary {
+        FlightPageSummary.make(thread, trips: trips, plans: flightPlanManager.flightPlans, flights: appState.flights,
+                               currentFlight: appState.currentFlight, registry: BriefingRegistryService.shared.registry)
+    }
 
     private var needsAttention: [FlightThread] { threads.filter { $0.state == .closeOut } }
 
@@ -259,23 +266,17 @@ struct UpcomingFlightsList: View {
                     }
                 }
 
-                // What's next, with the task's own figures.
-                if let task = thread.nextTask {
+                // What's left, as the flight page's status line says it. (6.6.0, f9 A)
+                if case let summary = summary(thread), summary.left > 0 {
                     HStack(spacing: 12) {
-                        Text(L10n.Thread.nextUp.uppercased())
-                            .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
-                            .tracking(1.2)
-                            .foregroundColor(.aviationGold)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(ThreadTaskPresentation.make(for: task).title)
+                            Text(summary.title)
                                 .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                                 .foregroundColor(.primaryText)
-                            if let detail = task.detail, !detail.isEmpty {
-                                Text(detail)
-                                    .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
-                                    .foregroundColor(.secondaryText)
-                                    .lineLimit(1)
-                            }
+                            Text(summary.detail)
+                                .scaledFont(size: 13, relativeTo: .caption)
+                                .foregroundColor(.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 8)
                         HStack(spacing: 4) {
@@ -341,8 +342,9 @@ struct UpcomingFlightsList: View {
         }
     }
 
+    /// A chapter's blocks done, as on the flight's page, its trip's preparation counted with the leg's. (6.6.0)
     private func chapterProgress(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
-        let tasks = thread.tasks(in: chapter).filter { $0.state != .notApplicable }
+        let tasks = summary(thread).page.blocks(in: chapter).filter { $0.state != .notApplicable }
         let done = tasks.filter { $0.state == .done }.count
         let flown = thread.state == .closeOut || thread.state == .done
         let fraction: Double = chapter == .fly ? (flown ? 1 : 0) : (tasks.isEmpty ? 0 : Double(done) / Double(tasks.count))
@@ -472,9 +474,10 @@ struct UpcomingFlightsList: View {
                 }
             }
 
-            // What's next, for the leg in focus.
-            if let next = overview.next {
-                tripNextRow(next, overview: overview)
+            // What's left, for the leg in focus, as its page's status line says it. (6.6.0, f9 A)
+            if let leg = (allThreads ?? threads).first(where: { $0.id == overview.focusId }),
+               case let summary = summary(leg), summary.left > 0 {
+                tripStatusRow(summary, overview: overview)
             }
         }
         .padding(16)
@@ -580,32 +583,19 @@ struct UpcomingFlightsList: View {
             .lineLimit(1)
     }
 
-    /// The flight card's NEXT row, for the leg in focus: its own check, or the trip's once those are done.
-    private func tripNextRow(_ next: TripOverview.Next, overview: TripOverview) -> some View {
-        let (task, detail): (ThreadTask, String?) = {
-            switch next {
-            case .leg(let task):
-                let leg = overview.focus.map { L10n.Flights.legOf($0.number, overview.legCount) }
-                return (task, [leg, task.detail].compactMap { $0 }.joined(separator: " · "))
-            case .trip(let task): return (task, L10n.TripCard.tripChecks(overview.sharedDone, overview.sharedTotal))
-            }
-        }()
+    /// The flight card's row for the leg in focus: its status line, the leg named. (6.6.0, f9 A)
+    private func tripStatusRow(_ summary: FlightPageSummary.Summary, overview: TripOverview) -> some View {
+        let leg = overview.focus.map { L10n.Flights.legOf($0.number, overview.legCount) }
         return Button { onOpen(overview.focusId) } label: {
             HStack(spacing: 12) {
-                Text(L10n.Thread.nextUp.uppercased())
-                    .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
-                    .tracking(1.2)
-                    .foregroundColor(.aviationGold)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(ThreadTaskPresentation.make(for: task).title)
+                    Text([leg, summary.title].compactMap { $0 }.joined(separator: " · "))
                         .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                         .foregroundColor(.primaryText)
-                    if let detail, !detail.isEmpty {
-                        Text(detail)
-                            .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
-                            .foregroundColor(.secondaryText)
-                            .lineLimit(1)
-                    }
+                    Text(summary.detail)
+                        .scaledFont(size: 13, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 HStack(spacing: 4) {
@@ -745,7 +735,7 @@ struct UpcomingFlightsList: View {
     /// hero card's and the rows above, as on Routes. (v6.0 review)
     private func laterRow(_ thread: FlightThread, compact: Bool, loadPriority: Int = 0) -> some View {
         let plan = plan(for: thread)
-        let progress = thread.preFlightProgress
+        let progress = summary(thread).page.progress
         return Button { onOpen(thread.id) } label: {
             Group {
                 if compact {
@@ -842,11 +832,10 @@ struct UpcomingFlightsList: View {
         return parts.joined(separator: " · ")
     }
 
+    /// "4 left", in blocks, or "5 of 5 done". (6.6.0)
     private func progressText(_ thread: FlightThread, progress: (done: Int, total: Int)) -> String {
-        if let task = thread.nextTask {
-            return L10n.FlightsPage.progressNext(progress.done, progress.total, ThreadTaskPresentation.make(for: task).title)
-        }
-        return L10n.FlightsPage.progress(progress.done, progress.total)
+        let left = summary(thread).left
+        return left > 0 ? L10n.FlightPage.leftCount(left) : L10n.FlightsPage.progress(progress.done, progress.total)
     }
 
     // MARK: - Close-out
@@ -865,7 +854,7 @@ struct UpcomingFlightsList: View {
 
     private func row(_ thread: FlightThread) -> some View {
         let closing = thread.state == .closeOut
-        let progress = closing ? thread.closeOutProgress : thread.preFlightProgress
+        let progress = summary(thread).page.progress
         return Button { onOpen(thread.id) } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -1038,8 +1027,7 @@ struct UpcomingFlightsList: View {
         if let registration = thread.aircraftRegistration, !registration.isEmpty {
             parts.append(registration)
         }
-        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress
-        let remaining = max(0, progress.total - progress.done)
+        let remaining = summary(thread).left
         if remaining > 0 { parts.append(L10n.Flights.toDo(remaining)) }
         return parts.joined(separator: " · ")
     }

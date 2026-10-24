@@ -52,11 +52,21 @@ struct TripOverview: Equatable {
 
     /// "LSZQ → LSGE → LSGN → LSZQ": the first leg's departure, then where each leg lands. Built from
     /// the legs rather than stored, so it stays right when one is added or removed.
+    ///
+    /// A leg that doesn't leave from where the one before landed (a flight that landed elsewhere, the next leg still
+    /// from the planned field) starts again with its own departure, after a dot: "LSZQ → EDSB · EDTF → LSZQ", never
+    /// "LSZQ → EDSB → LSZQ". (6.6.0)
     var chain: String {
         guard let first = legs.first else { return "" }
-        var idents = [Self.ends(of: first.route).from]
-        idents += legs.map { Self.ends(of: $0.route).to }
-        return idents.filter { !$0.isEmpty }.joined(separator: " → ")
+        var segments: [[String]] = [[Self.ends(of: first.route).from]]
+        for leg in legs {
+            let (from, to) = Self.ends(of: leg.route)
+            if let last = segments[segments.count - 1].last, !from.isEmpty, from != last {
+                segments.append([from])
+            }
+            segments[segments.count - 1].append(to)
+        }
+        return segments.map { $0.filter { !$0.isEmpty }.joined(separator: " → ") }.joined(separator: " · ")
     }
 
     var totalDistance: Double { legs.reduce(0) { $0 + $1.distance } }

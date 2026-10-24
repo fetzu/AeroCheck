@@ -582,15 +582,38 @@ struct HomeView: View {
                     .coachTarget(.flightCard)
             }
         } else if let thread = homeThread {
-            if let trip = tripOverview(for: thread) {
-                tripCard(trip, leg: thread, isCompact: isCompact)
-            } else {
-                flightThreadStripCard(thread, fillsHeight: false)
-                    .coachTarget(.flightCard)
+            VStack(spacing: 10) {
+                if let trip = tripOverview(for: thread) {
+                    tripCard(trip, leg: thread, isCompact: isCompact)
+                } else {
+                    flightThreadStripCard(thread, fillsHeight: false)
+                        .coachTarget(.flightCard)
+                }
+                // Landed elsewhere: the flight page's offer, on Today too, under the close-out (6.6.0, t2 A).
+                landedElsewhereOffer(thread)
             }
         } else {
             planNewFlightStripCard(fillsHeight: false)
                 .coachTarget(.planNewFlight)
+        }
+    }
+
+    @ViewBuilder
+    private func landedElsewhereOffer(_ thread: FlightThread) -> some View {
+        if let landed = thread.landedElsewhere, !landed.offerDismissed, !landed.continued {
+            LandedElsewhereOffer(
+                landed: landed,
+                laterLegs: FlightCreator.laterLegs(after: thread.id, threads: threadManager)
+                    .map { L10n.Trip.cancelConfirmLeg($0.number, $0.leg.displayName) },
+                onContinue: {
+                    _ = FlightCreator.continueAfterDiversion(from: thread.id, plans: flightPlanManager,
+                                                             threads: threadManager, airports: airportDataService)
+                },
+                onFinish: { cancelling in
+                    FlightCreator.finishHere(thread.id, cancellingLaterLegs: cancelling, plans: flightPlanManager,
+                                             threads: threadManager,
+                                             logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
+                })
         }
     }
 

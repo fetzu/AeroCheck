@@ -125,6 +125,10 @@ final class BriefingRegistryService: ObservableObject {
         /// The address it was read from: a cache from the other server (a switch between TestFlight and the App
         /// Store) keeps its links offline but counts as stale.
         let source: String
+        /// The app build that read it; nil before 6.6.0. A cache is what that build could decode, re-encoded: a build
+        /// before 6.6.0 dropped the filing lead times it can't read, so another build counts it as stale and fetches
+        /// anew, keeping its links meanwhile, as the chart links' cache does since 6.5.0.
+        var build: String?
     }
 
     private func loadCache() {
@@ -134,7 +138,8 @@ final class BriefingRegistryService: ObservableObject {
               let cached = try? decoder.decode(CachedRegistry.self, from: data),
               cached.registry.v == BriefingRegistry.schema, !cached.registry.countries.isEmpty else { return }
         registry = cached.registry
-        lastFetch = cached.source == Self.registryURL.absoluteString ? cached.fetchedAt : nil
+        lastFetch = cached.source == Self.registryURL.absoluteString && cached.build == OfficialChartService.appBuild
+            ? cached.fetchedAt : nil
     }
 
     private func saveCache(_ registry: BriefingRegistry) {
@@ -143,7 +148,7 @@ final class BriefingRegistryService: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         do {
             try encoder.encode(CachedRegistry(fetchedAt: fetchedAt, registry: registry,
-                                              source: Self.registryURL.absoluteString))
+                                              source: Self.registryURL.absoluteString, build: OfficialChartService.appBuild))
                 .write(to: cacheURL, options: DataPersistenceManager.protectedWriteOptions)
         } catch {
             AppLog.general.debugLine("Failed to cache the briefing registry: \(error.localizedDescription)")

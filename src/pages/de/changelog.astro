@@ -1,0 +1,9 @@
+---
+import Base from '../../layouts/Base.astro';
+import Changelog from '../../components/Changelog.astro';
+import { loadSite } from '../../lib/site';
+const site = loadSite('de');
+---
+<Base site={site} lang="de" title={site.nav.changelog}>
+  <Changelog lang="de" />
+</Base>

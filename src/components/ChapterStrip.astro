@@ -4,8 +4,9 @@
 // app does: the reader sees the shape of a flight before reading a single feature. (v5.0.0) Under it, the
 // link to the story page, the same four chapters told on one real flight. (6.4.0)
 import type { Chapter, Link } from '../lib/site';
-interface Props { heading: string; items: Chapter[]; story?: Link; }
-const { heading, items, story } = Astro.props;
+// `where`: what works where, in one line with its link to /countries (6.5.0).
+interface Props { heading: string; items: Chapter[]; story?: Link; where?: { text: string; link: Link }; }
+const { heading, items, story, where } = Astro.props;
 ---
 <section class="chapters reveal" aria-label={heading}>
   <div class="container">
@@ -22,6 +23,7 @@ const { heading, items, story } = Astro.props;
       ))}
     </ol>
     {story && <p class="story-link"><a href={story.href}>{story.label} <span aria-hidden="true">→</span></a></p>}
+    {where && <p class="where-line">{where.text} <a href={where.link.href}>{where.link.label} <span aria-hidden="true">→</span></a></p>}
   </div>
 </section>
 
@@ -42,6 +44,8 @@ const { heading, items, story } = Astro.props;
   .story-link { margin: 18px 0 0; font-size: 14.5px; }
   .story-link a { color: var(--cyan); border-bottom: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent); padding-bottom: 1px; }
   .story-link a:hover { border-color: var(--cyan); }
+  .where-line { margin: 10px auto 0; max-width: 62ch; font-size: 14px; line-height: 1.55; color: var(--muted); text-wrap: balance; }
+  .where-line a { color: var(--cyan); white-space: nowrap; }
   @media (max-width: 760px) {
     .strip { flex-direction: column; align-items: center; }
     .strip-item { flex-direction: column; gap: 4px; }

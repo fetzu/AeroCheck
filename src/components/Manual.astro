@@ -1,13 +1,18 @@
 ---
 import type { Lang } from '../lib/site';
+import { loadSiteCounts, applySiteTokens } from '../lib/fleet';
 interface Heading { depth: number; slug: string; text: string; }
 interface Props { lang: Lang; headings: Heading[]; }
 const { lang, headings } = Astro.props;
+// The manual quotes counts that change every week ({ofmCountries}, {chartCountries}, …): filled at build time from the
+// same sources as the home page (fleet.ts, coverage.ts), never typed.
+const body = applySiteTokens(await Astro.slots.render('default'), await loadSiteCounts());
 
-const COPY = {
+const COPY: Record<Lang, { eyebrow: string; heading: string; toc: string }> = {
   en: { eyebrow: 'Manual', heading: 'User manual', toc: 'On this page' },
+  de: { eyebrow: 'Handbuch', heading: 'Benutzerhandbuch', toc: 'Auf dieser Seite' },
   fr: { eyebrow: 'Manuel', heading: 'Manuel d’utilisation', toc: 'Sur cette page' },
-} as const;
+};
 const t = COPY[lang];
 const sections = headings.filter((h) => h.depth === 2);
 ---
@@ -24,7 +29,7 @@ const sections = headings.filter((h) => h.depth === 2);
         <ul>{sections.map((s) => <li><a href={`#${s.slug}`}>{s.text}</a></li>)}</ul>
       </nav>
     </aside>
-    <article class="manual-body"><slot /></article>
+    <article class="manual-body"><Fragment set:html={body} /></article>
   </div>
 </section>
 

@@ -1,0 +1,10 @@
+---
+import Base from '../../layouts/Base.astro';
+import Story from '../../components/Story.astro';
+import { loadSite } from '../../lib/site';
+import { loadSiteCounts, applySiteTokensDeep } from '../../lib/fleet';
+const site = applySiteTokensDeep(loadSite('de'), await loadSiteCounts());
+---
+<Base site={site} lang="de" title={site.story.meta.title} description={site.story.meta.description}>
+  <Story site={site} />
+</Base>

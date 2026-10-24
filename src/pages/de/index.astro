@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/Base.astro';
+import Landing from '../../components/Landing.astro';
+import { loadSite } from '../../lib/site';
+import { loadSiteCounts, applySiteTokensDeep } from '../../lib/fleet';
+// Fleet figures come from the API, never from the copy. The home page used to state them
+// as prose and drifted the moment a tail was added; the /aircraft page never did, because
+// it derives. Same source now.
+const site = applySiteTokensDeep(loadSite('de'), await loadSiteCounts());
+---
+<Base site={site} lang="de">
+  <Landing site={site} />
+</Base>

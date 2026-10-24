@@ -17,6 +17,8 @@
  * Read-only. This site never writes to the API.
  */
 
+import { coverageCounts, loadReleasedCoverage, type CoverageCounts } from './coverage';
+
 const API = 'https://api.aerocheck.app/api/v3/aircraft/available';
 
 interface AircraftRegistration {
@@ -161,18 +163,19 @@ export async function loadTariffCounts(): Promise<TariffCounts> {
   }
 }
 
-/** Everything the copy may quote as a number. */
-export type SiteCounts = FleetCounts & TariffCounts;
+/** Everything the copy may quote as a number; the countries' counts come from the server's coverage file. */
+export type SiteCounts = FleetCounts & TariffCounts & CoverageCounts;
 
 export async function loadSiteCounts(): Promise<SiteCounts> {
-  const [fleet, tariffs] = await Promise.all([loadFleetCounts(), loadTariffCounts()]);
-  return { ...fleet, ...tariffs };
+  const [fleet, tariffs, coverage] = await Promise.all([loadFleetCounts(), loadTariffCounts(), loadReleasedCoverage()]);
+  return { ...fleet, ...tariffs, ...coverageCounts(coverage) };
 }
 
 export function applySiteTokens(text: string, counts: SiteCounts): string {
   return applyFleetTokens(text, counts)
     .replace(/\{tariffs\}/g, String(counts.tariffs))
-    .replace(/\{tariffCountries\}/g, String(counts.tariffCountries));
+    .replace(/\{tariffCountries\}/g, String(counts.tariffCountries))
+    .replace(/\{(briefingCountries|ofmCountries|circuitCountries|chartCountries|chartOthers)\}/g, (_, key: keyof CoverageCounts) => String(counts[key]));
 }
 
 export function applySiteTokensDeep<T>(value: T, counts: SiteCounts): T {

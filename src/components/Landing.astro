@@ -3,6 +3,8 @@
 // for whom, on what and at what cost, and shows the Cockpit with what each part is for. Then the way in (the dry
 // run), the shape of a flight (the four chapters, with the link to one real flight told in order on /flight),
 // the rows, the FLY ones and the iPhone in the flight-deck band, what it costs, the questions, and the long tail.
+import { langBase } from '../lib/langs';
+import { coverageCounts, loadReleasedCoverage } from '../lib/coverage';
 import type { SiteData } from '../lib/site';
 import Hero from './Hero.astro';
 import DryRunBand from './DryRunBand.astro';
@@ -14,7 +16,7 @@ import Faq from './Faq.astro';
 import AlsoLine from './AlsoLine.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
-const base = site.lang === 'fr' ? '/fr' : '';
+const base = langBase(site.lang);
 const local = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? `${base}${href}` : href);
 const items = site.flagship.items.map((item, index) => ({ item, index }));
 const before = items.filter(({ item }, i) => !item.fly && items.slice(i).some(({ item: later }) => later.fly));
@@ -23,24 +25,33 @@ const after = items.filter(({ item }, i) => !item.fly && !before.some((b) => b.i
 const dry = { ...site.dryrun, link: { ...site.dryrun.link, href: local(site.dryrun.link.href) } };
 const story = { ...site.chapters.story, href: local(site.chapters.story.href) };
 const links = site.pricing.links.map((l) => ({ ...l, href: local(l.href) }));
+// What works where, under the chapters: the counts from the server's coverage file, a clause only when it counts more
+// than one country (before a release, the briefing pages are Switzerland's alone).
+const counts = coverageCounts(await loadReleasedCoverage());
+const line = site.countries.home_line;
+const clauses = ([['briefing', counts.briefingCountries], ['circuits', counts.circuitCountries], ['charts', counts.chartCountries]] as const)
+  .filter(([, n]) => n > 1).map(([key, n]) => line[key].replace('{n}', String(n)));
+const whereText = [line.lead, clauses.length ? clauses.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.' : ''].filter(Boolean).join(' ');
+const where = { text: whereText, link: { label: line.link, href: local('/countries') } };
+const whereRow = { label: site.countries.where, href: local('/countries') };
 ---
 <Hero site={site} />
 <DryRunBand dry={dry} />
-<ChapterStrip heading={site.chapters.heading} items={site.chapters.items} story={story} />
+<ChapterStrip heading={site.chapters.heading} items={site.chapters.items} story={story} where={where} />
 
 <section id="features" class="flagship">
   <div class="container">
     <div class="section-head"><span class="section-label">{site.flagship.heading}</span></div>
-    {before.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} />)}
+    {before.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} />)}
   </div>
   <div class="fly-band">
     <div class="container">
-      {fly.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} />)}
+      {fly.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} />)}
       <PhoneBand band={site.phone} labels={site.device_labels} />
     </div>
   </div>
   <div class="container">
-    {after.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} />)}
+    {after.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} />)}
   </div>
 </section>
 

@@ -3,6 +3,7 @@
 // evening before to the logbook, each moment a time (words on the ground, the flight's clock in the air, as the
 // Cockpit shows it), a line, a short paragraph and one screenshot from that flight. The dry run as its prologue;
 // no FAQ (that is the landing's).
+import { langBase } from '../lib/langs';
 import type { SiteData } from '../lib/site';
 import { appStoreHref } from '../lib/site';
 import { STORY } from '../lib/shots';
@@ -11,7 +12,7 @@ import DryRunBand from './DryRunBand.astro';
 interface Props { site: SiteData; }
 const { site } = Astro.props;
 const st = site.story;
-const base = site.lang === 'fr' ? '/fr' : '';
+const base = langBase(site.lang);
 const local = (href: string) => (href.startsWith('/') && !href.startsWith('//') ? `${base}${href}` : href);
 const prologue = { ...st.prologue, link: { ...st.prologue.link, href: local(st.prologue.link.href) } };
 ---

@@ -34,16 +34,19 @@ import { TURNSTILE_SITE_KEY, TURNSTILE_TEST_KEY, TURNSTILE_SCRIPT } from '../../
   <p id="outside"></p>
   <script is:inline define:vars={{ siteKey: TURNSTILE_SITE_KEY, testKey: TURNSTILE_TEST_KEY, script: TURNSTILE_SCRIPT }}>
     const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.aerocheckTurnstile;
-    const lang = new URLSearchParams(location.search).get('lang') === 'fr' ? 'fr' : 'en';
+    const asked = new URLSearchParams(location.search).get('lang');
+    const lang = asked === 'fr' || asked === 'de' ? asked : 'en';
     document.documentElement.lang = lang;
     const post = (message) => { if (handler) handler.postMessage(message); };
 
     if (!handler) {
       const outside = document.getElementById('outside');
       outside.style.display = 'block';
-      outside.innerHTML = lang === 'fr'
-        ? 'Cette page sert à l’app AéroCheck, quand elle envoie la checklist d’un avion. Depuis un navigateur, c’est ici : <a href="/fr/send/">envoyer la checklist d’un avion</a>.'
-        : 'This page is used by the AéroCheck app when it sends an aircraft’s checklist. From a browser, it’s here: <a href="/send/">send an aircraft’s checklist</a>.';
+      outside.innerHTML = {
+        en: 'This page is used by the AéroCheck app when it sends an aircraft’s checklist. From a browser, it’s here: <a href="/send/">send an aircraft’s checklist</a>.',
+        de: 'Diese Seite wird von der App AéroCheck verwendet, wenn sie die Checkliste eines Flugzeugs sendet. Im Browser finden Sie das Formular hier: <a href="/de/send/">die Checkliste eines Flugzeugs senden</a>.',
+        fr: 'Cette page sert à l’app AéroCheck, quand elle envoie la checklist d’un avion. Depuis un navigateur, c’est ici : <a href="/fr/send/">envoyer la checklist d’un avion</a>.',
+      }[lang];
     } else {
       // Cloudflare's test key on a local preview, as /send does: the real one allows aerocheck.app only.
       const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';

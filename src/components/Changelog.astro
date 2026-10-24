@@ -1,18 +1,28 @@
 ---
 import type { Lang } from '../lib/site';
 import { getReleases } from '../lib/releases';
+import { DATE_LOCALES } from '../lib/langs';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
 
-const COPY = {
+const COPY: Record<Lang, { eyebrow: string; heading: string; intro: string; note: string | null; pre: string; viewOn: string; error: string }> = {
   en: {
     eyebrow: 'Changelog',
     heading: 'Release history',
     intro: 'Every AeroCheck release, pulled straight from GitHub.',
-    note: null as string | null,
+    note: null,
     pre: 'Pre-release',
     viewOn: 'View on GitHub →',
     error: 'Release notes couldn’t be loaded at build time. They’ll appear on the next successful build.',
+  },
+  de: {
+    eyebrow: 'Versionsverlauf',
+    heading: 'Versionsgeschichte',
+    intro: 'Jede Version von AéroCheck, direkt von GitHub.',
+    note: 'Die Versionshinweise erscheinen auf Englisch.',
+    pre: 'Vorabversion',
+    viewOn: 'Auf GitHub ansehen →',
+    error: 'Die Versionshinweise konnten beim Erstellen der Seite nicht geladen werden. Sie erscheinen beim nächsten erfolgreichen Build.',
   },
   fr: {
     eyebrow: 'Journal',
@@ -23,11 +33,11 @@ const COPY = {
     viewOn: 'Voir sur GitHub →',
     error: 'Les notes de version n’ont pas pu être chargées à la compilation. Elles apparaîtront au prochain build.',
   },
-} as const;
+};
 const t = COPY[lang];
 
 const releases = await getReleases();
-const fmt = new Intl.DateTimeFormat(lang === 'fr' ? 'fr-CH' : 'en-GB', { dateStyle: 'long', timeZone: 'UTC' });
+const fmt = new Intl.DateTimeFormat(DATE_LOCALES[lang], { dateStyle: 'long', timeZone: 'UTC' });
 const dateLabel = (iso: string) => (iso ? fmt.format(new Date(iso)) : '');
 ---
 <section class="cl container">

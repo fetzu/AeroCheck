@@ -1,21 +1,23 @@
 ---
 import type { SiteData, Lang } from '../lib/site';
 import { appStoreHref } from '../lib/site';
+import { LANGS, LANG_NAMES, langBase, pathWithoutLang, pathInLang } from '../lib/langs';
 import Icon from './Icon.astro';
 interface Props { site: SiteData; lang: Lang; }
 const { site, lang } = Astro.props;
-const base = lang === 'fr' ? '/fr' : '';
+const base = langBase(lang);
 const links = [
   { label: site.nav.features, href: `${base}/#features` },
   { label: site.nav.story, href: `${base}/flight` },
   { label: site.nav.aircraft, href: `${base}/aircraft` },
+  { label: site.nav.countries, href: `${base}/countries` },
   { label: site.nav.manual, href: `${base}/manual` },
   { label: site.nav.changelog, href: `${base}/changelog` },
 ];
-// The language switch keeps the page: /flight ↔ /fr/flight, not back to the home page. (6.4.0)
-const path = Astro.url.pathname.replace(/^\/fr(?=\/|$)/, '') || '/';
-const enHref = path;
-const frHref = path === '/' ? '/fr' : `/fr${path}`;
+// The language switch keeps the page: /flight ↔ /de/flight ↔ /fr/flight, not back to the home page (6.4.0), in the
+// order of LANGS (EN · DE · FR since 6.5.0).
+const path = pathWithoutLang(Astro.url.pathname);
+const switchLinks = LANGS.map((l) => ({ lang: l, code: l.toUpperCase(), name: LANG_NAMES[l], href: pathInLang(path, l) }));
 const storeHref = appStoreHref(lang);
 ---
 <header class="site-nav">
@@ -28,9 +30,12 @@ const storeHref = appStoreHref(lang);
     <!-- Language switcher kept always-visible in the bar on mobile. On desktop the inline copy
          inside .nav-links is used instead (this one is hidden ≥720px). -->
     <span class="lang lang--bar" aria-label="Language">
-      <a href={enHref} class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
-      <span class="lang-sep" aria-hidden="true">/</span>
-      <a href={frHref} class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
+      {switchLinks.map((o, i) => (
+        <Fragment>
+          {i > 0 && <span class="lang-sep" aria-hidden="true">/</span>}
+          <a href={o.href} hreflang={o.lang} lang={o.lang} aria-label={o.name} class:list={['lang-opt', { 'is-active': lang === o.lang }]} aria-current={lang === o.lang ? 'true' : undefined}>{o.code}</a>
+        </Fragment>
+      ))}
     </span>
 
     <!-- Light or dark: the visitor's setting until they tap this; a tap forces the other theme, a second tap goes back
@@ -50,9 +55,12 @@ const storeHref = appStoreHref(lang);
     <nav class="nav-links" id="nav-menu" aria-label="Primary">
       {links.map((l) => <a href={l.href}>{l.label}</a>)}
       <span class="lang lang--inline" aria-label="Language">
-        <a href={enHref} class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
-        <span class="lang-sep" aria-hidden="true">/</span>
-        <a href={frHref} class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
+        {switchLinks.map((o, i) => (
+          <Fragment>
+            {i > 0 && <span class="lang-sep" aria-hidden="true">/</span>}
+            <a href={o.href} hreflang={o.lang} lang={o.lang} aria-label={o.name} class:list={['lang-opt', { 'is-active': lang === o.lang }]} aria-current={lang === o.lang ? 'true' : undefined}>{o.code}</a>
+          </Fragment>
+        ))}
       </span>
       <button class="theme-toggle theme-toggle--inline" type="button" hidden data-theme-toggle
         data-label-dark={site.theme.to_dark} data-label-light={site.theme.to_light} aria-label={site.theme.to_dark}>
@@ -105,6 +113,12 @@ const storeHref = appStoreHref(lang);
   .nav-toggle[aria-expanded="true"] .icon-open { display: none; }
   .nav-toggle[aria-expanded="true"] .icon-close { display: inline-flex; }
 
+  /* Three languages in the bar (6.5.0): on the narrowest phones (320 px) the bar's items sit closer, so the menu
+     button keeps its margin. */
+  @media (max-width: 359px) {
+    .nav-inner { gap: 8px; }
+    .lang { gap: 3px; }
+  }
   @media (max-width: 720px) {
     .nav-toggle { display: inline-flex; }
     .lang--bar { display: inline-flex; }

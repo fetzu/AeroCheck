@@ -13,7 +13,7 @@ export default defineConfig({
   integrations: [sitemap({ filter: (page) => !/\/(request|confirm|send\/app)\/?$/.test(page) })],
   i18n: {
     defaultLocale: 'en',
-    locales: ['en', 'fr'],
+    locales: ['en', 'de', 'fr'],
     routing: { prefixDefaultLocale: false },
   },
   build: { assets: '_assets' },

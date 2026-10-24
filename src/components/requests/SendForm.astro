@@ -1,11 +1,12 @@
 ---
-// /send and /fr/send: the aircraft-request form. The registration comes first: the worker's lookup
+// /send, /de/send and /fr/send: the aircraft-request form. The registration comes first: the worker's lookup
 // decides between a new aircraft and an update of one AéroCheck has, and only then does the rest of
 // the form open. Everything that talks to the worker is in src/scripts/requests/send.ts.
 import type { Lang } from '../../lib/site';
 import { REQUESTS_COPY, languageName, toJsonScript } from '../../lib/requests-copy';
 import { COMMON_LANGUAGES, SUGGESTED_LANGUAGES, FILE_ACCEPT, NOTES_MAX } from '../../lib/intake';
 import RequestStyles from './RequestStyles.astro';
+import OtherLanguages from './OtherLanguages.astro';
 interface Props { lang: Lang; }
 const { lang } = Astro.props;
 const copy = REQUESTS_COPY[lang];
@@ -15,17 +16,19 @@ const commonCodes: readonly string[] = COMMON_LANGUAGES;
 const suggestions = [...new Set(SUGGESTED_LANGUAGES.filter((code) => !commonCodes.includes(code))
   .map((code) => [code, languageName(code, lang)]).filter(([code, name]) => name.toLowerCase() !== code).map(([, name]) => name))]
   .sort((a, b) => a.localeCompare(b, lang));
-const otherLangHref = lang === 'fr' ? '/send' : '/fr/send';
-const noscript = lang === 'fr'
-  ? 'Ce formulaire a besoin de JavaScript pour vérifier l’immatriculation et envoyer les fichiers.'
-  : 'This form needs JavaScript to look up the registration and send the files.';
+const NOSCRIPT: Record<Lang, string> = {
+  en: 'This form needs JavaScript to look up the registration and send the files.',
+  de: 'Dieses Formular braucht JavaScript, um das Kennzeichen nachzuschlagen und die Dateien zu senden.',
+  fr: 'Ce formulaire a besoin de JavaScript pour vérifier l’immatriculation et envoyer les fichiers.',
+};
+const noscript = NOSCRIPT[lang];
 ---
 <RequestStyles />
 <section class="rq container" data-rq-send>
   <p class="eyebrow">{t.eyebrow}</p>
   <h1 class="rq-title">{t.title}</h1>
   <p class="rq-intro">{t.intro}</p>
-  <p class="rq-aside">{t.clubsLead} <a href={copy.common.clubsHref}>{t.clubsLink}</a> · <a href={otherLangHref} lang={lang === 'fr' ? 'en' : 'fr'} data-rq-lang>{copy.common.otherLang}</a></p>
+  <p class="rq-aside">{t.clubsLead} <a href={copy.common.clubsHref}>{t.clubsLink}</a> · <OtherLanguages lang={lang} page="/send" /></p>
 
   <noscript><div class="rq-alert rq-alert--error"><p>{noscript}</p></div></noscript>
 

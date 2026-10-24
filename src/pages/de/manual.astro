@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+import Manual from '../../components/Manual.astro';
+import { Content, getHeadings } from '../../manual/manual.de.md';
+import { loadSite } from '../../lib/site';
+const site = loadSite('de');
+const headings = getHeadings();
+---
+<Base site={site} lang="de" title={site.nav.manual}>
+  <Manual lang="de" headings={headings}><Content /></Manual>
+</Base>

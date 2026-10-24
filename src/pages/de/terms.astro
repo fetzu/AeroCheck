@@ -1,0 +1,10 @@
+---
+import Base from '../../layouts/Base.astro';
+import Legal from '../../components/Legal.astro';
+import { Content } from '../../legal/terms.md';
+import { loadSite } from '../../lib/site';
+const site = loadSite('de');
+---
+<Base site={site} lang="de" title="Nutzungsbedingungen">
+  <Legal lang="de" doc="terms"><Content /></Legal>
+</Base>

@@ -1,0 +1,12 @@
+---
+// The same request page in the site's other languages, each in its own name ("Deutsch · Français"). The scripts carry
+// the page's private link (#t=…) over to these links (`data-rq-lang`, src/scripts/requests/shared.ts).
+import type { Lang } from '../../lib/langs';
+import { LANGS, LANG_NAMES, pathInLang } from '../../lib/langs';
+interface Props { lang: Lang; page: string; }
+const { lang, page } = Astro.props;
+const others = LANGS.filter((l) => l !== lang);
+---
+{others.map((l, i) => (
+  <Fragment>{i > 0 && ' · '}<a href={pathInLang(page, l)} hreflang={l} lang={l} data-rq-lang>{LANG_NAMES[l]}</a></Fragment>
+))}

@@ -7,7 +7,8 @@ const { lang } = Astro.props;
 const rq = { ...REQUESTS_COPY[lang].aircraft, sendHref: REQUESTS_COPY[lang].common.sendHref, clubsHref: REQUESTS_COPY[lang].common.clubsHref };
 const outdatedHref = (reg: string) => `${rq.sendHref}?registration=${encodeURIComponent(reg)}`;
 
-const COPY = {
+type Copy = { eyebrow: string; heading: string; intro: string; stats: Record<'total' | 'free' | 'premium' | 'clubs', string>; cols: Record<'reg' | 'model' | 'type' | 'version' | 'updated' | 'langs' | 'access', string>; free: string; premium: string; error: string };
+const COPY: Record<Lang, Copy> = {
   en: {
     eyebrow: 'Aircraft',
     heading: 'Every aircraft in AeroCheck',
@@ -16,6 +17,15 @@ const COPY = {
     cols: { reg: 'Registration', model: 'Model', type: 'Type', version: 'Version', updated: 'Updated', langs: 'Languages', access: 'Access' },
     free: 'Free', premium: 'Pro',
     error: 'The aircraft roster couldn’t be loaded at build time. It will appear on the next successful build.',
+  },
+  de: {
+    eyebrow: 'Flugzeuge',
+    heading: 'Alle Flugzeuge in AéroCheck',
+    intro: 'Alle Checklisten, die in der App verfügbar sind, direkt aus der AéroCheck-API. Die WT9 Dynamic ist kostenlos dabei; die übrigen schaltet ein Abonnement von AéroCheck Pro frei.',
+    stats: { total: 'Flugzeuge', free: 'Kostenlos', premium: 'Premium', clubs: 'Flugclubs' },
+    cols: { reg: 'Kennzeichen', model: 'Modell', type: 'Typ', version: 'Version', updated: 'Aktualisiert', langs: 'Sprachen', access: 'Zugang' },
+    free: 'Kostenlos', premium: 'Pro',
+    error: 'Die Liste der Flugzeuge konnte beim Erstellen der Seite nicht geladen werden. Sie erscheint beim nächsten erfolgreichen Build.',
   },
   fr: {
     eyebrow: 'Aéronefs',
@@ -26,7 +36,7 @@ const COPY = {
     free: 'Gratuit', premium: 'Pro',
     error: 'La liste des aéronefs n’a pas pu être chargée à la compilation. Elle apparaîtra au prochain build.',
   },
-} as const;
+};
 const t = COPY[lang];
 const API = 'https://api.aerocheck.app/api/v3/aircraft/available';
 

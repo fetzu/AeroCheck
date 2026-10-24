@@ -1,12 +1,13 @@
 /**
- * Copy for the aircraft-request pages (/send, /request, /confirm, /clubs), EN and FR.
+ * Copy for the aircraft-request pages (/send, /request, /confirm, /clubs), EN, DE (requests-copy.de.ts) and FR.
  *
  * In one module rather than in each component because the pages' scripts need most of it too: the
  * components render what they can at build time and hand the rest to their script as JSON. Tokens in
  * braces ({reg}, {name}…) are filled by `fill()`. French follows the site's typography (a plain space
  * before : ; ? !, guillemets « »).
  */
-import type { Lang } from './site';
+import type { Lang } from './langs';
+import { de } from './requests-copy.de';
 
 export function fill(text: string, values: Record<string, string | number>): string {
   return text.replace(/\{(\w+)\}/g, (all, key: string) => (key in values ? String(values[key]) : all));
@@ -20,7 +21,6 @@ const en = {
     backToForm: 'Back to the form',
     code: 'Code:',
     loading: 'Loading',
-    otherLang: 'Cette page en français',
     privacyHref: '/privacy',
     termsHref: '/terms',
     clubsHref: '/clubs',
@@ -149,7 +149,7 @@ const en = {
     filesRemoveLabel: 'Remove {name}',
     filesTotal: '{n} of 4 files · {size} of 25 MB',
     languagesLegend: 'The checklist’s language',
-    languagesHint: 'The language the document is written in. The checklist stays in that language whatever the app’s language (English or French): a German checklist reads in German in both.',
+    languagesHint: 'The language the document is written in. The checklist stays in that language whatever the app’s language (English, German or French): a German checklist reads in German in all three.',
     otherLanguageLabel: 'Another language',
     otherLanguageHint: 'If it isn’t listed above, type it in any form (Japanese, Swiss German…). Separate several with commas.',
     stepYou: 'You',
@@ -328,7 +328,7 @@ const en = {
         items: [
           'The club’s checklist for the aircraft, as a PDF or as photos of its pages (JPEG, PNG or HEIC; up to 4 files, 10 MB each).',
           'The registrations it covers: one request for all the aircraft that share the same document.',
-          'In any language: the checklist stays as the club wrote it, whatever the app’s language (English or French).',
+          'In any language: the checklist stays as the club wrote it, whatever the app’s language (English, German or French).',
           'Not your members’ data: black out names and phone numbers first.',
         ],
       },
@@ -394,7 +394,6 @@ const fr: RequestsCopy = {
     backToForm: 'Retour au formulaire',
     code: 'Code :',
     loading: 'Chargement',
-    otherLang: 'This page in English',
     privacyHref: '/fr/privacy',
     termsHref: '/fr/terms',
     clubsHref: '/fr/clubs',
@@ -523,7 +522,7 @@ const fr: RequestsCopy = {
     filesRemoveLabel: 'Retirer {name}',
     filesTotal: '{n} fichier(s) sur 4 · {size} sur 25 Mo',
     languagesLegend: 'La langue de la checklist',
-    languagesHint: 'La langue dans laquelle le document est écrit. La checklist reste dans cette langue, quelle que soit celle de l’app (anglais ou français) : une checklist en allemand se lit en allemand dans les deux.',
+    languagesHint: 'La langue dans laquelle le document est écrit. La checklist reste dans cette langue, quelle que soit celle de l’app (anglais, allemand ou français) : une checklist en allemand se lit en allemand dans les trois.',
     otherLanguageLabel: 'Une autre langue',
     otherLanguageHint: 'Si elle ne figure pas ci-dessus, saisissez-la sous n’importe quelle forme (japonais, suisse allemand…). Séparez-en plusieurs par des virgules.',
     stepYou: 'Vous',
@@ -702,7 +701,7 @@ const fr: RequestsCopy = {
         items: [
           'La checklist du club pour l’avion, en PDF ou en photos de ses pages (JPEG, PNG ou HEIC ; jusqu’à 4 fichiers, 10 Mo chacun).',
           'Les immatriculations qu’elle couvre : une seule demande pour tous les avions qui partagent le même document.',
-          'Dans n’importe quelle langue : la checklist reste telle que le club l’a écrite, quelle que soit la langue de l’app (anglais ou français).',
+          'Dans n’importe quelle langue : la checklist reste telle que le club l’a écrite, quelle que soit la langue de l’app (anglais, allemand ou français).',
           'Pas les données de vos membres : masquez d’abord les noms et les numéros de téléphone.',
         ],
       },
@@ -772,9 +771,9 @@ function frenchSpacing<T>(value: T): T {
   return value;
 }
 
-export const REQUESTS_COPY: Record<Lang, RequestsCopy> = { en, fr: frenchSpacing(fr) };
+export const REQUESTS_COPY: Record<Lang, RequestsCopy> = { en, de, fr: frenchSpacing(fr) };
 
-/** A language code as its name in the page's language ("de" → "German" / "Allemand"). */
+/** A language code as its name in the page's language ("de" → "German" / "Deutsch" / "Allemand"). */
 export function languageName(code: string, lang: Lang): string {
   // A language typed as a name ("Japanese", "Swiss German") is shown as it was sent.
   if (!/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/i.test(code)) return code;

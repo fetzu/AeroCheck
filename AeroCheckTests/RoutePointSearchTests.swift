@@ -169,6 +169,36 @@ final class RoutePointSearchTests: XCTestCase {
         XCTAssertNil(none.first?.distanceNM)
     }
 
+    // MARK: - Aerodromes (6.6.0)
+
+    private func field(_ ident: String, _ name: String, _ lat: Double, _ lon: Double) -> Airport {
+        Airport(id: ident.hashValue, ident: ident, type: .smallAirport, name: name, latitude: lat, longitude: lon,
+                elevation: 1_400, continent: "EU", isoCountry: "CH", isoRegion: "CH-NE", municipality: nil,
+                scheduledService: false, gpsCode: ident, iataCode: nil, localCode: nil)
+    }
+
+    /// Via finds an aerodrome too (a route's usual stop is one, the author's device check): its code typed whole
+    /// ranks with a point's own name, ahead of a point found by its aerodrome; picked, it is the aerodrome.
+    func testAnAerodromeComesWithThePoints() throws {
+        let lsgc = field("LSGC", "Les Eplatures Airport", 47.0839, 6.7928)
+        let fields = RoutePointSearch.aerodromeResults([lsgc], query: "lsgc", route: route)
+        let merged = RoutePointSearch.merged(search("LSGC"), fields)
+        let first = try XCTUnwrap(merged.first)
+        XCTAssertEqual(first.id, "ad:LSGC")
+        XCTAssertEqual(first.kind, .aerodrome)
+        XCTAssertEqual(first.subtitle, "Les Eplatures Airport")
+        guard case .aerodrome(let airport) = first.point else { return XCTFail("not the aerodrome") }
+        XCTAssertEqual(airport.ident, "LSGC")
+        XCTAssertTrue(merged.dropFirst().contains { $0.kind != .aerodrome }, "Les Eplatures' points follow it")
+
+        let begun = RoutePointSearch.aerodromeResults([lsgc], query: "LSG", route: route)
+        XCTAssertEqual(begun.first?.tier, 1)
+        let byName = RoutePointSearch.aerodromeResults([lsgc], query: "Eplatures", route: route)
+        XCTAssertEqual(byName.first?.tier, 2)
+        XCTAssertEqual(RoutePointSearch.merged(search("WITZWIL"), byName).first?.title, "WITZWIL",
+                       "a point named whole ranks ahead of an aerodrome found by its name")
+    }
+
     func testTheListIsCapped() {
         XCTAssertLessThanOrEqual(RoutePointSearch.search("E", reportingPoints: points + points, aerodromes: aerodromes,
                                                          navaids: navaids, route: route, limit: 3).count, 3)

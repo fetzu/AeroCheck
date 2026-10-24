@@ -470,15 +470,10 @@ struct UpcomingFlightsList: View {
                     .tracking(1.2)
                     .foregroundColor(.secondaryText)
                 ForEach(overview.legs) { leg in
-                    tripLegRow(leg, in: overview)
+                    tripLegRow(leg, in: overview, left: leg.id == overview.focusId ? leftWords(of: leg.id) : nil)
                 }
             }
 
-            // What's left, for the leg in focus, as its page's status line says it. (6.6.0, f9 A)
-            if let leg = (allThreads ?? threads).first(where: { $0.id == overview.focusId }),
-               case let summary = summary(leg), summary.left > 0 {
-                tripStatusRow(summary, overview: overview)
-            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -489,9 +484,18 @@ struct UpcomingFlightsList: View {
         )
     }
 
-    /// One leg: its number, route, when it leaves and its figures, and where it stands. At least
-    /// 56 pt tall, a ground target to the leg's page.
-    private func tripLegRow(_ leg: TripOverview.Leg, in overview: TripOverview) -> some View {
+    /// What's left on the leg in focus, as its page's status line says it ("1 left: NOTAMs and airspace"),
+    /// under its own row. It had a row of its own under the legs, which repeated the leg and its time (the
+    /// author's device check, v66-8). Nil when nothing is left. (6.6.0, f9 A)
+    private func leftWords(of legId: UUID) -> String? {
+        guard let leg = (allThreads ?? threads).first(where: { $0.id == legId }),
+              case let summary = summary(leg), summary.left > 0, !summary.detail.isEmpty else { return nil }
+        return summary.detail
+    }
+
+    /// One leg: its number, route, when it leaves and its figures, and where it stands; the leg in focus
+    /// what's left on it too. At least 56 pt tall, a ground target to the leg's page.
+    private func tripLegRow(_ leg: TripOverview.Leg, in overview: TripOverview, left: String? = nil) -> some View {
         let isFocus = leg.id == overview.focusId
         return Button { onOpen(leg.id) } label: {
             HStack(spacing: 12) {
@@ -508,6 +512,12 @@ struct UpcomingFlightsList: View {
                         .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
                         .lineLimit(1)
+                    if let left {
+                        Text(left)
+                            .scaledFont(size: 13, relativeTo: .caption)
+                            .foregroundColor(.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Spacer(minLength: 8)
                 legStatus(leg, isFocus: isFocus)
@@ -530,7 +540,7 @@ struct UpcomingFlightsList: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(L10n.Flights.legOf(leg.number, overview.legCount) + ", " + leg.displayName)
-        .accessibilityValue([legFacts(leg), legStatusText(leg, isFocus: isFocus)].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityValue([legFacts(leg), legStatusText(leg, isFocus: isFocus), left].compactMap { $0 }.joined(separator: ", "))
     }
 
     /// "10:00 · 52 NM · 0:31", "≈ 10:53 · 41 NM · 0:25"; a named leg says its route first.
@@ -581,37 +591,6 @@ struct UpcomingFlightsList: View {
             .padding(.vertical, 3)
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(color, lineWidth: 1))
             .lineLimit(1)
-    }
-
-    /// The flight card's row for the leg in focus: its status line, the leg named. (6.6.0, f9 A)
-    private func tripStatusRow(_ summary: FlightPageSummary.Summary, overview: TripOverview) -> some View {
-        let leg = overview.focus.map { L10n.Flights.legOf($0.number, overview.legCount) }
-        return Button { onOpen(overview.focusId) } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text([leg, summary.title].compactMap { $0 }.joined(separator: " · "))
-                        .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
-                        .foregroundColor(.primaryText)
-                    Text(summary.detail)
-                        .scaledFont(size: 13, relativeTo: .caption)
-                        .foregroundColor(.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 4) {
-                    Text(L10n.FlightsPage.openFlight)
-                    Image(systemName: "chevron.right")
-                }
-                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundColor(.altimeterBlue)
-            }
-            .padding(12)
-            .frame(minHeight: 44)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cockpitBackground))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
     }
 
     private func tripDay(_ entry: UpcomingOrder.Entry) -> some View {

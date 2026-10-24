@@ -530,7 +530,8 @@ struct FlightPlanMapBuilderView: View {
     }
 
     /// The "Via" search, debounced like the airfield search: reporting points and navaids by name,
-    /// aerodrome or ident, nearest the route first within a rank (`RoutePointSearch`). (6.0.1)
+    /// aerodrome or ident, nearest the route first within a rank (`RoutePointSearch`), and since 6.6.0 the
+    /// aerodromes the airfield search finds, so a route can stop at one. (6.0.1)
     private func scheduleViaSearch(_ query: String) {
         viaSearchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespaces)
@@ -545,12 +546,18 @@ struct FlightPlanMapBuilderView: View {
             await catalog.ensureLoaded()
             await OpenAIPNavaidDataService.shared.ensureLoaded()
             guard !Task.isCancelled else { return }
-            let results = RoutePointSearch.search(
+            let points = RoutePointSearch.search(
                 trimmed,
                 reportingPoints: catalog.allPoints(includingNonPowered: nonPowered),
                 aerodrome: catalog.aerodrome(for:),
                 navaids: OpenAIPNavaidDataService.shared.allLoadedNavaids(),
                 route: route, reference: reference)
+            let airports = trimmed.count >= 2
+                ? airportDataService.searchAirports(query: trimmed, limit: 6, near: route.first ?? reference,
+                                                    types: AirportType.fixedWing)
+                : []
+            let results = RoutePointSearch.merged(points, RoutePointSearch.aerodromeResults(
+                airports, query: trimmed, route: route, reference: reference))
             guard !Task.isCancelled else { return }
             viaResults = results
             viaResultsQuery = trimmed
@@ -1855,7 +1862,7 @@ private struct FittingPlaceholder: ViewModifier {
 
 // MARK: - Via search (6.0.1)
 
-/// The "Via" field under From and To: finds a reporting point or a navaid for the route. Its own view,
+/// The "Via" field under From and To: finds a reporting point, a navaid or an aerodrome for the route. Its own view,
 /// so the builder's body doesn't grow (see `SeparateView`).
 private struct ViaSearchField: View {
     @Binding var text: String
@@ -1865,13 +1872,16 @@ private struct ViaSearchField: View {
         HStack(spacing: 6) {
             Text(L10n.Nav.via)
                 .font(.aero(size: 11, weight: .semibold)).tracking(0.6).foregroundColor(.dimText)
-            TextField(L10n.Nav.viaPlaceholder, text: $text)
+            // The placeholder shrinks to fit rather than being cut: three kinds name it since 6.6.0.
+            TextField(L10n.Nav.viaPlaceholder, text: $text, prompt: Text(verbatim: ""))
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .font(.aero(size: 17, weight: .semibold, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .focused(focused)
+                .modifier(FittingPlaceholder(text: L10n.Nav.viaPlaceholder, isShown: text.isEmpty,
+                                             font: .aero(size: 17, weight: .semibold, design: .monospaced)))
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -1959,6 +1969,7 @@ private struct ViaSearchResults: View {
         switch kind {
         case .reportingPoint(let compulsory): return compulsory ? "triangle.fill" : "triangle"
         case .navaid: return "hexagon"
+        case .aerodrome: return "airplane.circle"
         }
     }
 
@@ -1967,6 +1978,7 @@ private struct ViaSearchResults: View {
         switch kind {
         case .reportingPoint: return Color(red: 0.85, green: 0.2, blue: 0.6)
         case .navaid: return Color(red: 1.0, green: 0.72, blue: 0.0)
+        case .aerodrome: return .altimeterBlue
         }
     }
 }

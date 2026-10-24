@@ -259,7 +259,7 @@ extension FlightPlan {
 /// the field's debounce. Aerodromes are From and To's business, not this one's. Pure. (6.0.1)
 enum RoutePointSearch {
 
-    enum Kind: Equatable { case reportingPoint(compulsory: Bool), navaid }
+    enum Kind: Equatable { case reportingPoint(compulsory: Bool), navaid, aerodrome }
 
     struct Result: Identifiable {
         let id: String
@@ -331,6 +331,29 @@ enum RoutePointSearch {
         }
 
         return Array(results.sorted {
+            ($0.tier, $0.distanceNM ?? .infinity, $0.title) < ($1.tier, $1.distanceNM ?? .infinity, $1.title)
+        }.prefix(limit))
+    }
+
+    /// The aerodromes the airfield search found for `query` (`AirportDataService.searchAirports`, the one From
+    /// and To use), as results among the points: its ICAO code typed whole ranks with a point's name, a code
+    /// begun with a name begun, and a name or town with a point found by its aerodrome. An aerodrome is how a
+    /// route marks its usual stop, so Via has to find one. (6.6.0, the author's device check)
+    static func aerodromeResults(_ airports: [Airport], query: String, route: [CLLocationCoordinate2D],
+                                 reference: CLLocationCoordinate2D? = nil) -> [Result] {
+        let typed = ReportingPointRemarks.folded(query).replacingOccurrences(of: " ", with: "")
+        return airports.map { airport in
+            let ident = ReportingPointRemarks.folded(airport.ident)
+            let tier = ident == typed ? 0 : ident.hasPrefix(typed) ? 1 : 2
+            return Result(id: "ad:" + airport.ident, point: .aerodrome(airport), kind: .aerodrome,
+                          title: airport.ident, subtitle: airport.name,
+                          distanceNM: distance(airport.coordinate, route: route, reference: reference), tier: tier)
+        }
+    }
+
+    /// The points and the aerodromes in one list, by rank, then nearest the route.
+    static func merged(_ points: [Result], _ aerodromes: [Result], limit: Int = 8) -> [Result] {
+        Array((points + aerodromes).sorted {
             ($0.tier, $0.distanceNM ?? .infinity, $0.title) < ($1.tier, $1.distanceNM ?? .infinity, $1.title)
         }.prefix(limit))
     }

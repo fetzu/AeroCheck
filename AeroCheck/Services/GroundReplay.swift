@@ -21,6 +21,10 @@ import Foundation
 //   as a pilot arms one, so START FLIGHT flies it: a route, or with `planned` a flight planned for today
 //   (its own copy of the route, followed by a flight thread, as Plan new flight makes it), a trip when the
 //   route marks its usual stops (6.6.0), leg 1 armed.
+// - Or, with `deviceData`, the device's own data: what Settings › Data & Storage downloads, on a simulator
+//   that holds it (`scripts/ground-replay.sh --after-install` can put it back after each clean install). The
+//   radio needs the real fields' frequencies, their zones and the FIS sectors, which a scenario's aerodromes
+//   don't carry. (6.6.0)
 //
 // Launched by the environment (`ContentView`'s DEBUG task):
 //   AEROCHECK_REPLAY=<path of the scenario JSON>   AEROCHECK_REPLAY_SPEED=10
@@ -81,6 +85,10 @@ struct GroundReplayScenario: Decodable {
     /// seconds, any origin. A missing or negative course is taken from the track.
     let track: [[Double?]]
     let airports: [Aerodrome]
+    /// The device's own aeronautical data, never the scenario's aerodromes, which are then the referee's only:
+    /// the airports with their frequencies and runways, OpenAIP's airspace and reporting points, open
+    /// flightmaps. (6.6.0)
+    let deviceData: Bool?
     let holds: [Hold]?
     let route: Route?
 
@@ -347,7 +355,8 @@ final class GroundReplay {
         // GPS on, as Today does it, so START FLIGHT finds a fix.
         locationManager.startLocationUpdates()
         replay.start()
-        AppLog.general.debugLine("Ground replay: \(scenario.name), \(fixes.count) fixes, x\(FlightClock.virtual?.rate ?? 1)")
+        AppLog.general.debugLine("Ground replay: \(scenario.name), \(fixes.count) fixes, x\(FlightClock.virtual?.rate ?? 1)"
+                                 + (scenario.deviceData == true ? ", on the device's data" : ""))
 
         // The route, once the stores have loaded (an earlier write would be overwritten by the load).
         guard resumed?.scenarioPath != path, let route = scenario.route else { return true }
@@ -363,10 +372,11 @@ final class GroundReplay {
     }
 
     /// The scenario's aerodromes in place of the store's (a fresh simulator has none). A scenario that
-    /// lists none keeps the device's own data, frequencies and runways included: a recorded flight
-    /// replayed on a check simulator, where NEXT and the circuits need the real fields.
+    /// lists none, or says `deviceData`, keeps the device's own data, frequencies and runways included: a
+    /// recorded flight replayed on a check simulator, or a seeded one, where NOW, NEXT and the circuits need
+    /// the real fields.
     static func useAerodromes(of scenario: GroundReplayScenario, in store: AirportDataService) {
-        guard !scenario.airports.isEmpty else { return }
+        guard scenario.deviceData != true, !scenario.airports.isEmpty else { return }
         store.injectForReplay(scenario.airports.map(airport))
     }
 

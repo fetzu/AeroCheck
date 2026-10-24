@@ -959,7 +959,9 @@ struct RouteThumbnail: View {
             ZStack {
                 Color.cockpitBackground
                 if let image {
+                    // The map drawn: the screenshot tour waits for it before a shot of the flight's page.
                     Image(uiImage: image).resizable().scaledToFill()
+                        .accessibilityIdentifier("routeThumbnail.map")
                 } else if coords.count >= 2 {
                     RouteOutline(coords: coords)
                         .stroke(Color(red: 0.85, green: 0.31, blue: 0.69).opacity(0.85),

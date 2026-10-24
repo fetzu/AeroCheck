@@ -144,7 +144,8 @@ enum SigmetFormat {
 
     /// `"SEV TURB"`, or just the hazard when unqualified.
     static func summary(_ hazard: AviationWeatherService.Sigmet) -> String {
-        [hazard.qualifier, hazard.hazard].compactMap { $0 }.joined(separator: " ")
+        // AWC sends "" for a SIGMET without a qualifier: " CONV" read with a space in front.
+        [hazard.qualifier, hazard.hazard].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     static func hazardName(_ hazard: AviationWeatherService.Sigmet) -> String {

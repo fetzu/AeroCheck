@@ -269,3 +269,22 @@ extension DecodedTaf: Decodable {
 // beyond equality, so these stay decode-only, and a type that holds them encodes them as nothing.
 extension DecodedMetar: Encodable { func encode(to encoder: Encoder) throws {} }
 extension DecodedTaf: Encodable { func encode(to encoder: Encoder) throws {} }
+
+// MARK: - A SIGMET's levels and movement (6.6.0)
+//
+// Never throwing, so a field this build can't read leaves the SIGMET as before 6.6.0 rather than failing the list: an
+// unknown `kind` reads as nothing (`WeatherWords.sigmetLevels`).
+
+extension AviationWeatherService.Sigmet.Levels: Decodable {
+    init(from decoder: Decoder) throws {
+        let c = try? decoder.container(keyedBy: Keys.self)
+        kind = c?.value("kind") ?? ""; base = c?.value("base"); top = c?.value("top")
+    }
+}
+
+extension AviationWeatherService.Sigmet.Movement: Decodable {
+    init(from decoder: Decoder) throws {
+        let c = try? decoder.container(keyedBy: Keys.self)
+        direction = c?.value("direction"); speedKt = c?.value("speedKt"); stationary = c?.flag("stationary") ?? false
+    }
+}

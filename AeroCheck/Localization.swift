@@ -752,6 +752,29 @@ enum L10n {
         static func chanceAtTimes(_ a: String, _ b: String, _ percent: Int) -> String {
             String(format: String(localized: "wx.chanceAtTimes"), a, b, percent)
         }
+        // A SIGMET in words (6.6.0, `WeatherWords.sigmetTitle`/`sigmetDetail`). Its hazards are looked up by code.
+        static func sigmetForecast(_ a: String) -> String { String(format: String(localized: "wx.sigmet.forecast"), a) }
+        static func sigmetObserved(_ a: String) -> String { String(format: String(localized: "wx.sigmet.observed"), a) }
+        static func sigmetCyclone(_ a: String) -> String { String(format: String(localized: "wx.sigmet.cyclone"), a) }
+        static let sigmetVolcanicAsh = String(localized: "wx.sigmet.VA")
+        static func sigmetVolcanicAshFrom(_ a: String) -> String { String(format: String(localized: "wx.sigmet.vaVolcano"), a) }
+        static let sigmetFromSurface = String(localized: "wx.sigmet.fromSurface")
+        static func sigmetFromLevel(_ a: String) -> String { String(format: String(localized: "wx.sigmet.fromLevel"), a) }
+        static func sigmetFromHeight(_ a: String) -> String { String(format: String(localized: "wx.sigmet.fromHeight"), a) }
+        static func sigmetToLevel(_ a: String) -> String { String(format: String(localized: "wx.sigmet.toLevel"), a) }
+        static func sigmetToHeight(_ a: String) -> String { String(format: String(localized: "wx.sigmet.toHeight"), a) }
+        static func sigmetTop(_ a: String) -> String { String(format: String(localized: "wx.sigmet.top"), a) }
+        static func sigmetTopAbove(_ a: String) -> String { String(format: String(localized: "wx.sigmet.topAbove"), a) }
+        static func sigmetTopBelow(_ a: String) -> String { String(format: String(localized: "wx.sigmet.topBelow"), a) }
+        static func sigmetAbove(_ a: String) -> String { String(format: String(localized: "wx.sigmet.above"), a) }
+        static func sigmetBelow(_ a: String) -> String { String(format: String(localized: "wx.sigmet.below"), a) }
+        static func sigmetMoving(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.sigmet.moving"), a, b) }
+        static func sigmetMovingToward(_ a: String) -> String { String(format: String(localized: "wx.sigmet.movingToward"), a) }
+        static let sigmetStationary = String(localized: "wx.sigmet.stationary")
+        static let sigmetNoChange = String(localized: "wx.sigmet.noChange")
+        static let sigmetIntensifying = String(localized: "wx.sigmet.intensifying")
+        static let sigmetWeakening = String(localized: "wx.sigmet.weakening")
+        static func sigmetFir(_ a: String) -> String { String(format: String(localized: "wx.sigmet.fir"), a) }
     }
 
     // MARK: - Prepare's weather (6.5.0)

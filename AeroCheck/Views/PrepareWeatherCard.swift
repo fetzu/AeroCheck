@@ -229,22 +229,47 @@ struct PrepareWeatherReports: View {
                     .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
                     .foregroundColor(.aviationAmber)
                 ForEach(sigmets.hazards) { hazard in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(SigmetFormat.hazardName(hazard))
-                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundColor(.aviationAmber)
-                        Text(SigmetFormat.detail(hazard))
-                            .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                            .foregroundColor(.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityElement(children: .combine)
+                    sigmetRow(hazard)
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A SIGMET in words, its text on a tap, as the METAR and the TAF above it (the author's W A, v66-22). Until 6.6.0
+    /// AWC's codes: "SEV TURB" over "LFRR BREST · SFC-4000 ft · until 1800Z".
+    private func sigmetRow(_ hazard: AviationWeatherService.Sigmet) -> some View {
+        let key = "SIGMET " + hazard.id
+        let open = showsRaw.contains(key)
+        return VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(WeatherWords.sigmetTitle(hazard))
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundColor(.aviationAmber)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(WeatherWords.sigmetDetail(hazard))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            if let raw = hazard.raw {
+                Button {
+                    if open { showsRaw.remove(key) } else { showsRaw.insert(key) }
+                } label: {
+                    Text(open ? "RAW ⌃" : "RAW ⌄")
+                        .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                        .foregroundColor(.aviationGold)
+                        .frame(minHeight: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Weather.rawReports)
+                if open { report(raw) }
+            }
+        }
     }
 
     // MARK: Words

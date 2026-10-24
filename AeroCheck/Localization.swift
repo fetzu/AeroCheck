@@ -674,6 +674,8 @@ enum L10n {
         }
         static let afterLanding = String(localized: "flightPage.afterLanding")
         static let onTheDayOfTheFlight = String(localized: "flightPage.onTheDay")
+        /// The same, on the right of an iPhone row.
+        static let onTheDayShort = String(localized: "flightPage.onTheDayShort")
         static func onTheDayFor(_ list: String) -> String {
             String(format: String(localized: "flightPage.onTheDayFor"), list)
         }

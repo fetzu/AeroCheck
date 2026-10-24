@@ -317,6 +317,8 @@ struct FlightThreadView: View {
     @ObservedObject private var officialCharts = OfficialChartService.shared
     /// The briefing registry: the briefing tasks' links when it arrives. (6.5.0)
     @ObservedObject private var briefingRegistry = BriefingRegistryService.shared
+    /// The reports, for the iPhone weather row's verdict ("No SIGMET"). (6.6.0)
+    @ObservedObject private var weatherService = PrepareWeatherService.shared
 
     /// An item of the status line was tapped: the page goes to its block. (6.6.0)
     @State private var scrollToBlock: FlightBlockKind?
@@ -358,6 +360,12 @@ struct FlightThreadView: View {
     /// opens them in place. (6.6.0)
     @State private var unfoldedChapters: Set<ThreadChapter> = []
     @State private var unfoldedBlocks: Set<FlightBlockKind> = []
+    /// The iPhone's block whose sheet is open (C), and what a tool tapped in it opens once the sheet has gone: a
+    /// second sheet can't open over the first. (6.6.0)
+    @State private var openBlock: OpenBlock?
+    @State private var afterBlockSheet: (() -> Void)?
+
+    struct OpenBlock: Identifiable { let kind: FlightBlockKind; var id: FlightBlockKind { kind } }
     /// "Start now" pressed on a flight planned for another day: the question before it starts.
     @State private var confirmingEarlyStart = false
     /// The trip's flown legs, shared as one card from beside the leg strip. (6.1)
@@ -512,6 +520,22 @@ struct FlightThreadView: View {
             }
         }
         #endif
+        // A block of the iPhone's checklist, opened: the iPad's card, under Done. (6.6.0, C)
+        .sheet(item: $openBlock, onDismiss: {
+            let next = afterBlockSheet
+            afterBlockSheet = nil
+            next?()
+        }) { item in
+            if let thread, let block = page(for: thread).block(item.kind) {
+                FlightBlockSheet(onDone: { openBlock = nil }) {
+                    blockCard(block, thread, foldable: false)
+                }
+                .environment(\.dryRunSession, dryRunSession)
+                .dryRunCoachSheet(of: .flightPage)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+        }
         .sheet(isPresented: $addingStop) {
             AddStopSheet(threadId: threadId) { _ in addingStop = false }
                 .environmentObject(threadManager)
@@ -1053,7 +1077,11 @@ struct FlightThreadView: View {
                         .accessibilityLabel(L10n.Button.close)
                     }
                 }
-                blockGrid(chapter, blocks: blocks, thread: thread)
+                if usesChecklist {
+                    checklistGroup(chapter, blocks: blocks, thread: thread)
+                } else {
+                    blockGrid(chapter, blocks: blocks, thread: thread)
+                }
             }
             .id(chapter)
         } else if !blocks.isEmpty {
@@ -1143,15 +1171,7 @@ struct FlightThreadView: View {
                 FlightFoldedLine(look: block.state == .done ? .done : .notApplicable, title: title,
                                  detail: FlightPageWords.doneWords(block, wordsContext(for: thread)), action: unfold)
             } else {
-                FlightBlockCard(block: block, title: title, meta: meta(block, thread), notes: notes(block),
-                                onTick: { tick(block, thread) },
-                                onFold: block.state != .pending || block.waitsForDay
-                                    ? { withAnimation(.easeInOut(duration: 0.2)) { _ = unfoldedBlocks.remove(block.kind) } } : nil,
-                                tickTarget: Self.tickTarget(block.kind),
-                                accessory: { accessory(block, thread) },
-                                content: { blockBody(block, thread) })
-                    // The fuel block opens fuel on board from anywhere on it, as its row did. (on-device review #4)
-                    .modifier(BlockTap(action: block.kind == .fuel ? { openFuel(thread) } : nil))
+                blockCard(block, thread, foldable: true)
             }
         }
         .id(AnyHashable(block.kind))
@@ -1162,6 +1182,119 @@ struct FlightThreadView: View {
                     threadManager.setBlockState(.notApplicable, block: block, threadId: thread.id)
                 }
             }
+        }
+    }
+
+    /// A block's card: on the iPad where it stands, on the iPhone in its sheet (`foldable` false: Done closes it).
+    private func blockCard(_ block: FlightBlock, _ thread: FlightThread, foldable: Bool) -> some View {
+        FlightBlockCard(block: block, title: FlightPageWords.title(block.kind), meta: meta(block, thread),
+                        notes: notes(block),
+                        onTick: { tick(block, thread) },
+                        onFold: foldable && (block.state != .pending || block.waitsForDay)
+                            ? { withAnimation(.easeInOut(duration: 0.2)) { _ = unfoldedBlocks.remove(block.kind) } } : nil,
+                        tickTarget: Self.tickTarget(block.kind),
+                        accessory: { accessory(block, thread) },
+                        content: { blockBody(block, thread) })
+            // The fuel block opens fuel on board from anywhere on it, as its row did. (on-device review #4)
+            .modifier(BlockTap(action: block.kind == .fuel ? { openFuel(thread) } : nil))
+    }
+
+    // MARK: - The iPhone's checklist (C)
+
+    /// The iPhone's layout (C, the author's q2 note): a checklist, a row per block in its fixed place, ticked where it
+    /// stands; the block in a sheet.
+    private var usesChecklist: Bool { horizontalSizeClass == .compact }
+
+    @ViewBuilder
+    private func checklistGroup(_ chapter: ThreadChapter, blocks: [FlightBlock], thread: FlightThread) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
+                if index > 0 { Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 64) }
+                blockRow(block, thread)
+            }
+        }
+        .padding(.vertical, 2)
+        .background(Color.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        if chapter == .close, let flightId = thread.flightId { debriefCard(flightId) }
+    }
+
+    private func blockRow(_ block: FlightBlock, _ thread: FlightThread) -> some View {
+        FlightBlockRow(block: block, title: FlightPageWords.title(block.kind), subtitle: rowSubtitle(block, thread),
+                       meta: rowMeta(block, thread),
+                       onTick: block.isAuto ? nil : { tick(block, thread) },
+                       onOpen: { openRow(block, thread) },
+                       tickTarget: Self.tickTarget(block.kind))
+            .id(AnyHashable(block.kind))
+            // The reports load from the weather's row, the sheet's being closed: its verdict needs them.
+            .task(id: block.kind == .weather ? weatherFields(thread).map(\.ident).joined(separator: " ") : "") {
+                guard block.kind == .weather else { return }
+                let fields = weatherFields(thread)
+                guard !fields.isEmpty else { return }
+                await weatherService.load(threadId: thread.id, fields: fields, route: weatherRoute(thread))
+            }
+            // The dry run rings the row of what its sheet holds while the sheet is closed: the NOTAMs' first link,
+            // the logbook line's button. (6.4.0's steps, 6.6.0's layout)
+            .coachTarget(ifAny: Self.rowTarget(block.kind)
+                         ?? (openBlock == nil && block.kind == .notamsAndAirspace ? .notamLink : nil)
+                         ?? (block.kind == .logbook ? .logbookRow : nil))
+            .contextMenu {
+                if !block.isAuto && block.state != .notApplicable {
+                    Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") {
+                        threadManager.setBlockState(.notApplicable, block: block, threadId: thread.id)
+                    }
+                }
+            }
+    }
+
+    /// The row's word on the right: while open the iPad head's (a deadline, the countries), the weather's verdict;
+    /// once done the time it was; waiting, the day.
+    private func rowMeta(_ block: FlightBlock, _ thread: FlightThread) -> FlightBlockMeta? {
+        switch block.state {
+        case .notApplicable:
+            return nil
+        case .done:
+            if block.isAuto { return nil }
+            return block.completedAt.map { FlightBlockMeta(text: shortTime($0)) }
+        case .pending:
+            if block.waitsForDay { return FlightBlockMeta(text: L10n.FlightPage.onTheDayShort) }
+            if block.kind == .weather, case .loaded(let weather)? = weatherService.state(for: thread.id),
+               let sigmets = weather.sigmets, sigmets.received > 0 {
+                return sigmets.hazards.isEmpty ? FlightBlockMeta(text: L10n.FlightPage.noSigmet, tone: .good)
+                                               : FlightBlockMeta(text: L10n.FlightPage.sigmet, tone: .caution)
+            }
+            return meta(block, thread)
+        }
+    }
+
+    /// Under the row's title: the auto rows' figures, "for the whole trip", a re-check, a fuel warning.
+    private func rowSubtitle(_ block: FlightBlock, _ thread: FlightThread) -> String? {
+        var words: [String] = []
+        if block.isAuto, let detail = block.tasks.compactMap(\.detail).first(where: { !$0.isEmpty }) { words.append(detail) }
+        if block.isShared { words.append(L10n.FlightPage.wholeTrip) }
+        if let since = block.recheckSince { words.append(L10n.Flights.recheckForThisLeg(shortTime(since))) }
+        if let task = block.task, let warning = fuelWarning(for: task, in: thread) { words.append(warning) }
+        return words.isEmpty ? nil : words.joined(separator: " · ")
+    }
+
+    /// A row's tap: fuel on board and the logbook line open their own sheets, as their rows always did; the rest
+    /// open the block.
+    private func openRow(_ block: FlightBlock, _ thread: FlightThread) {
+        switch block.kind {
+        case .fuel where plan(for: thread) != nil: openFuel(thread)
+        case .logbook where thread.flightId != nil: numbersFlightId = thread.flightId
+        default: openBlock = OpenBlock(kind: block.kind)
+        }
+    }
+
+    /// A tool tapped in a block: at once on the iPad, once its sheet has closed on the iPhone.
+    private func runTool(_ action: @escaping () -> Void) {
+        if openBlock != nil {
+            afterBlockSheet = action
+            openBlock = nil
+        } else {
+            action()
         }
     }
 
@@ -1259,7 +1392,7 @@ struct FlightThreadView: View {
                                       briefing: briefing(for: thread),
                                       caution: task.key == .flightPlanFiled ? activationLine(for: thread) : nil,
                                       toolLabel: toolLabel(for: task, in: thread),
-                                      onOpenTool: { openTool(for: task, in: thread) },
+                                      onOpenTool: { runTool { openTool(for: task, in: thread) } },
                                       warning: fuelWarning(for: task, in: thread))
                     if block.kind == .route { routeTools(thread) }
                 }
@@ -1314,10 +1447,10 @@ struct FlightThreadView: View {
         let canJoin = thread.flightId == nil && next != nil && next?.flightId == nil
         if canAdd || canJoin {
             HStack(spacing: 8) {
-                if canAdd { ThreadToolButton(label: L10n.Trip.addStop) { addingStop = true } }
+                if canAdd { ThreadToolButton(label: L10n.Trip.addStop) { runTool { addingStop = true } } }
                 if canJoin {
                     ThreadToolButton(label: L10n.Trip.joinNextLeg) {
-                        FlightCreator.joinWithNextLeg(thread.id, plans: flightPlanManager, threads: threadManager)
+                        runTool { FlightCreator.joinWithNextLeg(thread.id, plans: flightPlanManager, threads: threadManager) }
                     }
                 }
             }

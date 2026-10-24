@@ -52,6 +52,7 @@
 		5C0A0001211111110000002 /* ShareCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0A0001111111110000002 /* ShareCardTests.swift */; };
 		A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000034111111110000001 /* NewFlightIntentTests.swift */; };
 		A5000035111111110000002 /* TripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000035111111110000001 /* TripTests.swift */; };
+		FP6600021111111000002 /* FlightPageBlocksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000002 /* FlightPageBlocksTests.swift */; };
 		A50000C1111111110000002 /* TestDatastore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000C1111111110000001 /* TestDatastore.swift */; };
 		A5000039111111110000002 /* WaypointPassageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000039111111110000001 /* WaypointPassageTests.swift */; };
 		A5000040111111110000002 /* TripPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000040111111110000001 /* TripPlannerTests.swift */; };
@@ -338,6 +339,7 @@
 		E1000001211111110000030 /* NewFlightIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000030 /* NewFlightIntent.swift */; };
 		HB0A0001211111110000001 /* HomeAerodrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000001 /* HomeAerodrome.swift */; };
 		E1000001211111110000031 /* Trip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000031 /* Trip.swift */; };
+		FP6600021111111000001 /* FlightPageBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000001 /* FlightPageBlocks.swift */; };
 		E1000001211111110000042 /* BriefingRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000042 /* BriefingRegistry.swift */; };
 		E1000001211111110000043 /* CloseOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000043 /* CloseOut.swift */; };
 		E1000001211111110000041 /* ICAOCountry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000041 /* ICAOCountry.swift */; };
@@ -352,6 +354,7 @@
 		REC00001211111110000003 /* FlightReconciliationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = REC00001111111110000003 /* FlightReconciliationTests.swift */; };
 		F1000001211111110000002 /* EventConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000002 /* EventConfirmationView.swift */; };
 		F1000001211111110000003 /* FlightThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000003 /* FlightThreadView.swift */; };
+		FP6600021111111000003 /* FlightPageWords.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000003 /* FlightPageWords.swift */; };
 		A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000051111111110000001 /* FuelOnBoardSheet.swift */; };
 		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
 		HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000002 /* AerodromeIdentField.swift */; };
@@ -487,6 +490,7 @@
 		5C0A0001111111110000002 /* ShareCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardTests.swift; sourceTree = "<group>"; };
 		A5000034111111110000001 /* NewFlightIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntentTests.swift; sourceTree = "<group>"; };
 		A5000035111111110000001 /* TripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTests.swift; sourceTree = "<group>"; };
+		FP6600011111111000002 /* FlightPageBlocksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageBlocksTests.swift; sourceTree = "<group>"; };
 		A50000C1111111110000001 /* TestDatastore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDatastore.swift; sourceTree = "<group>"; };
 		A5000039111111110000001 /* WaypointPassageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassageTests.swift; sourceTree = "<group>"; };
 		A5000040111111110000001 /* TripPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerTests.swift; sourceTree = "<group>"; };
@@ -768,6 +772,7 @@
 		E1000001111111110000030 /* NewFlightIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntent.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000001 /* HomeAerodrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAerodrome.swift; sourceTree = "<group>"; };
 		E1000001111111110000031 /* Trip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trip.swift; sourceTree = "<group>"; };
+		FP6600011111111000001 /* FlightPageBlocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageBlocks.swift; sourceTree = "<group>"; };
 		E1000001111111110000042 /* BriefingRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistry.swift; sourceTree = "<group>"; };
 		E1000001111111110000043 /* CloseOut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseOut.swift; sourceTree = "<group>"; };
 		E1000001111111110000041 /* ICAOCountry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICAOCountry.swift; sourceTree = "<group>"; };
@@ -782,6 +787,7 @@
 		REC00001111111110000003 /* FlightReconciliationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightReconciliationTests.swift; sourceTree = "<group>"; };
 		F1000001111111110000002 /* EventConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventConfirmationView.swift; sourceTree = "<group>"; };
 		F1000001111111110000003 /* FlightThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadView.swift; sourceTree = "<group>"; };
+		FP6600011111111000003 /* FlightPageWords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageWords.swift; sourceTree = "<group>"; };
 		A5000051111111110000001 /* FuelOnBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardSheet.swift; sourceTree = "<group>"; };
 		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000002 /* AerodromeIdentField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeIdentField.swift; sourceTree = "<group>"; };
@@ -908,6 +914,7 @@
 				5C0A0001111111110000002 /* ShareCardTests.swift */,
 				A5000034111111110000001 /* NewFlightIntentTests.swift */,
 				A5000035111111110000001 /* TripTests.swift */,
+				FP6600011111111000002 /* FlightPageBlocksTests.swift */,
 				A50000C1111111110000001 /* TestDatastore.swift */,
 				A5000039111111110000001 /* WaypointPassageTests.swift */,
 				A5000040111111110000001 /* TripPlannerTests.swift */,
@@ -1124,6 +1131,7 @@
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
 				F1000001111111110000003 /* FlightThreadView.swift */,
+				FP6600011111111000003 /* FlightPageWords.swift */,
 				A1000001111111110000B03 /* PrepareWeatherCard.swift */,
 				A5000051111111110000001 /* FuelOnBoardSheet.swift */,
 				F1000001111111110000033 /* PlanNewFlightView.swift */,
@@ -1173,6 +1181,7 @@
 				E1000001111111110000030 /* NewFlightIntent.swift */,
 				HB0A0001111111110000001 /* HomeAerodrome.swift */,
 				E1000001111111110000031 /* Trip.swift */,
+				FP6600011111111000001 /* FlightPageBlocks.swift */,
 				E1000001111111110000042 /* BriefingRegistry.swift */,
 				E1000001111111110000043 /* CloseOut.swift */,
 				E1000001111111110000041 /* ICAOCountry.swift */,
@@ -1608,6 +1617,7 @@
 				5C0A0001211111110000002 /* ShareCardTests.swift in Sources */,
 				A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */,
 				A5000035111111110000002 /* TripTests.swift in Sources */,
+				FP6600021111111000002 /* FlightPageBlocksTests.swift in Sources */,
 				A50000C1111111110000002 /* TestDatastore.swift in Sources */,
 				A5000039111111110000002 /* WaypointPassageTests.swift in Sources */,
 				A5000040111111110000002 /* TripPlannerTests.swift in Sources */,
@@ -1867,6 +1877,7 @@
 				E1000001211111110000030 /* NewFlightIntent.swift in Sources */,
 				HB0A0001211111110000001 /* HomeAerodrome.swift in Sources */,
 				E1000001211111110000031 /* Trip.swift in Sources */,
+				FP6600021111111000001 /* FlightPageBlocks.swift in Sources */,
 				E1000001211111110000042 /* BriefingRegistry.swift in Sources */,
 				E1000001211111110000043 /* CloseOut.swift in Sources */,
 				E1000001211111110000041 /* ICAOCountry.swift in Sources */,
@@ -1883,6 +1894,7 @@
 				A1000001211111110000910 /* SigmetRelevance.swift in Sources */,
 				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 				F1000001211111110000003 /* FlightThreadView.swift in Sources */,
+				FP6600021111111000003 /* FlightPageWords.swift in Sources */,
 				A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */,
 				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
 				HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */,

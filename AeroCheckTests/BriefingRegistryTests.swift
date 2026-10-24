@@ -163,6 +163,28 @@ final class BriefingRegistryTests: XCTestCase {
         XCTAssertEqual(relaunched.registry?.closingPhones(country: "ES", aerodrome: "LEIG").map(\.number), ["+34918603561"])
     }
 
+    /// A cache another build wrote is what that build could read: one from before 6.6.0 has no filing lead times. This
+    /// build keeps its links but fetches anew, as for a cache from the other server. (6.6.0, the author's device check)
+    func testACacheFromAnotherBuildIsFetchedAnew() async throws {
+        let cache = cacheURL()
+        let service = BriefingRegistryService(cacheURL: cache, bundled: Data(sample.utf8), fetch: { _ in Data(self.sample.utf8) })
+        await service.refresh()
+        XCTAssertFalse(BriefingRegistryService(cacheURL: cache, bundled: nil, fetch: { _ in Data() }).isStale,
+                       "this build's own cache is fresh")
+
+        var written = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: cache)) as? [String: Any])
+        written["build"] = nil
+        try JSONSerialization.data(withJSONObject: written).write(to: cache)
+        let older = BriefingRegistryService(cacheURL: cache, bundled: nil, fetch: { _ in Data() })
+        XCTAssertTrue(older.isStale, "a cache written before 6.6.0, without a build")
+        XCTAssertEqual(older.registry?.countries.count, 4, "its links stay meanwhile")
+
+        written["build"] = "another build"
+        try JSONSerialization.data(withJSONObject: written).write(to: cache)
+        XCTAssertTrue(BriefingRegistryService(cacheURL: cache, bundled: nil, fetch: { _ in Data() }).isStale,
+                      "another build's cache")
+    }
+
     func testAFailedOrEmptyDownloadKeepsWhatItHad() async throws {
         let empty = try JSONSerialization.data(withJSONObject: ["v": 1, "countries": [String: Any]()])
         let service = BriefingRegistryService(cacheURL: cacheURL(), bundled: Data(sample.utf8), fetch: { _ in empty })

@@ -75,4 +75,106 @@ final class WeatherWordsTests: XCTestCase {
         XCTAssertNil(metar.decoded)
         XCTAssertNotNil(metar.raw)
     }
+
+    // MARK: SIGMET (the author's W A, v66-22)
+
+    /// LFRR SIGMET U01 of 24 Oct 2026 as the proxy sends it since 4.12.0 (`workers/weather/src/sigmet.ts`).
+    private static let brest = #"""
+{"firId":"LFRR","firName":"LFRR BREST","hazard":"TURB","qualifier":"SEV","baseFt":0,"topFt":4000,"validFrom":"2026-10-24T14:00:00.000Z","validTo":"2026-10-24T18:00:00.000Z","distanceNm":12.5,"containsPoint":false,"coords":[{"lat":48,"lon":-5},{"lat":48,"lon":-1},{"lat":50,"lon":-1}],"raw":"WSFR35 LFPW 241340\nLFRR SIGMET U01 VALID 241400/241800 LFPW-\nLFRR BREST FIR/UIR SEV TURB FCST N OF LINE N4800 W00800 - N4745\nW00430 AND NW OF LINE N4745 W00430 - N5000 W00145 SFC/FL040 MOV ENE\n40KT NC=","status":"FCST","levels":{"kind":"range","base":"SFC","top":"FL040"},"movement":{"direction":"ENE","speedKt":40,"stationary":false},"change":"NC"}
+"""#
+
+    private func sigmet(_ json: String = WeatherWordsTests.brest, _ edit: (inout [String: Any]) -> Void = { _ in }) throws
+        -> AviationWeatherService.Sigmet {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        edit(&object)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = AviationWeatherService.dateDecoding
+        return try decoder.decode(AviationWeatherService.Sigmet.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+
+    func testASigmetReadsInWordsWithItsLevelsAsWritten() throws {
+        let s = try sigmet()
+        XCTAssertEqual(WeatherWords.sigmetTitle(s), "Severe turbulence, forecast")
+        XCTAssertEqual(WeatherWords.sigmetDetail(s, now: utc("2026-10-24T13:50:00Z")),
+                       "surface to FL040 · moving ENE 40 kt, no change · 14–18 UTC · Brest FIR")
+    }
+
+    func testAnOlderProxysSigmetKeepsItsFeet() throws {
+        let s = try sigmet { o in for key in ["status", "levels", "movement", "change"] { o[key] = nil } }
+        XCTAssertEqual(WeatherWords.sigmetTitle(s), "Severe turbulence")
+        XCTAssertEqual(WeatherWords.sigmetDetail(s, now: utc("2026-10-24T13:50:00Z")), "surface to 4000 ft · 14–18 UTC · Brest FIR")
+    }
+
+    func testTheOtherLevelsAndMovements() throws {
+        func detail(_ levels: [String: Any], movement: [String: Any]? = nil, change: String? = nil) throws -> String {
+            WeatherWords.sigmetDetail(try sigmet { o in
+                o["levels"] = levels; o["movement"] = movement; o["change"] = change; o["validFrom"] = nil; o["validTo"] = nil
+                o["firName"] = nil
+            })
+        }
+        XCTAssertEqual(try detail(["kind": "range", "base": "FL200", "top": "FL400"], movement: ["direction": "E", "stationary": false]),
+                       "FL200 to FL400 · moving E · LFRR FIR")
+        XCTAssertEqual(try detail(["kind": "topAbove", "top": "FL390"], movement: ["stationary": true], change: "INTSF"),
+                       "top above FL390 · stationary, intensifying · LFRR FIR")
+        XCTAssertEqual(try detail(["kind": "range", "base": "3000FT", "top": "FL250"], change: "WKN"),
+                       "3000 ft to FL250 · weakening · LFRR FIR")
+        XCTAssertEqual(try detail(["kind": "below", "top": "FL220"]), "below FL220 · LFRR FIR")
+        // A kind this build doesn't know: AWC's feet stand in.
+        XCTAssertEqual(try detail(["kind": "somewhere", "top": "FL220"]), "surface to 4000 ft · LFRR FIR")
+    }
+
+    func testAValidityOffTheHourAndOnAnotherDaySaysSo() throws {
+        let s = try sigmet { o in o["validFrom"] = "2026-10-24T15:02:00.000Z"; o["validTo"] = "2026-10-25T01:00:00.000Z" }
+        XCTAssertTrue(WeatherWords.sigmetDetail(s, now: utc("2026-10-24T14:00:00Z")).contains("15:02–Sun 01 UTC"))
+    }
+
+    func testHailAndFreezingRainAreNeverDropped() throws {
+        let tsgr = try sigmet { o in
+            o["hazard"] = "TS"; o["qualifier"] = "EMBD"; o["raw"] = "LSAS SIGMET 2 VALID 241400/241800 LSZH- LSAS SWITZERLAND FIR EMBD TSGR OBS TOP FL350 STNR NC="
+            o["status"] = "OBS"
+        }
+        XCTAssertEqual(WeatherWords.sigmetTitle(tsgr), "Embedded thunderstorms with hail, observed")
+        let fzra = try sigmet { o in o["hazard"] = "ICE"; o["raw"] = "LSAS SIGMET 3 VALID 241400/241800 LSZH- LSAS SEV ICE (FZRA) FCST SFC/FL040 NC=" }
+        XCTAssertEqual(WeatherWords.sigmetTitle(fzra), "Severe icing due to freezing rain, forecast")
+    }
+
+    func testCyclonesVolcanoesAndUnknownHazards() throws {
+        XCTAssertEqual(WeatherWords.sigmetTitle(try sigmet { o in o["hazard"] = "TC"; o["qualifier"] = "CHAMPI"; o["status"] = nil }),
+                       "Tropical cyclone CHAMPI")
+        XCTAssertEqual(WeatherWords.sigmetTitle(try sigmet { o in o["hazard"] = "VA"; o["qualifier"] = "ERUPTION MT ETNA"; o["status"] = nil }),
+                       "Volcanic ash (MT ETNA)")
+        // Not in the words' table: AWC's codes, never a guess.
+        XCTAssertEqual(WeatherWords.sigmetTitle(try sigmet { o in o["hazard"] = "MTW"; o["qualifier"] = "MOD" }), "MOD MTW, forecast")
+        XCTAssertEqual(WeatherWords.sigmetTitle(try sigmet { o in o["hazard"] = "CONV"; o["qualifier"] = ""; o["status"] = nil }), "CONV")
+    }
+
+    func testEveryHazardInTheTableHasItsWords() {
+        for code in WeatherWords.sigmetHazardCodes {
+            let key = "wx.sigmet." + code.replacingOccurrences(of: " (", with: "_").replacingOccurrences(of: ")", with: "")
+                .replacingOccurrences(of: " ", with: "_")
+            XCTAssertNotEqual(Bundle.main.localizedString(forKey: key, value: nil, table: nil), key, code)
+        }
+    }
+
+    func testACompassPointInFrenchAndGerman() {
+        XCTAssertEqual(WeatherWords.compassPoint("WSW", language: "fr"), "OSO")
+        XCTAssertEqual(WeatherWords.compassPoint("ENE", language: "de"), "ONO")
+        XCTAssertEqual(WeatherWords.compassPoint("ENE", language: "en"), "ENE")
+    }
+
+    // An observed area and its forecast position are two records of one SIGMET: two rows, never one id.
+    func testAnObservedAreaAndItsForecastPositionAreTwoRows() throws {
+        let observed = try sigmet { o in o["status"] = "OBS" }
+        let forecast = try sigmet()
+        XCTAssertNotEqual(observed.id, forecast.id)
+    }
+
+    // A field this build can't read leaves the SIGMET as it was, never the list without it.
+    func testAMalformedSigmetFieldDropsOnlyItself() throws {
+        let s = try sigmet { o in o["levels"] = "SFC/FL040"; o["movement"] = ["speedKt": "fast"] }
+        XCTAssertEqual(s.hazard, "TURB")
+        XCTAssertEqual(s.levels?.kind, "")
+        XCTAssertNil(s.movement?.speedKt)
+        XCTAssertTrue(WeatherWords.sigmetDetail(s).hasPrefix("surface to 4000 ft"))
+    }
 }

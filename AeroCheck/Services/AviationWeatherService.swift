@@ -84,6 +84,28 @@ final class AviationWeatherService: ObservableObject {
         /// route can be tested against the area.
         let coords: [Coordinate]
         let raw: String?
+        /// From the proxy since 6.6.0 (`workers/weather/src/sigmet.ts`), nil from an older one or where it can't be
+        /// sure: "OBS" or "FCST", the levels as the text writes them, the movement and the change ("NC", "INTSF",
+        /// "WKN"). The weather block's words come from these (`WeatherWords.sigmet`).
+        var status: String? = nil
+        var levels: Levels? = nil
+        var movement: Movement? = nil
+        var change: String? = nil
+
+        /// "SFC/FL040" is a range from "SFC" to "FL040"; "TOP ABV FL390" a `topAbove` of "FL390".
+        struct Levels: Encodable, Equatable {
+            /// "range", "top", "topAbove", "topBelow", "above" or "below".
+            var kind: String
+            var base: String?
+            var top: String?
+        }
+
+        struct Movement: Encodable, Equatable {
+            /// A compass point as AWC writes it ("ENE"); nil when stationary.
+            var direction: String?
+            var speedKt: Int?
+            var stationary = false
+        }
 
         struct Coordinate: Codable, Equatable {
             let lat: Double
@@ -93,7 +115,11 @@ final class AviationWeatherService: ObservableObject {
 
         var ring: [CLLocationCoordinate2D] { coords.map(\.clLocation) }
 
-        var id: String { "\(firId ?? "?")-\(hazard ?? "?")-\(validFrom?.timeIntervalSince1970 ?? 0)" }
+        /// With the status: an observed area and its forecast position are two records of one SIGMET, the same FIR,
+        /// hazard and validity. (6.6.0)
+        var id: String {
+            "\(firId ?? "?")-\(hazard ?? "?")-\(validFrom?.timeIntervalSince1970 ?? 0)" + (status.map { "-" + $0 } ?? "")
+        }
     }
 
     // MARK: - Envelopes
@@ -135,9 +161,22 @@ final class AviationWeatherService: ObservableObject {
 
     private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = dateDecoding
         return decoder
     }()
+
+    /// The proxy's times, with or without milliseconds. The worker writes JavaScript's "2026-10-24T14:00:00.000Z", and
+    /// the stock `.iso8601` strategy has rejected the fraction on older systems (not seen on iOS 27, where it reads
+    /// both; no iOS 17 runtime to check). Either form reads here. (6.6.0)
+    nonisolated static let dateDecoding = JSONDecoder.DateDecodingStrategy.custom { decoder in
+        let container = try decoder.singleValueContainer()
+        let text = try container.decode(String.self)
+        if let date = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
+            ?? (try? Date.ISO8601FormatStyle().parse(text)) {
+            return date
+        }
+        throw DecodingError.dataCorruptedError(in: container, debugDescription: "not an ISO 8601 time: \(text)")
+    }
 
     // MARK: - Fetch
 

@@ -77,10 +77,13 @@ enum WeatherWords {
     }
 
     /// "18 UTC"; another UTC day than now's says its day: "Sun 03 UTC". Without `utc`, the bare hour of a range's start.
-    private static func hour(_ date: Date, now: Date, utc: Bool = true) -> String {
+    /// With `minutes`, a time off the hour says them: "15:02 UTC" (a SIGMET's validity).
+    private static func hour(_ date: Date, now: Date, utc: Bool = true, minutes: Bool = false) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
-        let hh = String(format: "%02d", calendar.component(.hour, from: date))
+        var hh = String(format: "%02d", calendar.component(.hour, from: date))
+        let mm = calendar.component(.minute, from: date)
+        if minutes && mm != 0 { hh += String(format: ":%02d", mm) }
         var text = hh
         if !calendar.isDate(date, inSameDayAs: now) {
             let day = date.formatted(Date.FormatStyle(locale: Locale(identifier: AppLanguage.current), timeZone: calendar.timeZone)
@@ -88,6 +91,140 @@ enum WeatherWords {
             text = "\(day) \(hh)"
         }
         return utc ? L10n.Weather.utc(text) : text
+    }
+
+    // MARK: SIGMET
+
+    /// A SIGMET's head in words (the author's W A, 24 Oct 2026): "Severe turbulence, forecast". A hazard the words don't
+    /// know reads as AWC's codes ("SEV TURB"), never as a guess.
+    static func sigmetTitle(_ s: AviationWeatherService.Sigmet) -> String {
+        let hazard = sigmetHazard(s) ?? SigmetFormat.hazardName(s)
+        switch s.status {
+        case "OBS": return L10n.Weather.sigmetObserved(hazard)
+        case "FCST": return L10n.Weather.sigmetForecast(hazard)
+        default: return hazard
+        }
+    }
+
+    /// The rest of it: "surface to FL040 · moving ENE 40 kt, no change · 14–18 UTC · Brest FIR". The levels as the text
+    /// writes them when the proxy is sure of them, else AWC's feet.
+    static func sigmetDetail(_ s: AviationWeatherService.Sigmet, now: Date = Date()) -> String {
+        var parts: [String] = []
+        if let levels = s.levels.flatMap(sigmetLevels) ?? sigmetFeet(s) { parts.append(levels) }
+        let motion = [s.movement.flatMap(sigmetMovement), s.change.flatMap(sigmetChange)].compactMap { $0 }
+        if !motion.isEmpty { parts.append(motion.joined(separator: ", ")) }
+        switch (s.validFrom, s.validTo) {
+        case let (from?, to?):
+            parts.append(hour(from, now: now, utc: false, minutes: true) + "–" + hour(to, now: now, minutes: true))
+        case let (nil, to?):
+            parts.append(L10n.Weather.trendUntil(hour(to, now: now, minutes: true)))
+        default:
+            break
+        }
+        if let fir = sigmetFir(s) { parts.append(fir) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// The hazards the app has words for, as MeteoSwiss's and Météo-France's pilot guides write them
+    /// (`CLAUDE/terminology/weather-decode.md`).
+    static let sigmetHazardCodes: Set<String> = [
+        "SEV TURB", "SEV ICE", "SEV ICE (FZRA)", "SEV MTW", "HVY DS", "HVY SS",
+        "EMBD TS", "OBSC TS", "FRQ TS", "SQL TS", "OCNL TS", "ISOL TS", "EMBD TSGR", "OBSC TSGR", "FRQ TSGR", "SQL TSGR",
+    ]
+
+    private static func sigmetHazard(_ s: AviationWeatherService.Sigmet) -> String? {
+        guard let hazard = s.hazard else { return nil }
+        let qualifier = s.qualifier?.trimmingCharacters(in: .whitespaces) ?? ""
+        switch hazard {
+        // AWC puts the cyclone's and the volcano's names where a qualifier goes: "TC CHAMPI", "VA ERUPTION MT ETNA".
+        case "TC":
+            return qualifier.isEmpty ? nil : L10n.Weather.sigmetCyclone(qualifier)
+        case "VA":
+            let volcano = qualifier.hasPrefix("ERUPTION ") ? String(qualifier.dropFirst("ERUPTION ".count)) : qualifier
+            return volcano.isEmpty ? L10n.Weather.sigmetVolcanicAsh : L10n.Weather.sigmetVolcanicAshFrom(volcano)
+        default:
+            break
+        }
+        guard !qualifier.isEmpty else { return nil }
+        var code = qualifier + " " + hazard
+        // AWC gives TS for TSGR and ICE for ICE (FZRA): the text says which, and hail or freezing rain is never dropped.
+        let raw = s.raw?.replacingOccurrences(of: "\n", with: " ") ?? ""
+        if hazard == "TS", raw.contains(qualifier + " TSGR") { code += "GR" }
+        if hazard == "ICE", raw.contains("ICE (FZRA)") { code += " (FZRA)" }
+        guard sigmetHazardCodes.contains(code) else { return nil }
+        let key = "wx.sigmet." + code.replacingOccurrences(of: " (", with: "_").replacingOccurrences(of: ")", with: "")
+            .replacingOccurrences(of: " ", with: "_")
+        let value = Bundle.main.localizedString(forKey: key, value: nil, table: nil)
+        return value == key ? nil : value
+    }
+
+    /// "surface to FL040", "FL200 to FL400", "top above FL390". A level the words can't place reads as nothing, and the
+    /// feet stand in.
+    private static func sigmetLevels(_ l: AviationWeatherService.Sigmet.Levels) -> String? {
+        func flightLevel(_ level: String?) -> String? { level.flatMap { $0.hasPrefix("FL") ? $0 : nil } }
+        func height(_ level: String?) -> String? { level.flatMap { $0.hasSuffix("FT") ? String($0.dropLast(2)) + " ft" : nil } }
+        switch l.kind {
+        case "range":
+            let from: String
+            if l.base == "SFC" {
+                from = L10n.Weather.sigmetFromSurface
+            } else if let fl = flightLevel(l.base) {
+                from = L10n.Weather.sigmetFromLevel(fl)
+            } else if let ft = height(l.base) {
+                from = L10n.Weather.sigmetFromHeight(ft)
+            } else {
+                return nil
+            }
+            if let fl = flightLevel(l.top) { return from + " " + L10n.Weather.sigmetToLevel(fl) }
+            if let ft = height(l.top) { return from + " " + L10n.Weather.sigmetToHeight(ft) }
+            return nil
+        case "top": return flightLevel(l.top).map(L10n.Weather.sigmetTop)
+        case "topAbove": return flightLevel(l.top).map(L10n.Weather.sigmetTopAbove)
+        case "topBelow": return flightLevel(l.top).map(L10n.Weather.sigmetTopBelow)
+        case "above": return flightLevel(l.base).map(L10n.Weather.sigmetAbove)
+        case "below": return flightLevel(l.top).map(L10n.Weather.sigmetBelow)
+        default: return nil
+        }
+    }
+
+    /// AWC's figures, from an older proxy or where the text's weren't sure: "surface to 4000 ft".
+    private static func sigmetFeet(_ s: AviationWeatherService.Sigmet) -> String? {
+        guard let base = s.baseFt, let top = s.topFt else { return SigmetFormat.altitudeBand(s) }
+        let from = base <= 0 ? L10n.Weather.sigmetFromSurface : L10n.Weather.sigmetFromHeight("\(base) ft")
+        return from + " " + L10n.Weather.sigmetToHeight("\(top) ft")
+    }
+
+    private static func sigmetMovement(_ m: AviationWeatherService.Sigmet.Movement) -> String? {
+        if m.stationary { return L10n.Weather.sigmetStationary }
+        guard let direction = m.direction else { return nil }
+        let point = compassPoint(direction)
+        return m.speedKt.map { L10n.Weather.sigmetMoving(point, "\($0) kt") } ?? L10n.Weather.sigmetMovingToward(point)
+    }
+
+    private static func sigmetChange(_ change: String) -> String? {
+        switch change {
+        case "NC": return L10n.Weather.sigmetNoChange
+        case "INTSF": return L10n.Weather.sigmetIntensifying
+        case "WKN": return L10n.Weather.sigmetWeakening
+        default: return nil
+        }
+    }
+
+    /// "LFRR BREST" as "Brest FIR"; a FIR without a name by its code.
+    private static func sigmetFir(_ s: AviationWeatherService.Sigmet) -> String? {
+        var words = (s.firName ?? "").split(separator: " ").map(String.init)
+        if words.first == s.firId { words.removeFirst() }
+        let name = words.isEmpty ? s.firId : words.joined(separator: " ").capitalized(with: Locale(identifier: "en"))
+        return name.map(L10n.Weather.sigmetFir)
+    }
+
+    /// A compass point in the app's language: west is O in French, east is O in German ("ENE" reads "ONO").
+    static func compassPoint(_ point: String, language: String = AppLanguage.current) -> String {
+        switch language {
+        case "fr": return point.replacingOccurrences(of: "W", with: "O")
+        case "de": return point.replacingOccurrences(of: "E", with: "O")
+        default: return point
+        }
     }
 
     // MARK: Groups

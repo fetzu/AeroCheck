@@ -13231,6 +13231,29 @@
         }
       }
     },
+    "flightPage.onTheDayShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "am Flugtag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on the day"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "le jour du vol"
+          }
+        }
+      }
+    },
     "flightPage.planAndPrepare": {
       "extractionState": "manual",
       "localizations": {

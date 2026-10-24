@@ -357,3 +357,30 @@ struct CloseOutLabel: View {
             .minimumScaleFactor(whole ? 1 : 0.7)
     }
 }
+
+/// A block of the iPhone's checklist, opened (C, the author's q2): the block as the iPad draws it, under a Done that
+/// closes the sheet. At the large size, so a block reads without a second scroll in most cases.
+struct FlightBlockSheet<Content: View>: View {
+    let onDone: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button(L10n.Button.done, action: onDone)
+                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
+                    .foregroundColor(.aviationGold)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
+            ScrollView {
+                content()
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 24)
+            }
+        }
+        .background(Color.cockpitBackground.ignoresSafeArea())
+    }
+}

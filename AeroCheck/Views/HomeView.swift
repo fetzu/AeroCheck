@@ -613,7 +613,18 @@ struct HomeView: View {
                     FlightCreator.finishHere(thread.id, cancellingLaterLegs: cancelling, plans: flightPlanManager,
                                              threads: threadManager,
                                              logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
+                },
+                skip: FlightCreator.skippableLegs(afterLanding: thread.id, threads: threadManager, plans: flightPlanManager)
+                    .map { ($0.number, $0.stop) },
+                onSkip: {
+                    FlightCreator.skipStop(afterLanding: thread.id, plans: flightPlanManager, threads: threadManager,
+                                           logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
                 })
+        }
+        if let plans = thread.skippedStop?.filedPlanToCancel {
+            SkippedPlanReminder(plans: plans) {
+                threadManager.recordSkippedStop(thread.skippedStop.map { SkippedStop(ident: $0.ident) }, threadId: thread.id)
+            }
         }
     }
 

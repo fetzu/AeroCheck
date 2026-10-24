@@ -1541,6 +1541,85 @@ extension TripTests {
         return (trip, legIds, planIds)
     }
 
+    // MARK: - Skipping a planned stop (6.6.0, t3 and t6)
+
+    /// In the air past LSGE: the route goes on along leg 2, leg 2 leaves the trip, the flight becomes LSZQ → LSGN and
+    /// remembers the stop flown past and leg 2's filed plan, to cancel. Leg 3 stays.
+    @MainActor
+    func testFlyingOnPastAStopJoinsTheNextLegIntoTheFlight() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, planIds) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        plans.activateFlightPlan(try XCTUnwrap(plans.flightPlans.first { $0.id == planIds[0] }))
+        m.attachFlight(UUID(), toThreadId: legs[0])
+        let leg2 = try XCTUnwrap(m.thread(withId: legs[1]))
+        let filing = try XCTUnwrap(leg2.tasks.first { $0.key == .flightPlanFiled })
+        m.setTaskState(.done, taskId: filing.id, threadId: legs[1])
+
+        let stops = FlightCreator.laterStops(afterFlying: legs[0], threads: m, plans: plans)
+        XCTAssertEqual(stops.map(\.number), [2, 3])
+        XCTAssertEqual(stops.map(\.ident), ["LSGN", "LSZQ"])
+        XCTAssertEqual(stops[1].through.map(\.id), [legs[1], legs[2]], "flying on two stops joins both legs")
+
+        FlightCreator.flyOn(legs[0], skipping: stops[0].through, plans: plans, threads: m, logbookPlanIds: [])
+
+        XCTAssertEqual(plans.activeFlightPlan?.waypoints.map(\.name), ["LSZQ", "LSGE", "LSGN"])
+        XCTAssertNil(m.thread(withId: legs[1]), "leg 2 is flown in this flight")
+        XCTAssertNotNil(m.thread(withId: legs[2]), "leg 3 stays as planned")
+        let flown = try XCTUnwrap(m.thread(withId: legs[0]))
+        XCTAssertEqual(flown.routeLabel, "LSZQ → LSGN")
+        XCTAssertEqual(flown.skippedStop, SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN"))
+    }
+
+    /// Landed at leg 2's destination without the tap: the page asks, and a skip takes leg 2 off the trip, no
+    /// continuation offered; a diversion anywhere else asks nothing.
+    @MainActor
+    func testALandingAtTheNextLegsDestinationCanBeASkippedStop() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, _) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        fly(m, legs[0])
+        m.recordLanding(threadId: legs[0], plannedIdent: "LSGE", landedIdent: "LSGN", landedName: "Neuchâtel")
+
+        let skip = try XCTUnwrap(FlightCreator.skippableLegs(afterLanding: legs[0], threads: m, plans: plans))
+        XCTAssertEqual(skip.number, 2)
+        XCTAssertEqual(skip.stop, "LSGE")
+        FlightCreator.skipStop(afterLanding: legs[0], plans: plans, threads: m, logbookPlanIds: [])
+
+        XCTAssertNil(m.thread(withId: legs[1]))
+        XCTAssertNotNil(m.thread(withId: legs[2]))
+        let flown = try XCTUnwrap(m.thread(withId: legs[0]))
+        XCTAssertEqual(flown.landedElsewhere?.offerDismissed, true, "no continuation offered")
+        XCTAssertEqual(flown.skippedStop, SkippedStop(ident: "LSGE", filedPlanToCancel: nil), "leg 2 hadn't filed")
+        XCTAssertNil(FlightCreator.skippableLegs(afterLanding: legs[0], threads: m, plans: plans))
+    }
+
+    @MainActor
+    func testADiversionToAnotherFieldIsNoSkippedStop() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, _) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        fly(m, legs[0])
+        m.recordLanding(threadId: legs[0], plannedIdent: "LSGE", landedIdent: "LSGG", landedName: "Genève")
+        XCTAssertNil(FlightCreator.skippableLegs(afterLanding: legs[0], threads: m, plans: plans))
+    }
+
+    /// The skipped stop's record survives a decode, and a thread without it reads as before.
+    func testASkippedStopDecodesAndAnOlderThreadStillDoes() throws {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGN")
+        thread.skippedStop = SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN")
+        let data = try JSONEncoder().encode(thread)
+        XCTAssertEqual(try JSONDecoder().decode(FlightThread.self, from: data).skippedStop, thread.skippedStop)
+        let older = #"{"routeLabel":"LSZQ → LSGE"}"#
+        XCTAssertNil(try JSONDecoder().decode(FlightThread.self, from: Data(older.utf8)).skippedStop)
+    }
+
     @MainActor
     func testCancellingATripOfUnflownLegsRemovesEveryLegItsPlansAndTheTrip() {
         let datastore = makeTestDatastore()

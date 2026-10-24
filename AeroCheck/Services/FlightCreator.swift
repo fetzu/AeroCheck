@@ -466,6 +466,89 @@ enum FlightCreator {
         for id in later { cancelLeg(id, plans: plans, threads: threads, logbookPlanIds: logbookPlanIds) }
     }
 
+    // MARK: Skipping a planned stop (6.6.0, the author's t3 and t6, all A)
+
+    /// The stops after the flying leg a pilot can fly on to: each later leg's destination, up to the trip's next leg
+    /// that has flown, nearest first. `through` is the legs joined to get there. None outside a trip.
+    static func laterStops(afterFlying threadId: UUID, threads: FlightThreadManager,
+                           plans: FlightPlanManager) -> [(number: Int, ident: String, through: [FlightThread])] {
+        var stops: [(number: Int, ident: String, through: [FlightThread])] = []
+        var through: [FlightThread] = []
+        for later in laterLegs(after: threadId, threads: threads) {
+            guard later.number == (stops.last?.number ?? positionNumber(of: threadId, threads: threads)) + 1,
+                  let plan = later.leg.flightPlanId.flatMap({ id in plans.flightPlans.first { $0.id == id } }),
+                  let ident = plan.waypoints.last?.name.trimmingCharacters(in: .whitespaces), !ident.isEmpty
+            else { break }
+            through.append(later.leg)
+            stops.append((later.number, ident.uppercased(), through))
+        }
+        return stops
+    }
+
+    private static func positionNumber(of threadId: UUID, threads: FlightThreadManager) -> Int {
+        guard let trip = threads.trip(forThreadId: threadId) else { return 0 }
+        return (threads.legs(of: trip).firstIndex { $0.id == threadId } ?? -1) + 1
+    }
+
+    /// The filed plans a skip leaves to deal with: the flying leg's, filed to the stop, and the skipped legs' own.
+    static func filedPlans(skipping legs: [FlightThread]) -> [String] {
+        legs.filter { $0.flightPlanFiledAt != nil }.map(\.displayName)
+    }
+
+    /// "Fly on to EDTF": in the air, the route goes on along the skipped legs (`FlightPlanManager.flyOn`), the legs
+    /// leave the trip, and the flight becomes "LSZQ → EDTF", its fee there, the stop's PPR set aside. The filed plans
+    /// are only remembered, for the close-out to remind (t6: remind, never act).
+    static func flyOn(_ threadId: UUID, skipping legs: [FlightThread], plans: FlightPlanManager,
+                      threads: FlightThreadManager, logbookPlanIds: Set<UUID>) {
+        guard let thread = threads.thread(withId: threadId), !legs.isEmpty,
+              let planId = thread.flightPlanId, let plan = plans.flightPlans.first(where: { $0.id == planId }),
+              let stop = plan.waypoints.last?.name.trimmingCharacters(in: .whitespaces) else { return }
+        let skippedPlans = legs.compactMap { leg in leg.flightPlanId.flatMap { id in plans.flightPlans.first { $0.id == id } } }
+        guard skippedPlans.count == legs.count, var along = skippedPlans.first else { return }
+        for next in skippedPlans.dropFirst() { along = TripPlanner.join(along, next) }
+        let filed = filedPlans(skipping: legs)
+        if plans.activeFlightPlan?.id == planId { plans.flyOn(along: along) }
+        for leg in legs { cancelLeg(leg.id, plans: plans, threads: threads, logbookPlanIds: logbookPlanIds) }
+        if let joined = plans.flightPlans.first(where: { $0.id == planId }) {
+            threads.updateRouteLabel(FlightThreadManager.routeLabel(for: joined), threadId: threadId)
+            threads.regenerateTasks(threadId: threadId, plan: joined)
+        }
+        threads.recordSkippedStop(SkippedStop(ident: stop.uppercased(),
+                                              filedPlanToCancel: filed.isEmpty ? nil : filed.joined(separator: ", ")),
+                                  threadId: threadId)
+    }
+
+    /// After landing elsewhere: the later leg whose destination the flight landed at, when one is, and the legs a
+    /// skip would take off the trip (it and those before it). Nil for a diversion to anywhere else.
+    static func skippableLegs(afterLanding threadId: UUID, threads: FlightThreadManager,
+                              plans: FlightPlanManager) -> (number: Int, stop: String, legs: [FlightThread])? {
+        guard let landed = threads.thread(withId: threadId)?.landedElsewhere,
+              !landed.offerDismissed, !landed.continued else { return nil }
+        var through: [FlightThread] = []
+        for later in laterLegs(after: threadId, threads: threads) {
+            through.append(later.leg)
+            let plan = later.leg.flightPlanId.flatMap { id in plans.flightPlans.first { $0.id == id } }
+            if plan?.waypoints.last?.name.trimmingCharacters(in: .whitespaces).uppercased() == landed.landedIdent.uppercased() {
+                return (later.number, landed.plannedIdent, through)
+            }
+        }
+        return nil
+    }
+
+    /// "Skip the stop at LFGA", after a landing at the next leg's destination: that leg (and any before it) leaves the
+    /// trip, no continuation is offered, and the close-out reminds about the filed plans. The flight stays as flown,
+    /// "LSZQ → EDTF", its fee at the field landed at (t4).
+    static func skipStop(afterLanding threadId: UUID, plans: FlightPlanManager, threads: FlightThreadManager,
+                         logbookPlanIds: Set<UUID>) {
+        guard let skip = skippableLegs(afterLanding: threadId, threads: threads, plans: plans) else { return }
+        let filed = filedPlans(skipping: skip.legs)
+        threads.dismissContinuation(threadId: threadId)
+        for leg in skip.legs { cancelLeg(leg.id, plans: plans, threads: threads, logbookPlanIds: logbookPlanIds) }
+        threads.recordSkippedStop(SkippedStop(ident: skip.stop.uppercased(),
+                                              filedPlanToCancel: filed.isEmpty ? nil : filed.joined(separator: ", ")),
+                                  threadId: threadId)
+    }
+
     /// "Cancel trip": every leg neither flown nor flying (`FlightThreadManager.legsToCancel`), each
     /// cancelled by `cancelLeg`. Returns the legs removed.
     ///

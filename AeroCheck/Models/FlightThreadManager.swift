@@ -486,6 +486,23 @@ class FlightThreadManager: ObservableObject {
         saveThreads()
     }
 
+    /// A stop flown past, or a landing taken as a stop skipped: what the close-out reminds the pilot of. Nil clears it
+    /// (the skipped leg's plan cancelled). (6.6.0, t3 and t6)
+    func recordSkippedStop(_ stop: SkippedStop?, threadId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        threads[index].skippedStop = stop
+        // The stop's PPR doesn't apply: the flight doesn't land there. A tick stays a tick.
+        if let ident = stop?.ident.uppercased() {
+            for i in threads[index].tasks.indices
+            where threads[index].tasks[i].key == .pprObtained && threads[index].tasks[i].state == .pending
+                && threads[index].tasks[i].subject?.uppercased() == ident {
+                threads[index].tasks[i].state = .notApplicable
+            }
+        }
+        threads[index].touch()
+        saveThreads()
+    }
+
     /// The continuation of a diversion was planned: the offer is answered.
     func markContinued(threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }),

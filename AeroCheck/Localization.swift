@@ -3092,6 +3092,34 @@ enum L10n {
         static let laterLegsTitle = String(localized: "trip.laterLegsTitle")
         static let cancelLaterLegs = String(localized: "trip.cancelLaterLegs")
         static let keepLaterLegs = String(localized: "trip.keepLaterLegs")
+        // Skipping a planned stop (6.6.0, t3 and t6).
+        static let laterStops = String(localized: "trip.laterStops")
+        static func legDestination(_ number: Int) -> String { String(format: String(localized: "trip.legDestination"), number) }
+        static let flyOn = String(localized: "trip.flyOn")
+        static func flyOnTitle(_ to: String, _ stop: String) -> String {
+            String(format: String(localized: "trip.flyOnTitle"), to, stop)
+        }
+        static func flyOnMessage(_ stop: String) -> String { String(format: String(localized: "trip.flyOnMessage"), stop) }
+        static func tellFISNewDestination(_ filedTo: String, _ newDestination: String) -> String {
+            String(format: String(localized: "trip.tellFISNewDestination"), filedTo, newDestination)
+        }
+        static func cancelFiledLater(_ plans: String) -> String {
+            String(format: String(localized: "trip.cancelFiledLater"), plans)
+        }
+        static func flyOnConfirm(_ to: String) -> String { String(format: String(localized: "trip.flyOnConfirm"), to) }
+        static let keepStop = String(localized: "trip.keepStop")
+        static func landedAtLegDestination(_ ident: String, _ number: Int) -> String {
+            String(format: String(localized: "trip.landedAtLegDestination"), ident, number)
+        }
+        static func skipStopExplainer(_ to: String) -> String {
+            String(format: String(localized: "trip.skipStopExplainer"), to)
+        }
+        static func skipStop(_ stop: String) -> String { String(format: String(localized: "trip.skipStop"), stop) }
+        static let itWasADiversion = String(localized: "trip.itWasADiversion")
+        static func cancelSkippedPlanTitle(_ plans: String) -> String {
+            String(format: String(localized: "trip.cancelSkippedPlanTitle"), plans)
+        }
+        static let cancelSkippedPlanBody = String(localized: "trip.cancelSkippedPlanBody")
         /// "Tell Zurich FIC you landed at LSZE, not LSZQ."
         static func tellFICLanded(_ landed: String, _ planned: String) -> String {
             String(format: String(localized: "trip.tellFICLanded"), landed, planned)

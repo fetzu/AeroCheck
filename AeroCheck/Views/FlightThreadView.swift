@@ -1637,6 +1637,11 @@ struct FlightThreadView: View {
                         Text(L10n.Trip.tellFICLanded(landed.landedIdent, landed.plannedIdent))
                             .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
                             .foregroundColor(.primaryText)
+                    } else if let skipped = thread.skippedStop, let arrival = thread.arrivalIdent {
+                        // Flown on past the stop the plan was filed to (6.6.0, t3 and t6).
+                        Text(L10n.Trip.tellFICLanded(arrival, skipped.ident))
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundColor(.primaryText)
                     }
                 }
                 Spacer()
@@ -1716,7 +1721,19 @@ struct FlightThreadView: View {
                 onFinish: { cancelling in
                     FlightCreator.finishHere(thread.id, cancellingLaterLegs: cancelling, plans: flightPlanManager,
                                              threads: threadManager, logbookPlanIds: logbookPlanIds)
+                },
+                skip: FlightCreator.skippableLegs(afterLanding: thread.id, threads: threadManager, plans: flightPlanManager)
+                    .map { ($0.number, $0.stop) },
+                onSkip: {
+                    FlightCreator.skipStop(afterLanding: thread.id, plans: flightPlanManager, threads: threadManager,
+                                           logbookPlanIds: logbookPlanIds)
                 })
+        }
+        // A skipped leg's plan still filed: the reminder until Done. (6.6.0, t6)
+        if let plans = thread.skippedStop?.filedPlanToCancel {
+            SkippedPlanReminder(plans: plans) {
+                threadManager.recordSkippedStop(thread.skippedStop.map { SkippedStop(ident: $0.ident) }, threadId: thread.id)
+            }
         }
     }
 

@@ -15584,6 +15584,52 @@
         }
       }
     },
+    "thread.editDetailsHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datum, Flugzeug, Pilot, Treibstoff"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date, aircraft, pilot, fuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date, avion, pilote, carburant"
+          }
+        }
+      }
+    },
+    "thread.editMenu": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diesen Flug bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit this flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier ce vol"
+          }
+        }
+      }
+    },
     "thread.hint.flightPlanFiled": {
       "extractionState": "manual",
       "localizations": {

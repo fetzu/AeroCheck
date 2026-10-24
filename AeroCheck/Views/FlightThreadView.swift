@@ -626,49 +626,75 @@ struct FlightThreadView: View {
                 .accessibilityHint(thread.routeLabel)
             }
 
-            // The title opens the flight's own details — the date, the pilot, the fuel. It names the
-            // flight, so it is where a pilot reaches when they want to change something about it,
-            // and the thumbnail beside it already opens the route. (device pass)
-            Button { planEditorPlan = plan(for: thread) } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(thread.displayName)
-                        .scaledFont(size: 19, weight: .semibold, design: thread.name == nil ? .monospaced : .default,
-                                    relativeTo: .title3)
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1)
-                        // A safety net for a long label, not the mechanism — the space comes from
-                        // the layout above, so this only ever nudges.
-                        .minimumScaleFactor(0.7)
-                    Text(subtitle(thread))
-                        .scaledFont(size: 12, relativeTo: .caption)
-                        .foregroundColor(.dimText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+            // The title names the flight and no longer opens anything: the pencil beside it is the one way to edit,
+            // its menu naming what each choice opens (the author's E A, v66-5). (6.6.0)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(thread.displayName)
+                    .scaledFont(size: 19, weight: .semibold, design: thread.name == nil ? .monospaced : .default,
+                                relativeTo: .title3)
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    // A safety net for a long label, not the mechanism — the space comes from
+                    // the layout above, so this only ever nudges.
+                    .minimumScaleFactor(0.7)
+                Text(subtitle(thread))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .buttonStyle(.plain)
-            .disabled(plan(for: thread) == nil)
-            .accessibilityHint(L10n.Nav.flightPlanDetails)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
 
-            // A name of the pilot's own, whatever the ends. (on-device review #4)
-            Button {
-                renameText = thread.name ?? ""
-                renaming = .flight
-            } label: {
-                Image(systemName: "pencil")
-                    .scaledFont(size: 15, weight: .semibold, relativeTo: .body)
-                    .foregroundColor(.aviationGold)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L10n.FlightNames.renameFlight)
+            editMenu(thread)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color.panelBackground)
+    }
+
+    /// The pencil, top right, and what it edits: the flight's details (the date, the aircraft, the pilot, the fuel), its
+    /// route, its name, and on a leg the trip's name. Until 6.6.0 the title opened the details, the pencil renamed the
+    /// flight and the trip's name, with a pencil of its own, renamed the trip: four ways in, two that didn't look like
+    /// one (v66-5). The route's picture stays a shortcut to the route, and the blocks keep their own actions.
+    private func editMenu(_ thread: FlightThread) -> some View {
+        let plan = plan(for: thread)
+        let trip = threadManager.trip(forThreadId: thread.id)
+        return Menu {
+            if let plan {
+                Button { planEditorPlan = plan } label: {
+                    Text(L10n.Nav.flightPlanDetails)
+                    Text(L10n.Thread.editDetailsHint)
+                    Image(systemName: "slider.horizontal.3")
+                }
+                Button { routeBuilderPlanId = plan.id } label: {
+                    Label(L10n.Nav.editRoute, systemImage: "map")
+                }
+            }
+            Divider()
+            Button {
+                renameText = thread.name ?? ""
+                renaming = .flight
+            } label: {
+                Label(L10n.FlightNames.renameFlight, systemImage: "character.cursor.ibeam")
+            }
+            if let trip {
+                Button {
+                    renameText = trip.name ?? ""
+                    renaming = .trip(trip.id)
+                } label: {
+                    Label(L10n.FlightNames.renameTrip, systemImage: "character.cursor.ibeam")
+                }
+            }
+        } label: {
+            Image(systemName: "pencil")
+                .scaledFont(size: 15, weight: .semibold, relativeTo: .body)
+                .foregroundColor(.aviationGold)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(L10n.Thread.editMenu)
+        .accessibilityIdentifier("thread.editMenu")
     }
 
     private func subtitle(_ thread: FlightThread) -> String {
@@ -714,31 +740,19 @@ struct FlightThreadView: View {
 
     // MARK: - The trip, under the status line (6.6.0)
 
-    /// What the trip band held that isn't preparation (round 1 q6 A, round 2): the trip's name, a tap renames it; its
+    /// What the trip band held that isn't preparation (round 1 q6 A, round 2): the trip's name (the pencil renames it); its
     /// legs, a tap opens one; Share the trip once two are flown; the stop before this leg. The trip's briefing is in
     /// this leg's own blocks, ticked for every leg.
     private func tripStrip(_ trip: Trip, leg: FlightThread) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                renameText = trip.name ?? ""
-                renaming = .trip(trip.id)
-            } label: {
-                HStack(spacing: 5) {
-                    Text((trip.name ?? tripLabel(trip)).uppercased())
-                        .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
-                        .foregroundColor(.aviationGold)
-                        .tracking(0.8)
-                        .lineLimit(1)
-                    Image(systemName: "pencil")
-                        .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
-                        .foregroundColor(.aviationGold)
-                }
+            // The trip's name, renamed from the pencil's menu since 6.6.0.
+            Text((trip.name ?? tripLabel(trip)).uppercased())
+                .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                .foregroundColor(.aviationGold)
+                .tracking(0.8)
+                .lineLimit(1)
                 .frame(minHeight: 32)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L10n.FlightNames.renameTrip)
-            .padding(.horizontal, 16)
+                .padding(.horizontal, 16)
             legStrip(trip, current: leg)
             stopoverLine(leg, in: trip)
         }

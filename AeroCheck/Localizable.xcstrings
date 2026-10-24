@@ -512,6 +512,22 @@
         }
       }
     },
+    "Checked for flights to or from Switzerland only: see the AIP and the national customs authority": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur für Flüge in die oder aus der Schweiz geprüft: siehe AIP und nationale Zollbehörde"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifié seulement pour les vols vers ou depuis la Suisse : consultez l'AIP et la douane nationale"
+          }
+        }
+      }
+    },
     "Choose the Swiss and worldwide layers shown on the moving map.": {
       "localizations": {
         "de": {

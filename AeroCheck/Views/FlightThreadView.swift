@@ -49,6 +49,11 @@ struct ThreadTaskPresentation {
                 guard let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) else {
                     return L10n.Border.notCurated
                 }
+                // Checked for Switzerland's crossings: France's "not required" is wrong for a flight from the UK,
+                // which its préavis catches. The official link stays. (6.6.0)
+                guard BorderCrossingGuide.factsApply(to: country, from: briefing?.departureCountry) else {
+                    return L10n.Border.swissCrossingsOnly
+                }
                 var parts = ["\(L10n.Border.customsAerodrome): \(rule.customsAerodrome.label)",
                              "\(L10n.Border.priorNotification): \(rule.priorNotification.label)"]
                 if let lead = rule.noticeLeadTime {

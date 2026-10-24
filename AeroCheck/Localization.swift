@@ -203,6 +203,8 @@ enum L10n {
             String(localized: "Checked \(date)")
         }
         static let notCurated = String(localized: "Not checked for this country yet: see the AIP and the national customs authority")
+        /// A curated country's facts on a crossing where neither end is Switzerland. (6.6.0)
+        static let swissCrossingsOnly = String(localized: "Checked for flights to or from Switzerland only: see the AIP and the national customs authority")
         static let advisory = String(localized: "A reminder, not a clearance: the authority's page is the reference")
         static let unknownWarning = String(localized: "If a requirement is not established, assume it applies until you have checked")
     }

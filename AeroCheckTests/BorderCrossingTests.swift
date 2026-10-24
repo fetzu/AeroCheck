@@ -106,6 +106,19 @@ final class BorderCrossingTests: XCTestCase {
         XCTAssertTrue(lead.contains("\u{2265}"), "expected a 'at least' floor, got \(lead)")
     }
 
+    /// The EU countries in Schengen, one aerodrome each through the ICAO table: the list and the table agree, and
+    /// Ireland, Cyprus and the Schengen countries outside the EU are not in it. (6.6.0)
+    func testTheEUSchengenListMatchesTheICAOTable() {
+        let idents = ["LOWW", "EBBR", "LBSF", "LKPR", "EDDF", "EKCH", "EETN", "LEMD", "EFHK", "LFPG", "LGAV", "LDZA", "LHBP",
+                      "LIRF", "EYVI", "ELLX", "EVRA", "LMML", "EHAM", "EPWA", "LPPT", "LROP", "ESSA", "LJLJ", "LZIB"]
+        XCTAssertEqual(Set(idents.compactMap { ICAOCountry.country(of: $0) }), BorderCrossingGuide.euSchengen)
+        XCTAssertEqual(BorderCrossingGuide.euSchengen.count, 25)
+        for outside in ["EIDW", "LCLK", "LSZH", "ENGM", "BIKF", "EGLL", "EKVG"] {
+            let code = ICAOCountry.country(of: outside) ?? outside
+            XCTAssertFalse(BorderCrossingGuide.euSchengen.contains(code), "\(outside) is \(code)")
+        }
+    }
+
     func testTheSwissNeighboursAreAllCurated() {
         // Every country a Swiss GA flight can reach without crossing a third one. Liechtenstein is
         // deliberately not here: customs union with Switzerland, and no aerodrome.

@@ -210,6 +210,25 @@ final class TripTests: XCTestCase {
         XCTAssertNil(m.trip(forThreadId: a.id)?.sharedTasks.first { $0.key == .customsNotified }, "a border is a leg's")
     }
 
+    /// LSZQ → LFGA → EDTF: France on leg 1; leg 2, between two EU countries in Schengen, none. (6.6.0)
+    @MainActor
+    func testALegInsideTheEUAndSchengenHasNoBorderBlock() {
+        let colmar = FlightPlanWaypoint(name: "LFGA", coordinate: .init(latitude: 48.109901, longitude: 7.35901))
+        var out = FlightPlan(name: "LSZQ → LFGA")
+        out.waypoints = [FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.392408, longitude: 7.028956)), colmar]
+        var on = FlightPlan(name: "LFGA → EDTF")
+        on.waypoints = [colmar, FlightPlanWaypoint(name: "EDTF", coordinate: .init(latitude: 48.022778, longitude: 7.8325))]
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: out)
+        let b = m.createThread(from: on)
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        XCTAssertNotNil(m.formTrip(from: [a.id, b.id]))
+
+        XCTAssertEqual(m.thread(withId: a.id)?.borderCountries, ["FR"])
+        XCTAssertEqual(m.thread(withId: b.id)?.borderCountries, [])
+    }
+
     @MainActor
     func testATripNeedsTwoLegs() {
         let m = makeTestThreadManager()

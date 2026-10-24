@@ -513,6 +513,9 @@ enum L10n {
         }
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
+        /// The pencil at the top of the flight's page, and its menu's line under "Flight details". (6.6.0, v66-5)
+        static let editMenu = String(localized: "thread.editMenu")
+        static let editDetailsHint = String(localized: "thread.editDetailsHint")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.

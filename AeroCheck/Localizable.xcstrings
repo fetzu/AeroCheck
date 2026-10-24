@@ -16448,7 +16448,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Übergehend"
+            "value": "Übergang zu"
           }
         },
         "en": {
@@ -16471,7 +16471,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@–%2$@, übergehend"
+            "value": "%1$@–%2$@, Übergang zu"
           }
         },
         "en": {
@@ -16529,7 +16529,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "fragmentés à %@"
+            "value": "nuages fragmentés à %@"
           }
         }
       }
@@ -16552,7 +16552,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Calme"
+            "value": "Vent calme"
           }
         }
       }
@@ -16678,7 +16678,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "abnehmend"
+            "value": "sinkend"
           }
         },
         "en": {
@@ -16701,7 +16701,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "vereinzelte Wolken"
+            "value": "geringe Bewölkung"
           }
         },
         "en": {
@@ -16724,7 +16724,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "vereinzelt auf %@"
+            "value": "gering auf %@"
           }
         },
         "en": {
@@ -16770,7 +16770,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Böen %@"
+            "value": "Böen bis %@"
           }
         },
         "en": {
@@ -16885,7 +16885,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "keine Wolken erkannt"
+            "value": "keine Wolken gemessen"
           }
         },
         "en": {
@@ -16908,7 +16908,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "keine wesentliche Änderung"
+            "value": "keine signifikante Änderung"
           }
         },
         "en": {
@@ -16920,7 +16920,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "pas de changement significatif"
+            "value": "aucun changement significatif prévu"
           }
         }
       }
@@ -16931,7 +16931,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "keine signifikanten Wolken"
+            "value": "keine signifikante Bewölkung"
           }
         },
         "en": {
@@ -16943,7 +16943,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "pas de nuage significatif"
+            "value": "pas de nuages significatifs"
           }
         }
       }
@@ -16954,7 +16954,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "kein signifikantes Wetter"
+            "value": "keine signifikante Wettererscheinung"
           }
         },
         "en": {
@@ -16966,7 +16966,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "pas de temps significatif"
+            "value": "aucun phénomène significatif"
           }
         }
       }
@@ -17035,7 +17035,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "couvert à %@"
+            "value": "ciel couvert à %@"
           }
         }
       }
@@ -17046,7 +17046,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nebelschwaden"
+            "value": "Nebelbänke"
           }
         },
         "en": {
@@ -17213,13 +17213,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "dust"
+            "value": "widespread dust"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "poussière"
+            "value": "poussière généralisée"
           }
         }
       }
@@ -17230,7 +17230,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sprühregen"
+            "value": "Nieseln"
           }
         },
         "en": {
@@ -17253,7 +17253,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trichterwolke"
+            "value": "Trombe"
           }
         },
         "en": {
@@ -17265,7 +17265,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "nuage en entonnoir"
+            "value": "trombe"
           }
         }
       }
@@ -17322,7 +17322,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "gefrierender Sprühregen"
+            "value": "gefrierendes Nieseln"
           }
         },
         "en": {
@@ -17334,7 +17334,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "bruine verglaçante"
+            "value": "bruine givrante"
           }
         }
       }
@@ -17380,7 +17380,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "pluie verglaçante"
+            "value": "pluie givrante"
           }
         }
       }
@@ -17460,7 +17460,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eiskristalle"
+            "value": "Eisnadeln"
           }
         },
         "en": {
@@ -17472,7 +17472,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "cristaux de glace"
+            "value": "poudrin de glace"
           }
         }
       }
@@ -17483,7 +17483,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "flacher Nebel"
+            "value": "Bodennebel"
           }
         },
         "en": {
@@ -17495,7 +17495,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "brouillard mince"
+            "value": "brouillard bas"
           }
         }
       }
@@ -17529,19 +17529,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Staubwirbel"
+            "value": "Staub- oder Sandwirbel"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "dust whirls"
+            "value": "dust or sand whirls"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "tourbillons de poussière"
+            "value": "tourbillons de poussière ou de sable"
           }
         }
       }
@@ -17552,7 +17552,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "teilweise Nebel"
+            "value": "stellenweise Nebel"
           }
         },
         "en": {
@@ -17598,7 +17598,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regen und Sprühregen"
+            "value": "Regen mit Nieseln"
           }
         },
         "en": {
@@ -17828,7 +17828,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Böenwalzen"
+            "value": "markante Böen"
           }
         },
         "en": {
@@ -17978,7 +17978,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "précipitations inconnues"
+            "value": "précipitations non identifiées"
           }
         }
       }
@@ -18012,13 +18012,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nebel in der Umgebung"
+            "value": "Nebel in der Nähe"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "fog nearby"
+            "value": "fog in the vicinity"
           }
         },
         "fr": {
@@ -18035,13 +18035,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schauer in der Umgebung"
+            "value": "Schauer in der Nähe"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "showers nearby"
+            "value": "showers in the vicinity"
           }
         },
         "fr": {
@@ -18058,13 +18058,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gewitter in der Umgebung"
+            "value": "Gewitter in der Nähe"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "thunderstorm nearby"
+            "value": "thunderstorm in the vicinity"
           }
         },
         "fr": {
@@ -18081,7 +18081,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "starker Sprühregen"
+            "value": "starkes Nieseln"
           }
         },
         "en": {
@@ -18093,7 +18093,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "forte bruine"
+            "value": "bruine forte"
           }
         }
       }
@@ -18116,7 +18116,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "forte pluie"
+            "value": "pluie forte"
           }
         }
       }
@@ -18139,7 +18139,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "fortes averses de pluie"
+            "value": "averses de pluie fortes"
           }
         }
       }
@@ -18162,7 +18162,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "fortes averses de neige"
+            "value": "averses de neige fortes"
           }
         }
       }
@@ -18185,7 +18185,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "forte neige"
+            "value": "neige forte"
           }
         }
       }
@@ -18208,7 +18208,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "orage avec forte pluie"
+            "value": "orage avec pluie forte"
           }
         }
       }
@@ -18219,7 +18219,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter Sprühregen"
+            "value": "schwaches Nieseln"
           }
         },
         "en": {
@@ -18231,7 +18231,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible bruine"
+            "value": "bruine faible"
           }
         }
       }
@@ -18242,7 +18242,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter gefrierender Sprühregen"
+            "value": "schwaches gefrierendes Nieseln"
           }
         },
         "en": {
@@ -18254,7 +18254,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible bruine verglaçante"
+            "value": "bruine givrante faible"
           }
         }
       }
@@ -18265,7 +18265,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter gefrierender Regen"
+            "value": "schwacher gefrierender Regen"
           }
         },
         "en": {
@@ -18277,7 +18277,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible pluie verglaçante"
+            "value": "pluie givrante faible"
           }
         }
       }
@@ -18288,7 +18288,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichte Eiskörner"
+            "value": "schwache Eiskörner"
           }
         },
         "en": {
@@ -18300,7 +18300,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faibles granules de glace"
+            "value": "granules de glace faibles"
           }
         }
       }
@@ -18311,7 +18311,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter Regen"
+            "value": "schwacher Regen"
           }
         },
         "en": {
@@ -18334,7 +18334,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter Regen und Sprühregen"
+            "value": "schwacher Regen mit Nieseln"
           }
         },
         "en": {
@@ -18346,7 +18346,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible pluie et bruine"
+            "value": "pluie et bruine faibles"
           }
         }
       }
@@ -18357,7 +18357,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter Schneeregen"
+            "value": "schwacher Schneeregen"
           }
         },
         "en": {
@@ -18369,7 +18369,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible pluie et neige"
+            "value": "pluie et neige faibles"
           }
         }
       }
@@ -18380,7 +18380,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter Schneegriesel"
+            "value": "schwacher Schneegriesel"
           }
         },
         "en": {
@@ -18392,7 +18392,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible neige en grains"
+            "value": "neige en grains faible"
           }
         }
       }
@@ -18403,7 +18403,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichte Graupelschauer"
+            "value": "schwache Graupelschauer"
           }
         },
         "en": {
@@ -18415,7 +18415,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faibles averses de grésil"
+            "value": "averses de grésil faibles"
           }
         }
       }
@@ -18426,7 +18426,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichte Regenschauer"
+            "value": "schwache Regenschauer"
           }
         },
         "en": {
@@ -18438,7 +18438,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faibles averses de pluie"
+            "value": "averses de pluie faibles"
           }
         }
       }
@@ -18449,7 +18449,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichte Schneeregenschauer"
+            "value": "schwache Schneeregenschauer"
           }
         },
         "en": {
@@ -18461,7 +18461,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faibles averses de pluie et neige"
+            "value": "averses de pluie et neige faibles"
           }
         }
       }
@@ -18472,7 +18472,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichte Schneeschauer"
+            "value": "schwache Schneeschauer"
           }
         },
         "en": {
@@ -18484,7 +18484,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faibles averses de neige"
+            "value": "averses de neige faibles"
           }
         }
       }
@@ -18495,7 +18495,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "leichter Schneefall"
+            "value": "schwacher Schneefall"
           }
         },
         "en": {
@@ -18507,7 +18507,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "faible neige"
+            "value": "neige faible"
           }
         }
       }
@@ -18518,7 +18518,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gewitter mit leichtem Regen"
+            "value": "Gewitter mit schwachem Regen"
           }
         },
         "en": {
@@ -18610,7 +18610,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "zunehmend"
+            "value": "steigend"
           }
         },
         "en": {
@@ -18691,7 +18691,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "épars à %@"
+            "value": "nuages épars à %@"
           }
         }
       }
@@ -18714,7 +18714,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ciel clair"
+            "value": "pas de nuages"
           }
         }
       }
@@ -19001,7 +19001,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wind umlaufend %@"
+            "value": "Wind variabel %@"
           }
         },
         "en": {

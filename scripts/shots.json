@@ -4,7 +4,8 @@
     "shots are in the order they are taken (the circuits scene leaves the national map selected, so it comes last;",
     "a dry run needs no flight running, so it follows a scene that cancels one). steps are the screenshot tour's",
     "gesture after the scene is up, by device kind ('all' for both): tap:<accessibility identifier>,",
-    "tapLabel:<text>, tapTab:<n>, wait:<identifier>, pinchMap:<scale>, cardAtFoot, swipeUp:<points>, sleep:<s>.",
+    "tapLabel:<text>, tapTab:<n>, wait:<identifier>, prefer:<identifier> (waits 15 s, never fails: a map snapshot),",
+    "pinchMap:<scale>, cardAtFoot, swipeUp:<points>, sleep:<s>.",
     "mask: by device, the areas that change at every capture (a running timer), blanked before the comparison, in",
     "points of the device's portrait screen [x, y, width, height], and maskWhy, what they are (the report says it).",
     "settle: seconds of stillness before the screenshot (3 by",
@@ -116,6 +117,7 @@
       "appstore": "04",
       "website": true,
       "scene": "flight",
+      "steps": {"all": ["prefer:routeThumbnail.map"]},
       "what": "A followed flight LSZQ to LFSB on the next 1 August, on its own page."
     },
     {
@@ -124,7 +126,7 @@
       "appstore": "05",
       "website": true,
       "scene": "prepare",
-      "steps": {"all": ["tap:flightPage.block.notamsAndAirspace"]},
+      "steps": {"all": ["prefer:routeThumbnail.map", "tap:flightPage.block.notamsAndAirspace"]},
       "what": "The same flight, its NOTAMs and airspace block open (the airspace activity per country, the DABS in words): unfolded on the iPad, its sheet on the iPhone."
     },
     {
@@ -156,6 +158,7 @@
       "label": "Closing out a flight",
       "website": true,
       "scene": "closeout",
+      "steps": {"all": ["prefer:routeThumbnail.map"]},
       "what": "Vol d'Alpes (a real flight) in CLOSE, the red close-your-ATC-flight-plan card."
     },
     {
@@ -176,7 +179,7 @@
       "mask": {
         "ipad13": [[672, 60, 148, 44], [0, 176, 1032, 126]],
         "ipad11": [[462, 60, 140, 44], [0, 170, 820, 130]],
-        "iphone17": [[0, 140, 402, 90]]
+        "iphone17": [[0, 95, 402, 135]]
       },
       "maskWhy": "the timer, and the strip's figures at the moment the autopilot holds"
     },

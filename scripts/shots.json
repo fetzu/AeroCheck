@@ -1,0 +1,193 @@
+{
+  "about": [
+    "The one list of the screenshots: the website's set and the App Store's, both from it (SCREENSHOTS.md).",
+    "shots are in the order they are taken (the circuits scene leaves the national map selected, so it comes last;",
+    "a dry run needs no flight running, so it follows a scene that cancels one). steps are the screenshot tour's",
+    "gesture after the scene is up, by device kind ('all' for both): tap:<accessibility identifier>,",
+    "tapLabel:<text>, tapTab:<n>, wait:<identifier>, pinchMap:<scale>, cardAtFoot, swipeUp:<points>, sleep:<s>.",
+    "mask: by device, the areas that change at every capture (a running timer), blanked before the comparison, in",
+    "points of the device's portrait screen [x, y, width, height], and maskWhy, what they are (the report says it).",
+    "settle: seconds of stillness before the screenshot (3 by",
+    "default; the Cockpit's map frames itself and its check slot settles for about 20 s after the launch).",
+    "statusBar: false for a shot whose top the app draws (the dry run's band): the run doesn't wait for a clean status",
+    "bar there. appstore: the slot number; website: published on the site."
+  ],
+  "devices": {
+    "ipad13": {
+      "kind": "ipad",
+      "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
+      "pixels": [2064, 2752],
+      "scale": 2
+    },
+    "ipad11": {
+      "kind": "ipad",
+      "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-11-inch-M4",
+      "pixels": [1640, 2360],
+      "scale": 2
+    },
+    "iphone17": {
+      "kind": "iphone",
+      "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+      "pixels": [1206, 2622],
+      "scale": 3
+    }
+  },
+  "languages": {
+    "en": {"system": ["en-US", "en"], "locale": "en_US", "launch": ["-AppleLanguages", "(en)", "-AppleLocale", "en_CH"]},
+    "fr": {"system": ["fr-CH", "fr"], "locale": "fr_CH", "launch": ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_CH"]},
+    "de": {"system": ["de-CH", "de"], "locale": "de_CH", "launch": ["-AppleLanguages", "(de)", "-AppleLocale", "de_CH"]}
+  },
+  "environment": {"AEROCHECK_CLOCK": "09:41", "AEROCHECK_WEATHER": "fixture"},
+  "sets": {
+    "appstore": {
+      "devices": {"ipad13": "ipad-13", "iphone17": "iphone-6.3"},
+      "format": "png",
+      "maxBytes": 4800000,
+      "about": "Full size, PNG without alpha; JPEG 95 (4:4:4) for an image over maxBytes, as App Store Connect refuses about 5 MB."
+    },
+    "website": {
+      "devices": {"ipad11": "ipad", "iphone17": "iphone"},
+      "format": "jpeg",
+      "quality": 86,
+      "ipadLongSide": 1600,
+      "iphoneWidth": 800,
+      "landscapeWidth": 1600,
+      "about": "public/assets/screenshot/v6/<device>/<key>.jpg in English, v6/<lang>/<device>/<key>.jpg in French and German."
+    }
+  },
+  "shots": [
+    {
+      "key": "cockpit",
+      "label": "The Cockpit in cruise",
+      "appstore": "01",
+      "website": true,
+      "scene": "cruiseroute",
+      "steps": {"iphone": ["cardAtFoot"]},
+      "what": "The Cockpit in cruise with a route (LSGC NEXT), Fuel quantity framed (4/5), the strip lit. iPhone: the list dragged until the current card ends at its foot.",
+      "mask": {"ipad13": [[672, 46, 148, 44]], "ipad11": [[462, 46, 140, 44]]},
+      "maskWhy": "the flight timer"
+    },
+    {
+      "key": "vspeeds",
+      "label": "V-SPEEDS",
+      "appstore": "08",
+      "website": true,
+      "scene": "cruiseroute",
+      "steps": {"ipad": ["tap:cockpit.vspeeds"], "iphone": ["tap:strip.speed"]},
+      "what": "V-SPEEDS open over the Cockpit: the table on the iPad (its chip), the list on the iPhone (a tap on GS).",
+      "mask": {"ipad13": [[672, 46, 148, 44]], "ipad11": [[462, 46, 140, 44]]},
+      "maskWhy": "the flight timer"
+    },
+    {
+      "key": "cockpitmap",
+      "label": "The Cockpit on its map",
+      "appstore": "02",
+      "website": true,
+      "scene": "cruisemap",
+      "settle": 15,
+      "what": "The Cockpit on its map: LSGC next, the aircraft on the LSZQ to LSGC leg.",
+      "mask": {
+        "ipad13": [[672, 46, 148, 44], [500, 1294, 84, 38], [320, 826, 200, 260]],
+        "ipad11": [[462, 46, 140, 44], [340, 1100, 80, 34], [260, 740, 160, 220]]
+      },
+      "maskWhy": "the flight timer, the leg timer, the track vector's minute marks"
+    },
+    {
+      "key": "landscape",
+      "label": "The iPhone on its side",
+      "website": true,
+      "devices": ["iphone17"],
+      "scene": "cruisemap",
+      "orientation": "landscapeLeft",
+      "settle": 15,
+      "what": "The iPhone on its side: the Cockpit's column, the map at full height."
+    },
+    {
+      "key": "today",
+      "label": "Today, with the day’s flight",
+      "appstore": "03",
+      "website": true,
+      "scene": "homeflight",
+      "what": "Today, with today's flight at 14:00 as the next flight."
+    },
+    {
+      "key": "flight",
+      "label": "A followed flight",
+      "appstore": "04",
+      "website": true,
+      "scene": "flight",
+      "what": "A followed flight LSZQ to LFSB on the next 1 August, on its own page."
+    },
+    {
+      "key": "prepare",
+      "label": "Preparing a flight",
+      "appstore": "05",
+      "website": true,
+      "scene": "prepare",
+      "steps": {"all": ["tap:flightPage.block.notamsAndAirspace"]},
+      "what": "The same flight, its NOTAMs and airspace block open (the airspace activity per country, the DABS in words): unfolded on the iPad, its sheet on the iPhone."
+    },
+    {
+      "key": "route",
+      "label": "The route editor",
+      "appstore": "06",
+      "website": true,
+      "scene": "conflicts",
+      "steps": {
+        "ipad": ["tap:today.route", "tapLabel:Samedan"],
+        "iphone": ["tap:today.route", "tapLabel:Samedan", "pinchMap:0.8"]
+      },
+      "what": "The route editor: Geneva to Samedan over the ICAO chart, the profile, the leg table, the conflicts count. iPhone: a gentle pinch so LSGG and LSZS fit.",
+      "mask": {"iphone17": [[0, 205, 402, 315]]},
+      "maskWhy": "the iPhone's map: MapKit shows another set of icons after the pinch; the iPad's route editor checks the map"
+    },
+    {
+      "key": "log",
+      "label": "A flight in the logbook",
+      "appstore": "07",
+      "website": true,
+      "scene": "flightlog",
+      "env": {"AEROCHECK_TAB": "logbook"},
+      "steps": {"all": ["tap:logbook.flight"]},
+      "what": "Vol d'Alpes in the logbook: track, altitude profile."
+    },
+    {
+      "key": "closeout",
+      "label": "Closing out a flight",
+      "website": true,
+      "scene": "closeout",
+      "what": "Vol d'Alpes (a real flight) in CLOSE, the red close-your-ATC-flight-plan card."
+    },
+    {
+      "key": "dryrun",
+      "label": "A dry run on the ground",
+      "appstore": "10",
+      "website": true,
+      "env": {
+        "AEROCHECK_DRYRUN": "guided",
+        "AEROCHECK_DRYRUN_CHAPTER": "6",
+        "AEROCHECK_DRYRUN_AUTO": "1",
+        "AEROCHECK_DRYRUN_STOP": "step:goAround",
+        "AEROCHECK_CLOCK": "09:25"
+      },
+      "timeout": 300,
+      "statusBar": false,
+      "what": "The guided dry run held on its first final at LSZQ: the coach's Try a go-around card over the card that chooses the landing. About three minutes after launch the autopilot holds there.",
+      "mask": {
+        "ipad13": [[672, 60, 148, 44], [0, 176, 1032, 126]],
+        "ipad11": [[462, 60, 140, 44], [0, 170, 820, 130]],
+        "iphone17": [[0, 140, 402, 90]]
+      },
+      "maskWhy": "the timer, and the strip's figures at the moment the autopilot holds"
+    },
+    {
+      "key": "circuits",
+      "label": "Traffic circuits on the map",
+      "appstore": "09",
+      "website": true,
+      "scene": "circuits",
+      "settle": 6,
+      "what": "Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25."
+    }
+  ]
+}

@@ -17,7 +17,8 @@ TMP="$(mktemp -d)"
 trap '/bin/rm -rf "$TMP"' EXIT
 
 same=0; differ=0
-for FILE in "$ROOT"/*/*.jpg; do
+# v6/<device>/ (English, and the story), v6/<lang>/<device>/ (French and German, since 6.5.0).
+for FILE in "$ROOT"/*/*.jpg "$ROOT"/*/*/*.jpg; do
   REL="${FILE#public}"
   # A query of our own, so no cache between here and the site answers with an older copy.
   if ! curl -fsS -o "$TMP/live.jpg" "$SITE$REL?check=$(date +%s)"; then

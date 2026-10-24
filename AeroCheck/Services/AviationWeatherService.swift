@@ -42,6 +42,8 @@ final class AviationWeatherService: ObservableObject {
         let flightCategory: String?
         let observedAt: Date?
         let raw: String?
+        /// The raw report decoded by the proxy, whole, or nil: the words come from it (6.6.0, `WeatherWords`).
+        var decoded: DecodedMetar? = nil
 
         var id: String { icao }
     }
@@ -60,6 +62,8 @@ final class AviationWeatherService: ObservableObject {
             /// the proxy's is from the query snapped to its grid, up to 10 NM off. (6.5.0)
             var lat: Double?
             var lon: Double?
+            /// The raw forecast decoded by the proxy, its periods in UTC, or nil. (6.6.0)
+            var decoded: DecodedTaf? = nil
         }
     }
 

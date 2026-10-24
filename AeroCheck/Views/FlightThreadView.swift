@@ -960,8 +960,9 @@ struct FlightThreadView: View {
     /// When the ATC flight plan must be filed, from the departure country's lead time in the registry (f7 A).
     private func fileBy(for thread: FlightThread) -> Date? {
         let b = briefing(for: thread)
-        return FlightBlockDeadline.fileBy(departure: departure(of: thread),
-                                          leadMinutes: b.registry?.country(b.departureCountry)?.filingLeadMinutes)
+        let lead = FlightBlockDeadline.leadMinutes(b.registry?.country(b.departureCountry), countries: b.countries,
+                                                   departureCountry: b.departureCountry)
+        return FlightBlockDeadline.fileBy(departure: departure(of: thread), leadMinutes: lead)
     }
 
     private func wordsContext(for thread: FlightThread) -> FlightPageWords.Context {
@@ -1380,7 +1381,7 @@ struct FlightThreadView: View {
         switch block.kind {
         case .weather:
             ThreadWeatherBody(threadId: thread.id, fields: weatherFields(thread), route: weatherRoute(thread),
-                              links: briefing(for: thread).weatherLinks()) { openURL($0) }
+                              links: briefing(for: thread).weatherLinks(), departure: departure(of: thread)) { openURL($0) }
         case .notamsAndAirspace:
             notamsBody(thread)
         default:

@@ -36,22 +36,22 @@ const where = { text: whereText, link: { label: line.link, href: local('/countri
 const whereRow = { label: site.countries.where, href: local('/countries') };
 ---
 <Hero site={site} />
-<DryRunBand dry={dry} />
+<DryRunBand dry={dry} lang={site.lang} />
 <ChapterStrip heading={site.chapters.heading} items={site.chapters.items} story={story} where={where} />
 
 <section id="features" class="flagship">
   <div class="container">
     <div class="section-head"><span class="section-label">{site.flagship.heading}</span></div>
-    {before.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} />)}
+    {before.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} lang={site.lang} />)}
   </div>
   <div class="fly-band">
     <div class="container">
-      {fly.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} />)}
-      <PhoneBand band={site.phone} labels={site.device_labels} />
+      {fly.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} lang={site.lang} />)}
+      <PhoneBand band={site.phone} labels={site.device_labels} lang={site.lang} />
     </div>
   </div>
   <div class="container">
-    {after.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} />)}
+    {after.map(({ item, index }) => <FeatureRow item={item} index={index} labels={site.device_labels} where={whereRow} lang={site.lang} />)}
   </div>
 </section>
 

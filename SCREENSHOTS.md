@@ -117,6 +117,16 @@ launch after an install can skip its scene) → wait → optional pause → `sim
 --mask=ignored` → JPEG, the iPad at 1112 × 1600, the iPhone 800 px wide (1600 on its side), quality 86
 → `public/assets/screenshot/v6/{ipad,iphone}/<key>.jpg`.
 
+**Each language has its own set (6.5.0).** English sits at `v6/{ipad,iphone}/`, French and German at
+`v6/fr/{ipad,iphone}/` and `v6/de/{ipad,iphone}/`, the same keys and sizes; `shot(key, lang)` in `src/lib/shots.ts`
+picks the page's language and falls back to English for a file a language doesn't have. The story frames
+(`v6/story/`) stay English. Capture French and German on a simulator switched to that language (fr-CH, de-CH, then a
+reboot: `CLAUDE/tools/capture-shot.sh french|german <udid>`) and launch each scene with `-AppleLanguages "(fr)"
+-AppleLocale fr_CH` (or `(de)` / `de_CH`); `--out` to the language's folder. A reboot forgets the simulated
+location: set it again (`xcrun simctl location <udid> set 47.3497,7.0278`) or the map scenes open elsewhere. The
+iPhone's portrait shots can be the App Store 6.3" set of that language scaled to 800 px wide (`sips
+--resampleWidth 800 -s format jpeg -s formatOptions 86`); closeout and landscape are captured.
+
 Things that bite:
 
 - **The iPhone's orientation comes from the app, not the simulator.** `AEROCHECK_ORIENTATION` turns

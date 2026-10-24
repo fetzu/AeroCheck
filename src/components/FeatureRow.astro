@@ -2,14 +2,14 @@
 // A row of the landing: the chapter, a blunt title, a short paragraph, at most three plain facts (never chips:
 // the 6.4.0 site dropped them, they repeated the text and looked like buttons), an optional calm note, and the
 // iPad with the iPhone in front of it.
-import type { FlagshipItem } from '../lib/site';
+import type { FlagshipItem, Lang } from '../lib/site';
 import { shot } from '../lib/shots';
 import DevicePair from './DevicePair.astro';
 // `where`: the link to the Countries page, on a row whose features depend on the country (`where: true` in the copy).
-interface Props { item: FlagshipItem; index: number; labels: { ipad: string; iphone: string }; where?: { label: string; href: string }; }
-const { item, index, labels, where } = Astro.props;
-const s = shot(item.shot);
-const phone = item.iphone_shot ? shot(item.iphone_shot) : s;
+interface Props { item: FlagshipItem; index: number; labels: { ipad: string; iphone: string }; where?: { label: string; href: string }; lang?: Lang; }
+const { item, index, labels, where, lang } = Astro.props;
+const s = shot(item.shot, lang);
+const phone = item.iphone_shot ? shot(item.iphone_shot, lang) : s;
 const reverse = index % 2 === 1;
 ---
 <div id={item.anchor} class:list={['feature-row', 'reveal', { 'feature-row--reverse': reverse, 'feature-row--fly': item.fly }]}>

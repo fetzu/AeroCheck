@@ -516,6 +516,9 @@ enum L10n {
         /// The pencil at the top of the flight's page, and its menu's line under "Flight details". (6.6.0, v66-5)
         static let editMenu = String(localized: "thread.editMenu")
         static let editDetailsHint = String(localized: "thread.editDetailsHint")
+        /// The same on a trip's leg: "Edit this leg", "Leg details". (6.6.0)
+        static let editLegMenu = String(localized: "thread.editLegMenu")
+        static let legDetails = String(localized: "thread.legDetails")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.
@@ -1795,7 +1798,6 @@ enum L10n {
 
         // Delete
         static let deleteTitle = String(localized: "flightDetail.delete.title")
-        static let deleteMessage = String(localized: "flightDetail.delete.message")
 
         // Sections
         static let flightTrack = String(localized: "flightDetail.flightTrack")
@@ -2314,6 +2316,9 @@ enum L10n {
     enum FlightNames {
         static let renameFlight = String(localized: "flightNames.renameFlight")
         static let renameTrip = String(localized: "flightNames.renameTrip")
+        /// A trip's leg, named in its page's menu. (6.6.0)
+        static let renameLeg = String(localized: "flightNames.renameLeg")
+        static let renameLegMessage = String(localized: "flightNames.renameLegMessage")
         static let renameFlightMessage = String(localized: "flightNames.renameFlightMessage")
         static let renameTripMessage = String(localized: "flightNames.renameTripMessage")
     }

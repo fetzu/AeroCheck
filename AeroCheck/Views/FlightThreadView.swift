@@ -548,7 +548,7 @@ struct FlightThreadView: View {
                 .environmentObject(airportDataService)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
-        .alert(renaming == .flight ? L10n.FlightNames.renameFlight : L10n.FlightNames.renameTrip,
+        .alert(renameTitle,
                isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField(L10n.Routes.namePlaceholder, text: $renameText)
             Button(L10n.Button.cancel, role: .cancel) { renaming = nil }
@@ -561,7 +561,7 @@ struct FlightThreadView: View {
                 renaming = nil
             }
         } message: {
-            Text(renaming == .flight ? L10n.FlightNames.renameFlightMessage : L10n.FlightNames.renameTripMessage)
+            Text(renameMessage)
         }
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
@@ -660,10 +660,12 @@ struct FlightThreadView: View {
     private func editMenu(_ thread: FlightThread) -> some View {
         let plan = plan(for: thread)
         let trip = threadManager.trip(forThreadId: thread.id)
+        // A trip's leg is a leg, as the rest of the page calls it ("Leg 1 of 2", "Cancel this leg"): until the
+        // author's device check of 25 Oct 2026 its menu said "Flight details" and "Name this flight". (6.6.0)
         return Menu {
             if let plan {
                 Button { planEditorPlan = plan } label: {
-                    Text(L10n.Nav.flightPlanDetails)
+                    Text(trip == nil ? L10n.Nav.flightPlanDetails : L10n.Thread.legDetails)
                     Text(L10n.Thread.editDetailsHint)
                     Image(systemName: "slider.horizontal.3")
                 }
@@ -676,7 +678,8 @@ struct FlightThreadView: View {
                 renameText = thread.name ?? ""
                 renaming = .flight
             } label: {
-                Label(L10n.FlightNames.renameFlight, systemImage: "character.cursor.ibeam")
+                Label(trip == nil ? L10n.FlightNames.renameFlight : L10n.FlightNames.renameLeg,
+                      systemImage: "character.cursor.ibeam")
             }
             if let trip {
                 Button {
@@ -693,8 +696,24 @@ struct FlightThreadView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .accessibilityLabel(L10n.Thread.editMenu)
+        .accessibilityLabel(trip == nil ? L10n.Thread.editMenu : L10n.Thread.editLegMenu)
         .accessibilityIdentifier("thread.editMenu")
+    }
+
+    /// The name question, for the flight, a trip's leg or the trip.
+    private var renameTitle: String {
+        switch renaming {
+        case .trip: return L10n.FlightNames.renameTrip
+        default: return threadManager.trip(forThreadId: threadId) == nil ? L10n.FlightNames.renameFlight : L10n.FlightNames.renameLeg
+        }
+    }
+
+    private var renameMessage: String {
+        switch renaming {
+        case .trip: return L10n.FlightNames.renameTripMessage
+        default: return threadManager.trip(forThreadId: threadId) == nil ? L10n.FlightNames.renameFlightMessage
+                                                                          : L10n.FlightNames.renameLegMessage
+        }
     }
 
     private func subtitle(_ thread: FlightThread) -> String {

@@ -805,6 +805,12 @@ struct Flight: Identifiable, Codable {
         return Self.nonBlank(name)
     }
 
+    /// The flight as a delete question names it: "LSZQ → LSGE · 24 Oct 2026", the date telling two flights of one
+    /// route apart. In place of "This action cannot be undone." (the author's device check, 25 Oct 2026). (6.6.0)
+    var deletionLine: String {
+        [title, startTime.map { $0.formatted(date: .abbreviated, time: .omitted) }].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// The title on one line, where there is no room for an eyebrow above it (a GPX file's name).
     var titleWithName: String {
         titleEyebrow.map { "\($0) · \(title)" } ?? title

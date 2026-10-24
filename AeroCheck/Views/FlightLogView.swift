@@ -680,11 +680,12 @@ struct FlightLogView: View {
                 let favorites = favoriteFlights
                 if !favorites.isEmpty {
                     Section {
-                        ForEach(favorites) { flight in
+                        let shownFavorites = shown(favorites)
+                        ForEach(shownFavorites) { flight in
                             flightRow(flight, twoColumn: twoColumn)
                                 .coachTarget(ifAny: flight.id == newestFlightId ? .logbookFlight : nil)
                         }
-                        .onDelete { offsets in stageDeletion(favorites, at: offsets) }
+                        .onDelete { offsets in stageDeletion(shownFavorites, at: offsets) }
                     } header: {
                         favoritesHeader(count: favorites.count)
                     }
@@ -706,17 +707,19 @@ struct FlightLogView: View {
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 4, trailing: 12))
                             }
-                            ForEach(day.flights) { flight in
+                            let dayFlights = shown(day.flights)
+                            ForEach(dayFlights) { flight in
                                 flightRow(flight, twoColumn: twoColumn)
                                     .coachTarget(ifAny: flight.id == newestFlightId ? .logbookFlight : nil)
                             }
-                            .onDelete { offsets in stageDeletion(day.flights, at: offsets) }
+                            .onDelete { offsets in stageDeletion(dayFlights, at: offsets) }
                         }
-                        ForEach(group.undated) { flight in
+                        let undated = shown(group.undated)
+                        ForEach(undated) { flight in
                             flightRow(flight, twoColumn: twoColumn)
                                 .coachTarget(ifAny: flight.id == newestFlightId ? .logbookFlight : nil)
                         }
-                        .onDelete { offsets in stageDeletion(group.undated, at: offsets) }
+                        .onDelete { offsets in stageDeletion(undated, at: offsets) }
                     } header: {
                         monthHeader(group)
                     }
@@ -732,8 +735,16 @@ struct FlightLogView: View {
                 pendingDeletion = []
             }
         } message: {
-            Text(L10n.FlightDetail.deleteMessage)
+            Text(pendingDeletion.map(\.deletionLine).joined(separator: "\n"))
         }
+    }
+
+    /// The flights of a list without those a delete question is asking about: the swipe takes the row away, and it
+    /// stays away until the answer, back only on Cancel. Until 6.6.0 it came back under the question (the author's
+    /// device check, 25 Oct 2026).
+    private func shown(_ flights: [Flight]) -> [Flight] {
+        let asked = Set(pendingDeletion.map(\.id))
+        return asked.isEmpty ? flights : flights.filter { !asked.contains($0.id) }
     }
 
     /// Drives the delete alert off `pendingDeletion` so a dismissal by any route (Cancel, tapping
@@ -2262,7 +2273,7 @@ struct FlightDetailView: View {
                 dismiss()
             }
         } message: {
-            Text(L10n.FlightDetail.deleteMessage)
+            Text(flight.deletionLine)
         }
         .alert(L10n.FlightDetail.exportFailedTitle, isPresented: $showExportError) {
             Button(L10n.Button.close, role: .cancel) { }

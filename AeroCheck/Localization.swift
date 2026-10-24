@@ -2306,6 +2306,9 @@ enum L10n {
         static let searchPrompt = String(localized: "routes.searchPrompt")
         static let scope = String(localized: "routes.scope")
         static let routesScope = String(localized: "routes.routesScope")
+        /// The route's usual stops (6.6.0, t1): "A stop at LFGA", "Stops at LFGA, EDTF".
+        static func stopAt(_ ident: String) -> String { String(format: String(localized: "routes.stopAt"), ident) }
+        static func stopsAt(_ idents: String) -> String { String(format: String(localized: "routes.stopsAt"), idents) }
         static func archivedScope(_ count: Int) -> String {
             String(format: String(localized: "routes.archivedScope"), count)
         }
@@ -2997,6 +3000,8 @@ enum L10n {
         static func offRoute(_ nm: String) -> String {
             String(format: String(localized: "trip.offRoute"), nm)
         }
+        /// "usual stop: 45 min, refuel" (6.6.0, t1)
+        static func usualStop(_ stop: String) -> String { String(format: String(localized: "trip.usualStop"), stop) }
         static let noFrequency = String(localized: "trip.noFrequency")
         static let noCandidates = String(localized: "trip.noCandidates")
         /// A searched aerodrome that is this flight's own end, so no stop (6.1).
@@ -3582,6 +3587,9 @@ enum L10n {
         static let magneticCourse = String(localized: "nav.magneticCourse")
         static let distanceToNext = String(localized: "nav.distanceToNext")
         static let navigationHelp = String(localized: "nav.navigationHelp")
+        /// The waypoint sheet's usual stop (6.6.0, t1).
+        static let whenRouteIsFlown = String(localized: "nav.whenRouteIsFlown")
+        static let usualStopHint = String(localized: "nav.usualStopHint")
         /// Under the true airspeed of a waypoint: what an empty field means. (6.1)
         static let airspeedFromAircraft = String(localized: "nav.airspeedFromAircraft")
         static let radio = String(localized: "nav.radio")

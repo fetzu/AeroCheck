@@ -12,18 +12,26 @@ struct WaypointEditorSheet: View {
     let cruiseAirspeed: Int
     let onSave: (FlightPlanWaypoint) -> Void
     let onDelete: (() -> Void)?
+    /// The aerodrome's ident when the waypoint can be the route's usual stop: an aerodrome between a saved
+    /// route's ends. Nil hides "When this route is flown". (6.6.0, t1)
+    let stopAerodrome: String?
 
     private let elevationService = ElevationService()
 
     init(waypoint: FlightPlanWaypoint, aircraftType aircraftTypeId: String,
-         cruiseAirspeed: Int = Int(CruiseSpeedModel.standardKIAS),
+         cruiseAirspeed: Int = Int(CruiseSpeedModel.standardKIAS), stopAerodrome: String? = nil,
          onSave: @escaping (FlightPlanWaypoint) -> Void, onDelete: (() -> Void)? = nil) {
         _waypoint = State(initialValue: waypoint)
+        _stopover = State(initialValue: waypoint.stopover)
         self.aircraftTypeId = aircraftTypeId
         self.cruiseAirspeed = cruiseAirspeed
+        self.stopAerodrome = stopAerodrome
         self.onSave = onSave
         self.onDelete = onDelete
     }
+
+    /// The route's usual stop here, as edited.
+    @State private var stopover: Stopover?
 
     @State private var showingDeleteConfirmation = false
     /// Message shown when the entered coordinates/altitude were rejected. (SEC-C20)
@@ -144,6 +152,8 @@ struct WaypointEditorSheet: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                 }
+
+                if let stopAerodrome { usualStopGroup(stopAerodrome) }
 
                 // Navigation section
                 SettingsGroup(title: L10n.Nav.navigation, tint: tint, footer: L10n.Nav.navigationHelp) {
@@ -317,6 +327,24 @@ struct WaypointEditorSheet: View {
         .preferredColorScheme(.dark)
     }
 
+    /// "When this route is flown": Land here, then the time on the ground and the refuel. Its own view, out of
+    /// a body already at the type-checker's budget. (6.6.0, t1)
+    private func usualStopGroup(_ ident: String) -> some View {
+        SettingsGroup(title: L10n.Nav.whenRouteIsFlown, tint: tint) {
+            SettingsToggleRow(icon: "airplane.arrival", title: L10n.PlanFlight.landHere,
+                              subtitle: L10n.Nav.usualStopHint, tint: tint,
+                              isOn: Binding(get: { stopover != nil },
+                                            set: { stopover = $0 ? (stopover ?? Stopover()) : nil }))
+            if let stopover {
+                StopoverRow(label: L10n.PlanFlight.onTheGroundAt(ident), stopover: stopover, indent: 14,
+                            stepperFill: .cockpitBackground,
+                            onChange: { self.stopover = $0 })
+                    .padding(.trailing, 14)
+                    .padding(.vertical, 4)
+            }
+        }
+    }
+
     /// Houses a text-input control on a cockpit settings card: an optional tinted label row above the
     /// field, both padded to match the kit's row insets.
     @ViewBuilder
@@ -441,6 +469,7 @@ struct WaypointEditorSheet: View {
         updatedWaypoint.plannedGroundSpeed = parsedSpeed
         updatedWaypoint.windDirection = parsedDirection
         updatedWaypoint.windSpeed = parsedWindSpeed
+        if stopAerodrome != nil { updatedWaypoint.stopover = stopover }
         // Moved off the aerodrome, navaid or reporting point it was (more than 100 m): the pilot's
         // own point now, so that point's ident no longer names it in the GPX. (6.0.1)
         if updatedWaypoint.pointKind != nil,
@@ -450,6 +479,8 @@ struct WaypointEditorSheet: View {
             updatedWaypoint.sourceId = nil
             updatedWaypoint.code = nil
             updatedWaypoint.aerodromeICAO = nil
+            // No longer the aerodrome, so no longer its stop.
+            updatedWaypoint.stopover = nil
         }
 
         onSave(updatedWaypoint)

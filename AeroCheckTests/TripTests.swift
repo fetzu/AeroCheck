@@ -777,6 +777,56 @@ extension TripTests {
         return route
     }
 
+    /// A route marking LSGE as its usual stop (6.6.0, t1): Plan new flight starts with it on, the trip's leg 2
+    /// leaves after that stop, the legs carry no mark of their own, and the route keeps it.
+    @MainActor
+    func testARoutesUsualStopMakesItsTripAndStaysOnTheRoute() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        var route = savedLoop()
+        route.waypoints[2].stopover = Stopover(groundMinutes: 45, refuel: true)
+        plans.add(route)
+        var legIds: [UUID] = []
+        defer { legIds.forEach { m.deleteThread(threadId: $0) } }
+        XCTAssertEqual(route.usualStops.map(\.ident), ["LSGE"])
+
+        let candidates = TripPlanner.stopCandidates(along: route.waypoints,
+                                                    aerodromes: [field("LSGE", lon: 7.6), field("LSGN", lon: 8.2)])
+        let landings = RouteLandings(candidates: candidates, route: route.waypoints)
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSGE"])
+        let intent = typedTemplate(departure: Date().addingTimeInterval(86_400))
+        XCTAssertTrue(FlightCreator.plan(fromRoute: route, intent: intent).waypoints.allSatisfy { $0.stopover == nil },
+                      "a flight's plan isn't a route")
+
+        let trip = try XCTUnwrap(FlightCreator.formTrip(fromRoute: route, intent: intent, landings: landings.landings,
+                                                        plans: plans, threads: m))
+        legIds = trip.legIds
+        let legs = trip.legIds.compactMap { m.thread(withId: $0)?.flightPlanId }
+            .compactMap { id in plans.flightPlans.first { $0.id == id } }
+        XCTAssertEqual(legs.map { $0.waypoints.map(\.name) },
+                       [["LSZQ", "W1", "LSGE"], ["LSGE", "W2", "LSGN", "W3", "LSZQ"]])
+        XCTAssertEqual(legs[1].stopover, Stopover(groundMinutes: 45, refuel: true))
+        XCTAssertTrue(legs.allSatisfy { $0.waypoints.allSatisfy { $0.stopover == nil } })
+        XCTAssertEqual(plans.flightPlans.first { $0.id == route.id }?.waypoints[2].stopover,
+                       Stopover(groundMinutes: 45, refuel: true), "the route keeps its mark")
+    }
+
+    /// The mark is one optional key: a waypoint without it reads as before 6.6.0 and writes no key, so a build
+    /// before 6.6.0 reads the route as it always did.
+    func testAUsualStopIsOneOptionalKeyOnTheWaypoint() throws {
+        var waypoint = FlightPlanWaypoint(name: "LSGE", coordinate: .init(latitude: 46.75, longitude: 7.1))
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(waypoint), as: UTF8.self).contains("stopover"))
+        waypoint.stopover = Stopover(groundMinutes: 45, refuel: true)
+        let data = try JSONEncoder().encode(waypoint)
+        XCTAssertEqual(try JSONDecoder().decode(FlightPlanWaypoint.self, from: data).stopover, waypoint.stopover)
+        var older = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        older["stopover"] = nil
+        let olderData = try JSONSerialization.data(withJSONObject: older)
+        XCTAssertNil(try JSONDecoder().decode(FlightPlanWaypoint.self, from: olderData).stopover)
+    }
+
     @MainActor
     private func field(_ ident: String, lon: Double, lat: Double = 47.0, elevation: Double = 1500) -> TripPlanner.Aerodrome {
         TripPlanner.Aerodrome(ident: ident, name: ident, latitude: lat, longitude: lon,

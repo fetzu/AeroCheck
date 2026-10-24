@@ -120,6 +120,22 @@ struct FlightPlanMapBuilderView: View {
 
     private var waypoints: [FlightPlanWaypoint] { plan?.waypoints ?? [] }
 
+    /// The aerodrome's ident when `waypoint` can be the route's usual stop: an aerodrome between a saved route's
+    /// ends. A flight's own plan has none: its landings are its trip's legs. (6.6.0, t1)
+    private func stopAerodrome(_ waypoint: FlightPlanWaypoint) -> String? {
+        guard let plan, plan.flightOwned != true,
+              let index = plan.waypoints.firstIndex(where: { $0.id == waypoint.id }),
+              index > 0, index < plan.waypoints.count - 1 else { return nil }
+        let ident = ((waypoint.pointKind == .aerodrome ? waypoint.sourceId : nil) ?? waypoint.name)
+            .trimmingCharacters(in: .whitespaces).uppercased()
+        switch waypoint.pointKind {
+        case .aerodrome?: return ident
+        // A waypoint from before 6.0.1 says nothing of what it is: its name, if it names an aerodrome.
+        case nil: return airportDataService.findAirport(byIdent: ident) != nil ? ident : nil
+        default: return nil
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
@@ -251,6 +267,7 @@ struct FlightPlanMapBuilderView: View {
                     cruiseAirspeed: plan.flatMap { plan in
                         plan.waypoints.firstIndex { $0.id == waypoint.id }.map { plan.cruiseAirspeed(ofLegFrom: $0) }
                     } ?? Int(CruiseSpeedModel.standardKIAS),
+                    stopAerodrome: stopAerodrome(waypoint),
                     onSave: { updated in flightPlanManager.updateWaypoint(updated, in: planId) },
                     onDelete: { flightPlanManager.removeWaypoint(waypoint, from: planId) }
                 )

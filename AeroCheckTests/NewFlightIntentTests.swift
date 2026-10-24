@@ -368,6 +368,27 @@ final class NewFlightIntentTests: XCTestCase {
         XCTAssertEqual(landings.landings.first?.stopover, Stopover(), "switched off and on, it starts over")
     }
 
+    /// A route's usual stop starts switched on, with its own time on the ground; off for the day, it's one flight,
+    /// and on again it's the route's stop, not the default. An aerodrome near the route, not one of its waypoints,
+    /// carries nothing over. (6.6.0, t1)
+    func testARoutesUsualStopStartsSwitchedOn() {
+        var route = (0..<6).map { FlightPlanWaypoint(name: "W\($0)", coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 7)) }
+        route[3].stopover = Stopover(groundMinutes: 45, refuel: true)
+        var landings = RouteLandings(candidates: [candidate("LSGE", along: 40, waypoint: 3),
+                                                  candidate("LSGN", along: 60)], route: route)
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSGE"])
+        XCTAssertEqual(landings.landings.first?.stopover, Stopover(groundMinutes: 45, refuel: true))
+        XCTAssertEqual(landings.usualStop(at: "LSGE"), Stopover(groundMinutes: 45, refuel: true))
+        XCTAssertNil(landings.usualStop(at: "LSGN"))
+
+        landings.setLanding(false, at: "LSGE")
+        XCTAssertEqual(landings.legCount, 1, "off for the day: one flight")
+        landings.setLanding(true, at: "LSGE")
+        XCTAssertEqual(landings.landings.first?.stopover, Stopover(groundMinutes: 45, refuel: true))
+        XCTAssertEqual(RouteLandings(candidates: [candidate("LSGE", along: 40, waypoint: 3)]).legCount, 1,
+                       "without the route, nothing is on")
+    }
+
     /// "Land somewhere else…": the aerodrome joins the list in its place along the route, switched on.
     func testLandingSomewhereElseJoinsTheListInItsPlace() {
         var landings = RouteLandings(candidates: [candidate("LSGE", along: 40, waypoint: 3),

@@ -721,7 +721,8 @@ struct PlanNewFlightView: View {
                     if candidate.aerodrome.isPPR { PPRChip() }
                 }
                 // Two lines on a phone, where one cut "on route" off.
-                Text("\(candidate.aerodrome.name) · \(StopPlacement.text(candidate))")
+                Text([candidate.aerodrome.name, StopPlacement.text(candidate),
+                      routeLandings.usualStop(at: ident).map(StopPlacement.usual)].compactMap { $0 }.joined(separator: " · "))
                     .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
                     .lineLimit(2)
@@ -891,7 +892,8 @@ struct PlanNewFlightView: View {
         guard selectedRoute?.id == route.id else { return }
         let aerodromes = airports.planningAerodromes(around: route.waypoints.map(\.coordinate), marginNM: 6)
         routeLandings = RouteLandings(candidates: TripPlanner.stopCandidates(along: route.waypoints,
-                                                                             aerodromes: aerodromes))
+                                                                             aerodromes: aerodromes),
+                                      route: route.waypoints)
     }
 
     // MARK: - When (planning proposal B1)
@@ -1518,6 +1520,13 @@ enum StopPlacement {
         candidate.waypointIndex != nil || candidate.offsetNM < TripPlanner.onRouteNM
             ? L10n.Trip.onRoute
             : L10n.Trip.offRoute(String(format: "%.1f", candidate.offsetNM))
+    }
+
+    /// "usual stop: 45 min, refuel": the route's own stop there. (6.6.0, t1)
+    static func usual(_ stop: Stopover) -> String {
+        var words = L10n.PlanFlight.groundMinutes(stop.groundMinutes)
+        if stop.refuel { words += ", " + L10n.PlanFlight.refuel.lowercased() }
+        return L10n.Trip.usualStop(words)
     }
 
     /// What a searched aerodrome is to the flight, when it is one of its own ends. (6.1)

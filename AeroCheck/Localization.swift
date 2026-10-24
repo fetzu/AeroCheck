@@ -1133,7 +1133,6 @@ enum L10n {
     // MARK: - Settings
     enum Settings {
         static let title = String(localized: "settings.title")
-        static let done = String(localized: "settings.done")
 
         // Subscription
         static let subscription = String(localized: "settings.subscription")
@@ -1592,7 +1591,6 @@ enum L10n {
     enum Warning {
         static let experimentalFeature = String(localized: "warning.experimentalFeature")
         static let iUnderstandEnable = String(localized: "warning.iUnderstandEnable")
-        static let cancel = String(localized: "warning.cancel")
 
         // Flight Planning
 
@@ -2027,7 +2025,6 @@ enum L10n {
         static let formatHint = String(localized: "hourMeter.formatHint")
         static let clear = String(localized: "hourMeter.clear")
         static let skip = String(localized: "hourMeter.skip")
-        static let save = String(localized: "hourMeter.save")
         static let invalidFormatTitle = String(localized: "hourMeter.invalidFormat.title")
         static let invalidFormatMessage = String(localized: "hourMeter.invalidFormat.message")
         static let endBeforeStartTitle = String(localized: "hourMeter.endBeforeStart.title")
@@ -3413,7 +3410,6 @@ enum L10n {
         static let aircraft = String(localized: "nav.aircraft")
         static let allAircraft = String(localized: "nav.allAircraft")
         static let filterByAircraft = String(localized: "nav.filterByAircraft")
-        static let save = String(localized: "nav.save")
         static let flightPlan = String(localized: "nav.flightPlan")
         static let navigationFlightPlan = String(localized: "nav.navigationFlightPlan")
         static let flightType = String(localized: "nav.flightType")

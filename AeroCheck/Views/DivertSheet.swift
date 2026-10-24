@@ -168,16 +168,19 @@ struct DivertSheet: View {
 
     // MARK: - Pieces
 
+    /// Close on the left, as every sheet with nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026), the title centred.
     private var header: some View {
-        HStack {
+        ZStack {
             Text(L10n.Trip.divert)
                 .font(.aero(size: 20, weight: .bold))
                 .foregroundColor(theme.textPrimary)
-            Spacer()
-            Button(L10n.Button.close) { onClose() }
-                .font(.aero(size: 17, weight: .semibold))
-                .foregroundColor(theme.action)
-                .frame(minWidth: 44, minHeight: 44)
+            HStack {
+                Button(L10n.Button.close) { onClose() }
+                    .font(.aero(size: 17, weight: .semibold))
+                    .foregroundColor(theme.action)
+                    .frame(minWidth: 44, minHeight: 44)
+                Spacer()
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)

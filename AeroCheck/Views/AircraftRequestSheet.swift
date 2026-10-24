@@ -62,17 +62,14 @@ struct AircraftRequestSheet: View {
             .navigationTitle(L10n.AircraftRequests.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Cancel while the request is written, Close once it is sent: on the left both times, as every sheet that
+                // has nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026). (6.6.0)
                 ToolbarItem(placement: .cancellationAction) {
                     if case .sent = stage {
-                        EmptyView()
+                        Button(L10n.Button.close) { dismiss() }
                     } else {
                         Button(L10n.Button.cancel) { dismiss() }
                             .disabled(isSending)
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if case .sent = stage {
-                        Button(L10n.Button.done) { dismiss() }
                     }
                 }
             }

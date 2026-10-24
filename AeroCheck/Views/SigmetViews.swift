@@ -105,7 +105,7 @@ struct SigmetSheet: View {
             .navigationTitle("SIGMET")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.close) { dismiss() }
                 }
             }

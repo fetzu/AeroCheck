@@ -532,7 +532,7 @@ struct FlightThreadView: View {
             next?()
         }) { item in
             if let thread, let block = page(for: thread).block(item.kind) {
-                FlightBlockSheet(onDone: { openBlock = nil }) {
+                FlightBlockSheet(onClose: { openBlock = nil }) {
                     blockCard(block, thread, foldable: false)
                 }
                 .environment(\.dryRunSession, dryRunSession)

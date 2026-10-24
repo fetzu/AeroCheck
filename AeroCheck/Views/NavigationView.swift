@@ -4577,8 +4577,8 @@ struct MapSheet: View {
             .navigationTitle(L10n.Nav.mapSheet)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Button.done) { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.close) { dismiss() }
                 }
             }
         }
@@ -6633,7 +6633,7 @@ struct CacheInfoSheet: View {
             .toolbar {
                 if !isOfflineMode {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button(L10n.Button.done) { dismiss() }
+                        Button(L10n.Button.close) { dismiss() }
                     }
                 }
             }

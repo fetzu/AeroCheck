@@ -207,17 +207,18 @@ struct DeferredItemsList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(L10n.Deferred.title)
-                    .font(.aero(size: 30, weight: .bold))
-                    .foregroundColor(theme.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                Button(L10n.Button.done, action: onClose)
+            // Close on the left, as every sheet with nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026); the large title under it.
+            HStack {
+                Button(L10n.Button.close, action: onClose)
                     .font(.aero(size: 20, weight: .semibold))
                     .foregroundColor(theme.action)
-                    .frame(minWidth: 64, minHeight: 56)
+                    .frame(minWidth: 64, minHeight: 56, alignment: .leading)
+                Spacer()
             }
+            Text(L10n.Deferred.title)
+                .font(.aero(size: 30, weight: .bold))
+                .foregroundColor(theme.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             Text(L10n.Deferred.hint)
                 .font(.aero(size: 17))
                 .foregroundColor(theme.textSecondary)

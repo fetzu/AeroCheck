@@ -426,7 +426,8 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.check("flight-15", done.waitForExistence(timeout: 4), "Review › ✓ DONE offered")
         pilot.shot("flight-15", "review-done")
         pilot.tapNow(done)
-        let close = pilot.app.buttons["Done"].firstMatch
+        // The deferred items sheet closes on its left-hand Close since 6.6.0 ("Done" on the right before)
+        let close = pilot.app.buttons["Close"].firstMatch
         if close.waitForExistence(timeout: 2) { close.tap() }
         pilot.check("flight-15", pilot.waitUntil(timeout: 4) { pilot.phaseStatus("climb") == "done from memory" },
                     "✓ DONE: climb \(pilot.phaseStatus("climb") ?? "?") (green)")

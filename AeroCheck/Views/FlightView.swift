@@ -2620,16 +2620,9 @@ struct HUDReferencePanel: View {
         if kneeboard { kneeboardHeader } else { compactHeader }
     }
 
+    /// The drawer rises from the bottom as a sheet does: Close on the left, as every sheet with nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026).
     private var kneeboardHeader: some View {
         HStack(spacing: 12) {
-            Image(systemName: reference.systemImage)
-                .font(.aero(size: CockpitType.label))
-                .foregroundColor(reference.tint)
-            Text(reference.title)
-                .font(.aero(size: CockpitType.label, weight: .bold))
-                .tracking(0.6)
-                .foregroundColor(theme.textPrimary)
-            Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.aero(size: 22, weight: .semibold))
@@ -2639,9 +2632,17 @@ struct HUDReferencePanel: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(L10n.Button.close)
+            Image(systemName: reference.systemImage)
+                .font(.aero(size: CockpitType.label))
+                .foregroundColor(reference.tint)
+            Text(reference.title)
+                .font(.aero(size: CockpitType.label, weight: .bold))
+                .tracking(0.6)
+                .foregroundColor(theme.textPrimary)
+            Spacer()
         }
-        .padding(.leading, 20)
-        .padding(.trailing, 6)
+        .padding(.leading, 6)
+        .padding(.trailing, 20)
     }
 
     private var compactHeader: some View {

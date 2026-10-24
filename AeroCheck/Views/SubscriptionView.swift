@@ -36,7 +36,7 @@ struct SubscriptionView: View {
                     scrollContent
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
-                                Button(L10n.Button.done) { dismiss() }
+                                Button(L10n.Button.close) { dismiss() }
                                     .foregroundColor(Color.aviationGold)
                             }
                         }

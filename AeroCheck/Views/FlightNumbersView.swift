@@ -54,7 +54,7 @@ struct FlightNumbersView: View {
             .navigationTitle(L10n.Cost.afterTheFlight)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.close) { close() }
                 }
             }
@@ -212,10 +212,10 @@ struct FlightNumbersView: View {
             .navigationTitle(L10n.Cost.rateProfiles)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.cancel) { showRateEditor = false }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(L10n.Button.done) { saveRate(for: flight) }
                         .disabled(parseAmount(rateText) == nil)
                 }
@@ -345,7 +345,7 @@ struct FlightNumbersView: View {
             .navigationTitle(L10n.Logbook.showRow)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.close) { showLogbookRow = false }
                 }
             }
@@ -655,10 +655,10 @@ private struct LogbookOverridesEditor: View {
             .navigationTitle(L10n.Logbook.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.cancel) { onCancel() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(L10n.Button.done) {
                         overrides.nightMinutes = Int(nightText)
                         overrides.ifrMinutes = Int(ifrText)

@@ -36,23 +36,15 @@ function v6(device: 'ipad' | 'iphone', key: string, lang: Lang): string {
   return versioned(`/assets/screenshot/v6/${device}/${key}.jpg`);
 }
 
-// Each shot's key and label; `ipad: false` for the iPhone on its side, which has no iPad counterpart.
-const KEYS: Record<string, { label: string; ipad?: false }> = {
-  cockpit:    { label: 'The Cockpit in cruise' },
-  cockpitmap: { label: 'The Cockpit on its map' },
-  // 6.2: Plan › Map close in on LSZQ, its traffic circuit and arrival sectors from open flightmaps.
-  circuits:   { label: 'Traffic circuits on the map' },
-  vspeeds:    { label: 'V-SPEEDS' },
-  today:      { label: 'Today, with the day’s flight' },
-  flight:     { label: 'A followed flight' },
-  prepare:    { label: 'Preparing a flight' },
-  closeout:   { label: 'Closing out a flight' },
-  route:      { label: 'The route editor' },
-  log:        { label: 'A flight in the logbook' },
-  // 6.4.0: a guided dry run on its final, the coach's card over the card that chooses the landing.
-  dryrun:     { label: 'A dry run on the ground' },
-  landscape:  { label: 'The iPhone on its side', ipad: false },
-};
+// Each shot's key and label, from the one list of the screenshots (scripts/shots.json, SCREENSHOTS.md): the shots
+// published on the site, in its order. One taken only on the iPhone (the iPhone on its side) has no iPad image.
+interface ManifestShot { key: string; label: string; website?: boolean; devices?: string[]; }
+const MANIFEST: { shots: ManifestShot[] } =
+  JSON.parse(readFileSync(join(process.cwd(), 'scripts', 'shots.json'), 'utf8'));
+const KEYS: Record<string, { label: string; ipad?: false }> = Object.fromEntries(
+  MANIFEST.shots.filter((s) => s.website).map((s) =>
+    [s.key, s.devices && !s.devices.includes('ipad11') ? { label: s.label, ipad: false as const } : { label: s.label }]),
+);
 
 const byLang = new Map<Lang, Record<string, Shot>>();
 function shotsIn(lang: Lang): Record<string, Shot> {

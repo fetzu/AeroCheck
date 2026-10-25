@@ -1353,6 +1353,27 @@ final class FlightThreadTests: XCTestCase {
                           L10n.Border.swissCrossingsOnly)
     }
 
+    /// The block into Switzerland shows the Swiss side's facts and its page once: it said "not checked yet" beside a
+    /// link to the very page that was checked. (6.6.0)
+    func testTheBlockIntoSwitzerlandShowsTheSwissFactsAndOneLink() {
+        let switzerland = ThreadTask(key: .customsNotified, subject: "CH", kind: .check)
+        let fromFrance = ThreadBriefing(departureCountry: "FR")
+        let hint = ThreadTaskPresentation.make(for: switzerland, briefing: fromFrance).hint ?? ""
+        XCTAssertTrue(hint.contains(L10n.Border.customsAerodrome), hint)
+        XCTAssertTrue(hint.contains(L10n.Border.reviewed(BorderCrossingGuide.switzerland.lastReviewed)), hint)
+        XCTAssertFalse(hint.contains(L10n.Border.notCurated), hint)
+
+        let links = ThreadTaskPresentation.links(for: switzerland, touchesSwitzerland: true, briefing: fromFrance)
+        XCTAssertEqual(links.map(\.url), [BorderCrossingGuide.switzerland.officialURL])
+        XCTAssertEqual(links.map(\.label), [L10n.Border.openOfficial])
+
+        // Out of Switzerland, the country's page and the Swiss side, as before.
+        let france = ThreadTask(key: .customsNotified, subject: "FR", kind: .check)
+        XCTAssertEqual(ThreadTaskPresentation.links(for: france, touchesSwitzerland: true,
+                                                    briefing: ThreadBriefing(departureCountry: "CH")).map(\.label),
+                       [L10n.Border.openOfficial, L10n.Border.swissSide])
+    }
+
     func testTheSwissLinkIsOnlyOfferedWhenSwitzerlandIsInvolved() {
         let task = ThreadTask(key: .customsNotified, subject: "DE", kind: .check)
         let away = ThreadTaskPresentation.links(for: task, touchesSwitzerland: false)

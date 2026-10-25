@@ -18,6 +18,9 @@ export const CHAPTERS: { id: 'prepare' | 'fly' | 'close'; features: FeatureId[] 
   { id: 'close', features: ['close', 'fees'] },
 ];
 const ALL: FeatureId[] = CHAPTERS.flatMap((c) => c.features);
+// The table of every country leaves out what only one country has: the swisstopo charts are Switzerland's alone, a
+// column of one "yes" (the author, 25 Oct 2026). Switzerland's own panel keeps the row.
+const TABLE: FeatureId[] = ALL.filter((id) => id !== 'swisstopo');
 
 export interface Row { id: FeatureId; label: string; level: Level; html: string; }
 export interface Group { id: 'prepare' | 'fly' | 'close'; name: string; rows: Row[]; }
@@ -161,7 +164,7 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
     const c = coverage.countries[cc];
     return {
       cc, name: name(cc),
-      cells: ALL.map((id) => {
+      cells: TABLE.map((id) => {
         const { level } = row(id, c, cc);
         const n = level === 'off' ? undefined
           : id === 'circuits' ? c.circuits?.count : id === 'routes' ? c.routes?.count
@@ -171,5 +174,5 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
     };
   });
 
-  return { countries, matrix, columns: ALL.map((id) => ({ id, short: t.short[id], label: t.labels[id] })) };
+  return { countries, matrix, columns: TABLE.map((id) => ({ id, short: t.short[id], label: t.labels[id] })) };
 }

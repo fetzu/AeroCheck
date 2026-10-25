@@ -117,7 +117,7 @@ struct TimestampActionButton: View {
             
             // Timestamp display + hold hint (full mode only — the compact HUD button is a single row).
             if !compact, let time = timestamp {
-                Text("\(timestampLabel): \(time)\(timestampSuffix)")
+                Text(L10n.Format.labelled(timestampLabel, "\(time)\(timestampSuffix)"))
                     .font(.captionText)
                     .foregroundColor(color)
             }
@@ -206,7 +206,7 @@ struct CounterActionButton: View {
 
             // Counter display
             if count > 0 {
-                Text("\(countLabel): \(count)")
+                Text(L10n.Format.labelled(countLabel, "\(count)"))
                     .font(.captionText)
                     .foregroundColor(color)
             }

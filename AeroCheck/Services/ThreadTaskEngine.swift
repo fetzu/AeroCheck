@@ -228,7 +228,7 @@ enum ThreadTaskEngine {
         // route" the fuel row is the natural home for — a pilot reading a fuel line is already
         // asking whether they can fill up at the far end.
         if let arrival = c.arrivalIdent, !c.destinationFuels.isEmpty {
-            parts.append("\(arrival): \(c.destinationFuels.joined(separator: ", "))")
+            parts.append(L10n.Format.labelled(arrival, c.destinationFuels.joined(separator: ", ")))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

@@ -249,7 +249,13 @@ const data = {
   .mx thead .mx-c { left: 0; z-index: 3; text-align: left; }
   .mx tbody th a { color: var(--text); }
   .mx tbody th a:hover { color: var(--cyan); }
-  .mx tr.sel th, .mx tr.sel td { background: color-mix(in srgb, var(--gold-fill) 16%, var(--bg)); }
+  /* The row under the pointer, a light wash of the links' blue, so a row reads across 13 columns (the author, 25 Oct
+     2026); the chosen country keeps its gold, hovered or not. Only where there is a pointer: a tap mustn't leave a
+     row lit on a phone. */
+  @media (hover: hover) {
+    .mx tbody tr:hover th, .mx tbody tr:hover td { background: color-mix(in srgb, var(--cyan) 14%, var(--bg)); }
+  }
+  .mx tbody tr.sel th, .mx tbody tr.sel td { background: color-mix(in srgb, var(--gold-fill) 16%, var(--bg)); }
   .mx tr.sel th a { font-weight: 700; }
   .mx .c-on { color: var(--green); }
   .mx .c-part { color: var(--amber); }

@@ -48,9 +48,11 @@ enum AirfieldSearch {
         return store.searchAirports(query: term, limit: limit, near: reference, types: types)
     }
 
-    /// The aerodromes whose note holds `query` (6.7.0): after the code and name matches, each once.
+    /// The aerodromes whose note holds `query` added to those found by code or name, each once, and
+    /// the whole list nearest to `near` first: a note's match is listed where it is, not after the
+    /// rest (the author's answer q-1, C). Without a reference, the note matches after the others.
     static func adding(noteMatchesFor query: String, to found: [Airport], notes: [AerodromeNote],
-                       find: (String) -> Airport?) -> [Airport] {
+                       near reference: CLLocationCoordinate2D?, find: (String) -> Airport?) -> [Airport] {
         guard term(query) != nil else { return found }
         var result = found
         for note in notes {
@@ -58,7 +60,14 @@ enum AirfieldSearch {
                   !result.contains(where: { $0.id == airport.id }) else { continue }
             result.append(airport)
         }
-        return result
+        guard let reference else { return result }
+        let distance = { (airport: Airport) in
+            AerodromeNoteMatch.distance(reference, CLLocationCoordinate2D(latitude: airport.latitude,
+                                                                          longitude: airport.longitude))
+        }
+        return result.enumerated()
+            .sorted { (distance($0.element), $0.offset) < (distance($1.element), $1.offset) }
+            .map(\.element)
     }
 
     /// Whether the aerodrome has a marker on the map to open: the airport layer is on, and draws its
@@ -265,7 +274,7 @@ struct AirfieldSearchSheet: View {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 82)
                     }
                     AirfieldSearchRow(airport: airport, reference: reference,
-                                      note: AerodromeNoteStore.shared.note(for: airport)) { pick(airport) }
+                                      note: AerodromeNoteStore.shared.note(for: airport), query: query) { pick(airport) }
                 }
             }
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
@@ -285,7 +294,7 @@ struct AirfieldSearchSheet: View {
         guard !isLoading else { return }
         let found = AirfieldSearch.results(for: query, in: airportDataService, near: reference)
         results = AirfieldSearch.adding(noteMatchesFor: query, to: found,
-                                        notes: AerodromeNoteStore.shared.notes(matching: query),
+                                        notes: AerodromeNoteStore.shared.notes(matching: query), near: reference,
                                         find: { airportDataService.findAirport(byIdent: $0) })
     }
 
@@ -299,8 +308,9 @@ struct AirfieldSearchSheet: View {
 private struct AirfieldSearchRow: View {
     let airport: Airport
     let reference: CLLocationCoordinate2D?
-    /// The pilot's note on it: its first line under the name. (6.7.0)
+    /// The pilot's note on it: the line the search found, else its first line, under the name. (6.7.0)
     var note: AerodromeNote?
+    var query = ""
     let onTap: () -> Void
 
     var body: some View {
@@ -323,7 +333,7 @@ private struct AirfieldSearchRow: View {
                             .lineLimit(1)
                     }
                     if let note, !note.isEmpty {
-                        Text(L10n.Format.labelled(L10n.AerodromeNotes.yourNote, note.firstLine))
+                        Text(noteLine(note))
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.aviationGold)
                             .lineLimit(1)
@@ -353,6 +363,14 @@ private struct AirfieldSearchRow: View {
         let country = OpenAIPConfig.countryName(for: airport.isoCountry)
         guard let town else { return country.isEmpty ? nil : country }
         return country.isEmpty ? town : "\(town) · \(country)"
+    }
+
+    /// "Your note · On the ground: Restaurant open every day.", the part named.
+    private func noteLine(_ note: AerodromeNote) -> String {
+        let found = note.line(matching: query)
+            ?? (note.hasArrival ? AerodromeNote.Part.arrival : .onTheGround, note.firstLine)
+        let title = found.part == .arrival ? L10n.AerodromeNotes.yourNoteArrival : L10n.AerodromeNotes.yourNoteOnTheGround
+        return L10n.Format.labelled(title, found.line)
     }
 
     private var distance: String? {

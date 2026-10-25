@@ -1779,19 +1779,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Im Flug nur zum Lesen"
+            "value": "Im Flug nur zum Lesen. Am Boden können Sie sie ergänzen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read only in flight"
+            "value": "Read only in flight. You can add to it once on the ground."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lecture seule en vol"
+            "value": "Lecture seule en vol. Vous pourrez la compléter une fois au sol."
           }
         }
       }
@@ -1930,6 +1930,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre note · Arrivée"
+          }
+        }
+      }
+    },
+    "aerodromeNote.yourNote.onTheGround": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Notiz · Am Boden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your note · On the ground"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre note · Au sol"
           }
         }
       }

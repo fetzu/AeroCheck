@@ -68,6 +68,33 @@ struct AerodromeNote: Codable, Identifiable, Equatable, Sendable {
     }
 
     static func trimmed(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    enum Part: Equatable, Sendable { case arrival, onTheGround }
+
+    /// The line that holds `query` and the part it is in, the arrival part's first: what the search
+    /// shows under a field its note was found by, so a match on the ground part never shows the
+    /// arrival's first line (the author's device check n-6). Nil when only the code or name holds it.
+    /// A match far into a long line starts the line a little before it, after "…".
+    func line(matching query: String) -> (part: Part, line: String)? {
+        let q = AerodromeNoteMatch.folded(query)
+        guard !q.isEmpty else { return nil }
+        for (part, text) in [(Part.arrival, arrival), (.onTheGround, onTheGround)] {
+            for line in Self.trimmed(text).split(whereSeparator: \.isNewline) {
+                let folded = AerodromeNoteMatch.folded(String(line))
+                guard let hit = folded.range(of: q) else { continue }
+                let trimmed = Self.trimmed(String(line))
+                let offset = folded.distance(from: folded.startIndex, to: hit.lowerBound)
+                guard offset > Self.snippetLead, folded.count == trimmed.count else { return (part, trimmed) }
+                let from = trimmed.index(trimmed.startIndex, offsetBy: offset - Self.snippetLead)
+                let cut = trimmed[from...].firstIndex(of: " ").map { trimmed.index(after: $0) } ?? from
+                return (part, "…" + trimmed[cut...])
+            }
+        }
+        return nil
+    }
+
+    /// How much of a long line is kept before the words searched for.
+    static let snippetLead = 24
 }
 
 // MARK: - Which aerodrome a note is on
@@ -178,21 +205,24 @@ enum AerodromeNoteMerge {
 // MARK: - The notes as one text file
 
 enum AerodromeNoteExport {
-    /// Every note by aerodrome, in identifier order: "LSZG Grenchen", then each part under its name.
-    /// Plain text, so it reads anywhere it is shared to.
+    /// Every note by aerodrome, in identifier order: "## LSZG Grenchen", then each part under its
+    /// "### " title. Plain text with Markdown's headings, so it reads anywhere it is shared to and
+    /// the aerodromes, the parts and the notes stand apart (the author's device check n-9).
     static func text(_ notes: [AerodromeNote], arrivalTitle: String, groundTitle: String, header: String) -> String {
-        var lines = [header, ""]
+        var lines = ["# " + header, ""]
         for note in notes.sorted(by: { ($0.ident, $0.name) < ($1.ident, $1.name) }) where !note.isEmpty {
-            lines.append("\(note.ident) \(note.name)")
+            lines.append("## \(note.ident) \(note.name)")
+            lines.append("")
             if note.hasArrival {
-                lines.append(arrivalTitle.uppercased())
+                lines.append("### " + arrivalTitle)
                 lines.append(AerodromeNote.trimmed(note.arrival))
+                lines.append("")
             }
             if !AerodromeNote.trimmed(note.onTheGround).isEmpty {
-                lines.append(groundTitle.uppercased())
+                lines.append("### " + groundTitle)
                 lines.append(AerodromeNote.trimmed(note.onTheGround))
+                lines.append("")
             }
-            lines.append("")
         }
         return lines.joined(separator: "\n")
     }

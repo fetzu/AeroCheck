@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import AeroCheck
 
 /// The pilot's aerodrome notes (6.7.0): which aerodrome a note is on, two copies made one, the text
@@ -66,23 +67,29 @@ final class AerodromeNotesTests: XCTestCase {
 
     // MARK: The text export
 
+    /// Markdown's headings in a plain text file: the aerodromes, the parts and the notes stand apart
+    /// (the author's device check n-9).
     func testTheExportListsEachNoteByAerodromeWithItsParts() {
         let text = AerodromeNoteExport.text(
             [note("LSZS", name: "Samedan", arrival: "Valley wind after noon."),
-             note("LSZG", arrival: "Ask early.", ground: "Fuel at the pump."),
+             note("LSZG", arrival: "Ask early.", ground: "Fuel at the pump.\nCafé closed Mondays."),
              note("LSPL", name: "Langenthal")],
             arrivalTitle: "Arrival", groundTitle: "On the ground", header: "AéroCheck · Aerodrome notes · 25 Oct 2026")
         XCTAssertEqual(text, """
-            AéroCheck · Aerodrome notes · 25 Oct 2026
+            # AéroCheck · Aerodrome notes · 25 Oct 2026
 
-            LSZG Grenchen
-            ARRIVAL
+            ## LSZG Grenchen
+
+            ### Arrival
             Ask early.
-            ON THE GROUND
-            Fuel at the pump.
 
-            LSZS Samedan
-            ARRIVAL
+            ### On the ground
+            Fuel at the pump.
+            Café closed Mondays.
+
+            ## LSZS Samedan
+
+            ### Arrival
             Valley wind after noon.
 
             """)
@@ -219,11 +226,42 @@ final class AerodromeNotesTests: XCTestCase {
     func testTheSearchAddsTheAerodromesWhoseNoteHoldsTheWordsOnce() {
         let grenchenField = airport("LSZG", 47.18, 7.42), bern = airport("LSZB", 46.91, 7.50)
         let notes = [note(ground: "Restaurant open every day."), note("LSZB", name: "Bern", ground: "Restaurant.")]
-        let found = AirfieldSearch.adding(noteMatchesFor: "restaurant", to: [bern], notes: notes,
+        let found = AirfieldSearch.adding(noteMatchesFor: "restaurant", to: [bern], notes: notes, near: nil,
                                           find: { ["LSZG": grenchenField, "LSZB": bern][$0] })
         XCTAssertEqual(found.map(\.ident), ["LSZB", "LSZG"])
         // Under the search's minimum length, nothing is added.
-        XCTAssertEqual(AirfieldSearch.adding(noteMatchesFor: "r", to: [], notes: notes, find: { _ in grenchenField }), [])
+        XCTAssertEqual(AirfieldSearch.adding(noteMatchesFor: "r", to: [], notes: notes, near: nil,
+                                             find: { _ in grenchenField }), [])
+    }
+
+    /// The author's answer q-1 (C): from the map's centre, the nearest first, whether the code, the
+    /// name or the note found it.
+    func testTheSearchListsEverythingNearestFirst() {
+        let porrentruy = CLLocationCoordinate2D(latitude: 47.39, longitude: 7.03)
+        let bern = airport("LSZB", 46.91, 7.50), grenchenField = airport("LSZG", 47.18, 7.42),
+            courtelary = airport("LSZJ", 47.18, 7.04)
+        let found = AirfieldSearch.adding(noteMatchesFor: "fuel", to: [bern, courtelary],
+                                          notes: [note(ground: "Fuel at the pump.")], near: porrentruy,
+                                          find: { ["LSZG": grenchenField][$0] })
+        XCTAssertEqual(found.map(\.ident), ["LSZJ", "LSZG", "LSZB"])
+    }
+
+    /// The author's device check n-6: found by what the ground part says, the row shows that line
+    /// and names its part, never the arrival's first line.
+    func testTheSearchShowsTheLineItFoundAndItsPart() {
+        let written = note(arrival: "Ask early.\nJoin over the lake.", ground: "Fuel at the pump.\nCafé closed on Mondays.")
+        XCTAssertEqual(written.line(matching: "cafe")?.part, .onTheGround)
+        XCTAssertEqual(written.line(matching: "cafe")?.line, "Café closed on Mondays.")
+        XCTAssertEqual(written.line(matching: "LAKE")?.part, .arrival)
+        XCTAssertEqual(written.line(matching: "LAKE")?.line, "Join over the lake.")
+        XCTAssertNil(written.line(matching: "Grenchen"), "found by its name: the row shows the first line")
+        XCTAssertNil(written.line(matching: "  "))
+        // Far into a long line, the line starts a little before the words, after "…".
+        let long = note(ground: "Parking on the grass east of the tower, keys at the office, and the fuel card in the drawer.")
+        let snippet = long.line(matching: "drawer")?.line ?? ""
+        XCTAssertTrue(snippet.hasPrefix("…"), snippet)
+        XCTAssertTrue(snippet.hasSuffix("in the drawer."), snippet)
+        XCTAssertLessThan(snippet.count, 50, snippet)
     }
 
     func testTheCalloutOffersANoteOnTheGroundOnlyAndReadsOneInFlight() {

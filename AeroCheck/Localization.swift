@@ -55,6 +55,7 @@ enum L10n {
         static let onTheGroundHint = String(localized: "aerodromeNote.onTheGround.hint")
         static let yourNote = String(localized: "aerodromeNote.yourNote")
         static let yourNoteArrival = String(localized: "aerodromeNote.yourNote.arrival")
+        static let yourNoteOnTheGround = String(localized: "aerodromeNote.yourNote.onTheGround")
         static let add = String(localized: "aerodromeNote.add")
         static let more = String(localized: "aerodromeNote.more")
         static let delete = String(localized: "aerodromeNote.delete")

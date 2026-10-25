@@ -1223,6 +1223,9 @@ struct NavigationMapView: View {
                     if !compact && panelChrome.showsMapControls {
                         SeparateView { mapControlsRow }
                             .frame(maxWidth: .infinity, alignment: .trailing)
+                            // An aerodrome's callout near the top opens under the row: the row steps aside,
+                            // as the scale bar does, so the callout reads whole. (6.7.0)
+                            .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
                     }
                     SeparateView { occasionalChips }
                 }
@@ -4447,7 +4450,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
 
             // The name and frequencies, then the pilot's note on the field (6.7.0).
-            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation)
+            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation, on: mapView)
 
             return annotationView
         }
@@ -4493,18 +4496,22 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
             // The note as it is now: one written since the marker was drawn shows. (6.7.0)
-            view.detailCalloutAccessoryView = calloutDetail(for: airport)
+            view.detailCalloutAccessoryView = calloutDetail(for: airport, on: mapView)
         }
 
         /// An aerodrome callout's detail: its name and frequencies, the pilot's note, the button to it. (6.7.0)
-        private func calloutDetail(for annotation: AirportAnnotation) -> UIView? {
+        private func calloutDetail(for annotation: AirportAnnotation, on mapView: MKMapView) -> UIView? {
             let open = parent.onOpenAerodromeNote
             let ref = AerodromeRef(annotation.airport)
             return AerodromeNoteCallout.detailView(
                 airport: annotation.airport, frequencyLines: annotation.frequencyLines,
                 note: AerodromeNoteStore.shared.note(for: ref), inFlight: parent.isInFlight,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action,
-                onOpen: open.map { open in { open(ref) } })
+                // The callout closes as the note opens, as for the chart: the next tap shows the note as saved.
+                onOpen: open.map { open in { [weak mapView] in
+                    mapView?.deselectAnnotation(annotation, animated: true)
+                    open(ref)
+                } })
         }
 
         func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
@@ -6123,7 +6130,7 @@ struct SwissMapView: UIViewRepresentable {
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
 
             // The name and frequencies, then the pilot's note on the field (6.7.0).
-            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation)
+            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation, on: mapView)
 
             return annotationView
         }
@@ -6180,18 +6187,22 @@ struct SwissMapView: UIViewRepresentable {
                 divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
             // The note as it is now: one written since the marker was drawn shows. (6.7.0)
-            view.detailCalloutAccessoryView = calloutDetail(for: airport)
+            view.detailCalloutAccessoryView = calloutDetail(for: airport, on: mapView)
         }
 
         /// An aerodrome callout's detail: its name and frequencies, the pilot's note, the button to it. (6.7.0)
-        private func calloutDetail(for annotation: AirportAnnotation) -> UIView? {
+        private func calloutDetail(for annotation: AirportAnnotation, on mapView: MKMapView) -> UIView? {
             let open = parent.onOpenAerodromeNote
             let ref = AerodromeRef(annotation.airport)
             return AerodromeNoteCallout.detailView(
                 airport: annotation.airport, frequencyLines: annotation.frequencyLines,
                 note: AerodromeNoteStore.shared.note(for: ref), inFlight: parent.isInFlight,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action,
-                onOpen: open.map { open in { open(ref) } })
+                // The callout closes as the note opens, as for the chart: the next tap shows the note as saved.
+                onOpen: open.map { open in { [weak mapView] in
+                    mapView?.deselectAnnotation(annotation, animated: true)
+                    open(ref)
+                } })
         }
 
         /// Add long-press gesture recognizer to waypoint annotation views

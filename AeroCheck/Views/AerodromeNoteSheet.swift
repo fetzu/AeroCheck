@@ -128,18 +128,8 @@ struct AerodromeNoteSheet: View {
                 .scrollContentBackground(.hidden)
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
-                .overlay(alignment: .topLeading) {
-                    if text.wrappedValue.isEmpty {
-                        Text(hint)
-                            .scaledFont(size: 17, relativeTo: .body)
-                            .foregroundColor(.secondaryText.opacity(0.7))
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 16)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
-                }
                 .accessibilityLabel(title)
+                .accessibilityHint(hint)
                 .accessibilityIdentifier(id)
         }
     }
@@ -192,7 +182,7 @@ struct AerodromeNoteSheet: View {
                     .foregroundColor(.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .accessibilityHidden(true)
+                    .accessibilityHidden(true)   // the field's hint reads it
             }
         }
     }

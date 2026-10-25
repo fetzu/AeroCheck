@@ -2513,13 +2513,16 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         /// The pilot's note on an aerodrome, under its callout's title. (6.7.0)
-        private func noteDetail(for annotation: AirportAnnotation) -> UIView? {
+        private func noteDetail(for annotation: AirportAnnotation, on mapView: MKMapView) -> UIView? {
             let open = parent.onOpenAerodromeNote
             let ref = AerodromeRef(annotation.airport)
             return AerodromeNoteCallout.detailView(
                 airport: annotation.airport, frequencyLines: nil, note: AerodromeNoteStore.shared.note(for: ref),
                 inFlight: false, metrics: .ground, tint: vfrLayer.palette.action,
-                onOpen: open.map { open in { open(ref) } })
+                onOpen: open.map { open in { [weak mapView] in
+                    mapView?.deselectAnnotation(annotation, animated: true)
+                    open(ref)
+                } })
         }
 
         /// A tap on a waypoint's pin selects it in the table too. (planning proposal D3)
@@ -2528,7 +2531,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
             if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             // The note as it is now: one written since the marker was drawn shows. (6.7.0)
             if let airport = annotation as? AirportAnnotation, let view = mapView.view(for: airport) {
-                view.detailCalloutAccessoryView = noteDetail(for: airport)
+                view.detailCalloutAccessoryView = noteDetail(for: airport, on: mapView)
             }
             guard let waypoint = annotation as? RouteWaypointAnnotation else { return }
             parent.onSelectWaypoint?(waypoint.index)
@@ -2578,7 +2581,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                         OfficialChartControl.accessory(link: $0, metrics: .ground, tint: vfrLayer.palette.action)
                     }
                 view.rightCalloutAccessoryView = addButton(annotation)
-                view.detailCalloutAccessoryView = noteDetail(for: airport)
+                view.detailCalloutAccessoryView = noteDetail(for: airport, on: mapView)
                 return view
             }
 

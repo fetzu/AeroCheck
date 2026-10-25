@@ -13,6 +13,9 @@ extension AerodromeRef: Identifiable {
 }
 
 enum AerodromeNoteCallout {
+    /// The detail's widest: a note's line wraps under it rather than widening the callout past the screen.
+    static let maxWidth: CGFloat = 280
+
     /// The callout's detail view, or nil when it would hold nothing.
     /// - Parameters:
     ///   - frequencyLines: the field's name and frequencies, as the nav map shows them; nil on maps without.
@@ -29,12 +32,13 @@ enum AerodromeNoteCallout {
             text.append(NSAttributedString(string: frequencyLines, attributes: [
                 .font: UIFont.aero(size: 12, monospaced: true), .foregroundColor: UIColor.secondaryLabel]))
             label.attributedText = text
+            // In a stack, a label gives up lines first: the frequencies kept every line only alone.
+            label.setContentCompressionResistancePriority(.required, for: .vertical)
             rows.append(label)
         }
         if let note, !note.isEmpty {
             let label = UILabel()
             label.numberOfLines = 2
-            label.preferredMaxLayoutWidth = 260
             let title = (note.hasArrival ? L10n.AerodromeNotes.yourNoteArrival : L10n.AerodromeNotes.yourNote).uppercased()
             let text = NSMutableAttributedString(string: title + "\n", attributes: [
                 .font: UIFont.aero(size: 10, weight: .bold, monospaced: true), .kern: 0.8,
@@ -43,6 +47,7 @@ enum AerodromeNoteCallout {
                 .font: UIFont.aero(size: 13), .foregroundColor: UIColor.label]))
             label.attributedText = text
             label.accessibilityIdentifier = "callout.note.text"
+            label.setContentCompressionResistancePriority(.required, for: .vertical)
             rows.append(label)
         }
         let hasNote = note.map { !$0.isEmpty } ?? false
@@ -62,6 +67,15 @@ enum AerodromeNoteCallout {
         stack.axis = .vertical
         stack.alignment = .leading
         stack.spacing = 6
+        // MapKit sizes a callout's detail from its constraints: without a width and a height of its own, the
+        // stack came out a line short, and the frequencies' last line went.
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        for case let label as UILabel in rows { label.preferredMaxLayoutWidth = Self.maxWidth }
+        let size = stack.systemLayoutSizeFitting(CGSize(width: Self.maxWidth, height: UIView.layoutFittingCompressedSize.height),
+                                                 withHorizontalFittingPriority: .fittingSizeLevel,
+                                                 verticalFittingPriority: .fittingSizeLevel)
+        stack.widthAnchor.constraint(equalToConstant: min(ceil(size.width), Self.maxWidth)).isActive = true
+        stack.heightAnchor.constraint(equalToConstant: ceil(size.height)).isActive = true
         return stack
     }
 }

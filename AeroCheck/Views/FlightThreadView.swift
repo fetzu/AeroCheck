@@ -364,6 +364,7 @@ struct FlightThreadView: View {
     @State private var addingStop = false
     /// The aerodrome whose note the route block or CLOSE opened. (6.7.0)
     @State private var noteAerodrome: AerodromeRef?
+    @ObservedObject private var noteStore = AerodromeNoteStore.shared
     /// Chapters and blocks shown open although done, waiting for the day or before the landing: a tap on their line
     /// opens them in place. (6.6.0)
     @State private var unfoldedChapters: Set<ThreadChapter> = []
@@ -1223,7 +1224,9 @@ struct FlightThreadView: View {
                     .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else if block.state != .pending && !open {
                 FlightFoldedLine(look: block.state == .done ? .done : .notApplicable, title: title,
-                                 detail: FlightPageWords.doneWords(block, wordsContext(for: thread)), action: unfold)
+                                 detail: [FlightPageWords.doneWords(block, wordsContext(for: thread)),
+                                          block.kind == .route ? noteCount(thread) : nil]
+                                    .compactMap { $0 }.joined(separator: " · "), action: unfold)
                     .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else {
                 blockCard(block, thread, foldable: true)
@@ -1329,6 +1332,7 @@ struct FlightThreadView: View {
         var words: [String] = []
         if block.isAuto, let detail = block.tasks.compactMap(\.detail).first(where: { !$0.isEmpty }) { words.append(detail) }
         if block.isShared { words.append(L10n.FlightPage.wholeTrip) }
+        if block.kind == .route, let notes = noteCount(thread) { words.append(notes) }
         if let since = block.recheckSince { words.append(L10n.Flights.recheckForThisLeg(shortTime(since))) }
         if let task = block.task, let warning = fuelWarning(for: task, in: thread) { words.append(warning) }
         return words.isEmpty ? nil : words.joined(separator: " · ")
@@ -1510,6 +1514,15 @@ struct FlightThreadView: View {
         .padding(.leading, 68)
         .padding(.trailing, 14)
         .padding(.bottom, 8)
+    }
+
+    /// "2 notes": the pilot's notes on the flight's aerodromes, on the route block's folded line, which hides the
+    /// lines with them. Nil without one, and in a dry run. (6.7.0)
+    private func noteCount(_ thread: FlightThread) -> String? {
+        guard dryRunSession == nil else { return nil }
+        let count = AerodromeRef.flightAerodromes(of: plan(for: thread), airports: airportDataService)
+            .filter { noteStore.note(for: $0) != nil }.count
+        return count > 0 ? L10n.AerodromeNotes.count(count) : nil
     }
 
     /// The aerodrome the flight landed at, as the data knows it: the planned one, or where it landed instead.

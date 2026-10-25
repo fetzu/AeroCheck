@@ -491,15 +491,15 @@ final class OfficialChartTests: XCTestCase {
         let state = SharedMapState()
         var diverts: [String] = []
         var charts: [URL] = []
-        let native = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true), activeFlightPlan: plan,
+        let native = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                        isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
                                         onAirportDivert: { diverts.append($0) },
                                         onOpenOfficialChart: { charts.append($0) }, isInFlight: true).makeCoordinator()
         let swiss = SwissMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
                                  onAirportDivert: { diverts.append($0) },
                                  onOpenOfficialChart: { charts.append($0) }, isInFlight: true).makeCoordinator()
-        let maps: [(String, MKMapViewDelegate)] = [("NativeMapViewUIKit", native), ("SwissMapView", swiss)]
+        let maps: [(String, MKMapViewDelegate)] = [("SwissMapView on Apple's map", native), ("SwissMapView", swiss)]
         for (name, coordinator) in maps {
             diverts = []
             charts = []
@@ -530,8 +530,8 @@ final class OfficialChartTests: XCTestCase {
     func testTheAirportCalloutOnTheGround() throws {
         let state = SharedMapState()
         var charts: [URL] = []
-        let ground = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true),
+        let ground = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                        isFollowingAircraft: .constant(true), forceICAOLayer: false,
                                         onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
         let map = MKMapView()
         let view = try XCTUnwrap(ground.mapView(map, viewFor: AirportAnnotation(airport: airport("EDNY", country: "DE"))))
@@ -545,8 +545,8 @@ final class OfficialChartTests: XCTestCase {
         let italian = try XCTUnwrap(ground.mapView(map, viewFor: AirportAnnotation(airport: airport("LIMJ", .mediumAirport, country: "IT"))))
         XCTAssertNil(italian.leftCalloutAccessoryView)
 
-        let noOpener = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                          isFollowingAircraft: .constant(true)).makeCoordinator()
+        let noOpener = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                          isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         XCTAssertNil(try XCTUnwrap(noOpener.mapView(map, viewFor: AirportAnnotation(airport: airport("LSZQ")))).leftCalloutAccessoryView)
     }
 
@@ -610,8 +610,8 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertFalse(MapCallout.isOpen(selected: [], view: { _ in withCallout }))
 
         let makers: [(String, (SharedMapState) -> MKMapViewDelegate)] = [
-            ("NativeMapViewUIKit", { NativeMapViewUIKit(selectedLayer: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
-                                                        isFollowingAircraft: .constant(true)).makeCoordinator() }),
+            ("SwissMapView on Apple's map", { SwissMapView(layerType: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
+                                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
             ("SwissMapView", { SwissMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
                                             isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
         ]

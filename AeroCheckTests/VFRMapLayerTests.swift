@@ -303,14 +303,14 @@ final class VFRMapLayerTests: XCTestCase {
         let fixed = VFRMapLayer.overlays(for: arrival) + VFRMapLayer.overlays(for: item(try procedure(named: "TC")))
         let scaled = VFRMapLayer.scaledOverlays(for: arrival, zoom: tenMetersAPoint)
         let state = SharedMapState()
-        let native = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true)).makeCoordinator()
+        let native = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         let swiss = SwissMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         let builder = RouteBuilderMapView(waypoints: [], mapLayer: .icao, airports: [], fitRouteToken: 0,
                                           region: .constant(region(spanNM: 10))).makeCoordinator()
         let renderers: [(String, (MKOverlay) -> MKOverlayRenderer)] = [
-            ("NativeMapViewUIKit", { native.mapView(map, rendererFor: $0) }),
+            ("SwissMapView on Apple's map", { native.mapView(map, rendererFor: $0) }),
             ("SwissMapView", { swiss.mapView(map, rendererFor: $0) }),
             ("RouteBuilderMapView", { builder.mapView(map, rendererFor: $0) }),
         ]
@@ -350,7 +350,7 @@ final class VFRMapLayerTests: XCTestCase {
         // circuit's altitude draws its bitmap turned inside an upright view (`VFRAltitudeLabelView`).
         let label = VFRProcedureAnnotation(item: item(try procedure(named: "TC")))
         let views: [(String, MKAnnotationView?)] = [
-            ("NativeMapViewUIKit", native.mapView(map, viewFor: label)),
+            ("SwissMapView on Apple's map", native.mapView(map, viewFor: label)),
             ("SwissMapView", swiss.mapView(map, viewFor: label)),
             ("RouteBuilderMapView", builder.mapView(map, viewFor: label)),
         ]
@@ -435,14 +435,14 @@ final class VFRMapLayerTests: XCTestCase {
         let content = VFRMapContent.make(candidates: try procedures(), region: region(spanNM: 10),
                                          selection: everything, palette: .day)
         let state = SharedMapState()
-        let native = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true)).makeCoordinator()
+        let native = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         let swiss = SwissMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         let builder = RouteBuilderMapView(waypoints: [], mapLayer: .icao, airports: [], fitRouteToken: 0,
                                           region: .constant(region(spanNM: 10))).makeCoordinator()
         let maps: [(String, MKMapViewDelegate, VFRMapLayer.State)] = [
-            ("NativeMapViewUIKit", native, native.vfrLayer),
+            ("SwissMapView on Apple's map", native, native.vfrLayer),
             ("SwissMapView", swiss, swiss.vfrLayer),
             ("RouteBuilderMapView", builder, builder.vfrLayer),
         ]

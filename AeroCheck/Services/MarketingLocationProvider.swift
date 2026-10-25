@@ -201,9 +201,10 @@ enum MarketingSceneInjector {
             appState.settings.showOpenAIPOverlay = false
             appState.settings.showReportingPointsOnMap = false
             appState.settings.showObstaclesOnMap = false
-            // Every cruise item checked: the pane rule then shows the map.
-            let count = appState.activeChecklist.visibleItemCount(for: .cruise, learningMode: appState.settings.learningMode)
-            appState.currentHighlightedItem[.cruise] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
+            // Every cruise item checked: the pane rule then shows the map. Checked as the pilot's last tap does,
+            // so FREDA counts from now and the check slot shows it at once, not after a later evaluation.
+            // (screenshot run, 6.6.0)
+            appState.markLastItemComplete(learningMode: appState.settings.learningMode)
         case .planConflicts:
             injectPlanConflicts(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
         case .flightLogDetail:

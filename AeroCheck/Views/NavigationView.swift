@@ -2556,6 +2556,17 @@ struct NavigationMapView: View {
         if let c = locationManager.currentLocation?.coordinate { lastKnownCoordinate = c }
         let gs = max(0, locationManager.currentSpeedKnots)
         let alpha = 0.15
+        #if DEBUG
+        // A screenshot scene holds one fix: the vector is its course and speed at once, not a mean that leaves the
+        // simulator's own fix behind over minutes and points elsewhere in each shot. (screenshot run, 6.6.0)
+        if MarketingLocationProvider.shared.isActive, let course = locationManager.currentCourseDegrees {
+            smoothedGroundSpeed = gs
+            smoothedTrackSin = sin(course * .pi / 180)
+            smoothedTrackCos = cos(course * .pi / 180)
+            hasTrackVectorEMA = true
+            return
+        }
+        #endif
         if !hasTrackVectorEMA {
             smoothedGroundSpeed = gs
             if let course = locationManager.currentCourseDegrees {

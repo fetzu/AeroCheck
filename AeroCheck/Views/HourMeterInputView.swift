@@ -235,9 +235,10 @@ struct HourMeterInputView: View {
                         .cornerRadius(10)
                 }
 
-                // Save (gold = primary action, matching the cockpit language)
+                // Done (gold = primary action, matching the cockpit language): every confirm says Done (the author's A,
+                // 25 Oct 2026; "Save" until 6.6.0)
                 Button(action: saveValue) {
-                    Text(L10n.HourMeter.save)
+                    Text(L10n.Button.done)
                         .font(.aero(.headline))
                         .foregroundColor(inputValue.isEmpty ? .secondaryText : .black)
                         .frame(maxWidth: .infinity)

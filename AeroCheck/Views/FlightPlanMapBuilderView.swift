@@ -196,7 +196,7 @@ struct FlightPlanMapBuilderView: View {
             // route summary, so the right column drops its summary row and starts at the toggle. (#4)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .principal) {
                     if waypoints.count >= 1 { toolbarSummary }

@@ -1407,7 +1407,7 @@ struct StopoverRow: View {
 
     /// "On the ground at LSGE: 30 min · refuel"
     private var readOnly: String {
-        var text = label + ": " + L10n.PlanFlight.groundMinutes(stopover.groundMinutes)
+        var text = L10n.Format.labelled(label, L10n.PlanFlight.groundMinutes(stopover.groundMinutes))
         if stopover.refuel { text += " · " + L10n.PlanFlight.refuel.lowercased() }
         return text
     }

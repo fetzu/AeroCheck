@@ -49,7 +49,7 @@ struct WeightBalanceView: View {
             .navigationTitle("\(L10n.WeightBalance.title) · \(registration)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.close) { persist(); close() }
                 }
             }
@@ -325,8 +325,8 @@ private struct WeightBalanceSetupSheet: View {
             .navigationTitle(L10n.WeightBalance.setup)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button(L10n.Button.cancel) { onCancel() } }
-                ToolbarItem(placement: .topBarTrailing) { Button(L10n.Button.done) { onSave(profile) } }
+                ToolbarItem(placement: .cancellationAction) { Button(L10n.Button.cancel) { onCancel() } }
+                ToolbarItem(placement: .confirmationAction) { Button(L10n.Button.done) { onSave(profile) } }
             }
         }
     }

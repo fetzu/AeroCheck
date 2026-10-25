@@ -728,16 +728,19 @@ struct CompanionNavLogSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            // Close on the left, as every sheet with nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026), the title centred.
+            ZStack {
                 Text(L10n.Nav.navLog)
                     .font(.aero(size: CockpitType.row, weight: .bold))
                     .foregroundColor(theme.textPrimary)
-                Spacer()
-                Button(L10n.Button.close) { onClose() }
-                    .font(.aero(size: CockpitType.label, weight: .semibold))
-                    .foregroundColor(theme.action)
-                    .frame(minWidth: CockpitTarget.control, minHeight: CockpitTarget.control)
-                    .accessibilityIdentifier("companionNavLog.close")
+                HStack {
+                    Button(L10n.Button.close) { onClose() }
+                        .font(.aero(size: CockpitType.label, weight: .semibold))
+                        .foregroundColor(theme.action)
+                        .frame(minWidth: CockpitTarget.control, minHeight: CockpitTarget.control)
+                        .accessibilityIdentifier("companionNavLog.close")
+                    Spacer()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)

@@ -670,8 +670,10 @@ final class OfficialChartTests: XCTestCase {
     func testTheVFRCalloutOffersTheChartFirst() throws {
         let lszq = try circuitAtLSZQ()
         var opened: [URL] = []
+        // The iPad's callout, whichever device runs the test: `.flight` is the device's own, and on an iPhone it
+        // is the phone's, side by side with short words (its own test, below). It failed on the iPhone since 6.4.3.
         let view = VFRProcedureCallout.detailView(for: lszq, at: lszq.labelAnchor.coordinate,
-                                                  metrics: .flight, openChart: { opened.append($0) })
+                                                  metrics: .flight(.kneeboard), openChart: { opened.append($0) })
         let buttons = allSubviews(of: view).compactMap { $0 as? UIButton }
         XCTAssertEqual(buttons.compactMap { $0.configuration?.title }, [L10n.OfficialChart.title, L10n.VFRMap.reportError])
         let chart = try XCTUnwrap(buttons.first as? OfficialChartControl)
@@ -688,7 +690,7 @@ final class OfficialChartTests: XCTestCase {
         view.layoutIfNeeded()
         XCTAssertLessThanOrEqual(size.width, 300)
         for button in buttons {
-            XCTAssertGreaterThanOrEqual(button.frame.height, CockpitTarget.control - 0.5, "in flight, the Cockpit's size")
+            XCTAssertGreaterThanOrEqual(button.frame.height, CockpitTarget.control(.kneeboard) - 0.5, "in flight, the Cockpit's size")
         }
 
         // MapKit ends the bubble at the detail view's last baseline: the view's bottom, never the last

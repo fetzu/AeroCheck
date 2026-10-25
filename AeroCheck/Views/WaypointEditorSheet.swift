@@ -294,7 +294,7 @@ struct WaypointEditorSheet: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Nav.save) {
+                    Button(L10n.Button.done) {
                         saveWaypoint()
                     }
                     .disabled(latitudeString.isEmpty || longitudeString.isEmpty)

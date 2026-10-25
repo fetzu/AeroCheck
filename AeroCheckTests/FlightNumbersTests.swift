@@ -123,6 +123,18 @@ final class FlightNumbersTests: XCTestCase {
         XCTAssertEqual(hop.titleWithName, "LSZQ → LSGY")
     }
 
+    /// The Logbook's delete question names the flight it would delete, with its day: two flights of one route are
+    /// told apart. (the author's device check, 25 Oct 2026)
+    func testTheDeleteQuestionNamesTheFlightAndItsDay() {
+        var hop = flight()
+        hop.name = "Vol Solo #2.2"
+        let start = Date(timeIntervalSince1970: 1_792_836_000)   // 24 Oct 2026, 10:00 UTC
+        hop.startTime = start
+        XCTAssertEqual(hop.deletionLine, "LSZQ → LSGY · " + start.formatted(date: .abbreviated, time: .omitted))
+        hop.startTime = nil
+        XCTAssertEqual(hop.deletionLine, "LSZQ → LSGY")
+    }
+
     func testAFlightBackWhereItStartedIsTitledByThatAerodromeAlone() {
         // 28 Sept 2026: LSZQ → LSZQ, 81 NM, no touch-and-go. It read "LSZQ → LSZQ".
         var round = flight()

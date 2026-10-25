@@ -361,20 +361,21 @@ struct CloseOutLabel: View {
     }
 }
 
-/// A block of the iPhone's checklist, opened (C, the author's q2): the block as the iPad draws it, under a Done that
-/// closes the sheet. At the large size, so a block reads without a second scroll in most cases.
+/// A block of the iPhone's checklist, opened (C, the author's q2): the block as the iPad draws it, under a Close. The
+/// block's tick is the block's own, so the sheet has nothing to confirm: Close on the left, as every sheet with nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026). At the large size, so a block reads
+/// without a second scroll in most cases.
 struct FlightBlockSheet<Content: View>: View {
-    let onDone: () -> Void
+    let onClose: () -> Void
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Spacer()
-                Button(L10n.Button.done, action: onDone)
+                Button(L10n.Button.close, action: onClose)
                     .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .foregroundColor(.aviationGold)
                     .frame(minWidth: 44, minHeight: 44)
+                Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.top, 6)

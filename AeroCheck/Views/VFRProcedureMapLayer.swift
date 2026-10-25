@@ -676,8 +676,11 @@ struct VFROrientedRect: Equatable, Sendable {
 /// `VFRMapLayer.correctPillSelection` hand the selection to the pill the finger was on.
 final class VFRAltitudeLabelView: MKAnnotationView {
     static let reuseIdentifier = "VFRAltitudeLabel"
-    /// Round the turned pill: a horizontal one's box is 46 pt tall, a touch target.
+    /// Round the turned pill.
     static let margin: CGFloat = 8
+    /// The pill and its margin are at least this each way, a touch target: the iPhone's pill is 27 pt tall, 43 with
+    /// its margin, a point short (the test that measures it failed on the iPhone since 6.4.3). (6.6.0)
+    static let minimumTarget: CGFloat = 44
 
     /// The pill a finger last went down on, and when.
     private(set) static weak var lastTouched: VFRAltitudeLabelView?
@@ -705,8 +708,10 @@ final class VFRAltitudeLabelView: MKAnnotationView {
         pillView.image = pill
         pillView.bounds = CGRect(origin: .zero, size: pill.size)
         pillView.transform = CGAffineTransform(rotationAngle: angle)
-        let box = pillView.frame.size
-        bounds = CGRect(x: 0, y: 0, width: ceil(box.width) + 2 * Self.margin, height: ceil(box.height) + 2 * Self.margin)
+        // The box of the turned tap area: a horizontal pill's is the tap area itself, at least 44 pt tall.
+        let tap = Self.tapSize(pill.size)
+        let (c, s) = (abs(cos(angle)), abs(sin(angle)))
+        bounds = CGRect(x: 0, y: 0, width: ceil(tap.width * c + tap.height * s), height: ceil(tap.width * s + tap.height * c))
         pillView.center = CGPoint(x: bounds.midX, y: bounds.midY)
         centerOffset = offset
         self.angle = angle
@@ -720,6 +725,11 @@ final class VFRAltitudeLabelView: MKAnnotationView {
     /// The pill's size, unturned.
     var pillSize: CGSize { pillView.bounds.size }
 
+    /// The area that takes a tap, unturned: the pill and the margin round it, at least `minimumTarget` each way.
+    static func tapSize(_ pill: CGSize) -> CGSize {
+        CGSize(width: max(pill.width + 2 * margin, minimumTarget), height: max(pill.height + 2 * margin, minimumTarget))
+    }
+
     /// Only the pill (and the margin round it) takes a tap: the corners of a turned pill's box are the
     /// chart, or the next pill.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
@@ -727,7 +737,8 @@ final class VFRAltitudeLabelView: MKAnnotationView {
         let dx = point.x - bounds.midX, dy = point.y - bounds.midY
         let (c, s) = (cos(angle), sin(angle))
         let along = dx * c + dy * s, across = -dx * s + dy * c
-        return abs(along) <= pillSize.width / 2 + Self.margin && abs(across) <= pillSize.height / 2 + Self.margin
+        let tap = Self.tapSize(pillSize)
+        return abs(along) <= tap.width / 2 && abs(across) <= tap.height / 2
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

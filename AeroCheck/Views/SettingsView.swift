@@ -127,7 +127,7 @@ struct SettingsView: View {
                                 .navigationBarTitleDisplayMode(.inline)
                                 .toolbar {
                                     ToolbarItem(placement: .cancellationAction) {
-                                        Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+                                        Button(L10n.Button.close) { if let onClose { onClose() } else { dismiss() } }
                                     }
                                 }
                         } else {
@@ -197,7 +197,7 @@ struct SettingsView: View {
             // Top-left, matching the app convention (Flight Log, flight-plan list). (v4 UI/UX Revamp)
             if !isEmbedded {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+                    Button(L10n.Button.close) { if let onClose { onClose() } else { dismiss() } }
                 }
             }
         }
@@ -271,12 +271,7 @@ struct AirspaceStreamingWarningSheet: View {
                             )
                     }
                     .padding(.horizontal, 24)
-
-                    Button(action: { isPresented = false }) {
-                        Text(L10n.Warning.cancel)
-                            .scaledFont(size: 17, weight: .medium, relativeTo: .body)
-                            .foregroundColor(.secondaryText)
-                    }
+                    // One Cancel, the toolbar's, on the left: a second one here until 6.6.0
                 }
                 .padding(.bottom, 40)
             }
@@ -487,13 +482,8 @@ struct OfflineMapDownloadSheet: View {
                         }
                         .padding(.horizontal, 24)
 
-                        if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
-                            Button(action: { dismiss() }) {
-                                Text("Done")
-                                    .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
-                                    .foregroundColor(.secondaryText)
-                            }
-                        }
+                        // No "Done" under the download any more: the page has nothing to confirm, and its back button
+                        // leaves it (the author's A, 25 Oct 2026). (6.6.0)
                     }
                 }
                 .padding(.bottom, 24)

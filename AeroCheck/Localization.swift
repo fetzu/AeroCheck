@@ -37,6 +37,15 @@ enum L10n {
         static let tagline = String(localized: "app.tagline")
     }
 
+    // MARK: - A label and its value (6.6.0)
+    /// "Until 22 UTC: wind 240° 8 kt", "After landing: the logbook line". The colon is the language's: French puts a
+    /// space before it ("22 UTC : vent…"), which a ": " joined in code dropped.
+    enum Format {
+        static func labelled(_ label: String, _ value: String) -> String {
+            String(format: String(localized: "format.labelled"), label, value)
+        }
+    }
+
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like other newly-introduced UI strings.
@@ -516,6 +525,9 @@ enum L10n {
         /// The pencil at the top of the flight's page, and its menu's line under "Flight details". (6.6.0, v66-5)
         static let editMenu = String(localized: "thread.editMenu")
         static let editDetailsHint = String(localized: "thread.editDetailsHint")
+        /// The same on a trip's leg: "Edit this leg", "Leg details". (6.6.0)
+        static let editLegMenu = String(localized: "thread.editLegMenu")
+        static let legDetails = String(localized: "thread.legDetails")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.
@@ -1130,7 +1142,6 @@ enum L10n {
     // MARK: - Settings
     enum Settings {
         static let title = String(localized: "settings.title")
-        static let done = String(localized: "settings.done")
 
         // Subscription
         static let subscription = String(localized: "settings.subscription")
@@ -1587,7 +1598,6 @@ enum L10n {
     enum Warning {
         static let experimentalFeature = String(localized: "warning.experimentalFeature")
         static let iUnderstandEnable = String(localized: "warning.iUnderstandEnable")
-        static let cancel = String(localized: "warning.cancel")
 
         // Flight Planning
 
@@ -1793,7 +1803,6 @@ enum L10n {
 
         // Delete
         static let deleteTitle = String(localized: "flightDetail.delete.title")
-        static let deleteMessage = String(localized: "flightDetail.delete.message")
 
         // Sections
         static let flightTrack = String(localized: "flightDetail.flightTrack")
@@ -2023,7 +2032,6 @@ enum L10n {
         static let formatHint = String(localized: "hourMeter.formatHint")
         static let clear = String(localized: "hourMeter.clear")
         static let skip = String(localized: "hourMeter.skip")
-        static let save = String(localized: "hourMeter.save")
         static let invalidFormatTitle = String(localized: "hourMeter.invalidFormat.title")
         static let invalidFormatMessage = String(localized: "hourMeter.invalidFormat.message")
         static let endBeforeStartTitle = String(localized: "hourMeter.endBeforeStart.title")
@@ -2312,6 +2320,9 @@ enum L10n {
     enum FlightNames {
         static let renameFlight = String(localized: "flightNames.renameFlight")
         static let renameTrip = String(localized: "flightNames.renameTrip")
+        /// A trip's leg, named in its page's menu. (6.6.0)
+        static let renameLeg = String(localized: "flightNames.renameLeg")
+        static let renameLegMessage = String(localized: "flightNames.renameLegMessage")
         static let renameFlightMessage = String(localized: "flightNames.renameFlightMessage")
         static let renameTripMessage = String(localized: "flightNames.renameTripMessage")
     }
@@ -3406,7 +3417,6 @@ enum L10n {
         static let aircraft = String(localized: "nav.aircraft")
         static let allAircraft = String(localized: "nav.allAircraft")
         static let filterByAircraft = String(localized: "nav.filterByAircraft")
-        static let save = String(localized: "nav.save")
         static let flightPlan = String(localized: "nav.flightPlan")
         static let navigationFlightPlan = String(localized: "nav.navigationFlightPlan")
         static let flightType = String(localized: "nav.flightType")

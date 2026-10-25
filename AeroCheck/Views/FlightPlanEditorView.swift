@@ -130,7 +130,7 @@ struct FlightPlanEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .principal) { titleButton }
                 ToolbarItem(placement: .primaryAction) { exportMenu }
@@ -1178,24 +1178,25 @@ struct DateFormField: View {
     }
 }
 
-/// Shared header for the compact date/time picker sheets: title + spacer + Done button.
+/// Shared header for the compact date/time picker sheets: Close, the title centred. The picker sets the time as it
+/// turns, so there is nothing to confirm: Close on the left, as every sheet with nothing to confirm (Apple's sheets guidance; the author's A, 25 Oct 2026).
 private struct SheetHeader: View {
     let title: String
     @Binding var isPresented: Bool
 
     var body: some View {
-        HStack {
+        ZStack {
             Text(title)
                 .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                 .foregroundColor(.primaryText)
-
-            Spacer()
-
-            Button(L10n.Button.done) {
-                isPresented = false
+            HStack {
+                Button(L10n.Button.close) {
+                    isPresented = false
+                }
+                .scaledFont(size: 16, weight: .medium, relativeTo: .body)
+                .foregroundColor(.aviationGold)
+                Spacer()
             }
-            .scaledFont(size: 16, weight: .medium, relativeTo: .body)
-            .foregroundColor(.aviationGold)
         }
         .padding(.horizontal)
         .padding(.top, 16)

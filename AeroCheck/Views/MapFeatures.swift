@@ -32,12 +32,16 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let noteCallout = MapFeatures(rawValue: 1 << 13)
     /// A tap or a long press on a waypoint records its time over, in flight.
     static let recordATO = MapFeatures(rawValue: 1 << 14)
+    /// MapKit's own location dot, compass and scale, for a surface without the app's map chrome.
+    static let mapKitControls = MapFeatures(rawValue: 1 << 15)
 
     static let markers: MapFeatures = [.airports, .navaids, .obstacles, .reportingPoints]
 
     /// Plan › Map, the Cockpit's MAP and the dry run: everything.
     static let navigation: MapFeatures = [.markers, .airspace, .openAIPTiles, .procedures, .route, .aircraft, .track,
                                           .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
-    /// The coordinate picker: the chart only, under its crosshair.
+    /// The chart alone.
     static let chartOnly: MapFeatures = []
+    /// The coordinate picker: the chart under its crosshair, with MapKit's dot, compass and scale.
+    static let picker: MapFeatures = [.mapKitControls]
 }

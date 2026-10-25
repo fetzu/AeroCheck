@@ -4283,6 +4283,11 @@ struct AeroMapView: UIViewRepresentable {
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
         mapView.mapType = ChartPolicy.mapType(for: layerType)
+        if features.contains(.mapKitControls) {
+            mapView.showsUserLocation = true
+            mapView.showsCompass = true
+            mapView.showsScale = true
+        }
 
         // Set zoom range based on layer type
         let zoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)

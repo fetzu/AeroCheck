@@ -41,6 +41,8 @@ final class PilotTileRenderer {
     private let poolSize = 3
     private var waiting: [CheckedContinuation<MLNMapSnapshotter, Never>] = []
     private var timings: [(tile: String, ms: Double)] = []
+    /// When each render finished and how long it took, for the trial's flight (`PilotTileTrialView`).
+    var completions: [(at: CFTimeInterval, ms: Double)] = []
     private let style = MapTrial.styleURL(labels: false)
 
     enum Failure: Error { case noData, noImage }
@@ -61,7 +63,9 @@ final class PilotTileRenderer {
                 if let image = snapshot?.image { done.resume(returning: image) } else { done.resume(throwing: error ?? Failure.noImage) }
             }
         }
-        record("\(tile)", (CACurrentMediaTime() - started) * 1000)
+        let ms = (CACurrentMediaTime() - started) * 1000
+        record("\(tile)", ms)
+        completions.append((CACurrentMediaTime(), ms))
         guard let png = image.pngData() else { throw Failure.noImage }
         return png
     }

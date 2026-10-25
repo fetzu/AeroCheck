@@ -138,6 +138,9 @@ final class DryRunWorldTests: XCTestCase {
             "Models/FlightPlanManager.swift": [
                 "DataPersistenceManager.shared": (1, "the default; the world passes its own"),
             ],
+            "Models/AerodromeNoteStore.swift": [
+                "DataPersistenceManager.shared": (1, "the default; the pilot's own notes, which a dry run neither shows nor writes"),
+            ],
             "Models/FlightThreadManager.swift": [
                 "DataPersistenceManager.shared": (1, "the default; the world passes its own"),
                 "NotificationService.shared": (1, "the default; the world's manager is given `.inert()`, which schedules nothing"),

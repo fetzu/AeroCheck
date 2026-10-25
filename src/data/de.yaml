@@ -66,7 +66,7 @@ flagship:
       anchor: "prepare"
       where: true
       title: "Alles, was Sie sonst im Kopf behalten müssten"
-      description: "Wetter, NOTAM, der ATC-Flugplan und die Grenzregeln werden zu Aufgaben, die Sie abhaken, jede mit ihrem Link. Erst wenn alle erledigt sind, meldet der Ring: bereit."
+      description: "Wetter, NOTAM, der ATC-Flugplan und die Grenze werden zu Blöcken, die Sie abhaken, jeder mit seinem Link. Eine Zeile unter dem Namen des Flugs sagt, was noch offen ist und bis wann."
       facts: ["Eine Erinnerung am Vortag", "Grenzregeln für sechs Länder", "Ein Nav-Log in A5 fürs Kniebrett"]
       shot: "prepare"
     - step: "03 · Fliegen"
@@ -119,7 +119,7 @@ faq:
     - q: "Ist mein Flugzeug dabei?"
       a: "Heute {total} Flugzeuge, die meisten aus den Flotten von Schweizer Clubs; die Seite Flugzeuge listet sie auf. Fehlt Ihres, senden Sie seine Checkliste aus der App oder über aerocheck.app/de/send: Neue Flugzeuge kommen regelmässig dazu."
     - q: "Funktioniert die App ausserhalb der Schweiz?"
-      a: "Ja. Die Lufträume der Länder, in denen Sie fliegen, Platzrunden und VFR-Routen in {ofmCountries} Ländern, Links zu den offiziellen Karten in {chartCountries}. Die Schweizer Karten, DABS und GAFOR kommen für die Schweiz dazu."
+      a: "Ja. Die Lufträume der Länder, in denen Sie fliegen, Platzrunden und VFR-Routen in {ofmCountries} Ländern, Links zu den offiziellen Karten in {chartCountries}. Die Schweizer Karten, DABS und GAFOR kommen für die Schweiz dazu. Land für Land sagt aerocheck.app/de/countries, was wo funktioniert."
     - q: "Funktioniert die App ohne Verbindung?"
       a: "Ja. Karten, Lufträume und Flugplätze werden auf dem Gerät gespeichert: Laden Sie sie vor dem Flug herunter."
     - q: "Was bringt das iPhone dazu?"

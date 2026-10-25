@@ -66,7 +66,7 @@ flagship:
       anchor: "prepare"
       where: true
       title: "Everything you would otherwise keep in your head"
-      description: "Weather, NOTAMs, the ATC flight plan and the border rules become tasks you tick, each with its link. The ring only says ready when they are all done."
+      description: "Weather, NOTAMs, the ATC flight plan and the border become blocks you tick, each with its link. A line under the flight's name says what is left, and by when."
       facts: ["A reminder the day before", "Border rules for six countries", "An A5 nav log for the kneeboard"]
       shot: "prepare"
     - step: "03 · Fly"
@@ -119,7 +119,7 @@ faq:
     - q: "Is my aircraft in it?"
       a: "{total} aircraft today, most from Swiss club fleets; the Aircraft page lists them. If yours isn't there, send its checklist from the app or from aerocheck.app/send: new aircraft are added regularly."
     - q: "Does it work outside Switzerland?"
-      a: "Yes. The airspace of the countries you fly, traffic circuits and VFR routes in {ofmCountries} countries, official chart links in {chartCountries}. The Swiss charts, DABS and GAFOR are extras for Switzerland."
+      a: "Yes. The airspace of the countries you fly, traffic circuits and VFR routes in {ofmCountries} countries, official chart links in {chartCountries}. The Swiss charts, DABS and GAFOR are extras for Switzerland. Country by country, aerocheck.app/countries says what works where."
     - q: "Does it work without a connection?"
       a: "Yes. Maps, airspace and aerodromes are kept on the device: download them before you fly."
     - q: "What does the iPhone add?"

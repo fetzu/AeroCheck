@@ -4,8 +4,11 @@ import type { Qa } from '../lib/site';
 interface Props { heading: string; items: Qa[]; privacyHref: string; }
 const { heading, items, privacyHref } = Astro.props;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-// The answer that names the privacy policy links it.
-const answer = (t: string) => esc(t).replace(/privacy policy|Datenschutzerklärung|politique de confidentialité/, (m) => `<a href="${privacyHref}">${m}</a>`);
+// The answer that names the privacy policy links it, and an address on this site written in an answer
+// (aerocheck.app/send, aerocheck.app/fr/countries) is a link to that page, its text as written.
+const answer = (t: string) => esc(t)
+  .replace(/privacy policy|Datenschutzerklärung|politique de confidentialité/, (m) => `<a href="${privacyHref}">${m}</a>`)
+  .replace(/aerocheck\.app(\/[a-z]+)+/g, (m) => `<a href="${m.slice('aerocheck.app'.length)}">${m}</a>`);
 ---
 <section id="faq" class="faq reveal">
   <div class="container">

@@ -278,7 +278,9 @@ countries:
     wind: "Vent au sol"
     close: "Clôture du plan de vol"
     fees: "Taxes d'atterrissage"
-  short: { weather: "MÉTÉO", notam: "NOTAM", airspace: "ESP", forecast: "PRÉV", filing: "DÉPÔT", border: "FRONT", openaip: "OAIP", circuits: "TDP", routes: "ROUTES", charts: "CARTES", swisstopo: "SWISS", wind: "VENT", close: "CLÔT", fees: "TAXES" }
+  table_groups: { briefing: "Briefing", flightplan: "Plan de vol ATC", map: "Sur la carte" }
+  table_heads: { weather: "Météo", notam: "NOTAM", airspace: "Activité des espaces aériens", forecast: "Prévision de zone", filing: "Dépôt", close: "Clôture", border: "Passage de frontière", openaip: "Espaces aériens et fréquences", circuits: "Tours de piste", routes: "Routes VFR", charts: "Cartes officielles", fees: "Taxes d'atterrissage" }
+  table_hints: { weather: "Un lien vers les pages météo officielles du pays", notam: "Un lien vers la page NOTAM du pays", airspace: "Un lien vers la page d'activité des espaces aériens du pays", forecast: "Un lien vers la prévision de zone du pays", filing: "Où déposer le plan de vol ATC, et avant quand", close: "Comment le clôturer après l'atterrissage : la règle et les numéros", border: "Aérodrome douanier et préavis, vers et depuis la Suisse", openaip: "Espaces aériens, aérodromes et fréquences, d'OpenAIP", circuits: "Les tours de piste sur la carte, avec leur altitude", routes: "Les routes VFR d'arrivée et de départ sur la carte, avec leurs secteurs", charts: "Un lien vers la carte officielle de chaque aérodrome", fees: "Un lien vers le tarif de l'exploitant, par aérodrome" }
   access: { account: "compte gratuit", paid: "payant", restricted: "utilisateurs autorisés", signin: "connexion" }
   text:
     general: "{publishers}, la page générale"

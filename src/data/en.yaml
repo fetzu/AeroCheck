@@ -279,7 +279,9 @@ countries:
     wind: "Surface wind"
     close: "Closing the flight plan"
     fees: "Landing fees"
-  short: { weather: "WX", notam: "NOTAM", airspace: "ASP", forecast: "FCST", filing: "FILE", border: "BORDER", openaip: "OAIP", circuits: "CIRC", routes: "ROUTES", charts: "CHARTS", swisstopo: "SWISS", wind: "WIND", close: "CLOSE", fees: "FEES" }
+  table_groups: { briefing: "Briefing", flightplan: "Flight plan", map: "On the map" }
+  table_heads: { weather: "Weather", notam: "NOTAMs", airspace: "Airspace activity", forecast: "Area forecast", filing: "Filing", close: "Closing", border: "Border rules", openaip: "Airspace & frequencies", circuits: "Traffic circuits", routes: "VFR routes", charts: "Official charts", fees: "Landing fees" }
+  table_hints: { weather: "A link to the country's official weather pages", notam: "A link to the country's NOTAM page", airspace: "A link to the country's airspace activity page", forecast: "A link to the country's area forecast", filing: "Where to file the ATC flight plan, and by when", close: "How to close it after landing: the rule and the numbers", border: "Customs aerodrome and notice, to and from Switzerland", openaip: "Airspace, aerodromes and frequencies, from OpenAIP", circuits: "Traffic circuits on the map, with their altitude", routes: "VFR arrival and departure routes on the map, with their sectors", charts: "A link to each aerodrome's official chart", fees: "A link to the operator's tariff, per aerodrome" }
   access: { account: "free account", paid: "paid", restricted: "authorised users", signin: "sign-in" }
   text:
     general: "{publishers}, the general page"

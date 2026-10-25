@@ -279,7 +279,9 @@ countries:
     wind: "Bodenwind"
     close: "ATC-Flugplan schliessen"
     fees: "Landetaxen"
-  short: { weather: "WETTER", notam: "NOTAM", airspace: "LUFTR", forecast: "VORH", filing: "AUFG", border: "GRENZE", openaip: "OAIP", circuits: "PLATZR", routes: "ROUTEN", charts: "KARTEN", swisstopo: "SWISS", wind: "WIND", close: "SCHL", fees: "TAXEN" }
+  table_groups: { briefing: "Briefing", flightplan: "ATC-Flugplan", map: "Auf der Karte" }
+  table_heads: { weather: "Wetter", notam: "NOTAM", airspace: "Luftraum­status", forecast: "Gebiets­vorhersage", filing: "Aufgeben", close: "Schliessen", border: "Grenz­übertritt", openaip: "Luftraum und Frequenzen", circuits: "Platzrunden", routes: "VFR-Routen", charts: "Offizielle Karten", fees: "Landetaxen" }
+  table_hints: { weather: "Ein Link zu den offiziellen Wetterseiten des Landes", notam: "Ein Link zur NOTAM-Seite des Landes", airspace: "Ein Link zur Seite des Luftraumstatus des Landes", forecast: "Ein Link zur Gebietsvorhersage des Landes", filing: "Wo der ATC-Flugplan aufzugeben ist, und bis wann", close: "Wie er nach der Landung zu schliessen ist: die Regel und die Nummern", border: "Zollflugplatz und Voranmeldung, in die und aus der Schweiz", openaip: "Lufträume, Flugplätze und Frequenzen, von OpenAIP", circuits: "Die Platzrunden auf der Karte, mit ihrer Höhe", routes: "Die VFR-An- und Abflugrouten auf der Karte, mit ihren Sektoren", charts: "Ein Link zur offiziellen Karte jedes Flugplatzes", fees: "Ein Link zum Tarif des Betreibers, pro Flugplatz" }
   access: { account: "Gratiskonto", paid: "kostenpflichtig", restricted: "nur Berechtigte", signin: "Anmeldung" }
   text:
     general: "{publishers}, die allgemeine Seite"

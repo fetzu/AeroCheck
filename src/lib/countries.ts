@@ -18,9 +18,20 @@ export const CHAPTERS: { id: 'prepare' | 'fly' | 'close'; features: FeatureId[] 
   { id: 'close', features: ['close', 'fees'] },
 ];
 const ALL: FeatureId[] = CHAPTERS.flatMap((c) => c.features);
-// The table of every country leaves out what only one country has: the swisstopo charts are Switzerland's alone, a
-// column of one "yes" (the author, 25 Oct 2026). Switzerland's own panel keeps the row.
-const TABLE: FeatureId[] = ALL.filter((id) => id !== 'swisstopo');
+// The table of every country, its columns grouped by what a pilot does with them rather than by the app's chapters:
+// the briefing's links, the flight plan filed and closed side by side, the border, what the map draws, the fees (the
+// author, 25 Oct 2026). Left out: the swisstopo charts, which only Switzerland has, and the surface wind, model winds
+// everywhere but Switzerland's stations; each country's own panel still lists them. A group of one is a column.
+export const TABLE_GROUPS: { id: 'briefing' | 'flightplan' | 'border' | 'map' | 'fees'; features: FeatureId[] }[] = [
+  { id: 'briefing', features: ['weather', 'notam', 'airspace', 'forecast'] },
+  { id: 'flightplan', features: ['filing', 'close'] },
+  { id: 'border', features: ['border'] },
+  { id: 'map', features: ['openaip', 'circuits', 'routes', 'charts'] },
+  { id: 'fees', features: ['fees'] },
+];
+const TABLE: FeatureId[] = TABLE_GROUPS.flatMap((g) => g.features);
+// The first column of each group, which draws the group's left edge down the table.
+const GROUP_START = new Set(TABLE_GROUPS.map((g) => g.features[0]));
 
 export interface Row { id: FeatureId; label: string; level: Level; html: string; }
 export interface Group { id: 'prepare' | 'fly' | 'close'; name: string; rows: Row[]; }
@@ -29,8 +40,11 @@ export interface CountryView {
   cc: string; name: string; phrase: string; lead: string; prohibited?: string;
   groups: Group[]; near: Neighbour[]; checked?: string; tell: string; onMap: boolean;
 }
-export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number }[]; }
-export interface CountriesView { countries: CountryView[]; matrix: MatrixRow[]; columns: { id: FeatureId; short: string; label: string }[]; }
+export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; start: boolean }[]; }
+export interface TableColumn { id: FeatureId; head: string; hint: string; start: boolean; }
+/** A group of the table's header: its name over its columns, or, for a group of one, just that column. */
+export interface TableGroup { name?: string; columns: TableColumn[]; }
+export interface CountriesView { countries: CountryView[]; matrix: MatrixRow[]; table: TableGroup[]; }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const fill = (template: string, vars: Record<string, string | number>) =>
@@ -169,10 +183,15 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
         const n = level === 'off' ? undefined
           : id === 'circuits' ? c.circuits?.count : id === 'routes' ? c.routes?.count
           : id === 'charts' ? c.charts?.count : id === 'fees' ? c.fees?.count : undefined;
-        return { id, level, n };
+        return { id, level, n, start: GROUP_START.has(id) };
       }),
     };
   });
 
-  return { countries, matrix, columns: TABLE.map((id) => ({ id, short: t.short[id], label: t.labels[id] })) };
+  const column = (id: FeatureId): TableColumn => ({ id, head: t.table_heads[id], hint: t.table_hints[id], start: GROUP_START.has(id) });
+  const table: TableGroup[] = TABLE_GROUPS.map((g) => ({
+    name: g.features.length > 1 ? t.table_groups[g.id] : undefined,
+    columns: g.features.map(column),
+  }));
+  return { countries, matrix, table };
 }

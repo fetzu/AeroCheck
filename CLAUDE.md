@@ -42,6 +42,7 @@ Ground replays (in-flight behaviour is tested on the ground, never in flight): `
 - The DEBUG harness (`Services/GroundReplay.swift`, `AEROCHECK_REPLAY=<scenario JSON>`, `AEROCHECK_REPLAY_SPEED` default 10) feeds the track through `LocationManager.feedReplayFix` on a virtual clock: anything a flight times reads `FlightClock.now`, never `Date()`.
 - UI tests read accessibility identifiers, never colours or words; read once and tap where seen (`CockpitPilot.snap`, `tapNow`), since at 10× a toast can go between two queries. The page picker's identifiers are still `pane.*`.
 - `scripts/flightsim/make_scenario.py` regenerates the scenarios after a change to the detector or the cues (referee: `../CLAUDE/review/flight-events`).
+- The radio's replays (`RadioHandoverUITests`) fly on a simulator holding the aeronautical data (a scenario's `deviceData`: the store is not replaced), their scenarios made outside this repository: `--after-install` puts the data back after each clean install, and the runner sets `TEST_RUNNER_AEROCHECK_DEVICE_DATA=1` and `TEST_RUNNER_AEROCHECK_SCENARIOS=<folder>`. Without either they skip.
 
 Captures: the DEBUG hooks `AEROCHECK_SCENE` (the marketing scenes, recipe in SCREENSHOTS.md on the `website` branch), `AEROCHECK_PANE`, `AEROCHECK_STATUS` and `AEROCHECK_ORIENTATION=landscape` (which blurs scroll views: an artefact of the hook, not the app). Look at every capture before trusting it.
 

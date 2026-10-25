@@ -909,6 +909,128 @@ final class PhaseFrequencyPlannerTests: XCTestCase {
         XCTAssertEqual(radio.now?.station, "Geneva Info")
     }
 
+    /// A CTR behind the aircraft past 7.5° E, for a timeline built again with the airspaces in.
+    private static let ctrBehind = Airspace(
+        id: "CTR ALPHA", name: "CTR ALPHA", type: 4, icaoClass: 3, country: "CH",
+        upperCeiling: AltitudeLimit(value: 130, unit: 6, referenceDatum: 2),
+        lowerCeiling: AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
+        geometry: AirspaceGeometry(type: "Polygon", coordinates: [[[7.40, 46.9], [7.40, 47.1], [7.50, 47.1], [7.50, 46.9], [7.40, 46.9]]]),
+        activity: nil, frequencies: [AirspaceFrequency(value: "130.150", name: "ALPHA TOWER", primary: true, unit: nil)])
+
+    /// One reading of the Cockpit's radio at `longitude` on `plan`, flying to the waypoint ahead, at 100 kt.
+    private func fly(_ radio: CockpitRadio, _ plan: FlightPlan, _ longitude: Double, departureOver: Bool = true) {
+        var route = plan
+        route.currentWaypointIndex = plan.waypoints.firstIndex { $0.longitude > longitude } ?? plan.waypoints.count - 1
+        radio.update(position: .init(latitude: 47.0, longitude: longitude), plan: route,
+                     situation: .init(groundSpeedKt: 100, departureOver: departureOver), sources: Self.empty.sources)
+    }
+
+    /// On Geneva Info from the level-off (the pilot's tap), the app killed at `longitude` with Zürich Info due: the
+    /// handover it saved with the flight.
+    private func handoverLeft(at longitude: Double, on plan: FlightPlan) -> RadioHandover? {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var saved: RadioHandover?
+        radio.onHandover = { saved = $0 }
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        fly(radio, plan, 7.0, departureOver: false)
+        fly(radio, plan, 7.05)
+        guard case .taken = radio.tapNext(at: Date()) else {
+            XCTFail("the tap switches to Geneva Info")
+            return nil
+        }
+        fly(radio, plan, longitude)
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.station, "Zurich Info")
+        XCTAssertEqual(radio.next?.due, true, "Zürich Info due when the app is killed")
+        return saved
+    }
+
+    /// Killed with Zürich Info due and opened again past its boundary, its latest point passed while the app was gone
+    /// (the dr-3 replay on real data, 25 Oct 2026): the first timeline after the relaunch is the flight's own route,
+    /// not a new one, so the app takes Zürich Info by itself, offered back, as on a flight followed throughout. The
+    /// route built again when the data comes in changes nothing. Rebased, the call was dropped: NOW stayed Geneva
+    /// Info, Zürich Info neither NOW nor NEXT.
+    func testARelaunchPastALatestPointCatchesUp() {
+        let plan = Self.timelineRoute()
+        let saved = handoverLeft(at: 7.72, on: plan)   // 1.2 NM before the boundary at 7.75° E
+
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var reported: [String] = []
+        var undo: (() -> Void)?
+        radio.onSwitched = { message, back in
+            reported.append(message)
+            undo = back
+        }
+        radio.resume(saved)
+        fly(radio, plan, 7.82)   // 3 NM past the boundary
+        XCTAssertFalse(radio.onTimeline, "no timeline yet")
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        fly(radio, plan, 7.82)
+        XCTAssertEqual(reported, [L10n.Read.switchedAutomatically("Zurich Info")], "caught up, offered back")
+        XCTAssertEqual(radio.now?.station, "Zurich Info")
+        radio.setTimeline(Self.timeline(for: plan, airspaces: [Self.ctrBehind]), for: plan)
+        fly(radio, plan, 7.83)
+        XCTAssertEqual(radio.now?.station, "Zurich Info", "the data in: the same route")
+        XCTAssertEqual(reported.count, 1)
+
+        // UNDO: the pilot stayed on Geneva Info. Zürich Info due without the line, not taken again.
+        undo?()
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.station, "Zurich Info")
+        XCTAssertEqual(radio.next?.due, true)
+        XCTAssertNil(radio.next?.dueLeft)
+        fly(radio, plan, 7.85)
+        XCTAssertEqual(reported.count, 1)
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+    }
+
+    /// Killed with Zürich Info due and opened again before the boundary: still due, and taken at the boundary.
+    func testARelaunchBeforeALatestPointKeepsTheCallDue() {
+        let plan = Self.timelineRoute()
+        let saved = handoverLeft(at: 7.71, on: plan)
+
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        var reported: [String] = []
+        radio.onSwitched = { message, _ in reported.append(message) }
+        radio.resume(saved)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        fly(radio, plan, 7.73)
+        XCTAssertEqual(radio.now?.station, "Geneva Info")
+        XCTAssertEqual(radio.next?.station, "Zurich Info")
+        XCTAssertEqual(radio.next?.due, true)
+        XCTAssertTrue(reported.isEmpty)
+        fly(radio, plan, 7.76)
+        XCTAssertEqual(reported, [L10n.Read.switchedAutomatically("Zurich Info")])
+    }
+
+    /// Only another route rebases the handover (its progress measured along another line): an edit, or the route off
+    /// and another on. The same route built again, the airspaces in, keeps it as it is.
+    func testOnlyAnotherRouteRebasesTheHandover() {
+        let radio = CockpitRadio()
+        radio.publish = { _ in }
+        let plan = Self.timelineRoute()
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        fly(radio, plan, 7.4)
+        XCTAssertEqual(radio.handover?.station?.callSign, "GENEVA INFO")
+        radio.setTimeline(Self.timeline(for: plan, airspaces: [Self.ctrBehind]), for: plan)
+        XCTAssertEqual(radio.handover?.rebase, false, "the same route")
+
+        var edited = plan
+        edited.waypoints[3].frequency = "119.000"
+        radio.setTimeline(Self.timeline(for: edited), for: edited)
+        XCTAssertEqual(radio.handover?.rebase, true, "an edited route")
+        fly(radio, edited, 7.4)
+        XCTAssertEqual(radio.handover?.rebase, false, "taken at the next reading")
+        XCTAssertEqual(radio.handover?.station?.callSign, "GENEVA INFO")
+
+        radio.setTimeline(nil, for: nil)
+        radio.setTimeline(Self.timeline(for: plan), for: plan)
+        XCTAssertEqual(radio.handover?.rebase, true, "the route off, then another")
+    }
+
     /// The due state reaches the Companion iPhone and the Watch, the share kept to 0...1 whatever the wire says;
     /// an older iPad sends neither, nor the switch. (6.4.3)
     func testTheDueStateReachesThePhoneAndTheWatch() throws {

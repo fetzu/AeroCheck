@@ -6,15 +6,19 @@
 #
 #   <out>/results.json            one entry per step id, the tests, the run
 #   <out>/screenshots/*.png       "<page>-<step id>-<short>.png" (they show checklist text: keep them private)
-#   <out>/<test>.xcresult, logs
+#   <out>/<test>.xcresult, logs (and the radio replays' NOW | NEXT, logs/radio-*.txt)
 #
 # usage: scripts/ground-replay.sh [--iphone | --udid <UDID>] [--only <Class/testMethod>]... [--out <dir>]
-#                                  [--keep-simulator]
+#                                  [--after-install <executable>] [--keep-simulator]
 #   --only    a subset, e.g. --only ChecksInFlightUITests/testCrossCountryEveryCheckOnTime (repeatable)
 #   --iphone  an iPhone 17 instead of the iPad Air 11-inch (M4); without --only, the phone's own steps
 #   --udid    a throwaway made beforehand ("AeroCheck Tmp ..."), booted for the run and shut down after
 #             it, kept; an iPhone gets the phone's steps as with --iphone
 #   --out     default: $TMPDIR/aerocheck-ground-replay/<date-time>
+#   --after-install  run with the simulator's UDID after each clean install, before the test: what a test
+#             needs in the app's container, such as the aeronautical data the radio's replays fly on
+#             (RadioHandoverUITests: the runner then says so with TEST_RUNNER_AEROCHECK_DEVICE_DATA=1 and
+#             gives their scenarios with TEST_RUNNER_AEROCHECK_SCENARIOS, both passed on to the tests)
 #
 # Without --udid the simulator is created for the run ("AeroCheck Tmp replay-<n> <date>") and deleted
 # after it. Never the author's own simulator, never a destination by name.
@@ -28,6 +32,7 @@ DEVICE_TYPE="iPad Air 11-inch (M4)"
 OUT=""
 KEEP=0
 GIVEN=""
+AFTER_INSTALL=""
 AUTHORS_SIMULATOR=A7A5FC41-C92E-48EE-9A06-0E833852F3D5
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -35,8 +40,9 @@ while [ $# -gt 0 ]; do
         --iphone) DEVICE_TYPE="iPhone 17"; shift ;;
         --udid) GIVEN=$(echo "$2" | tr '[:lower:]' '[:upper:]'); shift 2 ;;
         --out) OUT="$2"; shift 2 ;;
+        --after-install) AFTER_INSTALL="$2"; shift 2 ;;
         --keep-simulator) KEEP=1; shift ;;
-        -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
 done
@@ -134,10 +140,14 @@ for TEST in "${ONLY[@]}"; do
     xcrun simctl uninstall "$UDID" com.fetzu.aerocheck > /dev/null 2>&1
     xcrun simctl install "$UDID" "$APP"
     xcrun simctl privacy "$UDID" grant location-always com.fetzu.aerocheck > /dev/null 2>&1
+    if [ -n "$AFTER_INSTALL" ] && ! "$AFTER_INSTALL" "$UDID" > "$OUT/logs/$TAG-after-install.log" 2>&1; then
+        echo "  not flown: $AFTER_INSTALL failed ($OUT/logs/$TAG-after-install.log)"
+        continue
+    fi
     xcodebuild test-without-building -scheme AeroCheckUITests -destination "platform=iOS Simulator,id=$UDID" \
         -derivedDataPath "$DD" -collect-test-diagnostics never -resultBundlePath "$OUT/$TAG.xcresult" \
         -only-testing:"AeroCheckUITests/$TEST" > "$OUT/logs/$TAG.log" 2>&1
-    echo "  $(grep -E "Test Case .*(passed|failed)" "$OUT/logs/$TAG.log" | tail -1 | sed -E 's/.*(passed|failed)/\1/')"
+    echo "  $(grep -E "Test Case .*(passed|failed|skipped)" "$OUT/logs/$TAG.log" | tail -1 | sed -E 's/.*(passed|failed|skipped)/\1/')"
     mkdir -p "$OUT/attachments/$TAG"
     xcrun xcresulttool export attachments --path "$OUT/$TAG.xcresult" --output-path "$OUT/attachments/$TAG" > /dev/null 2>&1
 done
@@ -160,6 +170,8 @@ for d in sorted(glob.glob(os.path.join(out, 'attachments', '*'))):
             src = os.path.join(d, a['exportedFileName'])
             if ext == '.png' and label[:3].isdigit():
                 shutil.copy(src, os.path.join(out, 'screenshots', label + ext))
+            if ext == '.txt' and label.startswith('radio-'):
+                shutil.copy(src, os.path.join(out, 'logs', label + ext))
             if ext == '.json' and label.startswith('steps-'):
                 run = json.load(open(src))
                 tests.append(dict(test=run['test'], scenario=run['scenario'], page=run['page'],

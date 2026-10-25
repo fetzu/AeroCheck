@@ -792,16 +792,23 @@ final class CockpitRadio {
         plan.map { [$0.id.uuidString] + $0.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } }
     }
 
-    /// A timeline for a route, or none (the route changed, the flight ended). A new one keeps the pilot's station,
-    /// the changes before the aircraft taken as done (`RadioHandover.rebase`). (6.4.2, 6.4.3)
+    /// A timeline for a route, or none (the route changed, the flight ended). Another route keeps the pilot's station,
+    /// the changes before the aircraft taken as done (`RadioHandover.rebase`): the handover's progress was measured
+    /// along another line. The same route built again (the data arriving, a relaunch) keeps the progress as well, so a
+    /// latest point passed meanwhile is still caught up: rebased, Zürich Info was never taken after a relaunch across
+    /// its boundary (the dr-3 replay on real data, 25 Oct 2026). (6.4.2, 6.4.3)
     func setTimeline(_ timeline: RadioTimeline?, for plan: FlightPlan?) {
-        if timeline != nil, timeline != self.timeline, var handover, handover.station != nil {
-            handover.rebase = true
-            self.handover = handover
-            onHandover(handover)
+        let route = timeline == nil ? nil : Self.timelineKey(plan)
+        if let route {
+            if let measured = handoverRoute, measured != route, var handover, handover.station != nil {
+                handover.rebase = true
+                self.handover = handover
+                onHandover(handover)
+            }
+            handoverRoute = route
         }
         self.timeline = timeline
-        timelineRoute = timeline == nil ? nil : Self.timelineKey(plan)
+        timelineRoute = route
     }
 
     // MARK: The frequency handover (6.4.3)
@@ -809,6 +816,9 @@ final class CockpitRadio {
     /// Where the pilot is on the timeline: their station, the LISTENs heard. Kept with the flight (`onHandover`,
     /// `AppState.radioHandover`); nil until the radio is first read on a route.
     @ObservationIgnored private(set) var handover: RadioHandover?
+    /// The route the handover's progress is measured along: the last timeline's, kept while the route is off. Nil
+    /// after a relaunch until the first timeline, which is the route the flight resumes on.
+    @ObservationIgnored private var handoverRoute: [String]?
     /// NOW and NEXT are read from the route's timeline: a tap on NEXT switches, a row of ROUTE › RADIO is picked.
     /// Off it (no route, circuits, the timeline not built yet), both open ROUTE, as before.
     private(set) var onTimeline = false
@@ -821,9 +831,12 @@ final class CockpitRadio {
                                                  situation: PhaseFrequencyPlanner.Situation,
                                                  sources: PhaseFrequencyPlanner.Sources)?
 
-    /// The flight's handover, as saved with it (a restored flight), or a new one.
+    /// The flight's handover, as saved with it (a restored flight), or a new one. Its progress is along the route read
+    /// now, or, at a relaunch (no timeline yet), along the route the flight resumes on: its first timeline isn't a new
+    /// route.
     func resume(_ handover: RadioHandover?) {
         self.handover = handover
+        handoverRoute = timelineRoute
     }
 
     /// A switch the pilot made, and how to take it back: the band's UNDO.

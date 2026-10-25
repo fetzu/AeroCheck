@@ -59,6 +59,12 @@ struct AerodromeNotesSettingsView: View {
                         Label(L10n.AerodromeNotes.deleteAll, systemImage: "trash")
                     }
                     .accessibilityIdentifier("aerodromeNotes.deleteAll")
+                    // On the button: on the iPad the question's popover points at what asked it. (6.7.0)
+                    .confirmationDialog(L10n.AerodromeNotes.deleteAllQuestion, isPresented: $confirmingDeleteAll,
+                                        titleVisibility: .visible) {
+                        Button(L10n.AerodromeNotes.deleteAllConfirm, role: .destructive) { store.deleteAll() }
+                        Button(L10n.Button.cancel, role: .cancel) {}
+                    }
                 }
             }
         }
@@ -80,11 +86,6 @@ struct AerodromeNotesSettingsView: View {
                               dataTypeIdentifier: "public.plain-text")
                 ])
             }
-        }
-        .confirmationDialog(L10n.AerodromeNotes.deleteAllQuestion, isPresented: $confirmingDeleteAll,
-                            titleVisibility: .visible) {
-            Button(L10n.AerodromeNotes.deleteAllConfirm, role: .destructive) { store.deleteAll() }
-            Button(L10n.Button.cancel, role: .cancel) {}
         }
     }
 

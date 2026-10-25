@@ -1,11 +1,14 @@
-6.5.0 speaks German, and prepares a flight for the countries it goes to: the briefing links, the weather and closing the flight plan follow each country's own rules.
+6.6.0 rebuilds the flight's page in blocks, and lets a trip change on the way.
 
 What to try:
-- German: set the device to German (Settings › General › Language & Region), or the app alone (Settings › AéroCheck › Language). Every screen, the Cockpit's buttons included: say what reads wrong.
-- A flight's page, Prepare: the Weather block above the tasks, with the METAR and TAF of each field (the nearest TAF for a field without one), the SIGMETs along the route, and each country's weather and area-forecast pages as rows. One tick for all of it; ticked, it folds to one line. The DABS says which day's it opens, or when the flight's comes out.
-- A route abroad, Bressaucourt to Freiburg for one: Germany's links, and after landing the close-out card with Germany's rule and number. A landing in Switzerland keeps skyguide's number. On a trip, each leg counts the trip's preparation.
-- A departure from a Swedish field without a tower: the line about activating the plan yourself. A route through Belarus: the red row, and START FLIGHT held a second.
-- The maps share one chart; outside Switzerland they show Apple Maps in place of the ICAO chart. The OpenAIP layer draws again (OpenAIP moved its tiles), and Settings › Data & Storage downloads faster: airspace now comes from OpenAIP's own files.
-- In the US, near Palo Alto (KPAO) or San Carlos (KSQL): the pattern side at each runway end and the TPA on the approach view. Official charts for the US, Australia and New Zealand.
+- Plan a flight for tomorrow and open its page: the line under the title says when it leaves and what's left, and the weather and NOTAMs wait for the day. One tick per block. Set the flight to today: the weather and NOTAMs open.
+- On the iPad, Prepare in two columns; on the iPhone, each block in a sheet of its own.
+- The Weather block: the METAR, the TAF and the SIGMETs in words, RAW for the report as sent. Say what reads wrong in your language.
+- The flight plan block says by when to file: 60 minutes before off-block from Switzerland, each country's own rule elsewhere.
+- The pencil next to the title: Flight details, Edit route, Name this flight. On a trip's leg: Leg details, Name this leg, Name this trip.
+- A trip with a stop on the way: in flight, Divert lists the next stops with Fly on. After a landing at the next leg's field, the page asks whether you skipped the stop. Leg 2 asks for the weather again, even with leg 1's ticked. Cancel whole trip works from any leg.
+- A saved route (Plan › Routes): open an aerodrome between its ends, then When this route is flown › Land here. Plan new flight from that route starts with the stop on.
+- Every sheet: Close or Cancel on the left, Done on the right. Tell us about one that doesn't.
+- Today and Plan › Flights say what the flight's page says.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

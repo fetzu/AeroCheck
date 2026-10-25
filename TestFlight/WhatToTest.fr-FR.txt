@@ -1,11 +1,14 @@
-6.5.0 parle allemand, et prépare un vol pour les pays où il va : les liens de briefing, la météo et la clôture du plan de vol suivent les règles de chaque pays.
+6.6.0 reconstruit la page du vol en blocs, et laisse un voyage changer en route.
 
 À essayer :
-- L'allemand : réglez l'appareil en allemand (Réglages › Général › Langue et région), ou l'app seule (Réglages › AéroCheck › Langue). Chaque écran, les boutons du cockpit compris : dites ce qui sonne faux.
-- La page d'un vol, Préparer : le bloc Météo au-dessus des tâches, avec le METAR et le TAF de chaque aérodrome (le TAF le plus proche pour un aérodrome qui n'en a pas), les SIGMET le long de la route, et les pages météo et de prévision de zone de chaque pays en lignes. Une seule coche pour le tout ; cochée, le bloc se replie en une ligne. Le DABS dit de quel jour il est, ou quand paraît celui du vol.
-- Une route à l'étranger, Bressaucourt–Fribourg-en-Brisgau par exemple : les liens allemands, et après l'atterrissage la carte de clôture avec la règle et le numéro de l'Allemagne. Un atterrissage en Suisse garde le numéro de skyguide. Lors d'un voyage, chaque étape compte la préparation du voyage.
-- Un départ d'un aérodrome suédois sans tour : la ligne qui dit d'activer le plan soi-même. Une route par la Biélorussie : la ligne rouge, et DÉMARRER LE VOL à maintenir une seconde.
-- Les cartes partagent un même fond ; hors de Suisse, elles montrent les Plans d'Apple à la place de la carte OACI. La couche OpenAIP s'affiche à nouveau (OpenAIP a déplacé ses tuiles), et Réglages › Données et stockage télécharge plus vite : l'espace aérien vient désormais des fichiers d'OpenAIP.
-- Aux États-Unis, près de Palo Alto (KPAO) ou de San Carlos (KSQL) : le côté du tour de piste à chaque seuil et la TPA dans la vue d'approche. Les cartes officielles des États-Unis, de l'Australie et de la Nouvelle-Zélande.
+- Planifiez un vol pour demain et ouvrez sa page : la ligne sous le titre dit quand il part et ce qui reste, et la météo et les NOTAM attendent le jour du vol. Une coche par bloc. Mettez le vol à aujourd'hui : la météo et les NOTAM s'ouvrent.
+- Sur l'iPad, Préparer en deux colonnes ; sur l'iPhone, chaque bloc dans sa propre feuille.
+- Le bloc Météo : le METAR, le TAF et les SIGMET en mots, RAW pour le message tel qu'il a été émis. Dites ce qui se lit mal.
+- Le bloc plan de vol dit avant quand le déposer : 60 minutes avant le départ depuis la Suisse, la règle de chaque pays ailleurs.
+- Le crayon à côté du titre : Détails du vol, Modifier la route, Nommer ce vol. Sur l'étape d'un voyage : Détails de l’étape, Nommer cette étape, Nommer ce voyage.
+- Un voyage avec une escale : en vol, Dérouter liste les escales suivantes avec Continuer. Après un atterrissage au terrain de l'étape suivante, la page demande si vous avez passé l'escale. L'étape 2 redemande la météo, même cochée sur l'étape 1. Annuler tout le voyage marche depuis n'importe quelle étape.
+- Une route enregistrée (Planifier › Routes) : ouvrez un aérodrome entre ses extrémités, puis Quand cette route est volée › Atterrir ici. Planifier un vol depuis cette route commence avec l'escale activée.
+- Chaque feuille : Fermer ou Annuler à gauche, Terminé à droite. Signalez celle qui fait autrement.
+- Aujourd'hui et Planifier › Vols disent ce que dit la page du vol.
 
-Envoyez vos remarques depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
+Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

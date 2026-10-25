@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "generated": "2026-10-22T17:17:21Z",
+  "generated": "2026-10-25T10:33:20Z",
   "countries": {
     "AL": {
       "weather": [
@@ -45,7 +45,8 @@
         "notam",
         "filing"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "AM": {
       "weather": [],
@@ -78,7 +79,8 @@
         "notam",
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "AT": {
       "weather": [
@@ -133,7 +135,9 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "BA": {
       "weather": [],
@@ -173,7 +177,8 @@
         "atsClose": "sera"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "BE": {
       "weather": [],
@@ -213,7 +218,8 @@
         "airspace",
         "forecast"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "BG": {
       "weather": [
@@ -257,7 +263,8 @@
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "BY": {
       "weather": [],
@@ -348,7 +355,8 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "CY": {
       "weather": [
@@ -395,7 +403,8 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "CZ": {
       "weather": [
@@ -444,7 +453,8 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "DE": {
       "weather": [
@@ -499,7 +509,8 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "DK": {
       "weather": [
@@ -540,7 +551,8 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "EE": {
       "weather": [
@@ -590,7 +602,9 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "ES": {
       "weather": [
@@ -1740,7 +1754,8 @@
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "FI": {
       "weather": [
@@ -1789,7 +1804,8 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "FO": {
       "weather": [
@@ -1866,7 +1882,9 @@
         "atsClose": "sera"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "GB": {
       "weather": [
@@ -1915,7 +1933,8 @@
         "atsClose": "atsu"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "GE": {
       "weather": [
@@ -1963,7 +1982,8 @@
         "atsClose": "sera"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 180
     },
     "GL": {
       "weather": [
@@ -2026,7 +2046,8 @@
         "airspace",
         "filing"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "HR": {
       "weather": [
@@ -2080,7 +2101,8 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "HU": {
       "weather": [
@@ -2136,7 +2158,8 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "IE": {
       "weather": [],
@@ -2176,7 +2199,8 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "IM": {
       "weather": [
@@ -2229,7 +2253,8 @@
         "atsClose": "atsu"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "IS": {
       "weather": [
@@ -2276,7 +2301,8 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "IT": {
       "weather": [
@@ -2308,7 +2334,8 @@
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "LT": {
       "weather": [],
@@ -2338,7 +2365,8 @@
         "forecast",
         "filing"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "LU": {
       "weather": [
@@ -2392,7 +2420,9 @@
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "LV": {
       "weather": [],
@@ -2428,7 +2458,9 @@
         "filing"
       ],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "MD": {
       "weather": [
@@ -2513,7 +2545,8 @@
         "notam",
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "NL": {
       "weather": [
@@ -2563,7 +2596,8 @@
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "NO": {
       "weather": [
@@ -2616,7 +2650,9 @@
         "atsClose": "sera"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "PL": {
       "weather": [
@@ -2673,7 +2709,8 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "PT": {
       "weather": [
@@ -2730,7 +2767,8 @@
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "RO": {
       "weather": [],
@@ -2770,7 +2808,8 @@
         "weather",
         "filing"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "RS": {
       "weather": [],
@@ -2805,7 +2844,9 @@
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "SE": {
       "weather": [
@@ -2859,7 +2900,9 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "SI": {
       "weather": [
@@ -2906,7 +2949,8 @@
         "atsClose": "sera"
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60
     },
     "SK": {
       "weather": [
@@ -2961,7 +3005,9 @@
         "airspace"
       ],
       "activation": "no-ats",
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-10-18",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "TR": {
       "weather": [
@@ -3010,22 +3056,6 @@
   },
   "flags": [
     {
-      "country": "FR",
-      "url": "https://aviation.meteo.fr",
-      "status": 0,
-      "detail": "weather: Aéroweb (Météo-France): no answer, last week's link kept (silent since 2026-10-22)",
-      "level": "link",
-      "since": "2026-10-22"
-    },
-    {
-      "country": "FR",
-      "url": "https://aviation.meteo.fr",
-      "status": 0,
-      "detail": "forecast: Aéroweb (Météo-France): no answer, last week's link kept (silent since 2026-10-22)",
-      "level": "link",
-      "since": "2026-10-22"
-    },
-    {
       "country": "LV",
       "url": "https://ibs.lgs.lv/home.do",
       "status": 403,
@@ -3049,14 +3079,14 @@
     {
       "country": "PT",
       "url": "https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html",
-      "status": 503,
+      "status": 526,
       "detail": "ais: NAV Portugal eAIP failed; left out",
       "level": "link"
     },
     {
       "country": "PT",
       "url": "https://ais.nav.pt/access-the-airspace-use-plan-updated-use-plan/",
-      "status": 503,
+      "status": 526,
       "detail": "airspace: NAV Portugal AIS failed; left out",
       "level": "link"
     },

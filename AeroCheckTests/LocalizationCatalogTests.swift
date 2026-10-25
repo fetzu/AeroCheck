@@ -259,6 +259,17 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(french.localizedString(forKey: "Checklists", value: nil, table: nil), "Checklists")
     }
 
+    /// A label and its value with the language's colon: French puts a space before it. The TAF's periods, a METAR's
+    /// trend, CLOSE's dotted line and the border's facts joined ": " in code and read « 22 UTC: Vent… ». (6.6.0)
+    func testALabelTakesItsLanguagesColon() throws {
+        let format = { (language: String) throws -> String in
+            try self.languageBundle(language).localizedString(forKey: "format.labelled", value: nil, table: nil)
+        }
+        XCTAssertEqual(String(format: try format("fr"), "Jusqu'à 22 UTC", "vent 240° 8 kt"), "Jusqu'à 22 UTC : vent 240° 8 kt")
+        XCTAssertEqual(String(format: try format("de"), "Bis 22 UTC", "Wind 240° 8 kt"), "Bis 22 UTC: Wind 240° 8 kt")
+        XCTAssertEqual(L10n.Format.labelled("Until 22 UTC", "wind 240° 8 kt"), "Until 22 UTC: wind 240° 8 kt")
+    }
+
     /// The Logbook list, the flight detail and the Cockpit's NEXT column were English in French.
     func testTheLogbookFlightDetailAndCockpitHaveTheirFrench() throws {
         let french = try frenchBundle()

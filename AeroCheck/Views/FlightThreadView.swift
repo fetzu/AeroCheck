@@ -54,10 +54,10 @@ struct ThreadTaskPresentation {
                 guard BorderCrossingGuide.factsApply(to: country, from: briefing?.departureCountry) else {
                     return L10n.Border.swissCrossingsOnly
                 }
-                var parts = ["\(L10n.Border.customsAerodrome): \(rule.customsAerodrome.label)",
-                             "\(L10n.Border.priorNotification): \(rule.priorNotification.label)"]
+                var parts = [L10n.Format.labelled(L10n.Border.customsAerodrome, rule.customsAerodrome.label),
+                             L10n.Format.labelled(L10n.Border.priorNotification, rule.priorNotification.label)]
                 if let lead = rule.noticeLeadTime {
-                    parts.append("\(L10n.Border.noticeLeadTime): \(lead)")
+                    parts.append(L10n.Format.labelled(L10n.Border.noticeLeadTime, lead))
                 }
                 // The review date is part of the answer, not a footnote. Nothing here refreshes
                 // itself, so how recently a human read the source is what tells the pilot whether to
@@ -1151,7 +1151,7 @@ struct FlightThreadView: View {
         case .notYet:
             if thread.flightPlanFiledAt != nil { return L10n.FlightPage.afterLanding + ". " + closeOut(for: thread).rule }
             let kinds = blocks.map(\.kind)
-            return L10n.FlightPage.afterLanding + ": " + FlightPageWords.list(kinds, among: kinds, context)
+            return L10n.Format.labelled(L10n.FlightPage.afterLanding, FlightPageWords.list(kinds, among: kinds, context))
         default:
             return blocks.map { block in
                 let title = FlightPageWords.title(block.kind)

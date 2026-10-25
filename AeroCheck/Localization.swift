@@ -37,6 +37,15 @@ enum L10n {
         static let tagline = String(localized: "app.tagline")
     }
 
+    // MARK: - A label and its value (6.6.0)
+    /// "Until 22 UTC: wind 240° 8 kt", "After landing: the logbook line". The colon is the language's: French puts a
+    /// space before it ("22 UTC : vent…"), which a ": " joined in code dropped.
+    enum Format {
+        static func labelled(_ label: String, _ value: String) -> String {
+            String(format: String(localized: "format.labelled"), label, value)
+        }
+    }
+
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like other newly-introduced UI strings.

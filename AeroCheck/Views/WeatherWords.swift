@@ -38,7 +38,7 @@ enum WeatherWords {
         let times = [t.from.map { L10n.Weather.trendFrom(clock($0)) }, t.until.map { L10n.Weather.trendUntil(clock($0)) },
                      t.at.map { L10n.Weather.trendAt(clock($0)) }].compactMap { $0 }
         let head = t.change == "TEMPO" ? L10n.Weather.temporarily : L10n.Weather.becoming
-        return ([head] + times).joined(separator: " ") + ": " + words.joined(separator: " · ")
+        return L10n.Format.labelled(([head] + times).joined(separator: " "), words.joined(separator: " · "))
     }
 
     /// "1130" as "11:30 UTC".
@@ -57,7 +57,7 @@ enum WeatherWords {
         return d.periods.filter { $0.to > now && $0.from < horizon }.compactMap { period in
             let words = conditions(period.conditions)
             guard !words.isEmpty else { return nil }
-            return head(period, now: now) + ": " + words.joined(separator: " · ")
+            return L10n.Format.labelled(head(period, now: now), words.joined(separator: " · "))
         }
     }
 

@@ -99,23 +99,30 @@ final class RadioHandoverUITests: XCTestCase {
         }
         let switched = log.last?.message ?? "none"
         let undone = switched.contains("LSGC") && pilot.tapNow(pilot.undo)
-        _ = pilot.waitUntil(timeout: 3) { pilot.radioReading?.nowIs("LSGN") == true }
-        let back = pilot.radioReading
-        pilot.shot("ho-4", "undone")
-        pilot.check("ho-4", undone && back?.nowIs("LSGN") == true && back?.nextIs("LSGC") == true && back?.nextIsDue == true,
-                    "\"\(switched)\" taken back at \(Int(pilot.trackNow)) s: \(back.map { "\($0)" } ?? "no band")")
-        // The app doesn't switch again: a minute of flight past V, NOW still LSGN AD.
-        let held = pilot.watchRadio(untilTrack: s.mark("wp2") + 60)
-        log += held
-        pilot.check("ho-4", held.allSatisfy { $0.reading.nowIs("LSGN") && $0.message?.hasSuffix("now, automatically") != true },
-                    "to V + 60 s: \(RadioEntry.summary(held))")
-        // Then NEXT: the pilot's own switch, offered back.
-        pilot.tap("read.next", timeout: 3)
-        _ = pilot.waitUntil(timeout: 3) { pilot.radioReading?.nowIs("LSGC") == true }
-        let taken = (pilot.radioReading, pilot.toastMessage)
-        pilot.shot("ho-4", "next-tapped")
-        pilot.check("ho-4", taken.0?.nowIs("LSGC") == true && taken.1?.hasSuffix(" now") == true && taken.1?.contains("LSGC") == true,
-                    "NEXT tapped: \(taken.0.map { "\($0)" } ?? "no band"), the slot \"\(taken.1 ?? "empty")\"")
+        if !undone, switched.contains("LSGC"), let seen = log.last, let blindFrom = seen.blindFrom {
+            // Seen only after a query stalled, its UNDO gone by then: not the app's doing (seen in time without an UNDO
+            // still fails below). The rest of ho-4 needs that UNDO, so it is left out and the flight goes on as it is.
+            pilot.shot("ho-4", "seen-late")
+            pilot.observed("ho-4", "not seen in time: \"\(switched)\" seen at \(Int(seen.t)) s, the watch blind from \(Int(blindFrom)) s, its UNDO gone; the rest of ho-4 left out")
+        } else {
+            _ = pilot.waitUntil(timeout: 3) { pilot.radioReading?.nowIs("LSGN") == true }
+            let back = pilot.radioReading
+            pilot.shot("ho-4", "undone")
+            pilot.check("ho-4", undone && back?.nowIs("LSGN") == true && back?.nextIs("LSGC") == true && back?.nextIsDue == true,
+                        "\"\(switched)\" taken back at \(Int(pilot.trackNow)) s: \(back.map { "\($0)" } ?? "no band")")
+            // The app doesn't switch again: a minute of flight past V, NOW still LSGN AD.
+            let held = pilot.watchRadio(untilTrack: s.mark("wp2") + 60)
+            log += held
+            pilot.check("ho-4", held.allSatisfy { $0.reading.nowIs("LSGN") && $0.message?.hasSuffix("now, automatically") != true },
+                        "to V + 60 s: \(RadioEntry.summary(held))")
+            // Then NEXT: the pilot's own switch, offered back.
+            pilot.tap("read.next", timeout: 3)
+            _ = pilot.waitUntil(timeout: 3) { pilot.radioReading?.nowIs("LSGC") == true }
+            let taken = (pilot.radioReading, pilot.toastMessage)
+            pilot.shot("ho-4", "next-tapped")
+            pilot.check("ho-4", taken.0?.nowIs("LSGC") == true && taken.1?.hasSuffix(" now") == true && taken.1?.contains("LSGC") == true,
+                        "NEXT tapped: \(taken.0.map { "\($0)" } ?? "no band"), the slot \"\(taken.1 ?? "empty")\"")
+        }
         _ = pilot.waitUntil(timeout: 8) { pilot.snap(pilot.undo) == nil }
 
         // ho-5: NEXT twice quickly, before it is due: one switch, to the FIS, and never back to LSGC TWR.

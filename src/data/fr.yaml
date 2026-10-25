@@ -65,7 +65,7 @@ flagship:
       anchor: "prepare"
       where: true
       title: "Tout ce que vous garderiez sinon en tête"
-      description: "La météo, les NOTAM, le plan de vol ATC et les règles de frontière deviennent des tâches à cocher, chacune avec son lien. L'anneau ne dit prêt que lorsqu'elles sont toutes faites."
+      description: "La météo, les NOTAM, le plan de vol ATC et la frontière deviennent des blocs à cocher, chacun avec son lien. Une ligne sous le nom du vol dit ce qui reste, et avant quand."
       facts: ["Un rappel la veille", "Les règles de frontière de six pays", "Un log de nav A5 pour la planchette"]
       shot: "prepare"
     - step: "03 · Voler"
@@ -118,7 +118,7 @@ faq:
     - q: "Mon avion y est-il ?"
       a: "{total} avions aujourd'hui, pour la plupart de flottes de clubs suisses ; la page Aéronefs les liste. Si le vôtre manque, envoyez sa checklist depuis l'app ou depuis aerocheck.app/fr/send : de nouveaux avions arrivent régulièrement."
     - q: "Fonctionne-t-il hors de Suisse ?"
-      a: "Oui. Les espaces aériens des pays où vous volez, les tours de piste et routes VFR dans {ofmCountries} pays, les liens vers les cartes officielles dans {chartCountries}. Les cartes suisses, la DABS et le GAFOR sont des plus pour la Suisse."
+      a: "Oui. Les espaces aériens des pays où vous volez, les tours de piste et routes VFR dans {ofmCountries} pays, les liens vers les cartes officielles dans {chartCountries}. Les cartes suisses, la DABS et le GAFOR sont des plus pour la Suisse. Pays par pays, aerocheck.app/fr/countries dit ce qui marche où."
     - q: "Fonctionne-t-il sans connexion ?"
       a: "Oui. Cartes, espaces aériens et aérodromes restent sur l'appareil : téléchargez-les avant de voler."
     - q: "Qu'apporte l'iPhone ?"

@@ -4,7 +4,7 @@
     "shots are in the order they are taken (the circuits scene leaves the national map selected, so it comes last;",
     "a dry run needs no flight running, so it follows a scene that cancels one). steps are the screenshot tour's",
     "gesture after the scene is up, by device kind ('all' for both): tap:<accessibility identifier>,",
-    "tapLabel:<text>, tapTab:<n>, wait:<identifier>, prefer:<identifier> (waits 15 s, never fails: a map snapshot),",
+    "tapLabel:<text>, tapTab:<n>, wait:<identifier>, prefer:<identifier> (waits 30 s, never fails: a map snapshot),",
     "pinchMap:<scale>, cardAtFoot, swipeUp:<points>, sleep:<s>.",
     "mask: by device, the areas that change at every capture (a running timer), blanked before the comparison, in",
     "points of the device's portrait screen [x, y, width, height], and maskWhy, what they are (the report says it).",

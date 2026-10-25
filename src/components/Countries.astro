@@ -114,12 +114,24 @@ const data = {
     <summary>{t.table.summary}</summary>
     <div class="mx-wrap">
       <table class="mx">
-        <thead><tr><th scope="col">{t.table.country}</th>{view.columns.map((col) => <th scope="col" title={col.label}><abbr title={col.label}>{col.short}</abbr></th>)}</tr></thead>
+        <thead>
+          <tr class="mx-gr">
+            <th scope="col" rowspan="2" class="mx-c">{t.table.country}</th>
+            {view.table.map((g) => g.name
+              ? <th scope="colgroup" colspan={g.columns.length} class="mx-gn start">{g.name}</th>
+              : <th scope="col" rowspan="2" class="mx-h start" title={g.columns[0].hint}>{g.columns[0].head}</th>)}
+          </tr>
+          <tr class="mx-hr">
+            {view.table.filter((g) => g.name).flatMap((g) => g.columns).map((col) => (
+              <th scope="col" class:list={['mx-h', { start: col.start }]} title={col.hint}>{col.head}</th>
+            ))}
+          </tr>
+        </thead>
         <tbody>
           {view.matrix.map((m) => (
             <tr data-row={m.cc}>
               <th scope="row"><a href={`#${m.cc}`} data-cc={m.cc}>{m.name}</a></th>
-              {m.cells.map((cell) => <td class={`c-${cell.level}`}>{sym[cell.level]}{cell.n ? ` ${cell.n.toLocaleString(DATE_LOCALES[lang])}` : ''}</td>)}
+              {m.cells.map((cell) => <td class:list={[`c-${cell.level}`, { start: cell.start }]}>{sym[cell.level]}{cell.n ? ` ${cell.n.toLocaleString(DATE_LOCALES[lang])}` : ''}</td>)}
             </tr>
           ))}
         </tbody>
@@ -214,17 +226,27 @@ const data = {
   .matrix summary { cursor: pointer; font-weight: 700; font-size: 16px; color: var(--text); }
   :global(html:not(.cty-ready)) .matrix { border-top: 0; padding-top: 0; }
   /* The header row stays in sight as the 49 rows go by. On a phone the table scrolls both ways in a box the height of
-     the window, its header and country column pinned; where it fits the width (880 px and up) the page scrolls it and
-     the header sticks under the site's nav (`--nav-h`, countries.ts). (24 Oct 2026) */
+     the window, its header and country column pinned; where it fits the width (1,040 px and up: from 880 px it didn't
+     yet, and the page scrolled sideways) the page scrolls it and the header sticks under the site's nav (`--nav-h`,
+     countries.ts). (24 Oct 2026, 25 Oct 2026) */
   .mx-wrap { overflow: auto; margin-top: 12px; max-height: calc(100svh - var(--nav-h, 61px) - 24px); }
-  @media (min-width: 880px) { .mx-wrap { overflow: visible; max-height: none; } }
+  @media (min-width: 1040px) { .mx-wrap { overflow: visible; max-height: none; } }
   .mx { border-collapse: collapse; font-size: 12.5px; min-width: 820px; width: 100%; font-variant-numeric: tabular-nums; }
-  .mx th, .mx td { padding: 6px 7px; border-top: 1px solid var(--line); text-align: center; white-space: nowrap; }
-  .mx thead th { font-family: var(--mono); font-size: 10.5px; font-weight: 400; letter-spacing: .04em; color: var(--muted); border-top: 0; vertical-align: bottom; position: sticky; top: 0; z-index: 2; background: var(--bg); box-shadow: inset 0 -1px var(--line-2); }
-  @media (min-width: 880px) { .mx thead th { top: var(--nav-h, 61px); } }
-  .mx abbr { text-decoration: none; }
+  .mx th, .mx td { padding: 6px 6px; border-top: 1px solid var(--line); text-align: center; white-space: nowrap; }
+  /* Two header rows (25 Oct 2026): the groups' names in the panels' gold capitals, then each column in words, two
+     lines at most; a group of one is a single cell over both. The second row is pinned under the first, which is
+     --mx-g tall; a rule down the table starts each group. */
+  .mx { --mx-g: 26px; }
+  .mx thead th { font-size: 11.5px; font-weight: 400; line-height: 1.25; color: var(--muted); border-top: 0; vertical-align: bottom; white-space: normal; text-wrap: balance; min-width: 4.6em; max-width: 8.6em; position: sticky; top: 0; z-index: 2; background: var(--bg); box-shadow: inset 0 -1px var(--line-2); }
+  .mx thead .mx-gn { box-sizing: border-box; height: var(--mx-g); padding: 4px 7px; max-width: none; white-space: nowrap; font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); box-shadow: inset 0 -1px var(--gold-fill); }
+  .mx thead .mx-hr th { top: var(--mx-g); }
+  @media (min-width: 1040px) {
+    .mx thead th { top: var(--nav-h, 61px); }
+    .mx thead .mx-hr th { top: calc(var(--nav-h, 61px) + var(--mx-g)); }
+  }
+  .mx .start { border-left: 1px solid var(--line-2); }
   .mx tbody th { text-align: left; font-weight: 400; position: sticky; left: 0; z-index: 1; background: var(--bg); }
-  .mx thead th:first-child { left: 0; z-index: 3; text-align: left; }
+  .mx thead .mx-c { left: 0; z-index: 3; text-align: left; }
   .mx tbody th a { color: var(--text); }
   .mx tbody th a:hover { color: var(--cyan); }
   .mx tr.sel th, .mx tr.sel td { background: color-mix(in srgb, var(--gold-fill) 16%, var(--bg)); }

@@ -80,7 +80,10 @@ export interface CountriesCopy {
   levels: { on: string; part: string; off: string };
   chapters: { prepare: string; fly: string; close: string };
   labels: Record<string, string>;
-  short: Record<string, string>;
+  /** The table of every country: its groups' names, its column heads and a line saying what each column is. */
+  table_groups: Record<string, string>;
+  table_heads: Record<string, string>;
+  table_hints: Record<string, string>;
   access: { account: string; paid: string; restricted: string; signin: string };
   text: {
     general: string; no_page: string; europe_only: string;

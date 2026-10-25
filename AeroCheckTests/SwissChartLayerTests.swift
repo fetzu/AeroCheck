@@ -83,6 +83,29 @@ final class SwissChartLayerTests: XCTestCase {
     /// Every Swiss layer of the builder and the waypoint picker leaves Apple's map under it, its imagery under
     /// SWISSIMAGE, so where swisstopo has nothing Apple's map shows rather than black; the charts and the
     /// National Map go down to the streets.
+    /// Plan › Map and the Cockpit: Apple's map under the chart, as the route builder since 6.4.2, so nothing past
+    /// the chart's edge is black; the chart alone in strict offline mode, which Apple's map would not respect.
+    /// (6.7.0, the author's m1 A and m2 A)
+    func testPlanMapAndTheCockpitLeaveApplesMapUnderTheChart() {
+        for layer in MapLayerType.allCases {
+            let online = SwissMapView.chartOverlay(for: layer, forceICAO: false, strictOffline: false, segelflugCache: false)
+            let offline = SwissMapView.chartOverlay(for: layer, forceICAO: false, strictOffline: true, segelflugCache: true)
+            if layer == .standard || layer == .satellite {
+                XCTAssertNil(online, "\(layer): Apple's own map, no chart")
+                XCTAssertNil(offline, "\(layer)")
+            } else {
+                XCTAssertEqual(online?.canReplaceMapContent, false, "\(layer): Apple's map under the chart")
+                XCTAssertEqual(offline?.canReplaceMapContent, true, "\(layer): strict offline, the chart alone")
+            }
+            XCTAssertEqual(SwissMapView.mapType(for: layer),
+                           layer == .swissimage || layer == .satellite ? .satellite : .standard, "\(layer)")
+        }
+        let national = SwissMapView.chartOverlay(for: .landeskarten, forceICAO: false, strictOffline: false,
+                                                 segelflugCache: false)
+        XCTAssertEqual((national as? SwisstopoTileOverlay)?.dropsBlankTiles, true,
+                       "the National Map's white tiles outside Switzerland are no tile, so Apple's map shows")
+    }
+
     func testTheBuildersLayersLeaveApplesMapUnderneath() {
         for layer in WaypointPickerMapLayer.allCases {
             let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 400, height: 400))

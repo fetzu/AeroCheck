@@ -794,23 +794,9 @@ struct NavigationMapView: View {
         appState.selectMapLayer(newLayer)
         // The approach view fades the charts only. (6.2.0)
         recomputeVFRContent(region: mapState.region)
-        // When switching layers, force a tile refresh for Swiss layers
-        if newLayer.isSwissLayer {
-            // Trigger a small region update to force tile loading
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                let currentRegion = mapState.region
-                mapState.region = MKCoordinateRegion(
-                    center: currentRegion.center,
-                    span: MKCoordinateSpan(
-                        latitudeDelta: currentRegion.span.latitudeDelta * 1.001,
-                        longitudeDelta: currentRegion.span.longitudeDelta * 1.001
-                    )
-                )
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    mapState.region = currentRegion
-                }
-            }
-        }
+        // No region nudge after a switch any more (the span moved by 1.001 and back, 0.1 s apart, "to force tile
+        // loading"): `ChartTileRenderer` asks for its tiles itself since 6.4.2, and the map is no longer rebuilt
+        // on a switch. (6.7.0)
     }
 
     /// The zoom the map opens at: where it was left, else about 6 NM across.
@@ -4644,23 +4630,8 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
-        if layerType == .icao {
-            // ICAO layer with seamless Segelflugkarte switching (or offline mode)
-            let overlay = ICAOSegelflugkarteTileOverlay(
-                forceICAO: forceICAOLayer,
-                isStrictOfflineMode: isStrictOfflineMode,
-                hasSegelflugCache: hasSegelflugCache
-            )
-            overlay.canReplaceMapContent = true
-            insertTileBelowShapes(overlay, on: mapView)
-        } else if let layerId = layerType.swisstopoLayerIdentifier {
-            let overlay = SwisstopoTileOverlay(
-                layerIdentifier: layerId,
-                tileExtension: layerType.tileExtension,
-                minimumZ: layerType.minimumZoom,
-                maximumZ: layerType.maximumZoom
-            )
-            overlay.canReplaceMapContent = true
+        if let overlay = Self.chartOverlay(for: layerType, forceICAO: forceICAOLayer,
+                                           strictOffline: isStrictOfflineMode, segelflugCache: hasSegelflugCache) {
             insertTileBelowShapes(overlay, on: mapView)
         }
         context.coordinator.currentLayerType = layerType
@@ -4670,7 +4641,31 @@ struct SwissMapView: UIViewRepresentable {
         context.coordinator.hasSegelflugCache = hasSegelflugCache
     }
 
-    /// Apple's map for a layer: its own on Apple's layers; under a swisstopo chart, which hides it for now. (6.7.0)
+    /// The swisstopo chart for a layer, over Apple's map (6.7.0, the author's m1 A): where the chart has nothing
+    /// (past its sheet, outside Switzerland) Apple's map shows, where until now the map drew black. As the route
+    /// builder has since 6.4.2: the National Map's white tiles outside Switzerland are no tile. In strict offline
+    /// mode the chart replaces Apple's map, which can't be held off the network (m2 A): past the chart, dark as
+    /// before. Nil on Apple's own layers.
+    static func chartOverlay(for layer: MapLayerType, forceICAO: Bool, strictOffline: Bool,
+                             segelflugCache: Bool) -> MKTileOverlay? {
+        let overlay: MKTileOverlay
+        if layer == .icao {
+            // ICAO layer with seamless Segelflugkarte switching (or offline mode)
+            overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAO, isStrictOfflineMode: strictOffline,
+                                                    hasSegelflugCache: segelflugCache)
+        } else if let layerId = layer.swisstopoLayerIdentifier {
+            overlay = SwisstopoTileOverlay(layerIdentifier: layerId, tileExtension: layer.tileExtension,
+                                           minimumZ: layer.minimumZoom, maximumZ: layer.maximumZoom,
+                                           dropsBlankTiles: layer == .landeskarten)
+        } else {
+            return nil
+        }
+        overlay.canReplaceMapContent = strictOffline
+        return overlay
+    }
+
+    /// Apple's map for a layer: its own on Apple's layers, and the one under a swisstopo chart: satellite under
+    /// SWISSIMAGE. (6.7.0)
     static func mapType(for layer: MapLayerType) -> MKMapType {
         layer == .satellite || layer == .swissimage ? .satellite : .standard
     }
@@ -4857,22 +4852,8 @@ struct SwissMapView: UIViewRepresentable {
             mapView.removeOverlays(existingTileOverlays)
 
             // Add new tile overlay
-            if layerType == .icao {
-                let overlay = ICAOSegelflugkarteTileOverlay(
-                    forceICAO: forceICAO,
-                    isStrictOfflineMode: strictOffline,
-                    hasSegelflugCache: segelflugCache
-                )
-                overlay.canReplaceMapContent = true
-                insertTileBelowShapes(overlay, on: mapView)
-            } else if let layerId = layerType.swisstopoLayerIdentifier {
-                let overlay = SwisstopoTileOverlay(
-                    layerIdentifier: layerId,
-                    tileExtension: layerType.tileExtension,
-                    minimumZ: layerType.minimumZoom,
-                    maximumZ: layerType.maximumZoom
-                )
-                overlay.canReplaceMapContent = true
+            if let overlay = SwissMapView.chartOverlay(for: layerType, forceICAO: forceICAO,
+                                                       strictOffline: strictOffline, segelflugCache: segelflugCache) {
                 insertTileBelowShapes(overlay, on: mapView)
             }
 

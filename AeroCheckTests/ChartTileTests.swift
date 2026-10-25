@@ -291,6 +291,20 @@ final class ChartTileTests: XCTestCase {
         func spec(for tile: ChartTile) -> ChartTileSpec? { network.spec("\(tile.z)/\(tile.x)/\(tile.y)") }
     }
 
+    /// The National Map as the ICAO layer has it: white tiles are none.
+    final class BlankDroppingChart: MKTileOverlay, ChartTileSource {
+        let network: Network
+        init(network: Network) {
+            self.network = network
+            super.init(urlTemplate: nil)
+            minimumZ = 7
+            maximumZ = 18
+        }
+        func spec(for tile: ChartTile) -> ChartTileSpec? {
+            network.spec("\(tile.z)/\(tile.x)/\(tile.y)", dropsBlank: true)
+        }
+    }
+
     /// The renderer, its redraws recorded (behind its own lock: the renderer's Sendable conformance holds).
     final class RecordingRenderer: ChartTileRenderer, @unchecked Sendable {
         private let lock = NSLock()
@@ -377,6 +391,56 @@ final class ChartTileTests: XCTestCase {
         XCTAssertTrue(renderer.canDraw(ChartTile(z: 5, x: 16, y: 11).mapRect, zoomScale: far))
         await wait(0.1)
         XCTAssertEqual(network.fetched.count, 2, "too far out: nothing asked")
+    }
+
+    /// A National Map tile swisstopo answers white inside Switzerland (its hole at z17 in the Clos du Doubs): the
+    /// tile a zoom out is asked for and drawn in its place. Where that one is white too, as outside Switzerland,
+    /// nothing, for Apple's map. (6.7.0)
+    func testABlankTileIsDrawnFromTheOneAZoomOut() async {
+        let network = Network()
+        let loader = ChartTileLoader(limit: 8)
+        let renderer = RecordingRenderer(source: BlankDroppingChart(network: network), loader: loader)
+        let scale = zoomScale(drawing: 17, on: renderer)
+        let hole = ChartTile(z: 17, x: 68096, y: 45914)
+        network.answers[key(hole)] = Self.ok(SwissChartLayerTests.blankNationalMapTile)
+        network.answers[key(hole.ancestor(1))] = Self.ok()
+        _ = await load(loader, network.spec(key(hole), dropsBlank: true))
+        guard case .empty = loader.cached(network.spec(key(hole), dropsBlank: true)) else { return XCTFail("white is none") }
+
+        XCTAssertFalse(renderer.canDraw(hole.mapRect, zoomScale: scale), "its parent asked for")
+        await waitUntil { renderer.redrawn.count == 1 }
+        XCTAssertEqual(network.fetched.last, key(hole.ancestor(1)))
+        XCTAssertTrue(renderer.canDraw(hole.mapRect, zoomScale: scale))
+        XCTAssertEqual(centrePixel(of: hole, drawnBy: renderer, at: scale), [255, 0, 0],
+                       "the parent's top left quarter, enlarged: red")
+
+        // Outside Switzerland the parent is white too: nothing drawn.
+        let france = ChartTile(z: 17, x: 67000, y: 45914)
+        network.answers[key(france)] = Self.ok(SwissChartLayerTests.blankNationalMapTile)
+        network.answers[key(france.ancestor(1))] = Self.ok(SwissChartLayerTests.blankNationalMapTile)
+        _ = await load(loader, network.spec(key(france), dropsBlank: true))
+        _ = renderer.canDraw(france.mapRect, zoomScale: scale)
+        await waitUntil { network.fetched.contains(key(france.ancestor(1))) }
+        await waitUntil { renderer.canDraw(france.mapRect, zoomScale: scale) }
+        XCTAssertEqual(centrePixel(of: france, drawnBy: renderer, at: scale), [0, 0, 0], "Apple's map")
+    }
+
+    /// The colour at the centre of `tile` as `renderer` draws it (black where it draws nothing).
+    private func centrePixel(of tile: ChartTile, drawnBy renderer: ChartTileRenderer, at scale: MKZoomScale) -> [UInt8] {
+        let side = 64
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            let context = CGContext(data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                    bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            let rect = renderer.rect(for: tile.mapRect)
+            context.translateBy(x: 0, y: CGFloat(side))
+            context.scaleBy(x: CGFloat(side) / rect.width, y: -CGFloat(side) / rect.height)
+            context.translateBy(x: -rect.minX, y: -rect.minY)
+            renderer.draw(tile.mapRect, zoomScale: scale, in: context)
+        }
+        let i = (side / 2 * side + side / 2) * 4
+        return Array(pixels[i ..< i + 3])
     }
 
     /// The tile drawn where it lies, its top up: MapKit's context runs with y down.

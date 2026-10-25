@@ -446,7 +446,16 @@ class ChartTileRenderer: MKOverlayRenderer, @unchecked Sendable {
         guard draws(zooms) else { return true }
         var ready = true
         for tile in ChartTile.covering(mapRect, z: zooms.drawn) {
-            guard let spec = source.spec(for: tile), !loader.isReady(spec) else { continue }
+            guard let spec = source.spec(for: tile) else { continue }
+            if loader.isReady(spec) {
+                // A blank tile with content one zoom out: that one is asked for, to draw in its place.
+                if spec.dropsBlank, case .empty = loader.cached(spec), let parent = blankParent(of: tile),
+                   !loader.isReady(parent.spec) {
+                    request(parent.tile, spec: parent.spec, zoomScale: zoomScale, coarse: true)
+                    ready = false
+                }
+                continue
+            }
             request(tile, spec: spec, zoomScale: zoomScale, coarse: false)
             guard !hasStandIn(for: tile) else { continue }
             // Nothing to draw there yet: MapKit keeps what it showed until the tile, or the coarse one, comes.
@@ -479,7 +488,12 @@ class ChartTileRenderer: MKOverlayRenderer, @unchecked Sendable {
             case .image(let image):
                 draw(image, of: tile, clippedTo: area, in: context)
             case .empty:
-                continue
+                // A National Map tile swisstopo answers blank inside Switzerland (a hole in its cache at z17 in the
+                // Clos du Doubs, measured 25 Oct 2026): the one a zoom out, enlarged. Outside Switzerland that one
+                // is blank too, and Apple's map shows. (6.7.0)
+                guard spec.dropsBlank, let parent = blankParent(of: tile),
+                      case .image(let image) = loader.cached(parent.spec) else { continue }
+                draw(image, of: parent.tile, clippedTo: area, in: context)
             case .missing:
                 drawStandIn(for: tile, clippedTo: area, in: context)
             }
@@ -507,6 +521,15 @@ class ChartTileRenderer: MKOverlayRenderer, @unchecked Sendable {
     }
 
     private func hasStandIn(for tile: ChartTile) -> Bool { !standIn(for: tile).isEmpty }
+
+    /// A blank tile's stand-in: its parent, of the same blank-dropping kind, and no further out (further out the ICAO
+    /// layer is the glider chart, which would cover Apple's map past the border). (6.7.0)
+    private func blankParent(of tile: ChartTile) -> (tile: ChartTile, spec: ChartTileSpec)? {
+        guard tile.z - 1 >= source.minimumZ else { return nil }
+        let parent = tile.ancestor(1)
+        guard let spec = source.spec(for: parent), spec.dropsBlank else { return nil }
+        return (parent, spec)
+    }
 
     private func drawStandIn(for tile: ChartTile, clippedTo area: MKMapRect, in context: CGContext) {
         for (standIn, image) in standIn(for: tile) {

@@ -4291,6 +4291,9 @@ struct AeroMapView: UIViewRepresentable {
         mapView.onFirstLayout = { [coordinator = context.coordinator] map in
             applyZoomRange(to: map, coordinator: coordinator)
         }
+        mapView.onBackOnScreen = { [coordinator = context.coordinator, mapState] map in
+            Self.holdZoomRange(map.cameraZoomRange, on: map, coordinator: coordinator, mapState: mapState)
+        }
         mapView.delegate = context.coordinator
         mapState.noteCalloutSelection(on: mapView)   // a new map has no callout open (6.2.0)
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
@@ -4405,6 +4408,10 @@ struct AeroMapView: UIViewRepresentable {
         // Not while the legs panel's band holds a closer one (`LegsBandDriver`). (6.1, option C)
         if !bandOwnsCamera, mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
+            // On screen, the camera brought inside it now; off screen, again when the map is back (`onBackOnScreen`).
+            if mapView.window != nil {
+                Self.holdZoomRange(newZoomRange, on: mapView, coordinator: context.coordinator, mapState: mapState)
+            }
         }
 
         // Update OpenAIP tile overlay
@@ -4717,6 +4724,30 @@ struct AeroMapView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    /// `range` made to hold on a map already on screen, as `applyZoomRange` does on its first layout, and a camera
+    /// outside it brought inside, the shared state told. A range set while the map was off screen held nothing: after
+    /// "Force ICAO chart" was turned on in Settings, Plan › Map showed the ICAO chart at 0.2 NM, and after it was
+    /// turned off, Apple's map alone at 0.1 NM, past the National Map. (6.7.0, the device-check pre-check)
+    static func holdZoomRange(_ range: MKMapView.CameraZoomRange, on mapView: MKMapView, coordinator: Coordinator,
+                              mapState: SharedMapState) {
+        // Another range first: MapKit holds a range from the moment it changes on screen.
+        let other = range.minCenterCoordinateDistance == 1_000 ? 1_500.0 : 1_000.0
+        mapView.cameraZoomRange = MKMapView.CameraZoomRange(minCenterCoordinateDistance: other,
+                                                            maxCenterCoordinateDistance: 600_000)
+        mapView.cameraZoomRange = range
+        let distance = mapView.camera.centerCoordinateDistance
+        let held = clamped(distance, to: range)
+        if abs(held - distance) > 1 {
+            mapView.setCamera(MKMapCamera(lookingAtCenter: mapView.camera.centerCoordinate, fromDistance: held,
+                                          pitch: 0, heading: mapView.camera.heading), animated: false)
+        }
+        // MapKit may have moved the camera into the range itself, off screen, telling no one: the shared state (the
+        // scale bar, the markers' region) takes the camera as it is now.
+        mapState.cameraDistance = mapView.camera.centerCoordinateDistance
+        coordinator.fitSync.fitted(replacing: mapState.region)
+        mapState.updateFromFit(mapView.region)
     }
 
     // MARK: - Update Methods
@@ -5452,16 +5483,26 @@ class TrackVectorCasingPolyline: TrackVectorPolyline {}
 /// Modal sheet explaining GPS status indicators
 /// GPS Status modal — presented via .fullScreenCover as a centered card over dimmed background
 
-/// A map that says when it first has a size: what MapKit needs to apply a zoom range. (6.2)
+/// A map that says when it first has a size, and when it is back on screen: what MapKit needs to apply a zoom range.
+/// (6.2; back on screen, 6.7.0)
 final class FirstLayoutMapView: MKMapView {
     /// Run once, on the first layout with a size, before the map draws.
     var onFirstLayout: ((MKMapView) -> Void)?
+    /// Run each time the map is back in a window after its first layout: a range set while it was off screen (Plan ›
+    /// Map behind Settings, "Force ICAO chart" turned on or off) is not held until set again.
+    var onBackOnScreen: ((MKMapView) -> Void)?
 
     override func layoutSubviews() {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0, let action = onFirstLayout else { return }
         onFirstLayout = nil
         action(self)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, onFirstLayout == nil, bounds.width > 0 else { return }
+        onBackOnScreen?(self)
     }
 }
 

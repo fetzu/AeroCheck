@@ -530,6 +530,8 @@ struct MiniMapPreview: View {
 struct CoordinatePickerView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(AppState.self) private var appState
+    /// The downloaded charts, for the one chart policy ("Force ICAO chart", offline). (6.7.0)
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
 
     let initialCoordinate: CLLocationCoordinate2D
     let onSelect: (CLLocationCoordinate2D) -> Void
@@ -557,6 +559,7 @@ struct CoordinatePickerView: View {
                 WaypointPickerMapViewRepresentable(
                     region: $region,
                     mapLayer: .shown(for: appState.navigationMapState.selectedLayer, over: region),
+                    chartPolicy: .current(settings: appState.settings, offline: offlineMapManager),
                     airports: [],
                     onAirportTapped: nil
                 )

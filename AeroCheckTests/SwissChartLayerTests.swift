@@ -88,8 +88,8 @@ final class SwissChartLayerTests: XCTestCase {
     /// (6.7.0, the author's m1 A and m2 A)
     func testPlanMapAndTheCockpitLeaveApplesMapUnderTheChart() {
         for layer in MapLayerType.allCases {
-            let online = SwissMapView.chartOverlay(for: layer, forceICAO: false, strictOffline: false, segelflugCache: false)
-            let offline = SwissMapView.chartOverlay(for: layer, forceICAO: false, strictOffline: true, segelflugCache: true)
+            let online = ChartPolicy().overlay(for: layer)
+            let offline = ChartPolicy(strictOffline: true, segelflugCache: true).overlay(for: layer)
             if layer == .standard || layer == .satellite {
                 XCTAssertNil(online, "\(layer): Apple's own map, no chart")
                 XCTAssertNil(offline, "\(layer)")
@@ -97,13 +97,43 @@ final class SwissChartLayerTests: XCTestCase {
                 XCTAssertEqual(online?.canReplaceMapContent, false, "\(layer): Apple's map under the chart")
                 XCTAssertEqual(offline?.canReplaceMapContent, true, "\(layer): strict offline, the chart alone")
             }
-            XCTAssertEqual(SwissMapView.mapType(for: layer),
+            XCTAssertEqual(ChartPolicy.mapType(for: layer),
                            layer == .swissimage || layer == .satellite ? .satellite : .standard, "\(layer)")
         }
-        let national = SwissMapView.chartOverlay(for: .landeskarten, forceICAO: false, strictOffline: false,
-                                                 segelflugCache: false)
+        let national = ChartPolicy().overlay(for: .landeskarten)
         XCTAssertEqual((national as? SwisstopoTileOverlay)?.dropsBlankTiles, true,
                        "the National Map's white tiles outside Switzerland are no tile, so Apple's map shows")
+    }
+
+    /// One chart policy for every map (6.7.0, the author's m3 A): the ICAO layer goes ICAO chart, glider chart, then
+    /// the National Map down to 1.5 km, unless forced (the ICAO chart alone) or offline (the downloaded charts).
+    func testOneChartPolicyForEveryMap() throws {
+        let online = try XCTUnwrap(ChartPolicy().overlay(for: .icao) as? ICAOSegelflugkarteTileOverlay)
+        XCTAssertTrue(online.continuesToNationalMap)
+        XCTAssertEqual(ChartPolicy().cameraZoomRange(for: .icao).minCenterCoordinateDistance, 1_500)
+
+        let forced = ChartPolicy(forceICAO: true)
+        XCTAssertEqual((forced.overlay(for: .icao) as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, false)
+        XCTAssertEqual((forced.overlay(for: .icao) as? ICAOSegelflugkarteTileOverlay)?.maximumZ, 11)
+        XCTAssertEqual(forced.cameraZoomRange(for: .icao).minCenterCoordinateDistance, 135_000)
+
+        let offline = ChartPolicy(strictOffline: true, segelflugCache: true)
+        XCTAssertEqual(offline.layer(for: .swissimage), .icao, "offline, the downloaded chart whatever was picked")
+        XCTAssertEqual((offline.overlay(for: .icao) as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, false)
+        XCTAssertEqual(offline.cameraZoomRange(for: .icao).minCenterCoordinateDistance, ChartPolicy.gliderClosestDistance)
+
+        // The route builder and the picker honour the policy as Plan › Map does (they ignored both until 6.7.0).
+        let map = MKMapView()
+        WaypointPickerMapLayer.icao.apply(to: map, policy: forced)
+        XCTAssertEqual((map.overlays.first as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, false)
+        XCTAssertEqual(WaypointPickerMapLayer.icao.cameraZoomRange(policy: forced).minCenterCoordinateDistance, 135_000)
+        WaypointPickerMapLayer.nationalMap.apply(to: map, policy: offline)
+        XCTAssertNotNil(map.overlays.first as? ICAOSegelflugkarteTileOverlay, "offline, the ICAO layer")
+        XCTAssertEqual(map.overlays.compactMap { $0 as? MKTileOverlay }.first?.canReplaceMapContent, true)
+
+        // A change in what the overlay draws is a new key, a setting that changes nothing is not.
+        XCTAssertNotEqual(ChartPolicy().drawnKey(for: .icao), forced.drawnKey(for: .icao))
+        XCTAssertEqual(ChartPolicy().drawnKey(for: .landeskarten), forced.drawnKey(for: .landeskarten))
     }
 
     func testTheBuildersLayersLeaveApplesMapUnderneath() {
@@ -117,7 +147,7 @@ final class SwissChartLayerTests: XCTestCase {
             XCTAssertEqual(map.mapType, layer == .swissimage || layer == .appleSatellite ? .satellite : .standard, "\(layer)")
             XCTAssertFalse(layer.title.isEmpty)
             if !apple {
-                XCTAssertEqual(layer.cameraZoomRange?.minCenterCoordinateDistance, 1_500, "\(layer)")
+                XCTAssertEqual(layer.cameraZoomRange().minCenterCoordinateDistance, 1_500, "\(layer)")
             }
             // Switching layers leaves one overlay.
             layer.apply(to: map)

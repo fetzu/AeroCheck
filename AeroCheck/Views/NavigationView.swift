@@ -3716,9 +3716,11 @@ struct MapSheet: View {
                     .font(.aero(size: 20))
                     .foregroundColor(selected ? theme.action : theme.textSecondary)
                     .frame(width: 32)
-                // The ICAO chart with the glider chart it gives way to, in its name: "ICAO chart/Glider map", no
-                // line under it (the author's device check mp-1, 6.4.2). The ICAO chart alone when forced.
-                Text(layer == .icao && !appState.settings.forceICAOChartLayer ? L10n.MapLayer.icaoGlider : Self.name(of: layer))
+                // The ICAO chart with the charts it gives way to, in its name, no line under it (the author's device
+                // check mp-1, 6.4.2): the National Map too since 6.7.0, as the route builder names it; the glider
+                // chart last offline; the ICAO chart alone when forced.
+                Text(layer == .icao ? Self.icaoName(forced: appState.settings.forceICAOChartLayer, offline: isOfflineMode)
+                     : Self.name(of: layer))
                     .font(.aero(size: CockpitType.label, weight: selected ? .bold : .medium))
                     .foregroundColor(theme.textPrimary)
                 Spacer()
@@ -3732,6 +3734,11 @@ struct MapSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// The ICAO layer's name by what it shows. (6.7.0)
+    static func icaoName(forced: Bool, offline: Bool) -> String {
+        forced ? L10n.MapLayer.icao : offline ? L10n.MapLayer.icaoGlider : L10n.MapLayer.icaoGliderNational
     }
 
     static func name(of layer: MapLayerType) -> String {
@@ -4233,49 +4240,15 @@ struct SwissMapView: UIViewRepresentable {
     /// Adjust minCenterCoordinateDistance to change max zoom-in level.
     /// Adjust maxCenterCoordinateDistance to change max zoom-out level.
     ///
-    /// The ICAO layer's closest camera, the glider chart in view. (6.4.2)
-    static let icaoGliderClosestDistance: CLLocationDistance = 30_000
+    /// The ICAO layer's closest camera when it stops at the glider chart (forced, offline). (6.4.2)
+    static let icaoGliderClosestDistance: CLLocationDistance = ChartPolicy.gliderClosestDistance
 
     private func cameraZoomRange(for layer: MapLayerType, forceICAO: Bool) -> MKMapView.CameraZoomRange {
-        // Camera zoom range uses centerCoordinateDistance (meters from camera to ground center)
-        // Lower distance = more zoomed in, higher distance = more zoomed out
-        //
-        // The tile zoom a camera distance gives depends on the view: MapKit picks it from the map's height and
-        // the screen. Measured on the iPad's Plan › Map (820 x 1027 pt): zoom 13 at 28.9 km, 15 at 10 km, 18 at
-        // 1.5 km; a phone's smaller map is about a zoom lower at the same distance. A table here of one zoom per
-        // distance (zoom 11 at 30 km) held for none of them, and the ICAO layer's 30 km asked for zoom 13 of a
-        // chart that stops at 12. Since 6.4.2 `ChartTileRenderer` draws a layer's last zoom enlarged past it, so
-        // these limits are choices, not guesses at MapKit's rounding (the map tile review, F2; q3 B).
-
-        switch layer {
-        case .standard, .satellite:
-            // No restrictions for Apple Maps
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)!
-
-        case .icao:
-            if forceICAO {
-                // ICAO only: zoom 7-11
-                // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 135_000, maxCenterCoordinateDistance: 600_000)!
-            } else {
-                // ICAO + Segelflugkarte: zoom 7-12. At 65 km the map stopped about z10 to z11 and the glider chart,
-                // then from z12, never showed (the author's device check, 19 Oct 2026). At 30 km the iPad's map wants
-                // z13, past the glider chart's last zoom: MapKit's tile renderer drew nothing there (the map tile
-                // review, F2); `ChartTileRenderer` draws z12 enlarged twice, as the author chose (q3 B). (6.4.2)
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: Self.icaoGliderClosestDistance,
-                                                 maxCenterCoordinateDistance: 600_000)!
-            }
-
-        case .landeskarten:
-            // Landeskarten: zoom 7-18
-            // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)!
-
-        case .swissimage:
-            // SWISSIMAGE: zoom 7-18
-            // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)!
-        }
+        // The tile zoom a camera distance gives depends on the view, so these limits are choices, not guesses at
+        // MapKit's rounding: `ChartTileRenderer` enlarges a layer's last zoom past it (the map tile review, F2; q3
+        // B). One policy for every map since 6.7.0 (`ChartPolicy`).
+        ChartPolicy(forceICAO: forceICAO, strictOffline: isStrictOfflineMode, segelflugCache: hasSegelflugCache)
+            .cameraZoomRange(for: layer)
     }
 
     func makeUIView(context: Context) -> MKMapView {
@@ -4289,7 +4262,7 @@ struct SwissMapView: UIViewRepresentable {
         mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
-        mapView.mapType = Self.mapType(for: layerType)
+        mapView.mapType = ChartPolicy.mapType(for: layerType)
 
         // Set zoom range based on layer type
         let zoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
@@ -4370,7 +4343,7 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         // Apple's map under the chart: its satellite map for SWISSIMAGE and Apple's own satellite layer. (6.7.0)
-        let mapType = Self.mapType(for: layerType)
+        let mapType = ChartPolicy.mapType(for: layerType)
         if mapView.mapType != mapType { mapView.mapType = mapType }
 
         // Update tile overlay if layer changed or force setting changed
@@ -4630,8 +4603,8 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
-        if let overlay = Self.chartOverlay(for: layerType, forceICAO: forceICAOLayer,
-                                           strictOffline: isStrictOfflineMode, segelflugCache: hasSegelflugCache) {
+        if let overlay = ChartPolicy(forceICAO: forceICAOLayer, strictOffline: isStrictOfflineMode,
+                                     segelflugCache: hasSegelflugCache).overlay(for: layerType) {
             insertTileBelowShapes(overlay, on: mapView)
         }
         context.coordinator.currentLayerType = layerType
@@ -4639,35 +4612,6 @@ struct SwissMapView: UIViewRepresentable {
         context.coordinator.offlineMapManager = offlineMapManager
         context.coordinator.isStrictOfflineMode = isStrictOfflineMode
         context.coordinator.hasSegelflugCache = hasSegelflugCache
-    }
-
-    /// The swisstopo chart for a layer, over Apple's map (6.7.0, the author's m1 A): where the chart has nothing
-    /// (past its sheet, outside Switzerland) Apple's map shows, where until now the map drew black. As the route
-    /// builder has since 6.4.2: the National Map's white tiles outside Switzerland are no tile. In strict offline
-    /// mode the chart replaces Apple's map, which can't be held off the network (m2 A): past the chart, dark as
-    /// before. Nil on Apple's own layers.
-    static func chartOverlay(for layer: MapLayerType, forceICAO: Bool, strictOffline: Bool,
-                             segelflugCache: Bool) -> MKTileOverlay? {
-        let overlay: MKTileOverlay
-        if layer == .icao {
-            // ICAO layer with seamless Segelflugkarte switching (or offline mode)
-            overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAO, isStrictOfflineMode: strictOffline,
-                                                    hasSegelflugCache: segelflugCache)
-        } else if let layerId = layer.swisstopoLayerIdentifier {
-            overlay = SwisstopoTileOverlay(layerIdentifier: layerId, tileExtension: layer.tileExtension,
-                                           minimumZ: layer.minimumZoom, maximumZ: layer.maximumZoom,
-                                           dropsBlankTiles: layer == .landeskarten)
-        } else {
-            return nil
-        }
-        overlay.canReplaceMapContent = strictOffline
-        return overlay
-    }
-
-    /// Apple's map for a layer: its own on Apple's layers, and the one under a swisstopo chart: satellite under
-    /// SWISSIMAGE. (6.7.0)
-    static func mapType(for layer: MapLayerType) -> MKMapType {
-        layer == .satellite || layer == .swissimage ? .satellite : .standard
     }
 
     /// `distance` within `range`.
@@ -4830,8 +4774,8 @@ struct SwissMapView: UIViewRepresentable {
             // showing meanwhile. The forced ICAO chart, offline mode and the glider cache only change the ICAO
             // overlay, the glider cache only offline (the map tile review, F6). (6.4.2)
             let drawn = { (layer: MapLayerType?, force: Bool, offline: Bool, glider: Bool) -> String in
-                guard layer == .icao else { return layer?.rawValue ?? "" }
-                return "icao force=\(force) offline=\(offline) glider=\(offline && glider)"
+                guard let layer else { return "" }
+                return ChartPolicy(forceICAO: force, strictOffline: offline, segelflugCache: glider).drawnKey(for: layer)
             }
             let changed = drawn(layerType, forceICAO, strictOffline, segelflugCache)
                 != drawn(currentLayerType, currentForceICAO, isStrictOfflineMode, hasSegelflugCache)
@@ -4852,8 +4796,8 @@ struct SwissMapView: UIViewRepresentable {
             mapView.removeOverlays(existingTileOverlays)
 
             // Add new tile overlay
-            if let overlay = SwissMapView.chartOverlay(for: layerType, forceICAO: forceICAO,
-                                                       strictOffline: strictOffline, segelflugCache: segelflugCache) {
+            if let overlay = ChartPolicy(forceICAO: forceICAO, strictOffline: strictOffline,
+                                         segelflugCache: segelflugCache).overlay(for: layerType) {
                 insertTileBelowShapes(overlay, on: mapView)
             }
 

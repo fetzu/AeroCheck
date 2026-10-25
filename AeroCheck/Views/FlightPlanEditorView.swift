@@ -1519,44 +1519,23 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         }
     }
 
-    /// How close the camera goes. The charts down to the National Map's streets: zooming in, the ICAO chart gives
-    /// way to the glider chart (z11) and then to the National Map (z13), where until 6.4.2 it stopped at the ICAO
-    /// chart, about z10, and the glider chart never showed (device check, 19 Oct 2026).
-    var cameraZoomRange: MKMapView.CameraZoomRange? {
-        switch self {
-        case .apple, .appleSatellite:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)
-        case .icao, .nationalMap, .swissimage:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)
-        }
+    /// How close the camera goes, by the one chart policy (`ChartPolicy`): the charts down to the National Map's
+    /// streets, the ICAO chart giving way to the glider chart (z11) and then to the National Map (z13); with
+    /// "Force ICAO chart" or offline, as Plan › Map. (6.4.2; one policy since 6.7.0)
+    func cameraZoomRange(policy: ChartPolicy = ChartPolicy()) -> MKMapView.CameraZoomRange {
+        policy.cameraZoomRange(for: policy.layer(for: mapLayerType))
     }
 
-    /// Puts the layer on `mapView`: Apple's map, with swisstopo's over it. Where swisstopo has nothing (outside
-    /// Switzerland: an empty tile, a white one, a 400), Apple's map shows, its imagery under SWISSIMAGE: until
-    /// 6.4.2 the overlay replaced Apple's map everywhere and drew black there (device check, 19 Oct 2026).
+    /// Puts the layer on `mapView` by the one chart policy: Apple's map, with swisstopo's over it. Where swisstopo has
+    /// nothing (outside Switzerland: an empty tile, a white one, a 400), Apple's map shows, its imagery under
+    /// SWISSIMAGE: until 6.4.2 the overlay replaced Apple's map everywhere and drew black there (device check, 19 Oct
+    /// 2026). "Force ICAO chart" and offline mode count here too since 6.7.0, as on Plan › Map.
     /// `atBottom`: under every other overlay (the route builder's route and airspace).
-    func apply(to mapView: MKMapView, atBottom: Bool = false) {
+    func apply(to mapView: MKMapView, atBottom: Bool = false, policy: ChartPolicy = ChartPolicy()) {
         mapView.removeOverlays(mapView.overlays.compactMap { $0 as? MKTileOverlay })
-        let overlay: MKTileOverlay
-        switch self {
-        case .apple:
-            mapView.mapType = .standard
-            return
-        case .appleSatellite:
-            mapView.mapType = .satellite
-            return
-        case .icao:
-            mapView.mapType = .standard
-            overlay = ICAOSegelflugkarteTileOverlay(continuesToNationalMap: true)
-        case .nationalMap:
-            mapView.mapType = .standard
-            overlay = SwisstopoTileOverlay(layerIdentifier: ICAOSegelflugkarteTileOverlay.nationalMapLayerIdentifier,
-                                           tileExtension: "jpeg", dropsBlankTiles: true)
-        case .swissimage:
-            mapView.mapType = .satellite
-            overlay = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
-        }
-        overlay.canReplaceMapContent = false
+        let layer = policy.layer(for: mapLayerType)
+        mapView.mapType = ChartPolicy.mapType(for: layer)
+        guard let overlay = policy.overlay(for: layer) else { return }
         if atBottom {
             mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
         } else {
@@ -1568,6 +1547,8 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
 struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
     let mapLayer: WaypointPickerMapLayer
+    /// "Force ICAO chart" and offline mode, as every map draws them. (6.7.0)
+    var chartPolicy = ChartPolicy()
     var airports: [Airport] = []
     var onAirportTapped: ((Airport) -> Void)?
 
@@ -1578,17 +1559,18 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         mapView.showsUserLocation = true
         mapView.showsCompass = true
         mapView.showsScale = true
-        mapLayer.apply(to: mapView)
-        mapView.cameraZoomRange = mapLayer.cameraZoomRange
+        mapLayer.apply(to: mapView, policy: chartPolicy)
+        mapView.cameraZoomRange = mapLayer.cameraZoomRange(policy: chartPolicy)
         return mapView
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         // Only reconfigure tiles when layer actually changes
-        if context.coordinator.currentLayer != mapLayer {
+        if context.coordinator.currentLayer != mapLayer || context.coordinator.currentPolicy != chartPolicy {
             context.coordinator.currentLayer = mapLayer
-            mapLayer.apply(to: mapView)
-            mapView.cameraZoomRange = mapLayer.cameraZoomRange
+            context.coordinator.currentPolicy = chartPolicy
+            mapLayer.apply(to: mapView, policy: chartPolicy)
+            mapView.cameraZoomRange = mapLayer.cameraZoomRange(policy: chartPolicy)
         }
         // Update airport annotations (already uses diff logic)
         updateAirportAnnotations(mapView)
@@ -1616,11 +1598,13 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: WaypointPickerMapViewRepresentable
         var currentLayer: WaypointPickerMapLayer
+        var currentPolicy: ChartPolicy
         var isUserInteracting = false
 
         init(_ parent: WaypointPickerMapViewRepresentable) {
             self.parent = parent
             self.currentLayer = parent.mapLayer
+            self.currentPolicy = parent.chartPolicy
         }
 
         func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {

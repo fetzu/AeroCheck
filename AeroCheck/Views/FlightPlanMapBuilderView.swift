@@ -16,6 +16,8 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windsAloftService: WindsAloftService
+    /// The downloaded charts, for the one chart policy ("Force ICAO chart", offline). (6.7.0)
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
     /// An aerodrome's official chart, from its callout, opens in the browser. (6.2.0)
     @Environment(\.openURL) private var openURL
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
@@ -339,6 +341,7 @@ struct FlightPlanMapBuilderView: View {
         RouteBuilderMapView(
             waypoints: waypoints,
             mapLayer: .shown(for: appState.navigationMapState.selectedLayer, over: region),
+            chartPolicy: .current(settings: appState.settings, offline: offlineMapManager),
             airports: visibleAirports,
             navaids: visibleNavaids,
             reportingPoints: visibleReportingPoints,
@@ -2169,6 +2172,8 @@ private struct LiveRegionReader<Content: View>: View {
 struct RouteBuilderMapView: UIViewRepresentable {
     let waypoints: [FlightPlanWaypoint]
     let mapLayer: WaypointPickerMapLayer
+    /// "Force ICAO chart" and offline mode, as every map draws them. (6.7.0)
+    var chartPolicy = ChartPolicy()
     var airports: [Airport]
     var navaids: [Navaid] = []
     var reportingPoints: [ReportingPoint] = []     // v4.1.0 ③ (snap-enabled)
@@ -2210,8 +2215,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         mapView.showsUserLocation = true
         mapView.showsCompass = true
         mapView.showsScale = true
-        mapLayer.apply(to: mapView, atBottom: true)
-        mapView.cameraZoomRange = mapLayer.cameraZoomRange
+        mapLayer.apply(to: mapView, atBottom: true, policy: chartPolicy)
+        mapView.cameraZoomRange = mapLayer.cameraZoomRange(policy: chartPolicy)
 
         // One press-and-hold gesture drives ALL route editing: grab a waypoint to move it, grab the
         // route line to insert mid-route (both at the short grab threshold for a responsive feel), or
@@ -2233,10 +2238,11 @@ struct RouteBuilderMapView: UIViewRepresentable {
         context.coordinator.parent = self
         // Never fight an in-progress live drag — the coordinator owns the geometry until release.
         if context.coordinator.isDragging { return }
-        if context.coordinator.currentLayer != mapLayer {
+        if context.coordinator.currentLayer != mapLayer || context.coordinator.currentPolicy != chartPolicy {
             context.coordinator.currentLayer = mapLayer
-            mapLayer.apply(to: mapView, atBottom: true)
-            mapView.cameraZoomRange = mapLayer.cameraZoomRange
+            context.coordinator.currentPolicy = chartPolicy
+            mapLayer.apply(to: mapView, atBottom: true, policy: chartPolicy)
+            mapView.cameraZoomRange = mapLayer.cameraZoomRange(policy: chartPolicy)
         }
 
         updateAirportAnnotations(mapView, context: context)
@@ -2410,6 +2416,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: RouteBuilderMapView
         var currentLayer: WaypointPickerMapLayer
+        var currentPolicy = ChartPolicy()
         var lastRouteSignature = ""
         var lastSelectedLegKey = ""
         var lastFitToken = 0
@@ -2447,6 +2454,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         init(_ parent: RouteBuilderMapView) {
             self.parent = parent
             self.currentLayer = parent.mapLayer
+            self.currentPolicy = parent.chartPolicy
         }
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {

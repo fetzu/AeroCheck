@@ -6,6 +6,7 @@ struct SyncDataSettingsView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject var locationManager: LocationManager
     @ObservedObject private var syncManager = SyncManager.shared
+    @ObservedObject private var aerodromeNotes = AerodromeNoteStore.shared
 
     @State private var iCloudSyncEnabled: Bool = true
     @State private var gpsInterval: Double = 5.0
@@ -182,6 +183,27 @@ struct SyncDataSettingsView: View {
             SettingsValueRow(icon: "point.topleft.down.curvedto.point.bottomright.up",
                              title: L10n.Settings.totalGPSPoints,
                              tint: tint, value: "\(totalGPSPoints)")
+
+            // The pilot's aerodrome notes: the list, the export and deletion. (6.7.0)
+            NavigationLink {
+                AerodromeNotesSettingsView()
+            } label: {
+                HStack(spacing: 8) {
+                    SettingsRowLabel(icon: "note.text", title: L10n.AerodromeNotes.title, tint: tint)
+                    Text(L10n.AerodromeNotes.count(aerodromeNotes.notes.count))
+                        .font(.aero(.subheadline))
+                        .foregroundColor(.secondaryText)
+                    Image(systemName: "chevron.right")
+                        .font(.aero(size: 14, weight: .semibold))
+                        .foregroundColor(.dimText)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.aerodromeNotes")
         }
     }
 

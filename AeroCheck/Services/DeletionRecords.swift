@@ -31,6 +31,8 @@ struct DeletionRecord: Codable, Equatable, Sendable {
 
     enum Kind: String, CaseIterable, Sendable {
         case flight, plan, thread, trip
+        /// A pilot's note on an aerodrome. (6.7.0)
+        case aerodromeNote
     }
 
     /// The format: 1.
@@ -317,7 +319,7 @@ enum DeletionRecords {
         switch kind {
         case .flight:
             return (probe.id, probe.modifiedAt ?? probe.stopTime ?? probe.startTime ?? .distantPast)
-        case .plan, .thread, .trip:
+        case .plan, .thread, .trip, .aerodromeNote:
             return probe.updatedAt.map { (probe.id, $0) }
         }
     }

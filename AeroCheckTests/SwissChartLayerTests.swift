@@ -152,6 +152,9 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertNil(chartOnly.atoTap)
         XCTAssertTrue(MapFeatures.navigation.isSuperset(of: .markers))
         XCTAssertTrue(MapFeatures.chartOnly.isEmpty)
+        // A dry run shows none of the pilot's notes and writes none (n7 B).
+        XCTAssertNil(map(.dryRun).noteOpener)
+        XCTAssertNotNil(map(.dryRun).chartOpener)
 
         // The route builder's route and its editing reach only a surface that draws and edits it.
         let point = CLLocationCoordinate2D(latitude: 47, longitude: 7)

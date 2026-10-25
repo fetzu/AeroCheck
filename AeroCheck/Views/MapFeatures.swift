@@ -46,6 +46,8 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     /// Plan › Map, the Cockpit's MAP and the dry run: everything.
     static let navigation: MapFeatures = [.markers, .airspace, .openAIPTiles, .procedures, .route, .aircraft, .track,
                                           .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
+    /// The dry run: the navigation map without the pilot's notes, which a dry run neither shows nor writes (n7 B).
+    static let dryRun: MapFeatures = navigation.subtracting(.noteCallout)
     /// The route builder: the markers, the airspace the route crosses, the procedures, the route being planned and
     /// its editing, with MapKit's dot, compass and scale. No aircraft, track or OpenAIP tiles, as before 6.7.0.
     static let builder: MapFeatures = [.markers, .airspace, .procedures, .plannedRoute, .editRoute, .addToRouteCallout,

@@ -1712,7 +1712,7 @@ struct NavigationMapView: View {
             onOpenOfficialChart: { openURL($0) },
             onOpenAerodromeNote: { aerodromeNote = $0 },
             isInFlight: appState.isFlightActive,
-            features: .navigation
+            features: dryRunSession == nil ? .navigation : .dryRun
         )
     }
 
@@ -5307,7 +5307,8 @@ struct AeroMapView: UIViewRepresentable {
             let ref = AerodromeRef(annotation.airport)
             return AerodromeNoteCallout.detailView(
                 airport: annotation.airport, frequencyLines: annotation.frequencyLines,
-                note: AerodromeNoteStore.shared.note(for: ref), inFlight: parent.isInFlight,
+                note: parent.features.contains(.noteCallout) ? AerodromeNoteStore.shared.note(for: ref) : nil,
+                inFlight: parent.isInFlight,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action,
                 // The callout closes as the note opens, as for the chart: the next tap shows the note as saved.
                 onOpen: open.map { open in { [weak mapView] in

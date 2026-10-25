@@ -6,7 +6,18 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
     @State private var now = Date()
+    /// The page shown with a navigation plan: 0 navigation, 1 flight, 2 frequencies.
+    @State private var page = Self.firstPage
     private let staleTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    /// The navigation page, or in a DEBUG build the one the screenshot run asks for (`AEROCHECK_WATCH_PAGE=0…2`; later
+    /// pages by `WatchPageTurns`).
+    private static var firstPage: Int {
+        #if DEBUG
+        if let page = ProcessInfo.processInfo.environment["AEROCHECK_WATCH_PAGE"].flatMap(Int.init) { return page }
+        #endif
+        return 0
+    }
 
     var body: some View {
         // Staleness is re-evaluated every second so frozen live data is never shown as live. (UX-05)
@@ -21,6 +32,9 @@ struct ContentView: View {
             }
         }
         .onReceive(staleTimer) { now = $0 }
+        #if DEBUG
+        .onAppear { WatchPageTurns.shared.onTurn = { page = $0 } }
+        #endif
     }
 
     @ViewBuilder
@@ -28,15 +42,18 @@ struct ContentView: View {
         if connectivityManager.flightData.isFlightActive {
             if connectivityManager.flightData.hasActiveNavPlan {
                 // With navigation plan: Navigation (chrono + nav data) · Flight (clock + phase) · Frequencies.
-                TabView {
+                TabView(selection: $page) {
                     NavigationScreen()
                         .environmentObject(connectivityManager)
+                        .tag(0)
 
                     FlightScreen()
                         .environmentObject(connectivityManager)
+                        .tag(1)
 
                     FrequenciesScreen()
                         .environmentObject(connectivityManager)
+                        .tag(2)
                 }
                 .tabViewStyle(.verticalPage)
             } else {
@@ -50,6 +67,27 @@ struct ContentView: View {
         }
     }
 }
+
+#if DEBUG
+/// The screenshot run's page turns: `notifyutil -p com.fetzu.aerocheck.debug.watchPage.<0…2>` in the Watch's simulator
+/// shows that page without relaunching the app. A relaunch could leave the paired phone believing the Watch app gone,
+/// and the Watch without data. (screenshot run, 6.6.0)
+@MainActor
+final class WatchPageTurns {
+    static let shared = WatchPageTurns()
+    var onTurn: ((Int) -> Void)?
+
+    private init() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        for page in 0...2 {
+            CFNotificationCenterAddObserver(center, nil, { _, _, name, _, _ in
+                guard let page = (name?.rawValue as String?)?.last?.wholeNumberValue else { return }
+                Task { @MainActor in WatchPageTurns.shared.onTurn?(page) }
+            }, "com.fetzu.aerocheck.debug.watchPage.\(page)" as CFString, nil, .deliverImmediately)
+        }
+    }
+}
+#endif
 
 /// Stage tint for a checklist phase, matching the iOS HUD's phase badge (FlightView.phaseBadgeColor):
 /// ground prep = blue, departure = gold, airborne = green, arrival = orange, wrap-up = grey. Uses the

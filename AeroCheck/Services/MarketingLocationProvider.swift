@@ -191,11 +191,11 @@ enum MarketingSceneInjector {
         case .cruiseRoute:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
             await injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
-                                  aircraftDataService: aircraftDataService, fix: .onTheLeg)
+                                  aircraftDataService: aircraftDataService, flightPlanManager: flightPlanManager, fix: .onTheLeg)
         case .cruiseMap:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
             await injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
-                                  aircraftDataService: aircraftDataService, fix: .onTheLeg)
+                                  aircraftDataService: aircraftDataService, flightPlanManager: flightPlanManager, fix: .onTheLeg)
             // The chart as the 5.0 captures showed it: the ICAO chart's own airspace, no OpenAIP layers
             // over it. The scene sets it rather than relying on a simulator's settings.
             appState.settings.showOpenAIPOverlay = false
@@ -242,7 +242,8 @@ enum MarketingSceneInjector {
     }
 
     private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService,
-                                        aircraftDataService: AircraftDataService, fix: CruiseFix) async {
+                                        aircraftDataService: AircraftDataService, flightPlanManager: FlightPlanManager,
+                                        fix: CruiseFix) async {
         // Start a fresh flight on the bundled WT9 (always resolvable: offline, the load below falls
         // back to the bundled JSON).
         if appState.isFlightActive { appState.cancelFlight() }
@@ -298,6 +299,10 @@ enum MarketingSceneInjector {
             if let loc = provider.currentLocation {
                 locationManager.injectMarketingStaticFix(loc)
             }
+            // The Watch told, as a flight start tells it (`handleFlightStateChange`): a relaunch restores the scene's
+            // flight first, and the screenshot run's relaunches left a paired Watch without data. (6.6.0)
+            WatchConnectivityManager.shared.notifyFlightStarted(appState: appState, locationManager: locationManager,
+                                                               flightPlanManager: flightPlanManager)
         }
     }
 

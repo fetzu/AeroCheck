@@ -40,6 +40,10 @@ struct ChartPolicy: Equatable {
 
     /// The swisstopo chart for a layer; nil on Apple's own layers.
     func overlay(for layer: MapLayerType) -> MKTileOverlay? {
+        #if DEBUG
+        // The pilot's map trial, D: Apple's map layer drawn by MapLibre on the device (`PilotMapTileOverlay`).
+        if layer == .standard, MapTrial.mode == "D" { return PilotMapTileOverlay() }
+        #endif
         let overlay: MKTileOverlay
         if layer == .icao {
             overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAO, isStrictOfflineMode: strictOffline,

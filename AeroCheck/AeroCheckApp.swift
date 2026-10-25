@@ -132,6 +132,7 @@ struct AeroCheckApp: App {
             ContentView()
                 #if DEBUG
                 .modifier(DebugLandscape())
+                .modifier(MapTrialPresenter())
                 #endif
                 .environment(appState)
                 .environmentObject(locationManager)

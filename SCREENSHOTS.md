@@ -24,7 +24,8 @@ reads them in `src/lib/shots.ts`), its scene, its launch settings, the gesture t
 App Store slot, whether the site shows it, how long to let it settle, and the areas the comparison blanks (a running
 timer). Its `about` explains the fields. The three simulators cover both sets: the App Store's 13-inch iPad, the
 website's iPad Air 11-inch, and an iPhone 17 for both (1206 × 2622 is the App Store's required medium display; the
-website takes it at 800 px wide). English, French and German, each with its own set.
+website takes it at 800 px wide). The App Store's Apple Watch set (since 6.6.0 in the run again; the 6.1 set before)
+comes from a Watch Ultra 3 paired with an iPhone 17. English, French and German, each with its own set.
 
 The app side is DEBUG only, compiled out of Release builds:
 
@@ -38,8 +39,13 @@ The app side is DEBUG only, compiled out of Release builds:
   answer for is a 404 and a line in the report.
 - **The ready signal** (6.6.0): a Darwin notification, `com.fetzu.aerocheck.debug.sceneReady`, once a scene is in or a
   dry run's autopilot holds. The tour waits for it instead of a fixed time.
+- **The map settled** (6.6.0): with `AEROCHECK_MAP_SETTLE=1`, `com.fetzu.aerocheck.debug.mapSettled` every half
+  second while each chart map in view has kept its camera for 1.5 s with all its tiles. The map shots' `mapSettled`
+  step waits for it instead of 15 s.
 - **Accessibility identifiers** for what a gesture taps: `cockpit.vspeeds`, `strip.speed` (GS on the iPhone),
   `cockpit.list` and `checklist.currentItem`, `today.route`, `flightPage.block.<kind>`, `logbook.flight`, `tab.<tab>`.
+- **The Watch's page** (6.6.0): `AEROCHECK_WATCH_PAGE=0…2` opens the Watch app on the navigation, flight or
+  frequencies page. The cruise scenes tell a paired Watch about their flight, as a flight start does.
 
 The gestures are the **screenshot tour**'s, a UI test that drives the installed app by its bundle id and taps by
 identifier (the author's decision of 24 Oct 2026, over scene options that would open those states from inside the
@@ -48,7 +54,9 @@ views). It lives with the run in `CLAUDE/tools/shots/` (the private AeroCheck-to
 ## The rules that are not negotiable
 
 - **Every shot at 9:41.** The status bar says 9:41, so the app's times must too: the capture clock, `09:41`, and
-  `09:25` for the dry run, so its first final comes near 9:41. A build before 6.4.3 has no such clock.
+  `09:25` for the dry run, so its first final comes near 9:41. A build before 6.4.3 has no such clock. The exception is
+  the Watch: watchOS has no status bar override, so its shots show the time of the capture, and its phone runs on the
+  wall clock for a flight time that agrees with it (the 6.1 set read 18:05). The comparison masks those times.
 - **Both devices in PORTRAIT.** The Cockpit is built for an iPad in portrait on a kneeboard, and the site shows the iPad
   with the iPhone in front of it. The one exception is `landscape`, the phone on its side (`AEROCHECK_ORIENTATION` turns
   the app's window for real; an iPad refuses it).
@@ -65,26 +73,35 @@ views). It lives with the run in `CLAUDE/tools/shots/` (the private AeroCheck-to
 
 ## The run
 
-From the workspace, once the release is tagged (Debug build of the tag, nine throwaways, about half an hour, nobody at
-the Mac):
+From the workspace, once the release is tagged (Debug build of the tag, throwaway simulators, about half an hour with
+the Watch, nobody at the Mac):
 
 ```bash
 CLAUDE/tools/shots/shots.sh run 6.6.0
 ```
 
-It builds the tag (Debug, with the app's untracked `Secrets.xcconfig`), builds the tour, then, one round per language,
-makes a throwaway per device with `CLAUDE/tools/sim-seed.sh` (the aeronautical data snapshot, LSZQ, the 9:41 status bar,
-the language), puts the day's weather fixture into the app's container, and runs the tour through the manifest's shots.
-The three devices of a round run side by side. Then it converts every capture (below) and compares each slot with the
-previous set: the newest `Marketing/AppStore/<version>/screenshots` before this one, and this branch's images. The
-throwaways are deleted at the end, a failure included (`--keep` keeps them).
+It builds the tag (Debug, with the app's untracked `Secrets.xcconfig`) and the tour. Then a template simulator per
+model, booted once until its first boot's work has settled and the app installed: a fresh simulator's first boot loads
+the Mac for minutes, and three of them side by side made every shot three to five times slower. Then one round per
+language: a clone of each template with the language and region written before it boots, `CLAUDE/tools/sim-seed.sh`
+(the aeronautical data snapshot, LSZQ, the 9:41 status bar), the day's weather fixture in the app's container, and the
+tour through the manifest's shots, the three devices side by side. Then it converts every capture (below) and compares
+each slot with the previous set: the newest `Marketing/AppStore/<version>/screenshots` before this one (for a device
+that set lacks, the newest that has it), and this branch's images. The throwaways are deleted at the end, a failure
+included (`--keep` keeps them).
+
+The Watch has no tour. After each language's round, a clone of the iPhone's template is paired with a clone of the
+Watch's, the phone opens the shots' scene, and the Watch app is opened on each shot's page; the screenshot waits until
+the Watch shows the flight (its page dots) and is still. The phone hands the flight over through WatchConnectivity,
+which takes some seconds and sometimes never comes: the run opens the scene again then.
 
 The report, `CLAUDE/shots/<version>-<date>/report/index.html`: the slots that changed first, each with the previous
 image, the new one and the changes boxed in red, described by where they are on the screen; a contact sheet per set
 (`contact-appstore.jpg`, `contact-website.jpg`); the tour's failures and the status bars it couldn't clean. A change is
 never a bare pixel count: below the status bar, with the manifest's live areas blanked, the differing pixels are grouped
 into regions and each is boxed, so a ring at 10/12 instead of 14/16 shows at once whatever its size (6.5.0 kept two
-slots whose real changes were 280 and 494 pixels).
+slots whose real changes were 280 and 494 pixels). The status bar's time is compared on its own, as the bar's date
+changes every day: "9:41 AM" for "09:41" (an English simulator in a US region) is a change.
 
 Then, after reading it:
 
@@ -169,6 +186,7 @@ on 18 Oct 2026:
 | Website and App Store, required | iPhone 17 (Dynamic Island, medium display) | 1206 × 2622 (1179 × 2556 also accepted) |
 | App Store, required | iPad Pro 13-inch (M4, as the 6.5.0 set; any 13-inch) | 2064 × 2752 portrait |
 | App Store, optional | iPhone 17 Pro Max (Dynamic Island, large display, "6.9-inch") | 1320 × 2868 |
+| App Store, for the Watch app | Apple Watch Ultra 3 (49 mm) | 422 × 514 |
 
 The 6.1 to 6.4 store sets were captured for the large display (`iphone-6.9`); since 6.5.0 the iPhone set is
 `iphone-6.3`. Do NOT rescale between the iPhone classes: their aspect ratios differ (1206 × 2622 is 0.4600,

@@ -5,13 +5,16 @@
     "a dry run needs no flight running, so it follows a scene that cancels one). steps are the screenshot tour's",
     "gesture after the scene is up, by device kind ('all' for both): tap:<accessibility identifier>,",
     "tapLabel:<text>, tapTab:<n>, wait:<identifier>, prefer:<identifier> (waits 30 s, never fails: a map snapshot),",
-    "pinchMap:<scale>, cardAtFoot, swipeUp:<points>, sleep:<s>.",
+    "pinchMap:<scale>, cardAtFoot, swipeUp:<points>, sleep:<s>, mapSettled (until the app says its maps are still",
+    "with every tile in view, 40 s at most, never fails: the app's DEBUG signal under AEROCHECK_MAP_SETTLE=1).",
     "mask: by device, the areas that change at every capture (a running timer), blanked before the comparison, in",
     "points of the device's portrait screen [x, y, width, height], and maskWhy, what they are (the report says it).",
-    "settle: seconds of stillness before the screenshot (3 by",
-    "default; the Cockpit's map frames itself and its check slot settles for about 20 s after the launch).",
+    "settle: seconds of stillness before the screenshot, 3 by default (after mapSettled, 2 are enough).",
     "statusBar: false for a shot whose top the app draws (the dry run's band): the run doesn't wait for a clean status",
-    "bar there. appstore: the slot number; website: published on the site."
+    "bar there. appstore: the slot number; website: published on the site. devices: a shot without it is for the",
+    "iPads and the iPhone; the Watch takes only the shots that name it, without the tour: its app opened on the page",
+    "of AEROCHECK_WATCH_PAGE beside its phone (devices.watch.phone) in the shot's scene, on the wall clock, as watchOS",
+    "has no status bar override."
   ],
   "devices": {
     "ipad13": {
@@ -31,17 +34,24 @@
       "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
       "pixels": [1206, 2622],
       "scale": 3
+    },
+    "watch": {
+      "kind": "watch",
+      "type": "com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Ultra-3-49mm",
+      "pixels": [422, 514],
+      "scale": 2,
+      "phone": "iphone17"
     }
   },
   "languages": {
-    "en": {"system": ["en-US", "en"], "locale": "en_US", "launch": ["-AppleLanguages", "(en)", "-AppleLocale", "en_CH"]},
+    "en": {"system": ["en-US", "en"], "locale": "en_CH", "launch": ["-AppleLanguages", "(en)", "-AppleLocale", "en_CH"]},
     "fr": {"system": ["fr-CH", "fr"], "locale": "fr_CH", "launch": ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_CH"]},
     "de": {"system": ["de-CH", "de"], "locale": "de_CH", "launch": ["-AppleLanguages", "(de)", "-AppleLocale", "de_CH"]}
   },
-  "environment": {"AEROCHECK_CLOCK": "09:41", "AEROCHECK_WEATHER": "fixture"},
+  "environment": {"AEROCHECK_CLOCK": "09:41", "AEROCHECK_WEATHER": "fixture", "AEROCHECK_MAP_SETTLE": "1"},
   "sets": {
     "appstore": {
-      "devices": {"ipad13": "ipad-13", "iphone17": "iphone-6.3"},
+      "devices": {"ipad13": "ipad-13", "iphone17": "iphone-6.3", "watch": "watch"},
       "format": "png",
       "maxBytes": 4800000,
       "about": "Full size, PNG without alpha; JPEG 95 (4:4:4) for an image over maxBytes, as App Store Connect refuses about 5 MB."
@@ -85,13 +95,14 @@
       "appstore": "02",
       "website": true,
       "scene": "cruisemap",
-      "settle": 15,
+      "steps": {"all": ["mapSettled"]},
+      "settle": 2,
       "what": "The Cockpit on its map: LSGC next, the aircraft on the LSZQ to LSGC leg.",
       "mask": {
-        "ipad13": [[672, 46, 148, 44], [500, 1294, 84, 38], [320, 826, 200, 260]],
-        "ipad11": [[462, 46, 140, 44], [340, 1100, 80, 34], [260, 740, 160, 220]]
+        "ipad13": [[672, 46, 148, 44], [500, 1294, 120, 38]],
+        "ipad11": [[462, 46, 140, 44], [330, 1096, 100, 46]]
       },
-      "maskWhy": "the flight timer, the leg timer, the track vector's minute marks"
+      "maskWhy": "the flight timer, the leg timer"
     },
     {
       "key": "landscape",
@@ -100,7 +111,8 @@
       "devices": ["iphone17"],
       "scene": "cruisemap",
       "orientation": "landscapeLeft",
-      "settle": 15,
+      "steps": {"all": ["mapSettled"]},
+      "settle": 2,
       "what": "The iPhone on its side: the Cockpit's column, the map at full height."
     },
     {
@@ -136,8 +148,8 @@
       "website": true,
       "scene": "conflicts",
       "steps": {
-        "ipad": ["tap:today.route", "tapLabel:Samedan"],
-        "iphone": ["tap:today.route", "tapLabel:Samedan", "pinchMap:0.8"]
+        "ipad": ["tap:today.route", "tapLabel:Samedan", "mapSettled"],
+        "iphone": ["tap:today.route", "tapLabel:Samedan", "pinchMap:0.8", "mapSettled"]
       },
       "what": "The route editor: Geneva to Samedan over the ICAO chart, the profile, the leg table, the conflicts count. iPhone: a gentle pinch so LSGG and LSZS fit.",
       "mask": {"iphone17": [[0, 205, 402, 315]]},
@@ -189,8 +201,42 @@
       "appstore": "09",
       "website": true,
       "scene": "circuits",
-      "settle": 6,
+      "steps": {"all": ["mapSettled"]},
+      "settle": 2,
       "what": "Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25."
+    },
+    {
+      "key": "watch-navigation",
+      "label": "The Watch: the leg",
+      "appstore": "01",
+      "devices": ["watch"],
+      "scene": "cruiseroute",
+      "env": {"AEROCHECK_WATCH_PAGE": "0"},
+      "what": "The Watch on the leg to LSGC: its chrono, heading, distance and time to go.",
+      "mask": {"watch": [[140, 10, 71, 36], [62, 100, 84, 34], [140, 186, 71, 26]]},
+      "maskWhy": "the Watch's clock, the leg's chrono, the time to go"
+    },
+    {
+      "key": "watch-flight",
+      "label": "The Watch: the flight",
+      "appstore": "02",
+      "devices": ["watch"],
+      "scene": "cruiseroute",
+      "env": {"AEROCHECK_WATCH_PAGE": "1"},
+      "what": "The Watch's flight page: the phase, the local time, the flight time, the next check.",
+      "mask": {"watch": [[140, 10, 71, 36], [28, 78, 156, 40], [52, 155, 104, 26]]},
+      "maskWhy": "the Watch's clock, the local time, the flight time"
+    },
+    {
+      "key": "watch-frequencies",
+      "label": "The Watch: the radio",
+      "appstore": "03",
+      "devices": ["watch"],
+      "scene": "cruiseroute",
+      "env": {"AEROCHECK_WATCH_PAGE": "2"},
+      "what": "The Watch's frequencies: NOW and NEXT, then the stations along the route.",
+      "mask": {"watch": [[140, 10, 71, 36]]},
+      "maskWhy": "the Watch's clock"
     }
   ]
 }

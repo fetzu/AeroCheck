@@ -183,8 +183,11 @@ enum BorderCrossingGuide {
         ),
     ]
 
+    /// Switzerland's own side for the block into it (FR → CH), which said "not checked yet" beside a link to this very
+    /// page; it stays out of `rules`, the other countries'. (6.6.0)
     static func rule(for country: String) -> BorderCrossingRule? {
-        rules[country.trimmingCharacters(in: .whitespaces).uppercased()]
+        let code = country.trimmingCharacters(in: .whitespaces).uppercased()
+        return code == switzerland.country ? switzerland : rules[code]
     }
 
     /// The EU countries in Schengen: one customs territory and no passport control, so a flight between two of them

@@ -75,6 +75,8 @@ final class BorderCrossingTests: XCTestCase {
         // whichever country is at the other end.
         let ch = BorderCrossingGuide.switzerland
         XCTAssertEqual(ch.country, "CH")
+        XCTAssertEqual(BorderCrossingGuide.rule(for: " ch "), ch, "the block into Switzerland finds it (6.6.0)")
+        XCTAssertNil(BorderCrossingGuide.rules["CH"], "and the other countries' table stays theirs")
         XCTAssertEqual(ch.officialURL.scheme, "https")
         XCTAssertNotEqual(ch.customsAerodrome, .notRequired, "category A-C is the rule, D only under conditions")
     }

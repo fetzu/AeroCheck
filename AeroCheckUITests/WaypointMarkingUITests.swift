@@ -199,8 +199,12 @@ final class WaypointMarkingUITests: XCTestCase {
             func row(_ name: String) -> CockpitPilot.PlanRow? { rows.first { $0.name.hasPrefix(name) } }
             pilot.check("ato-5", row("LSZQ").map { $0.ato != "—" && $0.ato == landing } ?? false,
                         "LSZQ's ATO is the landing (\(landing ?? "no landing time")): \(rows)")
+            // The toast writes the device's clock ("1:39"), the flight page the logbook's ("01:39"): the same
+            // minute, compared as times.
             let markTime = markedBy.flatMap { $0.components(separatedBy: " at ").last }
-            pilot.check("undo-6", row("SAIGNELEGIER").map { $0.ato != "—" && (markTime == nil || $0.ato == markTime) } ?? false,
+            pilot.check("undo-6", row("SAIGNELEGIER").map { saigne in
+                saigne.ato != "—" && (markTime.map { CockpitPilot.minutes(from: $0, to: saigne.ato) == 0 } ?? true)
+            } ?? false,
                         "MARKed later: SAIGNELEGIER \(row("SAIGNELEGIER")?.ato ?? "no row") (MARK \(markTime ?? "?"))")
             pilot.check("undo-6", row("ST-URSANNE")?.ato == "—",
                         "taken back (RESUME LEG) and never MARKed: ST-URSANNE \(row("ST-URSANNE")?.ato ?? "no row")")
@@ -250,7 +254,9 @@ extension WaypointMarkingUITests {
                         "the circuits' page has no PLAN vs ACTUAL: \(rows)")
             pilot.shot("ato-6", "circuits-flight-page")
         }
-        // Today again, then CIRCUITS once more, ABANDON FLIGHT: the route stays armed.
+        // Today again, then CIRCUITS once more, ABANDON FLIGHT: the route stays armed. Back to the Logbook first:
+        // the iPad's tab bar is on each section's first screen only, not over the flight page (6.5.0).
+        pilot.tapNow(pilot.app.navigationBars.buttons["BackButton"].firstMatch)
         let today = pilot.app.buttons["Today"].firstMatch
         if today.waitForExistence(timeout: 5) { today.tap() }
         if pilot.startFlight("home.circuits") {

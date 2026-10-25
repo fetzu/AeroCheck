@@ -74,24 +74,30 @@ final class CockpitPilot {
     private(set) var steps: [StepResult] = []
     /// When the replay was let go at a hold (wall clock), and the hold's track time.
     private var released: (wall: Date, track: Double)?
+    /// The event cards (Settings › Confirm landings and go-arounds), off by default since 6.4.0: each event the
+    /// app sees is then taken at once, with UNDO. On for the replays written to answer them (the landed card,
+    /// the circuits' cards), at every launch, relaunches included.
+    let cards: Bool
 
-    init(_ test: XCTestCase, scenario name: String, page: String = "610") {
+    init(_ test: XCTestCase, scenario name: String, page: String = "610", cards: Bool = false) {
         self.test = test
         (scenario, scenarioURL) = ReplayScenario.load(name)
         self.page = page
+        self.cards = cards
     }
 
     var rate: Double { scenario.speedFactor }
 
     // MARK: Launch
 
-    /// The app on the scenario, in English, with the Memory test on (the 6.1.0 page's setup). `resume`:
-    /// a relaunch mid-flight, the replay going on where it was.
+    /// The app on the scenario, in English, with the Memory test on (the 6.1.0 page's setup), the event cards
+    /// as `cards` says. `resume`: a relaunch mid-flight, the replay going on where it was.
     func launch(memoryTest: Bool = true, resume: Bool = false) {
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_CH"]
         app.launchEnvironment["AEROCHECK_REPLAY"] = scenarioURL.path
         app.launchEnvironment["AEROCHECK_REPLAY_SPEED"] = String(Int(rate))
         app.launchEnvironment["AEROCHECK_MEMORY_TEST"] = memoryTest ? "1" : "0"
+        app.launchEnvironment["AEROCHECK_CONFIRM_EVENTS"] = cards ? "1" : "0"
         app.launchEnvironment["AEROCHECK_REPLAY_RESUME"] = resume ? "1" : "0"
         app.launch()
         dismissSystemAlerts()
@@ -383,7 +389,8 @@ final class CockpitPilot {
         skipHourMeterIfAsked()
         showPane("checklist")
         if tapNow(element("cockpit.memoryDone")) {
-            // The one tap goes on, unless it only confirms (the phase's own action, the last check).
+            // The one tap goes on, unless it only confirms (the phase's own action, the last check, the line
+            // up check before the take-off: `nextOnceAirborne`).
             waitUntil(timeout: 3) { self.currentPhase != from || self.snap("cockpit.next") != nil }
             if currentPhase == from { tapNow(element("cockpit.next")) }
         } else {
@@ -736,7 +743,8 @@ final class CockpitPilot {
     }
 
     /// From Today to the runway: START FLIGHT (or CIRCUITS), the ground checks, ENGINE START (the replay
-    /// starts), READY FOR LINE UP at the holding point, and LINE UP's one tap to the climb check.
+    /// starts), READY FOR LINE UP at the holding point, LINE UP's one tap, and NEXT to the climb check once
+    /// airborne.
     @discardableResult
     func departToClimb(circuits: Bool = false) -> Bool {
         guard startFlight(circuits ? "home.circuits" : "home.startFlight") else { return false }
@@ -745,7 +753,29 @@ final class CockpitPilot {
         workChecks(until: "beforeDeparture")
         readyForLineUp()
         confirmMemoryCheck()
+        nextOnceAirborne()
         return waitUntil(timeout: 5) { self.currentPhase == "climb" }
+    }
+
+    /// The line up check done on the runway: its ✓ DONE only confirms there, AFTER TAKE-OFF stands in NEXT's
+    /// place, and NEXT comes back once airborne, at the take-off seen or 40 kt over the ground (6.4.0: a climb
+    /// check done on the runway is none). Waits for that NEXT on CHECKLIST until the track reaches `track`
+    /// (the lift-off and a minute), `watch` at each look, then taps it. The track second it came at; nil when
+    /// it never came, or the line up check wasn't the one open.
+    @discardableResult
+    func nextOnceAirborne(by track: Double? = nil, watch: () -> Void = {}) -> Double? {
+        showPane("checklist")
+        guard currentPhase == "lineUp" else { return nil }
+        let next = element("cockpit.next")
+        var cameAt: Double?
+        _ = waitUntil(timeout: wallUntil(track: track ?? scenario.mark("liftoff") + 60)) {
+            watch()
+            guard next.exists else { return false }
+            cameAt = self.trackNow
+            return true
+        }
+        if cameAt != nil { tapNow(next) }
+        return cameAt
     }
 
     /// Waits for the slot to come due on `check` (its words, "CLIMB CHECK") until the track reaches

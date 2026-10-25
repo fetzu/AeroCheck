@@ -48,6 +48,19 @@ enum AirfieldSearch {
         return store.searchAirports(query: term, limit: limit, near: reference, types: types)
     }
 
+    /// The aerodromes whose note holds `query` (6.7.0): after the code and name matches, each once.
+    static func adding(noteMatchesFor query: String, to found: [Airport], notes: [AerodromeNote],
+                       find: (String) -> Airport?) -> [Airport] {
+        guard term(query) != nil else { return found }
+        var result = found
+        for note in notes {
+            guard let airport = find(note.ident),
+                  !result.contains(where: { $0.id == airport.id }) else { continue }
+            result.append(airport)
+        }
+        return result
+    }
+
     /// Whether the aerodrome has a marker on the map to open: the airport layer is on, and draws its
     /// kind. Otherwise the map only goes there.
     static func hasMarker(_ airport: Airport, airportsLayerOn: Bool) -> Bool {
@@ -251,7 +264,8 @@ struct AirfieldSearchSheet: View {
                     if airport.id != results.first?.id {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 82)
                     }
-                    AirfieldSearchRow(airport: airport, reference: reference) { pick(airport) }
+                    AirfieldSearchRow(airport: airport, reference: reference,
+                                      note: AerodromeNoteStore.shared.note(for: airport)) { pick(airport) }
                 }
             }
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
@@ -269,7 +283,10 @@ struct AirfieldSearchSheet: View {
 
     private func search() {
         guard !isLoading else { return }
-        results = AirfieldSearch.results(for: query, in: airportDataService, near: reference)
+        let found = AirfieldSearch.results(for: query, in: airportDataService, near: reference)
+        results = AirfieldSearch.adding(noteMatchesFor: query, to: found,
+                                        notes: AerodromeNoteStore.shared.notes(matching: query),
+                                        find: { airportDataService.findAirport(byIdent: $0) })
     }
 
     private func pick(_ airport: Airport) {
@@ -282,6 +299,8 @@ struct AirfieldSearchSheet: View {
 private struct AirfieldSearchRow: View {
     let airport: Airport
     let reference: CLLocationCoordinate2D?
+    /// The pilot's note on it: its first line under the name. (6.7.0)
+    var note: AerodromeNote?
     let onTap: () -> Void
 
     var body: some View {
@@ -301,6 +320,12 @@ private struct AirfieldSearchRow: View {
                         Text(town)
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.dimText)
+                            .lineLimit(1)
+                    }
+                    if let note, !note.isEmpty {
+                        Text(L10n.Format.labelled(L10n.AerodromeNotes.yourNote, note.firstLine))
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.aviationGold)
                             .lineLimit(1)
                     }
                 }

@@ -190,6 +190,58 @@ final class AerodromeNotesTests: XCTestCase {
         XCTAssertEqual(store.notes(matching: "").count, 1)
     }
 
+    // MARK: Where notes show
+
+    private func airport(_ ident: String, _ lat: Double, _ lon: Double) -> Airport {
+        Airport(id: abs(ident.hashValue % 100_000), ident: ident, type: .smallAirport, name: ident + " field",
+                latitude: lat, longitude: lon, elevation: 1_400, continent: "EU", isoCountry: "CH", isoRegion: "CH-NE",
+                municipality: nil, scheduledService: false, gpsCode: ident, iataCode: nil, localCode: nil)
+    }
+
+    func testTheFlightsAerodromesAreItsEndsItsStopsAndItsAerodromesEachOnce() {
+        let known = ["LSZQ": airport("LSZQ", 47.39, 7.03), "LSZP": airport("LSZP", 47.03, 7.40),
+                     "LSZG": airport("LSZG", 47.18, 7.42)]
+        var stop = FlightPlanWaypoint(name: "LSZP", coordinate: .init(latitude: 47.03, longitude: 7.40))
+        stop.stopover = Stopover()
+        let plan = FlightPlan(name: "Trip", waypoints: [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.39, longitude: 7.03)),
+            FlightPlanWaypoint(name: "BENOT", coordinate: .init(latitude: 47.3, longitude: 7.2), pointKind: .vrp),
+            stop,
+            FlightPlanWaypoint(name: "Grenchen", coordinate: .init(latitude: 47.18, longitude: 7.42),
+                               pointKind: .aerodrome, sourceId: "LSZG"),
+            FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.39, longitude: 7.03)),
+        ])
+        let refs = AerodromeRef.flightAerodromes(of: plan) { known[$0] }
+        XCTAssertEqual(refs.map(\.ident), ["LSZQ", "LSZP", "LSZG"])
+        XCTAssertTrue(AerodromeRef.flightAerodromes(of: nil) { known[$0] }.isEmpty)
+    }
+
+    func testTheSearchAddsTheAerodromesWhoseNoteHoldsTheWordsOnce() {
+        let grenchenField = airport("LSZG", 47.18, 7.42), bern = airport("LSZB", 46.91, 7.50)
+        let notes = [note(ground: "Restaurant open every day."), note("LSZB", name: "Bern", ground: "Restaurant.")]
+        let found = AirfieldSearch.adding(noteMatchesFor: "restaurant", to: [bern], notes: notes,
+                                          find: { ["LSZG": grenchenField, "LSZB": bern][$0] })
+        XCTAssertEqual(found.map(\.ident), ["LSZB", "LSZG"])
+        // Under the search's minimum length, nothing is added.
+        XCTAssertEqual(AirfieldSearch.adding(noteMatchesFor: "r", to: [], notes: notes, find: { _ in grenchenField }), [])
+    }
+
+    func testTheCalloutOffersANoteOnTheGroundOnlyAndReadsOneInFlight() {
+        let field = airport("LSZG", 47.18, 7.42)
+        let written = note(arrival: "Ask early.")
+        func button(in view: UIView?) -> UIButton? { (view as? UIStackView)?.arrangedSubviews.compactMap { $0 as? UIButton }.first }
+        let ground = AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: nil, inFlight: false,
+                                                     metrics: .ground, tint: .systemBlue, onOpen: {})
+        XCTAssertEqual(button(in: ground)?.accessibilityIdentifier, "callout.note.add")
+        let flying = AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: nil, inFlight: true,
+                                                     metrics: .ground, tint: .systemBlue, onOpen: {})
+        XCTAssertNil(flying, "no note is started in flight")
+        let reading = AerodromeNoteCallout.detailView(airport: field, frequencyLines: "TWR 120.105", note: written,
+                                                      inFlight: true, metrics: .ground, tint: .systemBlue, onOpen: {})
+        XCTAssertEqual(button(in: reading)?.accessibilityIdentifier, "callout.note.open")
+        XCTAssertEqual((reading as? UIStackView)?.arrangedSubviews.count, 3)
+    }
+
     // MARK: "Sync to iCloud": the notes move with the store
 
     func testTheSwitchCopiesTheNotesFolderAndKeepsDeletedOnesOut() throws {

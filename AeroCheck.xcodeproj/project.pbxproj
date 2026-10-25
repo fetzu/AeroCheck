@@ -368,6 +368,7 @@
 		FP6600021111111000003 /* FlightPageWords.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000003 /* FlightPageWords.swift */; };
 		A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000051111111110000001 /* FuelOnBoardSheet.swift */; };
 		86A954047EDDDE61F948F477 /* AerodromeNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */; };
+		B9D03C1E805FAFB526CDD17C /* AerodromeNoteViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */; };
 		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
 		HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000002 /* AerodromeIdentField.swift */; };
 		F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000034 /* UpcomingFlightsList.swift */; };
@@ -814,6 +815,7 @@
 		FP6600011111111000003 /* FlightPageWords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageWords.swift; sourceTree = "<group>"; };
 		A5000051111111110000001 /* FuelOnBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardSheet.swift; sourceTree = "<group>"; };
 		6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteSheet.swift; sourceTree = "<group>"; };
+		EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteViews.swift; sourceTree = "<group>"; };
 		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000002 /* AerodromeIdentField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeIdentField.swift; sourceTree = "<group>"; };
 		F1000001111111110000034 /* UpcomingFlightsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingFlightsList.swift; sourceTree = "<group>"; };
@@ -1168,6 +1170,7 @@
 				A1000001111111110000B03 /* PrepareWeatherCard.swift */,
 				A5000051111111110000001 /* FuelOnBoardSheet.swift */,
 				6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */,
+				EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */,
 				F1000001111111110000033 /* PlanNewFlightView.swift */,
 				HB0A0001111111110000002 /* AerodromeIdentField.swift */,
 				F1000001111111110000034 /* UpcomingFlightsList.swift */,
@@ -1947,6 +1950,7 @@
 				FP6600021111111000003 /* FlightPageWords.swift in Sources */,
 				A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */,
 				86A954047EDDDE61F948F477 /* AerodromeNoteSheet.swift in Sources */,
+				B9D03C1E805FAFB526CDD17C /* AerodromeNoteViews.swift in Sources */,
 				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
 				HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */,
 				F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */,

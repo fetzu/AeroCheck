@@ -85,6 +85,19 @@ enum L10n {
             String(format: String(localized: "aerodromeNote.export.header"), date)
         }
         static let exportFileName = String(localized: "aerodromeNote.export.fileName")
+        static let none = String(localized: "aerodromeNote.none")
+        static let write = String(localized: "aerodromeNote.write")
+        static let edit = String(localized: "aerodromeNote.edit")
+        /// CLOSE, after landing: "Anything to remember about Grenchen?"
+        static func closeOffer(_ name: String) -> String {
+            String(format: String(localized: "aerodromeNote.closeOffer"), name)
+        }
+        static func closeOfferHint(_ ident: String) -> String {
+            String(format: String(localized: "aerodromeNote.closeOffer.hint"), ident)
+        }
+        static func yourNoteOn(_ ident: String) -> String {
+            String(format: String(localized: "aerodromeNote.yourNoteOn"), ident)
+        }
     }
 
     // MARK: - Data & Storage (v4.1.0 Data Freshness)

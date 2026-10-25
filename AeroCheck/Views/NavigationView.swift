@@ -401,6 +401,8 @@ struct NavigationMapView: View {
     @State private var showMapSheet: Bool = false
     /// Plan › Map's aerodrome search, from the magnifying glass left of Map. (6.2.0)
     @State private var showAerodromeSearch: Bool = false
+    /// The aerodrome whose note a callout opened. (6.7.0)
+    @State private var aerodromeNote: AerodromeRef?
     /// The aerodrome chosen in it: the map goes there once the sheet has gone.
     @State private var chosenAerodrome: Airport?
     /// Measured height of the open legs-and-frequencies panel, so it hugs its content up to its limit.
@@ -583,6 +585,11 @@ struct NavigationMapView: View {
         // Embedded (the Cockpit, Plan › Map), the screen around it has its own.
         .modifier(FlightEventOverlayUnlessEmbedded(isEmbedded: !showsCloseButton,
                                                    detector: flightEventDetector, appState: appState))
+        // The pilot's note on an aerodrome, from its callout: written on the ground, read in flight. (6.7.0)
+        .sheet(item: $aerodromeNote) { ref in
+            AerodromeNoteSheet(aerodrome: ref, readOnly: appState.isFlightActive)
+                .environmentObject(AerodromeNoteStore.shared)
+        }
     }
 
     /// Opening and closing the map, its region, the panel, the overlay settings, the phase, the leg and
@@ -1714,6 +1721,7 @@ struct NavigationMapView: View {
                 onAirportDivert: airportDivert,
                 legsBand: legsBand,
                 onOpenOfficialChart: { openURL($0) },
+                onOpenAerodromeNote: { aerodromeNote = $0 },
                 isInFlight: appState.isFlightActive
             )
         } else {
@@ -1746,6 +1754,7 @@ struct NavigationMapView: View {
                 onAirportDivert: airportDivert,
                 legsBand: legsBand,
                 onOpenOfficialChart: { openURL($0) },
+                onOpenAerodromeNote: { aerodromeNote = $0 },
                 isInFlight: appState.isFlightActive
             )
         }
@@ -3685,6 +3694,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var legsBand: LegsPanelMap.Band? = nil
     /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart in the callouts. (6.2.0)
     var onOpenOfficialChart: ((URL) -> Void)?
+    /// A callout's More or Add a note: the pilot's note on that aerodrome. (6.7.0)
+    var onOpenAerodromeNote: ((AerodromeRef) -> Void)?
     /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
     var isInFlight: Bool = false
 
@@ -4435,31 +4446,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
 
-            // Configure callout with multi-line frequency detail
-
-            if let freqLines = annotation.frequencyLines {
-                let detailLabel = UILabel()
-                detailLabel.numberOfLines = 0
-
-                let attributed = NSMutableAttributedString()
-                // Airport name line
-                let nameAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.aero(size: 12, weight: .medium),
-                    .foregroundColor: UIColor.label
-                ]
-                attributed.append(NSAttributedString(string: annotation.airport.name + "\n", attributes: nameAttrs))
-                // Frequency lines
-                let freqAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.aero(size: 12, monospaced: true),
-                    .foregroundColor: UIColor.secondaryLabel
-                ]
-                attributed.append(NSAttributedString(string: freqLines, attributes: freqAttrs))
-
-                detailLabel.attributedText = attributed
-                annotationView.detailCalloutAccessoryView = detailLabel
-            } else {
-                annotationView.detailCalloutAccessoryView = nil
-            }
+            // The name and frequencies, then the pilot's note on the field (6.7.0).
+            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation)
 
             return annotationView
         }
@@ -4504,6 +4492,19 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
                 divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+            // The note as it is now: one written since the marker was drawn shows. (6.7.0)
+            view.detailCalloutAccessoryView = calloutDetail(for: airport)
+        }
+
+        /// An aerodrome callout's detail: its name and frequencies, the pilot's note, the button to it. (6.7.0)
+        private func calloutDetail(for annotation: AirportAnnotation) -> UIView? {
+            let open = parent.onOpenAerodromeNote
+            let ref = AerodromeRef(annotation.airport)
+            return AerodromeNoteCallout.detailView(
+                airport: annotation.airport, frequencyLines: annotation.frequencyLines,
+                note: AerodromeNoteStore.shared.note(for: ref), inFlight: parent.isInFlight,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action,
+                onOpen: open.map { open in { open(ref) } })
         }
 
         func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
@@ -5136,6 +5137,8 @@ struct SwissMapView: UIViewRepresentable {
     var legsBand: LegsPanelMap.Band? = nil
     /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart in the callouts. (6.2.0)
     var onOpenOfficialChart: ((URL) -> Void)?
+    /// A callout's More or Add a note: the pilot's note on that aerodrome. (6.7.0)
+    var onOpenAerodromeNote: ((AerodromeRef) -> Void)?
     /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
     var isInFlight: Bool = false
 
@@ -6119,31 +6122,8 @@ struct SwissMapView: UIViewRepresentable {
                 divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
 
-            // Configure callout with multi-line frequency detail
-
-            if let freqLines = annotation.frequencyLines {
-                let detailLabel = UILabel()
-                detailLabel.numberOfLines = 0
-
-                let attributed = NSMutableAttributedString()
-                // Airport name line
-                let nameAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.aero(size: 12, weight: .medium),
-                    .foregroundColor: UIColor.label
-                ]
-                attributed.append(NSAttributedString(string: annotation.airport.name + "\n", attributes: nameAttrs))
-                // Frequency lines
-                let freqAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.aero(size: 12, monospaced: true),
-                    .foregroundColor: UIColor.secondaryLabel
-                ]
-                attributed.append(NSAttributedString(string: freqLines, attributes: freqAttrs))
-
-                detailLabel.attributedText = attributed
-                annotationView.detailCalloutAccessoryView = detailLabel
-            } else {
-                annotationView.detailCalloutAccessoryView = nil
-            }
+            // The name and frequencies, then the pilot's note on the field (6.7.0).
+            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation)
 
             return annotationView
         }
@@ -6199,6 +6179,19 @@ struct SwissMapView: UIViewRepresentable {
                 chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
                 divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+            // The note as it is now: one written since the marker was drawn shows. (6.7.0)
+            view.detailCalloutAccessoryView = calloutDetail(for: airport)
+        }
+
+        /// An aerodrome callout's detail: its name and frequencies, the pilot's note, the button to it. (6.7.0)
+        private func calloutDetail(for annotation: AirportAnnotation) -> UIView? {
+            let open = parent.onOpenAerodromeNote
+            let ref = AerodromeRef(annotation.airport)
+            return AerodromeNoteCallout.detailView(
+                airport: annotation.airport, frequencyLines: annotation.frequencyLines,
+                note: AerodromeNoteStore.shared.note(for: ref), inFlight: parent.isInFlight,
+                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action,
+                onOpen: open.map { open in { open(ref) } })
         }
 
         /// Add long-press gesture recognizer to waypoint annotation views

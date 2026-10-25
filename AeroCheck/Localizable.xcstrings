@@ -1254,6 +1254,52 @@
         }
       }
     },
+    "aerodromeNote.closeOffer": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etwas, das Sie sich zu %@ merken möchten?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anything to remember about %@?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose à retenir sur %@ ?"
+          }
+        }
+      }
+    },
+    "aerodromeNote.closeOffer.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Notiz zu %@ für das nächste Mal"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your note on %@, for next time"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre note sur %@, pour la prochaine fois"
+          }
+        }
+      }
+    },
     "aerodromeNote.count %lld": {
       "extractionState": "manual",
       "localizations": {
@@ -1424,6 +1470,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Supprimer toutes les notes d'aérodrome ? Elles sont aussi supprimées sur vos autres appareils."
+          }
+        }
+      }
+    },
+    "aerodromeNote.edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier"
           }
         }
       }
@@ -1612,6 +1681,29 @@
         }
       }
     },
+    "aerodromeNote.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Notiz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No note yet"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore de note"
+          }
+        }
+      }
+    },
     "aerodromeNote.onTheGround": {
       "extractionState": "manual",
       "localizations": {
@@ -1773,6 +1865,29 @@
         }
       }
     },
+    "aerodromeNote.write": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schreiben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écrire"
+          }
+        }
+      }
+    },
     "aerodromeNote.yourNote": {
       "extractionState": "manual",
       "localizations": {
@@ -1815,6 +1930,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre note · Arrivée"
+          }
+        }
+      }
+    },
+    "aerodromeNote.yourNoteOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Notiz zu %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your note on %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre note sur %@"
           }
         }
       }

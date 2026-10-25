@@ -49,6 +49,8 @@ struct FlightPlanMapBuilderView: View {
     /// Where this editor shows a dry run of its route: over itself (it is a cover, maybe over a flight's page,
     /// which the app's root can't present over). (6.4.0)
     @State private var dryRunToken = UUID().uuidString
+    /// The aerodrome whose note a callout opened. (6.7.0)
+    @State private var aerodromeNote: AerodromeRef?
     @State private var airportUpdateTask: Task<Void, Never>?
     @State private var visibleNavaids: [Navaid] = []
     @State private var visibleReportingPoints: [ReportingPoint] = []   // v4.1.0 ③
@@ -285,6 +287,10 @@ struct FlightPlanMapBuilderView: View {
                     .environmentObject(openAIPDataService)
                 }
             }
+            // The pilot's note on an aerodrome, from its callout. (6.7.0)
+            .sheet(item: $aerodromeNote) { ref in
+                AerodromeNoteSheet(aerodrome: ref).environmentObject(AerodromeNoteStore.shared)
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -354,7 +360,8 @@ struct FlightPlanMapBuilderView: View {
             conflictLegs: Set(legConflicts.keys),
             onSelectWaypoint: { index in selectLeg(index) },
             vfrContent: vfrContent,
-            onOpenOfficialChart: { openURL($0) }
+            onOpenOfficialChart: { openURL($0) },
+            onOpenAerodromeNote: { aerodromeNote = $0 }
         )
         .ignoresSafeArea(edges: .bottom)
         // From and To sit above the map now, not over it (planning proposal D1); what they find
@@ -2193,6 +2200,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var vfrContent: VFRMapContent = .empty()
     /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart. (6.2.0)
     var onOpenOfficialChart: ((URL) -> Void)? = nil
+    /// A callout's More or Add a note: the pilot's note on that aerodrome. (6.7.0)
+    var onOpenAerodromeNote: ((AerodromeRef) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2503,10 +2512,24 @@ struct RouteBuilderMapView: UIViewRepresentable {
             return MKOverlayRenderer(overlay: overlay)
         }
 
+        /// The pilot's note on an aerodrome, under its callout's title. (6.7.0)
+        private func noteDetail(for annotation: AirportAnnotation) -> UIView? {
+            let open = parent.onOpenAerodromeNote
+            let ref = AerodromeRef(annotation.airport)
+            return AerodromeNoteCallout.detailView(
+                airport: annotation.airport, frequencyLines: nil, note: AerodromeNoteStore.shared.note(for: ref),
+                inFlight: false, metrics: .ground, tint: vfrLayer.palette.action,
+                onOpen: open.map { open in { open(ref) } })
+        }
+
         /// A tap on a waypoint's pin selects it in the table too. (planning proposal D3)
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
             // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
             if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
+            // The note as it is now: one written since the marker was drawn shows. (6.7.0)
+            if let airport = annotation as? AirportAnnotation, let view = mapView.view(for: airport) {
+                view.detailCalloutAccessoryView = noteDetail(for: airport)
+            }
             guard let waypoint = annotation as? RouteWaypointAnnotation else { return }
             parent.onSelectWaypoint?(waypoint.index)
         }
@@ -2555,6 +2578,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                         OfficialChartControl.accessory(link: $0, metrics: .ground, tint: vfrLayer.palette.action)
                     }
                 view.rightCalloutAccessoryView = addButton(annotation)
+                view.detailCalloutAccessoryView = noteDetail(for: airport)
                 return view
             }
 

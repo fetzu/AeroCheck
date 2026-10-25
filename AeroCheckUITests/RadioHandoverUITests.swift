@@ -186,9 +186,9 @@ final class RadioHandoverUITests: XCTestCase {
         pilot.shot("ho-12", "relaunched")
         pilot.check("ho-12", restored && left?.nowIs("zurich info") == true && relaunched?.now == left?.now,
                     "before the kill: \(left.map { "\($0)" } ?? "?"); after: \(relaunched.map { "\($0)" } ?? "?") (track \(Int(pilot.trackNow)) s)")
-        // Not on the page: a call due when the app is killed, whose latest point passes while it is gone, is dropped
-        // (24 Oct: Zürich Info, due, gone from NEXT after the relaunch and never taken, NOW Geneva Info to LSZQ AD).
-        // Killed after the Zürich switch here, so that the page's ho-12 is what this checks.
+        // Killed after the Zürich switch here, so that the page's ho-12 is what this checks. A call due at the kill whose
+        // latest point passes while the app is gone is caught up (ho-12b, `testARelaunchAcrossABoundaryCatchesUp`;
+        // on 24 Oct it was dropped, NOW Geneva Info to LSZQ AD): noted if it is neither NOW nor NEXT.
         if let left, left.nextIsDue, relaunched?.nextStation != left.nextStation, relaunched?.nowStation != left.nextStation {
             pilot.observed("ho-12", "due before the kill: \(left.next ?? "-"); after the relaunch NOW \(relaunched?.nowStation ?? "?"), NEXT \(relaunched?.next ?? "-"): the call due is neither")
         }
@@ -200,6 +200,63 @@ final class RadioHandoverUITests: XCTestCase {
         if pilot.waitFor("landedCard.yes", timeout: pilot.wallUntil(track: s.mark("stopped") + 20, margin: 20)) != nil {
             pilot.tap("landedCard.yes")
         }
+        pilot.endFlight()
+    }
+
+    /// ho-12b, not on the page: killed with Zürich Info due, half a minute of flight before its boundary, and opened
+    /// again past it. The latest point passed while the app was gone: it takes Zürich Info by itself, offered back,
+    /// then LSZQ AD as usual. The run of 24 Oct dropped the call (NOW Geneva Info until LSZQ AD). No tap: the app's own
+    /// switches, NOW LSGC TWR when Zürich Info comes due (Geneva Info's stretch passed by, as in ho-7).
+    func testARelaunchAcrossABoundaryCatchesUp() throws {
+        let pilot = try CockpitPilot.onDeviceData(self, scenario: "handover-dr3", page: "643")
+        defer { pilot.attachResults(testName: name) }
+        let s = pilot.scenario
+        guard pilot.departOnTheRadio() else { return }
+        pilot.showPane("map")
+
+        // Zürich Info comes due 2 min of flight before its boundary (`RadioTimeline.fisChangeLead`; the switch came 104
+        // to 114 s after the due was seen). Killed as it came due, the app was back before the boundary on a quiet Mac
+        // (8 s, 81 s of flight) and switched there as usual: the kill waits 75 s, half a minute before the boundary.
+        var log = pilot.watchRadio(untilTrack: s.mark("wp4")) { $0.reading.nextIs("zurich info") && $0.reading.nextIsDue }
+        guard let due = log.last, due.reading.nextIs("zurich info"), due.reading.nextIsDue else {
+            pilot.attachRadioLog(log, "dr3-relaunch")
+            return pilot.check("ho-12b", false, "Zürich Info never due before SAIGNELEGIER: \(RadioEntry.summary(log))")
+        }
+        log += pilot.watchRadio(untilTrack: due.t + 75) { $0.reading.nowIs("zurich info") }
+        guard let left = pilot.radioReading, !left.nowIs("zurich info"), left.nextIs("zurich info") else {
+            pilot.attachRadioLog(log, "dr3-relaunch")
+            pilot.observed("ho-12b", "Zürich Info taken before the kill (due seen at \(Int(due.t)) s, now \(Int(pilot.trackNow)) s): nothing to catch up")
+            return pilot.endFlight()
+        }
+        let killed = pilot.trackNow
+        pilot.terminate()
+        pilot.launch(resume: true)
+        let restored = pilot.element("cockpit.menu").waitForExistence(timeout: 30)
+        let notice = pilot.app.alerts.firstMatch
+        if notice.waitForExistence(timeout: 3) { pilot.tapNow(notice.buttons.firstMatch) }
+        let back = pilot.trackNow
+        let after = pilot.watchRadio(untilTrack: back + 60) { $0.reading.nowIs("zurich info") }
+        log += after
+        pilot.shot("ho-12b", "relaunched")
+        // The boundary at the latest 2 min after the due was seen: back past that, only the catch-up makes NOW Zürich.
+        let boundary = due.t + 120
+        let seen = "killed at \(Int(killed)) s on \(left), back at \(Int(back)) s (the boundary by \(Int(boundary)) s): \(RadioEntry.summary(after))"
+        if back < boundary {
+            pilot.observed("ho-12b", "back before the boundary, nothing to catch up: \(seen)")
+        } else {
+            pilot.check("ho-12b", restored && after.last?.reading.nowIs("zurich info") == true, seen)
+        }
+        // The catch-up's UNDO shows for 6 s from the first reading, which can come before the band is read again.
+        if RadioEntry.messages(in: after, endingWith: "now, automatically").isEmpty {
+            pilot.observed("ho-12b", "the switch's message not seen after the relaunch (6 s, maybe gone before the first read)")
+        }
+
+        // On to LSZQ AD by itself before ST-URSANNE, never back on the station left at the kill.
+        let rest = pilot.watchRadio(untilTrack: s.mark("wp5") + 30)
+        log += rest
+        pilot.attachRadioLog(log, "dr3-relaunch")
+        pilot.check("ho-12b", rest.contains { $0.reading.nowIs("LSZQ") } && !rest.contains { $0.reading.nowStation == left.nowStation },
+                    "after the relaunch, NOW: \(RadioEntry.stations(after + rest))")
         pilot.endFlight()
     }
 

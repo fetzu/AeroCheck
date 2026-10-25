@@ -26,6 +26,17 @@ enum MapTrial {
 
     /// The style with `{{DIR}}` replaced by the folder, written beside it; nil without the trial's files.
     static func styleURL(labels: Bool) -> URL? {
+        if PilotTileURLProtocol.enabled, labels {
+            // The build's own style (AeroCheck-maps `build/style.py`), its tiles asked of the app's URLProtocol.
+            guard let text = try? String(contentsOf: folder.appendingPathComponent("pilot-day.json"), encoding: .utf8) else { return nil }
+            let base = "https://\(PilotTileURLProtocol.host)/v1"
+            let out = folder.appendingPathComponent("pilot-day.resolved.json")
+            try? text.replacingOccurrences(of: "{{MAP_TILES}}", with: base + "/map/{z}/{x}/{y}")
+                .replacingOccurrences(of: "{{RELIEF_TILES}}", with: base + "/relief/{z}/{x}/{y}")
+                .replacingOccurrences(of: "{{GLYPHS}}", with: base + "/glyphs/{fontstack}/{range}.pbf")
+                .write(to: out, atomically: true, encoding: .utf8)
+            return out
+        }
         let source = folder.appendingPathComponent(labels ? "style.json" : "style-tiles.json")
         guard let text = try? String(contentsOf: source, encoding: .utf8) else { return nil }
         let out = folder.appendingPathComponent(labels ? "style.resolved.json" : "style-tiles.resolved.json")
@@ -207,6 +218,7 @@ struct PilotMapView: UIViewRepresentable {
     let report: (String) -> Void
 
     func makeUIView(context: Context) -> MLNMapView {
+        PilotTileURLProtocol.register()
         let map = MLNMapView(frame: .zero, styleURL: styleURL)
         map.delegate = context.coordinator
         map.setCenter(MapTrial.route[0], zoomLevel: 10, animated: false)
@@ -292,7 +304,7 @@ struct PilotMapView: UIViewRepresentable {
             style.addLayer(ring)
             let ident = MLNSymbolStyleLayer(identifier: "aerodrome-ident", source: aero)
             ident.text = NSExpression(forKeyPath: "ident")
-            ident.textFontNames = NSExpression(forConstantValue: ["Noto Sans Medium"])
+            ident.textFontNames = NSExpression(forConstantValue: [PilotTileURLProtocol.enabled ? "B612 Bold" : "Noto Sans Medium"])
             ident.textFontSize = NSExpression(forConstantValue: 13)
             ident.textColor = NSExpression(forConstantValue: UIColor(red: 0.17, green: 0.35, blue: 0.66, alpha: 1))
             ident.textHaloColor = NSExpression(forConstantValue: UIColor.white)
@@ -329,6 +341,7 @@ struct PilotMapView: UIViewRepresentable {
                 var summary = rec.summary()
                 summary["style"] = parent.styleURL.lastPathComponent
                 summary["device"] = UIDevice.current.model
+                PilotTileURLProtocol.lock.lock(); summary["served"] = PilotTileURLProtocol.served; PilotTileURLProtocol.lock.unlock()
                 MapTrial.write(summary, to: "results-B.json")
                 let fills = rec.fills.map { $0.ms }
                 parent.report(String(format: "Done: %d frames, interval p50 %.1f ms, p95 %.1f ms, >34 ms %d; fill median %.0f ms, max %.0f ms; %.0f MB",
@@ -438,5 +451,60 @@ struct PilotTileTrialView: View {
                         zoomFills.isEmpty ? 0 : zoomFills[zoomFills.count / 2], zoomFills.last ?? 0,
                         all.isEmpty ? 0 : all[all.count / 2], footprints.max() ?? 0)
     }
+}
+#endif
+
+#if DEBUG
+import MapLibre
+
+// MARK: - Serving tiles from the app itself (the 6.8.0 plan's riskiest assumption)
+
+/// DEV-ONLY (`AEROCHECK_MAP_TRIAL_TILES=protocol`): MapLibre asks https://tiles.aerocheck.app/v1/{map,relief}/z/x/y and
+/// /v1/glyphs/…, and this answers from the downloaded files, as the real build would (from a downloaded region, else the
+/// network, counting the allowance). Proves MapLibre's requests go through a URLProtocol we register.
+final class PilotTileURLProtocol: URLProtocol {
+    static let host = "tiles.aerocheck.app"
+    nonisolated(unsafe) static var served: [String: Int] = [:]
+    static let lock = NSLock()
+    static let map = try? PMTilesArchive(url: MapTrial.folder.appendingPathComponent("switzerland.pmtiles"))
+    static let relief = try? PMTilesArchive(url: MapTrial.folder.appendingPathComponent("switzerland-relief.pmtiles"))
+
+    static var enabled: Bool { ProcessInfo.processInfo.environment["AEROCHECK_MAP_TRIAL_TILES"] == "protocol" }
+
+    /// Before the first map view: MapLibre takes its session configuration once.
+    static func register() {
+        guard enabled else { return }
+        let config = URLSessionConfiguration.default
+        config.protocolClasses = [PilotTileURLProtocol.self] + (config.protocolClasses ?? [])
+        MLNNetworkConfiguration.sharedManager.sessionConfiguration = config
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == host }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let parts = request.url?.pathComponents ?? []   // ["/", "v1", "map", z, x, y]
+        var body: Data?
+        var kind = "other"
+        if parts.count == 6, let z = Int(parts[3]), let x = Int(parts[4]), let y = Int(parts[5]) {
+            kind = parts[2]
+            body = (kind == "map" ? Self.map : Self.relief)?.tile(z: z, x: x, y: y)
+            // URLSession inflates gzip only for its own HTTP loads: what a URLProtocol hands over must be plain.
+            if let gz = body, gz.count > 2, gz[gz.startIndex] == 0x1f, gz[gz.startIndex + 1] == 0x8b {
+                body = try? PMTilesArchive.gunzip(gz)
+            }
+        } else if parts.count == 5, parts[2] == "glyphs" {
+            kind = "glyphs"
+            body = try? Data(contentsOf: MapTrial.folder.appendingPathComponent("glyphs/\(parts[3])/\(parts[4])"))
+        }
+        Self.lock.lock(); Self.served[kind + (body == nil ? " missing" : ""), default: 0] += 1; Self.lock.unlock()
+        let response = HTTPURLResponse(url: request.url!, statusCode: body == nil ? 404 : 200, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Type": "application/octet-stream"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if let body { client?.urlProtocol(self, didLoad: body) }
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 #endif

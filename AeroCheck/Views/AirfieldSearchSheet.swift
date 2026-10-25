@@ -21,7 +21,7 @@ enum AirfieldSearch {
     static let types = AirportType.fixedWing
     /// The map's narrower side around the aerodrome chosen: its traffic circuit and the fields next to
     /// it in view (the approach view draws procedures from 8 NM across). The ICAO chart stops at its
-    /// own nearest zoom (`SwissMapView.cameraZoomRange`), the glider chart, a little wider.
+    /// own nearest zoom (`AeroMapView.cameraZoomRange`), the glider chart, a little wider.
     static let spanNM: Double = 8
 
     /// The query as searched: trimmed, nil while too short to search.

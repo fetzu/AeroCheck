@@ -1678,7 +1678,7 @@ struct NavigationMapView: View {
         // Always pass offlineMapManager so cache can be used opportunistically
         // In offline mode, only force ICAO if Segelflug cache is not available
         let effectiveForceICAO = appState.settings.forceICAOChartLayer || (isOfflineMode && !hasFullOfflineSupport)
-        SwissMapView(
+        AeroMapView(
             layerType: isOfflineMode ? .icao : shownLayer,
             mapState: mapState,
             currentLocation: locationManager.currentLocation,
@@ -1711,7 +1711,8 @@ struct NavigationMapView: View {
             legsBand: legsBand,
             onOpenOfficialChart: { openURL($0) },
             onOpenAerodromeNote: { aerodromeNote = $0 },
-            isInFlight: appState.isFlightActive
+            isInFlight: appState.isFlightActive,
+            features: .navigation
         )
     }
 
@@ -3360,7 +3361,7 @@ private func insertTileBelowShapes(_ tile: MKTileOverlay, on mapView: MKMapView)
 /// instead of tearing down and re-adding the entire set whenever it changes at all — so a pan that
 /// shifts a few airspaces in/out doesn't rebuild the rest. (PR-11)
 ///
-/// Written when two map representables drew Plan › Map (one view since 6.7.0): `NativeMapViewUIKit` had this diff and `SwissMapView` kept an
+/// Written when two map representables drew Plan › Map (one view since 6.7.0): `NativeMapViewUIKit` had this diff and `AeroMapView` kept an
 /// inline full-rebuild, so panning the Swiss ICAO / Landeskarte / SWISSIMAGE layers re-created every
 /// visible airspace polygon on each change while the Apple Maps layer did not. That divergence is
 /// exactly the failure mode duplicated code produces: one copy got the optimisation, the other was
@@ -3570,7 +3571,7 @@ final class LegsBandDriver {
                     pitch: 0, heading: mapState.cameraHeading)
     }
 
-    /// The swisstopo charts stop zooming in at a camera distance (`SwissMapView.cameraZoomRange`, tuned
+    /// The swisstopo charts stop zooming in at a camera distance (`AeroMapView.cameraZoomRange`, tuned
     /// against the tiles there are). In the band's shorter map that distance is a coarser chart than the
     /// pilot had: the closest zoom comes down as far as gives the same chart scale, so the same tiles,
     /// while the band is up.
@@ -4196,7 +4197,7 @@ struct MapDataCredits: View {
 
 // MARK: - Swiss Map View (UIKit Wrapper)
 
-struct SwissMapView: UIViewRepresentable {
+struct AeroMapView: UIViewRepresentable {
     let layerType: MapLayerType
     @ObservedObject var mapState: SharedMapState
     let currentLocation: CLLocation?
@@ -4232,6 +4233,25 @@ struct SwissMapView: UIViewRepresentable {
     var onOpenAerodromeNote: ((AerodromeRef) -> Void)?
     /// In flight the callouts' controls take the Cockpit's sizes. (6.2.0)
     var isInFlight: Bool = false
+    /// What this surface draws and what its taps do; the inputs it leaves out are ignored. (6.7.0)
+    var features: MapFeatures = .navigation
+
+    // The inputs as this surface's features let them through. (6.7.0)
+    private var shownAirports: [Airport] { features.contains(.airports) ? visibleAirports : [] }
+    private var shownNavaids: [Navaid] { features.contains(.navaids) ? visibleNavaids : [] }
+    private var shownObstacles: [Obstacle] { features.contains(.obstacles) ? visibleObstacles : [] }
+    private var shownReportingPoints: [ReportingPoint] { features.contains(.reportingPoints) ? visibleReportingPoints : [] }
+    private var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
+    private var shownOpenAIPTiles: Bool { features.contains(.openAIPTiles) && showOpenAIPTiles }
+    private var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
+    private var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }
+    private var shownAircraft: CLLocation? { features.contains(.aircraft) ? currentLocation : nil }
+    private var shownTrack: [GPSPoint] { features.contains(.track) ? gpsTrack : [] }
+    private var shownTrackVector: Bool { features.contains(.trackVector) && trackVectorEnabled }
+    var chartOpener: ((URL) -> Void)? { features.contains(.officialChartCallout) ? onOpenOfficialChart : nil }
+    var divertHandler: ((String) -> Void)? { features.contains(.divertCallout) ? onAirportDivert : nil }
+    var noteOpener: ((AerodromeRef) -> Void)? { features.contains(.noteCallout) ? onOpenAerodromeNote : nil }
+    var atoTap: ((Int) -> Void)? { features.contains(.recordATO) ? onWaypointATOTap : nil }
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4366,11 +4386,11 @@ struct SwissMapView: UIViewRepresentable {
         // Update OpenAIP tile overlay
         let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
         var tilesTouched = overlayChanged
-        if showOpenAIPTiles && !hasOpenAIPOverlay {
+        if shownOpenAIPTiles && !hasOpenAIPOverlay {
             let openAIPOverlay = OpenAIPTileOverlay(isStrictOfflineMode: isStrictOfflineMode)
             insertTileBelowShapes(openAIPOverlay, on: mapView)
             tilesTouched = true
-        } else if !showOpenAIPTiles && hasOpenAIPOverlay {
+        } else if !shownOpenAIPTiles && hasOpenAIPOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
         }
@@ -4382,7 +4402,7 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         // Update airspace polygon overlays (incremental diff)
-        updateAirspaceOverlays(on: mapView, polygons: airspacePolygons)
+        updateAirspaceOverlays(on: mapView, polygons: shownAirspace)
 
         // Track vector. Only wipe when the feature is OFF; on a transient empty (brief GPS gap / <5 kt)
         // keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
@@ -4392,7 +4412,7 @@ struct SwissMapView: UIViewRepresentable {
         // Profiler trace of the Cockpit's map in cruise (MapKit's removeOverlays + addOverlay, about
         // 460 of 500 ms), plus MapKit redrawing them each time. (v6.0 review, render-perf-001)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
-        if !trackVectorEnabled {
+        if !shownTrackVector {
             mapView.removeOverlays(existingTrackVector)
             context.coordinator.trackVectorGeometry = []
         } else if !trackVectorOverlays.isEmpty {
@@ -4467,7 +4487,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Traffic circuits, VFR routes and sectors, under the route: nothing while the content is the
         // one drawn, which is every GPS tick. (6.2.0)
-        VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
+        VFRMapLayer.sync(shownProcedures, on: mapView, state: context.coordinator.vfrLayer)
         VFRMapLayer.orientLabels(on: mapView, palette: context.coordinator.vfrLayer.palette)
 
         // Update airport annotations
@@ -4483,7 +4503,7 @@ struct SwissMapView: UIViewRepresentable {
         // Get existing airport annotations
         let existingAirportAnnotations = mapView.annotations.compactMap { $0 as? AirportAnnotation }
         let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
-        let newIds = Set(visibleAirports.map { $0.id })
+        let newIds = Set(shownAirports.map { $0.id })
 
         // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
         guard existingIds != newIds else { return }
@@ -4493,7 +4513,7 @@ struct SwissMapView: UIViewRepresentable {
         mapView.removeAnnotations(toRemove)
 
         // Add new annotations
-        let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
+        let toAdd = shownAirports.filter { !existingIds.contains($0.id) }
         for airport in toAdd {
             let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
@@ -4511,11 +4531,11 @@ struct SwissMapView: UIViewRepresentable {
     private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
         let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
         let existingIds = Set(existing.map { $0.navaid.id })
-        let newIds = Set(visibleNavaids.map { $0.id })
+        let newIds = Set(shownNavaids.map { $0.id })
         // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
         guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
-        for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
+        for navaid in shownNavaids where !existingIds.contains(navaid.id) {
             mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
         }
     }
@@ -4523,29 +4543,29 @@ struct SwissMapView: UIViewRepresentable {
     private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
         let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
         let existingIds = Set(existing.map { $0.obstacle.id })
-        let newIds = Set(visibleObstacles.map { $0.id })
+        let newIds = Set(shownObstacles.map { $0.id })
         // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
         guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
-        for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
+        for obstacle in shownObstacles where !existingIds.contains(obstacle.id) {
             mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
         }
     }
 
     private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
         // Skips rebuilding when the visible set hasn't changed since the last update (PERF-27).
-        ReportingPointAnnotation.sync(visibleReportingPoints, on: mapView,
+        ReportingPointAnnotation.sync(shownReportingPoints, on: mapView,
                                       revision: &context.coordinator.reportingPointLabelRevision)
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
         // Last, whatever path is taken below: the route rebuild removes every route polyline, the
         // diversion line included. (v5.1)
-        defer { refreshDiversionLine(on: mapView, plan: activeFlightPlan, from: currentLocation) }
+        defer { refreshDiversionLine(on: mapView, plan: shownPlan, from: currentLocation) }
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
 
-        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else {
+        guard let flightPlan = shownPlan, flightPlan.waypoints.count >= 2 else {
             // No (valid) plan: clear any existing flight-plan overlays/annotations. (PR-10)
             mapView.removeOverlays(existingFlightPlanPolylines)
             mapView.removeAnnotations(existingWaypointAnnotations)
@@ -4667,7 +4687,7 @@ struct SwissMapView: UIViewRepresentable {
     private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
         let existingAnnotation = mapView.annotations.compactMap { $0 as? AircraftAnnotation }.first
 
-        if let location = currentLocation {
+        if let location = shownAircraft {
             // Use cached heading (survives GPS gaps) instead of raw location.course
             let newHeading = cachedHeading ?? (location.course >= 0 ? location.course : 0)
 
@@ -4719,13 +4739,13 @@ struct SwissMapView: UIViewRepresentable {
         let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
         // Rebuild only when new source points arrived (compare source count, not the possibly
         // subsampled vertex count), and cap the drawn vertices for very long tracks. (v4.0.0 review P2)
-        let needsUpdate = existingPolylines.first?.sourceCount != gpsTrack.count
+        let needsUpdate = existingPolylines.first?.sourceCount != shownTrack.count
         if needsUpdate {
             mapView.removeOverlays(existingPolylines)
-            if gpsTrack.count > 1 {
-                let coordinates = subsampledTrackCoordinates(gpsTrack)
+            if shownTrack.count > 1 {
+                let coordinates = subsampledTrackCoordinates(shownTrack)
                 let polyline = GPSTrackPolyline(coordinates: coordinates, count: coordinates.count)
-                polyline.sourceCount = gpsTrack.count
+                polyline.sourceCount = shownTrack.count
                 // Use .aboveLabels for GPS track to ensure visibility over tile overlays
                 mapView.addOverlay(polyline, level: .aboveLabels)
             }
@@ -4735,7 +4755,7 @@ struct SwissMapView: UIViewRepresentable {
     // MARK: - Coordinator
 
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
-        var parent: SwissMapView
+        var parent: AeroMapView
         /// The track vector on the map, as `TrackVectorPolyline.geometry(of:)`, so an update only
         /// replaces it when it moved. (v6.0 review)
         var trackVectorGeometry: [Double] = []
@@ -4757,7 +4777,7 @@ struct SwissMapView: UIViewRepresentable {
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
 
-        init(_ parent: SwissMapView) {
+        init(_ parent: AeroMapView) {
             self.parent = parent
         }
 
@@ -4934,7 +4954,7 @@ struct SwissMapView: UIViewRepresentable {
             // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
             if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
                                                       metrics: .metrics(inFlight: parent.isInFlight),
-                                                      openChart: parent.onOpenOfficialChart) {
+                                                      openChart: parent.chartOpener) {
                 return label
             }
 
@@ -5151,8 +5171,8 @@ struct SwissMapView: UIViewRepresentable {
             // on the right, in flight with a route to divert from (v5.1).
             AirportCalloutControls.configure(
                 annotationView,
-                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
-                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
+                divert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
 
             // The name and frequencies, then the pilot's note on the field (6.7.0).
@@ -5168,8 +5188,8 @@ struct SwissMapView: UIViewRepresentable {
             guard let airport = view.annotation as? AirportAnnotation else { return }
             mapView.deselectAnnotation(airport, animated: true)
             switch AirportCalloutControls.action(for: control, airport: airport.airport) {
-            case .officialChart(let url): parent.onOpenOfficialChart?(url)
-            case .divert(let ident): parent.onAirportDivert?(ident)
+            case .officialChart(let url): parent.chartOpener?(url)
+            case .divert(let ident): parent.divertHandler?(ident)
             }
         }
 
@@ -5200,7 +5220,7 @@ struct SwissMapView: UIViewRepresentable {
             mapView.deselectAnnotation(annotation, animated: false)
             // Record ATO on tap, in flight only: on Plan › Map a tap on the route's "2" stamped one. (6.5.0)
             guard parent.isInFlight else { return }
-            parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+            parent.atoTap?(waypointAnnotation.waypointIndex)
         }
 
         /// An airport's callout with the chart the registry has now, not when its marker was drawn: one that came
@@ -5209,8 +5229,8 @@ struct SwissMapView: UIViewRepresentable {
             guard let airport = annotation as? AirportAnnotation, let view = mapView.view(for: airport) else { return }
             AirportCalloutControls.configure(
                 view,
-                chart: parent.onOpenOfficialChart == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
-                divert: parent.activeFlightPlan != nil && parent.onAirportDivert != nil,
+                chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
+                divert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
             // The note as it is now: one written since the marker was drawn shows. (6.7.0)
             view.detailCalloutAccessoryView = calloutDetail(for: airport, on: mapView)
@@ -5218,7 +5238,7 @@ struct SwissMapView: UIViewRepresentable {
 
         /// An aerodrome callout's detail: its name and frequencies, the pilot's note, the button to it. (6.7.0)
         private func calloutDetail(for annotation: AirportAnnotation, on mapView: MKMapView) -> UIView? {
-            let open = parent.onOpenAerodromeNote
+            let open = parent.noteOpener
             let ref = AerodromeRef(annotation.airport)
             return AerodromeNoteCallout.detailView(
                 airport: annotation.airport, frequencyLines: annotation.frequencyLines,
@@ -5245,7 +5265,7 @@ struct SwissMapView: UIViewRepresentable {
             guard gesture.state == .began, !legsBand.ownsCamera,
                   let annotationView = gesture.view as? MKAnnotationView,
                   let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
-            parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+            parent.atoTap?(waypointAnnotation.waypointIndex)
             // Haptic feedback
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()

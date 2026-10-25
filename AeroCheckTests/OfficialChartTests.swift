@@ -491,15 +491,15 @@ final class OfficialChartTests: XCTestCase {
         let state = SharedMapState()
         var diverts: [String] = []
         var charts: [URL] = []
-        let native = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+        let native = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
                                         isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
                                         onAirportDivert: { diverts.append($0) },
                                         onOpenOfficialChart: { charts.append($0) }, isInFlight: true).makeCoordinator()
-        let swiss = SwissMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
+        let swiss = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
                                  onAirportDivert: { diverts.append($0) },
                                  onOpenOfficialChart: { charts.append($0) }, isInFlight: true).makeCoordinator()
-        let maps: [(String, MKMapViewDelegate)] = [("SwissMapView on Apple's map", native), ("SwissMapView", swiss)]
+        let maps: [(String, MKMapViewDelegate)] = [("AeroMapView on Apple's map", native), ("AeroMapView", swiss)]
         for (name, coordinator) in maps {
             diverts = []
             charts = []
@@ -530,7 +530,7 @@ final class OfficialChartTests: XCTestCase {
     func testTheAirportCalloutOnTheGround() throws {
         let state = SharedMapState()
         var charts: [URL] = []
-        let ground = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+        let ground = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
                                         isFollowingAircraft: .constant(true), forceICAOLayer: false,
                                         onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
         let map = MKMapView()
@@ -545,7 +545,7 @@ final class OfficialChartTests: XCTestCase {
         let italian = try XCTUnwrap(ground.mapView(map, viewFor: AirportAnnotation(airport: airport("LIMJ", .mediumAirport, country: "IT"))))
         XCTAssertNil(italian.leftCalloutAccessoryView)
 
-        let noOpener = SwissMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+        let noOpener = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
                                           isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         XCTAssertNil(try XCTUnwrap(noOpener.mapView(map, viewFor: AirportAnnotation(airport: airport("LSZQ")))).leftCalloutAccessoryView)
     }
@@ -610,9 +610,9 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertFalse(MapCallout.isOpen(selected: [], view: { _ in withCallout }))
 
         let makers: [(String, (SharedMapState) -> MKMapViewDelegate)] = [
-            ("SwissMapView on Apple's map", { SwissMapView(layerType: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
+            ("AeroMapView on Apple's map", { AeroMapView(layerType: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
                                                         isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
-            ("SwissMapView", { SwissMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
+            ("AeroMapView", { AeroMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
                                             isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
         ]
         for (name, make) in makers {

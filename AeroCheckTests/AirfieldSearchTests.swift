@@ -123,7 +123,7 @@ final class AirfieldSearchTests: XCTestCase {
     }
 
     /// Within the chart's zoom range: the ICAO chart and its glider chart stop at 65 km
-    /// (`SwissMapView.cameraZoomRange`), further out than 8 NM; the national map comes closer.
+    /// (`AeroMapView.cameraZoomRange`), further out than 8 NM; the national map comes closer.
     func testTheDistanceIsHeldWithinTheChartsRange() {
         let icao = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)
         let national = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)

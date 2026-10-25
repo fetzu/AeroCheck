@@ -136,6 +136,30 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual(ChartPolicy().drawnKey(for: .landeskarten), forced.drawnKey(for: .landeskarten))
     }
 
+    /// One map view for every surface (6.7.0): each passes what it draws and what its taps do; what it leaves out
+    /// is ignored, whatever the parent hands over.
+    func testASurfaceGetsOnlyItsFeatures() {
+        let state = SharedMapState()
+        func map(_ features: MapFeatures) -> AeroMapView {
+            AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
+                        isFollowingAircraft: .constant(true), forceICAOLayer: false,
+                        onWaypointATOTap: { _ in }, onAirportDivert: { _ in }, onOpenOfficialChart: { _ in },
+                        onOpenAerodromeNote: { _ in }, features: features)
+        }
+        let navigation = map(.navigation)
+        XCTAssertNotNil(navigation.chartOpener)
+        XCTAssertNotNil(navigation.divertHandler)
+        XCTAssertNotNil(navigation.noteOpener)
+        XCTAssertNotNil(navigation.atoTap)
+        let chartOnly = map(.chartOnly)
+        XCTAssertNil(chartOnly.chartOpener)
+        XCTAssertNil(chartOnly.divertHandler)
+        XCTAssertNil(chartOnly.noteOpener)
+        XCTAssertNil(chartOnly.atoTap)
+        XCTAssertTrue(MapFeatures.navigation.isSuperset(of: .markers))
+        XCTAssertTrue(MapFeatures.chartOnly.isEmpty)
+    }
+
     func testTheBuildersLayersLeaveApplesMapUnderneath() {
         for layer in WaypointPickerMapLayer.allCases {
             let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
@@ -164,7 +188,7 @@ final class SwissChartLayerTests: XCTestCase {
     /// Plan › Map and the Cockpit's MAP come close enough for the glider chart: 30 km, where 65 km stopped about
     /// z10 to z11.
     func testTheNavMapComesCloseEnoughForTheGliderChart() {
-        XCTAssertLessThanOrEqual(SwissMapView.icaoGliderClosestDistance, 30_000)
+        XCTAssertLessThanOrEqual(AeroMapView.icaoGliderClosestDistance, 30_000)
     }
 
     /// One chart for every map (the author's device check, 23 Oct 2026): the builder's names map onto Plan › Map's

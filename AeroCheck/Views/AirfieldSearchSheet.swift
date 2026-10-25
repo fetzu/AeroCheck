@@ -322,7 +322,7 @@ private struct AirfieldSearchRow: View {
                     .lineLimit(1)
                     .frame(minWidth: 60, alignment: .leading)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(airport.name)
+                    Text(AerodromeName.display(airport.name))   // "Bressaucourt", not "BRESSAUCOURT" (c3 A)
                         .scaledFont(size: 15, relativeTo: .body)
                         .foregroundColor(.primaryText)
                         .lineLimit(2)

@@ -201,7 +201,18 @@ final class PlannedRouteLayer: NSObject, UIGestureRecognizerDelegate {
         return button
     }
 
-    /// Adds the callout's point when `control` is its "+"; true when it was.
+    /// Whether the route being planned takes this marker's point: an aerodrome card's "+ Route". (6.7.0)
+    func canAdd(_ annotation: MKAnnotation) -> Bool {
+        route.onPointAdd != nil && Self.routePoint(for: annotation) != nil
+    }
+
+    /// Adds the marker's point to the route being planned.
+    func add(_ annotation: MKAnnotation) {
+        guard let point = Self.routePoint(for: annotation) else { return }
+        route.onPointAdd?(point)
+    }
+
+    /// Adds the callout's point when `control` is its "+" (a navaid's, a reporting point's); true when it was.
     func addPoint(for control: UIControl, of view: MKAnnotationView, on mapView: MKMapView) -> Bool {
         guard control is AddToRouteButton, let point = Self.routePoint(for: view.annotation) else { return false }
         route.onPointAdd?(point)

@@ -2,84 +2,8 @@ import MapKit
 import SwiftUI
 import UIKit
 
-// MARK: - The pilot's note in an aerodrome's callout (6.7.0, n2 A)
-//
-// Every map's aerodrome callout: under the name and frequencies, the note's first line, and a button
-// that opens it (More) or starts one (Add a note). In flight a note only reads, and none is started
-// (n3 A). Built when the marker is drawn and again when it is selected, so a note written since shows.
-
 extension AerodromeRef: Identifiable {
     var id: String { ident }
-}
-
-enum AerodromeNoteCallout {
-    /// The detail's widest: a note's line wraps under it rather than widening the callout past the screen.
-    static let maxWidth: CGFloat = 280
-
-    /// The callout's detail view, or nil when it would hold nothing.
-    /// - Parameters:
-    ///   - frequencyLines: the field's name and frequencies, as the nav map shows them; nil on maps without.
-    ///   - onOpen: opens the note's sheet; nil where the map can't (no button then).
-    @MainActor
-    static func detailView(airport: Airport, frequencyLines: String?, note: AerodromeNote?, inFlight: Bool,
-                           metrics: CalloutMetrics, tint: UIColor, onOpen: (() -> Void)?) -> UIView? {
-        // In flight the Cockpit reads the Arrival part only (n1 A): a note without one shows nothing there.
-        let shown = inFlight && !(note?.hasArrival ?? false) ? nil : note
-        var rows: [UIView] = []
-        if let frequencyLines {
-            let label = UILabel()
-            label.numberOfLines = 0
-            let text = NSMutableAttributedString(string: airport.name + "\n", attributes: [
-                .font: UIFont.aero(size: 12, weight: .medium), .foregroundColor: UIColor.label])
-            text.append(NSAttributedString(string: frequencyLines, attributes: [
-                .font: UIFont.aero(size: 12, monospaced: true), .foregroundColor: UIColor.secondaryLabel]))
-            label.attributedText = text
-            // In a stack, a label gives up lines first: the frequencies kept every line only alone.
-            label.setContentCompressionResistancePriority(.required, for: .vertical)
-            rows.append(label)
-        }
-        if let note = shown, !note.isEmpty {
-            let label = UILabel()
-            label.numberOfLines = 2
-            let title = (note.hasArrival ? L10n.AerodromeNotes.yourNoteArrival : L10n.AerodromeNotes.yourNote).uppercased()
-            let text = NSMutableAttributedString(string: title + "\n", attributes: [
-                .font: UIFont.aero(size: 10, weight: .bold, monospaced: true), .kern: 0.8,
-                .foregroundColor: UIColor(Color.aviationGold)])
-            text.append(NSAttributedString(string: note.firstLine, attributes: [
-                .font: UIFont.aero(size: 13), .foregroundColor: UIColor.label]))
-            label.attributedText = text
-            label.accessibilityIdentifier = "callout.note.text"
-            label.setContentCompressionResistancePriority(.required, for: .vertical)
-            rows.append(label)
-        }
-        let hasNote = shown.map { !$0.isEmpty } ?? false
-        if let onOpen, hasNote || !inFlight {
-            let button = UIButton(type: .system)
-            button.setTitle(hasNote ? L10n.AerodromeNotes.more : L10n.AerodromeNotes.add, for: .normal)
-            button.titleLabel?.font = UIFont.aero(size: metrics.fontSize, weight: .semibold)
-            button.tintColor = tint
-            button.contentHorizontalAlignment = .leading
-            button.heightAnchor.constraint(greaterThanOrEqualToConstant: metrics.target).isActive = true
-            button.addAction(UIAction { _ in onOpen() }, for: .touchUpInside)
-            button.accessibilityIdentifier = hasNote ? "callout.note.open" : "callout.note.add"
-            rows.append(button)
-        }
-        guard !rows.isEmpty else { return nil }
-        let stack = UIStackView(arrangedSubviews: rows)
-        stack.axis = .vertical
-        stack.alignment = .leading
-        stack.spacing = 6
-        // MapKit sizes a callout's detail from its constraints: without a width and a height of its own, the
-        // stack came out a line short, and the frequencies' last line went.
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        for case let label as UILabel in rows { label.preferredMaxLayoutWidth = Self.maxWidth }
-        let size = stack.systemLayoutSizeFitting(CGSize(width: Self.maxWidth, height: UIView.layoutFittingCompressedSize.height),
-                                                 withHorizontalFittingPriority: .fittingSizeLevel,
-                                                 verticalFittingPriority: .fittingSizeLevel)
-        stack.widthAnchor.constraint(equalToConstant: min(ceil(size.width), Self.maxWidth)).isActive = true
-        stack.heightAnchor.constraint(equalToConstant: ceil(size.height)).isActive = true
-        return stack
-    }
 }
 
 // MARK: - The flight's page (6.7.0, n2 A and n4 A)

@@ -1231,6 +1231,29 @@
         }
       }
     },
+    "aerodromeNote.cardButton": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notiz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note"
+          }
+        }
+      }
+    },
     "aerodromeNote.changed": {
       "extractionState": "manual",
       "localizations": {
@@ -50331,6 +50354,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sur la carte"
+          }
+        }
+      }
+    },
+    "nav.addToRoute.short": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
           }
         }
       }

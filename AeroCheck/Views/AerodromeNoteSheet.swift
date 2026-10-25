@@ -75,7 +75,7 @@ struct AerodromeNoteSheet: View {
                     VStack(spacing: 0) {
                         Text(aerodrome.ident)
                             .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .headline)
-                        Text(aerodrome.name)
+                        Text(AerodromeName.display(aerodrome.name))   // as on the card (c3 A)
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.secondaryText)
                             .lineLimit(1)

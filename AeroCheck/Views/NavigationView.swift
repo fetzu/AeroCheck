@@ -3128,12 +3128,15 @@ struct SwissAirspaceSectors {
 
 // MARK: - Callouts and the chrome over the chart (6.2.0)
 
-/// Whether a map shows an annotation's callout: something selected whose view has one (a waypoint
-/// marker is deselected as soon as it is tapped, and has none).
+/// Whether a map shows an annotation's callout: something selected whose view has one, MapKit's or an
+/// aerodrome's card (a waypoint marker is deselected as soon as it is tapped, and has none).
 enum MapCallout {
     @MainActor
     static func isOpen(selected: [MKAnnotation], view: (MKAnnotation) -> MKAnnotationView?) -> Bool {
-        selected.contains { !($0 is MKUserLocation) && view($0)?.canShowCallout == true }
+        selected.contains { annotation in
+            guard !(annotation is MKUserLocation), let marker = view(annotation) else { return false }
+            return marker.canShowCallout || (marker as? AerodromeMarkerView)?.card != nil
+        }
     }
 }
 
@@ -5218,17 +5221,16 @@ struct AeroMapView: UIViewRepresentable {
 
         /// Create annotation view for airports
         private func createAirportAnnotationView(_ mapView: MKMapView, annotation: AirportAnnotation) -> MKAnnotationView {
-            let identifier = "AirportAnnotation"
-            let annotationView: MKAnnotationView
+            // The marker shows the app's card while selected, not MapKit's callout (6.7.0, c1 A).
+            let identifier = "AerodromeMarker"
+            let annotationView: AerodromeMarkerView
 
-            if let reusedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
+            if let reusedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? AerodromeMarkerView {
                 reusedView.annotation = annotation
                 annotationView = reusedView
             } else {
-                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                annotationView = AerodromeMarkerView(annotation: annotation, reuseIdentifier: identifier)
             }
-
-            annotationView.canShowCallout = true
 
             // Size and color based on airport type
             let size: CGFloat
@@ -5256,39 +5258,70 @@ struct AeroMapView: UIViewRepresentable {
 
             annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
-            // The callout's controls: the field's official chart on the left (6.2.0), and "Divert here"
-            // on the right, in flight with a route to divert from (v5.1).
-            AirportCalloutControls.configure(
-                annotationView,
-                chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
-                divert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
-                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
-            // "+" on the right while planning a route. (6.7.0)
-            if let add = plannedRoute.addButton(for: annotation) { annotationView.rightCalloutAccessoryView = add }
-
-            // The name and frequencies, then the pilot's note on the field (6.7.0).
-            annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation, on: mapView)
-
             return annotationView
         }
 
-        // MARK: - An airport callout's controls: the official chart (6.2.0), Divert (v5.1)
+        // MARK: - A navaid's or a reporting point's "+" (6.0.1, 6.7.0)
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      calloutAccessoryControlTapped control: UIControl) {
-            // "+": the planned route adds the point. (6.0.1, 6.7.0)
-            if plannedRoute.addPoint(for: control, of: view, on: mapView) { return }
-            guard let airport = view.annotation as? AirportAnnotation else { return }
-            mapView.deselectAnnotation(airport, animated: true)
-            switch AirportCalloutControls.action(for: control, airport: airport.airport) {
-            case .officialChart(let url): parent.chartOpener?(url)
-            case .divert(let ident): parent.divertHandler?(ident)
+            _ = plannedRoute.addPoint(for: control, of: view, on: mapView)
+        }
+
+        // MARK: - An aerodrome's card (6.7.0, c1 A)
+
+        /// The card for an aerodrome as it is now: the chart the registry has (one that came later left Palo Alto
+        /// without its chart, the author's v65-15), the note as last saved. Built each time the marker is selected.
+        func aerodromeCard(for annotation: AirportAnnotation, on mapView: MKMapView) -> AerodromeCardView {
+            let airport = annotation.airport
+            let ref = AerodromeRef(airport)
+            let metrics = CalloutMetrics.metrics(inFlight: parent.isInFlight)
+            let content = AerodromeCardContent.make(
+                airport: airport, frequencyLines: annotation.frequencyLines,
+                note: parent.features.contains(.noteCallout) ? AerodromeNoteStore.shared.note(for: ref) : nil,
+                inFlight: parent.isInFlight,
+                chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: airport),
+                canOpenNote: parent.noteOpener != nil,
+                canDivert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
+                canAddToRoute: plannedRoute.canAdd(annotation))
+            let area = AerodromeMarkerView.area(of: mapView)
+            let width = min(AerodromeCardView.maxWidth(metrics: metrics), max(area.width, 240))
+            return AerodromeCardView(content: content, metrics: metrics, tint: vfrLayer.palette.action, width: width) {
+                [weak self, weak mapView] action in
+                guard let self, let mapView else { return }
+                self.perform(action, for: annotation, on: mapView)
+            }
+        }
+
+        /// A button of the card: the card closes first, as MapKit's callout did, so the next tap shows the field as
+        /// it is then (a note just saved).
+        func perform(_ action: AerodromeCardContent.Action, for annotation: AirportAnnotation, on mapView: MKMapView) {
+            closingCard = true
+            mapView.deselectAnnotation(annotation, animated: true)
+            closingCard = false
+            switch action {
+            case .chart(let link): parent.chartOpener?(link.url)
+            case .note: parent.noteOpener?(AerodromeRef(annotation.airport))
+            case .divert: parent.divertHandler?(annotation.airport.ident)
+            case .addToRoute: plannedRoute.add(annotation)
             }
         }
 
         // MARK: - Waypoint ATO Tap/Long-Press
 
+        /// A card's button is closing it: the deselect is the pilot's, whatever touched the card.
+        private var closingCard = false
+
         func mapView(_ mapView: MKMapView, didDeselect annotation: MKAnnotation) {
+            if let airport = annotation as? AirportAnnotation,
+               let marker = mapView.view(for: airport) as? AerodromeMarkerView {
+                // A tap on the card's body, which MapKit took for the map's: the card stays, its marker selected.
+                if !closingCard, marker.cardWasJustTouched() {
+                    DispatchQueue.main.async { [weak mapView] in mapView?.selectAnnotation(airport, animated: false) }
+                    return
+                }
+                marker.hideCard()
+            }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome comes back (6.2.0)
         }
 
@@ -5307,7 +5340,12 @@ struct AeroMapView: UIViewRepresentable {
             // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
             if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
-            refreshChart(of: annotation, on: mapView)
+            if let airport = annotation as? AirportAnnotation,
+               let marker = mapView.view(for: airport) as? AerodromeMarkerView {
+                // Selected again after a tap on its card: the card is still there.
+                if marker.card == nil { marker.show(aerodromeCard(for: airport, on: mapView), on: mapView) }
+                return
+            }
             // A planned route's pin selects its row in the route builder. (planning proposal D3)
             if plannedRoute.didSelect(annotation) { return }
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
@@ -5316,36 +5354,6 @@ struct AeroMapView: UIViewRepresentable {
             // Record ATO on tap, in flight only: on Plan › Map a tap on the route's "2" stamped one. (6.5.0)
             guard parent.isInFlight else { return }
             parent.atoTap?(waypointAnnotation.waypointIndex)
-        }
-
-        /// An airport's callout with the chart the registry has now, not when its marker was drawn: one that came
-        /// later left Palo Alto without its chart (the author's v65-15). (6.5.0)
-        private func refreshChart(of annotation: MKAnnotation, on mapView: MKMapView) {
-            guard let airport = annotation as? AirportAnnotation, let view = mapView.view(for: airport) else { return }
-            AirportCalloutControls.configure(
-                view,
-                chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
-                divert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
-                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
-            if let add = plannedRoute.addButton(for: airport) { view.rightCalloutAccessoryView = add }
-            // The note as it is now: one written since the marker was drawn shows. (6.7.0)
-            view.detailCalloutAccessoryView = calloutDetail(for: airport, on: mapView)
-        }
-
-        /// An aerodrome callout's detail: its name and frequencies, the pilot's note, the button to it. (6.7.0)
-        private func calloutDetail(for annotation: AirportAnnotation, on mapView: MKMapView) -> UIView? {
-            let open = parent.noteOpener
-            let ref = AerodromeRef(annotation.airport)
-            return AerodromeNoteCallout.detailView(
-                airport: annotation.airport, frequencyLines: annotation.frequencyLines,
-                note: parent.features.contains(.noteCallout) ? AerodromeNoteStore.shared.note(for: ref) : nil,
-                inFlight: parent.isInFlight,
-                metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action,
-                // The callout closes as the note opens, as for the chart: the next tap shows the note as saved.
-                onOpen: open.map { open in { [weak mapView] in
-                    mapView?.deselectAnnotation(annotation, animated: true)
-                    open(ref)
-                } })
         }
 
         /// Add long-press gesture recognizer to waypoint annotation views

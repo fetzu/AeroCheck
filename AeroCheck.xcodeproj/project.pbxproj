@@ -57,6 +57,7 @@
 		FP6600021111111000007 /* WeatherWordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000007 /* WeatherWordsTests.swift */; };
 		FP6600021111111000002 /* FlightPageBlocksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000002 /* FlightPageBlocksTests.swift */; };
 		A50000C1111111110000002 /* TestDatastore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000C1111111110000001 /* TestDatastore.swift */; };
+		2281D60A3155323D7B2B8269 /* AerodromeCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC70373A701E28D6ACB841B0 /* AerodromeCardTests.swift */; };
 		8CC32D5E3CAA451573FF3743 /* AerodromeNotesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EE249B871D9B795F365705 /* AerodromeNotesTests.swift */; };
 		A5000039111111110000002 /* WaypointPassageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000039111111110000001 /* WaypointPassageTests.swift */; };
 		A5000040111111110000002 /* TripPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000040111111110000001 /* TripPlannerTests.swift */; };
@@ -372,6 +373,8 @@
 		B9D03C1E805FAFB526CDD17C /* AerodromeNoteViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */; };
 		4CB20F4EB931BD27A27253DC /* MapFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */; };
 		851C2D8CED1ABA6D782C9139 /* PlannedRouteLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */; };
+		AA42C0CAF37368D938C5F337 /* AerodromeMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */; };
+		855F5BB902B42E59257958D5 /* AerodromeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58A88DEE03A2690E8A59265C /* AerodromeCard.swift */; };
 		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
 		HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000002 /* AerodromeIdentField.swift */; };
 		F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000034 /* UpcomingFlightsList.swift */; };
@@ -512,6 +515,7 @@
 		FP6600011111111000007 /* WeatherWordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherWordsTests.swift; sourceTree = "<group>"; };
 		FP6600011111111000002 /* FlightPageBlocksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageBlocksTests.swift; sourceTree = "<group>"; };
 		A50000C1111111110000001 /* TestDatastore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDatastore.swift; sourceTree = "<group>"; };
+		BC70373A701E28D6ACB841B0 /* AerodromeCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeCardTests.swift; sourceTree = "<group>"; };
 		76EE249B871D9B795F365705 /* AerodromeNotesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNotesTests.swift; sourceTree = "<group>"; };
 		A5000039111111110000001 /* WaypointPassageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassageTests.swift; sourceTree = "<group>"; };
 		A5000040111111110000001 /* TripPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerTests.swift; sourceTree = "<group>"; };
@@ -821,6 +825,8 @@
 		6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteSheet.swift; sourceTree = "<group>"; };
 		EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteViews.swift; sourceTree = "<group>"; };
 		9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFeatures.swift; sourceTree = "<group>"; };
+		58A88DEE03A2690E8A59265C /* AerodromeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeCard.swift; sourceTree = "<group>"; };
+		74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeMarkerView.swift; sourceTree = "<group>"; };
 		FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedRouteLayer.swift; sourceTree = "<group>"; };
 		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000002 /* AerodromeIdentField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeIdentField.swift; sourceTree = "<group>"; };
@@ -953,6 +959,7 @@
 				FP6600011111111000007 /* WeatherWordsTests.swift */,
 				FP6600011111111000002 /* FlightPageBlocksTests.swift */,
 				A50000C1111111110000001 /* TestDatastore.swift */,
+				BC70373A701E28D6ACB841B0 /* AerodromeCardTests.swift */,
 				76EE249B871D9B795F365705 /* AerodromeNotesTests.swift */,
 				A5000039111111110000001 /* WaypointPassageTests.swift */,
 				A5000040111111110000001 /* TripPlannerTests.swift */,
@@ -1179,6 +1186,8 @@
 				EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */,
 				9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */,
 				FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */,
+				74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */,
+				58A88DEE03A2690E8A59265C /* AerodromeCard.swift */,
 				F1000001111111110000033 /* PlanNewFlightView.swift */,
 				HB0A0001111111110000002 /* AerodromeIdentField.swift */,
 				F1000001111111110000034 /* UpcomingFlightsList.swift */,
@@ -1673,6 +1682,7 @@
 				FP6600021111111000007 /* WeatherWordsTests.swift in Sources */,
 				FP6600021111111000002 /* FlightPageBlocksTests.swift in Sources */,
 				A50000C1111111110000002 /* TestDatastore.swift in Sources */,
+				2281D60A3155323D7B2B8269 /* AerodromeCardTests.swift in Sources */,
 				8CC32D5E3CAA451573FF3743 /* AerodromeNotesTests.swift in Sources */,
 				A5000039111111110000002 /* WaypointPassageTests.swift in Sources */,
 				A5000040111111110000002 /* TripPlannerTests.swift in Sources */,
@@ -1963,6 +1973,8 @@
 				B9D03C1E805FAFB526CDD17C /* AerodromeNoteViews.swift in Sources */,
 				4CB20F4EB931BD27A27253DC /* MapFeatures.swift in Sources */,
 				851C2D8CED1ABA6D782C9139 /* PlannedRouteLayer.swift in Sources */,
+				AA42C0CAF37368D938C5F337 /* AerodromeMarkerView.swift in Sources */,
+				855F5BB902B42E59257958D5 /* AerodromeCard.swift in Sources */,
 				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
 				HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */,
 				F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */,

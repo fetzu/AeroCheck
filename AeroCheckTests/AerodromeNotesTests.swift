@@ -264,27 +264,29 @@ final class AerodromeNotesTests: XCTestCase {
         XCTAssertLessThan(snippet.count, 50, snippet)
     }
 
-    func testTheCalloutOffersANoteOnTheGroundOnlyAndReadsOneInFlight() {
+    /// The card offers a note on the ground only, and reads one in flight: its Arrival part alone (n3 A, c2 A).
+    func testTheCardOffersANoteOnTheGroundOnlyAndReadsOneInFlight() {
         let field = airport("LSZG", 47.18, 7.42)
-        let written = note(arrival: "Ask early.")
-        func button(in view: UIView?) -> UIButton? { (view as? UIStackView)?.arrangedSubviews.compactMap { $0 as? UIButton }.first }
-        let ground = AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: nil, inFlight: false,
-                                                     metrics: .ground, tint: .systemBlue, onOpen: {})
-        XCTAssertEqual(button(in: ground)?.accessibilityIdentifier, "callout.note.add")
-        let flying = AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: nil, inFlight: true,
-                                                     metrics: .ground, tint: .systemBlue, onOpen: {})
-        XCTAssertNil(flying, "no note is started in flight")
-        let reading = AerodromeNoteCallout.detailView(airport: field, frequencyLines: "TWR 120.105", note: written,
-                                                      inFlight: true, metrics: .ground, tint: .systemBlue, onOpen: {})
-        XCTAssertEqual(button(in: reading)?.accessibilityIdentifier, "callout.note.open")
-        XCTAssertEqual((reading as? UIStackView)?.arrangedSubviews.count, 3)
-        // In flight the Arrival part only: a note on the ground part alone shows nothing and opens nothing.
+        func card(_ note: AerodromeNote?, inFlight: Bool) -> AerodromeCardContent {
+            AerodromeCardContent.make(airport: field, frequencyLines: nil, note: note, inFlight: inFlight, chart: nil,
+                                      canOpenNote: true, canDivert: false, canAddToRoute: false)
+        }
+        XCTAssertEqual(card(nil, inFlight: false).actions, [.note(existing: false)])
+        XCTAssertEqual(card(nil, inFlight: true).actions, [], "no note is started in flight")
+        let written = note(arrival: "Ask early.\nJoin over the lake.\nCall Bern.\nThen the tower.", ground: "Fuel at the pump.\nCafé.")
+        XCTAssertEqual(card(written, inFlight: false).note, [
+            .init(part: .arrival, text: "Ask early.", maxLines: 2),
+            .init(part: .onTheGround, text: "Fuel at the pump.", maxLines: 2),
+        ], "on the ground, the first line of each part")
+        XCTAssertEqual(card(written, inFlight: true).note, [
+            .init(part: .arrival, text: "Ask early.\nJoin over the lake.\nCall Bern.\nThen the tower.", maxLines: 3),
+        ], "in flight, the Arrival part alone, three lines")
+        XCTAssertEqual(card(written, inFlight: true).actions, [.note(existing: true)])
+        // In flight a note on the ground part alone shows nothing and opens nothing.
         let groundOnly = note(ground: "Fuel at the pump.")
-        XCTAssertNil(AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: groundOnly, inFlight: true,
-                                                     metrics: .ground, tint: .systemBlue, onOpen: {}))
-        let onTheGroundStill = AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: groundOnly,
-                                                               inFlight: false, metrics: .ground, tint: .systemBlue, onOpen: {})
-        XCTAssertEqual(button(in: onTheGroundStill)?.accessibilityIdentifier, "callout.note.open")
+        XCTAssertEqual(card(groundOnly, inFlight: true).note, [])
+        XCTAssertEqual(card(groundOnly, inFlight: true).actions, [])
+        XCTAssertEqual(card(groundOnly, inFlight: false).actions, [.note(existing: true)])
     }
 
     // MARK: "Sync to iCloud": the notes move with the store

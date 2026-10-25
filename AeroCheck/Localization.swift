@@ -56,6 +56,8 @@ enum L10n {
         static let yourNote = String(localized: "aerodromeNote.yourNote")
         static let yourNoteArrival = String(localized: "aerodromeNote.yourNote.arrival")
         static let yourNoteOnTheGround = String(localized: "aerodromeNote.yourNote.onTheGround")
+        /// The note's button on an aerodrome's card, beside Chart and Divert. (c1 A)
+        static let cardButton = String(localized: "aerodromeNote.cardButton")
         static let add = String(localized: "aerodromeNote.add")
         static let more = String(localized: "aerodromeNote.more")
         static let delete = String(localized: "aerodromeNote.delete")
@@ -3649,6 +3651,8 @@ enum L10n {
         static let editWaypoint = String(localized: "nav.editWaypoint")
         /// The "+" in a map callout: the aerodrome, navaid or reporting point goes into the route. (6.0.1)
         static let addToRoute = String(localized: "nav.addToRoute")
+        /// Under "+" on an aerodrome's card, where "Add to route" doesn't fit beside two other buttons. (6.7.0)
+        static let addToRouteShort = String(localized: "nav.addToRoute.short")
         /// The reporting point's ident from an OpenAIP remark ("ELESE"): not an official designator,
         /// so it is labelled as such wherever it shows. (6.0.1)
         static let pointIdent = String(localized: "nav.pointIdent")

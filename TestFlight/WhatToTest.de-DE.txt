@@ -1,11 +1,14 @@
-6.5.0 spricht Deutsch und bereitet einen Flug für die Länder vor, in die er führt: Briefing-Links, Wetter und das Schliessen des ATC-Flugplans folgen den Regeln des jeweiligen Landes.
+6.6.0 baut die Seite des Flugs in Blöcken neu auf und lässt eine Reise unterwegs ändern.
 
 Zum Ausprobieren:
-- Deutsch: Stellen Sie das Gerät auf Deutsch (Einstellungen › Allgemein › Sprache & Region) oder nur die App (Einstellungen › AéroCheck › Sprache). Jeder Bildschirm, auch die Tasten im Cockpit: Melden Sie, was falsch klingt.
-- Die Seite eines Flugs, Vorbereiten: der Block Wetter über den Aufgaben, mit METAR und TAF jedes Flugplatzes (der nächstgelegene TAF für einen Flugplatz ohne eigenen), den SIGMET entlang der Route und den Wetter- und Gebietsvorhersage-Seiten jedes Landes als Zeilen. Ein Haken für alles; abgehakt klappt der Block zu einer Zeile zu. Das DABS sagt, für welchen Tag es gilt oder wann das des Flugtags erscheint.
-- Eine Route ins Ausland, zum Beispiel Bressaucourt–Freiburg: die deutschen Links und nach der Landung die Karte zum Schliessen mit der Regel und der Nummer Deutschlands. Eine Landung in der Schweiz behält die Nummer von skyguide. Auf einer Reise zählt jede Etappe die Vorbereitung der Reise mit.
-- Ein Abflug von einem schwedischen Flugplatz ohne Tower: die Zeile, den Flugplan selbst zu aktivieren. Eine Route über Belarus: die rote Zeile, und FLUG BEGINNEN eine Sekunde gedrückt halten.
-- Die Karten teilen eine Grundkarte; ausserhalb der Schweiz zeigen sie Apple Karten statt der ICAO-Karte. Die OpenAIP-Ebene erscheint wieder (OpenAIP hat seine Kacheln umgezogen), und Einstellungen › Daten & Speicher lädt schneller: Der Luftraum kommt jetzt aus den eigenen Dateien von OpenAIP.
-- In den USA bei Palo Alto (KPAO) oder San Carlos (KSQL): die Seite der Platzrunde an jedem Pistenende und die TPA in der Anflugansicht. Offizielle Karten für die USA, Australien und Neuseeland.
+- Planen Sie einen Flug für morgen und öffnen Sie seine Seite: Die Zeile unter dem Titel sagt, wann er abfliegt und was noch offen ist; Wetter und NOTAM warten auf den Flugtag. Ein Haken pro Block. Setzen Sie den Flug auf heute: Wetter und NOTAM gehen auf.
+- Auf dem iPad «Vorbereiten» in zwei Spalten, auf dem iPhone jeder Block in einem eigenen Blatt.
+- Der Block Wetter: METAR, TAF und SIGMET in Worten, RAW für die Meldung, wie sie ausgegeben wurde. Sagen Sie, was sich falsch liest.
+- Der Block Flugplan sagt, bis wann er aufzugeben ist: aus der Schweiz 60 Minuten vor dem Abflug, anderswo nach der Regel des Landes.
+- Der Stift neben dem Titel: «Flugdetails», «Route bearbeiten», «Diesen Flug benennen». Auf einer Etappe einer Reise: «Etappendetails», «Diese Etappe benennen», «Diese Reise benennen».
+- Eine Reise mit Zwischenhalt: Im Flug zeigt «Ausweichen» die nächsten Zwischenhalte mit «Weiterfliegen». Nach einer Landung auf dem Flugplatz der nächsten Etappe fragt die Seite, ob Sie den Zwischenhalt übersprungen haben. Etappe 2 fragt das Wetter erneut ab, auch wenn es auf Etappe 1 abgehakt ist. «Ganze Reise absagen» geht von jeder Etappe aus.
+- Eine gespeicherte Route («Planen» › «Routen»): Öffnen Sie einen Flugplatz zwischen Start und Ziel, dann «Wenn diese Route geflogen wird» › «Hier landen». «Neuen Flug planen» mit dieser Route beginnt mit dem Zwischenhalt.
+- Jedes Blatt: «Schliessen» oder «Abbrechen» links, «Fertig» rechts. Melden Sie eines, das es anders macht.
+- «Heute» und «Planen» › «Flüge» sagen, was die Seite des Flugs sagt.
 
-Senden Sie Ihre Hinweise aus der TestFlight-App: Ein Screenshot mit einer Zeile Text ist am schnellsten.
+Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

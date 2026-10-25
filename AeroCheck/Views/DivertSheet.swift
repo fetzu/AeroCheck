@@ -264,7 +264,8 @@ struct DivertSheet: View {
                                     .font(.aero(size: 18, weight: .bold, design: .monospaced))
                                     .foregroundColor(theme.textPrimary)
                                 if option.aerodrome.isPPR { chip("PPR", color: theme.warning) }
-                                if let note, !note.isEmpty {
+                                // The Arrival part only, the part the row opens on (n1 A).
+                                if let note, note.hasArrival {
                                     chip(L10n.AerodromeNotes.yourNote.uppercased(), color: .aviationGold)
                                 }
                                 if option.crossesBorder, let country = option.aerodrome.country {

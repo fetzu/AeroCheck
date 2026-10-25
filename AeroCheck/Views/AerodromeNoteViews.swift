@@ -23,6 +23,8 @@ enum AerodromeNoteCallout {
     @MainActor
     static func detailView(airport: Airport, frequencyLines: String?, note: AerodromeNote?, inFlight: Bool,
                            metrics: CalloutMetrics, tint: UIColor, onOpen: (() -> Void)?) -> UIView? {
+        // In flight the Cockpit reads the Arrival part only (n1 A): a note without one shows nothing there.
+        let shown = inFlight && !(note?.hasArrival ?? false) ? nil : note
         var rows: [UIView] = []
         if let frequencyLines {
             let label = UILabel()
@@ -36,7 +38,7 @@ enum AerodromeNoteCallout {
             label.setContentCompressionResistancePriority(.required, for: .vertical)
             rows.append(label)
         }
-        if let note, !note.isEmpty {
+        if let note = shown, !note.isEmpty {
             let label = UILabel()
             label.numberOfLines = 2
             let title = (note.hasArrival ? L10n.AerodromeNotes.yourNoteArrival : L10n.AerodromeNotes.yourNote).uppercased()
@@ -50,7 +52,7 @@ enum AerodromeNoteCallout {
             label.setContentCompressionResistancePriority(.required, for: .vertical)
             rows.append(label)
         }
-        let hasNote = note.map { !$0.isEmpty } ?? false
+        let hasNote = shown.map { !$0.isEmpty } ?? false
         if let onOpen, hasNote || !inFlight {
             let button = UIButton(type: .system)
             button.setTitle(hasNote ? L10n.AerodromeNotes.more : L10n.AerodromeNotes.add, for: .normal)

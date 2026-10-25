@@ -278,6 +278,13 @@ final class AerodromeNotesTests: XCTestCase {
                                                       inFlight: true, metrics: .ground, tint: .systemBlue, onOpen: {})
         XCTAssertEqual(button(in: reading)?.accessibilityIdentifier, "callout.note.open")
         XCTAssertEqual((reading as? UIStackView)?.arrangedSubviews.count, 3)
+        // In flight the Arrival part only: a note on the ground part alone shows nothing and opens nothing.
+        let groundOnly = note(ground: "Fuel at the pump.")
+        XCTAssertNil(AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: groundOnly, inFlight: true,
+                                                     metrics: .ground, tint: .systemBlue, onOpen: {}))
+        let onTheGroundStill = AerodromeNoteCallout.detailView(airport: field, frequencyLines: nil, note: groundOnly,
+                                                               inFlight: false, metrics: .ground, tint: .systemBlue, onOpen: {})
+        XCTAssertEqual(button(in: onTheGroundStill)?.accessibilityIdentifier, "callout.note.open")
     }
 
     // MARK: "Sync to iCloud": the notes move with the store

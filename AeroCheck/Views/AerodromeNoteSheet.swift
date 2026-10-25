@@ -143,10 +143,10 @@ struct AerodromeNoteSheet: View {
 
     // MARK: Reading
 
+    /// In flight the Arrival part only, as everywhere in the Cockpit (n1 A); On the ground waits for the ground.
     @ViewBuilder private var readingBody: some View {
         if let note {
             if note.hasArrival { reading(L10n.AerodromeNotes.arrival, note.arrival) }
-            if !AerodromeNote.trimmed(note.onTheGround).isEmpty { reading(L10n.AerodromeNotes.onTheGround, note.onTheGround) }
             Text(L10n.AerodromeNotes.readOnlyInFlight)
                 .scaledFont(size: 13, relativeTo: .caption)
                 .foregroundColor(.secondaryText)

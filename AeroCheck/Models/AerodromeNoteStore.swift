@@ -21,6 +21,9 @@ final class AerodromeNoteStore: ObservableObject {
     /// delete once a load started after it.
     private var localChanges: [UUID: (note: AerodromeNote?, seq: Int)] = [:]
     private var seq = 0
+    /// The last load asked for; each waits for the one before. Two at once (the store's own first one and a caller's)
+    /// both read the folder, and the one that ended last could keep a copy the other had just folded into its twin.
+    private var loading: Task<Void, Never>?
 
     init(persistence: DataPersistenceManager? = nil) {
         self.persistence = persistence ?? DataPersistenceManager.shared
@@ -101,6 +104,16 @@ final class AerodromeNoteStore: ObservableObject {
     /// Reads the folder again: at launch, back in the foreground, after a store move. What iCloud
     /// brought from another device joins, and two notes on one aerodrome become one.
     func reload() async {
+        let previous = loading
+        let load = Task { [weak self] in
+            await previous?.value
+            await self?.load()
+        }
+        loading = load
+        await load.value
+    }
+
+    private func load() async {
         let startedAt = seq
         let loaded = await persistence.loadAerodromeNotesOffMain()
         var byId = Dictionary(loaded.map { ($0.id, $0) }, uniquingKeysWith: { a, b in a.updatedAt >= b.updatedAt ? a : b })

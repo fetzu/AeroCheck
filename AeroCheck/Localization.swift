@@ -203,6 +203,8 @@ enum L10n {
             String(localized: "Checked \(date)")
         }
         static let notCurated = String(localized: "Not checked for this country yet: see the AIP and the national customs authority")
+        /// A curated country's facts on a crossing where neither end is Switzerland. (6.6.0)
+        static let swissCrossingsOnly = String(localized: "Checked for flights to or from Switzerland only: see the AIP and the national customs authority")
         static let advisory = String(localized: "A reminder, not a clearance: the authority's page is the reference")
         static let unknownWarning = String(localized: "If a requirement is not established, assume it applies until you have checked")
     }
@@ -238,9 +240,6 @@ enum L10n {
         }
         static func legOf(_ index: Int, _ total: Int) -> String {
             String(localized: "Leg \(index) of \(total)")
-        }
-        static func tripProgress(_ done: Int, _ total: Int) -> String {
-            String(localized: "TRIP · \(done) of \(total)")
         }
         static func recheckForThisLeg(_ when: String) -> String {
             String(localized: "Checked \(when), re-check for this leg")
@@ -512,10 +511,11 @@ enum L10n {
         static func weatherBriefedAt(_ time: String) -> String {
             String(format: String(localized: "thread.weather.briefedAt"), time)
         }
-        static let weatherNotTicked = String(localized: "thread.weather.notTicked")
-        static let weatherBelow = String(localized: "thread.weather.below")
         static let exportNavLog = String(localized: "Export nav log")
         static let editRoute = String(localized: "View route")
+        /// The pencil at the top of the flight's page, and its menu's line under "Flight details". (6.6.0, v66-5)
+        static let editMenu = String(localized: "thread.editMenu")
+        static let editDetailsHint = String(localized: "thread.editDetailsHint")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let finishThread = String(localized: "Finish")
         /// "Thread" is our internal word for it; a pilot cancels a flight.
@@ -528,13 +528,6 @@ enum L10n {
         static func readiness(_ done: Int, _ total: Int) -> String {
             String(localized: "\(done) of \(total) done")
         }
-        /// After the flight: "3 of 4 closed". (v6.0 · D3)
-        static func closedProgress(_ done: Int, _ total: Int) -> String {
-            String(localized: "\(done) of \(total) closed")
-        }
-        /// A chapter's ticked tasks, folded into one row. (v6.0 · D3)
-        static func doneCount(_ count: Int) -> String { String(localized: "\(count) done") }
-        static let nextUp = String(localized: "Next")
         static let allDone = String(localized: "Everything done")
 
         // Notifications
@@ -594,6 +587,194 @@ enum L10n {
         static let atsReport = String(localized: "closeOut.ats.report")
         /// "Call skyguide ARO".
         static func call(_ unit: String) -> String { String(format: String(localized: "closeOut.call"), unit) }
+    }
+
+    // MARK: - The flight's page as blocks (6.6.0)
+    enum FlightPage {
+        // The status line under the title, also Today's (f9 A).
+        static func departureIn(_ duration: String) -> String {
+            String(format: String(localized: "flightPage.status.departureIn"), duration)
+        }
+        static let departureNow = String(localized: "flightPage.status.departureNow")
+        static func todayAt(_ time: String) -> String { String(format: String(localized: "flightPage.status.todayAt"), time) }
+        static func tomorrowAt(_ time: String) -> String {
+            String(format: String(localized: "flightPage.status.tomorrowAt"), time)
+        }
+        /// "Saturday at 14:30", "Sat 7 Nov at 14:30".
+        static func dayAt(_ day: String, _ time: String) -> String {
+            String(format: String(localized: "flightPage.status.dayAt"), day, time)
+        }
+        static let undated = String(localized: "flightPage.status.undated")
+        static func ready(_ when: String) -> String { String(format: String(localized: "flightPage.status.ready"), when) }
+        static func left(_ count: Int, _ list: String) -> String { String(localized: "\(count) left: \(list)") }
+        /// "4 left", where the list doesn't fit (Today's strip).
+        static func leftCount(_ count: Int) -> String { String(localized: "\(count) left") }
+        static func now(_ list: String) -> String { String(format: String(localized: "flightPage.status.now"), list) }
+        static func moreOnTheDay(_ count: Int, _ list: String) -> String {
+            String(localized: "\(count) more on the day: \(list).")
+        }
+        static func onTheDay(_ list: String) -> String {
+            String(format: String(localized: "flightPage.status.onTheDay"), list)
+        }
+        static func flyingSince(_ time: String) -> String {
+            String(format: String(localized: "flightPage.status.flyingSince"), time)
+        }
+        static let flying = String(localized: "flightPage.status.flying")
+        static let inTheCockpit = String(localized: "flightPage.status.inTheCockpit")
+        static func landedAt(_ ident: String, _ time: String) -> String {
+            String(format: String(localized: "flightPage.status.landedAt"), ident, time)
+        }
+        static func landedIn(_ ident: String) -> String {
+            String(format: String(localized: "flightPage.status.landedIn"), ident)
+        }
+        static let landed = String(localized: "flightPage.status.landed")
+        static let nothingLeft = String(localized: "flightPage.status.nothingLeft")
+        static func flownFromTo(_ day: String, _ from: String, _ to: String) -> String {
+            String(format: String(localized: "flightPage.status.flownFromTo"), day, from, to)
+        }
+        static let closed = String(localized: "flightPage.status.closed")
+
+        // The blocks, as the status line lists them.
+        static let itemRoute = String(localized: "flightPage.item.route")
+        static let itemFuel = String(localized: "flightPage.item.fuel")
+        static let itemMassBalance = String(localized: "flightPage.item.massBalance")
+        static let itemReservation = String(localized: "flightPage.item.reservation")
+        static let itemWeather = String(localized: "flightPage.item.weather")
+        static let itemNotams = String(localized: "flightPage.item.notams")
+        static let itemFlightPlan = String(localized: "flightPage.item.flightPlan")
+        static func itemFlightPlanBy(_ time: String) -> String {
+            String(format: String(localized: "flightPage.item.flightPlanBy"), time)
+        }
+        static let itemBorder = String(localized: "flightPage.item.border")
+        static func itemBorderNamed(_ country: String) -> String {
+            String(format: String(localized: "flightPage.item.borderNamed"), country)
+        }
+        static func itemPPR(_ ident: String) -> String { String(format: String(localized: "flightPage.item.ppr"), ident) }
+        static let itemNavLog = String(localized: "flightPage.item.navLog")
+        static let itemCloseFlightPlan = String(localized: "flightPage.item.closeFlightPlan")
+        static let itemFees = String(localized: "flightPage.item.fees")
+        static let itemLogbook = String(localized: "flightPage.item.logbook")
+
+        // The blocks' heads.
+        static let blockRoute = String(localized: "flightPage.block.route")
+        static let blockFuel = String(localized: "flightPage.block.fuel")
+        static let blockNotams = String(localized: "flightPage.block.notams")
+        static let blockFlightPlan = String(localized: "flightPage.block.flightPlan")
+        static let blockNavLog = String(localized: "flightPage.block.navLog")
+        static func blockFees(_ ident: String) -> String { String(format: String(localized: "flightPage.block.fees"), ident) }
+        static let blockLogbook = String(localized: "flightPage.block.logbook")
+
+        static func chapterCount(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "flightPage.chapterCount"), done, total)
+        }
+        static let afterLanding = String(localized: "flightPage.afterLanding")
+        static let onTheDayOfTheFlight = String(localized: "flightPage.onTheDay")
+        /// The same, on the right of an iPhone row.
+        static let onTheDayShort = String(localized: "flightPage.onTheDayShort")
+        static func onTheDayFor(_ list: String) -> String {
+            String(format: String(localized: "flightPage.onTheDayFor"), list)
+        }
+        static let wholeTrip = String(localized: "flightPage.wholeTrip")
+        static func doneAt(_ time: String) -> String { String(format: String(localized: "flightPage.doneAt"), time) }
+        static func checkedAt(_ time: String) -> String { String(format: String(localized: "flightPage.checkedAt"), time) }
+        static func filedAt(_ time: String) -> String { String(format: String(localized: "flightPage.filedAt"), time) }
+        static func closedAt(_ time: String) -> String { String(format: String(localized: "flightPage.closedAt"), time) }
+        static let doneBeforeFlight = String(localized: "flightPage.doneBeforeFlight")
+        static let planAndPrepare = String(localized: "flightPage.planAndPrepare")
+        static func flown(_ from: String, _ to: String) -> String {
+            String(format: String(localized: "flightPage.flown"), from, to)
+        }
+        static let notApplicable = String(localized: "flightPage.notApplicable")
+        static func fileBy(_ time: String) -> String { String(format: String(localized: "flightPage.fileBy"), time) }
+        static let fileBeforeOffBlock = String(localized: "flightPage.fileBeforeOffBlock")
+        static func notice(_ lead: String) -> String { String(format: String(localized: "flightPage.notice"), lead) }
+        /// What an airspace-activity link is for, in the NOTAMs block.
+        static let purposeAirspace = String(localized: "flightPage.purpose.airspace")
+        static let noSigmet = String(localized: "flightPage.noSigmet")
+        static let sigmet = String(localized: "flightPage.sigmet")
+    }
+
+    // MARK: - A report in words (6.6.0, WeatherWords)
+    enum Weather {
+        static func temperature(_ a: String) -> String { String(format: String(localized: "wx.temperature"), a) }
+        static func temperatureDewpoint(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.temperatureDewpoint"), a, b) }
+        static func altimeter(_ a: String) -> String { String(format: String(localized: "wx.altimeter"), a) }
+        static func qnh(_ a: String) -> String { String(format: String(localized: "wx.qnh"), a) }
+        static func recent(_ a: String) -> String { String(format: String(localized: "wx.recent"), a) }
+        static func windShear(_ a: String) -> String { String(format: String(localized: "wx.windShear"), a) }
+        static let allRunways = String(localized: "wx.allRunways")
+        static let nosig = String(localized: "wx.nosig")
+        static func trendFrom(_ a: String) -> String { String(format: String(localized: "wx.trendFrom"), a) }
+        static func trendUntil(_ a: String) -> String { String(format: String(localized: "wx.trendUntil"), a) }
+        static func trendAt(_ a: String) -> String { String(format: String(localized: "wx.trendAt"), a) }
+        static let temporarily = String(localized: "wx.temporarily")
+        static let becoming = String(localized: "wx.becoming")
+        static func utc(_ a: String) -> String { String(format: String(localized: "wx.utc"), a) }
+        static func until(_ a: String) -> String { String(format: String(localized: "wx.until"), a) }
+        static func from(_ a: String) -> String { String(format: String(localized: "wx.from"), a) }
+        static func becomingBetween(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.becomingBetween"), a, b) }
+        static func atTimesBetween(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.atTimesBetween"), a, b) }
+        static func atIntervalsBetween(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.atIntervalsBetween"), a, b) }
+        static let nsw = String(localized: "wx.nsw")
+        static let calm = String(localized: "wx.calm")
+        static func moreThan(_ a: String) -> String { String(format: String(localized: "wx.moreThan"), a) }
+        static func lessThan(_ a: String) -> String { String(format: String(localized: "wx.lessThan"), a) }
+        static func orMore(_ a: String) -> String { String(format: String(localized: "wx.orMore"), a) }
+        static func windVariable(_ a: String) -> String { String(format: String(localized: "wx.windVariable"), a) }
+        static func wind(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.wind"), a, b) }
+        static func gusts(_ a: String) -> String { String(format: String(localized: "wx.gusts"), a) }
+        static func minimumToward(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.minimumToward"), a, b) }
+        static func minimum(_ a: String) -> String { String(format: String(localized: "wx.minimum"), a) }
+        static let rising = String(localized: "wx.rising")
+        static let falling = String(localized: "wx.falling")
+        static func rvr(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.rvr"), a, b) }
+        static let few = String(localized: "wx.few")
+        static func fewAt(_ a: String) -> String { String(format: String(localized: "wx.fewAt"), a) }
+        static let scattered = String(localized: "wx.scattered")
+        static func scatteredAt(_ a: String) -> String { String(format: String(localized: "wx.scatteredAt"), a) }
+        static let broken = String(localized: "wx.broken")
+        static func brokenAt(_ a: String) -> String { String(format: String(localized: "wx.brokenAt"), a) }
+        static let overcast = String(localized: "wx.overcast")
+        static func overcastAt(_ a: String) -> String { String(format: String(localized: "wx.overcastAt"), a) }
+        static func verticalVisibility(_ a: String) -> String { String(format: String(localized: "wx.verticalVisibility"), a) }
+        static let skyObscured = String(localized: "wx.skyObscured")
+        static let cloud = String(localized: "wx.cloud")
+        static func cloudAt(_ a: String) -> String { String(format: String(localized: "wx.cloudAt"), a) }
+        static let nsc = String(localized: "wx.nsc")
+        static let ncd = String(localized: "wx.ncd")
+        static let skc = String(localized: "wx.skc")
+        static let clr = String(localized: "wx.clr")
+        /// The toggle under a station's words, for VoiceOver.
+        static let rawReports = String(localized: "wx.rawReports")
+        static func chance(_ a: String, _ b: String, _ percent: Int) -> String {
+            String(format: String(localized: "wx.chance"), a, b, percent)
+        }
+        static func chanceAtTimes(_ a: String, _ b: String, _ percent: Int) -> String {
+            String(format: String(localized: "wx.chanceAtTimes"), a, b, percent)
+        }
+        // A SIGMET in words (6.6.0, `WeatherWords.sigmetTitle`/`sigmetDetail`). Its hazards are looked up by code.
+        static func sigmetForecast(_ a: String) -> String { String(format: String(localized: "wx.sigmet.forecast"), a) }
+        static func sigmetObserved(_ a: String) -> String { String(format: String(localized: "wx.sigmet.observed"), a) }
+        static func sigmetCyclone(_ a: String) -> String { String(format: String(localized: "wx.sigmet.cyclone"), a) }
+        static let sigmetVolcanicAsh = String(localized: "wx.sigmet.VA")
+        static func sigmetVolcanicAshFrom(_ a: String) -> String { String(format: String(localized: "wx.sigmet.vaVolcano"), a) }
+        static let sigmetFromSurface = String(localized: "wx.sigmet.fromSurface")
+        static func sigmetFromLevel(_ a: String) -> String { String(format: String(localized: "wx.sigmet.fromLevel"), a) }
+        static func sigmetFromHeight(_ a: String) -> String { String(format: String(localized: "wx.sigmet.fromHeight"), a) }
+        static func sigmetToLevel(_ a: String) -> String { String(format: String(localized: "wx.sigmet.toLevel"), a) }
+        static func sigmetToHeight(_ a: String) -> String { String(format: String(localized: "wx.sigmet.toHeight"), a) }
+        static func sigmetTop(_ a: String) -> String { String(format: String(localized: "wx.sigmet.top"), a) }
+        static func sigmetTopAbove(_ a: String) -> String { String(format: String(localized: "wx.sigmet.topAbove"), a) }
+        static func sigmetTopBelow(_ a: String) -> String { String(format: String(localized: "wx.sigmet.topBelow"), a) }
+        static func sigmetAbove(_ a: String) -> String { String(format: String(localized: "wx.sigmet.above"), a) }
+        static func sigmetBelow(_ a: String) -> String { String(format: String(localized: "wx.sigmet.below"), a) }
+        static func sigmetMoving(_ a: String, _ b: String) -> String { String(format: String(localized: "wx.sigmet.moving"), a, b) }
+        static func sigmetMovingToward(_ a: String) -> String { String(format: String(localized: "wx.sigmet.movingToward"), a) }
+        static let sigmetStationary = String(localized: "wx.sigmet.stationary")
+        static let sigmetNoChange = String(localized: "wx.sigmet.noChange")
+        static let sigmetIntensifying = String(localized: "wx.sigmet.intensifying")
+        static let sigmetWeakening = String(localized: "wx.sigmet.weakening")
+        static func sigmetFir(_ a: String) -> String { String(format: String(localized: "wx.sigmet.fir"), a) }
     }
 
     // MARK: - Prepare's weather (6.5.0)
@@ -662,12 +843,6 @@ enum L10n {
         static let flyWithoutAPlan = String(localized: "Fly without a plan")
         static let today = String(localized: "Today")
         static let readyToFly = String(localized: "Everything ticked, ready to fly")
-        static func nextOnly(_ task: String) -> String {
-            String(localized: "Next: \(task)")
-        }
-        static func nextAndRemaining(_ task: String, _ remaining: Int) -> String {
-            String(localized: "Next: \(task) · \(remaining) open in Plan and Prepare")
-        }
         static func flightPlanWaypointCount(_ count: Int) -> String {
             String(format: String(localized: "home.flightPlanWaypointCount"), count)
         }
@@ -1197,13 +1372,11 @@ enum L10n {
         static let totalGPSPoints = String(localized: "settings.data.totalGPSPoints")
 
         // Developer Options
-        static let marketingMode = String(localized: "settings.developer.marketingMode")
         static let simulateLSZS = String(localized: "Simulate position: LSZS (Samedan)")   // v4.1.0 dev (literal-keyed)
         static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
         static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")
         static let showSubscriptionLogs = String(localized: "settings.developer.showSubscriptionLogs")
         static let resetSubscription = String(localized: "settings.developer.resetSubscription")
-        static let marketingModeDesc = String(localized: "settings.developer.marketingModeDesc")
         static let forceNotSubscribedDesc = String(localized: "settings.developer.forceNotSubscribedDesc")
         static let showAllTransactionsDesc = String(localized: "settings.developer.showAllTransactionsDesc")
         static let showSubscriptionLogsDesc = String(localized: "settings.developer.showSubscriptionLogsDesc")
@@ -1967,9 +2140,6 @@ enum L10n {
         static func progress(_ done: Int, _ total: Int) -> String {
             String(format: String(localized: "flightsPage.progress"), done, total)
         }
-        static func progressNext(_ done: Int, _ total: Int, _ next: String) -> String {
-            String(format: String(localized: "flightsPage.progressNext"), done, total, next)
-        }
     }
 
     /// Plan new flight. (planning proposal B)
@@ -2162,6 +2332,9 @@ enum L10n {
         static let searchPrompt = String(localized: "routes.searchPrompt")
         static let scope = String(localized: "routes.scope")
         static let routesScope = String(localized: "routes.routesScope")
+        /// The route's usual stops (6.6.0, t1): "A stop at LFGA", "Stops at LFGA, EDTF".
+        static func stopAt(_ ident: String) -> String { String(format: String(localized: "routes.stopAt"), ident) }
+        static func stopsAt(_ idents: String) -> String { String(format: String(localized: "routes.stopsAt"), idents) }
         static func archivedScope(_ count: Int) -> String {
             String(format: String(localized: "routes.archivedScope"), count)
         }
@@ -2596,22 +2769,6 @@ enum L10n {
     enum TripCard {
         /// The card's kind, where a single flight's card has its date: "Trip".
         static let kind = String(localized: "tripCard.kind")
-        /// "Next: Fuel plan for leg 1"
-        static func nextForLeg(_ task: String, _ leg: Int) -> String {
-            String(format: String(localized: "tripCard.nextForLeg"), task, leg)
-        }
-        /// "Next: Weather briefing for the trip"
-        static func nextForTrip(_ task: String) -> String {
-            String(format: String(localized: "tripCard.nextForTrip"), task)
-        }
-        /// "Leg 2: everything ticked"
-        static func legAllTicked(_ leg: Int) -> String {
-            String(format: String(localized: "tripCard.legAllTicked"), leg)
-        }
-        /// "1/6 trip checks done"
-        static func tripChecks(_ done: Int, _ total: Int) -> String {
-            String(format: String(localized: "tripCard.tripChecks"), done, total)
-        }
         /// Under START FLIGHT: "Leg 1 · LSZQ → LSGE"
         static func startLeg(_ leg: Int, _ route: String) -> String {
             String(format: String(localized: "tripCard.startLeg"), leg, route)
@@ -2869,6 +3026,8 @@ enum L10n {
         static func offRoute(_ nm: String) -> String {
             String(format: String(localized: "trip.offRoute"), nm)
         }
+        /// "usual stop: 45 min, refuel" (6.6.0, t1)
+        static func usualStop(_ stop: String) -> String { String(format: String(localized: "trip.usualStop"), stop) }
         static let noFrequency = String(localized: "trip.noFrequency")
         static let noCandidates = String(localized: "trip.noCandidates")
         /// A searched aerodrome that is this flight's own end, so no stop (6.1).
@@ -2893,12 +3052,18 @@ enum L10n {
         static func cancelConfirmLeg(_ number: Int, _ label: String) -> String {
             String(format: String(localized: "trip.cancelConfirm.leg"), number, label)
         }
-        /// The legs that go, one a line, then what stays: the legs already flown, when there are any.
-        static func cancelConfirmMessage(_ legs: String, keepsFlown: Bool) -> String {
-            let format = keepsFlown
-                ? String(localized: "trip.cancelConfirm.messageKeepsFlown")
-                : String(localized: "trip.cancelConfirm.message")
-            return String(format: format, legs)
+        /// "Leg 1 · LSZQ → LFGA, flown: its flight stays in the logbook" (6.6.0)
+        static func cancelConfirmLegFlown(_ number: Int, _ label: String) -> String {
+            String(format: String(localized: "trip.cancelConfirm.legFlown"), number, label)
+        }
+        /// "Leg 1 · LSZQ → LFGA stays until its ATC flight plan is closed." (6.6.0)
+        static func cancelConfirmLegStays(_ number: Int, _ label: String) -> String {
+            String(format: String(localized: "trip.cancelConfirm.legStays"), number, label)
+        }
+        /// The legs that go, one a line, then a leg that stays with its flight plan open, when there is one.
+        static func cancelConfirmMessage(_ legs: String, staying: String?) -> String {
+            guard let staying else { return String(format: String(localized: "trip.cancelConfirm.message"), legs) }
+            return String(format: String(localized: "trip.cancelConfirm.messageStays"), legs, staying)
         }
         /// "≈ 15:10 (est.)"
         static func estimated(_ time: String) -> String {
@@ -2960,6 +3125,38 @@ enum L10n {
             String(format: String(localized: "trip.continueExplainer"), from, to)
         }
         static let finishHere = String(localized: "trip.finishHere")
+        /// "Finish here" on a trip's leg: the later legs, named, and what to do with them. (6.6.0, t5)
+        static let laterLegsTitle = String(localized: "trip.laterLegsTitle")
+        static let cancelLaterLegs = String(localized: "trip.cancelLaterLegs")
+        static let keepLaterLegs = String(localized: "trip.keepLaterLegs")
+        // Skipping a planned stop (6.6.0, t3 and t6).
+        static let laterStops = String(localized: "trip.laterStops")
+        static func legDestination(_ number: Int) -> String { String(format: String(localized: "trip.legDestination"), number) }
+        static let flyOn = String(localized: "trip.flyOn")
+        static func flyOnTitle(_ to: String, _ stop: String) -> String {
+            String(format: String(localized: "trip.flyOnTitle"), to, stop)
+        }
+        static func flyOnMessage(_ stop: String) -> String { String(format: String(localized: "trip.flyOnMessage"), stop) }
+        static func tellFISNewDestination(_ filedTo: String, _ newDestination: String) -> String {
+            String(format: String(localized: "trip.tellFISNewDestination"), filedTo, newDestination)
+        }
+        static func cancelFiledLater(_ plans: String) -> String {
+            String(format: String(localized: "trip.cancelFiledLater"), plans)
+        }
+        static func flyOnConfirm(_ to: String) -> String { String(format: String(localized: "trip.flyOnConfirm"), to) }
+        static let keepStop = String(localized: "trip.keepStop")
+        static func landedAtLegDestination(_ ident: String, _ number: Int) -> String {
+            String(format: String(localized: "trip.landedAtLegDestination"), ident, number)
+        }
+        static func skipStopExplainer(_ to: String) -> String {
+            String(format: String(localized: "trip.skipStopExplainer"), to)
+        }
+        static func skipStop(_ stop: String) -> String { String(format: String(localized: "trip.skipStop"), stop) }
+        static let itWasADiversion = String(localized: "trip.itWasADiversion")
+        static func cancelSkippedPlanTitle(_ plans: String) -> String {
+            String(format: String(localized: "trip.cancelSkippedPlanTitle"), plans)
+        }
+        static let cancelSkippedPlanBody = String(localized: "trip.cancelSkippedPlanBody")
         /// "Tell Zurich FIC you landed at LSZE, not LSZQ."
         static func tellFICLanded(_ landed: String, _ planned: String) -> String {
             String(format: String(localized: "trip.tellFICLanded"), landed, planned)
@@ -3422,6 +3619,9 @@ enum L10n {
         static let magneticCourse = String(localized: "nav.magneticCourse")
         static let distanceToNext = String(localized: "nav.distanceToNext")
         static let navigationHelp = String(localized: "nav.navigationHelp")
+        /// The waypoint sheet's usual stop (6.6.0, t1).
+        static let whenRouteIsFlown = String(localized: "nav.whenRouteIsFlown")
+        static let usualStopHint = String(localized: "nav.usualStopHint")
         /// Under the true airspeed of a waypoint: what an empty field means. (6.1)
         static let airspeedFromAircraft = String(localized: "nav.airspeedFromAircraft")
         static let radio = String(localized: "nav.radio")

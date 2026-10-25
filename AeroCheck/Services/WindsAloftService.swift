@@ -83,7 +83,9 @@ final class WindsAloftService: ObservableObject {
         (value / gridDegrees).rounded() * gridDegrees
     }
 
-    nonisolated static func cacheKey(lat: Double, lon: Double, now: Date = Date()) -> String {
+    /// By the hour `now` falls in: the wall clock's, or in a DEBUG screenshot the capture clock's, so a run that crosses
+    /// an hour still finds the forecast it fetched (`FlightClock.displayNow`; the same as before in Release).
+    nonisolated static func cacheKey(lat: Double, lon: Double, now: Date = FlightClock.displayNow) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH"
         formatter.timeZone = TimeZone(identifier: "UTC")
@@ -101,7 +103,7 @@ final class WindsAloftService: ObservableObject {
     /// The worker serves the current hour only, so the leg's own hour is there when the app fetched
     /// during it: planning on the day, or in flight.
     nonisolated static func forecastCandidates(lat: Double, lon: Double, flownAt: Date?,
-                                               now: Date = Date()) -> [(key: String, hour: Date)] {
+                                               now: Date = FlightClock.displayNow) -> [(key: String, hour: Date)] {
         let current = (key: cacheKey(lat: lat, lon: lon, now: now), hour: hourStart(now))
         guard let flownAt else { return [current] }
         let flown = (key: cacheKey(lat: lat, lon: lon, now: flownAt), hour: hourStart(flownAt))
@@ -133,7 +135,7 @@ final class WindsAloftService: ObservableObject {
     ///
     /// `flownAt`: when the leg is flown, for the forecast of that hour (`forecastCandidates`). (6.1)
     func wind(at coordinate: CLLocationCoordinate2D, altitudeFt: Double, flownAt: Date? = nil,
-              now: Date = Date()) -> FlightPlan.WindAloft? {
+              now: Date = FlightClock.displayNow) -> FlightPlan.WindAloft? {
         let candidates = Self.forecastCandidates(lat: coordinate.latitude, lon: coordinate.longitude,
                                                  flownAt: flownAt, now: now)
         guard let (hour, forecast) = candidates.lazy.compactMap({ c in self.cache[c.key].map { (c.hour, $0) } }).first

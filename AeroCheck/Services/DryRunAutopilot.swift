@@ -64,6 +64,12 @@ final class DryRunAutopilot {
         Self.current = self
     }
 
+    /// Where it was asked to stop: no more steps, and the screenshot tour told the dry run holds there.
+    private func hold() {
+        timer?.invalidate()
+        CaptureSignal.post()
+    }
+
     private func step() {
         guard let session = DryRunCenter.shared.session, session.state == .flying else {
             // The guided flight is asked for, then begun by its presenter: not there yet is not over.
@@ -78,15 +84,15 @@ final class DryRunAutopilot {
         switch stop {
         case .final? where session.isOnFinal:
             session.pause()
-            timer?.invalidate()
+            hold()
             return
         case .cruise? where airborneSince.map({ FlightClock.now.timeIntervalSince($0) > 60 }) == true:
             session.pause()
-            timer?.invalidate()
+            hold()
             return
         case .over? where generator.mark("stopped") != nil:
             session.stop()
-            timer?.invalidate()
+            hold()
             return
         default:
             break
@@ -99,7 +105,7 @@ final class DryRunAutopilot {
             if stop != .step("hoursBefore"), stop != .step("hoursAfter") { appState.settings.logEngineHours = false }
             if let doneAt, Date().timeIntervalSince(doneAt) > 3 {
                 session.pause()
-                timer?.invalidate()
+                hold()
                 return
             }
             guard doneAt == nil, let step = coach.step, !session.isPaused else {
@@ -111,7 +117,7 @@ final class DryRunAutopilot {
                 return
             }
             if case .step(let id)? = stop, step.id == id {
-                timer?.invalidate()
+                hold()
                 return
             }
             if step.id != stepId {

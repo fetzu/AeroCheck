@@ -40,36 +40,33 @@ struct TripOverview: Equatable {
         let checksTotal: Int
     }
 
-    /// The one thing the card advertises as next.
-    enum Next: Equatable {
-        /// A check of the leg in focus: its route, fuel, mass & balance, ATC flight plan…
-        case leg(ThreadTask)
-        /// A check the legs share, once the leg's own are done: the booking, the briefings.
-        case trip(ThreadTask)
-    }
-
     let tripId: UUID
     /// The pilot's name for the trip, if any.
     let name: String?
     let legs: [Leg]
     /// The leg the card is about: the next to fly, the one flying, or the one closing out.
     let focusId: UUID
-    /// The trip's shared checks as the leg in focus sees them (a briefing that no longer covers its
-    /// departure counts as not done), the same count as the band on its page.
-    let sharedDone: Int
-    let sharedTotal: Int
-    let next: Next?
 
     var legCount: Int { legs.count }
     var focus: Leg? { legs.first { $0.id == focusId } }
 
     /// "LSZQ → LSGE → LSGN → LSZQ": the first leg's departure, then where each leg lands. Built from
     /// the legs rather than stored, so it stays right when one is added or removed.
+    ///
+    /// A leg that doesn't leave from where the one before landed (a flight that landed elsewhere, the next leg still
+    /// from the planned field) starts again with its own departure, after a dot: "LSZQ → EDSB · EDTF → LSZQ", never
+    /// "LSZQ → EDSB → LSZQ". (6.6.0)
     var chain: String {
         guard let first = legs.first else { return "" }
-        var idents = [Self.ends(of: first.route).from]
-        idents += legs.map { Self.ends(of: $0.route).to }
-        return idents.filter { !$0.isEmpty }.joined(separator: " → ")
+        var segments: [[String]] = [[Self.ends(of: first.route).from]]
+        for leg in legs {
+            let (from, to) = Self.ends(of: leg.route)
+            if let last = segments[segments.count - 1].last, !from.isEmpty, from != last {
+                segments.append([from])
+            }
+            segments[segments.count - 1].append(to)
+        }
+        return segments.map { $0.filter { !$0.isEmpty }.joined(separator: " → ") }.joined(separator: " · ")
     }
 
     var totalDistance: Double { legs.reduce(0) { $0 + $1.distance } }
@@ -84,7 +81,7 @@ struct TripOverview: Equatable {
     ///   - focus: the leg the card is about.
     ///   - plan: a leg's own plan, for its times and figures.
     init?(trip: Trip, legs: [FlightThread], focus: UUID, plan: (FlightThread) -> FlightPlan?) {
-        guard legs.count >= 2, let focused = legs.first(where: { $0.id == focus }) else { return nil }
+        guard legs.count >= 2, legs.contains(where: { $0.id == focus }) else { return nil }
         tripId = trip.id
         name = trip.name.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
         focusId = focus
@@ -106,23 +103,6 @@ struct TripOverview: Equatable {
                        checksDone: progress.done,
                        checksTotal: progress.total)
         }
-        let shared = trip.tasks(forLegDeparting: focused.scheduledDeparture, legId: focused.id)
-        sharedDone = shared.filter { $0.state == .done }.count
-        sharedTotal = shared.count
-        next = Self.next(for: focused, shared: shared)
-    }
-
-    /// The leg's own next check first, as its page lists it; then the trip's, in chapter order, for
-    /// the chapters the leg is in (the close chapter only once it has landed).
-    private static func next(for leg: FlightThread, shared: [ThreadTask]) -> Next? {
-        if let own = leg.nextTask { return .leg(own) }
-        let landed = leg.state == .closeOut || leg.state == .done
-        for chapter in ThreadChapter.taskBearing where chapter != .close || landed {
-            if let task = shared.first(where: { $0.chapter == chapter && $0.state == .pending }) {
-                return .trip(task)
-            }
-        }
-        return nil
     }
 
     /// "LSZQ → LSGE" into its two ends. A label with no arrow is its own both ends.
@@ -132,21 +112,6 @@ struct TripOverview: Equatable {
     }
 
     // MARK: - Words
-
-    /// "Next: Fuel plan for leg 1 · 1/6 trip checks done". The next check, and how far the shared
-    /// preparation is: the leg's own count is on its page, the trip's is what nothing else shows.
-    var nextLine: String {
-        let checks = L10n.TripCard.tripChecks(sharedDone, sharedTotal)
-        let number = focus?.number ?? 1
-        switch next {
-        case .leg(let task):
-            return L10n.TripCard.nextForLeg(ThreadTaskPresentation.make(for: task).title, number) + " · " + checks
-        case .trip(let task):
-            return L10n.TripCard.nextForTrip(ThreadTaskPresentation.make(for: task).title) + " · " + checks
-        case nil:
-            return L10n.TripCard.legAllTicked(number) + " · " + checks
-        }
-    }
 
     /// "Leg 1 · LSZQ → LSGE": the line under START FLIGHT, naming the leg it starts.
     var startLine: String? {

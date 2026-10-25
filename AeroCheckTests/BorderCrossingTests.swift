@@ -75,6 +75,8 @@ final class BorderCrossingTests: XCTestCase {
         // whichever country is at the other end.
         let ch = BorderCrossingGuide.switzerland
         XCTAssertEqual(ch.country, "CH")
+        XCTAssertEqual(BorderCrossingGuide.rule(for: " ch "), ch, "the block into Switzerland finds it (6.6.0)")
+        XCTAssertNil(BorderCrossingGuide.rules["CH"], "and the other countries' table stays theirs")
         XCTAssertEqual(ch.officialURL.scheme, "https")
         XCTAssertNotEqual(ch.customsAerodrome, .notRequired, "category A-C is the rule, D only under conditions")
     }
@@ -104,6 +106,19 @@ final class BorderCrossingTests: XCTestCase {
         XCTAssertEqual(at.priorNotification, .required)
         let lead = try! XCTUnwrap(at.noticeLeadTime)
         XCTAssertTrue(lead.contains("\u{2265}"), "expected a 'at least' floor, got \(lead)")
+    }
+
+    /// The EU countries in Schengen, one aerodrome each through the ICAO table: the list and the table agree, and
+    /// Ireland, Cyprus and the Schengen countries outside the EU are not in it. (6.6.0)
+    func testTheEUSchengenListMatchesTheICAOTable() {
+        let idents = ["LOWW", "EBBR", "LBSF", "LKPR", "EDDF", "EKCH", "EETN", "LEMD", "EFHK", "LFPG", "LGAV", "LDZA", "LHBP",
+                      "LIRF", "EYVI", "ELLX", "EVRA", "LMML", "EHAM", "EPWA", "LPPT", "LROP", "ESSA", "LJLJ", "LZIB"]
+        XCTAssertEqual(Set(idents.compactMap { ICAOCountry.country(of: $0) }), BorderCrossingGuide.euSchengen)
+        XCTAssertEqual(BorderCrossingGuide.euSchengen.count, 25)
+        for outside in ["EIDW", "LCLK", "LSZH", "ENGM", "BIKF", "EGLL", "EKVG"] {
+            let code = ICAOCountry.country(of: outside) ?? outside
+            XCTAssertFalse(BorderCrossingGuide.euSchengen.contains(code), "\(outside) is \(code)")
+        }
     }
 
     func testTheSwissNeighboursAreAllCurated() {

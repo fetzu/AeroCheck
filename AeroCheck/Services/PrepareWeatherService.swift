@@ -19,6 +19,9 @@ struct PrepareWeather: Equatable {
         var roles: [Role]
         var metar: String?
         var taf: String?
+        /// The two decoded, for the words first (6.6.0); nil shows the raw report alone.
+        var metarDecoded: DecodedMetar?
+        var tafDecoded: DecodedTaf?
         /// For a field without a TAF of its own: the nearest that has one.
         var nearest: Nearest?
 
@@ -55,6 +58,7 @@ struct PrepareWeather: Equatable {
     struct Fetched {
         var metars: [AviationWeatherService.Metar] = []
         var ownTaf: String?
+        var ownTafDecoded: DecodedTaf?
         var nearbyTafs: [AviationWeatherService.Taf.Forecast] = []
     }
 
@@ -71,8 +75,9 @@ struct PrepareWeather: Equatable {
                 continue
             }
             let data = fetched[field.ident] ?? Fetched()
-            var station = Station(ident: field.ident, roles: [field.role],
-                                  metar: data.metars.first { $0.icao == field.ident }?.raw, taf: data.ownTaf)
+            let own = data.metars.first { $0.icao == field.ident }
+            var station = Station(ident: field.ident, roles: [field.role], metar: own?.raw, taf: data.ownTaf,
+                                  metarDecoded: own?.decoded, tafDecoded: data.ownTafDecoded)
             var nearestRow: Station?
             // The nearest by the device's own measure: the proxy sorts from its grid point, up to 10 NM off, and put
             // Basel-Mulhouse (24 NM) before Grenchen (20 NM) for Bressaucourt. (6.5.0, the device check's live probe)
@@ -85,8 +90,9 @@ struct PrepareWeather: Equatable {
                 let above = stations.contains { $0.ident == nearby.icao }
                 station.nearest = Nearest(ident: nearby.icao, distanceNm: Int(distance.rounded()), shownAbove: above)
                 if !above && !route.contains(nearby.icao) {
-                    nearestRow = Station(ident: nearby.icao, roles: [.nearest],
-                                         metar: data.metars.first { $0.icao == nearby.icao }?.raw, taf: nearby.raw)
+                    let metar = data.metars.first { $0.icao == nearby.icao }
+                    nearestRow = Station(ident: nearby.icao, roles: [.nearest], metar: metar?.raw, taf: nearby.raw,
+                                         metarDecoded: metar?.decoded, tafDecoded: nearby.decoded)
                 }
             }
             stations.append(station)
@@ -164,7 +170,7 @@ final class PrepareWeatherService: ObservableObject {
     /// be fetched", with the next load turned away because the first was still loading (the author's device check,
     /// 23 Oct 2026).
     func load(threadId: UUID, fields: [PrepareWeather.Field], route: [CLLocationCoordinate2D], force: Bool = false,
-              now: Date = Date()) async {
+              now: Date = FlightClock.displayNow) async {
         guard !fields.isEmpty else { states[threadId] = nil; return }
         if !force, keys[threadId] == fields, case .loaded(let weather)? = states[threadId],
            now.timeIntervalSince(weather.fetchedAt) < Self.maxAge { return }
@@ -180,7 +186,7 @@ final class PrepareWeatherService: ObservableObject {
         guard generations[threadId] == generation else { return }
         if outcome.anything || outcome.sigmets != nil {
             states[threadId] = .loaded(PrepareWeather.assemble(fields: fields, fetched: outcome.fetched,
-                                                               sigmets: outcome.sigmets, at: Date()))
+                                                               sigmets: outcome.sigmets, at: FlightClock.displayNow))
             refreshFailed.remove(threadId)
         } else if let shown {
             states[threadId] = .loaded(shown)
@@ -220,7 +226,9 @@ final class PrepareWeatherService: ObservableObject {
                     let (fetchedMetars, ownTafs, nearbyTafs) = await (metars, own, nearby)
                     var data = PrepareWeather.Fetched()
                     data.metars = fetchedMetars ?? []
-                    data.ownTaf = ownTafs?.first { $0.raw != nil }?.raw
+                    let ownTaf = ownTafs?.first { $0.raw != nil }
+                    data.ownTaf = ownTaf?.raw
+                    data.ownTafDecoded = ownTaf?.decoded
                     if data.ownTaf == nil { data.nearbyTafs = nearbyTafs ?? [] }
                     return (field.ident, data, fetchedMetars != nil || ownTafs != nil)
                 }

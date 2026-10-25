@@ -184,6 +184,10 @@ enum ExternalRequest {
             AppLog.general.publicLine("Refused a request outside its host allow-list")
             throw HostError.notAllowed
         }
+        #if DEBUG
+        // The screenshots' weather, never the network's (`AEROCHECK_WEATHER=fixture`).
+        if let served = WeatherFixture.served(for: request) { return served }
+        #endif
         var attempt = 0
         let requestGuard = RequestGuardDelegate(allowedHosts: allowedHosts)
         while true {
@@ -232,6 +236,9 @@ enum ExternalRequest {
                     attempt += 1
                     continue
                 }
+                #if DEBUG
+                WeatherFixture.recordIfAsked(request, data: data, response: http)
+                #endif
                 return (data, http)
             } catch let error as URLError {
                 guard attempt < maxRetries, isTransient(error) else { throw error }
@@ -255,3 +262,82 @@ enum ExternalRequest {
         try await Task.sleep(nanoseconds: UInt64(max(0, seconds) * 1_000_000_000))
     }
 }
+
+#if DEBUG
+// MARK: - The screenshots' weather
+
+/// DEV-ONLY: the weather of the screenshots (the author's answer, 24 Oct 2026), so a recapture's weather blocks change
+/// only when the app's weather code does. `AEROCHECK_WEATHER=fixture` answers every weather request (the proxy's
+/// METARs, TAFs, SIGMETs and winds aloft, MeteoSwiss's surface wind) from the files in the container's
+/// `Library/Application Support/DebugFixtures/weather/`, and one it has no file for with a 404, never from the
+/// network, its URL added to `missing.tsv` there. `AEROCHECK_WEATHER=record` fetches as usual and writes each 200
+/// there, with a line per file in `index.tsv`. The fixture itself, a fair day dated to the capture day, lives with
+/// the screenshot tour, outside this repository.
+enum WeatherFixture {
+    enum Mode: String { case fixture, record }
+
+    static let mode = ProcessInfo.processInfo.environment["AEROCHECK_WEATHER"].flatMap(Mode.init(rawValue:))
+
+    static var folder: URL {
+        URL.applicationSupportDirectory.appending(path: "DebugFixtures/weather", directoryHint: .isDirectory)
+    }
+
+    /// A weather request: the proxy's, or MeteoSwiss's measurements (`WindDataService`).
+    static func isWeather(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        if host == URL(string: APIConfig.weatherBaseURL)?.host?.lowercased() { return true }
+        return host == "data.geo.admin.ch" && url.path.hasPrefix("/ch.meteoschweiz.")
+    }
+
+    /// The file a request reads and writes: its host and path, then a hash of its sorted query, so the long query of
+    /// a SIGMET along a route still makes a short name. "wx.aerocheck.app_v1_metar_9c1f0e27a3b4d5e6.json".
+    static func fileName(for url: URL) -> String {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let query = items.map { "\($0.name)=\($0.value ?? "")" }.sorted().joined(separator: "&")
+        // FNV-1a, 64 bits: the same name on every launch, unlike `hashValue`.
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in query.utf8 { hash = (hash ^ UInt64(byte)) &* 0x0000_0100_0000_01b3 }
+        let path = url.path.split(separator: "/").joined(separator: "_")
+        return "\((url.host ?? "").lowercased())_\(path)_\(String(format: "%016llx", hash)).json"
+    }
+
+    /// The fixture's answer to a weather request in fixture mode: its file, or a 404 when there is none.
+    static func served(for request: URLRequest) -> (Data, HTTPURLResponse)? {
+        guard mode == .fixture, let url = request.url, isWeather(url) else { return nil }
+        let data = try? Data(contentsOf: folder.appending(path: fileName(for: url)))
+        if data == nil {
+            AppLog.general.debugLine("Weather fixture: nothing for \(url.path)")
+            append("\(url.absoluteString)\n", to: "missing.tsv")
+        }
+        guard let response = HTTPURLResponse(url: url, statusCode: data == nil ? 404 : 200, httpVersion: "HTTP/1.1",
+                                             headerFields: ["Content-Type": "application/json"]) else { return nil }
+        return (data ?? Data(), response)
+    }
+
+    /// In record mode, a weather 200 into the folder, and its URL into the index (the client's header is not in it).
+    static func recordIfAsked(_ request: URLRequest, data: Data, response: HTTPURLResponse) {
+        guard mode == .record, response.statusCode == 200, let url = request.url, isWeather(url) else { return }
+        let name = fileName(for: url)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try data.write(to: folder.appending(path: name), options: .atomic)
+            append("\(name)\t\(url.absoluteString)\n", to: "index.tsv")
+        } catch {
+            AppLog.general.debugLine("Weather fixture: not recorded (\(error.localizedDescription))")
+        }
+    }
+
+    /// A line at the end of one of the folder's lists.
+    private static func append(_ line: String, to file: String) {
+        let url = folder.appending(path: file)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: Data(line.utf8))
+        } else {
+            try? Data(line.utf8).write(to: url)
+        }
+    }
+}
+#endif

@@ -210,6 +210,10 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// Optional, so threads written before 5.1 decode unchanged. (v5.1)
     var landedElsewhere: LandedElsewhere?
 
+    /// A planned stop this flight flew past to a later leg's destination (6.6.0, the author's t3 A): the stop, and the
+    /// skipped leg's filed ATC flight plan to cancel, until the pilot says it's done (t6 A: remind, never act).
+    var skippedStop: SkippedStop?
+
     /// The country this flight departs FROM — what decides which of `countries` are foreign.
     /// Recorded for the same reason as `countries`: a regeneration with no plan cannot measure it,
     /// and falling back to the device's region would tell a Slovak pilot to clear customs into
@@ -312,6 +316,10 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
 
     var isFinished: Bool { state == .done }
 
+    /// The countries of the flight's border blocks: where it lands abroad, never the route's 10 NM `countries`. What
+    /// Today's border chips name. (6.6.0)
+    var borderCountries: [String] { tasks.filter { $0.key == .customsNotified }.compactMap(\.subject) }
+
     mutating func touch() { updatedAt = Date() }
 
     // MARK: - Mutation
@@ -401,6 +409,7 @@ extension FlightThread {
         countries = try c.decodeIfPresent([String].self, forKey: .countries)
         tripId = try c.decodeIfPresent(UUID.self, forKey: .tripId)
         landedElsewhere = try c.decodeIfPresent(LandedElsewhere.self, forKey: .landedElsewhere)
+        skippedStop = try? c.decodeIfPresent(SkippedStop.self, forKey: .skippedStop)
         homeCountry = try c.decodeIfPresent(String.self, forKey: .homeCountry)
         arrivalIdent = try c.decodeIfPresent(String.self, forKey: .arrivalIdent)
         arrivalCountry = try c.decodeIfPresent(String.self, forKey: .arrivalCountry)
@@ -433,6 +442,16 @@ struct LossyTaskList: Decodable {
     }
 
     private struct Skipped: Decodable {}
+}
+
+// MARK: - A stop skipped (6.6.0)
+
+/// The stop a flight flew past, on to a later leg's destination: the field ("LFGA") and, when the leg it skipped had
+/// its ATC flight plan filed, that plan's route ("LFGA → EDTF"), to cancel where it was filed. Optional fields only:
+/// a thread written by a newer build decodes here, and an older one skips the whole value.
+struct SkippedStop: Codable, Equatable, Sendable {
+    var ident: String
+    var filedPlanToCancel: String?
 }
 
 // MARK: - Landing somewhere else (v5.1)

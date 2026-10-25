@@ -51,10 +51,19 @@ extension View {
     func dryRunCoachScreen(_ screen: DryRunCoachStep.Screen) -> some View {
         modifier(DryRunCoachScreen(screen: screen))
     }
+
+    /// A sheet over `screen` whose steps it carries on (the iPhone flight page's blocks, 6.6.0): the coach's card for
+    /// `screen` shows over the sheet too, with its ring on what the sheet holds, and the sheet's links are kept as the
+    /// screen's are. The screen stays the one on show: the sheet neither says it appears nor that it goes.
+    func dryRunCoachSheet(of screen: DryRunCoachStep.Screen) -> some View {
+        modifier(DryRunCoachScreen(screen: screen, registers: false))
+    }
 }
 
 private struct DryRunCoachScreen: ViewModifier {
     let screen: DryRunCoachStep.Screen
+    /// False for a sheet over the screen: no band, and no show or hide of the screen.
+    var registers = true
     @Environment(\.dryRunSession) private var session
     /// The link the dry run kept from opening, said on the screen it was tapped on: said from the ground
     /// under the flight's page, the alert closed the page (the author's second dry run checks, st-6).
@@ -65,13 +74,13 @@ private struct DryRunCoachScreen: ViewModifier {
             content
                 // A screen over the ground (the flight's page is a cover) keeps the band on top.
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    if screen == .flightPage { DryRunGroundBand(session: session) }
+                    if screen == .flightPage && registers { DryRunGroundBand(session: session) }
                 }
                 .overlayPreferenceValue(CoachTargetKey.self) { anchors in
                     DryRunGroundCoachLayer(coach: coach, session: session, screen: screen, anchors: anchors)
                 }
-                .onAppear { coach.show(screen) }
-                .onDisappear { coach.hide(screen) }
+                .onAppear { if registers { coach.show(screen) } }
+                .onDisappear { if registers { coach.hide(screen) } }
                 .environment(\.openURL, OpenURLAction { url in
                     keptLink = url
                     coach.noteLink()

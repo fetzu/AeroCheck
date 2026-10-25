@@ -21,13 +21,14 @@ enum ThreadTaskEngine {
         var arrivalIdent: String?
         /// Aerodromes where a landing fee is plausible: every landing away from the departure field.
         var feeIdents: [String] = []
-        /// ISO-2 countries the route touches, departure first.
+        /// ISO-2 countries the route touches, departure first: within 10 NM of it, the data's margin
+        /// (`RouteDataCalculator`). The briefing reads it; the border block never does (`borderCountry`).
         var countries: [String] = []
         /// The countries of the departure and the destination aerodromes (`ICAOCountry` first): filing goes by
         /// the one, closing by the other. Nil without a route. (6.5.0)
         var departureCountry: String?
         var arrivalCountry: String?
-        /// The pilot's home country — a route that stays inside it needs no customs prompt.
+        /// The pilot's home country, the departure's: a flight that lands in it has no border block.
         var homeCountry: String = "CH"
         /// Aerodromes flagged PPR upstream. Empty until the openAIP `ppr` field is parsed; a pilot can
         /// still add the task by hand, so an empty set costs correctness nothing.
@@ -64,8 +65,15 @@ enum ThreadTaskEngine {
             return countries.filter { !(registry.country($0)?.links(category).isEmpty ?? true) }
         }
 
-        /// Countries other than home that the route touches. Drives the customs prompt.
-        var foreignCountries: [String] { countries.filter { $0 != homeCountry } }
+        /// The country the flight lands in when it is not the one it leaves: its one border block. Customs follows the
+        /// landing (the author's answer, 24 Oct 2026): a country only flown over, or only within `countries`' 10 NM,
+        /// has none. Nil without an arrival. (6.6.0)
+        /// Between two EU countries in Schengen there is none: no customs, no passport control.
+        var borderCountry: String? {
+            guard let arrivalCountry, !arrivalCountry.isEmpty,
+                  BorderCrossingGuide.hasFormalities(from: homeCountry, to: arrivalCountry) else { return nil }
+            return arrivalCountry
+        }
     }
 
     // MARK: - Generation
@@ -148,8 +156,9 @@ enum ThreadTaskEngine {
         for ident in c.pprIdents.sorted() {
             specs.append(Spec(key: .pprObtained, subject: ident, kind: .check))
         }
-        // One customs task per foreign country touched.
-        for country in c.foreignCountries.sorted() {
+        // One border block, for the country the flight lands in. It was one per foreign country in `countries`,
+        // whose 10 NM margin gave LSZQ → LFGA a German block and a circuit at LSZQ a French one. (6.6.0)
+        if let country = c.borderCountry {
             specs.append(Spec(key: .customsNotified, subject: country, kind: .check))
         }
         specs.append(Spec(key: .flightPlanFiled, kind: .check))

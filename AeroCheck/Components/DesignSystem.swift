@@ -1589,6 +1589,7 @@ private struct SpeedCellTap: ViewModifier {
                 .onTapGesture(perform: action)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint(Text(verbatim: "V-SPEEDS"))
+                .accessibilityIdentifier("strip.speed")
         } else {
             content
         }

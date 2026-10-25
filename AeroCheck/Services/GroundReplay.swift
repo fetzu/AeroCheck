@@ -19,7 +19,8 @@ import Foundation
 // - The aerodromes come with the scenario (a fresh simulator has none; a scenario that lists none keeps
 //   the device's own), and so does the route, armed
 //   as a pilot arms one, so START FLIGHT flies it: a route, or with `planned` a flight planned for today
-//   (its own copy of the route, followed by a flight thread, as Plan new flight makes it).
+//   (its own copy of the route, followed by a flight thread, as Plan new flight makes it), a trip when the
+//   route marks its usual stops (6.6.0), leg 1 armed.
 //
 // Launched by the environment (`ContentView`'s DEBUG task):
 //   AEROCHECK_REPLAY=<path of the scenario JSON>   AEROCHECK_REPLAY_SPEED=10
@@ -58,6 +59,9 @@ struct GroundReplayScenario: Decodable {
         /// A reporting point's aerodrome: "E (LSGC)".
         let aerodrome: String?
         let code: String?
+        /// The route's usual stop here, minutes on the ground (6.6.0): with `planned`, the flight is a trip, one
+        /// leg per stop, as Plan new flight makes it from a route that marks its stops.
+        let stopMinutes: Int?
     }
 
     struct Route: Decodable {
@@ -398,6 +402,23 @@ final class GroundReplay {
                                      aircraftTypeId: template.aircraftTypeId,
                                      aircraftRegistration: template.aircraftRegistration,
                                      aircraftModelName: template.aircraftModelName)
+        // A route that marks its stops: the trip Plan new flight starts with, leg 1 armed. (6.6.0)
+        if !template.usualStops.isEmpty {
+            let aerodromes = route.waypoints.filter { $0.kind == "aerodrome" }.map {
+                TripPlanner.Aerodrome(ident: $0.name, name: $0.name, latitude: $0.lat, longitude: $0.lon,
+                                      elevationFeet: nil, frequency: nil, isPPR: false)
+            }
+            let landings = RouteLandings(candidates: TripPlanner.stopCandidates(along: template.waypoints,
+                                                                                aerodromes: aerodromes),
+                                         route: template.waypoints).landings
+            if let trip = FlightCreator.formTrip(fromRoute: template, intent: intent, landings: landings,
+                                                 plans: plans, threads: threads),
+               let first = trip.legIds.first.flatMap({ threads.thread(withId: $0)?.flightPlanId }),
+               let leg = plans.flightPlans.first(where: { $0.id == first }) {
+                plans.activateFlightPlan(leg)
+                return
+            }
+        }
         let plan = FlightCreator.plan(fromRoute: template, intent: intent)
         plans.add(plan)
         threads.createThread(from: plan, profile: intent.kind.profile,
@@ -408,11 +429,14 @@ final class GroundReplay {
 
     private static func plan(of route: GroundReplayScenario.Route, name: String) -> FlightPlan {
         let waypoints = route.waypoints.map { point in
-            FlightPlanWaypoint(name: point.name, coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
-                               altitude: point.altitude,
-                               pointKind: point.kind.flatMap(WaypointPointKind.init(rawValue:)),
-                               sourceId: point.kind == "aerodrome" ? point.name : nil,
-                               code: point.code, aerodromeICAO: point.aerodrome)
+            var waypoint = FlightPlanWaypoint(name: point.name,
+                                              coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
+                                              altitude: point.altitude,
+                                              pointKind: point.kind.flatMap(WaypointPointKind.init(rawValue:)),
+                                              sourceId: point.kind == "aerodrome" ? point.name : nil,
+                                              code: point.code, aerodromeICAO: point.aerodrome)
+            waypoint.stopover = point.stopMinutes.map { Stopover(groundMinutes: $0) }
+            return waypoint
         }
         var plan = FlightPlan(name: route.name ?? name, waypoints: waypoints,
                               plannedDepartureTime: FlightClock.now.addingTimeInterval((route.departureInMinutes ?? 10) * 60))

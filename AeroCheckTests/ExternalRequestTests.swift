@@ -191,6 +191,42 @@ final class ExternalRequestTests: XCTestCase {
             XCTFail("refused on size, got \(error)", file: file, line: line)
         }
     }
+
+    // MARK: The screenshots' weather (DEBUG)
+
+    /// A request's file: its host and path, and the same short hash whatever the order of its query.
+    func testAWeatherFixtureFileIsNamedByHostPathAndQuery() throws {
+        let one = try XCTUnwrap(URL(string: "https://wx.aerocheck.app/v1/metar?lat=47.35&lon=7.03&radius=60"))
+        let shuffled = try XCTUnwrap(URL(string: "https://wx.aerocheck.app/v1/metar?radius=60&lon=7.03&lat=47.35"))
+        let other = try XCTUnwrap(URL(string: "https://wx.aerocheck.app/v1/metar?lat=47.35&lon=7.03&radius=30"))
+        let name = WeatherFixture.fileName(for: one)
+        XCTAssertTrue(name.hasPrefix("wx.aerocheck.app_v1_metar_"), name)
+        XCTAssertTrue(name.hasSuffix(".json"), name)
+        XCTAssertEqual(name, WeatherFixture.fileName(for: shuffled))
+        XCTAssertNotEqual(name, WeatherFixture.fileName(for: other))
+        // A SIGMET along a 30-point route still makes a short name.
+        let route = (0..<30).map { String(format: "%.2f,%.2f", 46 + Double($0) / 10, 7 + Double($0) / 10) }.joined(separator: ";")
+        var components = try XCTUnwrap(URLComponents(string: "https://wx.aerocheck.app/v1/sigmet"))
+        components.queryItems = [URLQueryItem(name: "route", value: route), URLQueryItem(name: "radius", value: "30")]
+        XCTAssertLessThan(WeatherFixture.fileName(for: try XCTUnwrap(components.url)).count, 80)
+    }
+
+    /// The proxy and MeteoSwiss's measurements are weather; the rest of geo.admin.ch and the tiles are not.
+    func testOnlyTheWeatherHostsAreTheFixtures() throws {
+        let proxy = try XCTUnwrap(URL(string: APIConfig.weatherBaseURL + "/v1/taf?icao=LFSB"))
+        XCTAssertTrue(WeatherFixture.isWeather(proxy))
+        XCTAssertTrue(WeatherFixture.isWeather(try XCTUnwrap(URL(string:
+            "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min/x_en.json"))))
+        XCTAssertFalse(WeatherFixture.isWeather(try XCTUnwrap(URL(string: "https://data.geo.admin.ch/ch.swisstopo.x/y.json"))))
+        XCTAssertFalse(WeatherFixture.isWeather(try XCTUnwrap(URL(string: "https://api.aerocheck.app/api/v3/aircraft/available"))))
+    }
+
+    /// Without `AEROCHECK_WEATHER` (a test's launch, a Release build) nothing is served from a fixture.
+    func testWithoutTheFixtureModeTheWeatherGoesToTheNetwork() throws {
+        XCTAssertNil(WeatherFixture.mode)
+        let request = URLRequest(url: try XCTUnwrap(URL(string: APIConfig.weatherBaseURL + "/v1/taf?icao=LFSB")))
+        XCTAssertNil(WeatherFixture.served(for: request))
+    }
 }
 
 /// The swisstopo tiles through `ExternalRequest`: the tile ceiling, the host allow-list and the

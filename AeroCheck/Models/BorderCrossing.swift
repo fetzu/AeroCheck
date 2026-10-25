@@ -183,7 +183,32 @@ enum BorderCrossingGuide {
         ),
     ]
 
+    /// Switzerland's own side for the block into it (FR → CH), which said "not checked yet" beside a link to this very
+    /// page; it stays out of `rules`, the other countries'. (6.6.0)
     static func rule(for country: String) -> BorderCrossingRule? {
-        rules[country.trimmingCharacters(in: .whitespaces).uppercased()]
+        let code = country.trimmingCharacters(in: .whitespaces).uppercased()
+        return code == switzerland.country ? switzerland : rules[code]
+    }
+
+    /// The EU countries in Schengen: one customs territory and no passport control, so a flight between two of them
+    /// has no border block (the author's answer, 24 Oct 2026). The EU's 27 less Ireland and Cyprus, which are outside
+    /// Schengen; Cyprus has no accession date yet, so this changes by hand when it joins. Bulgaria and Romania have
+    /// been in fully since January 2025. A territory outside either inside one of these (Heligoland, Melilla) counts
+    /// as its country, as its ICAO code does; the Faroe Islands and Greenland have their own codes. (6.6.0)
+    static let euSchengen: Set<String> = [
+        "AT", "BE", "BG", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HR", "HU", "IT", "LT", "LU", "LV", "MT",
+        "NL", "PL", "PT", "RO", "SE", "SI", "SK",
+    ]
+
+    /// Whether a flight from one country to the other crosses a border with formalities: every crossing but one
+    /// between two EU countries in Schengen. (6.6.0)
+    static func hasFormalities(from departure: String, to arrival: String) -> Bool {
+        departure != arrival && !(euSchengen.contains(departure) && euSchengen.contains(arrival))
+    }
+
+    /// Whether the curated facts hold for a crossing: they were checked for flights to or from Switzerland, so only
+    /// when it is one end. A departure that isn't known keeps them, the pack's own assumption. (6.6.0)
+    static func factsApply(to country: String, from departure: String?) -> Bool {
+        country == switzerland.country || (departure ?? switzerland.country) == switzerland.country
     }
 }

@@ -328,10 +328,13 @@ class Flight:
 # ---------------------------------------------------------------------------------------------------
 # The scenarios
 
-def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, level_dip=None, planned=False):
+def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, level_dip=None, planned=False,
+                stops=None):
     """A cross-country flight with a route: dep → waypoints → dest. `waypoints`: [(name, lat, lon, kind, aerodrome)].
     `level_dip`: (after_waypoint_index, seconds_into_leg) to start down 600 ft, level, and climb back.
-    `planned`: the route is a flight planned for today (Plan new flight), not a route alone."""
+    `planned`: the route is a flight planned for today (Plan new flight), not a route alone.
+    `stops`: {waypoint name: minutes on the ground}, the route's usual stops (6.6.0): with `planned`, a trip,
+    one leg per stop, as Plan new flight makes it. The track still flies past them: it never lands there."""
     d, a = Field(dep), Field(dest)
     f = Flight(seed, d)
     f.hold('engineStart', at=0)
@@ -372,7 +375,8 @@ def scenario_xc(name, seed, dep, dest, waypoints, cruise_ft, *, description, lev
     f.park(90)
     route_json = dict(name=f'{dep} → {dest}', departureInMinutes=60, waypoints=(
         [dict(name=dep, lat=d.lat, lon=d.lon, kind='aerodrome')]
-        + [dict(name=w[0], lat=w[1], lon=w[2], altitude=cruise_ft, kind=w[3], **({'aerodrome': w[4]} if w[4] else {}))
+        + [dict(name=w[0], lat=w[1], lon=w[2], altitude=cruise_ft, kind=w[3], **({'aerodrome': w[4]} if w[4] else {}),
+                **({'stopMinutes': stops[w[0]]} if stops and w[0] in stops else {}))
            for w in waypoints]
         + [dict(name=dest, lat=a.lat, lon=a.lon, kind='aerodrome')]))
     if planned:
@@ -463,11 +467,18 @@ def build(name):
                             ('SAIGNELEGIER', 47.2560, 6.9970, 'user', None),
                             ('ST-URSANNE', 47.3640, 7.1550, 'user', None)], 4500,
                            description='LSGN → N (LSGN) → E (LSGC) → SAIGNELEGIER → ST-URSANNE → LSZQ, waypoints marked from GPS')
+    if name == 'trip-past-stop':
+        # A trip planned for today, LSZQ → LSZP → LSZG (the route's usual stop at LSZP), flown past LSZP to land
+        # at LSZG, leg 2's destination: Fly on before the stop, or the skipped stop asked after the landing. (6.6.0)
+        return scenario_xc(name, 108, 'LSZQ', 'LSZG',
+                           [('LSZP', 47.088242, 7.289055, 'aerodrome', None)], 5500, planned=True,
+                           stops={'LSZP': 30},
+                           description='A trip LSZQ → LSZP → LSZG planned for today, flown past LSZP to LSZG')
     raise SystemExit(f'unknown scenario {name}')
 
 
 ALL = ['xc-all-checks', 'xc-planned', 'xc-climb-owed', 'xc-freda-missed', 'xc-descent-abandoned', 'local-landed-unanswered',
-       'circuits-stop-and-go', 'route-vrps']
+       'circuits-stop-and-go', 'route-vrps', 'trip-past-stop']
 
 
 # ---------------------------------------------------------------------------------------------------

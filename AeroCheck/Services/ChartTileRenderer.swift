@@ -417,6 +417,9 @@ class ChartTileRenderer: MKOverlayRenderer, @unchecked Sendable {
         if let source = overlay as? ChartTileSource {
             let renderer = ChartTileRenderer(source: source)
             renderer.mapView = mapView
+            #if DEBUG
+            MapSettle.watch(renderer)
+            #endif
             return renderer
         }
         return MKTileOverlayRenderer(tileOverlay: overlay)
@@ -634,6 +637,72 @@ class ChartTileRenderer: MKOverlayRenderer, @unchecked Sendable {
 }
 
 #if DEBUG
+// MARK: - The map settled (DEBUG)
+
+extension ChartTileRenderer {
+    /// Whether a tile of the zoom drawn, on screen, is still to come: asked, on its way, or failed and asked again.
+    var awaitsTilesInView: Bool {
+        state.withLock { state in
+            guard let visible = state.visible else { return false }
+            return state.wanted.contains { tile, scales in
+                tile.mapRect.intersects(visible) && scales.contains { ChartTile.zoom(for: $0) == state.zoom }
+            }
+        }
+    }
+}
+
+/// The screenshot run's "map settled" signal (`AEROCHECK_MAP_SETTLE=1`): a Darwin notification every half second
+/// while each chart map in a window has kept its camera for 1.5 s and has every tile in view, none while one moves
+/// or waits. The tour's `mapSettled` step waits for it instead of a fixed time. Inert without the key. (6.6.0)
+@MainActor
+enum MapSettle {
+    static let signal = "com.fetzu.aerocheck.debug.mapSettled"
+    static let isOn = ProcessInfo.processInfo.environment["AEROCHECK_MAP_SETTLE"] == "1"
+
+    private static let renderers = NSHashTable<ChartTileRenderer>.weakObjects()
+    private static var watching = false
+
+    /// What a map shows: its rectangle and heading, the same within a thousandth of the rectangle.
+    private struct View {
+        let rect: MKMapRect
+        let heading: Double
+
+        func isClose(to other: View) -> Bool {
+            let tolerance = max(rect.width, rect.height) * 0.001
+            return abs(rect.minX - other.rect.minX) <= tolerance && abs(rect.minY - other.rect.minY) <= tolerance
+                && abs(rect.width - other.rect.width) <= tolerance && abs(heading - other.heading) < 0.5
+        }
+    }
+
+    static func watch(_ renderer: ChartTileRenderer) {
+        guard isOn else { return }
+        renderers.add(renderer)
+        guard !watching else { return }
+        watching = true
+        Task { @MainActor in
+            var last: [ObjectIdentifier: View] = [:]
+            var calm = 0
+            while true {
+                try? await Task.sleep(for: .milliseconds(500))
+                let shown = renderers.allObjects.filter { $0.mapView?.window != nil }
+                var views: [ObjectIdentifier: View] = [:]
+                for renderer in shown {
+                    guard let map = renderer.mapView else { continue }
+                    views[ObjectIdentifier(map)] = View(rect: map.visibleMapRect, heading: map.camera.heading)
+                }
+                let still = !views.isEmpty && views.count == last.count
+                    && views.allSatisfy { key, view in last[key].map(view.isClose) ?? false }
+                calm = still && !shown.contains(where: \.awaitsTilesInView) ? calm + 1 : 0
+                last = views
+                if calm >= 3 {
+                    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                                         CFNotificationName(signal as CFString), nil, nil, true)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - The tile log (DEBUG)
 
 /// The tiles the renderers ask for and get, and what MapKit asks them, as notices (`AEROCHECK_TILE_LOG=1`); and an

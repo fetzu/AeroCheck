@@ -19,9 +19,30 @@ struct DivertSheet: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var threadManager: FlightThreadManager
+    @Environment(AppState.self) private var appState
 
     @State private var sections: DivertPlanner.Sections?
     @State private var expanded: String?
+    /// "Fly on" tapped: the stop to fly on to, asked once. (6.6.0, t3 A)
+    @State private var flyingOnTo: LaterStop?
+
+    /// A later stop of the trip: the leg whose destination it is, the field, and the legs joined to get there.
+    struct LaterStop: Identifiable {
+        let number: Int
+        let ident: String
+        let legs: [FlightThread]
+        var id: Int { number }
+    }
+
+    /// The leg in the air, when the flight follows one of a trip's.
+    private var flyingLeg: FlightThread? { plan.flatMap { threadManager.thread(forPlanId: $0.id) } }
+
+    private var laterStops: [LaterStop] {
+        guard let leg = flyingLeg else { return [] }
+        return FlightCreator.laterStops(afterFlying: leg.id, threads: threadManager, plans: flightPlanManager)
+            .map { LaterStop(number: $0.number, ident: $0.ident, legs: $0.through) }
+    }
 
     private var plan: FlightPlan? { flightPlanManager.activeFlightPlan }
 
@@ -32,6 +53,10 @@ struct DivertSheet: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if let diversion = plan?.diversion {
                         resumeCard(diversion)
+                    }
+                    // A trip's later stops first: on past the stop, without landing. (6.6.0, t3 A)
+                    if plan?.diversion == nil, case let stops = laterStops, !stops.isEmpty {
+                        laterStopsGroup(stops)
                     }
                     if let sections {
                         content(sections)
@@ -49,6 +74,96 @@ struct DivertSheet: View {
         }
         .background(theme.background.ignoresSafeArea())
         .task { await load() }
+    }
+
+    // MARK: - Flying on past the stop (6.6.0, t3 and t6)
+
+    /// The stop the route ends at now: the one flown past.
+    private var stopIdent: String { plan?.waypoints.last?.name ?? "" }
+
+    private func laterStopsGroup(_ stops: [LaterStop]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L10n.Trip.laterStops.uppercased())
+                .font(.aero(size: 11, weight: .semibold))
+                .tracking(0.8)
+                .foregroundColor(theme.textDim)
+            VStack(spacing: 0) {
+                ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                    laterStopRow(stop)
+                    if index < stops.count - 1 { Divider().overlay(theme.panelStroke) }
+                }
+            }
+            .background(RoundedRectangle(cornerRadius: 12).fill(theme.card))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(theme.panelStroke, lineWidth: 1))
+        }
+    }
+
+    private func laterStopRow(_ stop: LaterStop) -> some View {
+        let airport = airportDataService.findAirport(byIdent: stop.ident)
+        let distance: Double? = {
+            guard let here = locationManager.currentLocation, let airport else { return nil }
+            return here.distance(from: CLLocation(latitude: airport.latitude, longitude: airport.longitude)) / 1852
+        }()
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                // The distance beside the ident: the button keeps its word whole (WEITERFLIEGEN).
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(stop.ident)
+                        .font(.aero(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundColor(theme.textPrimary)
+                    if let distance {
+                        Text(String(format: "%.0f NM", distance))
+                            .font(.aero(size: 16, weight: .semibold, design: .monospaced))
+                            .foregroundColor(theme.textPrimary)
+                    }
+                }
+                Text([airport?.name, L10n.Trip.legDestination(stop.number)].compactMap { $0 }.joined(separator: " · "))
+                    .font(.aero(size: 13))
+                    .foregroundColor(theme.textSecondary)
+                    .lineLimit(3)
+            }
+            Spacer(minLength: 8)
+            Button { flyingOnTo = stop } label: {
+                Text(L10n.Trip.flyOn.uppercased())
+                    .font(.aero(size: 15, weight: .bold))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                    .foregroundColor(theme.actionText)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(theme.action))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("divert.flyOn.\(stop.ident)")
+            // On the button, so the iPad's popover points at the row tapped.
+            .confirmationDialog(L10n.Trip.flyOnTitle(stop.ident, stopIdent),
+                                isPresented: Binding(get: { flyingOnTo?.id == stop.id },
+                                                     set: { if !$0 { flyingOnTo = nil } }),
+                                titleVisibility: .visible) {
+                Button(L10n.Trip.flyOnConfirm(stop.ident)) { flyOn(to: stop) }
+                Button(L10n.Trip.keepStop, role: .cancel) {}
+            } message: {
+                Text(flyOnMessage(stop))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    /// What flying on means, and the filed plans it leaves to deal with: reminded, never changed (t6 A).
+    private func flyOnMessage(_ stop: LaterStop) -> String {
+        var lines = [L10n.Trip.flyOnMessage(stopIdent)]
+        if flyingLeg?.flightPlanFiledAt != nil { lines.append(L10n.Trip.tellFISNewDestination(stopIdent, stop.ident)) }
+        let filed = FlightCreator.filedPlans(skipping: stop.legs)
+        if !filed.isEmpty { lines.append(L10n.Trip.cancelFiledLater(filed.joined(separator: ", "))) }
+        return lines.joined(separator: "\n\n")
+    }
+
+    private func flyOn(to stop: LaterStop) {
+        guard let leg = flyingLeg else { return }
+        FlightCreator.flyOn(leg.id, skipping: stop.legs, plans: flightPlanManager, threads: threadManager,
+                            logbookPlanIds: Set(appState.flights.compactMap(\.flightPlanId)))
+        onClose()
     }
 
     // MARK: - Pieces

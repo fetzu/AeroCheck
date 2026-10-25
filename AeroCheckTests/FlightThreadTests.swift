@@ -96,19 +96,40 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertFalse(Set(keys(french)).contains(.gaforChecked), "GAFOR is a Swiss product")
     }
 
-    func testCustomsTaskAppearsOncePerForeignCountry() {
-        var c = context(countries: ["CH", "FR", "DE"])
+    func testTheBorderBlockIsTheCountryTheFlightLandsIn() {
+        // The route's countries reach 10 NM past it, for the data; the border block is the arrival's alone. (6.6.0)
+        var c = context(countries: ["CH", "DE", "FR"])
         c.homeCountry = "CH"
-        let tasks = ThreadTaskEngine.generate(context: c)
-        let customs = tasks.filter { $0.key == .customsNotified }
+        c.arrivalCountry = "FR"
+        let customs = ThreadTaskEngine.generate(context: c).filter { $0.key == .customsNotified }
+        XCTAssertEqual(customs.map(\.subject), ["FR"])
+    }
 
-        XCTAssertEqual(customs.count, 2)
-        XCTAssertEqual(Set(customs.compactMap(\.subject)), ["FR", "DE"])
+    func testNoBorderBlockBetweenTwoEUCountriesInSchengen() {
+        // No customs and no passport control between them (the author's answer, 24 Oct 2026). (6.6.0)
+        func border(_ home: String, _ arrival: String) -> [String?] {
+            var c = context(countries: [home, arrival])
+            c.homeCountry = home
+            c.arrivalCountry = arrival
+            return ThreadTaskEngine.generate(context: c).filter { $0.key == .customsNotified }.map(\.subject)
+        }
+        XCTAssertEqual(border("DE", "FR"), [])
+        XCTAssertEqual(border("FR", "IT"), [])
+        XCTAssertEqual(border("DE", "IE"), ["IE"], "Ireland is outside Schengen")
+        XCTAssertEqual(border("CY", "GR"), ["GR"], "so is Cyprus")
+        XCTAssertEqual(border("NO", "DE"), ["DE"], "Norway is in Schengen, not in the EU")
+        XCTAssertEqual(border("CH", "FR"), ["FR"])
+        XCTAssertEqual(border("FR", "CH"), ["CH"])
+        XCTAssertEqual(border("GB", "FR"), ["FR"])
     }
 
     func testNoCustomsTaskWhenTheRouteStaysHome() {
-        let tasks = ThreadTaskEngine.generate(context: context(countries: ["CH"]))
-        XCTAssertTrue(tasks.filter { $0.key == .customsNotified }.isEmpty)
+        XCTAssertTrue(ThreadTaskEngine.generate(context: context(countries: ["CH"]))
+            .filter { $0.key == .customsNotified }.isEmpty)
+        // A neighbour 10 NM off the route is no border.
+        var c = context(countries: ["CH", "FR"])
+        c.arrivalCountry = "CH"
+        XCTAssertTrue(ThreadTaskEngine.generate(context: c).filter { $0.key == .customsNotified }.isEmpty)
     }
 
     func testPPRTaskIsPerAerodrome() {
@@ -649,6 +670,7 @@ final class FlightThreadTests: XCTestCase {
         thread.countries = ["CH", "FR"]
         thread.tripId = UUID()
         thread.landedElsewhere = LandedElsewhere(plannedIdent: "LSZE", landedIdent: "LSZS", landedName: "Samedan")
+        thread.skippedStop = SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN")
         thread.homeCountry = "CH"
         thread.arrivalIdent = "LSZE"
         thread.arrivalCountry = "CH"
@@ -714,7 +736,7 @@ final class FlightThreadTests: XCTestCase {
         let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
         XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
                                       "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
-                                      "landedElsewhere", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
+                                      "landedElsewhere", "skippedStop", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
                                       "flightPlanFiledAt",
                                       "flightPlanClosedAt", "createdAt", "updatedAt"])
         let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))
@@ -1301,15 +1323,55 @@ final class FlightThreadTests: XCTestCase {
     @MainActor
     func testTheDepartureCountryIsNotTreatedAsForeign() {
         // Departing Slovakia, you do not clear customs INTO Slovakia. With home hard-coded to CH it
-        // raised a Slovak customs task on a Slovak departure.
+        // raised a Slovak customs task on a Slovak departure. Košice to Uzhhorod: Ukraine, outside the EU, is a
+        // border; Germany, since 6.6.0, is none from Slovakia.
+        var plan = FlightPlan(name: "LZKZ → UKLU")
+        plan.waypoints = [waypoint("LZKZ", lat: 48.6631, lon: 21.2411), waypoint("UKLU", lat: 48.6342, lon: 22.2633)]
         let manager = makeTestThreadManager()
-        let thread = manager.createThread(from: slovakToGermanPlan(), profile: .full)
+        let thread = manager.createThread(from: plan, profile: .full)
         defer { manager.deleteThread(threadId: thread.id) }
 
         XCTAssertEqual(thread.homeCountry, "SK", "home should follow the departure aerodrome")
-        let customs = thread.tasks.filter { $0.key == .customsNotified }.compactMap(\.subject)
-        XCTAssertFalse(customs.contains("SK"), "got \(customs)")
-        XCTAssertTrue(customs.contains("DE"), "got \(customs)")
+        XCTAssertEqual(thread.borderCountries, ["UA"])
+    }
+
+    /// France's facts were checked for flights to or from Switzerland: from the UK its "not required" is wrong, the
+    /// préavis catching a flight from outside Schengen. Only the line then, the official link kept. (6.6.0)
+    func testTheBorderFactsShowOnlyWhenSwitzerlandIsOneEnd() {
+        let france = ThreadTask(key: .customsNotified, subject: "FR", kind: .check)
+        let fromSwitzerland = ThreadTaskPresentation.make(for: france, briefing: ThreadBriefing(departureCountry: "CH")).hint ?? ""
+        XCTAssertTrue(fromSwitzerland.contains(L10n.Border.priorNotification), fromSwitzerland)
+
+        let fromTheUK = ThreadBriefing(departureCountry: "GB")
+        XCTAssertEqual(ThreadTaskPresentation.make(for: france, briefing: fromTheUK).hint, L10n.Border.swissCrossingsOnly)
+        XCTAssertTrue(ThreadTaskPresentation.links(for: france, briefing: fromTheUK).contains { $0.label == L10n.Border.openOfficial })
+
+        let britain = ThreadTask(key: .customsNotified, subject: "GB", kind: .check)
+        XCTAssertEqual(ThreadTaskPresentation.make(for: britain, briefing: ThreadBriefing(departureCountry: "FR")).hint,
+                       L10n.Border.swissCrossingsOnly)
+        XCTAssertNotEqual(ThreadTaskPresentation.make(for: britain, briefing: ThreadBriefing(departureCountry: "CH")).hint,
+                          L10n.Border.swissCrossingsOnly)
+    }
+
+    /// The block into Switzerland shows the Swiss side's facts and its page once: it said "not checked yet" beside a
+    /// link to the very page that was checked. (6.6.0)
+    func testTheBlockIntoSwitzerlandShowsTheSwissFactsAndOneLink() {
+        let switzerland = ThreadTask(key: .customsNotified, subject: "CH", kind: .check)
+        let fromFrance = ThreadBriefing(departureCountry: "FR")
+        let hint = ThreadTaskPresentation.make(for: switzerland, briefing: fromFrance).hint ?? ""
+        XCTAssertTrue(hint.contains(L10n.Border.customsAerodrome), hint)
+        XCTAssertTrue(hint.contains(L10n.Border.reviewed(BorderCrossingGuide.switzerland.lastReviewed)), hint)
+        XCTAssertFalse(hint.contains(L10n.Border.notCurated), hint)
+
+        let links = ThreadTaskPresentation.links(for: switzerland, touchesSwitzerland: true, briefing: fromFrance)
+        XCTAssertEqual(links.map(\.url), [BorderCrossingGuide.switzerland.officialURL])
+        XCTAssertEqual(links.map(\.label), [L10n.Border.openOfficial])
+
+        // Out of Switzerland, the country's page and the Swiss side, as before.
+        let france = ThreadTask(key: .customsNotified, subject: "FR", kind: .check)
+        XCTAssertEqual(ThreadTaskPresentation.links(for: france, touchesSwitzerland: true,
+                                                    briefing: ThreadBriefing(departureCountry: "CH")).map(\.label),
+                       [L10n.Border.openOfficial, L10n.Border.swissSide])
     }
 
     func testTheSwissLinkIsOnlyOfferedWhenSwitzerlandIsInvolved() {
@@ -1580,5 +1642,118 @@ extension FlightThreadTests {
 
         XCTAssertEqual(appState.pendingThreadToOpen, tomorrow.id)
         XCTAssertEqual(manager.currentThreadId, tomorrow.id)
+    }
+}
+
+
+// MARK: - Border blocks: where the flight lands (6.6.0)
+
+/// One border block, for the arrival's country (the author's answer, 24 Oct 2026): the route's 10 NM `countries` are
+/// the data's margin and stay so. Real coordinates, on the bundled borders.
+extension FlightThreadTests {
+
+    private func route(_ points: [(String, Double, Double)]) -> FlightPlan {
+        var plan = FlightPlan(name: points.map(\.0).joined(separator: " → "))
+        plan.waypoints = points.map { waypoint($0.0, lat: $0.1, lon: $0.2) }
+        return plan
+    }
+
+    private var bressaucourt: (String, Double, Double) { ("LSZQ", 47.392408, 7.028956) }
+    private var toColmar: FlightPlan { route([bressaucourt, ("LFGA", 48.109901, 7.35901)]) }
+    private var toFreiburg: FlightPlan { route([bressaucourt, ("EDTF", 48.022778, 7.8325)]) }
+
+    @MainActor
+    func testBressaucourtToColmarHasFranceOnly() {
+        // West of the Rhine, Germany within 10 NM: it gave a German block.
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: toColmar, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.borderCountries, ["FR"])
+        XCTAssertTrue(thread.countries?.contains("DE") ?? false, "the data keeps its margin: \(thread.countries ?? [])")
+    }
+
+    @MainActor
+    func testBressaucourtToFreiburgHasGermanyOnly() {
+        // Over Alsace on the way, landing in Germany: customs follows the landing.
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: toFreiburg, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.borderCountries, ["DE"])
+        XCTAssertTrue(thread.countries?.contains("FR") ?? false, "got \(thread.countries ?? [])")
+    }
+
+    @MainActor
+    func testALocalFlightAtBressaucourtHasNoBorderBlock() {
+        // The guided dry run's triangle, 6 NM out with France 3 NM away, gave a French block; circuits there too.
+        let manager = makeTestThreadManager()
+        let triangle = manager.createThread(from: DryRunChapters.route(from: .lszq), profile: .full)
+        let circuits = manager.createThread(from: nil, profile: .local)
+        defer { manager.deleteThread(threadId: triangle.id); manager.deleteThread(threadId: circuits.id) }
+
+        XCTAssertEqual(triangle.borderCountries, [])
+        XCTAssertTrue(triangle.countries?.contains("FR") ?? false, "got \(triangle.countries ?? [])")
+        XCTAssertEqual(circuits.borderCountries, [])
+    }
+
+    @MainActor
+    func testInsideTheEUAndSchengenThereIsNoBorderBlock() {
+        // Freiburg to Colmar, and Basel-Mulhouse (in France) to Freiburg: no customs, no passport control.
+        let freiburg = ("EDTF", 48.022778, 7.8325)
+        let manager = makeTestThreadManager()
+        let colmar = manager.createThread(from: route([freiburg, ("LFGA", 48.109901, 7.35901)]), profile: .full)
+        let basel = manager.createThread(from: route([("LFSB", 47.60068, 7.521117), freiburg]), profile: .full)
+        let dublin = manager.createThread(from: route([freiburg, ("EIDW", 53.421333, -6.27)]), profile: .full)
+        defer { [colmar, basel, dublin].forEach { manager.deleteThread(threadId: $0.id) } }
+
+        XCTAssertEqual(colmar.borderCountries, [])
+        XCTAssertEqual(basel.homeCountry, "FR")
+        XCTAssertEqual(basel.borderCountries, [])
+        XCTAssertEqual(dublin.borderCountries, ["IE"], "Ireland is outside Schengen")
+    }
+
+    @MainActor
+    func testTheWayHomeHasTheHomeCountrysBlock() {
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: route([("LFGA", 48.109901, 7.35901), bressaucourt]), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertEqual(thread.homeCountry, "FR")
+        XCTAssertEqual(thread.borderCountries, ["CH"])
+    }
+
+    @MainActor
+    func testFilingTheFlightPlanKeepsTheBorderBlock() throws {
+        // Filing rebuilds the tasks without the plan, from what the thread recorded.
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: toColmar, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+        let filed = try XCTUnwrap(thread.tasks.first { $0.key == .flightPlanFiled })
+
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+
+        let after = try XCTUnwrap(manager.thread(withId: thread.id))
+        XCTAssertTrue(after.tasks.contains { $0.key == .flightPlanClosed }, "the filing went through")
+        XCTAssertEqual(after.borderCountries, ["FR"])
+    }
+
+    @MainActor
+    func testABorderBlockThatNoLongerAppliesGoesTickedOrNot() {
+        // A flight to Colmar made before 6.6.0 had a German block too. The next rebuild drops it, ticked as it is,
+        // and France keeps its tick.
+        var france = ThreadTask(key: .customsNotified, subject: "FR", kind: .check)
+        france.state = .done
+        var germany = ThreadTask(key: .customsNotified, subject: "DE", kind: .check)
+        germany.state = .done
+        germany.note = "Called Freiburg"
+
+        let rebuilt = ThreadTaskEngine.generate(context: FlightThreadManager.context(for: toColmar, profile: .full),
+                                                existing: [france, germany])
+
+        let customs = rebuilt.filter { $0.key == .customsNotified }
+        XCTAssertEqual(customs.map(\.subject), ["FR"])
+        XCTAssertEqual(customs.first?.id, france.id)
+        XCTAssertEqual(customs.first?.state, .done)
     }
 }

@@ -28,6 +28,13 @@ struct UpcomingFlightsList: View {
     var onOpenRoutes: (() -> Void)?
 
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @Environment(AppState.self) private var appState
+
+    /// The flight page's status and its counts in blocks, as the page and Today say them (f9 A). (6.6.0)
+    private func summary(_ thread: FlightThread) -> FlightPageSummary.Summary {
+        FlightPageSummary.make(thread, trips: trips, plans: flightPlanManager.flightPlans, flights: appState.flights,
+                               currentFlight: appState.currentFlight, registry: BriefingRegistryService.shared.registry)
+    }
 
     private var needsAttention: [FlightThread] { threads.filter { $0.state == .closeOut } }
 
@@ -221,7 +228,7 @@ struct UpcomingFlightsList: View {
                                 .scaledFont(size: 13, relativeTo: .caption)
                                 .foregroundColor(.dimText)
                         }
-                        let borders = foreignCountries(thread)
+                        let borders = borderCountries(thread)
                         if !borders.isEmpty {
                             FlowLayout(spacing: 8) {
                                 ForEach(borders, id: \.self) { name in
@@ -259,23 +266,17 @@ struct UpcomingFlightsList: View {
                     }
                 }
 
-                // What's next, with the task's own figures.
-                if let task = thread.nextTask {
+                // What's left, as the flight page's status line says it. (6.6.0, f9 A)
+                if case let summary = summary(thread), summary.left > 0 {
                     HStack(spacing: 12) {
-                        Text(L10n.Thread.nextUp.uppercased())
-                            .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
-                            .tracking(1.2)
-                            .foregroundColor(.aviationGold)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(ThreadTaskPresentation.make(for: task).title)
+                            Text(summary.title)
                                 .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                                 .foregroundColor(.primaryText)
-                            if let detail = task.detail, !detail.isEmpty {
-                                Text(detail)
-                                    .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
-                                    .foregroundColor(.secondaryText)
-                                    .lineLimit(1)
-                            }
+                            Text(summary.detail)
+                                .scaledFont(size: 13, relativeTo: .caption)
+                                .foregroundColor(.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 8)
                         HStack(spacing: 4) {
@@ -341,8 +342,9 @@ struct UpcomingFlightsList: View {
         }
     }
 
+    /// A chapter's blocks done, as on the flight's page, its trip's preparation counted with the leg's. (6.6.0)
     private func chapterProgress(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
-        let tasks = thread.tasks(in: chapter).filter { $0.state != .notApplicable }
+        let tasks = summary(thread).page.blocks(in: chapter).filter { $0.state != .notApplicable }
         let done = tasks.filter { $0.state == .done }.count
         let flown = thread.state == .closeOut || thread.state == .done
         let fraction: Double = chapter == .fly ? (flown ? 1 : 0) : (tasks.isEmpty ? 0 : Double(done) / Double(tasks.count))
@@ -468,14 +470,10 @@ struct UpcomingFlightsList: View {
                     .tracking(1.2)
                     .foregroundColor(.secondaryText)
                 ForEach(overview.legs) { leg in
-                    tripLegRow(leg, in: overview)
+                    tripLegRow(leg, in: overview, left: leg.id == overview.focusId ? leftWords(of: leg.id) : nil)
                 }
             }
 
-            // What's next, for the leg in focus.
-            if let next = overview.next {
-                tripNextRow(next, overview: overview)
-            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -486,9 +484,18 @@ struct UpcomingFlightsList: View {
         )
     }
 
-    /// One leg: its number, route, when it leaves and its figures, and where it stands. At least
-    /// 56 pt tall, a ground target to the leg's page.
-    private func tripLegRow(_ leg: TripOverview.Leg, in overview: TripOverview) -> some View {
+    /// What's left on the leg in focus, as its page's status line says it ("1 left: NOTAMs and airspace"),
+    /// under its own row. It had a row of its own under the legs, which repeated the leg and its time (the
+    /// author's device check, v66-8). Nil when nothing is left. (6.6.0, f9 A)
+    private func leftWords(of legId: UUID) -> String? {
+        guard let leg = (allThreads ?? threads).first(where: { $0.id == legId }),
+              case let summary = summary(leg), summary.left > 0, !summary.detail.isEmpty else { return nil }
+        return summary.detail
+    }
+
+    /// One leg: its number, route, when it leaves and its figures, and where it stands; the leg in focus
+    /// what's left on it too. At least 56 pt tall, a ground target to the leg's page.
+    private func tripLegRow(_ leg: TripOverview.Leg, in overview: TripOverview, left: String? = nil) -> some View {
         let isFocus = leg.id == overview.focusId
         return Button { onOpen(leg.id) } label: {
             HStack(spacing: 12) {
@@ -505,6 +512,12 @@ struct UpcomingFlightsList: View {
                         .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
                         .lineLimit(1)
+                    if let left {
+                        Text(left)
+                            .scaledFont(size: 13, relativeTo: .caption)
+                            .foregroundColor(.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Spacer(minLength: 8)
                 legStatus(leg, isFocus: isFocus)
@@ -527,7 +540,7 @@ struct UpcomingFlightsList: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(L10n.Flights.legOf(leg.number, overview.legCount) + ", " + leg.displayName)
-        .accessibilityValue([legFacts(leg), legStatusText(leg, isFocus: isFocus)].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityValue([legFacts(leg), legStatusText(leg, isFocus: isFocus), left].compactMap { $0 }.joined(separator: ", "))
     }
 
     /// "10:00 · 52 NM · 0:31", "≈ 10:53 · 41 NM · 0:25"; a named leg says its route first.
@@ -578,50 +591,6 @@ struct UpcomingFlightsList: View {
             .padding(.vertical, 3)
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(color, lineWidth: 1))
             .lineLimit(1)
-    }
-
-    /// The flight card's NEXT row, for the leg in focus: its own check, or the trip's once those are done.
-    private func tripNextRow(_ next: TripOverview.Next, overview: TripOverview) -> some View {
-        let (task, detail): (ThreadTask, String?) = {
-            switch next {
-            case .leg(let task):
-                let leg = overview.focus.map { L10n.Flights.legOf($0.number, overview.legCount) }
-                return (task, [leg, task.detail].compactMap { $0 }.joined(separator: " · "))
-            case .trip(let task): return (task, L10n.TripCard.tripChecks(overview.sharedDone, overview.sharedTotal))
-            }
-        }()
-        return Button { onOpen(overview.focusId) } label: {
-            HStack(spacing: 12) {
-                Text(L10n.Thread.nextUp.uppercased())
-                    .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption2)
-                    .tracking(1.2)
-                    .foregroundColor(.aviationGold)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ThreadTaskPresentation.make(for: task).title)
-                        .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
-                        .foregroundColor(.primaryText)
-                    if let detail, !detail.isEmpty {
-                        Text(detail)
-                            .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
-                            .foregroundColor(.secondaryText)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 4) {
-                    Text(L10n.FlightsPage.openFlight)
-                    Image(systemName: "chevron.right")
-                }
-                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundColor(.altimeterBlue)
-            }
-            .padding(12)
-            .frame(minHeight: 44)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cockpitBackground))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
     }
 
     private func tripDay(_ entry: UpcomingOrder.Entry) -> some View {
@@ -682,12 +651,12 @@ struct UpcomingFlightsList: View {
         return points
     }
 
-    /// The countries the trip crosses other than the one it leaves from. Measured against the first
-    /// leg's country, so the way home isn't a border into the pilot's own country.
+    /// The countries the trip's legs land in abroad (their border blocks'). Measured against the first leg's country,
+    /// so the way home isn't a border into the pilot's own country.
     private func tripForeignCountries(_ legs: [FlightThread]) -> [String] {
         let home = legs.first?.homeCountry
         var seen: [String] = []
-        for code in legs.flatMap({ $0.countries ?? [] }) where code != home && !seen.contains(code) {
+        for code in legs.flatMap(\.borderCountries) where code != home && !seen.contains(code) {
             seen.append(code)
         }
         return seen.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
@@ -745,7 +714,7 @@ struct UpcomingFlightsList: View {
     /// hero card's and the rows above, as on Routes. (v6.0 review)
     private func laterRow(_ thread: FlightThread, compact: Bool, loadPriority: Int = 0) -> some View {
         let plan = plan(for: thread)
-        let progress = thread.preFlightProgress
+        let progress = summary(thread).page.progress
         return Button { onOpen(thread.id) } label: {
             Group {
                 if compact {
@@ -842,11 +811,10 @@ struct UpcomingFlightsList: View {
         return parts.joined(separator: " · ")
     }
 
+    /// "4 left", in blocks, or "5 of 5 done". (6.6.0)
     private func progressText(_ thread: FlightThread, progress: (done: Int, total: Int)) -> String {
-        if let task = thread.nextTask {
-            return L10n.FlightsPage.progressNext(progress.done, progress.total, ThreadTaskPresentation.make(for: task).title)
-        }
-        return L10n.FlightsPage.progress(progress.done, progress.total)
+        let left = summary(thread).left
+        return left > 0 ? L10n.FlightPage.leftCount(left) : L10n.FlightsPage.progress(progress.done, progress.total)
     }
 
     // MARK: - Close-out
@@ -865,7 +833,7 @@ struct UpcomingFlightsList: View {
 
     private func row(_ thread: FlightThread) -> some View {
         let closing = thread.state == .closeOut
-        let progress = closing ? thread.closeOutProgress : thread.preFlightProgress
+        let progress = summary(thread).page.progress
         return Button { onOpen(thread.id) } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -1004,11 +972,9 @@ struct UpcomingFlightsList: View {
         return day
     }
 
-    /// The countries the route crosses other than the one it leaves from, by name.
-    private func foreignCountries(_ thread: FlightThread) -> [String] {
-        let home = thread.homeCountry
-        return (thread.countries ?? []).filter { $0 != home }
-            .map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
+    /// The countries the flight lands in abroad, by name: its border blocks'. (6.6.0)
+    private func borderCountries(_ thread: FlightThread) -> [String] {
+        thread.borderCountries.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
     }
 
     /// Built from the legs rather than stored, so it stays right when one is added or removed.
@@ -1038,8 +1004,7 @@ struct UpcomingFlightsList: View {
         if let registration = thread.aircraftRegistration, !registration.isEmpty {
             parts.append(registration)
         }
-        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress
-        let remaining = max(0, progress.total - progress.done)
+        let remaining = summary(thread).left
         if remaining > 0 { parts.append(L10n.Flights.toDo(remaining)) }
         return parts.joined(separator: " · ")
     }

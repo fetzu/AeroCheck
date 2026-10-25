@@ -286,4 +286,31 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         XCTAssertFalse(relaunched.isFlightActive, "A corrupt checkpoint must not start a phantom flight")
         XCTAssertFalse(hasCheckpoint, "A corrupt checkpoint must be cleared")
     }
+
+    /// A flight brought back after a relaunch streams to the Watch again. The restore never passes the flight's
+    /// start, the one place that told the Watch, so the Watch stayed on its last data, dimmed as stale, to the end of
+    /// the flight; the launch now resumes it (`resumeIfFlightRestored`). A launch without a flight asks the Watch for
+    /// nothing. (6.6.0)
+    func testARestoredFlightStreamsToTheWatchAgain() {
+        let watch = WatchConnectivityManager.shared
+        watch.stopUpdates()
+        addTeardownBlock { @MainActor in WatchConnectivityManager.shared.stopUpdates() }
+        let plans = makeTestPlanManager(datastore: datastore, defaults: defaults)
+
+        let idle = launch()
+        watch.resumeIfFlightRestored(appState: idle, locationManager: LocationManager(), flightPlanManager: plans)
+        XCTAssertFalse(watch.wantsUpdates, "No flight, nothing for the Watch")
+
+        let source = launch()
+        startWT9Flight(on: source)
+        source.saveActiveFlightState()
+        let relaunched = launch()
+        XCTAssertTrue(relaunched.isFlightActive, "Precondition: the flight is restored")
+        watch.resumeIfFlightRestored(appState: relaunched, locationManager: LocationManager(), flightPlanManager: plans)
+        XCTAssertTrue(watch.wantsUpdates, "The restored flight streams to the Watch, once there is one")
+
+        relaunched.clearActiveFlightState()
+        relaunched.isFlightActive = false
+        source.isFlightActive = false
+    }
 }

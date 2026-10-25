@@ -206,6 +206,17 @@ final class AviationWeatherServiceTests: XCTestCase {
         XCTAssertTrue(turbulence.ring.isEmpty, "an empty polygon is legal, not a decode failure")
     }
 
+    /// The worker writes JavaScript's ISO times, with milliseconds; AWC's own strings may come without. Both read, on
+    /// every system the app runs on (the stock strategy rejected the fraction on older ones). (6.6.0)
+    func testTheProxysTimesReadWithOrWithoutMilliseconds() throws {
+        struct Times: Decodable { let a: Date; let b: Date }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = AviationWeatherService.dateDecoding
+        let times = try decoder.decode(Times.self, from: Data(#"{"a":"2026-10-24T14:00:00.000Z","b":"2026-10-24T14:00:00Z"}"#.utf8))
+        XCTAssertEqual(times.a, times.b)
+        XCTAssertThrowsError(try decoder.decode(Times.self, from: Data(#"{"a":"tomorrow","b":"2026-10-24T14:00:00Z"}"#.utf8)))
+    }
+
     // MARK: - TAF decode contract
 
     func testTafDecodesItsForecastPeriods() throws {

@@ -33,6 +33,183 @@
         }
       }
     },
+    "%lld left": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Noch %lld offen"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Noch %lld offen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld left"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld left"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld à faire"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld à faire"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld left: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Noch %lld offen: %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Noch %lld offen: %@"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld left: %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld left: %@"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld à faire : %@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld à faire : %@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld more on the day: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Am Flugtag noch %lld: %@."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Am Flugtag noch %lld: %@."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld more on the day: %@."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld more on the day: %@."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld de plus le jour du vol : %@."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld de plus le jour du vol : %@."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld stop-and-go": {
       "localizations": {
         "de": {
@@ -331,6 +508,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vérifié à %@, à revérifier pour cette étape"
+          }
+        }
+      }
+    },
+    "Checked for flights to or from Switzerland only: see the AIP and the national customs authority": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur für Flüge in die oder aus der Schweiz geprüft: siehe AIP und nationale Zollbehörde"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifié seulement pour les vols vers ou depuis la Suisse : consultez l'AIP et la douane nationale"
           }
         }
       }
@@ -7530,19 +7723,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Seite pro Flug, und was als Nächstes zu tun ist, steht immer zuoberst."
+            "value": "Eine Seite pro Flug, und was noch offen ist, steht immer unter dem Titel."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One page per flight, with the next thing to do always at the top."
+            "value": "One page per flight, with what is left always under the title."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une page par vol, avec la prochaine chose à faire toujours en haut."
+            "value": "Une page par vol, avec ce qui reste toujours sous le titre."
           }
         }
       }
@@ -8473,19 +8666,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLUG BEENDEN hat den Flug in den ABSCHLUSS gebracht, wo Sie finden, was noch abzuschliessen ist. Hätten Sie einen ATC-Flugplan aufgegeben, käme sein Schliessen zuerst, in Rot, mit der Nummer, die Sie anrufen."
+            "value": "FLUG BEENDEN hat den Flug in den ABSCHLUSS gebracht: Die Seite öffnet jetzt bei Abschliessen, und die Zeile unter dem Titel zählt, was noch offen ist. Hätten Sie einen ATC-Flugplan aufgegeben, käme sein Schliessen zuerst, in Rot, mit der Nummer, die Sie anrufen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "END FLIGHT moved the flight to CLOSE-OUT, where you find what is left to close. If you had filed a flight plan, closing it would come first, in red, with the number to call."
+            "value": "END FLIGHT moved the flight to CLOSE-OUT: the page now opens on Close, and the line under the title counts what is left. If you had filed a flight plan, closing it would come first, in red, with the number to call."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TERMINER LE VOL a mis le vol en CLÔTURE, où vous trouvez ce qui reste à clore. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
+            "value": "TERMINER LE VOL a mis le vol en CLÔTURE : la page s’ouvre maintenant sur Clôturer, et la ligne sous le titre compte ce qui reste. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler."
           }
         }
       }
@@ -9301,19 +9494,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jeder Flug hat seine eigene Seite, von der Planung bis zum Flugbuch: der Flugverlauf. Seine vier Kapitel (Planen, Vorbereiten, Fliegen und Abschliessen) folgen dem Ablauf jedes Flugs, und ein Tippen auf eines führt Sie dorthin. Der Kreis oben zeigt, wie viel erledigt ist."
+            "value": "Jeder Flug hat seine eigene Seite, von der Planung bis zum Flugbuch: der Flugverlauf. Seine vier Kapitel (Planen, Vorbereiten, Fliegen und Abschliessen) folgen dem Ablauf jedes Flugs; offen sind die, in denen jetzt etwas zu tun ist, die anderen stehen auf einer Zeile. Die Zeile unter dem Titel sagt, wann Sie abfliegen und was noch offen ist."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Each flight has its own page, from the plan to the logbook: the flight thread. Its four chapters (Plan, Prepare, Fly and Close) follow the stages of every flight, and a tap on one takes you there. The circle at the top shows how much is done."
+            "value": "Each flight has its own page, from the plan to the logbook: the flight thread. Its four chapters (Plan, Prepare, Fly and Close) follow the stages of every flight; those with something to do now are open, the others are one line. The line under the title says when you leave and what is left."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chaque vol a sa page, du plan au carnet : le fil du vol. Ses quatre chapitres (Planifier, Préparer, Voler et Clôturer) suivent les étapes de chaque vol, et un appui sur l'un d'eux vous y mène. Le cercle en haut montre ce qui est fait."
+            "value": "Chaque vol a sa page, du plan au carnet : le fil du vol. Ses quatre chapitres (Planifier, Préparer, Voler et Clôturer) suivent les étapes de chaque vol ; ceux où il y a à faire maintenant sont ouverts, les autres tiennent sur une ligne. La ligne sous le titre dit quand vous partez et ce qui reste."
           }
         }
       }
@@ -9393,19 +9586,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aufgaben mit AUTO werden automatisch aus der Route und dem Flugzeug ausgefüllt. Tippen Sie auf «Treibstoffplan»."
+            "value": "Route und Treibstoff werden aus der Route und dem Flugzeug berechnet: Ihre Kreise sind gestrichelt, sie haken sich selbst ab. Tippen Sie auf «Treibstoff»."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AUTO rows are filled in automatically from the route and the aircraft. Tap the fuel plan."
+            "value": "Route and Fuel are worked out from the route and the aircraft: their circles are dashed, they tick themselves. Tap Fuel."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les lignes AUTO se remplissent automatiquement à partir de la route et de l'avion. Touchez le plan carburant."
+            "value": "Route et Carburant se calculent à partir de la route et de l’avion : leurs cercles sont en pointillé, ils se cochent tout seuls. Touchez Carburant."
           }
         }
       }
@@ -10060,19 +10253,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goldene Tasten bleiben in der App; blaue öffnen eine Website, mit einem Hinweis unter dem Namen, wenn es ein Konto braucht oder etwas kostet. Tippen Sie auf die markierte: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
+            "value": "Goldene Tasten bleiben in der App; blaue Zeilen öffnen eine Website, mit einem Hinweis neben dem Namen, wenn es ein Konto braucht oder etwas kostet. Tippen Sie auf die markierte: In einer Trockenübung sagt Ihnen die App nur, wohin es ginge."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gold buttons stay in the app; blue ones open a website, with a word under the name when it needs an account or costs money. Tap the ringed one: in a dry run, the app only tells you where it would go."
+            "value": "Gold buttons stay in the app; blue rows open a website, with a word beside the name when it needs an account or costs money. Tap the ringed one: in a dry run, the app only tells you where it would go."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les boutons dorés restent dans l'app ; les bleus ouvrent un site, avec un mot sous le nom s'il faut un compte ou s'il est payant. Touchez celui qui est entouré : en vol à blanc, l'app indique seulement où il mènerait."
+            "value": "Les boutons dorés restent dans l’app ; les lignes bleues ouvrent un site, avec un mot à côté du nom s’il faut un compte ou s’il est payant. Touchez celle qui est entourée : en vol à blanc, l’app indique seulement où elle mènerait."
           }
         }
       }
@@ -10382,19 +10575,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Was als Nächstes zu tun ist, steht immer zuoberst auf der Seite und auf Heute."
+            "value": "Was noch offen ist, steht immer in der Zeile unter dem Titel und auf Heute. Ein Tippen auf einen Eintrag führt Sie dorthin."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What to do next is always at the top of the page, and on Today."
+            "value": "What is left is always in the line under the title, and on Today. A tap on an item takes you to it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine chose à faire est toujours en haut de la page, et sur Aujourd'hui."
+            "value": "Ce qui reste est toujours dans la ligne sous le titre, et sur Aujourd’hui. Un appui sur un élément vous y mène."
           }
         }
       }
@@ -10405,19 +10598,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Nächste"
+            "value": "Was noch offen ist"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The next thing"
+            "value": "What is left"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La prochaine chose"
+            "value": "Ce qui reste"
           }
         }
       }
@@ -10428,19 +10621,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein lokaler Flug braucht keinen ATC-Flugplan: Drücken Sie lange auf «ATC-Flugplan aufgegeben» und wählen Sie dann «Entfällt»."
+            "value": "Ein lokaler Flug braucht keinen ATC-Flugplan: Drücken Sie lange auf «ATC-Flugplan» und wählen Sie dann «Entfällt»."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A local flight doesn't need a flight plan: long-press Flight plan filed, then choose Not applicable."
+            "value": "A local flight doesn't need a flight plan: long-press ATC flight plan, then choose Not applicable."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un vol local n'a pas besoin de plan de vol : touchez longuement Plan de vol ATC déposé, puis choisissez Non applicable."
+            "value": "Un vol local n’a pas besoin de plan de vol : touchez longuement Plan de vol ATC, puis choisissez Non applicable."
           }
         }
       }
@@ -10957,19 +11150,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sobald die NOTAM gelesen sind, haken Sie die zugehörige Aufgabe ab."
+            "value": "Sobald NOTAM und Luftraumstatus gelesen sind, haken Sie sie ab: ein Haken für alles."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Once the NOTAMs are read, tick their row."
+            "value": "Once the NOTAMs and the airspace activity are read, tick the block: one tick for all of them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une fois les NOTAM lus, cochez leur ligne."
+            "value": "Une fois les NOTAM et l’activité des espaces aériens lus, cochez le bloc : une seule coche pour tout."
           }
         }
       }
@@ -12262,6 +12455,1386 @@
         }
       }
     },
+    "flightPage.afterLanding": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach der Landung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After landing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après l’atterrissage"
+          }
+        }
+      }
+    },
+    "flightPage.block.fees": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landetaxe %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landing fee %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxe d’atterrissage %@"
+          }
+        }
+      }
+    },
+    "flightPage.block.flightPlan": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATC-Flugplan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATC flight plan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan de vol ATC"
+          }
+        }
+      }
+    },
+    "flightPage.block.fuel": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treibstoff"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant"
+          }
+        }
+      }
+    },
+    "flightPage.block.logbook": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugbucheintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logbook line"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne du carnet de vol"
+          }
+        }
+      }
+    },
+    "flightPage.block.navLog": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nav-Log"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nav log"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log de nav"
+          }
+        }
+      }
+    },
+    "flightPage.block.notams": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM und Luftraum"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAMs and airspace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM et espaces aériens"
+          }
+        }
+      }
+    },
+    "flightPage.block.route": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        }
+      }
+    },
+    "flightPage.chapterCount": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld von %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld sur %2$lld"
+          }
+        }
+      }
+    },
+    "flightPage.checkedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultés à %@"
+          }
+        }
+      }
+    },
+    "flightPage.closedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschlossen um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôturé à %@"
+          }
+        }
+      }
+    },
+    "flightPage.doneAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erledigt um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fait à %@"
+          }
+        }
+      }
+    },
+    "flightPage.doneBeforeFlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vor dem Flug erledigt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done before the flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fait avant le vol"
+          }
+        }
+      }
+    },
+    "flightPage.fileBeforeOffBlock": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vor dem Abflug aufgeben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "file before off-block"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à déposer avant le départ"
+          }
+        }
+      }
+    },
+    "flightPage.fileBy": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aufgeben bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "file by %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à déposer avant %@"
+          }
+        }
+      }
+    },
+    "flightPage.filedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgegeben um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filed at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déposé à %@"
+          }
+        }
+      }
+    },
+    "flightPage.flown": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geflogen %1$@ bis %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flown %1$@ to %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volé de %1$@ à %2$@"
+          }
+        }
+      }
+    },
+    "flightPage.item.border": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Grenze"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the border"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la frontière"
+          }
+        }
+      }
+    },
+    "flightPage.item.borderNamed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Grenze (%@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the border (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la frontière (%@)"
+          }
+        }
+      }
+    },
+    "flightPage.item.closeFlightPlan": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "den Flugplan schliessen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "close the flight plan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "clôturer le plan de vol"
+          }
+        }
+      }
+    },
+    "flightPage.item.fees": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Landetaxe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the landing fee"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la taxe d’atterrissage"
+          }
+        }
+      }
+    },
+    "flightPage.item.flightPlan": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "der Flugplan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the flight plan"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "le plan de vol"
+          }
+        }
+      }
+    },
+    "flightPage.item.flightPlanBy": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "der Flugplan bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the flight plan by %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "le plan de vol avant %@"
+          }
+        }
+      }
+    },
+    "flightPage.item.fuel": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "der Treibstoff"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the fuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "le carburant"
+          }
+        }
+      }
+    },
+    "flightPage.item.logbook": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "der Flugbucheintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the logbook line"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la ligne du carnet de vol"
+          }
+        }
+      }
+    },
+    "flightPage.item.massBalance": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masse und Schwerpunkt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mass and balance"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "masse et centrage"
+          }
+        }
+      }
+    },
+    "flightPage.item.navLog": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "das Nav-Log"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the nav log"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "le log de nav"
+          }
+        }
+      }
+    },
+    "flightPage.item.notams": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM und Luftraum"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAMs and airspace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM et espaces aériens"
+          }
+        }
+      }
+    },
+    "flightPage.item.ppr": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PPR %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PPR %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PPR %@"
+          }
+        }
+      }
+    },
+    "flightPage.item.reservation": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Reservation"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the booking"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la réservation"
+          }
+        }
+      }
+    },
+    "flightPage.item.route": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Route"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la route"
+          }
+        }
+      }
+    },
+    "flightPage.item.weather": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "das Wetter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weather"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "la météo"
+          }
+        }
+      }
+    },
+    "flightPage.noSigmet": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein SIGMET"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No SIGMET"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de SIGMET"
+          }
+        }
+      }
+    },
+    "flightPage.notApplicable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfällt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doesn't apply"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne s’applique pas"
+          }
+        }
+      }
+    },
+    "flightPage.notice": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voranmeldung %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "notice %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "annonce %@"
+          }
+        }
+      }
+    },
+    "flightPage.onTheDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Flugtag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the day of the flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le jour du vol"
+          }
+        }
+      }
+    },
+    "flightPage.onTheDayFor": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Flugtag: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the day of the flight: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le jour du vol : %@"
+          }
+        }
+      }
+    },
+    "flightPage.onTheDayShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "am Flugtag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on the day"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "le jour du vol"
+          }
+        }
+      }
+    },
+    "flightPage.planAndPrepare": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planen und Vorbereiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan and Prepare"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifier et Préparer"
+          }
+        }
+      }
+    },
+    "flightPage.purpose.airspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraumstatus"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace activity"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activité de l’espace aérien"
+          }
+        }
+      }
+    },
+    "flightPage.sigmet": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET"
+          }
+        }
+      }
+    },
+    "flightPage.status.closed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgeschlossen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôturé"
+          }
+        }
+      }
+    },
+    "flightPage.status.dayAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ um %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ at %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ à %2$@"
+          }
+        }
+      }
+    },
+    "flightPage.status.departureIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abflug in %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure in %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ dans %@"
+          }
+        }
+      }
+    },
+    "flightPage.status.departureNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abflug jetzt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ maintenant"
+          }
+        }
+      }
+    },
+    "flightPage.status.flownFromTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geflogen am %1$@, %2$@ bis %3$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flown on %1$@, %2$@ to %3$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volé le %1$@, de %2$@ à %3$@"
+          }
+        }
+      }
+    },
+    "flightPage.status.flying": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Flug"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En vol"
+          }
+        }
+      }
+    },
+    "flightPage.status.flyingSince": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Flug seit %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In flight since %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En vol depuis %@"
+          }
+        }
+      }
+    },
+    "flightPage.status.inTheCockpit": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Flug läuft im Cockpit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Cockpit has the flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le vol se suit dans le Cockpit."
+          }
+        }
+      }
+    },
+    "flightPage.status.landed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelandet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterri"
+          }
+        }
+      }
+    },
+    "flightPage.status.landedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelandet in %1$@ um %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landed at %1$@ at %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterri à %1$@ à %2$@"
+          }
+        }
+      }
+    },
+    "flightPage.status.landedIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelandet in %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landed at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atterri à %@"
+          }
+        }
+      }
+    },
+    "flightPage.status.nothingLeft": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts mehr offen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing left."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus rien à faire."
+          }
+        }
+      }
+    },
+    "flightPage.status.now": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenant : %@."
+          }
+        }
+      }
+    },
+    "flightPage.status.onTheDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Flugtag: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the day: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le jour du vol : %@."
+          }
+        }
+      }
+    },
+    "flightPage.status.ready": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · bereit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · ready"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · prêt"
+          }
+        }
+      }
+    },
+    "flightPage.status.todayAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aujourd’hui à %@"
+          }
+        }
+      }
+    },
+    "flightPage.status.tomorrowAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morgen um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demain à %@"
+          }
+        }
+      }
+    },
+    "flightPage.status.undated": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Abflugzeit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No departure time"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sans heure de départ"
+          }
+        }
+      }
+    },
+    "flightPage.wholeTrip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "für die ganze Reise"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "for the whole trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pour tout le voyage"
+          }
+        }
+      }
+    },
     "mapLayer.switzerlandOnly": {
       "extractionState": "manual",
       "localizations": {
@@ -12281,6 +13854,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ : Suisse seulement. Ici, %2$@."
+          }
+        }
+      }
+    },
+    "nav.usualStopHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Neuen Flug planen» beginnt mit diesem Zwischenhalt. Sie können ihn für den Tag noch ausschalten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan new flight starts with this stop on. You can still switch it off for the day."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifier un vol commence avec cette escale activée. Vous pouvez encore la désactiver pour ce jour-là."
+          }
+        }
+      }
+    },
+    "nav.whenRouteIsFlown": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn diese Route geflogen wird"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When this route is flown"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand cette route est volée"
           }
         }
       }
@@ -13512,6 +15131,52 @@
         }
       }
     },
+    "routes.stopAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Zwischenhalt in %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A stop at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une escale à %@"
+          }
+        }
+      }
+    },
+    "routes.stopsAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalte in %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stops at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escales à %@"
+          }
+        }
+      }
+    },
     "settings.flightLogging.confirmFlightEvents": {
       "extractionState": "manual",
       "localizations": {
@@ -13919,6 +15584,52 @@
         }
       }
     },
+    "thread.editDetailsHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datum, Flugzeug, Pilot, Treibstoff"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date, aircraft, pilot, fuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date, avion, pilote, carburant"
+          }
+        }
+      }
+    },
+    "thread.editMenu": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diesen Flug bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit this flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier ce vol"
+          }
+        }
+      }
+    },
     "thread.hint.flightPlanFiled": {
       "extractionState": "manual",
       "localizations": {
@@ -14103,29 +15814,6 @@
         }
       }
     },
-    "thread.weather.below": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unten: die Meldungen und das offizielle Briefing."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Below: the reports and the official briefing."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ci-dessous : les observations et le briefing officiel."
-          }
-        }
-      }
-    },
     "thread.weather.briefOfficially": {
       "extractionState": "manual",
       "localizations": {
@@ -14172,25 +15860,508 @@
         }
       }
     },
-    "thread.weather.notTicked": {
+    "trip.cancelConfirm.legFlown": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nicht abgehakt"
+            "value": "Etappe %1$lld · %2$@, geflogen: Ihr Flug bleibt im Flugbuch"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not ticked"
+            "value": "Leg %1$lld · %2$@, flown: its flight stays in the logbook"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pas cochée"
+            "value": "Étape %1$lld · %2$@, volée : son vol reste dans le carnet de vol"
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.legStays": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etappe %1$lld · %2$@ bleibt, bis ihr ATC-Flugplan geschlossen ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %1$lld · %2$@ stays until its ATC flight plan is closed."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’étape %1$lld · %2$@ reste jusqu’à la clôture de son plan de vol ATC."
+          }
+        }
+      }
+    },
+    "trip.cancelConfirm.messageStays": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Etappen der Reise werden gelöscht, mit ihren Seiten, Aufgaben und den für sie erstellten Kopien der Route:\n\n%1$@\n\n%2$@\n\nIhre Routen und das Flugbuch bleiben unberührt. Dies lässt sich nicht rückgängig machen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its legs are deleted, with their pages, tasks and the copies of the route made for them:\n\n%1$@\n\n%2$@\n\nYour routes and the logbook are not touched. This can't be undone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses étapes sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%1$@\n\n%2$@\n\nVos routes et le carnet de vol ne sont pas touchés. Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "trip.cancelFiledLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Flugplan für %@ ist ebenfalls aufgegeben: Stornieren Sie ihn dort, wo Sie ihn aufgegeben haben, sobald Sie am Boden sind."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The flight plan for %@ is filed too: cancel it where you filed it, once on the ground."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le plan de vol pour %@ est aussi déposé : annulez-le là où vous l’avez déposé, une fois au sol."
+          }
+        }
+      }
+    },
+    "trip.cancelLaterLegs": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streichen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel them"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les annuler"
+          }
+        }
+      }
+    },
+    "trip.cancelSkippedPlanBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er wurde für eine Etappe aufgegeben, die dieser Flug übersprungen hat. Stornieren Sie ihn dort, wo Sie ihn aufgegeben haben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was filed for a leg this flight skipped. Cancel it where you filed it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il a été déposé pour une étape que ce vol a sautée. Annulez-le là où vous l’avez déposé."
+          }
+        }
+      }
+    },
+    "trip.cancelSkippedPlanTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stornieren Sie den Flugplan für %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel the flight plan for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulez le plan de vol pour %@"
+          }
+        }
+      }
+    },
+    "trip.flyOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiterfliegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly on"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer"
+          }
+        }
+      }
+    },
+    "trip.flyOnConfirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter nach %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly on to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer vers %@"
+          }
+        }
+      }
+    },
+    "trip.flyOnMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Route führt weiter entlang der nächsten Etappe; %@ wird ein Wegpunkt. Die übersprungenen Etappen verlassen die Reise."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The route goes on along the next leg; %@ becomes a waypoint. The legs flown past leave the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La route continue le long de l’étape suivante ; %@ devient un point. Les étapes survolées quittent le voyage."
+          }
+        }
+      }
+    },
+    "trip.flyOnTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter nach %1$@, ohne Zwischenhalt in %2$@?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fly on to %1$@, without the stop at %2$@?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer vers %1$@ sans l’escale à %2$@ ?"
+          }
+        }
+      }
+    },
+    "trip.itWasADiversion": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es war ein Ausweichen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was a diversion"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C’était un déroutement"
+          }
+        }
+      }
+    },
+    "trip.keepLaterLegs": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Behalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep them"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les garder"
+          }
+        }
+      }
+    },
+    "trip.keepStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalt beibehalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the stop"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder l’escale"
+          }
+        }
+      }
+    },
+    "trip.landedAtLegDestination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie sind in %1$@ gelandet, dem Ziel der Etappe %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You landed at %1$@, leg %2$lld's destination"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez atterri à %1$@, destination de l’étape %2$lld"
+          }
+        }
+      }
+    },
+    "trip.laterLegsTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die weiteren Etappen der Reise streichen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel the trip's later legs?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler les étapes suivantes du voyage ?"
+          }
+        }
+      }
+    },
+    "trip.laterStops": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weitere Zwischenhalte der Reise"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later stops of the trip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escales suivantes du voyage"
+          }
+        }
+      }
+    },
+    "trip.legDestination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziel der Etappe %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg %lld's destination"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination de l’étape %lld"
+          }
+        }
+      }
+    },
+    "trip.skipStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalt in %@ überspringen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip the stop at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer l’escale à %@"
+          }
+        }
+      }
+    },
+    "trip.skipStopExplainer": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwischenhalt überspringen: Dieser Flug bleibt wie geflogen, und die Etappen bis %@ verlassen die Reise."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip the stop: this flight stays as flown, and the legs up to %@ leave the trip."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer l’escale : ce vol reste tel qu’il a été volé, et les étapes jusqu’à %@ quittent le voyage."
+          }
+        }
+      }
+    },
+    "trip.tellFISNewDestination": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr ATC-Flugplan ist nach %1$@ aufgegeben: Melden Sie dem FIS Ihr neues Ziel, %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your ATC flight plan is filed to %1$@: tell the FIS your new destination, %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre plan de vol ATC est déposé pour %1$@ : annoncez au FIS votre nouvelle destination, %2$@."
+          }
+        }
+      }
+    },
+    "trip.usualStop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "üblicher Zwischenhalt: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usual stop: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "escale habituelle : %@"
           }
         }
       }
@@ -14306,6 +16477,3548 @@
           "stringUnit": {
             "state": "translated",
             "value": "tour de piste à droite"
+          }
+        }
+      }
+    },
+    "wx.allRunways": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "alle Pisten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "all runways"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "toutes les pistes"
+          }
+        }
+      }
+    },
+    "wx.altimeter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höhenmesser %@ inHg"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "altimeter %@ inHg"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "altimètre %@ inHg"
+          }
+        }
+      }
+    },
+    "wx.atIntervalsBetween": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, mit Unterbrechungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, at intervals"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, par intermittence"
+          }
+        }
+      }
+    },
+    "wx.atTimesBetween": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, zeitweise"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, at times"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, temporairement"
+          }
+        }
+      }
+    },
+    "wx.becoming": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Übergang zu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Becoming"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devenant"
+          }
+        }
+      }
+    },
+    "wx.becomingBetween": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, Übergang zu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, becoming"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, devenant"
+          }
+        }
+      }
+    },
+    "wx.broken": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "durchbrochene Bewölkung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "broken clouds"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nuages fragmentés"
+          }
+        }
+      }
+    },
+    "wx.brokenAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "durchbrochen auf %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "broken at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nuages fragmentés à %@"
+          }
+        }
+      }
+    },
+    "wx.calm": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windstill"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent calme"
+          }
+        }
+      }
+    },
+    "wx.chance": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, Wahrscheinlichkeit %3$lld %%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, %3$lld %% chance"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, probabilité %3$lld %%"
+          }
+        }
+      }
+    },
+    "wx.chanceAtTimes": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, Wahrscheinlichkeit %3$lld %% zeitweise"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, %3$lld %% chance at times"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@–%2$@, probabilité %3$lld %% temporairement"
+          }
+        }
+      }
+    },
+    "wx.cloud": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wolken"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cloud"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nuages"
+          }
+        }
+      }
+    },
+    "wx.cloudAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wolken auf %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cloud at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nuages à %@"
+          }
+        }
+      }
+    },
+    "wx.clr": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine Wolken unter 12000 ft"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no cloud below 12000 ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pas de nuage sous 12000 ft"
+          }
+        }
+      }
+    },
+    "wx.falling": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sinkend"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "falling"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en baisse"
+          }
+        }
+      }
+    },
+    "wx.few": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "geringe Bewölkung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "few clouds"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "quelques nuages"
+          }
+        }
+      }
+    },
+    "wx.fewAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gering auf %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "few clouds at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "quelques nuages à %@"
+          }
+        }
+      }
+    },
+    "wx.from": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ab %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À partir de %@"
+          }
+        }
+      }
+    },
+    "wx.gusts": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Böen bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gusts %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rafales %@"
+          }
+        }
+      }
+    },
+    "wx.lessThan": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weniger als %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less than %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "moins de %@"
+          }
+        }
+      }
+    },
+    "wx.minimum": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min. %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min. %@"
+          }
+        }
+      }
+    },
+    "wx.minimumToward": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min. %1$@ %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min. %1$@ %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min. %1$@ %2$@"
+          }
+        }
+      }
+    },
+    "wx.moreThan": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mehr als %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "more than %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "plus de %@"
+          }
+        }
+      }
+    },
+    "wx.ncd": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine Wolken gemessen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no cloud detected"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aucun nuage détecté"
+          }
+        }
+      }
+    },
+    "wx.nosig": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine signifikante Änderung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no significant change"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aucun changement significatif prévu"
+          }
+        }
+      }
+    },
+    "wx.nsc": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine signifikante Bewölkung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no significant cloud"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pas de nuages significatifs"
+          }
+        }
+      }
+    },
+    "wx.nsw": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine signifikante Wettererscheinung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no significant weather"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aucun phénomène significatif"
+          }
+        }
+      }
+    },
+    "wx.orMore": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ oder mehr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ or more"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ou plus"
+          }
+        }
+      }
+    },
+    "wx.overcast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bedeckt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "overcast"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ciel couvert"
+          }
+        }
+      }
+    },
+    "wx.overcastAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bedeckt auf %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "overcast at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ciel couvert à %@"
+          }
+        }
+      }
+    },
+    "wx.phrase.BCFG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebelbänke"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fog patches"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bancs de brouillard"
+          }
+        }
+      }
+    },
+    "wx.phrase.BLDU": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staubtreiben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "blowing dust"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "chasse-poussière élevée"
+          }
+        }
+      }
+    },
+    "wx.phrase.BLSA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandtreiben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "blowing sand"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "chasse-sable élevée"
+          }
+        }
+      }
+    },
+    "wx.phrase.BLSN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneetreiben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "blowing snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "chasse-neige élevée"
+          }
+        }
+      }
+    },
+    "wx.phrase.BR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "feuchter Dunst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brume"
+          }
+        }
+      }
+    },
+    "wx.phrase.DRSN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneefegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "low drifting snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "chasse-neige basse"
+          }
+        }
+      }
+    },
+    "wx.phrase.DS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staubsturm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "duststorm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tempête de poussière"
+          }
+        }
+      }
+    },
+    "wx.phrase.DU": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staub"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "widespread dust"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poussière généralisée"
+          }
+        }
+      }
+    },
+    "wx.phrase.DZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bruine"
+          }
+        }
+      }
+    },
+    "wx.phrase.FC": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trombe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "funnel cloud"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "trombe"
+          }
+        }
+      }
+    },
+    "wx.phrase.FG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fog"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brouillard"
+          }
+        }
+      }
+    },
+    "wx.phrase.FU": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rauch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "smoke"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fumée"
+          }
+        }
+      }
+    },
+    "wx.phrase.FZDZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gefrierendes Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "freezing drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bruine givrante"
+          }
+        }
+      }
+    },
+    "wx.phrase.FZFG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gefrierender Nebel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "freezing fog"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brouillard givrant"
+          }
+        }
+      }
+    },
+    "wx.phrase.FZRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gefrierender Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "freezing rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie givrante"
+          }
+        }
+      }
+    },
+    "wx.phrase.GR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hagel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "grêle"
+          }
+        }
+      }
+    },
+    "wx.phrase.GS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Graupel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "small hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "grésil"
+          }
+        }
+      }
+    },
+    "wx.phrase.HZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "trockener Dunst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "haze"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brume sèche"
+          }
+        }
+      }
+    },
+    "wx.phrase.IC": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eisnadeln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ice crystals"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poudrin de glace"
+          }
+        }
+      }
+    },
+    "wx.phrase.MIFG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bodennebel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "shallow fog"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brouillard bas"
+          }
+        }
+      }
+    },
+    "wx.phrase.PL": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eiskörner"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ice pellets"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "granules de glace"
+          }
+        }
+      }
+    },
+    "wx.phrase.PO": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staub- oder Sandwirbel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dust or sand whirls"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tourbillons de poussière ou de sable"
+          }
+        }
+      }
+    },
+    "wx.phrase.PRFG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stellenweise Nebel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "partial fog"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brouillard partiel"
+          }
+        }
+      }
+    },
+    "wx.phrase.RA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie"
+          }
+        }
+      }
+    },
+    "wx.phrase.RADZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regen mit Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rain and drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie et bruine"
+          }
+        }
+      }
+    },
+    "wx.phrase.RASN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneeregen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rain and snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie et neige"
+          }
+        }
+      }
+    },
+    "wx.phrase.SA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sand"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sand"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sable"
+          }
+        }
+      }
+    },
+    "wx.phrase.SG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneegriesel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "snow grains"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neige en grains"
+          }
+        }
+      }
+    },
+    "wx.phrase.SHGR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hagelschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hail showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de grêle"
+          }
+        }
+      }
+    },
+    "wx.phrase.SHGS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Graupelschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "showers of small hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de grésil"
+          }
+        }
+      }
+    },
+    "wx.phrase.SHRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regenschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rain showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de pluie"
+          }
+        }
+      }
+    },
+    "wx.phrase.SHRASN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneeregenschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "showers of rain and snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de pluie et neige"
+          }
+        }
+      }
+    },
+    "wx.phrase.SHSN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneeschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "snow showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de neige"
+          }
+        }
+      }
+    },
+    "wx.phrase.SN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schneefall"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neige"
+          }
+        }
+      }
+    },
+    "wx.phrase.SQ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "markante Böen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "squalls"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "grains"
+          }
+        }
+      }
+    },
+    "wx.phrase.SS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandsturm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sandstorm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tempête de sable"
+          }
+        }
+      }
+    },
+    "wx.phrase.TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage"
+          }
+        }
+      }
+    },
+    "wx.phrase.TSGR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter mit Hagel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm with hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage avec grêle"
+          }
+        }
+      }
+    },
+    "wx.phrase.TSGS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter mit Graupel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm with small hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage avec grésil"
+          }
+        }
+      }
+    },
+    "wx.phrase.TSRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter mit Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm with rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage avec pluie"
+          }
+        }
+      }
+    },
+    "wx.phrase.UP": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unbekannter Niederschlag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown precipitation"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "précipitations non identifiées"
+          }
+        }
+      }
+    },
+    "wx.phrase.VA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vulkanasche"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "volcanic ash"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cendres volcaniques"
+          }
+        }
+      }
+    },
+    "wx.phrase.VCFG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebel in der Nähe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fog in the vicinity"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brouillard au voisinage"
+          }
+        }
+      }
+    },
+    "wx.phrase.VCSH": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schauer in der Nähe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "showers in the vicinity"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses au voisinage"
+          }
+        }
+      }
+    },
+    "wx.phrase.VCTS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter in der Nähe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm in the vicinity"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage au voisinage"
+          }
+        }
+      }
+    },
+    "wx.phrase.heavy_DZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starkes Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "heavy drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bruine forte"
+          }
+        }
+      }
+    },
+    "wx.phrase.heavy_RA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starker Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "heavy rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie forte"
+          }
+        }
+      }
+    },
+    "wx.phrase.heavy_SHRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starke Regenschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "heavy rain showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de pluie fortes"
+          }
+        }
+      }
+    },
+    "wx.phrase.heavy_SHSN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starke Schneeschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "heavy snow showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de neige fortes"
+          }
+        }
+      }
+    },
+    "wx.phrase.heavy_SN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starker Schneefall"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "heavy snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neige forte"
+          }
+        }
+      }
+    },
+    "wx.phrase.heavy_TSRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter mit starkem Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm with heavy rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage avec pluie forte"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_DZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwaches Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bruine faible"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_FZDZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwaches gefrierendes Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light freezing drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bruine givrante faible"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_FZRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwacher gefrierender Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light freezing rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie givrante faible"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_PL": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwache Eiskörner"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light ice pellets"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "granules de glace faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_RA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwacher Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie faible"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_RADZ": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwacher Regen mit Nieseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light rain and drizzle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie et bruine faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_RASN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwacher Schneeregen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light rain and snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pluie et neige faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_SG": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwacher Schneegriesel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light snow grains"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neige en grains faible"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_SHGS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwache Graupelschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light showers of small hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de grésil faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_SHRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwache Regenschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light rain showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de pluie faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_SHRASN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwache Schneeregenschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light showers of rain and snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de pluie et neige faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_SHSN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwache Schneeschauer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light snow showers"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "averses de neige faibles"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_SN": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "schwacher Schneefall"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "light snow"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neige faible"
+          }
+        }
+      }
+    },
+    "wx.phrase.light_TSRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitter mit schwachem Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "thunderstorm with light rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "orage avec pluie faible"
+          }
+        }
+      }
+    },
+    "wx.qnh": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QNH %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QNH %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QNH %@"
+          }
+        }
+      }
+    },
+    "wx.rawReports": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rohmeldungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raw reports"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages bruts"
+          }
+        }
+      }
+    },
+    "wx.recent": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kürzlich: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "recent %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "récent : %@"
+          }
+        }
+      }
+    },
+    "wx.rising": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "steigend"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rising"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en hausse"
+          }
+        }
+      }
+    },
+    "wx.rvr": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RVR %1$@: %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RVR %1$@: %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RVR %1$@ : %2$@"
+          }
+        }
+      }
+    },
+    "wx.scattered": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aufgelockerte Bewölkung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "scattered clouds"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nuages épars"
+          }
+        }
+      }
+    },
+    "wx.scatteredAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aufgelockert auf %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "scattered at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nuages épars à %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.EMBD_TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingelagerte Gewitter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Embedded thunderstorms"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages noyés dans la masse"
+          }
+        }
+      }
+    },
+    "wx.sigmet.EMBD_TSGR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingelagerte Gewitter mit Hagel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Embedded thunderstorms with hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages noyés dans la masse avec grêle"
+          }
+        }
+      }
+    },
+    "wx.sigmet.FRQ_TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Häufige Gewitter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frequent thunderstorms"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages fréquents"
+          }
+        }
+      }
+    },
+    "wx.sigmet.FRQ_TSGR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Häufige Gewitter mit Hagel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frequent thunderstorms with hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages fréquents avec grêle"
+          }
+        }
+      }
+    },
+    "wx.sigmet.HVY_DS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starker Staubsturm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heavy duststorm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempête de poussière forte"
+          }
+        }
+      }
+    },
+    "wx.sigmet.HVY_SS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starker Sandsturm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heavy sandstorm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempête de sable forte"
+          }
+        }
+      }
+    },
+    "wx.sigmet.ISOL_TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vereinzelte Gewitter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isolated thunderstorms"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages isolés"
+          }
+        }
+      }
+    },
+    "wx.sigmet.OBSC_TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verborgene Gewitter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obscured thunderstorms"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages obscurcis"
+          }
+        }
+      }
+    },
+    "wx.sigmet.OBSC_TSGR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verborgene Gewitter mit Hagel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obscured thunderstorms with hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages obscurcis avec grêle"
+          }
+        }
+      }
+    },
+    "wx.sigmet.OCNL_TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelegentliche Gewitter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occasional thunderstorms"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages occasionnels"
+          }
+        }
+      }
+    },
+    "wx.sigmet.SEV_ICE": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starke Vereisung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Severe icing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Givrage fort"
+          }
+        }
+      }
+    },
+    "wx.sigmet.SEV_ICE_FZRA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starke Vereisung durch gefrierenden Regen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Severe icing due to freezing rain"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Givrage fort dû à la pluie se congelant"
+          }
+        }
+      }
+    },
+    "wx.sigmet.SEV_MTW": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starke Leewellen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Severe mountain wave"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onde orographique forte"
+          }
+        }
+      }
+    },
+    "wx.sigmet.SEV_TURB": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starke Turbulenz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Severe turbulence"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turbulence forte"
+          }
+        }
+      }
+    },
+    "wx.sigmet.SQL_TS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitterlinie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squall line thunderstorms"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages en ligne de grains"
+          }
+        }
+      }
+    },
+    "wx.sigmet.SQL_TSGR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gewitterlinie mit Hagel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squall line thunderstorms with hail"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages en ligne de grains avec grêle"
+          }
+        }
+      }
+    },
+    "wx.sigmet.VA": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vulkanasche"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volcanic ash"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cendres volcaniques"
+          }
+        }
+      }
+    },
+    "wx.sigmet.above": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "über %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "above %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "au-dessus du %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.below": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unter %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "below %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "au-dessous du %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.cyclone": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tropischer Wirbelsturm %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tropical cyclone %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cyclone tropical %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.fir": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIR %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ FIR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIR %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.forecast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (Vorhersage)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, forecast"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (prévision)"
+          }
+        }
+      }
+    },
+    "wx.sigmet.fromHeight": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.fromLevel": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "du %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.fromSurface": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vom Boden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "surface"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "du sol"
+          }
+        }
+      }
+    },
+    "wx.sigmet.intensifying": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zunehmend"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "intensifying"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "s’intensifiant"
+          }
+        }
+      }
+    },
+    "wx.sigmet.moving": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verlagerung nach %1$@ mit %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "moving %1$@ %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "déplacement vers %1$@ à %2$@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.movingToward": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verlagerung nach %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "moving %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "déplacement vers %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.noChange": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unverändert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no change"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sans changement"
+          }
+        }
+      }
+    },
+    "wx.sigmet.observed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (Beobachtung)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, observed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (observation)"
+          }
+        }
+      }
+    },
+    "wx.sigmet.stationary": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stationär"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stationary"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stationnaire"
+          }
+        }
+      }
+    },
+    "wx.sigmet.toHeight": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.toLevel": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "au %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.top": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obergrenze %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "top %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sommet au %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.topAbove": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obergrenze über %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "top above %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sommet au-dessus du %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.topBelow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obergrenze unter %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "top below %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sommet au-dessous du %@"
+          }
+        }
+      }
+    },
+    "wx.sigmet.vaVolcano": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vulkanasche (%@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volcanic ash (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cendres volcaniques (%@)"
+          }
+        }
+      }
+    },
+    "wx.sigmet.weakening": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "abnehmend"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weakening"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "s’atténuant"
+          }
+        }
+      }
+    },
+    "wx.skc": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wolkenlos"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sky clear"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pas de nuages"
+          }
+        }
+      }
+    },
+    "wx.skyObscured": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Himmel nicht erkennbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sky obscured"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ciel invisible"
+          }
+        }
+      }
+    },
+    "wx.temperature": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ °C"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ °C"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ °C"
+          }
+        }
+      }
+    },
+    "wx.temperatureDewpoint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ °C, Taupunkt %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ °C, dew point %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ °C, point de rosée %2$@"
+          }
+        }
+      }
+    },
+    "wx.temporarily": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeitweise"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temporarily"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temporairement"
+          }
+        }
+      }
+    },
+    "wx.trendAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "at %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à %@"
+          }
+        }
+      }
+    },
+    "wx.trendFrom": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ab %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à partir de %@"
+          }
+        }
+      }
+    },
+    "wx.trendUntil": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "until %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "jusqu’à %@"
+          }
+        }
+      }
+    },
+    "wx.until": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bis %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Until %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu’à %@"
+          }
+        }
+      }
+    },
+    "wx.utc": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ UTC"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ UTC"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ UTC"
+          }
+        }
+      }
+    },
+    "wx.verticalVisibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vertikalsicht %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vertical visibility %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "visibilité verticale %@"
+          }
+        }
+      }
+    },
+    "wx.wind": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wind %1$@° %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wind %1$@° %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent %1$@° %2$@"
+          }
+        }
+      }
+    },
+    "wx.windShear": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windscherung %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "wind shear %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cisaillement de vent %@"
+          }
+        }
+      }
+    },
+    "wx.windVariable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wind variabel %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wind variable %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vent variable %@"
           }
         }
       }
@@ -19996,98 +25709,6 @@
         }
       }
     },
-    "tripCard.nextForLeg": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Als Nächstes: %1$@ für Etappe %2$d"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next: %1$@ for leg %2$d"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suivant : %1$@ pour l'étape %2$d"
-          }
-        }
-      }
-    },
-    "tripCard.nextForTrip": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Als Nächstes: %@ für die Reise"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next: %@ for the trip"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suivant : %@ pour le voyage"
-          }
-        }
-      }
-    },
-    "tripCard.legAllTicked": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Etappe %d: alles abgehakt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Leg %d: everything ticked"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Étape %d : tout est coché"
-          }
-        }
-      }
-    },
-    "tripCard.tripChecks": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d/%2$d gemeinsame Aufgaben erledigt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d/%2$d trip checks done"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d/%2$d vérifications du voyage faites"
-          }
-        }
-      }
-    },
     "tripCard.startLeg": {
       "extractionState": "manual",
       "localizations": {
@@ -20199,29 +25820,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d sur %2$d faits"
-          }
-        }
-      }
-    },
-    "flightsPage.progressNext": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d von %2$d · als Nächstes: %3$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d of %2$d · next: %3$@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d sur %2$d · suivant : %3$@"
           }
         }
       }
@@ -22637,87 +28235,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Changer d’avion"
-          }
-        }
-      }
-    },
-    "%lld done" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld erledigt"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld erledigt"
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld done"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld done"
-                }
-              }
-            }
-          }
-        },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld fait"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld faits"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld of %lld closed": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld von %lld abgeschlossen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld of %lld closed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld sur %lld clôturés"
           }
         }
       }
@@ -25761,29 +31278,6 @@
         }
       }
     },
-    "trip.cancelConfirm.messageKeepsFlown": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die noch nicht geflogenen Etappen werden gelöscht, mit ihren Seiten, Aufgaben und den für sie erstellten Kopien der Route:\n\n%@\n\nDie bereits geflogenen Etappen bleiben, mit ihren Flügen im Flugbuch. Ihre Routen bleiben unberührt. Dies lässt sich nicht rückgängig machen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The legs not flown yet are deleted, with their pages, tasks and the copies of the route made for them:\n\n%@\n\nThe legs already flown stay, with their flights in the logbook. Your routes are not touched. This can't be undone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les étapes pas encore volées sont supprimées, avec leurs pages, leurs tâches et les copies de la route faites pour elles :\n\n%@\n\nLes étapes déjà volées restent, avec leurs vols dans le carnet de vol. Vos routes ne sont pas touchées. Cette action est irréversible."
-          }
-        }
-      }
-    },
     "trip.estimated": {
       "extractionState": "manual",
       "localizations": {
@@ -27665,38 +33159,6 @@
         }
       }
     },
-    "Next: %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als Nächstes: %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant : %@"
-          }
-        }
-      }
-    },
-    "Next: %@ · %lld open in Plan and Prepare" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als Nächstes: %1$@ · %2$lld offen in Planen und Vorbereiten"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant : %1$@ · %2$lld ouvert(s) dans Planifier et Préparer"
-          }
-        }
-      }
-    },
     "Show on map" : {
       "localizations" : {
         "de" : {
@@ -29473,22 +34935,6 @@
         }
       }
     },
-    "TRIP · %lld of %lld" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "REISE · %1$lld von %2$lld"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VOYAGE · %1$lld sur %2$lld"
-          }
-        }
-      }
-    },
     "Flights" : {
       "localizations" : {
         "de" : {
@@ -29677,22 +35123,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld sur %lld faits"
-          }
-        }
-      }
-    },
-    "Next" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Als Nächstes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant"
           }
         }
       }
@@ -48161,19 +53591,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weder ein Meldepunkt noch eine Navigationshilfe passt zu «%@»."
+            "value": "Kein Flugplatz, Meldepunkt oder Navigationshilfe passt zu «%@»."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No reporting point or navaid matches “%@”."
+            "value": "No aerodrome, reporting point or navaid matches “%@”."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun point de report ni balise ne correspond à « %@ »."
+            "value": "Aucun aérodrome, point de report ni balise ne correspond à « %@ »."
           }
         }
       }
@@ -48253,19 +53683,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Meldepunkt oder Navigationshilfe"
+            "value": "Flugplatz, Meldepunkt oder Navigationshilfe"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reporting point or navaid"
+            "value": "Aerodrome, reporting point or navaid"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Point de report ou balise"
+            "value": "Aérodrome, point de report ou balise"
           }
         }
       }
@@ -51656,52 +57086,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Forcer 'Non abonné' : Ignore le statut réel de l'abonnement et prétend que vous n'êtes pas abonné. Utile pour tester l'expérience gratuite même avec un abonnement actif."
-          }
-        }
-      }
-    },
-    "settings.developer.marketingMode": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing-Modus"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing Mode"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mode marketing"
-          }
-        }
-      }
-    },
-    "settings.developer.marketingModeDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing-Modus: Wenn eingeschaltet, schütteln Sie Ihr Gerät, um die Marketing-Steuerelemente für den Standort einzublenden. So können Sie GPS-Positionen für Bildschirmfotos simulieren."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mode marketing : Lorsqu'activé, secouez votre appareil pour afficher les contrôles de localisation marketing. Cela vous permet de simuler des positions GPS pour prendre des captures d'écran."
           }
         }
       }

@@ -99,6 +99,12 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
         var prohibited: Link?
         /// When the entry was last checked by hand, "2026-10-18".
         var reviewed: String?
+        /// How long before off-block a VFR flight plan must be filed when departing the country, from its AIP
+        /// (ENR 1.10); nil where it states none. The flight plan block's "file by 13:30". (6.6.0, f7 A)
+        var filingLeadMinutes: Int?
+        /// A shorter time the AIP sets for a VFR flight wholly within the country (France's 30 minutes); nil where it
+        /// sets none or the app couldn't tell such a flight. (6.6.0)
+        var filingLeadMinutesDomestic: Int?
 
         func links(_ category: Category) -> [Link] {
             switch category {
@@ -273,6 +279,10 @@ extension BriefingRegistry.Country {
         activation = (try? c.decodeIfPresent(String.self, forKey: .activation)).flatMap { $0 }
         prohibited = (try? c.decodeIfPresent(BriefingRegistry.Link.self, forKey: .prohibited)).flatMap { $0 }
         reviewed = (try? c.decodeIfPresent(String.self, forKey: .reviewed)).flatMap { $0 }
+        filingLeadMinutes = (try? c.decodeIfPresent(Int.self, forKey: .filingLeadMinutes)).flatMap { $0 }
+            .flatMap { (1...1440).contains($0) ? $0 : nil }
+        filingLeadMinutesDomestic = (try? c.decodeIfPresent(Int.self, forKey: .filingLeadMinutesDomestic)).flatMap { $0 }
+            .flatMap { (1...1440).contains($0) ? $0 : nil }
     }
 }
 

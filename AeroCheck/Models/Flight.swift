@@ -101,6 +101,27 @@ extension FlightClock {
         virtual?.now ?? Date()
     }
 
+    /// Now for the times a screen shows of the world outside the flight (the weather's "as of", a TAF's periods): the
+    /// wall clock, never a dry run's. A DEBUG build launched with the capture clock (`AEROCHECK_CLOCK`) reads that one,
+    /// so a screenshot's weather is at 9:41 too, as its status bar. (screenshot tour, 24 Oct 2026)
+    static var displayNow: Date {
+        #if DEBUG
+        if let capture = captureClock { return capture.now }
+        #endif
+        return Date()
+    }
+
+    /// The capture clock's own start, 9:41:00 to the second; nil without one, and always in a Release build. A scene's
+    /// ticks are dated by it, so a scene that takes a minute to come up on a busy Mac still reads "Briefed at 9:41".
+    /// (screenshot tour, 25 Oct 2026)
+    static var captureStart: Date? {
+        #if DEBUG
+        return captureClock?.virtualAnchor
+        #else
+        return nil
+        #endif
+    }
+
     /// The pilot's seconds since `date`, a time on this clock: what an undo toast's six seconds are
     /// counted in, whatever pace the flight runs at. Each stretch of the clock counts at its own rate (a
     /// dry run sped up from 4× to 10× counts the time at 4× at 4×), a pause counts for nothing, and the
@@ -168,6 +189,9 @@ extension FlightClock {
     }
 
     #if DEBUG
+    /// The capture clock of this launch, whatever else runs (a dry run, a ground replay): `displayNow`'s.
+    private static let captureClock = captureClockAtLaunch()
+
     /// DEV-ONLY: the screenshots' clock, `AEROCHECK_CLOCK=09:41`: today at that time, at the wall clock's pace, so
     /// the in-flight times (the ETA, the leg timer, a check's time) agree with the status bar's 9:41 whatever the
     /// hour of the capture. The scenes and the dry run read it (`MarketingSceneInjector`, `DryRunSession`). (6.4.3)

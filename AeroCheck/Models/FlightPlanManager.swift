@@ -1282,6 +1282,17 @@ class FlightPlanManager: ObservableObject {
         resetChronometer()
     }
 
+    /// In flight, on past the stop: the route goes on along `next` (the leg after it, or the legs joined up to the stop
+    /// flown to), its stop a waypoint, the passages so far kept. Nothing administrative moves here: the trip's legs and
+    /// tasks are `FlightCreator.flyOn`'s. (6.6.0, the author's t3 A)
+    func flyOn(along next: FlightPlan) {
+        guard let plan = activeFlightPlan else { return }
+        var joined = TripPlanner.join(plan, next)
+        joined.currentWaypointIndex = plan.currentWaypointIndex
+        autoMarkNotice = nil
+        commitActive(joined)
+    }
+
     /// Write an edited active plan back everywhere it lives.
     private func commitActive(_ plan: FlightPlan) {
         activeFlightPlan = plan

@@ -567,6 +567,14 @@ final class CockpitPilot {
         return value
     }
 
+    /// ROUTE's DEST line as spoken ("Destination LSZG, …"): which field the flight is going to. (6.6.0)
+    func destinationLabel() -> String? {
+        openLegs()
+        let e = element("dest.line")
+        guard e.waitForExistence(timeout: 3) else { return nil }
+        return snap(e)?.label
+    }
+
     /// A row of the legs list: "next", "passed", "ahead", and whether it has a time over.
     func leg(_ index: Int) -> (state: String, hasATO: Bool)? {
         guard let e = snap(element(prefix: "legRow.\(index).")) else { return nil }

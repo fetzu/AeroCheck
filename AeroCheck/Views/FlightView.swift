@@ -1442,6 +1442,7 @@ extension FlightView {
 
     private var cockpitVSpeedsChip: some View {
         CockpitChip(title: "V-SPEEDS", icon: "speedometer") { openReference(.vSpeeds) }
+            .accessibilityIdentifier("cockpit.vspeeds")
     }
 
     @ViewBuilder
@@ -1631,6 +1632,7 @@ extension FlightView {
                 })
             }
             .background(theme.background)
+            .accessibilityIdentifier("cockpit.list")
             // Open on the current item: on the phone, a few checked rows are enough to push it below
             // the fold. (iPhone pass)
             .onAppear {

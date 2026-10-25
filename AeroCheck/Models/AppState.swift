@@ -391,9 +391,6 @@ struct AppSettings: Codable, Equatable {
     var enableCompanionMode: Bool = false // When true, companion connectivity is available
     var companionRole: CompanionRoleSetting = .auto // DEPRECATED (v4.1): role is now auto by device type; retained for decode compat only
 
-    // Marketing mode is NOT persisted - it resets to false on app restart
-    var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
-
     // Developer mode is NOT persisted - revealed by tapping the version 5× in About, it resets to false
     // on app restart. Gates developer-only surfaces for the current run (e.g. the Companion diagnostics
     // panel). (v4.1)
@@ -431,7 +428,7 @@ struct AppSettings: Codable, Equatable {
         return selectedAircraft.registration
     }
 
-    // Custom coding keys to exclude marketingMode from persistence
+    // Custom coding keys to exclude developerMode from persistence
     enum CodingKeys: String, CodingKey {
         case selectedAircraft
         case selectedRemoteAircraftId
@@ -478,7 +475,7 @@ struct AppSettings: Codable, Equatable {
         case schemaVersion
         case isStudentPilot, instructorName
         case homeAerodromeCode = "homeAerodromeIdent"
-        // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
+        // developerMode is intentionally excluded (non-persisted, reset each launch)
     }
 
     /// Legacy keys read only for backward-compatible migration (not encoded).
@@ -558,7 +555,7 @@ struct AppSettings: Codable, Equatable {
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
-        // marketingMode and developerMode intentionally excluded - always default to false each launch
+        // developerMode intentionally excluded - always defaults to false each launch
         // v5.0.0 numbers. Absent on every existing save; empty dictionaries mean "not set up yet",
         // which is exactly how the calculators treat them.
         pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
@@ -1016,13 +1013,6 @@ class AppState {
         if fredaConfirmation?.id == id { fredaConfirmation = nil }
     }
 
-    #if DEBUG
-    /// DEV-ONLY (`AEROCHECK_FREDA`, captures): FREDA's count as if the cruise check was done at `date`.
-    func startFredaForCapture(at date: Date) {
-        guard fredaApplies else { return }
-        freda.start(at: date, after: .cruiseCheck)
-    }
-    #endif
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// no GPS fix has come yet). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     var flightStartError: String?
@@ -1382,7 +1372,6 @@ class AppState {
             // balance profiles and hourly rates for every device. (v4.1 + review F8)
             var merged = self.settings.preservingFieldsUnknownTo(settings)
             merged.developerMode = self.settings.developerMode
-            merged.marketingMode = self.settings.marketingMode
             // Where this device keeps its data is its own choice, never another device's.
             merged.iCloudSyncEnabled = self.settings.iCloudSyncEnabled
             self.settings = merged
@@ -2594,23 +2583,6 @@ class AppState {
         flightCues.resolve(.landing)
         recordCheck(CheckRecord(phase: .landing, kind: status == .notSure ? .notSure : .confirmedAfterLanding, at: FlightClock.now))
     }
-
-    #if DEBUG
-    /// DEV-ONLY (`AEROCHECK_CUES`, captures): the cues of a leg, and a check owed, without a detector.
-    func applyCuesForCapture(_ cues: [FlightCue], owed: [ChecklistPhase: FlightCue] = [:], at time: Date = Date()) {
-        noteFlightCue(FlightCueEvent(kind: .leg, time: time.addingTimeInterval(-600), implied: false, aerodrome: nil))
-        for (i, cue) in cues.enumerated() {
-            noteFlightCue(FlightCueEvent(kind: .fired(cue), time: time.addingTimeInterval(Double(i - cues.count) * 60),
-                                         implied: false, aerodrome: nil))
-        }
-        for (phase, cue) in owed { flightCues.owe(phase, cue: cue, at: time) }
-    }
-
-    /// DEV-ONLY (`AEROCHECK_SCENE=landed`): the landed card up.
-    func presentLandedCardForCapture(touchdown: Date, aerodrome: String) {
-        landedCard = LandedCard(touchdown: touchdown, aerodrome: aerodrome)
-    }
-    #endif
 
     /// The items of the current phase deferred with DEFER, for drawing them as deferred rather than done.
     var currentPhaseDeferredIds: Set<String> {

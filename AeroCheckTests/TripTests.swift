@@ -188,6 +188,47 @@ final class TripTests: XCTestCase {
         }
     }
 
+    /// Each leg has the border block of where it lands (6.6.0): France out, Switzerland back, never Germany, 10 NM off
+    /// both.
+    @MainActor
+    func testEachLegHasTheBorderBlockOfWhereItLands() {
+        let bressaucourt = FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.392408, longitude: 7.028956))
+        let colmar = FlightPlanWaypoint(name: "LFGA", coordinate: .init(latitude: 48.109901, longitude: 7.35901))
+        var out = FlightPlan(name: "LSZQ → LFGA")
+        out.waypoints = [bressaucourt, colmar]
+        var back = FlightPlan(name: "LFGA → LSZQ")
+        back.waypoints = [colmar, bressaucourt]
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: out)
+        let b = m.createThread(from: back)
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        XCTAssertNotNil(m.formTrip(from: [a.id, b.id]))
+
+        XCTAssertEqual(m.thread(withId: a.id)?.borderCountries, ["FR"])
+        XCTAssertEqual(m.thread(withId: b.id)?.borderCountries, ["CH"])
+        XCTAssertNil(m.trip(forThreadId: a.id)?.sharedTasks.first { $0.key == .customsNotified }, "a border is a leg's")
+    }
+
+    /// LSZQ → LFGA → EDTF: France on leg 1; leg 2, between two EU countries in Schengen, none. (6.6.0)
+    @MainActor
+    func testALegInsideTheEUAndSchengenHasNoBorderBlock() {
+        let colmar = FlightPlanWaypoint(name: "LFGA", coordinate: .init(latitude: 48.109901, longitude: 7.35901))
+        var out = FlightPlan(name: "LSZQ → LFGA")
+        out.waypoints = [FlightPlanWaypoint(name: "LSZQ", coordinate: .init(latitude: 47.392408, longitude: 7.028956)), colmar]
+        var on = FlightPlan(name: "LFGA → EDTF")
+        on.waypoints = [colmar, FlightPlanWaypoint(name: "EDTF", coordinate: .init(latitude: 48.022778, longitude: 7.8325))]
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: out)
+        let b = m.createThread(from: on)
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        XCTAssertNotNil(m.formTrip(from: [a.id, b.id]))
+
+        XCTAssertEqual(m.thread(withId: a.id)?.borderCountries, ["FR"])
+        XCTAssertEqual(m.thread(withId: b.id)?.borderCountries, [])
+    }
+
     @MainActor
     func testATripNeedsTwoLegs() {
         let m = makeTestThreadManager()
@@ -337,6 +378,69 @@ extension TripTests {
                        "a tick made from this leg covers this leg, whatever the clock says")
         XCTAssertEqual(trip.tasks(forLegDeparting: departure, legId: legA).first?.state, .pending,
                        "and only that leg — the others still go stale on their own terms")
+    }
+
+    // MARK: - A later leg's weather (6.6.0, the author's R A)
+
+    /// The weather ticked from leg 1 is leg 2's to check again, an hour later or not; the NOTAMs ticked with it still
+    /// cover leg 2 within six hours of the same UTC day. Leg 1 sees its own tick.
+    func testALaterLegChecksTheWeatherAgainButNotTheNotams() {
+        let legA = UUID(), legB = UUID()
+        var trip = Trip(legIds: [legA, legB])
+        trip.sharedTasks = [ThreadTaskKey.weatherBriefed, .gaforChecked, .notamChecked].map { key in
+            var task = ThreadTask(key: key, kind: .check)
+            task.state = .done
+            task.completedAt = utc("2026-09-12T08:00:00Z")
+            task.acknowledgedLegIds = [legA]
+            return task
+        }
+        let legB09 = trip.tasks(forLegDeparting: utc("2026-09-12T09:00:00Z"), legId: legB)
+        XCTAssertEqual(legB09.filter { $0.key.isWeatherBlock }.map(\.state), [.pending, .pending])
+        XCTAssertTrue(legB09.filter { $0.key.isWeatherBlock }.allSatisfy { $0.completedAt != nil },
+                      "kept: “Checked at 08:00, re-check for this leg”")
+        XCTAssertEqual(legB09.first { $0.key == .notamChecked }?.state, .done)
+        XCTAssertTrue(trip.tasks(forLegDeparting: utc("2026-09-12T09:00:00Z"), legId: legA).allSatisfy { $0.state == .done })
+
+        var legacy = trip
+        legacy.sharedTasks = legacy.sharedTasks.map { var t = $0; t.acknowledgedLegIds = []; return t }
+        XCTAssertTrue(legacy.tasks(forLegDeparting: utc("2026-09-12T09:00:00Z"), legId: legB).allSatisfy { $0.state == .done },
+                      "a tick from before 6.6.0 recorded no leg: the time rule, as before")
+    }
+
+    /// A later leg's NOTAMs are measured against its own estimated departure, not the trip's start: ticked at 08:00 for
+    /// a leg 1 at 09:00, they cover a leg 2 estimated at 13:00, not one estimated at 15:00.
+    func testALaterLegsNotamsAreMeasuredAgainstItsEstimate() {
+        let legA = UUID(), legB = UUID()
+        var trip = Trip(legIds: [legA, legB])
+        trip.scheduledStart = utc("2026-09-12T09:00:00Z")
+        var notam = ThreadTask(key: .notamChecked, kind: .check)
+        notam.state = .done
+        notam.completedAt = utc("2026-09-12T08:00:00Z")
+        notam.acknowledgedLegIds = [legA]
+        trip.sharedTasks = [notam]
+        var leg2 = FlightThread(routeLabel: "LFGA → LSZQ")
+        leg2.tripId = trip.id
+        XCTAssertEqual(Trip.sharedTasks(for: leg2, in: [trip], departure: utc("2026-09-12T13:00:00Z")).first?.state, .done)
+        XCTAssertEqual(Trip.sharedTasks(for: leg2, in: [trip], departure: utc("2026-09-12T15:00:00Z")).first?.state, .pending)
+        XCTAssertEqual(Trip.sharedTasks(for: leg2, in: [trip]).first?.state, .done, "without one, the trip's start")
+    }
+
+    /// Leg 1 moved to another day moves the trip's start with it: until 6.6.0 the trip kept the date it was formed with,
+    /// and a later leg measured its ticks against that (the author's device check, v66-6).
+    @MainActor
+    func testMovingLegOneMovesTheTripsStart() throws {
+        let m = makeTestThreadManager()
+        var first = plan("LSZQ", "LFGA")
+        first.plannedDepartureTime = utc("2026-09-13T08:00:00Z")
+        let a = m.createThread(from: first)
+        let b = m.createThread(from: plan("LFGA", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = try XCTUnwrap(m.formTrip(from: [a.id, b.id]))
+        XCTAssertEqual(trip.scheduledStart, utc("2026-09-13T08:00:00Z"))
+
+        first.plannedDepartureTime = utc("2026-09-12T15:00:00Z")
+        m.regenerateTasks(threadId: a.id, plan: first)
+        XCTAssertEqual(m.trip(withId: trip.id)?.scheduledStart, utc("2026-09-12T15:00:00Z"))
     }
 
     /// The manager is what records the acknowledgement, from whichever leg the pilot ticked.
@@ -777,6 +881,56 @@ extension TripTests {
         return route
     }
 
+    /// A route marking LSGE as its usual stop (6.6.0, t1): Plan new flight starts with it on, the trip's leg 2
+    /// leaves after that stop, the legs carry no mark of their own, and the route keeps it.
+    @MainActor
+    func testARoutesUsualStopMakesItsTripAndStaysOnTheRoute() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        plans.nextLegPlanId = { m.nextLegPlanId(after: $0) }
+        var route = savedLoop()
+        route.waypoints[2].stopover = Stopover(groundMinutes: 45, refuel: true)
+        plans.add(route)
+        var legIds: [UUID] = []
+        defer { legIds.forEach { m.deleteThread(threadId: $0) } }
+        XCTAssertEqual(route.usualStops.map(\.ident), ["LSGE"])
+
+        let candidates = TripPlanner.stopCandidates(along: route.waypoints,
+                                                    aerodromes: [field("LSGE", lon: 7.6), field("LSGN", lon: 8.2)])
+        let landings = RouteLandings(candidates: candidates, route: route.waypoints)
+        XCTAssertEqual(landings.landings.map(\.ident), ["LSGE"])
+        let intent = typedTemplate(departure: Date().addingTimeInterval(86_400))
+        XCTAssertTrue(FlightCreator.plan(fromRoute: route, intent: intent).waypoints.allSatisfy { $0.stopover == nil },
+                      "a flight's plan isn't a route")
+
+        let trip = try XCTUnwrap(FlightCreator.formTrip(fromRoute: route, intent: intent, landings: landings.landings,
+                                                        plans: plans, threads: m))
+        legIds = trip.legIds
+        let legs = trip.legIds.compactMap { m.thread(withId: $0)?.flightPlanId }
+            .compactMap { id in plans.flightPlans.first { $0.id == id } }
+        XCTAssertEqual(legs.map { $0.waypoints.map(\.name) },
+                       [["LSZQ", "W1", "LSGE"], ["LSGE", "W2", "LSGN", "W3", "LSZQ"]])
+        XCTAssertEqual(legs[1].stopover, Stopover(groundMinutes: 45, refuel: true))
+        XCTAssertTrue(legs.allSatisfy { $0.waypoints.allSatisfy { $0.stopover == nil } })
+        XCTAssertEqual(plans.flightPlans.first { $0.id == route.id }?.waypoints[2].stopover,
+                       Stopover(groundMinutes: 45, refuel: true), "the route keeps its mark")
+    }
+
+    /// The mark is one optional key: a waypoint without it reads as before 6.6.0 and writes no key, so a build
+    /// before 6.6.0 reads the route as it always did.
+    func testAUsualStopIsOneOptionalKeyOnTheWaypoint() throws {
+        var waypoint = FlightPlanWaypoint(name: "LSGE", coordinate: .init(latitude: 46.75, longitude: 7.1))
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(waypoint), as: UTF8.self).contains("stopover"))
+        waypoint.stopover = Stopover(groundMinutes: 45, refuel: true)
+        let data = try JSONEncoder().encode(waypoint)
+        XCTAssertEqual(try JSONDecoder().decode(FlightPlanWaypoint.self, from: data).stopover, waypoint.stopover)
+        var older = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        older["stopover"] = nil
+        let olderData = try JSONSerialization.data(withJSONObject: older)
+        XCTAssertNil(try JSONDecoder().decode(FlightPlanWaypoint.self, from: olderData).stopover)
+    }
+
     @MainActor
     private func field(_ ident: String, lon: Double, lat: Double = 47.0, elevation: Double = 1500) -> TripPlanner.Aerodrome {
         TripPlanner.Aerodrome(ident: ident, name: ident, latitude: lat, longitude: lon,
@@ -1017,6 +1171,59 @@ extension TripTests {
         XCTAssertEqual(after?.landedElsewhere?.plannedIdent, "LSZQ")
         m.dismissContinuation(threadId: a.id)
         XCTAssertEqual(m.thread(withId: a.id)?.landedElsewhere?.offerDismissed, true)
+    }
+
+    /// After landing elsewhere, the landing fee is the field landed at's; the route stays as planned. (6.6.0, t4 A)
+    func testTheLandingFeeFollowsTheFieldLandedAt() {
+        var flown = FlightPlan(name: "Leg 2")
+        flown.waypoints = [FlightPlanWaypoint(name: "LFGA", coordinate: .init(latitude: 48.11, longitude: 7.36)),
+                           FlightPlanWaypoint(name: "EDTF", coordinate: .init(latitude: 47.99, longitude: 7.83))]
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).feeIdents, ["EDTF"])
+        flown.diversion = Diversion(ident: "EDSB", name: "Karlsruhe/Baden-Baden", latitude: 48.78, longitude: 8.08,
+                                    leftRouteAt: 1, landedAt: Date())
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).feeIdents, ["EDSB"])
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).arrivalIdent, "EDTF",
+                       "the route isn't rewritten by a diversion")
+        flown.diversion?.landedAt = nil
+        XCTAssertEqual(FlightThreadManager.context(for: flown, profile: .full, countries: ["FR", "DE"]).feeIdents, ["EDTF"],
+                       "a diversion still in the air lands nowhere yet")
+    }
+
+    /// "Finish here" on a trip's leg names its later legs and cancels them only when asked. (6.6.0, t5 A)
+    @MainActor
+    func testFinishingHereCancelsTheLaterLegsOnlyWhenAsked() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, _) = threeLegTrip(m)
+        defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
+        fly(m, legs[0].id)
+        m.recordLanding(threadId: legs[0].id, plannedIdent: "LSGE", landedIdent: "LSGG", landedName: "Genève")
+        XCTAssertEqual(FlightCreator.laterLegs(after: legs[0].id, threads: m).map(\.number), [2, 3])
+
+        FlightCreator.finishHere(legs[0].id, cancellingLaterLegs: false, plans: plans, threads: m, logbookPlanIds: [])
+        XCTAssertEqual(m.thread(withId: legs[0].id)?.landedElsewhere?.offerDismissed, true)
+        XCTAssertNotNil(m.thread(withId: legs[2].id), "kept")
+
+        FlightCreator.finishHere(legs[0].id, cancellingLaterLegs: true, plans: plans, threads: m, logbookPlanIds: [])
+        XCTAssertNil(m.thread(withId: legs[1].id))
+        XCTAssertNil(m.thread(withId: legs[2].id))
+        XCTAssertNotNil(m.thread(withId: legs[0].id), "the flown leg stays")
+    }
+
+    /// The planned field's PPR doesn't apply once the flight landed elsewhere: set aside, kept, a tick left as it was.
+    @MainActor
+    func testLandingElsewhereSetsThePlannedFieldsPPRAside() throws {
+        let m = makeTestThreadManager()
+        let a = m.createThread(from: plan("LSZS", "LSZQ"))
+        defer { m.deleteThread(threadId: a.id) }
+        let index = try XCTUnwrap(m.threads.firstIndex { $0.id == a.id })
+        m.threads[index].tasks += [ThreadTask(key: .pprObtained, subject: "LSZQ", kind: .check),
+                                   ThreadTask(key: .pprObtained, subject: "LSZE", kind: .check, state: .done)]
+        m.recordLanding(threadId: a.id, plannedIdent: "LSZQ", landedIdent: "LSZE", landedName: "Bad Ragaz")
+        let after = try XCTUnwrap(m.thread(withId: a.id))
+        XCTAssertEqual(after.tasks.first { $0.key == .pprObtained && $0.subject == "LSZQ" }?.state, .notApplicable)
+        XCTAssertEqual(after.tasks.first { $0.key == .pprObtained && $0.subject == "LSZE" }?.state, .done)
     }
 
     @MainActor
@@ -1355,11 +1562,11 @@ extension TripTests {
     }
 
     /// M3 before the first departure: three legs, the whole route, leg 1 in focus at its time and the
-    /// others estimated, the next check of leg 1 with the trip's count, and START naming leg 1.
+    /// others estimated, the trip's briefing in leg 1's own blocks, and START naming leg 1.
     @MainActor
     func testTodayShowsTheWholeTripAtLegOne() throws {
         let m = makeTestThreadManager()
-        let (trip, legs, plans) = threeLegTrip(m)
+        let (_, legs, plans) = threeLegTrip(m)
         defer { legs.forEach { m.deleteThread(threadId: $0.id) } }
 
         let hero = try XCTUnwrap(m.startableFlightToday)
@@ -1379,18 +1586,11 @@ extension TripTests {
         XCTAssertEqual(today.totalDistance, today.legs.map(\.distance).reduce(0, +), accuracy: 0.001)
         XCTAssertEqual(today.totalEET, today.legs.map(\.eet).reduce(0, +), accuracy: 0.001)
 
-        // The leg's own next check, with the shared ones counted as the leg page's band counts them.
-        let first = try XCTUnwrap(m.thread(withId: legs[0].id)?.nextTask)
-        XCTAssertEqual(today.next, .leg(first))
-        XCTAssertGreaterThan(today.sharedTotal, 0)
-        XCTAssertEqual(today.sharedTotal, trip.sharedTasks.count)
-        XCTAssertEqual(today.sharedDone, 0)
-        XCTAssertEqual(today.nextLine,
-                       L10n.TripCard.nextForLeg(ThreadTaskPresentation.make(for: first).title, 1)
-                       + " · " + L10n.TripCard.tripChecks(0, today.sharedTotal))
-        let shared = try XCTUnwrap(m.trip(withId: trip.id)?.sharedTasks.first)
-        m.setSharedTaskState(.done, taskId: shared.id, tripId: trip.id, fromLegId: legs[0].id)
-        XCTAssertEqual(card(m, focus: hero, plans: plans)?.sharedDone, 1, "a tick in the trip band shows here")
+        // What's left on the card is the leg's status line (6.6.0, `FlightPageSummary`), counted in blocks with
+        // the trip's: FlightPageBlocksTests has its words.
+        let leg = try XCTUnwrap(m.thread(withId: legs[0].id))
+        let blocks = FlightPage.make(thread: leg, shared: Trip.sharedTasks(for: leg, in: m.trips), departure: nil)
+        XCTAssertTrue(blocks.blocks.contains { $0.isShared }, "the trip's briefing is in the leg's own blocks")
 
         XCTAssertEqual(StartFlightLabel.make(hero: hero, trip: today),
                        StartFlightLabel(title: L10n.Button.startFlight,
@@ -1412,7 +1612,6 @@ extension TripTests {
         XCTAssertEqual(today.focus?.number, 2)
         XCTAssertEqual(today.legs.map(\.isFlown), [true, false, false])
         XCTAssertEqual(today.focus?.departureIsEstimate, true, "leg 2 leaves when leg 1 lands, plus the stop")
-        XCTAssertEqual(today.next, m.thread(withId: legs[1].id)?.nextTask.map(TripOverview.Next.leg))
         XCTAssertEqual(StartFlightLabel.make(hero: hero, trip: today),
                        StartFlightLabel(title: L10n.Button.startFlight,
                                         leg: L10n.TripCard.startLeg(2, "LSGE → LSGN")))
@@ -1439,7 +1638,6 @@ extension TripTests {
         let today = try XCTUnwrap(card(m, focus: closing, plans: plans))
         XCTAssertEqual(today.legs.map(\.isFlown), [true, true, true])
         XCTAssertEqual(today.focusId, closing.id)
-        XCTAssertEqual(today.next, closing.nextTask.map(TripOverview.Next.leg))
     }
 
     /// A leg in the air: START resumes it and still says which leg.
@@ -1457,29 +1655,21 @@ extension TripTests {
                                         leg: L10n.TripCard.startLeg(1, "LSZQ → LSGE")))
     }
 
-    /// With the leg's own checks done the card moves on to the trip's, in chapter order and not the
-    /// debrief before the flight; with those done too, it says the leg is ticked.
-    func testOnceTheLegIsTickedTheTripsChecksAreNext() throws {
-        var leg1 = FlightThread(routeLabel: "LSZQ → LSGE")
-        leg1.tasks = [ThreadTask(key: .fuelPlanned, kind: .check, state: .done)]
-        var leg2 = FlightThread(routeLabel: "LSGE → LSZQ")
-        var trip = Trip(legIds: [leg1.id, leg2.id])
-        leg1.tripId = trip.id
-        leg2.tripId = trip.id
-        trip.sharedTasks = [ThreadTask(key: .debriefWritten, kind: .check),
-                            ThreadTask(key: .weatherBriefed, kind: .check),
-                            ThreadTask(key: .aircraftReserved, kind: .check, state: .done)]
+    /// A leg that landed elsewhere leaves the next one starting from another field: the chain says so. (6.6.0)
+    func testTheChainRestartsWhereALegDoesntLeaveFromTheLastLanding() throws {
+        let leg1 = FlightThread(routeLabel: "LSZQ → LFGA")
+        let leg2 = FlightThread(routeLabel: "LFGA → EDSB")
+        let leg3 = FlightThread(routeLabel: "EDTF → LSZQ")
+        let trip = Trip(legIds: [leg1.id, leg2.id, leg3.id])
+        let overview = try XCTUnwrap(TripOverview(trip: trip, legs: [leg1, leg2, leg3], focus: leg2.id) { _ in nil })
+        XCTAssertEqual(overview.chain, "LSZQ → LFGA → EDSB · EDTF → LSZQ")
+    }
 
-        let before = try XCTUnwrap(TripOverview(trip: trip, legs: [leg1, leg2], focus: leg1.id) { _ in nil })
-        XCTAssertEqual(before.next, .trip(trip.sharedTasks[1]), "the briefing, not the debrief")
-        XCTAssertEqual(before.nextLine,
-                       L10n.TripCard.nextForTrip(ThreadTaskPresentation.make(for: trip.sharedTasks[1]).title)
-                       + " · " + L10n.TripCard.tripChecks(1, 3))
-
-        trip.sharedTasks[1].state = .done
-        let ready = try XCTUnwrap(TripOverview(trip: trip, legs: [leg1, leg2], focus: leg1.id) { _ in nil })
-        XCTAssertNil(ready.next)
-        XCTAssertEqual(ready.nextLine, L10n.TripCard.legAllTicked(1) + " · " + L10n.TripCard.tripChecks(2, 3))
+    func testAFocusThatIsntALegShowsNoTrip() throws {
+        let leg1 = FlightThread(routeLabel: "LSZQ → LSGE")
+        let leg2 = FlightThread(routeLabel: "LSGE → LSZQ")
+        let trip = Trip(legIds: [leg1.id, leg2.id])
+        XCTAssertNotNil(TripOverview(trip: trip, legs: [leg1, leg2], focus: leg1.id) { _ in nil })
         XCTAssertNil(TripOverview(trip: trip, legs: [leg1, leg2], focus: UUID()) { _ in nil },
                      "a focus that isn't one of the legs shows no trip")
     }
@@ -1503,6 +1693,85 @@ extension TripTests {
         let trip = m.formTrip(from: legIds)!
         m.setCurrentThread(legIds[0])
         return (trip, legIds, planIds)
+    }
+
+    // MARK: - Skipping a planned stop (6.6.0, t3 and t6)
+
+    /// In the air past LSGE: the route goes on along leg 2, leg 2 leaves the trip, the flight becomes LSZQ → LSGN and
+    /// remembers the stop flown past and leg 2's filed plan, to cancel. Leg 3 stays.
+    @MainActor
+    func testFlyingOnPastAStopJoinsTheNextLegIntoTheFlight() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, planIds) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        plans.activateFlightPlan(try XCTUnwrap(plans.flightPlans.first { $0.id == planIds[0] }))
+        m.attachFlight(UUID(), toThreadId: legs[0])
+        let leg2 = try XCTUnwrap(m.thread(withId: legs[1]))
+        let filing = try XCTUnwrap(leg2.tasks.first { $0.key == .flightPlanFiled })
+        m.setTaskState(.done, taskId: filing.id, threadId: legs[1])
+
+        let stops = FlightCreator.laterStops(afterFlying: legs[0], threads: m, plans: plans)
+        XCTAssertEqual(stops.map(\.number), [2, 3])
+        XCTAssertEqual(stops.map(\.ident), ["LSGN", "LSZQ"])
+        XCTAssertEqual(stops[1].through.map(\.id), [legs[1], legs[2]], "flying on two stops joins both legs")
+
+        FlightCreator.flyOn(legs[0], skipping: stops[0].through, plans: plans, threads: m, logbookPlanIds: [])
+
+        XCTAssertEqual(plans.activeFlightPlan?.waypoints.map(\.name), ["LSZQ", "LSGE", "LSGN"])
+        XCTAssertNil(m.thread(withId: legs[1]), "leg 2 is flown in this flight")
+        XCTAssertNotNil(m.thread(withId: legs[2]), "leg 3 stays as planned")
+        let flown = try XCTUnwrap(m.thread(withId: legs[0]))
+        XCTAssertEqual(flown.routeLabel, "LSZQ → LSGN")
+        XCTAssertEqual(flown.skippedStop, SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN"))
+    }
+
+    /// Landed at leg 2's destination without the tap: the page asks, and a skip takes leg 2 off the trip, no
+    /// continuation offered; a diversion anywhere else asks nothing.
+    @MainActor
+    func testALandingAtTheNextLegsDestinationCanBeASkippedStop() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, _) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        fly(m, legs[0])
+        m.recordLanding(threadId: legs[0], plannedIdent: "LSGE", landedIdent: "LSGN", landedName: "Neuchâtel")
+
+        let skip = try XCTUnwrap(FlightCreator.skippableLegs(afterLanding: legs[0], threads: m, plans: plans))
+        XCTAssertEqual(skip.number, 2)
+        XCTAssertEqual(skip.stop, "LSGE")
+        FlightCreator.skipStop(afterLanding: legs[0], plans: plans, threads: m, logbookPlanIds: [])
+
+        XCTAssertNil(m.thread(withId: legs[1]))
+        XCTAssertNotNil(m.thread(withId: legs[2]))
+        let flown = try XCTUnwrap(m.thread(withId: legs[0]))
+        XCTAssertEqual(flown.landedElsewhere?.offerDismissed, true, "no continuation offered")
+        XCTAssertEqual(flown.skippedStop, SkippedStop(ident: "LSGE", filedPlanToCancel: nil), "leg 2 hadn't filed")
+        XCTAssertNil(FlightCreator.skippableLegs(afterLanding: legs[0], threads: m, plans: plans))
+    }
+
+    @MainActor
+    func testADiversionToAnotherFieldIsNoSkippedStop() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (_, legs, _) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        fly(m, legs[0])
+        m.recordLanding(threadId: legs[0], plannedIdent: "LSGE", landedIdent: "LSGG", landedName: "Genève")
+        XCTAssertNil(FlightCreator.skippableLegs(afterLanding: legs[0], threads: m, plans: plans))
+    }
+
+    /// The skipped stop's record survives a decode, and a thread without it reads as before.
+    func testASkippedStopDecodesAndAnOlderThreadStillDoes() throws {
+        var thread = FlightThread(routeLabel: "LSZQ → LSGN")
+        thread.skippedStop = SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN")
+        let data = try JSONEncoder().encode(thread)
+        XCTAssertEqual(try JSONDecoder().decode(FlightThread.self, from: data).skippedStop, thread.skippedStop)
+        let older = #"{"routeLabel":"LSZQ → LSGE"}"#
+        XCTAssertNil(try JSONDecoder().decode(FlightThread.self, from: Data(older.utf8)).skippedStop)
     }
 
     @MainActor
@@ -1531,55 +1800,62 @@ extension TripTests {
         XCTAssertNotNil(datastore.deletionMark(.trip, id: trip.id))
     }
 
+    /// Cancel trip from any leg (the author's C A, after v66-9): a leg that flew goes too, its page and tasks, its
+    /// flight staying in the logbook with the plan it points at. Until 6.6.0 it stayed, and the trip went leg by leg.
     @MainActor
-    func testCancellingATripKeepsTheLegAlreadyFlownWithItsFlight() {
+    func testCancellingATripTakesAFlownLegsPageButNotItsFlight() {
         let datastore = makeTestDatastore()
         let plans = makeTestPlanManager(datastore: datastore)
         let m = makeTestThreadManager(datastore: datastore)
         let (trip, legs, planIds) = threeLegTrip(m, plans)
         defer { legs.forEach { m.deleteThread(threadId: $0) } }
-        let booking = m.trip(withId: trip.id)!.sharedTasks.first { $0.key == .aircraftReserved }!
-        m.setSharedTaskState(.done, taskId: booking.id, tripId: trip.id)
         // Leg 1 flew and landed at LSGE: END FLIGHT saved its flight, which the logbook holds.
         let flightId = UUID()
         m.attachFlight(flightId, toThreadId: legs[0])
         m.beginCloseOut(threadId: legs[0], flightId: flightId)
 
         XCTAssertTrue(FlightThreadManager.canCancel(m.trip(withId: trip.id)!, threads: m.threads))
+        XCTAssertEqual(FlightThreadManager.legsToCancel(in: m.trip(withId: trip.id)!, threads: m.threads).map(\.id), legs,
+                       "every leg, from whichever page")
         let removed = FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: [planIds[0]])
 
-        XCTAssertEqual(removed, [legs[1], legs[2]], "only the legs not flown yet")
-        let kept = m.thread(withId: legs[0])
-        XCTAssertEqual(kept?.flightId, flightId, "the leg keeps its flight")
-        XCTAssertEqual(kept?.state, .closeOut, "and its close-out")
-        XCTAssertNil(datastore.deletionMark(.thread, id: legs[0]))
-        XCTAssertTrue(plans.flightPlans.contains { $0.id == planIds[0] }, "the plan its logbook flight points at")
+        XCTAssertEqual(removed, legs)
+        XCTAssertNil(m.thread(withId: legs[0]))
+        XCTAssertTrue(plans.flightPlans.contains { $0.id == planIds[0] }, "the plan its logbook flight points at stays")
         XCTAssertNil(datastore.deletionMark(.plan, id: planIds[0]))
         XCTAssertFalse(plans.flightPlans.contains { $0.id == planIds[1] || $0.id == planIds[2] })
-        // One leg left is a flight of its own again, with the trip's preparation, as `removeLeg` decides.
         XCTAssertNil(m.trip(withId: trip.id))
-        XCTAssertNil(kept?.tripId)
-        XCTAssertTrue(kept?.tasks.contains { $0.key == .aircraftReserved && $0.state == .done } ?? false)
-        XCTAssertEqual(m.currentThreadId, legs[0], "the flight being followed stays followed")
     }
 
+    /// A leg that flew with its ATC flight plan still open keeps its page, and the plan's close-out, when the trip is
+    /// cancelled: the rest goes. (6.6.0)
     @MainActor
-    func testWithTwoLegsFlownTheTripStaysAsTheRecordOfWhatWasFlown() {
+    func testALegWithItsFlightPlanStillOpenStaysWhenTheTripIsCancelled() throws {
+        let datastore = makeTestDatastore()
+        let plans = makeTestPlanManager(datastore: datastore)
+        let m = makeTestThreadManager(datastore: datastore)
+        let (trip, legs, planIds) = threeLegTrip(m, plans)
+        defer { legs.forEach { m.deleteThread(threadId: $0) } }
+        let filing = try XCTUnwrap(m.thread(withId: legs[0])?.tasks.first { $0.key == .flightPlanFiled })
+        m.setTaskState(.done, taskId: filing.id, threadId: legs[0])
+        fly(m, legs[0])
+        XCTAssertEqual(m.thread(withId: legs[0])?.hasOpenFlightPlan, true)
+
+        let removed = FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: [planIds[0]])
+        XCTAssertEqual(removed, [legs[1], legs[2]])
+        XCTAssertEqual(m.thread(withId: legs[0])?.state, .closeOut, "it keeps its close-out until the plan is closed")
+    }
+
+    /// A trip flown to its end is the logbook's record: nothing to cancel, so the action goes. (6.6.0)
+    @MainActor
+    func testATripFlownToItsEndOffersNoCancel() {
         let datastore = makeTestDatastore()
         let plans = makeTestPlanManager(datastore: datastore)
         let m = makeTestThreadManager(datastore: datastore)
         let (trip, legs, _) = threeLegTrip(m, plans)
         defer { legs.forEach { m.deleteThread(threadId: $0) } }
-        fly(m, legs[0])
-        fly(m, legs[1])
-
-        XCTAssertEqual(FlightCreator.cancelTrip(trip.id, plans: plans, threads: m, logbookPlanIds: []), [legs[2]])
-
-        let after = m.trip(withId: trip.id)
-        XCTAssertEqual(after?.legIds, [legs[0], legs[1]])
-        XCTAssertNil(datastore.deletionMark(.trip, id: trip.id))
-        XCTAssertFalse(FlightThreadManager.canCancel(after!, threads: m.threads),
-                       "every leg left has flown: nothing to cancel, so the action goes")
+        for leg in legs { fly(m, leg); m.finishThread(threadId: leg) }
+        XCTAssertFalse(FlightThreadManager.canCancel(m.trip(withId: trip.id)!, threads: m.threads))
     }
 
     @MainActor

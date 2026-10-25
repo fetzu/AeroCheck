@@ -182,8 +182,11 @@ struct PlannedStops: Equatable {
 //
 // A saved route passes aerodromes: the ones it was drawn through, and others near it. Plan new flight
 // lists them in flying order, each with a "Land here" switch, and the route is split at the ones
-// switched on, each leg keeping its part of the route. With every switch off it stays one flight: a
-// landing is a decision for one day's flight, so it is never stored on the route. (trips proposal, M2)
+// switched on, each leg keeping its part of the route. With every switch off it stays one flight.
+//
+// 6.1 stored no landing on the route (trips proposal, M2). Since 6.6.0 a route can mark its usual stops
+// (`FlightPlanWaypoint.stopover`, the author's t1 A): those start switched on, and the day's decision
+// stays the pilot's, one tap off.
 
 struct RouteLandings: Equatable {
 
@@ -192,17 +195,30 @@ struct RouteLandings: Equatable {
     private(set) var candidates: [TripPlanner.StopCandidate] = []
     /// The aerodromes switched on, by ident, with the stop there: the time on the ground and the refuel.
     private(set) var stopovers: [String: Stopover] = [:]
+    /// The route's usual stops (6.6.0, t1), by ident: switched on to begin with.
+    private(set) var usual: [String: Stopover] = [:]
 
-    init(candidates: [TripPlanner.StopCandidate] = []) {
+    /// - Parameter route: the saved route's waypoints. A candidate that is one of them, marked as the route's
+    ///   usual stop, starts switched on with that stop.
+    init(candidates: [TripPlanner.StopCandidate] = [], route: [FlightPlanWaypoint] = []) {
         self.candidates = candidates.sorted { $0.alongNM < $1.alongNM }
+        for candidate in self.candidates {
+            guard let index = candidate.waypointIndex, route.indices.contains(index),
+                  let stop = route[index].stopover else { continue }
+            usual[candidate.aerodrome.ident] = stop
+            stopovers[candidate.aerodrome.ident] = stop
+        }
     }
 
     func isLanding(at ident: String) -> Bool { stopovers[ident] != nil }
 
-    /// "Land here" on or off. Switched off and on again, a stop starts over from the default.
+    func usualStop(at ident: String) -> Stopover? { usual[ident] }
+
+    /// "Land here" on or off. Switched off and on again, a stop starts over from the route's usual one, else
+    /// from the default.
     mutating func setLanding(_ landing: Bool, at ident: String) {
         guard candidates.contains(where: { $0.aerodrome.ident == ident }) else { return }
-        stopovers[ident] = landing ? (stopovers[ident] ?? Stopover()) : nil
+        stopovers[ident] = landing ? (stopovers[ident] ?? usual[ident] ?? Stopover()) : nil
     }
 
     /// "Land somewhere else…": the aerodrome joins the list in its place along the route, switched on.

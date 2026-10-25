@@ -153,6 +153,7 @@ final class DryRunWorldTests: XCTestCase {
             "Services/NASRPatternService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],
             "Services/LocationManager.swift": ["CLLocationManager()": (1, "never started by a dry run's (`isDryRun`)")],
+            "Services/MarketingLocationProvider.swift": ["WatchConnectivityManager.shared": (1, "a DEBUG screenshot scene's flight, never a dry run")],
             "Services/NotificationService.swift": [
                 "NotificationService.shared": (2, "the service itself"),
                 "UNUserNotificationCenter": (3, "the service itself"),

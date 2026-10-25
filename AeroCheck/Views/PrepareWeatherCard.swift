@@ -1,127 +1,25 @@
 import SwiftUI
 import CoreLocation
 
-/// Prepare's weather as one block (the author's v65-1, 22 Oct 2026): where the weather card and "Weather briefed" sat
-/// apart, with the area forecasts three more rows down, one block now holds the reports, where to brief officially and one
-/// tick for all of them. Done, it folds to one line where it stands; a tap opens it again. (6.5.0)
-struct ThreadWeatherBlock: View {
+/// The weather block's body (6.6.0; a card of its own with its tick in 6.5.0): the reports before the flight, then where
+/// to brief officially, a row per page. The tick and the time of the reports are in the block's head
+/// (`FlightBlockCard`); "Weather briefed" and every area forecast underneath, as the author decided (v65-1, q4).
+struct ThreadWeatherBody: View {
     let threadId: UUID
-    /// "Weather briefed" and the area forecasts, the flight's own or its trip's as this leg sees them.
-    let tasks: [ThreadTask]
     /// The route's aerodromes the reports are for: none in a dry run, after the flight, or without a known aerodrome.
     let fields: [PrepareWeather.Field]
     let route: [CLLocationCoordinate2D]
     /// Every country's weather and area-forecast pages, a page once (`ThreadBriefing.weatherLinks`).
     let links: [ThreadTaskLink]
-    /// After the flight the block opens folded, whatever its tick.
-    var startsFolded = false
-    /// On a trip's leg: a briefing ticked for an earlier leg that no longer covers this one says when it was done.
-    var recheck: Date?
-    let onTick: (ThreadTaskState) -> Void
+    /// When the flight leaves: the TAF's words keep the periods that matter for it.
+    var departure: Date?
     let onOpen: (URL) -> Void
-
-    @State private var unfolded = false
-
-    private enum Tick { case pending, done, notApplicable }
-
-    private var tick: Tick {
-        let live = tasks.filter { $0.state != .notApplicable }
-        if live.isEmpty { return .notApplicable }
-        return live.allSatisfy { $0.state == .done } ? .done : .pending
-    }
-
-    private var briefedAt: Date? {
-        tasks.first { $0.key == .weatherBriefed }?.completedAt ?? tasks.compactMap(\.completedAt).max()
-    }
-
-    private var folded: Bool { (tick != .pending || startsFolded) && !unfolded }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if folded { foldedLine } else { open }
-        }
-        .background(Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
-        .contextMenu {
-            Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onTick(.notApplicable) }
-        }
-        .accessibilityIdentifier("prepare.weather")
-    }
-
-    private var foldedLine: some View {
-        HStack(spacing: 12) {
-            tickButton
-            Button { withAnimation(.easeInOut(duration: 0.2)) { unfolded = true } } label: {
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.PrepareWeather.title)
-                            .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
-                            .foregroundColor(tick == .notApplicable ? .dimText : .primaryText)
-                            .strikethrough(tick == .notApplicable)
-                        Text(statusLine)
-                            .scaledFont(size: 12, relativeTo: .caption)
-                            .foregroundColor(.secondaryText)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.down")
-                        .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundColor(.dimText)
-                }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-    }
-
-    private var statusLine: String {
-        switch tick {
-        case .done: return briefedAt.map { L10n.Thread.weatherBriefedAt($0.formatted(date: .omitted, time: .shortened)) }
-            ?? L10n.Thread.taskWeather
-        case .notApplicable: return L10n.Thread.markNotApplicable
-        case .pending: return L10n.Thread.weatherNotTicked
-        }
-    }
-
-    private var open: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                tickButton
-                Text(L10n.PrepareWeather.title)
-                    .scaledFont(size: 16, weight: .semibold, relativeTo: .headline)
-                    .foregroundColor(tick == .notApplicable ? .dimText : .primaryText)
-                    .strikethrough(tick == .notApplicable)
-                Spacer(minLength: 0)
-                if !fields.isEmpty {
-                    PrepareWeatherRefresh(threadId: threadId, fields: fields, route: route)
-                }
-                if tick != .pending || startsFolded {
-                    Button { withAnimation(.easeInOut(duration: 0.2)) { unfolded = false } } label: {
-                        Image(systemName: "chevron.up")
-                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundColor(.dimText)
-                            .frame(width: 32, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(L10n.Button.close)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 4)
-            if tick == .pending, let recheck {
-                Text(L10n.Flights.recheckForThisLeg(recheck.formatted(date: .omitted, time: .shortened)))
-                    .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                    .foregroundColor(.aviationGold)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 8)
-            }
             if !fields.isEmpty {
                 Divider().overlay(Color.white.opacity(0.06))
-                PrepareWeatherReports(threadId: threadId, fields: fields, route: route)
+                PrepareWeatherReports(threadId: threadId, fields: fields, route: route, departure: departure)
             }
             if !links.isEmpty {
                 Text(L10n.Thread.briefOfficially.uppercased())
@@ -140,34 +38,7 @@ struct ThreadWeatherBlock: View {
                 .padding(.bottom, 6)
             }
         }
-    }
-
-    /// One tick for the block: open or not applicable, it ticks every task; done, it unticks them.
-    private var tickButton: some View {
-        Button {
-            onTick(tick == .done ? .pending : .done)
-        } label: {
-            ZStack {
-                Circle()
-                    .strokeBorder(tick == .done ? Color.aviationGreen : Color.dimText, lineWidth: 2)
-                    .frame(width: 22, height: 22)
-                if tick == .done {
-                    Circle().fill(Color.aviationGreen).frame(width: 22, height: 22)
-                    Image(systemName: "checkmark")
-                        .scaledFont(size: 11, weight: .bold, relativeTo: .caption2)
-                        .foregroundColor(.cockpitBackground)
-                } else if tick == .notApplicable {
-                    Image(systemName: "minus")
-                        .scaledFont(size: 11, weight: .bold, relativeTo: .caption2)
-                        .foregroundColor(.dimText)
-                }
-            }
-            .frame(width: 44, height: 44, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(L10n.Thread.taskWeather)
-        .accessibilityValue(statusLine)
+        .accessibilityIdentifier("prepare.weather")
     }
 }
 
@@ -209,8 +80,11 @@ struct PrepareWeatherReports: View {
     let threadId: UUID
     let fields: [PrepareWeather.Field]
     let route: [CLLocationCoordinate2D]
+    var departure: Date?
 
     @ObservedObject private var service = PrepareWeatherService.shared
+    /// The stations whose raw reports are open under their words. (6.6.0)
+    @State private var showsRaw: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -275,8 +149,48 @@ struct PrepareWeatherReports: View {
                     .foregroundColor(.dimText)
                     .tracking(0.6)
             }
-            if let metar = station.metar { report(Self.labelled(metar, as: "METAR", or: ["METAR", "SPECI"])) }
-            if let taf = station.taf { report(Self.labelled(taf, as: "TAF", or: ["TAF"])) }
+            // The words first, the raw reports on a tap (the author's q5 B); a report the proxy couldn't decode
+            // whole shows raw, as before. (6.6.0)
+            let metarWords = station.metarDecoded.flatMap(WeatherWords.metar)
+            let tafWords = station.tafDecoded.map { WeatherWords.taf($0, departure: departure) } ?? []
+            let decoded = metarWords != nil || !tafWords.isEmpty
+            if let metarWords {
+                Text(metarWords)
+                    .scaledFont(size: 13, relativeTo: .footnote)
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let metar = station.metar {
+                report(Self.labelled(metar, as: "METAR", or: ["METAR", "SPECI"]))
+            }
+            if !tafWords.isEmpty {
+                ForEach(tafWords, id: \.self) { line in
+                    (Text("TAF  ").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.dimText)
+                     + Text(line))
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else if let taf = station.taf {
+                report(Self.labelled(taf, as: "TAF", or: ["TAF"]))
+            }
+            if decoded {
+                let open = showsRaw.contains(station.ident)
+                Button {
+                    if open { showsRaw.remove(station.ident) } else { showsRaw.insert(station.ident) }
+                } label: {
+                    Text(open ? "RAW ⌃" : "RAW ⌄")
+                        .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                        .foregroundColor(.aviationGold)
+                        .frame(minHeight: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Weather.rawReports)
+                if open {
+                    if let metar = station.metar { report(Self.labelled(metar, as: "METAR", or: ["METAR", "SPECI"])) }
+                    if let taf = station.taf { report(Self.labelled(taf, as: "TAF", or: ["TAF"])) }
+                }
+            }
             if let note = Self.note(for: station) {
                 Text(note)
                     .scaledFont(size: 12, relativeTo: .caption)
@@ -286,7 +200,7 @@ struct PrepareWeatherReports: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     private func report(_ text: String) -> some View {
@@ -315,22 +229,47 @@ struct PrepareWeatherReports: View {
                     .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
                     .foregroundColor(.aviationAmber)
                 ForEach(sigmets.hazards) { hazard in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(SigmetFormat.hazardName(hazard))
-                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundColor(.aviationAmber)
-                        Text(SigmetFormat.detail(hazard))
-                            .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                            .foregroundColor(.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityElement(children: .combine)
+                    sigmetRow(hazard)
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A SIGMET in words, its text on a tap, as the METAR and the TAF above it (the author's W A, v66-22). Until 6.6.0
+    /// AWC's codes: "SEV TURB" over "LFRR BREST · SFC-4000 ft · until 1800Z".
+    private func sigmetRow(_ hazard: AviationWeatherService.Sigmet) -> some View {
+        let key = "SIGMET " + hazard.id
+        let open = showsRaw.contains(key)
+        return VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(WeatherWords.sigmetTitle(hazard))
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundColor(.aviationAmber)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(WeatherWords.sigmetDetail(hazard))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            if let raw = hazard.raw {
+                Button {
+                    if open { showsRaw.remove(key) } else { showsRaw.insert(key) }
+                } label: {
+                    Text(open ? "RAW ⌃" : "RAW ⌄")
+                        .scaledFont(size: 10, weight: .bold, design: .monospaced, relativeTo: .caption2)
+                        .foregroundColor(.aviationGold)
+                        .frame(minHeight: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Weather.rawReports)
+                if open { report(raw) }
+            }
+        }
     }
 
     // MARK: Words

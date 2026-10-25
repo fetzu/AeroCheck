@@ -31,6 +31,8 @@ import Foundation
 //   AEROCHECK_REPLAY_RESUME=1   relaunched mid-flight: the clock and the track go on where they were,
 //                               as if the aircraft had flown on while the app was gone
 //   AEROCHECK_MEMORY_TEST=1     Settings › Memory test on
+//   AEROCHECK_CONFIRM_EVENTS=1  Settings › Confirm landings and go-arounds on: the event cards, which the
+//                               6.1.0 page's replays answer (off by default since 6.4.0)
 // The scenario format and the generator are in scripts/flightsim/.
 
 /// A flight to replay: the track, the aerodromes near it, where to wait for the pilot, and the route.
@@ -323,6 +325,9 @@ final class GroundReplay {
         if !appState.hasSeenOnboarding { appState.completeOnboarding() }
         if let memoryTest = environment["AEROCHECK_MEMORY_TEST"] {
             appState.settings.learningMode = memoryTest != "1"
+        }
+        if let cards = environment["AEROCHECK_CONFIRM_EVENTS"] {
+            appState.settings.confirmFlightEvents = cards == "1"
         }
 
         useAerodromes(of: scenario, in: airportDataService)

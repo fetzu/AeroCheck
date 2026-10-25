@@ -1,14 +1,15 @@
 import XCTest
 
 /// The 6.1.0 page's circuits (circuits-*), flown as a ground replay: CIRCUITS from Today, four laps at
-/// LSZQ (a touch-and-go, two stop-and-goes, a full stop), the Memory test on.
+/// LSZQ (a touch-and-go, two stop-and-goes, a full stop), the Memory test on, the event cards on (off by
+/// default since 6.4.0: `GroundReplayTests` flies the same circuits with none).
 final class CircuitsUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = true
     }
 
     func testCircuitsWithStopAndGo() {
-        let pilot = CockpitPilot(self, scenario: "circuits-stop-and-go")
+        let pilot = CockpitPilot(self, scenario: "circuits-stop-and-go", cards: true)
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()
@@ -59,7 +60,8 @@ final class CircuitsUITests: XCTestCase {
         pilot.shot("circuits-2", "after-landing")
         // The after landing check, then NEW CIRCUIT in NEXT's place: the check before departure, taxi and
         // run-up flown once. Then the checks to the climb again; the replay waits on the runway, stopped,
-        // until the line-up check is reached again (the scenario's phaseIs:lineUp hold).
+        // until the line-up check is reached again (the scenario's phaseIs:lineUp hold), and the climb check
+        // opens once airborne.
         pilot.check("circuits-2", pilot.finishAfterLandingCheckOfACircuit(), "NEW CIRCUIT at the end of the after landing check")
         pilot.shot("circuits-2", "new-circuit")
         pilot.tap("cockpit.newCircuit")
@@ -68,6 +70,7 @@ final class CircuitsUITests: XCTestCase {
         pilot.workChecks(until: "lineUp")
         if let hold = s.holds.first(where: { $0.until == "phaseIs:lineUp" }) { pilot.noteRelease(atTrack: hold.t) }
         pilot.confirmMemoryCheck()
+        pilot.nextOnceAirborne(by: s.mark("liftoff3") + 60)
         pilot.check("circuits-2", pilot.waitUntil(timeout: 5) { pilot.currentPhase == "climb" }, "the next circuit: \(pilot.currentPhase ?? "?")")
 
         // Lap 3, ending in the second stop-and-go: circuits-3, the card left alone goes on the take-off roll.

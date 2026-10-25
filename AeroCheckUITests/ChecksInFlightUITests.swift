@@ -1,7 +1,8 @@
 import XCTest
 
 /// The 6.1.0 "Checks in flight" page (flight-*, debrief-*), flown as ground replays: the pilot's taps
-/// with XCUITest, the flight from a synthetic track (scripts/flightsim), the Memory test on.
+/// with XCUITest, the flight from a synthetic track (scripts/flightsim), the Memory test on, and the event
+/// cards the page answers (the landed card), off by default since 6.4.0.
 final class ChecksInFlightUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = true
@@ -11,7 +12,7 @@ final class ChecksInFlightUITests: XCTestCase {
 
     /// LSZQ → INS → LSGC: flight 1-3, 5-9, 11, 12, 14, 16; debrief 1.
     func testCrossCountryEveryCheckOnTime() {
-        let pilot = CockpitPilot(self, scenario: "xc-all-checks")
+        let pilot = CockpitPilot(self, scenario: "xc-all-checks", cards: true)
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()
@@ -47,31 +48,53 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.workChecks(until: "beforeDeparture")
         let lineUp = pilot.readyForLineUp(readingStatus: true)
 
-        // flight-2: at line-up, the same one tap, to CLIMB on the map. (Before it, since 6.2: the check
-        // before departure's NEXT reads READY FOR LINE UP and leaves it completed.)
+        // flight-2: at line-up, the same one tap. Since 6.4.0 it confirms the check and stays on the runway,
+        // AFTER TAKE-OFF in NEXT's place, and NEXT comes back once airborne, to CLIMB on the map. (Before it,
+        // since 6.2: the check before departure's NEXT reads READY FOR LINE UP and leaves it completed.)
         pilot.check("flight-2", lineUp.next.contains("READY FOR LINE UP") && lineUp.beforeDeparture == "completed",
                     "the check before departure's NEXT: \"\(lineUp.next)\", then \(lineUp.beforeDeparture ?? "?")")
         pilot.check("flight-2", pilot.currentPhase == "lineUp" && pilot.memoryDone.exists,
                     "on \(pilot.currentPhase ?? "?"), ✓ DONE \(pilot.memoryDone.exists ? "shown" : "missing")")
         pilot.shot("flight-2", "line-up")
         pilot.tapNow(pilot.memoryDone)
-        pilot.check("flight-2", pilot.waitUntil(timeout: 4) { pilot.currentPhase == "climb" && pilot.paneShown == "map" },
-                    "after the tap: \(pilot.currentPhase ?? "?") on the \(pilot.paneShown ?? "?") pane")
-        pilot.shot("flight-2", "climb-on-map")
 
         // flight-3: the slot turns amber "CLIMB CHECK" at about 500 ft, not on the take-off roll. The slot
-        // is sampled from the line-up to 500 ft: (track s, tone, ft above the field).
+        // is sampled from the line-up to 500 ft: (track s, tone, ft above the field). On the runway it shows
+        // the climb check as the next one.
         let elevation = Double(s.fieldElevations[s.departure].flatMap { $0 } ?? 0)
         var samples: [(t: Double, tone: String, aal: Int?)] = []
-        let takeoffCue = s.cue("takeoff") ?? 300
-        _ = pilot.waitUntil(timeout: pilot.wallUntil(track: takeoffCue, margin: 25)) {
+        /// One look at the slot; true once the climb check is due above 300 ft.
+        func sample() -> Bool {
             guard let slot = pilot.slot, slot.label.contains("CLIMB CHECK") else { return false }
             let aal = pilot.altitudeFeet.map { Int(Double($0) - elevation) }
             samples.append((pilot.trackNow, slot.tone, aal))
             return slot.tone == "due" && (aal ?? 0) > 300
         }
-        pilot.shot("flight-3", "climb-check-due")
         let roll = (s.mark("takeoffRoll"), s.mark("liftoff") + 5)
+        var waiting: String?
+        let nextCame = pilot.nextOnceAirborne {
+            if waiting == nil, let label = pilot.label("cockpit.afterTakeoff") {
+                waiting = label
+                pilot.shot("flight-2", "after-takeoff")
+            }
+            _ = sample()
+        }
+        pilot.check("flight-2", waiting != nil, "after the tap, on the runway: \(waiting.map { "\"\($0)\"" } ?? "no AFTER TAKE-OFF") in NEXT's place")
+        // Not before the roll: a query's slop of track seconds either way.
+        pilot.check("flight-2", nextCame.map { $0 >= roll.0 - 10 } ?? false,
+                    "NEXT once airborne: at track \(nextCame.map { String(Int($0)) } ?? "never") s (roll \(Int(roll.0)) s, lift-off \(Int(s.mark("liftoff"))) s)")
+        var climbOnMap = false
+        _ = pilot.waitUntil(timeout: 4) {
+            _ = sample()
+            climbOnMap = pilot.currentPhase == "climb" && pilot.paneShown == "map"
+            return climbOnMap
+        }
+        pilot.check("flight-2", climbOnMap, "NEXT: \(pilot.currentPhase ?? "?") on the \(pilot.paneShown ?? "?") pane")
+        pilot.shot("flight-2", "climb-on-map")
+
+        let takeoffCue = s.cue("takeoff") ?? 300
+        _ = pilot.waitUntil(timeout: pilot.wallUntil(track: takeoffCue, margin: 25)) { sample() }
+        pilot.shot("flight-3", "climb-check-due")
         let onRoll = samples.filter { $0.t >= roll.0 && $0.t <= roll.1 }
         let timeline = samples.map { "\(Int($0.t))s \($0.tone) \($0.aal.map(String.init) ?? "?")ft" }.joined(separator: ", ")
         let firstDueAloft = samples.first { $0.tone == "due" && ($0.aal ?? 0) > 100 }
@@ -283,20 +306,21 @@ final class ChecksInFlightUITests: XCTestCase {
     /// LSZQ → INS → LSGC: flight-4 (owed at the level-off), flight-15 (the review, CHECK LATER),
     /// flight-13 (NOT SURE), debrief-2.
     func testClimbCheckLeftOpenThenNotSure() {
-        let pilot = CockpitPilot(self, scenario: "xc-climb-owed")
+        let pilot = CockpitPilot(self, scenario: "xc-climb-owed", cards: true)
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()
         guard pilot.departToClimb() else { return XCTFail("could not get to the climb check") }
 
-        // flight-4: level off without confirming the climb check: owed, filled amber, the segment amber.
+        // flight-4: level off without confirming the climb check: owed ("overdue" since 6.4.0's wording),
+        // filled amber, the segment amber.
         let owed = pilot.waitForSlot(timeout: pilot.wallUntil(track: s.cue("levelOff") ?? 600, margin: 30)) {
             $0.tone == "owed" && $0.label.contains("CLIMB CHECK")
         }
         pilot.shot("flight-4", "owed")
-        pilot.check("flight-4", owed.ok && (owed.slot?.label.contains("owed · you levelled off with it open") ?? false),
+        pilot.check("flight-4", owed.ok && (owed.slot?.label.contains("overdue · not done before level-off") ?? false),
                     "slot: \(owed.slot?.description ?? "none")")
-        pilot.check("flight-4", pilot.phaseStatus("climb") == "Owed", "climb segment: \(pilot.phaseStatus("climb") ?? "?")")
+        pilot.check("flight-4", pilot.phaseStatus("climb") == "Overdue", "climb segment: \(pilot.phaseStatus("climb") ?? "?")")
 
         // flight-15: NEXT on the checklist pane with the memory check unconfirmed: the review says "not
         // confirmed"; CONTINUE, CHECK LATER: the check deferred, orange, "1 deferred check".
@@ -329,12 +353,12 @@ final class ChecksInFlightUITests: XCTestCase {
         pilot.check("flight-13", pilot.phaseStatus("landing") == "Not sure", "landing segment (amber): \(pilot.phaseStatus("landing") ?? "?")")
         pilot.shot("flight-13", "not-sure")
 
-        // debrief-2: CLIMB CHECK owed, never done; LANDING CHECK not sure.
+        // debrief-2: CLIMB CHECK overdue, never done; LANDING CHECK not sure.
         pilot.endFlight()
         guard pilot.openNewestFlightInLogbook() else { return pilot.check("debrief-2", false, "no flight in the Logbook") }
         pilot.revealChecks()
-        let climb = pilot.texts(containing: "owed, never done")
-        pilot.check("debrief-2", climb.contains { $0.contains("you levelled off with it open") && $0.contains("skipped") },
+        let climb = pilot.texts(containing: "overdue, never done")
+        pilot.check("debrief-2", climb.contains { $0.contains("still open at level-off") && $0.contains("skipped") },
                     "climb check line: \(climb)")
         pilot.check("debrief-2", !pilot.texts(containing: "not sure").isEmpty, "landing check: \(pilot.texts(containing: "not sure"))")
         pilot.shot("debrief-2", "checks")
@@ -343,8 +367,8 @@ final class ChecksInFlightUITests: XCTestCase {
         // debrief-6, as far as the accessibility tree tells it (no trend card on one flight): each check's
         // line one element, the strip none.
         let tree = pilot.screen()
-        let climbLines = tree.filter { $0.label.hasPrefix("CLIMB CHECK") && $0.label.contains("owed") }
-        pilot.check("debrief-6", climbLines.contains { $0.label.contains("owed, never done") && $0.label.contains("skipped") },
+        let climbLines = tree.filter { $0.label.hasPrefix("CLIMB CHECK") && $0.label.contains("overdue") }
+        pilot.check("debrief-6", climbLines.contains { $0.label.contains("overdue, never done") && $0.label.contains("skipped") },
                     "the climb check's line, one element: \(climbLines.map { "\($0.elementType.rawValue) \"\($0.label)\"" })")
         pilot.dumpTree("debrief-6")
         pilot.observed("debrief-6", "each line one element, the strip skipped, the headers: see the tree attachment; the trend card needs three flights")
@@ -355,7 +379,7 @@ final class ChecksInFlightUITests: XCTestCase {
     /// LSZQ → BIEL → LSGC: flight-4 (the owed climb check done with one tap, the cruise check due),
     /// debrief-3 (FREDA missed 1×).
     func testFredaMissedInCruise() {
-        let pilot = CockpitPilot(self, scenario: "xc-freda-missed")
+        let pilot = CockpitPilot(self, scenario: "xc-freda-missed", cards: true)
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()
@@ -468,7 +492,7 @@ final class ChecksInFlightUITests: XCTestCase {
     /// A local flight at LSZQ: the first full stop's card left unanswered through the taxi, gone on the
     /// next take-off roll; the second answered NOT SURE. flight-12 (the card waits), flight-13.
     func testLandedCardUnanswered() {
-        let pilot = CockpitPilot(self, scenario: "local-landed-unanswered")
+        let pilot = CockpitPilot(self, scenario: "local-landed-unanswered", cards: true)
         defer { pilot.attachResults(testName: name) }
         let s = pilot.scenario
         pilot.launch()

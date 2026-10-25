@@ -12,7 +12,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     /// Whether the app has asked for periodic updates (via `startUpdates`/`notifyFlightStarted`) and
     /// hasn't since called `stopUpdates`. Kept separate from `updateTimer` so a pairing/install change
     /// mid-flight (`sessionWatchStateDidChange`) knows whether it should (re)arm the timer. (WATCH-01)
-    private var wantsUpdates = false
+    private(set) var wantsUpdates = false
 
     /// True only when there's an actual Watch to talk to — paired AND with the companion app installed.
     /// Guards the 1 Hz timer so it never runs for a flight with no Watch in the picture. (WATCH-01)
@@ -69,6 +69,15 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
 
         armUpdateTimer()
+    }
+
+    /// At launch, a flight restored from its checkpoint streams to the Watch again, as a started one does. A restore
+    /// sets `isFlightActive` without the start that tells the Watch (`handleFlightStateChange`), so a relaunch mid-flight
+    /// (iOS ending the app, a watchdog) left the Watch on its last data, dimmed as stale, to the end of the flight. A
+    /// flight whose start has already asked for updates is left as it is. (6.6.0)
+    func resumeIfFlightRestored(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
+        guard appState.isFlightActive, !wantsUpdates else { return }
+        startUpdates(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
     }
 
     /// Stop sending updates to the Watch
@@ -362,6 +371,9 @@ extension WatchConnectivityManager: WCSessionDelegate {
         }
 
         AppLog.watch.debugLine("Session activated - Paired: \(session.isPaired), Installed: \(session.isWatchAppInstalled)")
+        // Paired and installed mean something from here on: a flight that asked for updates before (a restored one,
+        // at launch) gets its timer now. (6.6.0)
+        Task { @MainActor in self.handleWatchAvailabilityChange() }
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {

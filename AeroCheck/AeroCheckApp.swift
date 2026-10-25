@@ -183,6 +183,10 @@ struct AeroCheckApp: App {
                     // The flight this launch restored, or none: drops the hold of a flight that
                     // wasn't restored (`SubscriptionManager.holdForFlight`). (6.1.4)
                     subscriptionManager.holdForFlight(appState.isFlightActive)
+                    // And the Watch streams it again: a restore never passes the start that tells it
+                    // (`handleFlightStateChange`). (6.6.0)
+                    watchConnectivityManager.resumeIfFlightRestored(appState: appState, locationManager: locationManager,
+                                                                    flightPlanManager: flightPlanManager)
 
                     // Live Activity next-waypoint feed (UX-25): AppState has no FlightPlanManager
                     // reference, so the controller pulls the name through this closure at sync time.

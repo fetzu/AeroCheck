@@ -861,6 +861,9 @@ final class VFRMapLayerTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(min(view.bounds.width, view.bounds.height), 44)
             let centre = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
             XCTAssertTrue(view.point(inside: centre, with: nil), "\(angle)")
+            // 44 pt across the pill takes a tap, whatever the device's pill height (27 pt on the iPhone)
+            let edge = CGPoint(x: centre.x - 21.9 * sin(angle), y: centre.y + 21.9 * cos(angle))
+            XCTAssertTrue(view.point(inside: edge, with: nil), "22 pt across the pill, \(angle)")
             if angle != 0 {
                 XCTAssertFalse(view.point(inside: CGPoint(x: 1, y: 1), with: nil), "a corner of the box: the chart, \(angle)")
             }

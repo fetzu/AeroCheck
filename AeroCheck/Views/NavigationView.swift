@@ -4235,6 +4235,13 @@ struct AeroMapView: UIViewRepresentable {
     var isInFlight: Bool = false
     /// What this surface draws and what its taps do; the inputs it leaves out are ignored. (6.7.0)
     var features: MapFeatures = .navigation
+    /// The route builder's route, its pins and its editing (`PlannedRouteLayer`). (6.7.0)
+    var plannedRoute = PlannedRoute()
+    /// The crossed airspace tapped in the route builder's list, drawn brighter. (#4)
+    var selectedAirspaceId: String?
+    /// Takes the region on every frame of a move, `mapState` only at rest: what follows the map live (the route
+    /// builder's profile band) reads it, and nothing else is rebuilt 60 times a second. (6.4.2)
+    var liveRegion: LiveMapRegion?
 
     // The inputs as this surface's features let them through. (6.7.0)
     private var shownAirports: [Airport] { features.contains(.airports) ? visibleAirports : [] }
@@ -4252,6 +4259,13 @@ struct AeroMapView: UIViewRepresentable {
     var divertHandler: ((String) -> Void)? { features.contains(.divertCallout) ? onAirportDivert : nil }
     var noteOpener: ((AerodromeRef) -> Void)? { features.contains(.noteCallout) ? onOpenAerodromeNote : nil }
     var atoTap: ((Int) -> Void)? { features.contains(.recordATO) ? onWaypointATOTap : nil }
+    private var shownPlannedRoute: PlannedRoute {
+        guard features.contains(.plannedRoute) else { return PlannedRoute() }
+        var route = features.contains(.editRoute) ? plannedRoute : plannedRoute.drawnOnly
+        if !features.contains(.addToRouteCallout) { route.onPointAdd = nil }
+        return route
+    }
+    private var shownAirspaceSelection: String? { features.contains(.airspace) ? selectedAirspaceId : nil }
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4311,6 +4325,11 @@ struct AeroMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // A finger dragging the planned route has the map until release. (6.7.0)
+        let planned = context.coordinator.plannedRoute
+        planned.route = shownPlannedRoute
+        if planned.isDragging { return }
+
         // The open legs panel's band has the camera, and the map takes no gesture, until the panel has
         // closed and the camera is back where the pilot left it. (6.1, option C)
         let bandOwnsCamera = context.coordinator.legsBand.update(mapView, band: legsBand, mapState: mapState)
@@ -4407,7 +4426,18 @@ struct AeroMapView: UIViewRepresentable {
         }
 
         // Update airspace polygon overlays (incremental diff)
+        context.coordinator.selectedAirspaceId = shownAirspaceSelection
         updateAirspaceOverlays(on: mapView, polygons: shownAirspace)
+        // The selected one restyled only when the selection changes: each repaint makes MapKit redraw the chart under
+        // every polygon (the map tile review, F9). One added later is styled as it is made. (6.4.2)
+        if context.coordinator.styledAirspaceSelection != shownAirspaceSelection {
+            context.coordinator.styledAirspaceSelection = shownAirspaceSelection
+            for polygon in mapView.overlays.compactMap({ $0 as? AirspacePolygon }) {
+                guard let renderer = mapView.renderer(for: polygon) as? MKPolygonRenderer else { continue }
+                polygon.style(renderer, selected: polygon.airspaceId == shownAirspaceSelection)
+                renderer.setNeedsDisplay()
+            }
+        }
 
         // Track vector. Only wipe when the feature is OFF; on a transient empty (brief GPS gap / <5 kt)
         // keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
@@ -4489,6 +4519,8 @@ struct AeroMapView: UIViewRepresentable {
 
         // Update flight plan overlay
         updateFlightPlanOverlay(mapView, context: context)
+        // The route being planned (the route builder). (6.7.0)
+        planned.sync(on: mapView)
 
         // Traffic circuits, VFR routes and sectors, under the route: nothing while the content is the
         // one drawn, which is every GPS tick. (6.2.0)
@@ -4781,9 +4813,18 @@ struct AeroMapView: UIViewRepresentable {
         var fitSync = FitRegionSync()
         /// The aerodrome procedures drawn, and their palette. (6.2.0)
         let vfrLayer = VFRMapLayer.State()
+        /// The route being planned and its editing. (6.7.0)
+        let plannedRoute = PlannedRouteLayer()
+        /// The crossed airspace drawn brighter, and the one the polygons on the map are styled for. (6.7.0)
+        var selectedAirspaceId: String?
+        var styledAirspaceSelection: String?
 
         init(_ parent: AeroMapView) {
             self.parent = parent
+            // The route and the selection from the start: the map's first update sets them again.
+            plannedRoute.route = parent.shownPlannedRoute
+            selectedAirspaceId = parent.shownAirspaceSelection
+            styledAirspaceSelection = selectedAirspaceId
         }
 
         func regionsAreEqual(_ r1: MKCoordinateRegion, _ r2: MKCoordinateRegion) -> Bool {
@@ -4858,6 +4899,7 @@ struct AeroMapView: UIViewRepresentable {
                 parent.mapState.updateBandRegion(mapView.region)
                 return
             }
+            parent.liveRegion?.region = mapView.region
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
@@ -4866,7 +4908,17 @@ struct AeroMapView: UIViewRepresentable {
             isUpdatingRegion = false
         }
 
+        // Fires on every frame of a pan or a pinch: the live region, for what follows the map as it moves. (6.4.2)
+        func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
+            guard let live = parent.liveRegion, !plannedRoute.isDragging else { return }
+            live.region = mapView.region
+        }
+
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // The planned route's halo, casing and core: before the generic MKPolyline branch below. (6.7.0)
+            if let renderer = PlannedRouteLayer.renderer(for: overlay) {
+                return renderer
+            }
             // Traffic circuits, VFR routes and sectors: their own classes, before the generic MKPolyline
             // branch below, which would draw them in the flown track's colour. (6.2.0)
             if let renderer = VFRMapLayer.renderer(for: overlay, palette: vfrLayer.palette) {
@@ -4876,13 +4928,7 @@ struct AeroMapView: UIViewRepresentable {
             // Airspace polygon overlay (check before generic MKTileOverlay)
             if let airspacePolygon = overlay as? AirspacePolygon {
                 let renderer = MKPolygonRenderer(polygon: airspacePolygon)
-                let color = airspacePolygon.overlayColor
-                renderer.fillColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.15)
-                renderer.strokeColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.8)
-                renderer.lineWidth = 1.5
-                if airspacePolygon.isDashed {
-                    renderer.lineDashPattern = [8, 4]
-                }
+                airspacePolygon.style(renderer, selected: airspacePolygon.airspaceId == selectedAirspaceId)
                 return renderer
             }
 
@@ -4946,6 +4992,11 @@ struct AeroMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // The planned route's numbered pins. (6.7.0)
+            if let pin = PlannedRouteLayer.annotationView(for: annotation, on: mapView) {
+                return pin
+            }
+
             // Handle flight plan waypoint annotations
             if let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation {
                 return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
@@ -4975,6 +5026,7 @@ struct AeroMapView: UIViewRepresentable {
                 }
                 navaidView.canShowCallout = true
                 navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
+                navaidView.rightCalloutAccessoryView = plannedRoute.addButton(for: navaidAnnotation)   // (6.7.0)
                 return navaidView
             }
 
@@ -5006,6 +5058,7 @@ struct AeroMapView: UIViewRepresentable {
                 rpView.canShowCallout = true
                 // "LSGC Les Eplatures · on request", plus a remark's own line when it has one. (6.0.1)
                 rpView.detailCalloutAccessoryView = reportingPointAnnotation.calloutDetailView()
+                rpView.rightCalloutAccessoryView = plannedRoute.addButton(for: reportingPointAnnotation)   // (6.7.0)
                 let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
                 rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView
@@ -5179,6 +5232,8 @@ struct AeroMapView: UIViewRepresentable {
                 chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: annotation.airport),
                 divert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+            // "+" on the right while planning a route. (6.7.0)
+            if let add = plannedRoute.addButton(for: annotation) { annotationView.rightCalloutAccessoryView = add }
 
             // The name and frequencies, then the pilot's note on the field (6.7.0).
             annotationView.detailCalloutAccessoryView = calloutDetail(for: annotation, on: mapView)
@@ -5190,6 +5245,8 @@ struct AeroMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      calloutAccessoryControlTapped control: UIControl) {
+            // "+": the planned route adds the point. (6.0.1, 6.7.0)
+            if plannedRoute.addPoint(for: control, of: view, on: mapView) { return }
             guard let airport = view.annotation as? AirportAnnotation else { return }
             mapView.deselectAnnotation(airport, animated: true)
             switch AirportCalloutControls.action(for: control, airport: airport.airport) {
@@ -5220,6 +5277,8 @@ struct AeroMapView: UIViewRepresentable {
             if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
             parent.mapState.noteCalloutSelection(on: mapView)   // the chrome steps aside (6.2.0)
             refreshChart(of: annotation, on: mapView)
+            // A planned route's pin selects its row in the route builder. (planning proposal D3)
+            if plannedRoute.didSelect(annotation) { return }
             guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
             // Deselect so user can tap again later
             mapView.deselectAnnotation(annotation, animated: false)
@@ -5237,6 +5296,7 @@ struct AeroMapView: UIViewRepresentable {
                 chart: parent.chartOpener == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
                 divert: parent.activeFlightPlan != nil && parent.divertHandler != nil,
                 metrics: .metrics(inFlight: parent.isInFlight), tint: vfrLayer.palette.action)
+            if let add = plannedRoute.addButton(for: airport) { view.rightCalloutAccessoryView = add }
             // The note as it is now: one written since the marker was drawn shows. (6.7.0)
             view.detailCalloutAccessoryView = calloutDetail(for: airport, on: mapView)
         }

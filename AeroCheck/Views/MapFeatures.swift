@@ -34,12 +34,22 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let recordATO = MapFeatures(rawValue: 1 << 14)
     /// MapKit's own location dot, compass and scale, for a surface without the app's map chrome.
     static let mapKitControls = MapFeatures(rawValue: 1 << 15)
+    /// The route being planned, its numbered pins and its selected leg (`PlannedRoute`).
+    static let plannedRoute = MapFeatures(rawValue: 1 << 16)
+    /// Press and hold to move a planned waypoint, insert one on a leg or add one; a tap on a pin selects it.
+    static let editRoute = MapFeatures(rawValue: 1 << 17)
+    /// "+" in an aerodrome's, navaid's or reporting point's callout adds it to the planned route.
+    static let addToRouteCallout = MapFeatures(rawValue: 1 << 18)
 
     static let markers: MapFeatures = [.airports, .navaids, .obstacles, .reportingPoints]
 
     /// Plan › Map, the Cockpit's MAP and the dry run: everything.
     static let navigation: MapFeatures = [.markers, .airspace, .openAIPTiles, .procedures, .route, .aircraft, .track,
                                           .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
+    /// The route builder: the markers, the airspace the route crosses, the procedures, the route being planned and
+    /// its editing, with MapKit's dot, compass and scale. No aircraft, track or OpenAIP tiles, as before 6.7.0.
+    static let builder: MapFeatures = [.markers, .airspace, .procedures, .plannedRoute, .editRoute, .addToRouteCallout,
+                                       .officialChartCallout, .noteCallout, .mapKitControls]
     /// The chart alone.
     static let chartOnly: MapFeatures = []
     /// The coordinate picker: the chart under its crosshair, with MapKit's dot, compass and scale.

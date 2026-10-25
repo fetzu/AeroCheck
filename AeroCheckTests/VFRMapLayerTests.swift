@@ -307,12 +307,13 @@ final class VFRMapLayerTests: XCTestCase {
                                         isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         let swiss = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        let builder = RouteBuilderMapView(waypoints: [], mapLayer: .icao, airports: [], fitRouteToken: 0,
-                                          region: .constant(region(spanNM: 10))).makeCoordinator()
+        let builder = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
+                                  isFollowingAircraft: .constant(true), forceICAOLayer: false,
+                                  features: .builder).makeCoordinator()
         let renderers: [(String, (MKOverlay) -> MKOverlayRenderer)] = [
             ("AeroMapView on Apple's map", { native.mapView(map, rendererFor: $0) }),
             ("AeroMapView", { swiss.mapView(map, rendererFor: $0) }),
-            ("RouteBuilderMapView", { builder.mapView(map, rendererFor: $0) }),
+            ("AeroMapView in the route builder", { builder.mapView(map, rendererFor: $0) }),
         ]
         // fixed: the sector's fill, the arrival's casing and core, the circuit's casing and core. scaled:
         // the sector's outline, the arrival's arrowhead.
@@ -352,7 +353,7 @@ final class VFRMapLayerTests: XCTestCase {
         let views: [(String, MKAnnotationView?)] = [
             ("AeroMapView on Apple's map", native.mapView(map, viewFor: label)),
             ("AeroMapView", swiss.mapView(map, viewFor: label)),
-            ("RouteBuilderMapView", builder.mapView(map, viewFor: label)),
+            ("AeroMapView in the route builder", builder.mapView(map, viewFor: label)),
         ]
         for (name, view) in views {
             let view = try XCTUnwrap(view, name)
@@ -439,12 +440,13 @@ final class VFRMapLayerTests: XCTestCase {
                                         isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
         let swiss = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        let builder = RouteBuilderMapView(waypoints: [], mapLayer: .icao, airports: [], fitRouteToken: 0,
-                                          region: .constant(region(spanNM: 10))).makeCoordinator()
+        let builder = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
+                                  isFollowingAircraft: .constant(true), forceICAOLayer: false,
+                                  features: .builder).makeCoordinator()
         let maps: [(String, MKMapViewDelegate, VFRMapLayer.State)] = [
             ("AeroMapView on Apple's map", native, native.vfrLayer),
             ("AeroMapView", swiss, swiss.vfrLayer),
-            ("RouteBuilderMapView", builder, builder.vfrLayer),
+            ("AeroMapView in the route builder", builder, builder.vfrLayer),
         ]
         for (name, delegate, layer) in maps {
             let (map, _) = onScreenMap(delegate: delegate)
@@ -503,7 +505,7 @@ final class VFRMapLayerTests: XCTestCase {
         map.addOverlay(RouteLinePolyline(coordinates: coordinates, count: 2), level: .aboveLabels)
         map.addOverlay(SelectedLegPolyline(coordinates: coordinates, count: 2), level: .aboveLabels)
 
-        RouteBuilderMapView.removeRouteOverlays(from: map)
+        PlannedRouteLayer.removeRouteOverlays(from: map)
         XCTAssertEqual(map.overlays.count, procedures)
         XCTAssertTrue(map.overlays.allSatisfy { $0 is VFRProcedureShape })
 

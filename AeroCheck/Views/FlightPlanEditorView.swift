@@ -1456,7 +1456,7 @@ struct IntFormField: View {
 
 // MARK: - Waypoint Picker Map View Representable
 
-/// Map layers for the waypoint-picker / route-builder maps. (shared by the builder + waypoint sheet)
+/// The chart menu of the coordinate picker and the route builder, which draw with `AeroMapView` since 6.7.0.
 /// In the menu's order, the author's (device check mp-1, 19 Oct 2026): the charts, the National Map, SWISSIMAGE,
 /// then Apple's map.
 enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
@@ -1493,11 +1493,6 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The layer these maps draw for the device's choice over `region`: Apple's map outside the Swiss charts. (6.5.0)
-    static func shown(for choice: MapLayerType, over region: MKCoordinateRegion) -> WaypointPickerMapLayer {
-        WaypointPickerMapLayer(choice.shown(over: region))
-    }
-
     var icon: String {
         switch self {
         case .apple: return "map"
@@ -1516,30 +1511,6 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         case .icao: return L10n.MapLayer.icaoGliderNational
         case .nationalMap: return L10n.MapLayer.landeskarte
         case .swissimage: return L10n.MapLayer.swissimage
-        }
-    }
-
-    /// How close the camera goes, by the one chart policy (`ChartPolicy`): the charts down to the National Map's
-    /// streets, the ICAO chart giving way to the glider chart (z11) and then to the National Map (z13); with
-    /// "Force ICAO chart" or offline, as Plan › Map. (6.4.2; one policy since 6.7.0)
-    func cameraZoomRange(policy: ChartPolicy = ChartPolicy()) -> MKMapView.CameraZoomRange {
-        policy.cameraZoomRange(for: policy.layer(for: mapLayerType))
-    }
-
-    /// Puts the layer on `mapView` by the one chart policy: Apple's map, with swisstopo's over it. Where swisstopo has
-    /// nothing (outside Switzerland: an empty tile, a white one, a 400), Apple's map shows, its imagery under
-    /// SWISSIMAGE: until 6.4.2 the overlay replaced Apple's map everywhere and drew black there (device check, 19 Oct
-    /// 2026). "Force ICAO chart" and offline mode count here too since 6.7.0, as on Plan › Map.
-    /// `atBottom`: under every other overlay (the route builder's route and airspace).
-    func apply(to mapView: MKMapView, atBottom: Bool = false, policy: ChartPolicy = ChartPolicy()) {
-        mapView.removeOverlays(mapView.overlays.compactMap { $0 as? MKTileOverlay })
-        let layer = policy.layer(for: mapLayerType)
-        mapView.mapType = ChartPolicy.mapType(for: layer)
-        guard let overlay = policy.overlay(for: layer) else { return }
-        if atBottom {
-            mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
-        } else {
-            mapView.addOverlay(overlay, level: .aboveLabels)
         }
     }
 }

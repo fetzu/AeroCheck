@@ -122,14 +122,8 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual((offline.overlay(for: .icao) as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, false)
         XCTAssertEqual(offline.cameraZoomRange(for: .icao).minCenterCoordinateDistance, ChartPolicy.gliderClosestDistance)
 
-        // The route builder and the picker honour the policy as Plan › Map does (they ignored both until 6.7.0).
-        let map = MKMapView()
-        WaypointPickerMapLayer.icao.apply(to: map, policy: forced)
-        XCTAssertEqual((map.overlays.first as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, false)
-        XCTAssertEqual(WaypointPickerMapLayer.icao.cameraZoomRange(policy: forced).minCenterCoordinateDistance, 135_000)
-        WaypointPickerMapLayer.nationalMap.apply(to: map, policy: offline)
-        XCTAssertNotNil(map.overlays.first as? ICAOSegelflugkarteTileOverlay, "offline, the ICAO layer")
-        XCTAssertEqual(map.overlays.compactMap { $0 as? MKTileOverlay }.first?.canReplaceMapContent, true)
+        // Offline, the downloaded chart replaces Apple's map, which can't be held off the network.
+        XCTAssertEqual(offline.overlay(for: offline.layer(for: .landeskarten))?.canReplaceMapContent, true)
 
         // A change in what the overlay draws is a new key, a setting that changes nothing is not.
         XCTAssertNotEqual(ChartPolicy().drawnKey(for: .icao), forced.drawnKey(for: .icao))
@@ -158,31 +152,49 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertNil(chartOnly.atoTap)
         XCTAssertTrue(MapFeatures.navigation.isSuperset(of: .markers))
         XCTAssertTrue(MapFeatures.chartOnly.isEmpty)
+
+        // The route builder's route and its editing reach only a surface that draws and edits it.
+        let point = CLLocationCoordinate2D(latitude: 47, longitude: 7)
+        let route = PlannedRoute(waypoints: [FlightPlanWaypoint(name: "A", coordinate: point)],
+                                 onSelectWaypoint: { _ in }, onMoveWaypoint: { _, _ in }, onInsertWaypoint: { _, _ in },
+                                 onAddWaypoint: { _ in }, onPointAdd: { _ in })
+        func planned(_ features: MapFeatures) -> PlannedRoute {
+            AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
+                        isFollowingAircraft: .constant(false), forceICAOLayer: false, features: features,
+                        plannedRoute: route).makeCoordinator().plannedRoute.route
+        }
+        let builder = planned(.builder)
+        XCTAssertEqual(builder.waypoints.count, 1)
+        XCTAssertTrue(builder.isEditable)
+        XCTAssertNotNil(builder.onPointAdd)
+        XCTAssertNotNil(builder.onSelectWaypoint)
+        XCTAssertTrue(planned(.navigation).waypoints.isEmpty, "Plan › Map draws the active plan, not this one")
+        let shownOnly = planned([.plannedRoute])
+        XCTAssertEqual(shownOnly.waypoints.count, 1)
+        XCTAssertFalse(shownOnly.isEditable)
+        XCTAssertNil(shownOnly.onPointAdd)
+        XCTAssertNil(shownOnly.onSelectWaypoint)
     }
 
-    func testTheBuildersLayersLeaveApplesMapUnderneath() {
+    /// The chart menu's layers, as every map draws them online: Apple's map under the chart, its satellite map
+    /// under SWISSIMAGE, down to the National Map's streets.
+    func testTheMenusLayersLeaveApplesMapUnderneath() {
+        let policy = ChartPolicy()
         for layer in WaypointPickerMapLayer.allCases {
-            let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
-            layer.apply(to: map)
-            let tiles = map.overlays.compactMap { $0 as? MKTileOverlay }
+            let overlay = policy.overlay(for: layer.mapLayerType)
             let apple = layer == .apple || layer == .appleSatellite
-            XCTAssertEqual(tiles.count, apple ? 0 : 1, "\(layer)")
-            XCTAssertTrue(tiles.allSatisfy { !$0.canReplaceMapContent }, "\(layer)")
-            XCTAssertEqual(map.mapType, layer == .swissimage || layer == .appleSatellite ? .satellite : .standard, "\(layer)")
+            XCTAssertEqual(overlay == nil, apple, "\(layer)")
+            XCTAssertEqual(overlay?.canReplaceMapContent ?? false, false, "\(layer)")
+            XCTAssertEqual(ChartPolicy.mapType(for: layer.mapLayerType),
+                           layer == .swissimage || layer == .appleSatellite ? .satellite : .standard, "\(layer)")
             XCTAssertFalse(layer.title.isEmpty)
+            XCTAssertEqual(WaypointPickerMapLayer(layer.mapLayerType), layer)
             if !apple {
-                XCTAssertEqual(layer.cameraZoomRange().minCenterCoordinateDistance, 1_500, "\(layer)")
+                XCTAssertEqual(policy.cameraZoomRange(for: layer.mapLayerType).minCenterCoordinateDistance, 1_500, "\(layer)")
             }
-            // Switching layers leaves one overlay.
-            layer.apply(to: map)
-            XCTAssertLessThanOrEqual(map.overlays.compactMap { $0 as? MKTileOverlay }.count, 1)
         }
-        let national = MKMapView()
-        WaypointPickerMapLayer.nationalMap.apply(to: national)
-        XCTAssertEqual((national.overlays.first as? SwisstopoTileOverlay)?.dropsBlankTiles, true)
-        let chart = MKMapView()
-        WaypointPickerMapLayer.icao.apply(to: chart)
-        XCTAssertEqual((chart.overlays.first as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, true)
+        XCTAssertEqual((policy.overlay(for: .landeskarten) as? SwisstopoTileOverlay)?.dropsBlankTiles, true)
+        XCTAssertEqual((policy.overlay(for: .icao) as? ICAOSegelflugkarteTileOverlay)?.continuesToNationalMap, true)
     }
 
     /// Plan › Map and the Cockpit's MAP come close enough for the glider chart: 30 km, where 65 km stopped about
@@ -214,7 +226,7 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual(MapLayerType.landeskarten.shown(over: lyon), .standard)
         XCTAssertEqual(MapLayerType.swissimage.shown(over: paloAlto), .satellite)
         XCTAssertEqual(MapLayerType.satellite.shown(over: bern), .satellite, "Apple's maps are everywhere")
-        XCTAssertEqual(WaypointPickerMapLayer.shown(for: .icao, over: paloAlto), .apple)
+        XCTAssertEqual(WaypointPickerMapLayer(MapLayerType.icao.shown(over: paloAlto)), .apple)
         XCTAssertFalse(L10n.MapLayer.switzerlandOnly("ICAO chart", "Apple Maps").isEmpty)
     }
 }

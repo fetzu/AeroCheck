@@ -568,11 +568,10 @@ final class OfficialChartTests: XCTestCase {
     func testTheBuilderCalloutOpensTheChartWithoutAddingThePoint() throws {
         var added: [RoutePoint] = []
         var charts: [URL] = []
-        let builder = RouteBuilderMapView(waypoints: [], mapLayer: .icao, airports: [], fitRouteToken: 0,
-                                          region: .constant(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47.4, longitude: 7.0),
-                                                                               span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5))),
-                                          onPointAdd: { added.append($0) },
-                                          onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
+        let builder = AeroMapView(layerType: .icao, mapState: SharedMapState(), currentLocation: nil, gpsTrack: [],
+                                  isFollowingAircraft: .constant(false), forceICAOLayer: false,
+                                  onOpenOfficialChart: { charts.append($0) }, features: .builder,
+                                  plannedRoute: PlannedRoute(onPointAdd: { added.append($0) })).makeCoordinator()
         let map = MKMapView()
         let view = try XCTUnwrap(builder.mapView(map, viewFor: AirportAnnotation(airport: airport("LSZQ"))))
         let chart = try XCTUnwrap(view.leftCalloutAccessoryView as? OfficialChartControl)

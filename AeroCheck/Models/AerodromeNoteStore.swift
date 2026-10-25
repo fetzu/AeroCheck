@@ -17,9 +17,15 @@ final class AerodromeNoteStore: ObservableObject {
     private let persistence: DataPersistenceManager
     private var datastoreMoves: AnyCancellable?
     /// What a save or delete made here, by the change's sequence number: a load that read the folder
-    /// before the change reached it must not undo it. A save is forgotten once its file is written, a
-    /// delete once a load started after it.
-    private var localChanges: [UUID: (note: AerodromeNote?, seq: Int)] = [:]
+    /// before the change reached it must not undo it. A delete is forgotten once a load started after it, a save
+    /// once its file is written and a load started after it: forgotten as soon as written, a save was dropped by a
+    /// load that had read the folder before the file came, and the next save on that aerodrome made a second note.
+    private struct LocalChange {
+        var note: AerodromeNote?
+        let seq: Int
+        var written = false
+    }
+    private var localChanges: [UUID: LocalChange] = [:]
     private var seq = 0
     /// The last load asked for; each waits for the one before. Two at once (the store's own first one and a caller's)
     /// both read the folder, and the one that ended last could keep a copy the other had just folded into its twin.
@@ -78,10 +84,10 @@ final class AerodromeNoteStore: ObservableObject {
         put(note)
         seq += 1
         let mine = seq
-        localChanges[note.id] = (note, mine)
+        localChanges[note.id] = LocalChange(note: note, seq: mine)
         return Task {
             let written = await persistence.saveAerodromeNotesOffMain([note])
-            if written.contains(note.id), localChanges[note.id]?.seq == mine { localChanges[note.id] = nil }
+            if written.contains(note.id), localChanges[note.id]?.seq == mine { localChanges[note.id]?.written = true }
         }
     }
 
@@ -90,7 +96,7 @@ final class AerodromeNoteStore: ObservableObject {
     func delete(_ note: AerodromeNote, now: Date = Date()) {
         notes.removeAll { $0.id == note.id }
         seq += 1
-        localChanges[note.id] = (nil, seq)
+        localChanges[note.id] = LocalChange(note: nil, seq: seq)
         persistence.recordDeletion(.aerodromeNote, id: note.id, stamp: note.updatedAt, at: now)
         persistence.deleteAerodromeNoteFile(note)
     }
@@ -120,6 +126,7 @@ final class AerodromeNoteStore: ObservableObject {
         for (id, change) in localChanges {
             if let note = change.note {
                 if (byId[id]?.updatedAt ?? .distantPast) < note.updatedAt { byId[id] = note }
+                if change.written && change.seq <= startedAt { localChanges[id] = nil }
             } else {
                 byId[id] = nil
                 if change.seq <= startedAt { localChanges[id] = nil }

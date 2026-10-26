@@ -184,6 +184,8 @@ struct AeroCheckApp: App {
                     // The flight this launch restored, or none: drops the hold of a flight that
                     // wasn't restored (`SubscriptionManager.holdForFlight`). (6.1.4)
                     subscriptionManager.holdForFlight(appState.isFlightActive)
+                    // The pilot's map's monthly allowance follows the same entitlement, held in flight. (6.8.0)
+                    PilotMapDownloads.shared.setPro(subscriptionManager.shouldAllowPremiumAccess())
                     // And the Watch streams it again: a restore never passes the start that tells it
                     // (`handleFlightStateChange`). (6.6.0)
                     watchConnectivityManager.resumeIfFlightRestored(appState: appState, locationManager: locationManager,
@@ -385,6 +387,10 @@ struct AeroCheckApp: App {
                     NotificationService.shared.releaseHeld()
                 }
                 .onChange(of: appState.currentPhase) { _, _ in NotificationService.shared.releaseHeld() }
+                // A purchase, a restore or a lapse moves the pilot's map's allowance too. (6.8.0)
+                .onReceive(subscriptionManager.$subscriptionStatus) { _ in
+                    PilotMapDownloads.shared.setPro(subscriptionManager.shouldAllowPremiumAccess())
+                }
                 // What a dry run held, once it ends. (6.4.0)
                 .onChange(of: dryRunCenter.isRunning) { _, _ in NotificationService.shared.releaseHeld() }
                 // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
@@ -401,6 +407,13 @@ struct AeroCheckApp: App {
                     Task { await FISAreaService.shared.refreshIfNeeded() }
                     // The aerodrome notes another device may have changed through iCloud Drive. (6.7.0)
                     Task { await AerodromeNoteStore.shared.reload() }
+                    // The pilot's map: its index, the allowance's plan, and the month's new builds of the downloaded
+                    // regions, on Wi-Fi and never in flight. (6.8.0)
+                    PilotMapDownloads.shared.setPro(subscriptionManager.shouldAllowPremiumAccess())
+                    Task {
+                        await PilotMapDownloads.shared.updateDownloaded(conditions: networkMonitor.conditions,
+                                                                        inFlight: appState.isFlightActive)
+                    }
                     // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
                     // Oct: when the app opens, no background work.) Nor during a dry run. (6.4.0)
                     if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
@@ -496,6 +509,7 @@ struct AeroCheckApp: App {
     private func handleFlightStateChange(isActive: Bool) {
         // Pro is held from START FLIGHT to END or ABANDON FLIGHT. (6.1.4)
         subscriptionManager.holdForFlight(isActive)
+        PilotMapDownloads.shared.setPro(subscriptionManager.shouldAllowPremiumAccess())
         if isActive {
             // Notify Watch that flight has started (triggers Watch app launch)
             watchConnectivityManager.notifyFlightStarted(

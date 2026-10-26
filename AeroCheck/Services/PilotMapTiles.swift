@@ -39,15 +39,22 @@ final class PilotMapStorage: @unchecked Sendable {
     }
 
     /// Moves downloaded archives into place (replacing an older download of the region) and records the entry.
-    /// Each file must open as a PMTiles archive.
+    /// Each file must open as a PMTiles archive. A kind not given keeps the file already there (a month that
+    /// rebuilt the map only updates the map).
     func install(_ region: PilotMapRegion, files: [PilotMapKind: URL]) throws {
         for (_, file) in files { _ = try PMTilesArchive(url: file) }
         let fm = FileManager.default
         let staging = root.appendingPathComponent(".staging-\(region.id)-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: staging) }
-        for (kind, file) in files {
-            try fm.moveItem(at: file, to: staging.appendingPathComponent("\(kind.rawValue).pmtiles"))
+        for kind in PilotMapKind.allCases {
+            let staged = staging.appendingPathComponent("\(kind.rawValue).pmtiles")
+            if let file = files[kind] {
+                try fm.moveItem(at: file, to: staged)
+            } else if fm.fileExists(atPath: fileURL(region: region.id, kind: kind).path) {
+                // A hard link: the old file stays whole until the swap below.
+                try fm.linkItem(at: fileURL(region: region.id, kind: kind), to: staged)
+            }
         }
         try JSONEncoder().encode(region).write(to: staging.appendingPathComponent("region.json"))
         lock.withLock {

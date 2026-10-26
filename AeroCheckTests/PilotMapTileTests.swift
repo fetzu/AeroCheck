@@ -305,6 +305,31 @@ final class PilotMapTileTests: XCTestCase {
         }
     }
 
+    /// The world outline comes from the bundle, to tile zoom 6, offline or not.
+    func testBundledOutlineAnswersItsTiles() async throws {
+        XCTAssertEqual(PilotTileURLProtocol.parse(URL(string: "https://tiles.aerocheck.app/local/outline/5/16/11")),
+                       .outline(z: 5, x: 16, y: 11))
+        XCTAssertNotNil(PilotMap.outline)
+        guard case let .body(data, type) = await PilotTileURLProtocol.answer(.outline(z: 5, x: 16, y: 11)) else {
+            return XCTFail("Switzerland's zoom-5 tile")
+        }
+        XCTAssertEqual(type, "application/x-protobuf")
+        XCTAssertFalse(PMTiles.isGzip(data), "MapLibre gets the tile unzipped")
+        guard case .none = await PilotTileURLProtocol.answer(.outline(z: 7, x: 66, y: 45)) else {
+            return XCTFail("nothing past zoom 6: MapLibre draws zoom 6 enlarged")
+        }
+    }
+
+    /// The style as MapLibre loads it: every address filled in, the outline's names in the app's language.
+    func testStyleIsFilledIn() throws {
+        let url = try XCTUnwrap(PilotMapStyle.url)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertFalse(text.contains("{{"), "a placeholder left")
+        XCTAssertTrue(text.contains(PilotMapConfig.outlineTileTemplate))
+        XCTAssertTrue(text.contains("\"label:\(PilotMapStyle.outlineLanguage)\""))
+        XCTAssertTrue(["en", "fr", "de"].contains(PilotMapStyle.outlineLanguage))
+    }
+
     /// MapLibre's session, as `registerWithMapLibre` sets it up, without MapLibre: a session with the protocol.
     func testURLProtocolAnswersMapLibresRequests() async throws {
         let rig = try await rig([Self.ch])

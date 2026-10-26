@@ -38,10 +38,20 @@ final class PilotMapStorage: @unchecked Sendable {
         }
     }
 
+    /// The ETag R2 gave a downloaded archive, sent back as If-None-Match: an unchanged file isn't sent again.
+    func etag(region id: String, kind: PilotMapKind) -> String? {
+        etags(in: directory(for: id))[kind.rawValue]
+    }
+
+    private func etags(in folder: URL) -> [String: String] {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("etags.json")) else { return [:] }
+        return (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
+    }
+
     /// Moves downloaded archives into place (replacing an older download of the region) and records the entry.
-    /// Each file must open as a PMTiles archive. A kind not given keeps the file already there (a month that
-    /// rebuilt the map only updates the map).
-    func install(_ region: PilotMapRegion, files: [PilotMapKind: URL]) throws {
+    /// Each file must open as a PMTiles archive. A kind not given keeps the file already there, and its ETag (a
+    /// month that rebuilt the map only updates the map; a file R2 answered "not modified" for stays).
+    func install(_ region: PilotMapRegion, files: [PilotMapKind: URL], etags new: [PilotMapKind: String] = [:]) throws {
         for (_, file) in files { _ = try PMTilesArchive(url: file) }
         let fm = FileManager.default
         let staging = root.appendingPathComponent(".staging-\(region.id)-\(UUID().uuidString)", isDirectory: true)
@@ -57,6 +67,11 @@ final class PilotMapStorage: @unchecked Sendable {
             }
         }
         try JSONEncoder().encode(region).write(to: staging.appendingPathComponent("region.json"))
+        var tags = etags(in: directory(for: region.id)).filter { key, _ in
+            PilotMapKind(rawValue: key).map { files[$0] == nil } ?? false
+        }
+        for (kind, tag) in new where files[kind] != nil { tags[kind.rawValue] = tag }
+        try JSONEncoder().encode(tags).write(to: staging.appendingPathComponent("etags.json"))
         lock.withLock {
             archives = archives.filter { !$0.key.hasPrefix("\(region.id)/") }
         }
@@ -238,7 +253,7 @@ final class PilotTileSource: @unchecked Sendable {
 
 /// Answers MapLibre's requests for https://tiles.aerocheck.app/v1/{map,relief}/{z}/{x}/{y} and
 /// /v1/glyphs/{fontstack}/{range}.pbf, registered on MapLibre's own session only (`registerWithMapLibre`): the tiles
-/// from `PilotTileSource`, the glyphs from the app's bundle. Anything else on that host, and a tile nobody has,
+/// from `PilotTileSource`, the glyphs and the world outline (/local/outline/{z}/{x}/{y}) from the app's bundle. Anything else on that host, and a tile nobody has,
 /// gets a 404. (6.8.0)
 final class PilotTileURLProtocol: URLProtocol {
     private static let lock = NSLock()
@@ -276,6 +291,8 @@ final class PilotTileURLProtocol: URLProtocol {
         case openAIP(z: Int, x: Int, y: Int, offline: Bool)
         /// An aerial imagery tile, composed here from the sources in it (`ImageryTiles`).
         case imagery(z: Int, x: Int, y: Int)
+        /// A tile of the world outline, from the bundle.
+        case outline(z: Int, x: Int, y: Int)
         case unknown
     }
 
@@ -320,6 +337,9 @@ final class PilotTileURLProtocol: URLProtocol {
         if parts.count == 6, parts[2] == "imagery", let (z, x, y) = zxy(3) {
             return .imagery(z: z, x: x, y: y)
         }
+        if parts.count == 6, parts[2] == "outline", let (z, x, y) = zxy(3) {
+            return .outline(z: z, x: x, y: y)
+        }
         return .unknown
     }
 
@@ -358,6 +378,10 @@ final class PilotTileURLProtocol: URLProtocol {
             let tile = await ImageryTiles.tile(z: z, x: x, y: y, store: PilotMap.imagery, offline: !PilotMap.onlineAllowed)
             if case let .data(data) = tile { return .body(data, data.starts(with: [0xFF, 0xD8]) ? "image/jpeg" : "image/png") }
             return tile.answer(type: "image/png")
+        case let .outline(z, x, y):
+            // The outline stops at tile zoom 6; MapLibre draws it enlarged beyond and asks no further.
+            guard let stored = PilotMap.outline?.tile(z: z, x: x, y: y), let plain = PMTiles.plain(stored) else { return .none }
+            return .body(plain, "application/x-protobuf")
         case .unknown:
             return .none
         }
@@ -438,6 +462,13 @@ enum PilotMap {
         get { lock.withLock { online } }
         set { lock.withLock { online = newValue } }
     }
+
+    /// The world outline (AeroCheck-maps `build/outline.py`, decided 26 Oct 2026): land and sea, borders, country
+    /// names, capitals, major rivers and lakes, to tile zoom 6. Bundled, so the map is never blank where no region is
+    /// downloaded, offline or not.
+    static let outline: PMTilesArchive? = Bundle.main.url(forResource: "outline", withExtension: "pmtiles",
+                                                          subdirectory: "PilotMapOutline")
+        .flatMap { try? PMTilesArchive(url: $0) }
 
     /// The aerial imagery's sources (`ImageryStore`), beside the index.
     static let imagery: ImageryStore = {

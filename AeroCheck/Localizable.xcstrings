@@ -15564,19 +15564,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unsere eigene Karte zum Fliegen, aus OpenStreetMap, mit Relief. Eine heruntergeladene Region funktioniert offline und zählt nie zum monatlichen Online-Kontingent."
+            "value": "Unsere eigene Karte zum Fliegen, aus OpenStreetMap, mit Relief. Eine heruntergeladene Region funktioniert offline, zählt nie zum monatlichen Online-Kontingent und aktualisiert sich alle drei Monate selbst, im WLAN."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Our own map for flying, from OpenStreetMap, with relief. A downloaded region works offline and never counts against the monthly online allowance."
+            "value": "Our own map for flying, from OpenStreetMap, with relief. A downloaded region works offline, never counts against the monthly online allowance, and updates itself every three months on Wi-Fi."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notre propre carte pour le vol, tirée d'OpenStreetMap, avec le relief. Une région téléchargée fonctionne hors ligne et ne compte jamais dans le quota mensuel en ligne."
+            "value": "Notre propre carte pour le vol, tirée d'OpenStreetMap, avec le relief. Une région téléchargée fonctionne hors ligne, ne compte jamais dans le quota mensuel en ligne et se met à jour d'elle-même tous les trois mois, en Wi-Fi."
           }
         }
       }

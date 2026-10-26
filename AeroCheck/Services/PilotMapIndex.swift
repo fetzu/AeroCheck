@@ -14,6 +14,8 @@ enum PilotMapConfig {
     static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}"
     static let reliefTileTemplate = "https://\(host)/v1/relief/{z}/{x}/{y}"
     static let glyphsTemplate = "https://\(host)/v1/glyphs/{fontstack}/{range}.pbf"
+    /// The world outline, from the app's bundle (`PilotMapOutline`).
+    static let outlineTileTemplate = "https://\(host)/local/outline/{z}/{x}/{y}"
 
     /// A region's archive on R2.
     static func archiveURL(region: String, kind: PilotMapKind) -> URL {
@@ -76,18 +78,25 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
     let reliefBytes: Int
     /// The relief's own build date (it is rebuilt rarely); the map's when the index doesn't say.
     let reliefBuilt: String?
+    /// A hash of each archive's tiles: the same hash, the same tiles, whatever the date. Indexes before 6.8.0's
+    /// border cut have none.
+    let mapHash: String?
+    let reliefHash: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, bounds, built
         case mapBytes = "map_bytes"
         case reliefBytes = "relief_bytes"
         case reliefBuilt = "relief_built"
+        case mapHash = "map_hash"
+        case reliefHash = "relief_hash"
     }
 
     init(id: String, name: String, bounds: [Double], built: String, mapBytes: Int, reliefBytes: Int,
-         reliefBuilt: String? = nil) {
+         reliefBuilt: String? = nil, mapHash: String? = nil, reliefHash: String? = nil) {
         self.id = id; self.name = name; self.bounds = bounds; self.built = built
         self.mapBytes = mapBytes; self.reliefBytes = reliefBytes; self.reliefBuilt = reliefBuilt
+        self.mapHash = mapHash; self.reliefHash = reliefHash
     }
 
     init(from decoder: Decoder) throws {
@@ -99,6 +108,8 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
         mapBytes = try c.decodeIfPresent(Int.self, forKey: .mapBytes) ?? 0
         reliefBytes = try c.decodeIfPresent(Int.self, forKey: .reliefBytes) ?? 0
         reliefBuilt = try c.decodeIfPresent(String.self, forKey: .reliefBuilt)
+        mapHash = try c.decodeIfPresent(String.self, forKey: .mapHash)
+        reliefHash = try c.decodeIfPresent(String.self, forKey: .reliefHash)
     }
 
     /// An id is a path segment, on R2 and on disk: lowercase letters, digits and hyphens only.
@@ -114,6 +125,8 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
 
     /// The build an archive comes from: its cache and its download are keyed by it.
     func build(of kind: PilotMapKind) -> String { kind == .relief ? reliefBuilt ?? built : built }
+
+    func hash(of kind: PilotMapKind) -> String? { kind == .relief ? reliefHash : mapHash }
 
     var downloadBytes: Int { mapBytes + reliefBytes }
 

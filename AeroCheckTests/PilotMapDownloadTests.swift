@@ -3,14 +3,15 @@ import XCTest
 @testable import AeroCheck
 
 /// The pilot's map's downloads (6.8.0): what a download fetches, a route's regions, the install and its failures,
-/// the monthly update's gate.
+/// the update every three months, and the same tiles never fetched twice.
 @MainActor
 final class PilotMapDownloadTests: XCTestCase {
 
     private static func region(_ id: String, _ bounds: [Double], built: String = "20261025", relief: Bool = true,
-                               reliefBuilt: String? = nil, mapBytes: Int = 0, reliefBytes: Int = 0) -> PilotMapRegion {
+                               reliefBuilt: String? = nil, mapBytes: Int = 0, reliefBytes: Int = 0,
+                               mapHash: String? = nil) -> PilotMapRegion {
         PilotMapRegion(id: id, name: id.uppercased(), bounds: bounds, built: built, mapBytes: max(mapBytes, 1),
-                       reliefBytes: relief ? max(reliefBytes, 1) : 0, reliefBuilt: reliefBuilt)
+                       reliefBytes: relief ? max(reliefBytes, 1) : 0, reliefBuilt: reliefBuilt, mapHash: mapHash)
     }
 
     private static let chBounds = [5.64, 45.6, 10.78, 48.0]
@@ -18,9 +19,10 @@ final class PilotMapDownloadTests: XCTestCase {
 
     private final class Requests: @unchecked Sendable {
         private let lock = NSLock()
-        private var urls: [URL] = []
-        func add(_ url: URL) { lock.withLock { urls.append(url) } }
-        var all: [URL] { lock.withLock { urls } }
+        private var requests: [URLRequest] = []
+        func add(_ request: URLRequest) { lock.withLock { requests.append(request) } }
+        var all: [URL] { lock.withLock { requests.compactMap(\.url) } }
+        var ifNoneMatch: [String?] { lock.withLock { requests.map { $0.value(forHTTPHeaderField: "If-None-Match") } } }
     }
 
     /// Archives the fake server hands out, by path.
@@ -35,8 +37,9 @@ final class PilotMapDownloadTests: XCTestCase {
         let requests: Requests
     }
 
-    /// `root` shared by two rigs is one device across two months' indexes.
-    private func rig(_ regions: [PilotMapRegion], files: [String: Data], status: Int = 200,
+    /// `root` shared by two rigs is one device across two months' indexes. `etags`: the ETag the server gives each
+    /// kind's file; a request whose If-None-Match matches it gets a 304.
+    private func rig(_ regions: [PilotMapRegion], files: [String: Data], status: Int = 200, etags: [String: String] = [:],
                      freeSpace: Int64? = nil, root: URL? = nil) async throws -> Rig {
         let root = root ?? makeTestDirectory()
         let index = try JSONSerialization.data(withJSONObject: [
@@ -54,13 +57,14 @@ final class PilotMapDownloadTests: XCTestCase {
         let temp = makeTestDirectory()
         try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
         let downloads = PilotMapDownloads(source: source, transfer: { request, progress in
-            requests.add(request.url!)
+            requests.add(request)
             guard status == 200 else { throw PilotMapDownloads.Failure.http(status) }
             let kind = request.url!.deletingPathExtension().lastPathComponent
+            if let etag = etags[kind], request.value(forHTTPHeaderField: "If-None-Match") == etag { return .unchanged }
             let file = temp.appendingPathComponent(UUID().uuidString)
             try (files[kind] ?? Data()).write(to: file)
             progress(1)
-            return file
+            return .file(file, etag: etags[kind])
         }, freeSpace: { freeSpace })
         return Rig(downloads: downloads, requests: requests)
     }
@@ -78,6 +82,17 @@ final class PilotMapDownloadTests: XCTestCase {
         XCTAssertEqual(PilotMapDownloads.kindsToFetch(listed: installed, installed: installed, filesPresent: [.map, .relief]), [])
         let noRelief = Self.region("at", [9.5, 46.3, 17.2, 49.1], relief: false)
         XCTAssertEqual(PilotMapDownloads.kindsToFetch(listed: noRelief, installed: nil, filesPresent: []), [.map])
+    }
+
+    func testTheSameTilesUnderAnotherDateNeedNothing() {
+        let installed = Self.region("ch", Self.chBounds, built: "20261025", reliefBuilt: "20261025", mapHash: "a1")
+        let rerun = Self.region("ch", Self.chBounds, built: "20261102", reliefBuilt: "20261025", mapHash: "a1")
+        XCTAssertEqual(PilotMapDownloads.kindsToFetch(listed: rerun, installed: installed, filesPresent: [.map, .relief]), [])
+        let changed = Self.region("ch", Self.chBounds, built: "20261102", reliefBuilt: "20261025", mapHash: "b2")
+        XCTAssertEqual(PilotMapDownloads.kindsToFetch(listed: changed, installed: installed, filesPresent: [.map, .relief]), [.map])
+        let older = Self.region("ch", Self.chBounds, built: "20261025", reliefBuilt: "20261025")
+        XCTAssertEqual(PilotMapDownloads.kindsToFetch(listed: rerun, installed: older, filesPresent: [.map, .relief]), [.map],
+                       "a copy from before the hashes goes by its date")
     }
 
     // MARK: A route's regions
@@ -189,7 +204,66 @@ final class PilotMapDownloadTests: XCTestCase {
         XCTAssertEqual(rig.downloads.bytesOnDisk, 0)
     }
 
-    // MARK: The monthly update
+    func testAFileTheServerStillHasIsNotDownloadedAgain() async throws {
+        let device = makeTestDirectory()
+        let first = archives("first")
+        let tags = ["map": "\"m-first\"", "relief": "\"r-first\""]
+        let old = Self.region("ch", Self.chBounds, mapBytes: first["map"]!.count, reliefBytes: first["relief"]!.count)
+        let october = try await rig([old], files: first, etags: tags, root: device)
+        await october.downloads.downloadNow(old)
+        XCTAssertEqual(october.requests.ifNoneMatch, [nil, nil], "a first download has nothing to compare")
+
+        // An index with a new date, the file on R2 the same: R2 answers 304 and nothing is fetched.
+        let new = Self.region("ch", Self.chBounds, built: "20261102", reliefBuilt: "20261025",
+                              mapBytes: first["map"]!.count, reliefBytes: first["relief"]!.count)
+        let november = try await rig([new], files: [:], etags: tags, root: device)
+        XCTAssertEqual(november.downloads.state(of: "ch"), .updateAvailable)
+        let ok = await november.downloads.downloadNow(new)
+        XCTAssertTrue(ok)
+        XCTAssertEqual(november.requests.ifNoneMatch, ["\"m-first\""])
+        XCTAssertEqual(november.downloads.state(of: "ch"), .downloaded, "the entry follows the index")
+        let storage = november.downloads.source.storage
+        XCTAssertEqual(storage.archive(region: "ch", kind: .map)?.tile(z: 0, x: 0, y: 0).flatMap(PMTiles.plain),
+                       PMTilesFixture.content(0, 0, 0, "first"))
+        XCTAssertEqual(storage.etag(region: "ch", kind: .map), "\"m-first\"", "the ETag kept with the file")
+    }
+
+    // MARK: The update every three months
+
+    func testTheUpdateIsDueWhenTheCopyIsThreeMonthsOld() throws {
+        let installed = Self.region("ch", Self.chBounds, built: "20261025", reliefBuilt: "20261025")
+        let listed = Self.region("ch", Self.chBounds, built: "20261102", reliefBuilt: "20261025")
+        let utc = { (text: String) -> Date in
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withFullDate]; return f.date(from: text)!
+        }
+        let both: Set<PilotMapKind> = [.map, .relief]
+        XCTAssertFalse(PilotMapDownloads.autoUpdateDue(listed: listed, installed: installed, filesPresent: both, now: utc("2026-12-15")))
+        XCTAssertFalse(PilotMapDownloads.autoUpdateDue(listed: listed, installed: installed, filesPresent: both, now: utc("2027-01-24")))
+        XCTAssertTrue(PilotMapDownloads.autoUpdateDue(listed: listed, installed: installed, filesPresent: both, now: utc("2027-01-25")))
+        XCTAssertTrue(PilotMapDownloads.autoUpdateDue(listed: installed, installed: installed, filesPresent: [.map], now: utc("2026-10-26")),
+                      "a missing file is due at once")
+        XCTAssertFalse(PilotMapDownloads.autoUpdateDue(listed: installed, installed: installed, filesPresent: both, now: utc("2028-01-01")),
+                       "nothing new is never due")
+    }
+
+    func testTheForegroundUpdateWaitsForThreeMonths() async throws {
+        let device = makeTestDirectory()
+        let first = archives("first")
+        let old = Self.region("ch", Self.chBounds, mapBytes: first["map"]!.count, reliefBytes: first["relief"]!.count)
+        let october = try await rig([old], files: first, root: device)
+        await october.downloads.downloadNow(old)
+        let next = archives("november")
+        let new = Self.region("ch", Self.chBounds, built: "20261102", reliefBuilt: "20261025",
+                              mapBytes: next["map"]!.count, reliefBytes: first["relief"]!.count)
+        let later = try await rig([new], files: next, root: device)
+        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
+        await later.downloads.updateDownloaded(conditions: wifi, inFlight: false, now: Date(timeIntervalSince1970: 1_796_000_000))
+        XCTAssertEqual(later.requests.all, [], "30 November: the copy is a month old")
+        await later.downloads.updateDownloaded(conditions: wifi, inFlight: false, now: Date(timeIntervalSince1970: 1_801_000_000))
+        XCTAssertEqual(later.requests.all.map(\.lastPathComponent), ["map.pmtiles"], "26 January: three months on")
+    }
+
+    // MARK: Unmetered networks, never in flight
 
     func testSilentDownloadsOnlyOnAnUnmeteredNetwork() {
         let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)

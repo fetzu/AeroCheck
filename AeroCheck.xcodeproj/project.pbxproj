@@ -10,6 +10,7 @@
 		FA7900428F8B48513E89BFAE /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 69B93D33467A6A7BF6C76BB9 /* MapLibre */; };
 		A4FB0DC05E77C0F8B795C208 /* PilotMapGlyphs in Resources */ = {isa = PBXBuildFile; fileRef = D42A82B40D9AF33409DB803F /* PilotMapGlyphs */; };
 		950A9FE2719C642E717D2CBA /* PilotMapStyle in Resources */ = {isa = PBXBuildFile; fileRef = 407E24D9D6E19F50CD4F25DA /* PilotMapStyle */; };
+		7A31C0E2B94D4F1A8C6E0D51 /* PilotMapOutline in Resources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D52 /* PilotMapOutline */; };
 		6F9973D8C168E277C7844AA0 /* PilotMapImagery in Resources */ = {isa = PBXBuildFile; fileRef = AAB18316A6260434192F11E0 /* PilotMapImagery */; };
 		C7A0000A211111110000001 /* GroundReplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A0000A111111110000001 /* GroundReplayTests.swift */; };
 		C5D773F7F1A4886C69DF85E6 /* DryRunWorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21489269191337369FD50558 /* DryRunWorldTests.swift */; };
@@ -819,6 +820,7 @@
 		D1000001111111110000009 /* country-boundaries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "country-boundaries.json"; sourceTree = "<group>"; };
 		D42A82B40D9AF33409DB803F /* PilotMapGlyphs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PilotMapGlyphs; sourceTree = "<group>"; };
 		407E24D9D6E19F50CD4F25DA /* PilotMapStyle */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PilotMapStyle; sourceTree = "<group>"; };
+		7A31C0E2B94D4F1A8C6E0D52 /* PilotMapOutline */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PilotMapOutline; sourceTree = "<group>"; };
 		AAB18316A6260434192F11E0 /* PilotMapImagery */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PilotMapImagery; sourceTree = "<group>"; };
 		D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled-fr.json"; sourceTree = "<group>"; };
 		E1000001111111110000001 /* Airport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airport.swift; sourceTree = "<group>"; };
@@ -1158,6 +1160,7 @@
 				D1000001111111110000009 /* country-boundaries.json */,
 				D42A82B40D9AF33409DB803F /* PilotMapGlyphs */,
 				407E24D9D6E19F50CD4F25DA /* PilotMapStyle */,
+				7A31C0E2B94D4F1A8C6E0D52 /* PilotMapOutline */,
 				AAB18316A6260434192F11E0 /* PilotMapImagery */,
 				D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */,
 			);
@@ -1686,6 +1689,7 @@
 				D1000001211111110000009 /* country-boundaries.json in Resources */,
 				A4FB0DC05E77C0F8B795C208 /* PilotMapGlyphs in Resources */,
 				950A9FE2719C642E717D2CBA /* PilotMapStyle in Resources */,
+				7A31C0E2B94D4F1A8C6E0D51 /* PilotMapOutline in Resources */,
 				6F9973D8C168E277C7844AA0 /* PilotMapImagery in Resources */,
 				D1000001211111110000003 /* wt9-dynamic-bundled-fr.json in Resources */,
 			);

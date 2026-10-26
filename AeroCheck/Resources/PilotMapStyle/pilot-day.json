@@ -22,6 +22,15 @@
    "encoding": "terrarium",
    "tileSize": 512,
    "attribution": "Mapterhorn"
+  },
+  "outline": {
+   "type": "vector",
+   "tiles": [
+    "{{OUTLINE_TILES}}"
+   ],
+   "minzoom": 0,
+   "maxzoom": 6,
+   "attribution": "© OpenStreetMap contributors, Natural Earth"
   }
  },
  "layers": [
@@ -33,6 +42,114 @@
    }
   },
   {
+   "id": "outline-ocean",
+   "type": "fill",
+   "source": "outline",
+   "source-layer": "water",
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "ocean"
+   ],
+   "paint": {
+    "fill-color": "#b9d8ee",
+    "fill-outline-color": "#4a86b8"
+   }
+  },
+  {
+   "id": "outline-lake",
+   "type": "fill",
+   "source": "outline",
+   "source-layer": "water",
+   "minzoom": 5,
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "lake"
+   ],
+   "paint": {
+    "fill-color": "#b9d8ee"
+   }
+  },
+  {
+   "id": "outline-lake-edge",
+   "type": "line",
+   "source": "outline",
+   "source-layer": "water",
+   "minzoom": 5,
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "lake"
+   ],
+   "paint": {
+    "line-color": "#4a86b8",
+    "line-width": 0.8
+   }
+  },
+  {
+   "id": "outline-capital-area",
+   "type": "fill",
+   "source": "outline",
+   "source-layer": "capital_areas",
+   "minzoom": 8,
+   "paint": {
+    "fill-color": "#f3dc94",
+    "fill-opacity": 0.9,
+    "fill-outline-color": "#b8923a"
+   }
+  },
+  {
+   "id": "outline-river",
+   "type": "line",
+   "source": "outline",
+   "source-layer": "rivers",
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#3f7fb5",
+    "line-width": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     3,
+     0.6,
+     6,
+     1.4,
+     8,
+     2,
+     12,
+     2.6
+    ]
+   },
+   "minzoom": 5
+  },
+  {
+   "id": "earth",
+   "type": "fill",
+   "source": "map",
+   "source-layer": "earth",
+   "paint": {
+    "fill-color": "#f6f5f0"
+   },
+   "minzoom": 5
+  },
+  {
    "id": "relief-bands",
    "type": "color-relief",
    "source": "relief",
@@ -42,6 +159,8 @@
      [
       "elevation"
      ],
+     "rgba(0,0,0,0)",
+     -50,
      "#f6f5f0",
      457.2,
      "#f2efe5",
@@ -54,7 +173,8 @@
      3048.0,
      "#d8c7a0"
     ]
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "forest",
@@ -78,7 +198,8 @@
    "paint": {
     "fill-color": "#c9d9bd",
     "fill-opacity": 0.45
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "forest-low",
@@ -97,7 +218,8 @@
    "paint": {
     "fill-color": "#c9d9bd",
     "fill-opacity": 0.45
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "hillshade",
@@ -131,7 +253,8 @@
      "rgba(255,255,255,0.05)"
     ],
     "hillshade-exaggeration": 0.6
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "glacier",
@@ -150,7 +273,8 @@
     "fill-color": "#ffffff",
     "fill-opacity": 0.85,
     "fill-outline-color": "#6f9fc8"
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "built",
@@ -176,7 +300,8 @@
     "fill-color": "#f3dc94",
     "fill-opacity": 0.9,
     "fill-outline-color": "#b8923a"
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "built-low",
@@ -195,7 +320,8 @@
    "paint": {
     "fill-color": "#f3dc94",
     "fill-opacity": 0.9
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "water",
@@ -212,7 +338,40 @@
    "paint": {
     "fill-color": "#b9d8ee",
     "fill-outline-color": "#4a86b8"
-   }
+   },
+   "minzoom": 5
+  },
+  {
+   "id": "outline-river-over",
+   "type": "line",
+   "source": "outline",
+   "source-layer": "rivers",
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#3f7fb5",
+    "line-width": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     3,
+     0.6,
+     6,
+     1.4,
+     8,
+     2,
+     12,
+     2.6
+    ]
+   },
+   "minzoom": 5,
+   "maxzoom": 8
   },
   {
    "id": "river",
@@ -287,7 +446,8 @@
      1,
      1.4
     ]
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "secondary",
@@ -411,7 +571,8 @@
      13,
      6.5
     ]
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "motorway",
@@ -453,7 +614,8 @@
      13,
      4
     ]
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "rail",
@@ -590,6 +752,227 @@
      0.1,
      3
     ]
+   }
+  },
+  {
+   "id": "outline-border",
+   "type": "line",
+   "source": "outline",
+   "source-layer": "boundaries",
+   "paint": {
+    "line-color": "#454b54",
+    "line-width": 2.2,
+    "line-dasharray": [
+     4,
+     1.4,
+     1,
+     1.4
+    ]
+   }
+  },
+  {
+   "id": "outline-river-label",
+   "type": "symbol",
+   "source": "outline",
+   "source-layer": "rivers",
+   "minzoom": 5,
+   "layout": {
+    "symbol-placement": "line",
+    "text-field": [
+     "coalesce",
+     [
+      "get",
+      "name:{{LANG}}"
+     ],
+     [
+      "get",
+      "name"
+     ]
+    ],
+    "text-font": [
+     "B612 Italic"
+    ],
+    "text-size": 13,
+    "text-max-angle": 60,
+    "symbol-spacing": 250,
+    "text-letter-spacing": 0.05
+   },
+   "paint": {
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.6,
+    "text-color": "#215f96"
+   }
+  },
+  {
+   "id": "outline-lake-label",
+   "type": "symbol",
+   "source": "outline",
+   "source-layer": "water",
+   "minzoom": 5,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "kind"
+     ],
+     "lake"
+    ],
+    [
+     "has",
+     "name"
+    ]
+   ],
+   "layout": {
+    "text-field": [
+     "coalesce",
+     [
+      "get",
+      "name:{{LANG}}"
+     ],
+     [
+      "get",
+      "name"
+     ]
+    ],
+    "text-font": [
+     "B612 Italic"
+    ],
+    "text-size": 13,
+    "text-max-width": 8
+   },
+   "paint": {
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.6,
+    "text-color": "#215f96"
+   }
+  },
+  {
+   "id": "outline-country",
+   "type": "symbol",
+   "source": "outline",
+   "source-layer": "places",
+   "maxzoom": 8,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "kind"
+     ],
+     "country"
+    ],
+    [
+     "in",
+     ",{{LANG}},",
+     [
+      "get",
+      "langs"
+     ]
+    ]
+   ],
+   "layout": {
+    "text-field": [
+     "get",
+     "label:{{LANG}}"
+    ],
+    "text-font": [
+     "B612 Bold"
+    ],
+    "text-transform": "uppercase",
+    "text-letter-spacing": 0.12,
+    "text-size": [
+     "get",
+     "size:{{LANG}}"
+    ],
+    "text-max-width": 100,
+    "text-line-height": 1.2,
+    "text-padding": 0,
+    "text-anchor": "center"
+   },
+   "paint": {
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.6,
+    "text-color": "#3a3f47"
+   }
+  },
+  {
+   "id": "outline-capital-dot",
+   "type": "circle",
+   "source": "outline",
+   "source-layer": "places",
+   "minzoom": 8,
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "capital"
+   ],
+   "paint": {
+    "circle-radius": 4.5,
+    "circle-color": "#5e420b",
+    "circle-stroke-color": "#ffffff",
+    "circle-stroke-width": 1.5
+   }
+  },
+  {
+   "id": "outline-capital",
+   "type": "symbol",
+   "source": "outline",
+   "source-layer": "places",
+   "minzoom": 8,
+   "filter": [
+    "==",
+    [
+     "get",
+     "kind"
+    ],
+    "capital"
+   ],
+   "layout": {
+    "text-field": [
+     "coalesce",
+     [
+      "get",
+      "name:{{LANG}}"
+     ],
+     [
+      "get",
+      "name"
+     ]
+    ],
+    "text-font": [
+     "B612 Bold"
+    ],
+    "text-size": 18,
+    "text-transform": "uppercase",
+    "text-letter-spacing": 0.06,
+    "symbol-sort-key": [
+     "-",
+     0,
+     [
+      "coalesce",
+      [
+       "get",
+       "population"
+      ],
+      0
+     ]
+    ],
+    "text-anchor": "left",
+    "text-offset": [
+     0.5,
+     0
+    ]
+   },
+   "paint": {
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.6,
+    "text-color": "#5e420b"
    }
   },
   {
@@ -761,7 +1144,8 @@
     "text-halo-color": "#ffffff",
     "text-halo-width": 1.6,
     "text-color": "#6a4321"
-   }
+   },
+   "minzoom": 5
   },
   {
    "id": "place-label",
@@ -1097,7 +1481,8 @@
      "#5e420b",
      "#6b4b0e"
     ]
-   }
+   },
+   "minzoom": 5
   }
  ]
 }

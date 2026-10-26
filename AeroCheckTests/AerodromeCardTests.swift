@@ -105,6 +105,12 @@ final class AerodromeCardTests: XCTestCase {
         XCTAssertFalse(AerodromeCardView.stacksSymbols(titles: [], font: font, symbolSize: 21, rowWidth: 100))
     }
 
+    /// The card's Divert says what the Cockpit's own button says: "Dérouter" in French, not "Déroutement", which
+    /// the phone cut off (the author's r2-11).
+    func testTheCardsDivertIsTheCockpitsWord() {
+        XCTAssertEqual(AerodromeCardView.title(for: .divert), L10n.Act.divert)
+    }
+
     func testAButtonTellsTheCardWhatItIs() throws {
         var done: [AerodromeCardContent.Action] = []
         let card = AerodromeCardView(content: content(airport("LSZQ"), inFlight: true, divert: true), metrics: .ground,

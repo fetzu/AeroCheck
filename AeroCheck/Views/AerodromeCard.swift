@@ -330,7 +330,8 @@ final class AerodromeCardView: UIView {
         switch action {
         case .chart: return L10n.OfficialChart.short
         case .note: return L10n.AerodromeNotes.cardButton
-        case .divert: return L10n.Trip.divert
+        // The verb, as on the Cockpit's own Divert button: French "Dérouter" fits, "Déroutement" was cut (r2-11).
+        case .divert: return L10n.Act.divert
         case .addToRoute: return L10n.Nav.addToRouteShort
         }
     }

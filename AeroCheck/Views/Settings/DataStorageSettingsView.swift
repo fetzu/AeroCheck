@@ -66,6 +66,9 @@ struct DataStorageSettingsView: View {
                     openAIPCredit   // airspace is OpenAIP data
                 }
             }
+            // The pilot's map's regions and the month's online allowance, before the offline charts (the author,
+            // 26 Oct 2026). (6.8.0)
+            PilotMapSettingsSection(downloads: pilotMap, tint: tint)
             if !imageryDataSets.isEmpty {
                 VStack(alignment: .leading, spacing: 7) {
                     SettingsGroup(title: L10n.DataStorage.chartsSection, tint: tint) {
@@ -74,8 +77,6 @@ struct DataStorageSettingsView: View {
                     openAIPCredit   // OpenAIP map tiles
                 }
             }
-            // The pilot's map's regions and the month's online allowance. (6.8.0)
-            PilotMapSettingsSection(downloads: pilotMap, tint: tint)
             tripPrefetchSection
             checklistsSection
             storageSection

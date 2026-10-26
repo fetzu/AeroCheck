@@ -31,37 +31,9 @@ struct CalloutMetrics: Equatable {
 
 // MARK: - UIKit: map callouts
 
-/// The official chart in a map callout. It carries its link, so a callout's tap handler can tell it
-/// from the callout's other control (Divert, the builder's "+"): MapKit reports every accessory tap
-/// through the one delegate method. (6.2.0)
+/// The official chart in a procedure's callout, carrying its link. (6.2.0; an aerodrome's is its card's since 6.7.0)
 final class OfficialChartControl: UIButton {
     private(set) var link: OfficialChartLink?
-
-    /// An airport callout's left accessory: the symbol over "Chart", at least `metrics.target` square.
-    /// No action of its own: MapKit sends its taps to `calloutAccessoryControlTapped`.
-    static func accessory(link: OfficialChartLink, metrics: CalloutMetrics, tint: UIColor) -> OfficialChartControl {
-        var configuration = UIButton.Configuration.plain()
-        configuration.image = UIImage(systemName: link.symbolName)
-        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
-            pointSize: metrics.captionSize + 6, weight: .semibold)
-        configuration.imagePlacement = .top
-        configuration.imagePadding = 2
-        configuration.title = L10n.OfficialChart.short
-        configuration.baseForegroundColor = tint
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 2, leading: 2, bottom: 2, trailing: 2)
-        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
-            var attributes = attributes
-            attributes.font = UIFont.aero(size: metrics.captionSize, weight: .semibold)
-            return attributes
-        }
-        let control = OfficialChartControl(configuration: configuration)
-        control.link = link
-        let fitting = control.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
-        control.frame = CGRect(x: 0, y: 0, width: max(metrics.target, fitting.width),
-                               height: max(metrics.target, fitting.height))
-        control.describe(link)
-        return control
-    }
 
     /// A row of a callout's detail (the VFR procedure's): "Official chart" with its symbol, and the
     /// subscription under it for SkyBriefing, at least `metrics.target` tall. It opens `link` itself.
@@ -98,49 +70,6 @@ final class OfficialChartControl: UIButton {
         accessibilityLabel = link.title
         accessibilityHint = link.accessibilityHint
         accessibilityTraits = .link
-    }
-}
-
-/// The two controls of an airport's callout on the nav maps (Plan › Map and the Cockpit's MAP): the
-/// official chart on the left, "Divert here" on the right in flight. Both maps share them, and the tap
-/// handler asks `action(for:)` which one it was: before 6.2.0 any control meant Divert.
-enum AirportCalloutControls {
-    enum Action: Equatable {
-        case officialChart(URL)
-        case divert(String)
-    }
-
-    /// - Parameters:
-    ///   - chart: the field's official chart, nil when it has none (or the map can't open one).
-    ///   - divert: whether the callout offers Divert (in flight, with a route).
-    @MainActor
-    static func configure(_ view: MKAnnotationView, chart: OfficialChartLink?, divert: Bool,
-                          metrics: CalloutMetrics, tint: UIColor) {
-        view.leftCalloutAccessoryView = chart.map { OfficialChartControl.accessory(link: $0, metrics: metrics, tint: tint) }
-        view.rightCalloutAccessoryView = divert ? divertButton(metrics: metrics) : nil
-    }
-
-    /// "Divert here": opens the Divert sheet on this field, where the time, runway and the big button
-    /// are. (v5.1)
-    @MainActor
-    private static func divertButton(metrics: CalloutMetrics) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "arrow.triangle.turn.up.right.diamond.fill",
-                                withConfiguration: UIImage.SymbolConfiguration(pointSize: metrics.target * 0.45)),
-                        for: .normal)
-        button.tintColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
-        button.frame = CGRect(x: 0, y: 0, width: metrics.target, height: metrics.target)
-        button.accessibilityLabel = L10n.Trip.divert
-        return button
-    }
-
-    /// What a tap on `control` asks for: the chart when it is the chart, otherwise Divert.
-    @MainActor
-    static func action(for control: UIControl, airport: Airport) -> Action {
-        if let chart = control as? OfficialChartControl, let link = chart.link {
-            return .officialChart(link.url)
-        }
-        return .divert(airport.ident)
     }
 }
 

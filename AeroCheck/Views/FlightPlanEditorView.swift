@@ -1456,7 +1456,7 @@ struct IntFormField: View {
 
 // MARK: - Waypoint Picker Map View Representable
 
-/// Map layers for the waypoint-picker / route-builder maps. (shared by the builder + waypoint sheet)
+/// The chart menu of the coordinate picker and the route builder, which draw with `AeroMapView` since 6.7.0.
 /// In the menu's order, the author's (device check mp-1, 19 Oct 2026): the charts, the National Map, SWISSIMAGE,
 /// then Apple's map.
 enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
@@ -1493,11 +1493,6 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The layer these maps draw for the device's choice over `region`: Apple's map outside the Swiss charts. (6.5.0)
-    static func shown(for choice: MapLayerType, over region: MKCoordinateRegion) -> WaypointPickerMapLayer {
-        WaypointPickerMapLayer(choice.shown(over: region))
-    }
-
     var icon: String {
         switch self {
         case .apple: return "map"
@@ -1516,168 +1511,6 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         case .icao: return L10n.MapLayer.icaoGliderNational
         case .nationalMap: return L10n.MapLayer.landeskarte
         case .swissimage: return L10n.MapLayer.swissimage
-        }
-    }
-
-    /// How close the camera goes. The charts down to the National Map's streets: zooming in, the ICAO chart gives
-    /// way to the glider chart (z11) and then to the National Map (z13), where until 6.4.2 it stopped at the ICAO
-    /// chart, about z10, and the glider chart never showed (device check, 19 Oct 2026).
-    var cameraZoomRange: MKMapView.CameraZoomRange? {
-        switch self {
-        case .apple, .appleSatellite:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)
-        case .icao, .nationalMap, .swissimage:
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)
-        }
-    }
-
-    /// Puts the layer on `mapView`: Apple's map, with swisstopo's over it. Where swisstopo has nothing (outside
-    /// Switzerland: an empty tile, a white one, a 400), Apple's map shows, its imagery under SWISSIMAGE: until
-    /// 6.4.2 the overlay replaced Apple's map everywhere and drew black there (device check, 19 Oct 2026).
-    /// `atBottom`: under every other overlay (the route builder's route and airspace).
-    func apply(to mapView: MKMapView, atBottom: Bool = false) {
-        mapView.removeOverlays(mapView.overlays.compactMap { $0 as? MKTileOverlay })
-        let overlay: MKTileOverlay
-        switch self {
-        case .apple:
-            mapView.mapType = .standard
-            return
-        case .appleSatellite:
-            mapView.mapType = .satellite
-            return
-        case .icao:
-            mapView.mapType = .standard
-            overlay = ICAOSegelflugkarteTileOverlay(continuesToNationalMap: true)
-        case .nationalMap:
-            mapView.mapType = .standard
-            overlay = SwisstopoTileOverlay(layerIdentifier: ICAOSegelflugkarteTileOverlay.nationalMapLayerIdentifier,
-                                           tileExtension: "jpeg", dropsBlankTiles: true)
-        case .swissimage:
-            mapView.mapType = .satellite
-            overlay = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
-        }
-        overlay.canReplaceMapContent = false
-        if atBottom {
-            mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
-        } else {
-            mapView.addOverlay(overlay, level: .aboveLabels)
-        }
-    }
-}
-
-struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
-    @Binding var region: MKCoordinateRegion
-    let mapLayer: WaypointPickerMapLayer
-    var airports: [Airport] = []
-    var onAirportTapped: ((Airport) -> Void)?
-
-    func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
-        mapView.delegate = context.coordinator
-        mapView.setRegion(region, animated: false)
-        mapView.showsUserLocation = true
-        mapView.showsCompass = true
-        mapView.showsScale = true
-        mapLayer.apply(to: mapView)
-        mapView.cameraZoomRange = mapLayer.cameraZoomRange
-        return mapView
-    }
-
-    func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Only reconfigure tiles when layer actually changes
-        if context.coordinator.currentLayer != mapLayer {
-            context.coordinator.currentLayer = mapLayer
-            mapLayer.apply(to: mapView)
-            mapView.cameraZoomRange = mapLayer.cameraZoomRange
-        }
-        // Update airport annotations (already uses diff logic)
-        updateAirportAnnotations(mapView)
-    }
-
-    private func updateAirportAnnotations(_ mapView: MKMapView) {
-        let existingAirportAnnotations = mapView.annotations.compactMap { $0 as? AirportAnnotation }
-        let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
-        let newIds = Set(airports.map { $0.id })
-
-        let toRemove = existingAirportAnnotations.filter { !newIds.contains($0.airport.id) }
-        mapView.removeAnnotations(toRemove)
-
-        let toAdd = airports.filter { !existingIds.contains($0.id) }
-        for airport in toAdd {
-            let annotation = AirportAnnotation(airport: airport)
-            mapView.addAnnotation(annotation)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, MKMapViewDelegate {
-        var parent: WaypointPickerMapViewRepresentable
-        var currentLayer: WaypointPickerMapLayer
-        var isUserInteracting = false
-
-        init(_ parent: WaypointPickerMapViewRepresentable) {
-            self.parent = parent
-            self.currentLayer = parent.mapLayer
-        }
-
-        func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
-            if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
-                for recognizer in gestureRecognizers {
-                    if recognizer.state == .began || recognizer.state == .changed {
-                        isUserInteracting = true
-                        return
-                    }
-                }
-            }
-        }
-
-        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-            isUserInteracting = false
-            parent.region = mapView.region
-        }
-
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let tileOverlay = overlay as? MKTileOverlay {
-                return ChartTileRenderer.renderer(for: tileOverlay, on: mapView)
-            }
-            return MKOverlayRenderer(overlay: overlay)
-        }
-
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard annotation is AirportAnnotation else { return nil }
-
-            let identifier = "WaypointPickerAirport"
-            let annotationView: MKAnnotationView
-
-            if let reusedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
-                reusedView.annotation = annotation
-                annotationView = reusedView
-            } else {
-                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-            }
-
-            annotationView.canShowCallout = true
-
-            let size: CGFloat = 14
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
-            let color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9)
-            if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-            }
-
-            // Add a tap button as right callout accessory to add to route
-            let addButton = UIButton(type: .contactAdd)
-            annotationView.rightCalloutAccessoryView = addButton
-
-            return annotationView
-        }
-
-        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-            guard let airportAnnotation = view.annotation as? AirportAnnotation else { return }
-            parent.onAirportTapped?(airportAnnotation.airport)
         }
     }
 }

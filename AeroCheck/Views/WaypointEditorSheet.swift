@@ -530,11 +530,16 @@ struct MiniMapPreview: View {
 struct CoordinatePickerView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(AppState.self) private var appState
+    /// The downloaded charts, for the one chart policy ("Force ICAO chart", offline). (6.7.0)
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
 
     let initialCoordinate: CLLocationCoordinate2D
     let onSelect: (CLLocationCoordinate2D) -> Void
 
-    @State private var region: MKCoordinateRegion
+    /// The picker's own camera, as every map keeps it (`AeroMapView`). (6.7.0)
+    @StateObject private var mapState: SharedMapState
+    @State private var isFollowingAircraft = false
+    private var region: MKCoordinateRegion { mapState.region }
     /// The device's one chart, as every map has it since 6.5.0 (it was Apple's map here, whatever the others showed).
     private var selectedLayer: Binding<WaypointPickerMapLayer> {
         Binding(get: { WaypointPickerMapLayer(appState.navigationMapState.selectedLayer) },
@@ -548,17 +553,29 @@ struct CoordinatePickerView: View {
             center: initialCoordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)
         )
-        _region = State(initialValue: initialRegion)
+        _mapState = StateObject(wrappedValue: {
+            let state = SharedMapState()
+            state.region = initialRegion
+            state.cameraDistance = 30_000   // about the 0.2° span, which the map then fits
+            return state
+        }())
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                WaypointPickerMapViewRepresentable(
-                    region: $region,
-                    mapLayer: .shown(for: appState.navigationMapState.selectedLayer, over: region),
-                    airports: [],
-                    onAirportTapped: nil
+                // The one map every surface draws with, the chart only. (6.7.0)
+                let policy = ChartPolicy.current(settings: appState.settings, offline: offlineMapManager)
+                AeroMapView(
+                    layerType: policy.layer(for: appState.navigationMapState.selectedLayer.shown(over: region)),
+                    mapState: mapState,
+                    currentLocation: nil,
+                    gpsTrack: [],
+                    isFollowingAircraft: $isFollowingAircraft,
+                    forceICAOLayer: policy.forceICAO,
+                    isStrictOfflineMode: policy.strictOffline,
+                    hasSegelflugCache: policy.segelflugCache,
+                    features: .picker
                 )
                 .ignoresSafeArea()
 

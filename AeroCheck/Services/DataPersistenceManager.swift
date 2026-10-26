@@ -25,6 +25,9 @@ class DataPersistenceManager: ObservableObject {
     /// Subfolder for flight threads (the admin bracket around a flight). (v5.0.0)
     private let flightThreadsFolderName = "FlightThreads"
 
+    /// Subfolder for the pilot's aerodrome notes, one file per aerodrome. (6.7.0)
+    nonisolated static let aerodromeNotesFolderName = "AerodromeNotes"
+
     /// Subfolder for map tiles (local only)
     private let mapDataFolderName = "MapData"
 
@@ -120,6 +123,14 @@ class DataPersistenceManager: ObservableObject {
             return iCloudDocs.appendingPathComponent(flightThreadsFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(flightThreadsFolderName, isDirectory: true)
+    }
+
+    /// Aerodrome notes directory, beside the plans and threads: it follows "Sync to iCloud" as they do. (6.7.0)
+    var aerodromeNotesDirectory: URL {
+        if let iCloudDocs = activeICloudDocumentsURL {
+            return iCloudDocs.appendingPathComponent(Self.aerodromeNotesFolderName, isDirectory: true)
+        }
+        return localAppDirectory.appendingPathComponent(Self.aerodromeNotesFolderName, isDirectory: true)
     }
 
     /// Map tiles directory — kept in local Documents (On this iPhone/AéroCheck/MapData).
@@ -471,7 +482,7 @@ class DataPersistenceManager: ObservableObject {
     /// The folders and root files the switch moves between the stores. The plans index is left out:
     /// it records the filename each plan was last written under IN THAT STORE, and the next plan
     /// save rewrites it for the store it lands in.
-    nonisolated static let mergedFolders = ["Flights", "NavigationPlans", "FlightThreads"]
+    nonisolated static let mergedFolders = ["Flights", "NavigationPlans", "FlightThreads", aerodromeNotesFolderName]
     nonisolated static let mergedRootFiles = ["settings.json", tripsFileName]
 
     /// The kind of item each merged folder holds, for its deletion records.
@@ -479,6 +490,7 @@ class DataPersistenceManager: ObservableObject {
         switch folder {
         case "Flights": return .flight
         case "NavigationPlans": return .plan
+        case aerodromeNotesFolderName: return .aerodromeNote
         default: return .thread
         }
     }
@@ -840,6 +852,7 @@ class DataPersistenceManager: ObservableObject {
             try fileManager.createDirectory(at: flightsDirectory, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: navigationPlansDirectory, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: flightThreadsDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: aerodromeNotesDirectory, withIntermediateDirectories: true)
 
             if isUsingICloudDrive {
                 AppLog.general.debugLine("Directory structure created with iCloud at: \(flightsDirectory.path)")
@@ -1688,6 +1701,103 @@ class DataPersistenceManager: ObservableObject {
             }
         } catch {
             AppLog.general.debugLine("Failed to delete flight thread: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Aerodrome notes (6.7.0)
+    //
+    // One small file per aerodrome, so two devices editing notes on different fields never touch the
+    // same file, and a deletion is the file going. Named after the aerodrome and ending with the
+    // id's first 8 characters, as threads are, for the deletion records' probe.
+
+    nonisolated static func aerodromeNoteFilename(for note: AerodromeNote) -> String {
+        let ident = note.ident.isEmpty ? "Aerodrome" : String(note.ident
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: " ", with: "_")
+            .prefix(16))
+        return "\(ident)_\(note.id.uuidString.prefix(8)).json"
+    }
+
+    /// Encodes and writes the notes on the calling executor. Returns the ids confirmed written.
+    @discardableResult
+    nonisolated static func writeAerodromeNoteFiles(_ notes: [AerodromeNote], to directory: URL) -> [UUID] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let existing = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        var written: [UUID] = []
+        for note in notes {
+            let url = directory.appendingPathComponent(aerodromeNoteFilename(for: note))
+            do {
+                try encoder.encode(note).write(to: url, options: protectedWriteOptions)
+                // A note whose aerodrome was renamed in the data is written under its new name: the
+                // file under the old one goes.
+                let idSuffix = "_\(note.id.uuidString.prefix(8)).json"
+                for stale in existing where stale.lastPathComponent.hasSuffix(idSuffix)
+                    && stale.lastPathComponent != url.lastPathComponent {
+                    try? FileManager.default.removeItem(at: stale)
+                }
+                written.append(note.id)
+            } catch {
+                AppLog.general.debugLine("Failed to save an aerodrome note: \(error.localizedDescription)")
+            }
+        }
+        return written
+    }
+
+    @discardableResult
+    func saveAerodromeNotesOffMain(_ notes: [AerodromeNote]) async -> [UUID] {
+        guard !notes.isEmpty else { return [] }
+        let directory = aerodromeNotesDirectory
+        return await Task.detached(priority: .utility) {
+            Self.writeAerodromeNoteFiles(notes, to: directory)
+        }.value
+    }
+
+    /// Loads every note off the main actor; the folder sits in iCloud Drive and can stall.
+    func loadAerodromeNotesOffMain() async -> [AerodromeNote] {
+        let directory = aerodromeNotesDirectory
+        let (root, retired) = (activeStoreRoot, retiredDirectory)
+        return await Task.detached(priority: .utility) {
+            Self.requestICloudDownloads(in: directory)
+            return Self.decodeAerodromeNotes(
+                in: directory,
+                deletions: DeletionFilter.reading(storeRoot: root, retiredRoot: retired, kinds: [.aerodromeNote]))
+        }.value
+    }
+
+    /// Pure directory read. One note per id, the newest; a note deleted on another device since is
+    /// retired, as threads are.
+    nonisolated static func decodeAerodromeNotes(in directory: URL, deletions: DeletionFilter? = nil) -> [AerodromeNote] {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var byId: [UUID: AerodromeNote] = [:]
+        for url in files where url.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: url),
+                  let note = try? decoder.decode(AerodromeNote.self, from: data) else {
+                AppLog.general.debugLine("Failed to load an aerodrome note: \(url.lastPathComponent)")
+                continue
+            }
+            if let deletions, deletions.isDead(.aerodromeNote, id: note.id, stamp: note.updatedAt) {
+                deletions.retire(url, kind: .aerodromeNote)
+                continue
+            }
+            if let known = byId[note.id], known.updatedAt >= note.updatedAt { continue }
+            byId[note.id] = note
+        }
+        return byId.values.sorted { $0.ident < $1.ident }
+    }
+
+    /// Removes a note's file, whatever aerodrome name it was written under.
+    func deleteAerodromeNoteFile(_ note: AerodromeNote) {
+        let directory = aerodromeNotesDirectory
+        let idSuffix = "_\(note.id.uuidString.prefix(8)).json"
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        for url in files where url.lastPathComponent.hasSuffix(idSuffix) {
+            try? FileManager.default.removeItem(at: url)
         }
     }
 

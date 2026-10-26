@@ -362,6 +362,9 @@ struct FlightThreadView: View {
     private enum RenameTarget: Equatable { case flight, trip(UUID) }
     /// "Add a stop" sheet. (v5.1)
     @State private var addingStop = false
+    /// The aerodrome whose note the route block or CLOSE opened. (6.7.0)
+    @State private var noteAerodrome: AerodromeRef?
+    @ObservedObject private var noteStore = AerodromeNoteStore.shared
     /// Chapters and blocks shown open although done, waiting for the day or before the landing: a tap on their line
     /// opens them in place. (6.6.0)
     @State private var unfoldedChapters: Set<ThreadChapter> = []
@@ -541,6 +544,10 @@ struct FlightThreadView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
+        }
+        .sheet(item: $noteAerodrome) { ref in
+            AerodromeNoteSheet(aerodrome: ref, readOnly: appState.isFlightActive)
+                .environmentObject(AerodromeNoteStore.shared)
         }
         .sheet(isPresented: $addingStop) {
             AddStopSheet(threadId: threadId) { _ in addingStop = false }
@@ -1177,25 +1184,31 @@ struct FlightThreadView: View {
                 .frame(maxWidth: .infinity, alignment: .top)
                 VStack(spacing: 10) {
                     ForEach(right) { blockView($0, thread) }
-                    if let debrief { debriefCard(debrief) }
+                    if let debrief { debriefCard(debrief, thread) }
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
             }
         } else {
             VStack(spacing: 10) {
                 ForEach(blocks) { blockView($0, thread) }
-                if let debrief { debriefCard(debrief) }
+                if let debrief { debriefCard(debrief, thread) }
             }
         }
     }
 
-    private func debriefCard(_ flightId: UUID) -> some View {
-        ThreadDebriefField(flightId: flightId)
-            .coachTarget(.debriefField)
-            .background(Color.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
-            .id(Self.debriefId)
+    private func debriefCard(_ flightId: UUID, _ thread: FlightThread) -> some View {
+        VStack(spacing: 10) {
+            ThreadDebriefField(flightId: flightId)
+                .coachTarget(.debriefField)
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+            // Something to remember about the field landed at, for next time (n4 A). Not in a dry run. (6.7.0)
+            if dryRunSession == nil, let landed = landedAerodrome(thread) {
+                AerodromeNoteCloseOffer(aerodrome: landed) { noteAerodrome = landed }
+            }
+        }
+        .id(Self.debriefId)
     }
 
     /// A block where it stands (round 2): open while there's something to do, one line once done or set aside, a
@@ -1211,7 +1224,9 @@ struct FlightThreadView: View {
                     .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else if block.state != .pending && !open {
                 FlightFoldedLine(look: block.state == .done ? .done : .notApplicable, title: title,
-                                 detail: FlightPageWords.doneWords(block, wordsContext(for: thread)), action: unfold)
+                                 detail: [FlightPageWords.doneWords(block, wordsContext(for: thread)),
+                                          block.kind == .route ? noteCount(thread) : nil]
+                                    .compactMap { $0 }.joined(separator: " · "), action: unfold)
                     .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else {
                 blockCard(block, thread, foldable: true)
@@ -1260,7 +1275,7 @@ struct FlightThreadView: View {
         .background(Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
-        if chapter == .close, let flightId = thread.flightId { debriefCard(flightId) }
+        if chapter == .close, let flightId = thread.flightId { debriefCard(flightId, thread) }
     }
 
     private func blockRow(_ block: FlightBlock, _ thread: FlightThread) -> some View {
@@ -1317,6 +1332,7 @@ struct FlightThreadView: View {
         var words: [String] = []
         if block.isAuto, let detail = block.tasks.compactMap(\.detail).first(where: { !$0.isEmpty }) { words.append(detail) }
         if block.isShared { words.append(L10n.FlightPage.wholeTrip) }
+        if block.kind == .route, let notes = noteCount(thread) { words.append(notes) }
         if let since = block.recheckSince { words.append(L10n.Flights.recheckForThisLeg(shortTime(since))) }
         if let task = block.task, let warning = fuelWarning(for: task, in: thread) { words.append(warning) }
         return words.isEmpty ? nil : words.joined(separator: " · ")
@@ -1448,7 +1464,16 @@ struct FlightThreadView: View {
                                       toolLabel: toolLabel(for: task, in: thread),
                                       onOpenTool: { runTool { openTool(for: task, in: thread) } },
                                       warning: fuelWarning(for: task, in: thread))
-                    if block.kind == .route { routeTools(thread) }
+                    if block.kind == .route {
+                        routeTools(thread)
+                        // The pilot's notes on the flight's aerodromes, never a task; not in a dry run (n7 B). (6.7.0)
+                        if dryRunSession == nil {
+                            AerodromeNoteLines(aerodromes: AerodromeRef.flightAerodromes(of: plan(for: thread),
+                                                                                         airports: airportDataService)) { ref in
+                                runTool { noteAerodrome = ref }
+                            }
+                        }
+                    }
                 }
                 .padding(.leading, 68)
                 .padding(.trailing, 14)
@@ -1489,6 +1514,22 @@ struct FlightThreadView: View {
         .padding(.leading, 68)
         .padding(.trailing, 14)
         .padding(.bottom, 8)
+    }
+
+    /// "2 notes": the pilot's notes on the flight's aerodromes, on the route block's folded line, which hides the
+    /// lines with them. Nil without one, and in a dry run. (6.7.0)
+    private func noteCount(_ thread: FlightThread) -> String? {
+        guard dryRunSession == nil else { return nil }
+        let count = AerodromeRef.flightAerodromes(of: plan(for: thread), airports: airportDataService)
+            .filter { noteStore.note(for: $0) != nil }.count
+        return count > 0 ? L10n.AerodromeNotes.count(count) : nil
+    }
+
+    /// The aerodrome the flight landed at, as the data knows it: the planned one, or where it landed instead.
+    private func landedAerodrome(_ thread: FlightThread) -> AerodromeRef? {
+        guard let ident = thread.landedElsewhere?.landedIdent ?? thread.arrivalIdent,
+              let airport = airportDataService.findAirport(byIdent: ident) else { return nil }
+        return AerodromeRef(airport)
     }
 
     /// Add a stop, or join back with the next leg, in the route's block: they change the route, not the preparation.

@@ -16,6 +16,8 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windsAloftService: WindsAloftService
+    /// The downloaded charts, for the one chart policy ("Force ICAO chart", offline). (6.7.0)
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
     /// An aerodrome's official chart, from its callout, opens in the browser. (6.2.0)
     @Environment(\.openURL) private var openURL
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
@@ -38,10 +40,17 @@ struct FlightPlanMapBuilderView: View {
         Binding(get: { WaypointPickerMapLayer(appState.navigationMapState.selectedLayer) },
                 set: { appState.selectMapLayer($0.mapLayerType) })
     }
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Swiss Jura default
-        span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
-    )
+    /// The builder's own camera, as every map keeps it (`AeroMapView`): the Swiss Jura until the route is framed.
+    /// (6.7.0)
+    @StateObject private var mapState: SharedMapState = {
+        let state = SharedMapState()
+        state.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1),
+                                          span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2))
+        state.cameraDistance = 180_000   // about the 1.2° span
+        return state
+    }()
+    private var region: MKCoordinateRegion { mapState.region }
+    @State private var isFollowingAircraft = false
     /// The map's region while it moves, for the profile's band alone (its reader), `region` taking it at rest. Not
     /// read here: as a `@StateObject` this view observed it, and was rebuilt on every frame still. (6.4.2)
     @State private var liveRegion = LiveMapRegion()
@@ -49,6 +58,8 @@ struct FlightPlanMapBuilderView: View {
     /// Where this editor shows a dry run of its route: over itself (it is a cover, maybe over a flight's page,
     /// which the app's root can't present over). (6.4.0)
     @State private var dryRunToken = UUID().uuidString
+    /// The aerodrome whose note a callout opened. (6.7.0)
+    @State private var aerodromeNote: AerodromeRef?
     @State private var airportUpdateTask: Task<Void, Never>?
     @State private var visibleNavaids: [Navaid] = []
     @State private var visibleReportingPoints: [ReportingPoint] = []   // v4.1.0 ③
@@ -285,6 +296,10 @@ struct FlightPlanMapBuilderView: View {
                     .environmentObject(openAIPDataService)
                 }
             }
+            // The pilot's note on an aerodrome, from its callout. (6.7.0)
+            .sheet(item: $aerodromeNote) { ref in
+                AerodromeNoteSheet(aerodrome: ref).environmentObject(AerodromeNoteStore.shared)
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -329,33 +344,59 @@ struct FlightPlanMapBuilderView: View {
 
     // MARK: - Map area
 
+    /// The map frames `coordinates` on its next update, as a fit on Plan › Map does (`SharedMapState`). (6.7.0)
+    private func frame(_ coordinates: [CLLocationCoordinate2D], padding: UIEdgeInsets) {
+        guard !coordinates.isEmpty else { return }
+        mapState.pendingFitCoordinates = coordinates
+        mapState.pendingFitPadding = padding
+        mapState.objectWillChange.send()
+    }
+
     private var mapArea: some View {
-        RouteBuilderMapView(
-            waypoints: waypoints,
-            mapLayer: .shown(for: appState.navigationMapState.selectedLayer, over: region),
-            airports: visibleAirports,
-            navaids: visibleNavaids,
-            reportingPoints: visibleReportingPoints,
-            obstacles: visibleObstacles,
+        // The one map every surface draws with, the route builder's features. (6.7.0)
+        let policy = ChartPolicy.current(settings: appState.settings, offline: offlineMapManager)
+        return AeroMapView(
+            layerType: policy.layer(for: appState.navigationMapState.selectedLayer.shown(over: region)),
+            mapState: mapState,
+            currentLocation: nil,
+            gpsTrack: [],
+            isFollowingAircraft: $isFollowingAircraft,
+            forceICAOLayer: policy.forceICAO,
+            isStrictOfflineMode: policy.strictOffline,
+            hasSegelflugCache: policy.segelflugCache,
             airspacePolygons: airspacePolygons,
-            selectedAirspaceId: selectedConflictId,
-            focusRegion: focusRegion,
-            focusToken: focusToken,
-            fitRouteToken: fitRouteToken,
-            region: $region,
-            liveRegion: liveRegion,
-            // "+" on an aerodrome, navaid or reporting point: a planning control, so never offered
-            // while flying (a builder left open under a flight started from the widget). (6.0.1)
-            onPointAdd: appState.isFlightActive ? nil : { point in addPoint(point) },
-            onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
-            onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) },
-            onAddWaypoint: { coord in smartAddWaypoint(at: coord) },
-            selectedLeg: selectedLeg,
-            conflictLegs: Set(legConflicts.keys),
-            onSelectWaypoint: { index in selectLeg(index) },
+            visibleAirports: visibleAirports,
+            visibleNavaids: visibleNavaids,
+            visibleObstacles: visibleObstacles,
+            visibleReportingPoints: visibleReportingPoints,
             vfrContent: vfrContent,
-            onOpenOfficialChart: { openURL($0) }
+            onOpenOfficialChart: { openURL($0) },
+            onOpenAerodromeNote: { aerodromeNote = $0 },
+            features: .builder,
+            plannedRoute: PlannedRoute(
+                waypoints: waypoints,
+                selectedLeg: selectedLeg,
+                conflictLegs: Set(legConflicts.keys),
+                onSelectWaypoint: { index in selectLeg(index) },
+                onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
+                onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) },
+                onAddWaypoint: { coord in smartAddWaypoint(at: coord) },
+                // "+" on an aerodrome, navaid or reporting point: a planning control, so never offered
+                // while flying (a builder left open under a flight started from the widget). (6.0.1)
+                onPointAdd: appState.isFlightActive ? nil : { point in addPoint(point) }),
+            selectedAirspaceId: selectedConflictId,
+            liveRegion: liveRegion
         )
+        .onChange(of: fitRouteToken) { _, _ in frame(waypoints.map(\.coordinate),
+                                                    padding: UIEdgeInsets(top: 50, left: 50, bottom: 70, right: 50)) }
+        .onChange(of: focusToken) { _, _ in
+            guard let r = focusRegion else { return }
+            let corners = [CLLocationCoordinate2D(latitude: r.center.latitude + r.span.latitudeDelta / 2,
+                                                  longitude: r.center.longitude - r.span.longitudeDelta / 2),
+                           CLLocationCoordinate2D(latitude: r.center.latitude - r.span.latitudeDelta / 2,
+                                                  longitude: r.center.longitude + r.span.longitudeDelta / 2)]
+            frame(corners, padding: .zero)
+        }
         .ignoresSafeArea(edges: .bottom)
         // From and To sit above the map now, not over it (planning proposal D1); what they find
         // drops over the map's top, under them, as does the missing-data banner (it covered them).
@@ -2136,11 +2177,6 @@ private struct LegRow: View {
     }
 }
 
-// MARK: - Route builder map (UIViewRepresentable)
-
-/// Live route map: swisstopo/Apple tile overlay + gold route polyline + numbered waypoint markers +
-/// nearby airport markers. Tapping empty map adds a free waypoint; tapping an airport marker adds
-/// that airport. Reuses the waypoint-picker tile overlays.
 /// The route builder's map region as it moves, written on every frame of a pan or a pinch for what follows it live (the
 /// profile's "looking here" band). Written into the builder's `@State` instead, it rebuilt the whole builder and
 /// updated its map on every frame, about 60 times a second, each map update up to 24 ms when the markers changed
@@ -2157,741 +2193,6 @@ private struct LiveRegionReader<Content: View>: View {
     @ViewBuilder let content: (MKCoordinateRegion) -> Content
 
     var body: some View { content(live.region ?? atRest) }
-}
-
-struct RouteBuilderMapView: UIViewRepresentable {
-    let waypoints: [FlightPlanWaypoint]
-    let mapLayer: WaypointPickerMapLayer
-    var airports: [Airport]
-    var navaids: [Navaid] = []
-    var reportingPoints: [ReportingPoint] = []     // v4.1.0 ③ (snap-enabled)
-    var obstacles: [Obstacle] = []                 // v4.1.0 ③ (display only, no snap)
-    var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
-    var selectedAirspaceId: String? = nil          // tapped conflict — emphasised on the map (#4)
-    var focusRegion: MKCoordinateRegion? = nil     // hold a conflict → recenter the map on it (#4)
-    var focusToken: Int = 0
-    var fitRouteToken: Int
-    @Binding var region: MKCoordinateRegion
-    /// Takes the region on every frame of a move, `region` only at rest; nil: `region` on every frame. (6.4.2)
-    var liveRegion: LiveMapRegion? = nil
-    /// "+" in an aerodrome's, navaid's or reporting point's callout. nil ⇒ no "+". (6.0.1)
-    var onPointAdd: ((RoutePoint) -> Void)? = nil
-    /// Live drag committed a waypoint move (index, new coordinate). nil ⇒ read-only map (no drag). (#3)
-    var onMoveWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
-    /// Live drag committed a mid-route insert (afterIndex, coordinate). nil ⇒ read-only map. (#3)
-    var onInsertWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
-    /// Deliberate press-and-hold on empty map appended a new waypoint (coordinate). (tap-add feedback)
-    var onAddWaypoint: ((CLLocationCoordinate2D) -> Void)? = nil
-    /// The leg selected in the table or the profile (from waypoint n to n+1): haloed on the map.
-    /// (planning proposal D3)
-    var selectedLeg: Int? = nil
-    /// Waypoints whose leg has a conflict: their pins turn amber. (planning proposal D2)
-    var conflictLegs: Set<Int> = []
-    /// A tap on a waypoint's pin selects it, and its row in the table. (planning proposal D3)
-    var onSelectWaypoint: ((Int) -> Void)? = nil
-    /// Traffic circuits, VFR routes and sectors, under the route. (6.2.0)
-    var vfrContent: VFRMapContent = .empty()
-    /// Opens an aerodrome's official chart from its callout (the browser); nil: no chart. (6.2.0)
-    var onOpenOfficialChart: ((URL) -> Void)? = nil
-
-    func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
-        mapView.delegate = context.coordinator
-        mapView.setRegion(region, animated: false)
-        mapView.showsUserLocation = true
-        mapView.showsCompass = true
-        mapView.showsScale = true
-        mapLayer.apply(to: mapView, atBottom: true)
-        mapView.cameraZoomRange = mapLayer.cameraZoomRange
-
-        // One press-and-hold gesture drives ALL route editing: grab a waypoint to move it, grab the
-        // route line to insert mid-route (both at the short grab threshold for a responsive feel), or
-        // hold longer on empty map to drop a new waypoint. A plain tap no longer adds anything, so you
-        // can pan/zoom/inspect without accidentally creating waypoints. Builder only — read-only map
-        // previews get no editing. (flight-plan revamp #3 + tap-add feedback)
-        if onMoveWaypoint != nil || onInsertWaypoint != nil || onAddWaypoint != nil {
-            let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleLongPress(_:)))
-            longPress.minimumPressDuration = 0.2
-            longPress.delegate = context.coordinator
-            mapView.addGestureRecognizer(longPress)
-        }
-
-        return mapView
-    }
-
-    func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Keep the coordinator's snapshot current so drag hit-testing reads live waypoints/closures.
-        context.coordinator.parent = self
-        // Never fight an in-progress live drag — the coordinator owns the geometry until release.
-        if context.coordinator.isDragging { return }
-        if context.coordinator.currentLayer != mapLayer {
-            context.coordinator.currentLayer = mapLayer
-            mapLayer.apply(to: mapView, atBottom: true)
-            mapView.cameraZoomRange = mapLayer.cameraZoomRange
-        }
-
-        updateAirportAnnotations(mapView, context: context)
-        updateNavaidAnnotations(mapView, context: context)
-        updateReportingPointAnnotations(mapView, context: context)
-        updateObstacleAnnotations(mapView, context: context)
-        updateAirspaceOverlays(mapView, context: context)
-        if context.coordinator.styledSelection != .some(selectedAirspaceId) {
-            context.coordinator.styledSelection = .some(selectedAirspaceId)
-            applyAirspaceSelection(mapView)
-        }
-        updateRoute(mapView, context: context)
-        updateSelectedLeg(mapView, context: context)
-        VFRMapLayer.sync(vfrContent, on: mapView, state: context.coordinator.vfrLayer)
-        VFRMapLayer.orientLabels(on: mapView, palette: context.coordinator.vfrLayer.palette)
-
-        if context.coordinator.lastFitToken != fitRouteToken {
-            context.coordinator.lastFitToken = fitRouteToken
-            fitRoute(mapView)
-        }
-        if context.coordinator.lastFocusToken != focusToken {
-            context.coordinator.lastFocusToken = focusToken
-            if let r = focusRegion { mapView.setRegion(r, animated: true) }
-        }
-    }
-
-    /// Emphasise the selected conflict's polygon (brighter + thicker) by restyling its live renderer,
-    /// so tapping a row in the list makes it pop on the map. (#4 feedback) Only when the selection changes: every
-    /// update pass did it, every 5 s at rest (Plan › Map's FREDA tick wakes the app state's readers), and each repaint
-    /// made MapKit redraw the chart under every polygon, about 4,000 squares a pass (the map tile review, F9). A
-    /// polygon added later is styled as it is made (`Coordinator.style(_:of:selected:)`). (6.4.2)
-    private func applyAirspaceSelection(_ mapView: MKMapView) {
-        for poly in mapView.overlays.compactMap({ $0 as? AirspacePolygon }) {
-            guard let r = mapView.renderer(for: poly) as? MKPolygonRenderer else { continue }
-            Coordinator.style(r, of: poly, selected: poly.airspaceId == selectedAirspaceId)
-            r.setNeedsDisplay()
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    // MARK: Layer
-
-
-    // MARK: Airports
-
-    private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.annotations.compactMap { $0 as? AirportAnnotation }
-        let existingIds = Set(existing.map { $0.airport.id })
-        let newIds = Set(airports.map { $0.id })
-
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.airport.id) })
-        for airport in airports where !existingIds.contains(airport.id) {
-            mapView.addAnnotation(AirportAnnotation(airport: airport))
-        }
-    }
-
-    private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
-        let existingIds = Set(existing.map { $0.navaid.id })
-        let newIds = Set(navaids.map { $0.id })
-
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
-        for navaid in navaids where !existingIds.contains(navaid.id) {
-            mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
-        }
-    }
-
-    private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
-        ReportingPointAnnotation.sync(reportingPoints, on: mapView,
-                                      revision: &context.coordinator.reportingPointLabelRevision)
-    }
-
-    private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
-        let existingIds = Set(existing.map { $0.obstacle.id })
-        let newIds = Set(obstacles.map { $0.id })
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
-        for obstacle in obstacles where !existingIds.contains(obstacle.id) {
-            mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
-        }
-    }
-
-    // MARK: Route
-
-    /// Add/remove highlighted airspace polygons incrementally (by id), so a small change to the crossed
-    /// set doesn't rebuild the rest. Drawn under the route (translucent fill). (#4)
-    private func updateAirspaceOverlays(_ mapView: MKMapView, context: Context) {
-        let existing = mapView.overlays.compactMap { $0 as? AirspacePolygon }
-        let existingIds = Set(existing.map { $0.airspaceId })
-        let newIds = Set(airspacePolygons.map { $0.airspaceId })
-        guard existingIds != newIds else { return }
-        let toRemove = existing.filter { !newIds.contains($0.airspaceId) }
-        if !toRemove.isEmpty { mapView.removeOverlays(toRemove) }
-        for polygon in airspacePolygons where !existingIds.contains(polygon.airspaceId) {
-            mapView.addOverlay(polygon, level: .aboveLabels)
-        }
-    }
-
-    private func updateRoute(_ mapView: MKMapView, context: Context) {
-        let signature = waypoints.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
-            + "#" + conflictLegs.sorted().map(String.init).joined(separator: ",")
-        guard signature != context.coordinator.lastRouteSignature else { return }
-        context.coordinator.lastRouteSignature = signature
-        context.coordinator.lastSelectedLegKey = ""   // the leg halo is rebuilt below with the route
-
-        // Replace numbered waypoint annotations.
-        let oldWaypoints = mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }
-        mapView.removeAnnotations(oldWaypoints)
-        for (index, waypoint) in waypoints.enumerated() {
-            let annotation = RouteWaypointAnnotation(coordinate: waypoint.coordinate, index: index, name: waypoint.name)
-            annotation.hasConflict = conflictLegs.contains(index)
-            mapView.addAnnotation(annotation)
-        }
-
-        // Replace the route polyline. Draw a black casing under a magenta core, matching the in-flight
-        // navigation map so the plan previews exactly how the route reads in flight, and so it stays
-        // visible on every tile layer (feedback #6 — gold washed out on some charts).
-        Self.removeRouteOverlays(from: mapView)
-        if waypoints.count >= 2 {
-            let coords = waypoints.map { $0.coordinate }
-            let casing = RouteCasingPolyline(coordinates: coords, count: coords.count)
-            mapView.addOverlay(casing, level: .aboveLabels)
-            let polyline = RouteLinePolyline(coordinates: coords, count: coords.count)
-            mapView.addOverlay(polyline, level: .aboveLabels)
-        }
-    }
-
-    /// The route's own lines: its core, its casing and the selected leg's halo. The three redraws take
-    /// off only these; they used to take off every `MKPolyline`, which would have taken the traffic
-    /// circuits and VFR routes with them. (6.2.0)
-    static func isRouteOverlay(_ overlay: MKOverlay) -> Bool {
-        overlay is RouteLinePolyline || overlay is RouteCasingPolyline || overlay is SelectedLegPolyline
-    }
-
-    static func removeRouteOverlays(from mapView: MKMapView) {
-        let route = mapView.overlays.filter(isRouteOverlay)
-        if !route.isEmpty { mapView.removeOverlays(route) }
-    }
-
-    /// A white halo under the selected leg, drawn below the route so the magenta line reads through
-    /// it: the leg is highlighted where it is. (planning proposal D3)
-    private func updateSelectedLeg(_ mapView: MKMapView, context: Context) {
-        let key = selectedLeg.map { "\($0)|\(waypoints.count)" } ?? "none"
-        guard key != context.coordinator.lastSelectedLegKey else { return }
-        context.coordinator.lastSelectedLegKey = key
-        mapView.removeOverlays(mapView.overlays.filter { $0 is SelectedLegPolyline })
-        guard let leg = selectedLeg, leg >= 0, leg + 1 < waypoints.count else { return }
-        let coords = [waypoints[leg].coordinate, waypoints[leg + 1].coordinate]
-        let halo = SelectedLegPolyline(coordinates: coords, count: 2)
-        // Right under the route's casing: above the chart tiles (which share the level), under the line.
-        if let casing = mapView.overlays.first(where: { $0 is RouteCasingPolyline }) {
-            mapView.insertOverlay(halo, below: casing)
-        } else {
-            mapView.addOverlay(halo, level: .aboveLabels)
-        }
-    }
-
-    private func fitRoute(_ mapView: MKMapView) {
-        guard !waypoints.isEmpty else { return }
-        let coords = waypoints.map { $0.coordinate }
-        let rects = coords.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
-        let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
-        // The From/To bar sits above the map now; the inset only keeps pins off the edges.
-        let padding = UIEdgeInsets(top: 50, left: 50, bottom: 70, right: 50)
-        mapView.setVisibleMapRect(union, edgePadding: padding, animated: true)
-    }
-
-    // MARK: Coordinator
-
-    class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
-        var parent: RouteBuilderMapView
-        var currentLayer: WaypointPickerMapLayer
-        var lastRouteSignature = ""
-        var lastSelectedLegKey = ""
-        var lastFitToken = 0
-        var lastFocusToken = 0
-        /// `ReportingPointAnnotation.labelRevision` the markers were labelled at. (6.0.1)
-        var reportingPointLabelRevision = -1
-        /// The aerodrome procedures drawn, and their palette. (6.2.0)
-        let vfrLayer = VFRMapLayer.State()
-        /// The selected conflict the polygons are styled for; nil before the first pass. (6.4.2)
-        var styledSelection: String??
-
-        /// A crossed airspace's look: translucent fill and coloured stroke, brighter and thicker when selected. (#4)
-        static func style(_ renderer: MKPolygonRenderer, of airspace: AirspacePolygon, selected: Bool) {
-            let c = airspace.overlayColor
-            renderer.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: selected ? 0.36 : 0.18)
-            renderer.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: selected ? 1.0 : 0.85)
-            renderer.lineWidth = selected ? 3 : 1.5
-            renderer.lineDashPattern = airspace.isDashed ? [8, 4] : nil
-        }
-
-        // MARK: Live drag (flight-plan revamp #3)
-        enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)
-        var dragMode: DragMode?
-        var dragCoords: [CLLocationCoordinate2D] = []       // working geometry during a drag
-        var dragIndex = 0                                   // index into dragCoords being moved
-        var dragAnnotation: RouteWaypointAnnotation?        // the marker following the finger
-        var dragCreatedTempAnnotation = false               // true for insert/append (remove on end)
-        var isDragging: Bool { dragMode != nil }
-
-        // Deferred add: a press on empty map only becomes a new waypoint after a longer, deliberate
-        // hold (so a normal press/pan never adds one). (tap-add feedback)
-        var pendingAddWork: DispatchWorkItem?
-        var pendingAddAnchor: CGPoint?
-
-        init(_ parent: RouteBuilderMapView) {
-            self.parent = parent
-            self.currentLayer = parent.mapLayer
-        }
-
-        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-            parent.region = mapView.region
-            parent.liveRegion?.region = mapView.region
-        }
-
-        // Fires continuously while the user pans/zooms (not just at the end), so the profile's
-        // "looking here" band tracks the map live instead of snapping on release. (feedback) Into
-        // `liveRegion`, which only the band reads. (6.4.2)
-        func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
-            // The circuits' altitudes follow the map's heading as it turns. (6.2.0)
-            VFRMapLayer.orientLabels(on: mapView, palette: vfrLayer.palette)
-            guard !isDragging else { return } // don't fight an in-progress waypoint/line drag
-            if let live = parent.liveRegion {
-                live.region = mapView.region
-            } else {
-                parent.region = mapView.region
-            }
-        }
-
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let tile = overlay as? MKTileOverlay {
-                return ChartTileRenderer.renderer(for: tile, on: mapView)
-            }
-            // Traffic circuits, VFR routes and sectors: before the generic MKPolyline branch below, which
-            // would draw them magenta, as the route. (6.2.0)
-            if let renderer = VFRMapLayer.renderer(for: overlay, palette: vfrLayer.palette) {
-                return renderer
-            }
-            // Crossed-airspace highlight (translucent fill + colored stroke). (#4)
-            if let airspace = overlay as? AirspacePolygon {
-                let renderer = MKPolygonRenderer(polygon: airspace)
-                Self.style(renderer, of: airspace, selected: airspace.airspaceId == parent.selectedAirspaceId)
-                return renderer
-            }
-            // The selected leg's halo, under the route. (planning proposal D3)
-            if let halo = overlay as? SelectedLegPolyline {
-                let renderer = MKPolylineRenderer(polyline: halo)
-                renderer.strokeColor = UIColor.white.withAlphaComponent(0.85)
-                renderer.lineWidth = 16
-                renderer.lineCap = .round
-                return renderer
-            }
-            // Casing first — it is also an MKPolyline, so this branch must precede the generic one.
-            if let casing = overlay as? RouteCasingPolyline {
-                let renderer = MKPolylineRenderer(polyline: casing)
-                renderer.strokeColor = UIColor.black.withAlphaComponent(0.5)
-                renderer.lineWidth = 7
-                renderer.lineJoin = .round
-                renderer.lineCap = .round
-                return renderer
-            }
-            // The route's core (`RouteLinePolyline`).
-            if let polyline = overlay as? MKPolyline {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0) // navigation magenta
-                renderer.lineWidth = 4
-                renderer.lineJoin = .round
-                renderer.lineCap = .round
-                return renderer
-            }
-            return MKOverlayRenderer(overlay: overlay)
-        }
-
-        /// A tap on a waypoint's pin selects it in the table too. (planning proposal D3)
-        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
-            // A circuit's altitude: the pill the finger was on, not the one whose box the map picked. (6.2.0)
-            if VFRMapLayer.correctPillSelection(of: annotation, on: mapView) { return }
-            guard let waypoint = annotation as? RouteWaypointAnnotation else { return }
-            parent.onSelectWaypoint?(waypoint.index)
-        }
-
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            if let waypoint = annotation as? RouteWaypointAnnotation {
-                let id = "RouteWaypoint"
-                let view: MKMarkerAnnotationView
-                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) as? MKMarkerAnnotationView {
-                    reused.annotation = annotation
-                    view = reused
-                } else {
-                    view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
-                }
-                // Navigation magenta; amber where the leg from this waypoint has a conflict. (D2)
-                view.markerTintColor = waypoint.hasConflict
-                    ? UIColor(red: 1.0, green: 0.75, blue: 0.0, alpha: 1)
-                    : UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1)
-                view.glyphText = "\(waypoint.index + 1)"
-                view.titleVisibility = .adaptive
-                view.displayPriority = .required
-                view.canShowCallout = true
-                return view
-            }
-
-            // A traffic circuit's altitude or a VFR route's name, and its callout. (6.2.0)
-            if let label = VFRMapLayer.annotationView(for: annotation, on: mapView, palette: vfrLayer.palette,
-                                                      openChart: parent.onOpenOfficialChart) {
-                return label
-            }
-
-            if let airport = annotation as? AirportAnnotation {
-                let id = "BuilderAirport"
-                let view: MKAnnotationView
-                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
-                    reused.annotation = annotation
-                    view = reused
-                } else {
-                    view = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-                }
-                view.canShowCallout = true
-                view.image = aeroMarkerSymbol("airplane", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0), pointSize: 13, weight: .medium)
-                // The field's official chart on the left, "+" on the right. (6.2.0)
-                view.leftCalloutAccessoryView = parent.onOpenOfficialChart == nil ? nil
-                    : OfficialChartService.shared.link(for: airport.airport).map {
-                        OfficialChartControl.accessory(link: $0, metrics: .ground, tint: vfrLayer.palette.action)
-                    }
-                view.rightCalloutAccessoryView = addButton(annotation)
-                return view
-            }
-
-            if annotation is NavaidAnnotation {
-                let id = "BuilderNavaid"
-                let navaidView: MKAnnotationView
-                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
-                    reused.annotation = annotation
-                    navaidView = reused
-                } else {
-                    navaidView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-                }
-                navaidView.canShowCallout = true
-                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
-                navaidView.rightCalloutAccessoryView = addButton(annotation)
-                return navaidView
-            }
-
-            if let rpAnnotation = annotation as? ReportingPointAnnotation {
-                let id = "BuilderRP"
-                let rpView: MKAnnotationView
-                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
-                    reused.annotation = annotation
-                    rpView = reused
-                } else {
-                    rpView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-                }
-                rpView.canShowCallout = true
-                rpView.detailCalloutAccessoryView = rpAnnotation.calloutDetailView()   // (6.0.1)
-                rpView.rightCalloutAccessoryView = addButton(annotation)
-                let symbol = rpAnnotation.point.compulsory ? "triangle.fill" : "triangle"
-                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
-                return rpView
-            }
-
-            if annotation is ObstacleAnnotation {
-                let id = "BuilderObstacle"
-                let obstacleView: MKAnnotationView
-                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
-                    reused.annotation = annotation
-                    obstacleView = reused
-                } else {
-                    obstacleView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-                }
-                obstacleView.canShowCallout = true
-                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
-                return obstacleView
-            }
-
-            return nil
-        }
-
-        /// The callout's "+": the builder adds the point. Planning only: nil without `onPointAdd`.
-        private func addButton(_ annotation: MKAnnotation) -> UIView? {
-            guard parent.onPointAdd != nil, routePoint(for: annotation) != nil else { return nil }
-            let button = UIButton(type: .contactAdd)
-            button.accessibilityLabel = L10n.Nav.addToRoute
-            return button
-        }
-
-        private func routePoint(for annotation: MKAnnotation?) -> RoutePoint? {
-            switch annotation {
-            case let airport as AirportAnnotation: return .aerodrome(airport.airport)
-            case let navaid as NavaidAnnotation: return .navaid(navaid.navaid)
-            case let point as ReportingPointAnnotation: return .reportingPoint(point.point, point.label)
-            default: return nil
-            }
-        }
-
-        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-            // The official chart opens in the browser and adds nothing. (6.2.0)
-            if let chart = control as? OfficialChartControl, let link = chart.link {
-                parent.onOpenOfficialChart?(link.url)
-                return
-            }
-            guard let point = routePoint(for: view.annotation) else { return }
-            parent.onPointAdd?(point)
-            mapView.deselectAnnotation(view.annotation, animated: true)
-        }
-
-        // Tap empty map → add a free waypoint. Taps on an annotation are handled by the callout.
-        // MARK: Live drag handling (flight-plan revamp #3 + deliberate add)
-
-        @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
-            guard let mapView = gesture.view as? MKMapView else { return }
-            let point = gesture.location(in: mapView)
-            switch gesture.state {
-            case .began:
-                beginDrag(mapView, at: point)                 // move / insert on a waypoint or the line
-                if dragMode == nil { schedulePendingAdd(mapView, at: point) } // empty → deferred add
-            case .changed:
-                if dragMode == nil {
-                    // Still before the deliberate-add threshold; movement here means the user is panning.
-                    if let anchor = pendingAddAnchor, hypot(point.x - anchor.x, point.y - anchor.y) > 16 {
-                        cancelPendingAdd()
-                    }
-                    return
-                }
-                let coord = mapView.convert(point, toCoordinateFrom: mapView)
-                if case .append = dragMode {
-                    // A dropped point previews where it will actually land (cheapest insertion),
-                    // recomputed as the finger moves — not stuck appended to the end. (smart-insert feedback)
-                    rebuildAppendPreview(mapView, coord: coord)
-                    return
-                }
-                guard dragIndex < dragCoords.count else { return }
-                dragCoords[dragIndex] = coord
-                dragAnnotation?.coordinate = coord
-                redrawDragRoute(mapView)
-            case .ended:
-                if dragMode == nil { cancelPendingAdd(); return } // released before the add threshold
-                endDrag(mapView, at: point)
-            case .cancelled, .failed:
-                cancelPendingAdd()
-                cancelDrag(mapView)
-            default:
-                break
-            }
-        }
-
-        /// Arm a deferred add: after a longer hold on empty map (without panning), drop a new waypoint
-        /// under the finger and let the user drag it before release. (tap-add feedback)
-        private func schedulePendingAdd(_ mapView: MKMapView, at point: CGPoint) {
-            guard parent.onAddWaypoint != nil else { return }
-            cancelPendingAdd()
-            pendingAddAnchor = point
-            let work = DispatchWorkItem { [weak self, weak mapView] in
-                guard let self, let mapView, self.pendingAddAnchor != nil, self.dragMode == nil else { return }
-                self.startAppendDrag(mapView, at: point)
-            }
-            pendingAddWork = work
-            // ~0.2 s recognizer threshold + 0.45 s ≈ a deliberate two-thirds-second hold before it adds.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
-        }
-
-        private func cancelPendingAdd() {
-            pendingAddWork?.cancel()
-            pendingAddWork = nil
-            pendingAddAnchor = nil
-        }
-
-        private func startAppendDrag(_ mapView: MKMapView, at point: CGPoint) {
-            pendingAddWork = nil
-            pendingAddAnchor = nil
-            let coord = mapView.convert(point, toCoordinateFrom: mapView)
-            dragMode = .append
-            let temp = RouteWaypointAnnotation(coordinate: coord, index: 0, name: "")
-            mapView.addAnnotation(temp)
-            dragAnnotation = temp
-            dragCreatedTempAnnotation = true
-            grabbed(mapView, deselect: nil)
-            rebuildAppendPreview(mapView, coord: coord) // place it at the cheapest-insertion position
-        }
-
-        /// Rebuild the live preview for a dropped point: splice it into the route at the cheapest
-        /// insertion index for its current position, so the line shows how it will actually link in.
-        private func rebuildAppendPreview(_ mapView: MKMapView, coord: CLLocationCoordinate2D) {
-            let idx = FlightPlanManager.bestInsertionIndex(for: coord, in: parent.waypoints)
-            var coords = parent.waypoints.map { $0.coordinate }
-            let at = min(idx, coords.count)
-            coords.insert(coord, at: at)
-            dragCoords = coords
-            dragIndex = at
-            dragAnnotation?.coordinate = coord
-            redrawDragRoute(mapView)
-        }
-
-        /// Grab a waypoint (move) if the press is on one, else the nearest route segment (insert).
-        private func beginDrag(_ mapView: MKMapView, at point: CGPoint) {
-            let wpts = parent.waypoints
-            guard !wpts.isEmpty else { return }
-            if parent.onMoveWaypoint != nil,
-               let idx = waypointIndex(near: point, mapView: mapView, maxPointDistance: 34),
-               let anno = routeAnnotation(at: idx, in: mapView) {
-                dragMode = .move(idx)
-                dragCoords = wpts.map { $0.coordinate }
-                dragIndex = idx
-                dragAnnotation = anno
-                dragCreatedTempAnnotation = false
-                grabbed(mapView, deselect: anno)
-                return
-            }
-            if parent.onInsertWaypoint != nil, wpts.count >= 2,
-               let seg = closestSegment(to: point, mapView: mapView, maxPointDistance: 22) {
-                let coord = mapView.convert(point, toCoordinateFrom: mapView)
-                let insertAt = seg + 1
-                dragMode = .insert(seg)
-                dragCoords = wpts.map { $0.coordinate }
-                dragCoords.insert(coord, at: insertAt)
-                dragIndex = insertAt
-                let temp = RouteWaypointAnnotation(coordinate: coord, index: insertAt, name: "")
-                mapView.addAnnotation(temp)
-                dragAnnotation = temp
-                dragCreatedTempAnnotation = true
-                grabbed(mapView, deselect: nil)
-                redrawDragRoute(mapView)
-            }
-        }
-
-        private func grabbed(_ mapView: MKMapView, deselect: MKAnnotation?) {
-            mapView.isScrollEnabled = false
-            if let deselect = deselect { mapView.deselectAnnotation(deselect, animated: false) }
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        }
-
-        private func endDrag(_ mapView: MKMapView, at point: CGPoint) {
-            guard let mode = dragMode else { return }
-            let finalCoord = mapView.convert(point, toCoordinateFrom: mapView)
-            if dragCreatedTempAnnotation, let temp = dragAnnotation { mapView.removeAnnotation(temp) }
-            finishDrag(mapView)
-            switch mode {
-            case .move(let index): parent.onMoveWaypoint?(index, finalCoord)
-            case .insert(let afterIndex): parent.onInsertWaypoint?(afterIndex, finalCoord)
-            case .append: parent.onAddWaypoint?(finalCoord)
-            }
-        }
-
-        private func cancelDrag(_ mapView: MKMapView) {
-            finishDrag(mapView)
-            // Rebuilds markers + line from the model, dropping any temp insert/append marker and
-            // resetting a moved marker to its committed position.
-            redrawCommittedRoute(mapView)
-        }
-
-        private func finishDrag(_ mapView: MKMapView) {
-            dragMode = nil
-            dragAnnotation = nil
-            dragCoords = []
-            dragCreatedTempAnnotation = false
-            mapView.isScrollEnabled = true
-        }
-
-        /// Redraw the magenta route from the live working geometry (move/insert preview).
-        private func redrawDragRoute(_ mapView: MKMapView) {
-            RouteBuilderMapView.removeRouteOverlays(from: mapView)
-            guard dragCoords.count >= 2 else { return }
-            let casing = RouteCasingPolyline(coordinates: dragCoords, count: dragCoords.count)
-            mapView.addOverlay(casing, level: .aboveLabels)
-            let line = RouteLinePolyline(coordinates: dragCoords, count: dragCoords.count)
-            mapView.addOverlay(line, level: .aboveLabels)
-        }
-
-        /// Rebuild markers + route from the committed model (used after a cancelled drag).
-        private func redrawCommittedRoute(_ mapView: MKMapView) {
-            let old = mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }
-            mapView.removeAnnotations(old)
-            RouteBuilderMapView.removeRouteOverlays(from: mapView)
-            let wpts = parent.waypoints
-            for (i, w) in wpts.enumerated() {
-                mapView.addAnnotation(RouteWaypointAnnotation(coordinate: w.coordinate, index: i, name: w.name))
-            }
-            if wpts.count >= 2 {
-                let coords = wpts.map { $0.coordinate }
-                mapView.addOverlay(RouteCasingPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
-                mapView.addOverlay(RouteLinePolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
-            }
-            lastRouteSignature = wpts.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
-        }
-
-        // MARK: Drag hit-testing
-
-        /// Index of the waypoint whose marker is closest to `point` (within `maxPointDistance` px), or nil.
-        private func waypointIndex(near point: CGPoint, mapView: MKMapView, maxPointDistance: CGFloat) -> Int? {
-            var best: (index: Int, dist: CGFloat)?
-            for (i, w) in parent.waypoints.enumerated() {
-                let p = mapView.convert(w.coordinate, toPointTo: mapView)
-                // The marker balloon sits above its coordinate tip — bias the hit centre up.
-                let centre = CGPoint(x: p.x, y: p.y - 14)
-                let d = hypot(point.x - centre.x, point.y - centre.y)
-                if best == nil || d < best!.dist { best = (i, d) }
-            }
-            if let best = best, best.dist <= maxPointDistance { return best.index }
-            return nil
-        }
-
-        private func routeAnnotation(at index: Int, in mapView: MKMapView) -> RouteWaypointAnnotation? {
-            mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }.first { $0.index == index }
-        }
-
-        /// Start index of the route segment closest to `point` (within `maxPointDistance` px), or nil.
-        private func closestSegment(to point: CGPoint, mapView: MKMapView, maxPointDistance: CGFloat) -> Int? {
-            let wpts = parent.waypoints
-            guard wpts.count >= 2 else { return nil }
-            var best: (index: Int, dist: CGFloat)?
-            for i in 0..<(wpts.count - 1) {
-                let a = mapView.convert(wpts[i].coordinate, toPointTo: mapView)
-                let b = mapView.convert(wpts[i + 1].coordinate, toPointTo: mapView)
-                let d = distance(from: point, toSegment: a, b)
-                if best == nil || d < best!.dist { best = (i, d) }
-            }
-            if let best = best, best.dist <= maxPointDistance { return best.index }
-            return nil
-        }
-
-        private func distance(from p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
-            let ab = CGPoint(x: b.x - a.x, y: b.y - a.y)
-            let ap = CGPoint(x: p.x - a.x, y: p.y - a.y)
-            let len2 = ab.x * ab.x + ab.y * ab.y
-            let t = len2 == 0 ? 0 : max(0, min(1, (ap.x * ab.x + ap.y * ab.y) / len2))
-            let proj = CGPoint(x: a.x + t * ab.x, y: a.y + t * ab.y)
-            return hypot(p.x - proj.x, p.y - proj.y)
-        }
-
-        // Let the tap coexist with the map's own pan/zoom recognizers.
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-            true
-        }
-    }
-}
-
-// MARK: - Route overlays
-
-/// Black casing drawn underneath the magenta route core (a distinct subclass so the renderer can tell
-/// the two `MKPolyline`s apart). Mirrors the in-flight navigation map's route styling.
-final class RouteCasingPolyline: MKPolyline {}
-/// The route's magenta core. Its own class, so the redraws take off the route and nothing else on the
-/// map that is a polyline (the traffic circuits and VFR routes). (6.2.0)
-final class RouteLinePolyline: MKPolyline {}
-/// The halo under the leg selected in the route editor. (planning proposal D3)
-final class SelectedLegPolyline: MKPolyline {}
-
-// MARK: - Route waypoint annotation
-
-/// A numbered route waypoint marker. `coordinate` is KVO-observable so MapKit can move it in place.
-final class RouteWaypointAnnotation: NSObject, MKAnnotation {
-    @objc dynamic var coordinate: CLLocationCoordinate2D
-    let index: Int
-    let title: String?
-    /// The leg from this waypoint has a conflict: the pin is amber. (planning proposal D2)
-    var hasConflict = false
-
-    init(coordinate: CLLocationCoordinate2D, index: Int, name: String) {
-        self.coordinate = coordinate
-        self.index = index
-        self.title = name.isEmpty ? "WPT\(index + 1)" : name
-    }
 }
 
 // MARK: - Route altitude profile + cross-section (flight-plan revamp #4 redesign)

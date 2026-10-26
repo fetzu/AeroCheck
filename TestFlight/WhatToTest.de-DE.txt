@@ -1,14 +1,12 @@
-6.6.0 baut die Seite des Flugs in Blöcken neu auf und lässt eine Reise unterwegs ändern.
+6.7.0 bringt Ihre eigenen Notizen zu jedem Flugplatz, und überall dieselbe Karte.
 
 Zum Ausprobieren:
-- Planen Sie einen Flug für morgen und öffnen Sie seine Seite: Die Zeile unter dem Titel sagt, wann er abfliegt und was noch offen ist; Wetter und NOTAM warten auf den Flugtag. Ein Haken pro Block. Setzen Sie den Flug auf heute: Wetter und NOTAM gehen auf.
-- Auf dem iPad «Vorbereiten» in zwei Spalten, auf dem iPhone jeder Block in einem eigenen Blatt.
-- Der Block Wetter: METAR, TAF und SIGMET in Worten, RAW für die Meldung, wie sie ausgegeben wurde. Sagen Sie, was sich falsch liest.
-- Der Block Flugplan sagt, bis wann er aufzugeben ist: aus der Schweiz 60 Minuten vor dem Abflug, anderswo nach der Regel des Landes.
-- Der Stift neben dem Titel: «Flugdetails», «Route bearbeiten», «Diesen Flug benennen». Auf einer Etappe einer Reise: «Etappendetails», «Diese Etappe benennen», «Diese Reise benennen».
-- Eine Reise mit Zwischenhalt: Im Flug zeigt «Ausweichen» die nächsten Zwischenhalte mit «Weiterfliegen». Nach einer Landung auf dem Flugplatz der nächsten Etappe fragt die Seite, ob Sie den Zwischenhalt übersprungen haben. Etappe 2 fragt das Wetter erneut ab, auch wenn es auf Etappe 1 abgehakt ist. «Ganze Reise absagen» geht von jeder Etappe aus.
-- Eine gespeicherte Route («Planen» › «Routen»): Öffnen Sie einen Flugplatz zwischen Start und Ziel, dann «Wenn diese Route geflogen wird» › «Hier landen». «Neuen Flug planen» mit dieser Route beginnt mit dem Zwischenhalt.
-- Jedes Blatt: «Schliessen» oder «Abbrechen» links, «Fertig» rechts. Melden Sie eines, das es anders macht.
-- «Heute» und «Planen» › «Flüge» sagen, was die Seite des Flugs sagt.
+- «Planen» › «Karte», tippen Sie auf einen Flugplatz: Seine Karte zeigt die Frequenzen, «Karte» und «Notiz». «Notiz» öffnet Ihre Notiz in zwei Teilen, «Anflug» und «Am Boden». Schreiben Sie eine, dann tippen Sie erneut auf den Flugplatz.
+- «Flugplätze suchen» findet einen Flugplatz nach dem, was Ihre Notiz sagt, und zeigt die gefundene Zeile. Alles ist nach Entfernung geordnet, der nächste zuerst.
+- Der Block «Route» eines Flugs hat pro Flugplatz eine Zeile mit Ihrer Notiz. Nach der Landung fragt ABSCHLIESSEN: «Etwas, das Sie sich zu … merken möchten?»
+- Im Flug ist die Notiz nur zum Lesen, nur der Teil «Anflug»: auf der Karte des Flugplatzes, im Anflugbriefing und bei «Ausweichen».
+- «Einstellungen» › «iCloud & Aufzeichnung» › «Flugplatznotizen»: alle Notizen, «Alle Notizen teilen (Textdatei)», eine oder alle löschen. Mit «Mit iCloud synchronisieren» folgen die Notizen Ihnen auf Ihre anderen Geräte.
+- Die Karten: Jenseits des Rands der Schweizer Karten erscheint Apples Karte statt Schwarz. Zoomen Sie in «Planen» › «Karte» oder der KARTE des Cockpits hinein: die ICAO-Karte, dann die Segelflugkarte, dann die Landeskarte.
+- Die Karte des Flugplatzes im Routeneditor: «+ Route» fügt den Flugplatz der Route hinzu.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

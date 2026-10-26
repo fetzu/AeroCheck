@@ -31,9 +31,9 @@ final class MapPresetTests: XCTestCase {
     /// where it is, and the ICAO chart opened at 56 km for its 65 km limit. (6.2)
     func testTheCameraOpensInsideTheChartsZoomRange() {
         let icao = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)!
-        XCTAssertEqual(SwissMapView.clamped(56_053, to: icao), 65_000)
-        XCTAssertEqual(SwissMapView.clamped(120_000, to: icao), 120_000)
-        XCTAssertEqual(SwissMapView.clamped(900_000, to: icao), 600_000)
+        XCTAssertEqual(AeroMapView.clamped(56_053, to: icao), 65_000)
+        XCTAssertEqual(AeroMapView.clamped(120_000, to: icao), 120_000)
+        XCTAssertEqual(AeroMapView.clamped(900_000, to: icao), 600_000)
     }
 
     func testCruiseShowsAirspaceAndReportingPointsOnly() {

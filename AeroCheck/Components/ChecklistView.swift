@@ -1297,6 +1297,7 @@ struct DepartureBriefingContent: View {
 /// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
 struct ApproachBriefingContent: View {
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.dryRunSession) private var dryRunSession
     let context: BriefingContext
     /// A US destination's traffic pattern. (6.5.0)
     @ObservedObject private var nasr = NASRPatternService.shared
@@ -1327,6 +1328,12 @@ struct ApproachBriefingContent: View {
                                 .foregroundColor(theme.textDim)
                                 .italic()
                         }
+                    }
+
+                    // The pilot's own note on the destination, its Arrival part: read here, written on the
+                    // ground (n3 A). Not in a dry run, whose flight is the tutorial's (n7 B). (6.7.0)
+                    if dryRunSession == nil {
+                        AerodromeNoteBriefingSection(aerodrome: context.destinationAirport)
                     }
 
                     // Runway Section

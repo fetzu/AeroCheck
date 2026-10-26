@@ -46,6 +46,63 @@ enum L10n {
         }
     }
 
+    // MARK: - Aerodrome notes (6.7.0)
+    enum AerodromeNotes {
+        static let title = String(localized: "aerodromeNote.title")
+        static let arrival = String(localized: "aerodromeNote.arrival")
+        static let arrivalHint = String(localized: "aerodromeNote.arrival.hint")
+        static let onTheGround = String(localized: "aerodromeNote.onTheGround")
+        static let onTheGroundHint = String(localized: "aerodromeNote.onTheGround.hint")
+        static let yourNote = String(localized: "aerodromeNote.yourNote")
+        static let yourNoteArrival = String(localized: "aerodromeNote.yourNote.arrival")
+        static let yourNoteOnTheGround = String(localized: "aerodromeNote.yourNote.onTheGround")
+        /// The note's button on an aerodrome's card, beside Chart and Divert. (c1 A)
+        static let cardButton = String(localized: "aerodromeNote.cardButton")
+        static let add = String(localized: "aerodromeNote.add")
+        static let more = String(localized: "aerodromeNote.more")
+        static let delete = String(localized: "aerodromeNote.delete")
+        static let readOnlyInFlight = String(localized: "aerodromeNote.readOnlyInFlight")
+        static let inICloud = String(localized: "aerodromeNote.inICloud")
+        static let onThisDevice = String(localized: "aerodromeNote.onThisDevice")
+        /// "Changed 23 Sep 2026 on the iPad".
+        static func changed(_ date: String, on device: String) -> String {
+            String(format: String(localized: "aerodromeNote.changed"), date, device)
+        }
+        static func deleteQuestion(_ aerodrome: String) -> String {
+            String(format: String(localized: "aerodromeNote.delete.question"), aerodrome)
+        }
+        static let search = String(localized: "aerodromeNote.search")
+        static let shareAll = String(localized: "aerodromeNote.shareAll")
+        static let deleteAll = String(localized: "aerodromeNote.deleteAll")
+        static let deleteAllQuestion = String(localized: "aerodromeNote.deleteAll.question")
+        static let deleteAllConfirm = String(localized: "aerodromeNote.deleteAll.confirm")
+        static let empty = String(localized: "aerodromeNote.empty")
+        static let emptyHint = String(localized: "aerodromeNote.empty.hint")
+        static let noMatch = String(localized: "aerodromeNote.noMatch")
+        static let footer = String(localized: "aerodromeNote.footer")
+        static func count(_ n: Int) -> String {
+            String(localized: "aerodromeNote.count \(n)")
+        }
+        /// The shared text file's first line: "AéroCheck · Aerodrome notes · 25 Oct 2026".
+        static func exportHeader(_ date: String) -> String {
+            String(format: String(localized: "aerodromeNote.export.header"), date)
+        }
+        static let exportFileName = String(localized: "aerodromeNote.export.fileName")
+        static let none = String(localized: "aerodromeNote.none")
+        static let write = String(localized: "aerodromeNote.write")
+        static let edit = String(localized: "aerodromeNote.edit")
+        /// CLOSE, after landing: "Anything to remember about Grenchen?"
+        static func closeOffer(_ name: String) -> String {
+            String(format: String(localized: "aerodromeNote.closeOffer"), name)
+        }
+        static func closeOfferHint(_ ident: String) -> String {
+            String(format: String(localized: "aerodromeNote.closeOffer.hint"), ident)
+        }
+        static func yourNoteOn(_ ident: String) -> String {
+            String(format: String(localized: "aerodromeNote.yourNoteOn"), ident)
+        }
+    }
+
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like other newly-introduced UI strings.
@@ -3594,6 +3651,8 @@ enum L10n {
         static let editWaypoint = String(localized: "nav.editWaypoint")
         /// The "+" in a map callout: the aerodrome, navaid or reporting point goes into the route. (6.0.1)
         static let addToRoute = String(localized: "nav.addToRoute")
+        /// Under "+" on an aerodrome's card, where "Add to route" doesn't fit beside two other buttons. (6.7.0)
+        static let addToRouteShort = String(localized: "nav.addToRoute.short")
         /// The reporting point's ident from an OpenAIP remark ("ELESE"): not an official designator,
         /// so it is labelled as such wherever it shows. (6.0.1)
         static let pointIdent = String(localized: "nav.pointIdent")

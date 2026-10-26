@@ -141,6 +141,7 @@ struct AeroCheckApp: App {
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(flightThreadManager)
+                .environmentObject(AerodromeNoteStore.shared)
                 .environmentObject(watchConnectivityManager)
                 .environmentObject(companionConnectivityManager)
                 .environmentObject(subscriptionManager)
@@ -398,6 +399,8 @@ struct AeroCheckApp: App {
                     Task { await BriefingRegistryService.shared.refreshIfNeeded() }
                     // The FIS areas when a week old. (6.4.2)
                     Task { await FISAreaService.shared.refreshIfNeeded() }
+                    // The aerodrome notes another device may have changed through iCloud Drive. (6.7.0)
+                    Task { await AerodromeNoteStore.shared.reload() }
                     // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
                     // Oct: when the app opens, no background work.) Nor during a dry run. (6.4.0)
                     if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
@@ -421,6 +424,7 @@ struct AeroCheckApp: App {
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(flightThreadManager)
+                .environmentObject(AerodromeNoteStore.shared)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)

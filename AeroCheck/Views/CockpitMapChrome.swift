@@ -47,6 +47,9 @@ struct MapChromeModel {
     /// leave alone.
     var zoom: Double
     var nauticalMiles = true
+    /// An aerodrome's or a procedure's callout is open: the stack at the right edge steps aside, as Plan › Map's
+    /// controls do, so the callout reads whole, its Divert button included. (6.7.0)
+    var calloutOpen = false
 }
 
 /// What the chrome's taps do. The map owns them.
@@ -366,6 +369,7 @@ struct CockpitMapChrome: View {
                                        metrics: geometry.metrics, language: language)
                     .modifier(MapChromePlacement(element: .control(control), frame: geometry.frame(control),
                                                  onPlace: onPlace))
+                    .modifier(StepsAsideForCallout(isHidden: model.calloutOpen, reduceMotion: reduceMotion))
             }
             if let status = model.status {
                 MapStatusSlot(status: status, undoOffer: model.undoOffer, actions: actions,
@@ -378,6 +382,7 @@ struct CockpitMapChrome: View {
                     actions.openStatus(tucked)
                 }
                 .modifier(MapChromePlacement(element: .tuckedStatus, frame: geometry.tuckedStatus, onPlace: onPlace))
+                .modifier(StepsAsideForCallout(isHidden: model.calloutOpen, reduceMotion: reduceMotion))
                 .transition(.opacity)
             }
             if let arrow = edgeArrow(geometry) {
@@ -1107,7 +1112,8 @@ struct CockpitChartChrome: View {
                                   heading: orientation == .trackUp ? mapState.cameraHeading : 0,
                                   aircraft: locationManager.currentLocation?.coordinate,
                                   zoom: mapState.cameraDistance,
-                                  nauticalMiles: appState.settings.distanceInNauticalMiles),
+                                  nauticalMiles: appState.settings.distanceInNauticalMiles,
+                                  calloutOpen: mapState.isCalloutOpen),
             actions: wiredActions, showsStack: showsStack, footRoom: footRoom)
             // A waypoint the flight marked, or a check just confirmed, withdraws the band's older offer.
             .modifier(UndoOfferFollower(cockpitNav: cockpitNav))

@@ -475,112 +475,100 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertEqual(service.registry, seeded)
     }
 
-    // MARK: - The airport callout on the navigation maps
+    // MARK: - The aerodrome's card on the navigation maps (6.7.0, c1 A)
 
-    private func tap(_ control: UIView?, on view: MKAnnotationView, map: MKMapView,
-                     with coordinator: MKMapViewDelegate) throws {
-        let control = try XCTUnwrap(control as? UIControl)
-        coordinator.mapView?(map, annotationView: view, calloutAccessoryControlTapped: control)
+    private func button(_ card: AerodromeCardView, _ identifier: String, _ name: String = "") throws -> AerodromeCardButton {
+        try XCTUnwrap(card.buttons.first { $0.accessibilityIdentifier == identifier }, "\(name): \(identifier)")
     }
 
-    /// The chart on the left, Divert on the right, and each tap to its own: before 6.2.0 any control
-    /// of the callout meant Divert.
-    func testTheAirportCalloutSendsEachTapToItsControl() throws {
+    private func tap(_ button: UIButton) {
+        button.sendActions(for: .primaryActionTriggered)
+    }
+
+    /// The chart, then Divert in flight, each tap to its own: before 6.2.0 any control of the callout meant Divert.
+    func testTheAerodromeCardSendsEachTapToItsButton() throws {
         var plan = FlightPlan(name: "Test")
         plan.waypoints = [FlightPlanWaypoint(name: "LSZQ", coordinate: CLLocationCoordinate2D(latitude: 47.42, longitude: 7.18), altitude: 3000)]
         let state = SharedMapState()
         var diverts: [String] = []
         var charts: [URL] = []
-        let native = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true), activeFlightPlan: plan,
+        let maps: [(String, AeroMapView)] = [
+            ("AeroMapView on Apple's map", AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                                       isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
+                                                       onAirportDivert: { diverts.append($0) },
+                                                       onOpenOfficialChart: { charts.append($0) }, isInFlight: true)),
+            ("AeroMapView", AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
+                                        isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
                                         onAirportDivert: { diverts.append($0) },
-                                        onOpenOfficialChart: { charts.append($0) }, isInFlight: true).makeCoordinator()
-        let swiss = SwissMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
-                                 isFollowingAircraft: .constant(true), forceICAOLayer: false, activeFlightPlan: plan,
-                                 onAirportDivert: { diverts.append($0) },
-                                 onOpenOfficialChart: { charts.append($0) }, isInFlight: true).makeCoordinator()
-        let maps: [(String, MKMapViewDelegate)] = [("NativeMapViewUIKit", native), ("SwissMapView", swiss)]
-        for (name, coordinator) in maps {
+                                        onOpenOfficialChart: { charts.append($0) }, isInFlight: true)),
+        ]
+        for (name, view) in maps {
             diverts = []
             charts = []
-            let map = MKMapView()
+            let coordinator = view.makeCoordinator()
+            let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
             let annotation = AirportAnnotation(airport: airport("LSZQ"))
-            let view = try XCTUnwrap(coordinator.mapView?(map, viewFor: annotation), name)
-            let chart = try XCTUnwrap(view.leftCalloutAccessoryView as? OfficialChartControl, name)
-            XCTAssertEqual(chart.link?.url.host, "www.skybriefing.com", name)
+            XCTAssertFalse(try XCTUnwrap(coordinator.mapView(map, viewFor: annotation), name).canShowCallout,
+                           "\(name): the card, not MapKit's callout")
+            let card = coordinator.aerodromeCard(for: annotation, on: map)
+            card.layoutIfNeeded()
+            XCTAssertEqual(card.buttons.map(\.accessibilityIdentifier), ["aerodromeCard.chart", "aerodromeCard.divert"], name)
+            let chart = try button(card, "aerodromeCard.chart", name)
             XCTAssertEqual(chart.accessibilityLabel, "Official chart · SkyBriefing (subscription)", name)
             XCTAssertGreaterThanOrEqual(chart.frame.height, CockpitTarget.control, "\(name): in flight, the Cockpit's size")
-            XCTAssertGreaterThanOrEqual(chart.frame.width, CockpitTarget.control, name)
-            let divert = try XCTUnwrap(view.rightCalloutAccessoryView as? UIButton, name)
-            XCTAssertFalse(divert is OfficialChartControl, name)
-            XCTAssertGreaterThanOrEqual(divert.frame.height, CockpitTarget.control, name)
+            let divert = try button(card, "aerodromeCard.divert", name)
+            XCTAssertEqual(divert.frame.width, chart.frame.width, accuracy: 1, "\(name): one row of equal buttons")
 
-            try tap(chart, on: view, map: map, with: coordinator)
+            tap(chart)
             XCTAssertEqual(charts.map(\.absoluteString), ["https://www.skybriefing.com/en/evfr-manual"], name)
             XCTAssertEqual(diverts, [], "\(name): the chart is not a diversion")
 
-            try tap(divert, on: view, map: map, with: coordinator)
+            tap(divert)
             XCTAssertEqual(diverts, ["LSZQ"], name)
             XCTAssertEqual(charts.count, 1, name)
         }
     }
 
-    /// On the ground (Plan › Map): the chart alone, at 44 pt; no chart without a way to open it, or
-    /// for a field without one.
-    func testTheAirportCalloutOnTheGround() throws {
+    /// On the ground (Plan › Map): the chart alone, at 44 pt; no chart without a way to open it, or for a field
+    /// without one.
+    func testTheAerodromeCardOnTheGround() throws {
         let state = SharedMapState()
         var charts: [URL] = []
-        let ground = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true),
-                                        onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
-        let map = MKMapView()
-        let view = try XCTUnwrap(ground.mapView(map, viewFor: AirportAnnotation(airport: airport("EDNY", country: "DE"))))
-        let chart = try XCTUnwrap(view.leftCalloutAccessoryView as? OfficialChartControl)
+        let ground = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                 isFollowingAircraft: .constant(true), forceICAOLayer: false,
+                                 onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
+        let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
+        let card = ground.aerodromeCard(for: AirportAnnotation(airport: airport("EDNY", country: "DE")), on: map)
+        card.layoutIfNeeded()
+        XCTAssertEqual(card.buttons.map(\.accessibilityIdentifier), ["aerodromeCard.chart"], "no Divert on the ground")
+        let chart = try button(card, "aerodromeCard.chart")
         XCTAssertGreaterThanOrEqual(chart.frame.height, 44)
-        XCTAssertGreaterThanOrEqual(chart.frame.width, 44)
-        XCTAssertNil(view.rightCalloutAccessoryView, "no Divert on the ground")
-        try tap(chart, on: view, map: map, with: ground)
+        tap(chart)
         XCTAssertEqual(charts.map(\.lastPathComponent), ["C019CA.html"])
 
-        let italian = try XCTUnwrap(ground.mapView(map, viewFor: AirportAnnotation(airport: airport("LIMJ", .mediumAirport, country: "IT"))))
-        XCTAssertNil(italian.leftCalloutAccessoryView)
+        let italian = ground.aerodromeCard(for: AirportAnnotation(airport: airport("LIMJ", .mediumAirport, country: "IT")), on: map)
+        XCTAssertTrue(italian.buttons.isEmpty)
 
-        let noOpener = NativeMapViewUIKit(selectedLayer: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                          isFollowingAircraft: .constant(true)).makeCoordinator()
-        XCTAssertNil(try XCTUnwrap(noOpener.mapView(map, viewFor: AirportAnnotation(airport: airport("LSZQ")))).leftCalloutAccessoryView)
+        let noOpener = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
+                                   isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
+        XCTAssertTrue(noOpener.aerodromeCard(for: AirportAnnotation(airport: airport("LSZQ")), on: map).buttons.isEmpty)
     }
 
-    func testAirportCalloutControlsTellTheTapsApart() throws {
-        let link = try XCTUnwrap(try registry().link(for: "LOWI", type: .smallAirport, now: october2))
-        let lowi = airport("LOWI", country: "AT")
-        let view = MKAnnotationView(annotation: AirportAnnotation(airport: lowi), reuseIdentifier: nil)
-        AirportCalloutControls.configure(view, chart: link, divert: true, metrics: .ground, tint: .systemBlue)
-        let left = try XCTUnwrap(view.leftCalloutAccessoryView as? UIControl)
-        let right = try XCTUnwrap(view.rightCalloutAccessoryView as? UIControl)
-        XCTAssertEqual(AirportCalloutControls.action(for: left, airport: lowi), .officialChart(link.url))
-        XCTAssertEqual(AirportCalloutControls.action(for: right, airport: lowi), .divert("LOWI"))
-        AirportCalloutControls.configure(view, chart: nil, divert: false, metrics: .ground, tint: .systemBlue)
-        XCTAssertNil(view.leftCalloutAccessoryView)
-        XCTAssertNil(view.rightCalloutAccessoryView)
-    }
-
-    /// The route builder: the chart on the left, "+" on the right; the chart adds nothing.
-    func testTheBuilderCalloutOpensTheChartWithoutAddingThePoint() throws {
+    /// The route builder: the chart, then "+ Route"; the chart adds nothing.
+    func testTheBuildersCardOpensTheChartWithoutAddingThePoint() throws {
         var added: [RoutePoint] = []
         var charts: [URL] = []
-        let builder = RouteBuilderMapView(waypoints: [], mapLayer: .icao, airports: [], fitRouteToken: 0,
-                                          region: .constant(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47.4, longitude: 7.0),
-                                                                               span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5))),
-                                          onPointAdd: { added.append($0) },
-                                          onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
-        let map = MKMapView()
-        let view = try XCTUnwrap(builder.mapView(map, viewFor: AirportAnnotation(airport: airport("LSZQ"))))
-        let chart = try XCTUnwrap(view.leftCalloutAccessoryView as? OfficialChartControl)
-        XCTAssertGreaterThanOrEqual(chart.frame.height, 44)
-        try tap(chart, on: view, map: map, with: builder)
+        let builder = AeroMapView(layerType: .icao, mapState: SharedMapState(), currentLocation: nil, gpsTrack: [],
+                                  isFollowingAircraft: .constant(false), forceICAOLayer: false,
+                                  onOpenOfficialChart: { charts.append($0) }, features: .builder,
+                                  plannedRoute: PlannedRoute(onPointAdd: { added.append($0) })).makeCoordinator()
+        let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
+        let card = builder.aerodromeCard(for: AirportAnnotation(airport: airport("LSZQ")), on: map)
+        XCTAssertEqual(card.buttons.map(\.accessibilityIdentifier), ["aerodromeCard.chart", "aerodromeCard.addToRoute"])
+        tap(try button(card, "aerodromeCard.chart"))
         XCTAssertEqual(charts.count, 1)
         XCTAssertTrue(added.isEmpty, "the chart is not \"+\"")
-        try tap(view.rightCalloutAccessoryView, on: view, map: map, with: builder)
+        tap(try button(card, "aerodromeCard.addToRoute"))
         XCTAssertEqual(added.count, 1)
         XCTAssertEqual(charts.count, 1)
     }
@@ -610,9 +598,9 @@ final class OfficialChartTests: XCTestCase {
         XCTAssertFalse(MapCallout.isOpen(selected: [], view: { _ in withCallout }))
 
         let makers: [(String, (SharedMapState) -> MKMapViewDelegate)] = [
-            ("NativeMapViewUIKit", { NativeMapViewUIKit(selectedLayer: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
-                                                        isFollowingAircraft: .constant(true)).makeCoordinator() }),
-            ("SwissMapView", { SwissMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
+            ("AeroMapView on Apple's map", { AeroMapView(layerType: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
+                                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
+            ("AeroMapView", { AeroMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
                                             isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
         ]
         for (name, make) in makers {

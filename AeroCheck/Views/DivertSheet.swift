@@ -24,6 +24,7 @@ struct DivertSheet: View {
 
     @State private var sections: DivertPlanner.Sections?
     @State private var expanded: String?
+    @ObservedObject private var noteStore = AerodromeNoteStore.shared
     /// "Fly on" tapped: the stop to fly on to, asked once. (6.6.0, t3 A)
     @State private var flyingOnTo: LaterStop?
 
@@ -247,6 +248,10 @@ struct DivertSheet: View {
     private func row(_ option: DivertPlanner.Option, isDestination: Bool) -> some View {
         let ident = option.aerodrome.ident
         let isExpanded = expanded == ident
+        // The pilot's note on the field: a mark on the row, its Arrival part once opened (n3 A). (6.7.0)
+        let note = noteStore.note(for: AerodromeRef(ident: ident, name: option.aerodrome.name,
+                                                    latitude: option.aerodrome.latitude,
+                                                    longitude: option.aerodrome.longitude))
         return VStack(alignment: .leading, spacing: 10) {
             Button {
                 expanded = isExpanded ? nil : ident
@@ -259,6 +264,10 @@ struct DivertSheet: View {
                                     .font(.aero(size: 18, weight: .bold, design: .monospaced))
                                     .foregroundColor(theme.textPrimary)
                                 if option.aerodrome.isPPR { chip("PPR", color: theme.warning) }
+                                // The Arrival part only, the part the row opens on (n1 A).
+                                if let note, note.hasArrival {
+                                    chip(L10n.AerodromeNotes.yourNote.uppercased(), color: .aviationGold)
+                                }
                                 if option.crossesBorder, let country = option.aerodrome.country {
                                     chip(L10n.Trip.border(country), color: theme.warning)
                                 }
@@ -297,6 +306,20 @@ struct DivertSheet: View {
                         Text(L10n.Trip.checkChart)
                             .font(.aero(size: 13))
                             .foregroundColor(theme.warning)
+                    }
+                    if let note, note.hasArrival {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L10n.AerodromeNotes.yourNoteArrival.uppercased())
+                                .font(.aero(size: 12, weight: .bold))
+                                .tracking(1)
+                                .foregroundColor(.aviationGold)
+                            Text(AerodromeNoteText.attributed(AerodromeNote.trimmed(note.arrival)))
+                                .font(.aero(size: 18))
+                                .foregroundColor(theme.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("divert.aerodromeNote")
                     }
                     // The field's official chart, in the browser: as tall as the button under it. (6.2.0)
                     OfficialChartLinkButton(icao: ident, type: option.aerodrome.type, minHeight: 56)

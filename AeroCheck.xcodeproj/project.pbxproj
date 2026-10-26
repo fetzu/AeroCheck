@@ -57,6 +57,8 @@
 		FP6600021111111000007 /* WeatherWordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000007 /* WeatherWordsTests.swift */; };
 		FP6600021111111000002 /* FlightPageBlocksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000002 /* FlightPageBlocksTests.swift */; };
 		A50000C1111111110000002 /* TestDatastore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000C1111111110000001 /* TestDatastore.swift */; };
+		2281D60A3155323D7B2B8269 /* AerodromeCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC70373A701E28D6ACB841B0 /* AerodromeCardTests.swift */; };
+		8CC32D5E3CAA451573FF3743 /* AerodromeNotesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EE249B871D9B795F365705 /* AerodromeNotesTests.swift */; };
 		A5000039111111110000002 /* WaypointPassageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000039111111110000001 /* WaypointPassageTests.swift */; };
 		A5000040111111110000002 /* TripPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000040111111110000001 /* TripPlannerTests.swift */; };
 		A5000041111111110000002 /* DivertPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000041111111110000001 /* DivertPlannerTests.swift */; };
@@ -277,6 +279,7 @@
 		A1000001211111110000019 /* OfflineMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000019 /* OfflineMapManager.swift */; };
 		A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000061 /* SwisstopoTileOverlays.swift */; };
 		A1000001211111110000079 /* ChartTileRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000079 /* ChartTileRenderer.swift */; };
+		9A7D9BFBBEDBF4E39BBEF290 /* ChartPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B07C9866F0A82B7ED7A782 /* ChartPolicy.swift */; };
 		A1000001211111110000020 /* WindDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000020 /* WindDataService.swift */; };
 		A2000001211111110000001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000001 /* WidgetKit.framework */; };
 		A2000001211111110000002 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000002 /* SwiftUI.framework */; };
@@ -338,6 +341,8 @@
 		E1000001211111110000040 /* RoutePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000040 /* RoutePoint.swift */; };
 		E1000001211111110000023 /* OpenAIPAirport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000023 /* OpenAIPAirport.swift */; };
 		E1000001211111110000025 /* FlightThreadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000025 /* FlightThreadManager.swift */; };
+		4DA8B27161D7545D835B8ED0 /* AerodromeNoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C32A577325BD92C2287664 /* AerodromeNoteStore.swift */; };
+		1944437BB5C83B275FA73612 /* AerodromeNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC64B354BEF9C17CD8D0B3B3 /* AerodromeNote.swift */; };
 		E1000001211111110000024 /* FlightThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000024 /* FlightThread.swift */; };
 		E1000001211111110000028 /* WeightBalance.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000028 /* WeightBalance.swift */; };
 		E1000001211111110000029 /* BorderCrossing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000029 /* BorderCrossing.swift */; };
@@ -364,6 +369,12 @@
 		FP6600021111111000004 /* FlightPageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000004 /* FlightPageViews.swift */; };
 		FP6600021111111000003 /* FlightPageWords.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000003 /* FlightPageWords.swift */; };
 		A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000051111111110000001 /* FuelOnBoardSheet.swift */; };
+		86A954047EDDDE61F948F477 /* AerodromeNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */; };
+		B9D03C1E805FAFB526CDD17C /* AerodromeNoteViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */; };
+		4CB20F4EB931BD27A27253DC /* MapFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */; };
+		851C2D8CED1ABA6D782C9139 /* PlannedRouteLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */; };
+		AA42C0CAF37368D938C5F337 /* AerodromeMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */; };
+		855F5BB902B42E59257958D5 /* AerodromeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58A88DEE03A2690E8A59265C /* AerodromeCard.swift */; };
 		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
 		HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */ = {isa = PBXBuildFile; fileRef = HB0A0001111111110000002 /* AerodromeIdentField.swift */; };
 		F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000034 /* UpcomingFlightsList.swift */; };
@@ -380,6 +391,7 @@
 		I1000001211111110000010 /* DataStorageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000010 /* DataStorageSettingsView.swift */; };
 		I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000004 /* FlightPlanningSettingsView.swift */; };
 		I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000005 /* SyncDataSettingsView.swift */; };
+		999D7C8C4B7970A1D393877F /* AerodromeNotesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC501942B69AEC5D1EFBBAD /* AerodromeNotesSettingsView.swift */; };
 		I1000001211111110000006 /* AboutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000006 /* AboutSettingsView.swift */; };
 		I1000001211111110000007 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000007 /* OnboardingView.swift */; };
 		AA000001211111110000001 /* OpenAIPConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000001 /* OpenAIPConfig.swift */; };
@@ -503,6 +515,8 @@
 		FP6600011111111000007 /* WeatherWordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherWordsTests.swift; sourceTree = "<group>"; };
 		FP6600011111111000002 /* FlightPageBlocksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageBlocksTests.swift; sourceTree = "<group>"; };
 		A50000C1111111110000001 /* TestDatastore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDatastore.swift; sourceTree = "<group>"; };
+		BC70373A701E28D6ACB841B0 /* AerodromeCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeCardTests.swift; sourceTree = "<group>"; };
+		76EE249B871D9B795F365705 /* AerodromeNotesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNotesTests.swift; sourceTree = "<group>"; };
 		A5000039111111110000001 /* WaypointPassageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointPassageTests.swift; sourceTree = "<group>"; };
 		A5000040111111110000001 /* TripPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerTests.swift; sourceTree = "<group>"; };
 		A5000041111111110000001 /* DivertPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivertPlannerTests.swift; sourceTree = "<group>"; };
@@ -726,6 +740,7 @@
 		A1000001111111110000019 /* OfflineMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMapManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000061 /* SwisstopoTileOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwisstopoTileOverlays.swift; sourceTree = "<group>"; };
 		A1000001111111110000079 /* ChartTileRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartTileRenderer.swift; sourceTree = "<group>"; };
+		E2B07C9866F0A82B7ED7A782 /* ChartPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartPolicy.swift; sourceTree = "<group>"; };
 		A1000001111111110000020 /* WindDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataService.swift; sourceTree = "<group>"; };
 		A2000001111111110000000 /* AeroCheckWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AeroCheckWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000001111111110000001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -779,6 +794,8 @@
 		E1000001111111110000040 /* RoutePoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePoint.swift; sourceTree = "<group>"; };
 		E1000001111111110000023 /* OpenAIPAirport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirport.swift; sourceTree = "<group>"; };
 		E1000001111111110000025 /* FlightThreadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadManager.swift; sourceTree = "<group>"; };
+		91C32A577325BD92C2287664 /* AerodromeNoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteStore.swift; sourceTree = "<group>"; };
+		DC64B354BEF9C17CD8D0B3B3 /* AerodromeNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNote.swift; sourceTree = "<group>"; };
 		E1000001111111110000024 /* FlightThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThread.swift; sourceTree = "<group>"; };
 		E1000001111111110000028 /* WeightBalance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightBalance.swift; sourceTree = "<group>"; };
 		E1000001111111110000029 /* BorderCrossing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderCrossing.swift; sourceTree = "<group>"; };
@@ -805,6 +822,12 @@
 		FP6600011111111000004 /* FlightPageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageViews.swift; sourceTree = "<group>"; };
 		FP6600011111111000003 /* FlightPageWords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageWords.swift; sourceTree = "<group>"; };
 		A5000051111111110000001 /* FuelOnBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuelOnBoardSheet.swift; sourceTree = "<group>"; };
+		6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteSheet.swift; sourceTree = "<group>"; };
+		EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNoteViews.swift; sourceTree = "<group>"; };
+		9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFeatures.swift; sourceTree = "<group>"; };
+		58A88DEE03A2690E8A59265C /* AerodromeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeCard.swift; sourceTree = "<group>"; };
+		74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeMarkerView.swift; sourceTree = "<group>"; };
+		FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedRouteLayer.swift; sourceTree = "<group>"; };
 		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
 		HB0A0001111111110000002 /* AerodromeIdentField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeIdentField.swift; sourceTree = "<group>"; };
 		F1000001111111110000034 /* UpcomingFlightsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingFlightsList.swift; sourceTree = "<group>"; };
@@ -821,6 +844,7 @@
 		I1000001111111110000010 /* DataStorageSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStorageSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000004 /* FlightPlanningSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000005 /* SyncDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncDataSettingsView.swift; sourceTree = "<group>"; };
+		8FC501942B69AEC5D1EFBBAD /* AerodromeNotesSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeNotesSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000006 /* AboutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000007 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AA000001111111110000001 /* OpenAIPConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPConfig.swift; sourceTree = "<group>"; };
@@ -935,6 +959,8 @@
 				FP6600011111111000007 /* WeatherWordsTests.swift */,
 				FP6600011111111000002 /* FlightPageBlocksTests.swift */,
 				A50000C1111111110000001 /* TestDatastore.swift */,
+				BC70373A701E28D6ACB841B0 /* AerodromeCardTests.swift */,
+				76EE249B871D9B795F365705 /* AerodromeNotesTests.swift */,
 				A5000039111111110000001 /* WaypointPassageTests.swift */,
 				A5000040111111110000001 /* TripPlannerTests.swift */,
 				A5000041111111110000001 /* DivertPlannerTests.swift */,
@@ -1156,6 +1182,12 @@
 				FP6600011111111000003 /* FlightPageWords.swift */,
 				A1000001111111110000B03 /* PrepareWeatherCard.swift */,
 				A5000051111111110000001 /* FuelOnBoardSheet.swift */,
+				6A5DDFEFF252D16D5E948D53 /* AerodromeNoteSheet.swift */,
+				EF6B54EED69426ABD5DE9A2B /* AerodromeNoteViews.swift */,
+				9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */,
+				FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */,
+				74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */,
+				58A88DEE03A2690E8A59265C /* AerodromeCard.swift */,
 				F1000001111111110000033 /* PlanNewFlightView.swift */,
 				HB0A0001111111110000002 /* AerodromeIdentField.swift */,
 				F1000001111111110000034 /* UpcomingFlightsList.swift */,
@@ -1177,6 +1209,7 @@
 				I1000001111111110000003 /* NavigationMapsSettingsView.swift */,
 				I1000001111111110000010 /* DataStorageSettingsView.swift */,
 				I1000001111111110000005 /* SyncDataSettingsView.swift */,
+				8FC501942B69AEC5D1EFBBAD /* AerodromeNotesSettingsView.swift */,
 				2E25D9E77A5545DFBFE6D89D /* CompanionSettingsView.swift */,
 			);
 			path = Settings;
@@ -1197,6 +1230,8 @@
 				E1000001111111110000040 /* RoutePoint.swift */,
 				E1000001111111110000023 /* OpenAIPAirport.swift */,
 				E1000001111111110000025 /* FlightThreadManager.swift */,
+				91C32A577325BD92C2287664 /* AerodromeNoteStore.swift */,
+				DC64B354BEF9C17CD8D0B3B3 /* AerodromeNote.swift */,
 				E1000001111111110000024 /* FlightThread.swift */,
 				E1000001111111110000028 /* WeightBalance.swift */,
 				E1000001111111110000029 /* BorderCrossing.swift */,
@@ -1297,6 +1332,7 @@
 				A1000001111111110000019 /* OfflineMapManager.swift */,
 				A1000001111111110000061 /* SwisstopoTileOverlays.swift */,
 				A1000001111111110000079 /* ChartTileRenderer.swift */,
+				E2B07C9866F0A82B7ED7A782 /* ChartPolicy.swift */,
 				047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */,
 				A1000001111111110000020 /* WindDataService.swift */,
 				04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */,
@@ -1646,6 +1682,8 @@
 				FP6600021111111000007 /* WeatherWordsTests.swift in Sources */,
 				FP6600021111111000002 /* FlightPageBlocksTests.swift in Sources */,
 				A50000C1111111110000002 /* TestDatastore.swift in Sources */,
+				2281D60A3155323D7B2B8269 /* AerodromeCardTests.swift in Sources */,
+				8CC32D5E3CAA451573FF3743 /* AerodromeNotesTests.swift in Sources */,
 				A5000039111111110000002 /* WaypointPassageTests.swift in Sources */,
 				A5000040111111110000002 /* TripPlannerTests.swift in Sources */,
 				A5000041111111110000002 /* DivertPlannerTests.swift in Sources */,
@@ -1856,6 +1894,7 @@
 				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,
 				A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */,
 				A1000001211111110000079 /* ChartTileRenderer.swift in Sources */,
+				9A7D9BFBBEDBF4E39BBEF290 /* ChartPolicy.swift in Sources */,
 				04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */,
 				04F1C6F52EF9CD6F00192A14 /* ElevationService.swift in Sources */,
 				A1000001211111110000020 /* WindDataService.swift in Sources */,
@@ -1900,6 +1939,8 @@
 				E1000001211111110000040 /* RoutePoint.swift in Sources */,
 				E1000001211111110000023 /* OpenAIPAirport.swift in Sources */,
 				E1000001211111110000025 /* FlightThreadManager.swift in Sources */,
+				4DA8B27161D7545D835B8ED0 /* AerodromeNoteStore.swift in Sources */,
+				1944437BB5C83B275FA73612 /* AerodromeNote.swift in Sources */,
 				E1000001211111110000024 /* FlightThread.swift in Sources */,
 				E1000001211111110000028 /* WeightBalance.swift in Sources */,
 				E1000001211111110000029 /* BorderCrossing.swift in Sources */,
@@ -1928,6 +1969,12 @@
 				FP6600021111111000004 /* FlightPageViews.swift in Sources */,
 				FP6600021111111000003 /* FlightPageWords.swift in Sources */,
 				A5000051111111110000002 /* FuelOnBoardSheet.swift in Sources */,
+				86A954047EDDDE61F948F477 /* AerodromeNoteSheet.swift in Sources */,
+				B9D03C1E805FAFB526CDD17C /* AerodromeNoteViews.swift in Sources */,
+				4CB20F4EB931BD27A27253DC /* MapFeatures.swift in Sources */,
+				851C2D8CED1ABA6D782C9139 /* PlannedRouteLayer.swift in Sources */,
+				AA42C0CAF37368D938C5F337 /* AerodromeMarkerView.swift in Sources */,
+				855F5BB902B42E59257958D5 /* AerodromeCard.swift in Sources */,
 				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
 				HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */,
 				F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */,
@@ -1940,6 +1987,7 @@
 				I1000001211111110000010 /* DataStorageSettingsView.swift in Sources */,
 				I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */,
 				I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */,
+				999D7C8C4B7970A1D393877F /* AerodromeNotesSettingsView.swift in Sources */,
 				I1000001211111110000006 /* AboutSettingsView.swift in Sources */,
 				I1000001211111110000007 /* OnboardingView.swift in Sources */,
 				AA000001211111110000001 /* OpenAIPConfig.swift in Sources */,
@@ -2049,7 +2097,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2069,7 +2117,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -2231,7 +2279,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -2285,7 +2333,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -2327,7 +2375,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -2360,7 +2408,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -2393,7 +2441,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -2425,7 +2473,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.6.0;
+				MARKETING_VERSION = 6.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";

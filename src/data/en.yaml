@@ -82,7 +82,7 @@ flagship:
       fly: true
       where: true
       title: "The map, with the circuits drawn"
-      description: "En route the page turns to the chart: the aircraft, the route and the airspace, with MARK and Divert under your thumb. Around the aerodromes, the traffic circuits, arrival sectors and VFR routes from open flightmaps, with a link to the official chart."
+      description: "En route the page turns to the chart: the aircraft, the route and the airspace, with MARK and Divert under your thumb. Around the aerodromes, the traffic circuits, arrival sectors and VFR routes from open flightmaps. Tap an aerodrome for its card: its frequencies, its official chart, and your own note on it, written on the ground and read in flight."
       facts: ["Swiss ICAO and glider charts, offline", "Circuits and VFR routes in {ofmCountries} countries", "Official chart links in {chartCountries} countries"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
@@ -125,7 +125,7 @@ faq:
     - q: "What does the iPhone add?"
       a: "On its own, the iPhone runs the same Cockpit, laid out for a phone. Paired with an iPad in Companion mode, it becomes a second screen that follows the iPad's flight, and you can tick items on either device. If your iPad is a Wi-Fi-only model, which has no GPS of its own, the iPhone also lends it its position. Companion mode needs iOS 26 on both devices."
     - q: "What happens to my data?"
-      a: "Your flights and tracks stay on your device and in your own iCloud. No account, no advertising, no tracking; the privacy policy has the details."
+      a: "Your flights, tracks and aerodrome notes stay on your device and in your own iCloud. No account, no advertising, no tracking; the privacy policy has the details."
 
 also:
   label: "Also"

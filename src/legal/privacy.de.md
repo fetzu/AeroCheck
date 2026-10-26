@@ -10,7 +10,7 @@ Kurz gesagt: Es gibt kein Konto, keine Werbung, keine Nutzungsanalyse und kein T
 ## 1.0 Was auf Ihrem Gerät bleibt
 
 ### 1.1 Flüge und Flugbuch
-Der GPS-Flugweg, die Zeiten, die Landungen, die Flugplanungen, die Routen und Ihr Flugbuch werden im eigenen Speicher der App auf dem Gerät abgelegt und, wenn Sie es zulassen, in Ihrer iCloud (Abschnitt 2.0). Abgesehen von den gerundeten Punkten, die Abschnitt 3.0 aufführt, verlassen sie das Gerät nur, wenn Sie sie exportieren oder teilen (Abschnitt 5.0).
+Der GPS-Flugweg, die Zeiten, die Landungen, die Flugplanungen, die Routen, Ihre Flugplatznotizen und Ihr Flugbuch werden im eigenen Speicher der App auf dem Gerät abgelegt und, wenn Sie es zulassen, in Ihrer iCloud (Abschnitt 2.0). Abgesehen von den gerundeten Punkten, die Abschnitt 3.0 aufführt, verlassen sie das Gerät nur, wenn Sie sie exportieren oder teilen (Abschnitt 5.0).
 
 ### 1.2 Standort und Bewegung
 Die App verwendet das GPS für die mitlaufende Karte, den aufgezeichneten Flugweg, die Instrumente und die automatische Erkennung von Starts und Landungen, und den barometrischen Höhenmesser (Bewegungsdaten) für die Höhe. Die Messwerte des Barometers verlassen das Gerät nie. Die Abfragen, die eine Position enthalten, sind alle in Abschnitt 3.0 aufgeführt.
@@ -24,7 +24,7 @@ AéroCheck enthält kein SDK für Nutzungsanalyse oder Werbung, kein Werkzeug f�
 
 ## 2.0 iCloud
 
-Ist «Mit iCloud synchronisieren» eingeschaltet (in den Einstellungen der App, standardmässig eingeschaltet), werden Ihre Flüge (mit ihren Flugwegen), Flugplanungen, Reisen, Flugseiten und Einstellungen (einschliesslich der Namen von Pilot und Fluglehrer, die Sie eingeben) im Ordner von AéroCheck in Ihrem iCloud Drive gespeichert, weshalb Sie sie auch in der Dateien-App sehen, und Einstellungen und Flüge werden über die private Datenbank der App in Ihrem iCloud-Account zwischen Ihren Geräten synchronisiert. Beides ist Ihr eigener iCloud-Account: Apple speichert die Daten gemäss der [Datenschutzrichtlinie von Apple](https://www.apple.com/legal/privacy/), und der Entwickler hat keinen Zugriff darauf.
+Ist «Mit iCloud synchronisieren» eingeschaltet (in den Einstellungen der App, standardmässig eingeschaltet), werden Ihre Flüge (mit ihren Flugwegen), Flugplanungen, Reisen, Flugseiten, Flugplatznotizen (eine Datei pro Flugplatz) und Einstellungen (einschliesslich der Namen von Pilot und Fluglehrer, die Sie eingeben) im Ordner von AéroCheck in Ihrem iCloud Drive gespeichert, weshalb Sie sie auch in der Dateien-App sehen, und Einstellungen und Flüge werden über die private Datenbank der App in Ihrem iCloud-Account zwischen Ihren Geräten synchronisiert. Beides ist Ihr eigener iCloud-Account: Apple speichert die Daten gemäss der [Datenschutzrichtlinie von Apple](https://www.apple.com/legal/privacy/), und der Entwickler hat keinen Zugriff darauf.
 
 Ist der Schalter ausgeschaltet, bleibt alles auf dem Gerät: Die App liest weder in ihrem Ordner in iCloud Drive noch schreibt sie dorthin, und sie synchronisiert nichts. Beim Ausschalten kopiert sie zuerst auf das Gerät, was in iCloud Drive liegt, und lässt die Dateien in iCloud Drive, wo sie sind (löschen Sie sie in der Dateien-App, wenn sie verschwinden sollen); beim Wiedereinschalten kopiert sie zurück nach iCloud Drive, was Sie in der Zwischenzeit getan haben. Der Schalter gilt für das Gerät, auf dem er eingestellt ist.
 
@@ -118,7 +118,7 @@ Wie lange: Alles wird aufbewahrt, solange die Anfrage offen ist. 90 Tage, nachde
 
 ## 5.0 Export und Teilen
 
-Sie können Flüge (GPX, JSON, ZIP), Ihr Flugbuch (PDF, CSV), Flugplanungen und Nav-Logs (GPX, JSON, Tabelle, PDF) sowie Bilder zum Teilen exportieren oder teilen. Nichts wird exportiert, ohne dass Sie es verlangen. Die Kopie, die die App für das Fenster zum Teilen oder die Vorschau vorbereitet, wird gelöscht, sobald sich dieses Fenster schliesst (oder beim nächsten Öffnen der App, falls die App vorher beendet wurde). Einmal geteilt, liegt die Datei in Ihrer Hand: Sie kann Ihren Namen und einen detaillierten Standortverlauf enthalten.
+Sie können Flüge (GPX, JSON, ZIP), Ihr Flugbuch (PDF, CSV), Flugplanungen und Nav-Logs (GPX, JSON, Tabelle, PDF), Ihre Flugplatznotizen (eine Textdatei) sowie Bilder zum Teilen exportieren oder teilen. Nichts wird exportiert, ohne dass Sie es verlangen. Die Kopie, die die App für das Fenster zum Teilen oder die Vorschau vorbereitet, wird gelöscht, sobald sich dieses Fenster schliesst (oder beim nächsten Öffnen der App, falls die App vorher beendet wurde). Einmal geteilt, liegt die Datei in Ihrer Hand: Sie kann Ihren Namen und einen detaillierten Standortverlauf enthalten.
 
 
 ## 6.0 Berechtigungen

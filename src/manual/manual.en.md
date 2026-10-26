@@ -192,7 +192,7 @@ At the bottom of the page, **Cancel flight** asks first ("Cancel this flight?"):
 
 ### Plan
 
-- **Route** (AUTO): the flight has a route. **View route** opens the route editor. On a flight that has not flown, **Add a stop…** is here too, and on a leg, **Join with next leg** (see [Trips and Stops](#trips-and-stops)).
+- **Route** (AUTO): the flight has a route. **View route** opens the route editor. On a flight that has not flown, **Add a stop…** is here too, and on a leg, **Join with next leg** (see [Trips and Stops](#trips-and-stops)). Under it, a line for each aerodrome of the flight, its departure, stops and destination: **YOUR NOTE** with the first line of your note, or "No note yet", and **More** or **Add a note** (see [Aerodrome Notes](#aerodrome-notes)). They are never ticked or counted; the block's folded line says how many notes there are.
 - **Fuel** (AUTO): **REQ** (trip + alternate + 45-minute final reserve + extra) against **FOB** (what you plan to carry); it ticks itself once FOB covers REQ. A tap anywhere on the block, or on its **Fuel on board** chip, opens [Fuel on Board](#fuel-on-board). When the fuel on board is short, the block says so in amber ("Short by 12.0 L"). With airfield data downloaded, it also lists the fuel grades the destination reports.
 - **Mass & balance**: opens the calculator for the flight's aircraft; see [Mass & Balance](#mass--balance).
 - **Aircraft reserved**: booked with your club. A reminder; AéroCheck talks to no booking system.
@@ -234,6 +234,7 @@ After **END FLIGHT**, Close comes first on the page, with three blocks and the d
 - **Close the ATC flight plan**: only if you ticked the **ATC flight plan** block. It is the one block with a search-and-rescue consequence, and it follows the rule of the country you landed in. So while the plan is open, the page opens on a red card, **Close your ATC flight plan**, with that rule, that country's numbers and **Mark closed**: the card is this block. The Today tab shows a badge, and a notification reminds you. See [Closing the ATC Flight Plan](#closing-the-atc-flight-plan).
 - **Landing fee**: one block per aerodrome where you land and a fee applies ("Landing fee LSGC"). **Flight cost** opens the cost of the flight, **Operator's tariff** the operator's own tariff page, where AéroCheck knows it, and **Official chart** the aerodrome's chart. It appears only when cost tracking is on. After a landing elsewhere, it is the fee of the field you landed at.
 - **Logbook line**: opens **Logbook & costs** for the recorded flight; see [Logbook & Costs](#logbook--costs).
+- **Your note on the field**: a card for the aerodrome you landed at, "Your note on LSZG" with its first line and **Edit**, or, with no note there yet, "Anything to remember about Grenchen?" and **Write** (see [Aerodrome Notes](#aerodrome-notes)). Like the debrief, never ticked or counted.
 - **Debrief**, marked optional: a field of a few lines for what went well and what to change. It is the flight's notes, the same text as **NOTES** in its Logbook entry, so either place edits it. It is not a block: never ticked, never counted, and the close-out is complete without it.
 
 **Finish** the flight when you are done; anything still open simply stops asking. A finished flight leaves Plan › Flights and stays in the Logbook.
@@ -341,7 +342,7 @@ The route editor is a map with **From** and **To** above it, the route profile u
 
 - Type the departure and the destination in **From** and **To** (ICAO code or name; the results are sorted by distance). The arrows between the two swap them.
 - **Via** adds a point by name: an aerodrome (by its code or its name), a reporting point or a navaid. A code typed whole comes first. Picked, it goes in on the leg it lengthens least, an aerodrome with its contact frequency.
-- On the map, **drag a waypoint** to move it, **drag the route line** to insert a waypoint, or **touch and hold** an empty spot to add one where it lengthens the route least. A waypoint released within 2.5 NM of an aerodrome or a navaid (or 1.2 NM of a reporting point, when they are shown) takes its name, frequency and position. Tap an aerodrome for its callout: **+** adds it to the route, **Chart** opens its [official chart](#official-chart).
+- On the map, **drag a waypoint** to move it, **drag the route line** to insert a waypoint, or **touch and hold** an empty spot to add one where it lengthens the route least. A waypoint released within 2.5 NM of an aerodrome or a navaid (or 1.2 NM of a reporting point, when they are shown) takes its name, frequency and position. Tap an aerodrome for [its card](#the-aerodrome-card): **+ Route** adds it to the route, **Chart** opens its [official chart](#official-chart), **Note** your [note](#aerodrome-notes) on it. A navaid's or a reporting point's callout has **+** on its right.
 - **The legs** are a table in the nav log's columns: **#**, **WAYPOINT** (with its call sign when it differs), **MC**, **NM**, **EET**, **ALT FT** (edit it in place) and ⚠. The figures are those of the leg *from* the waypoint; the last row is the destination. On the iPhone, the figures go under the name.
 - **One selection** across map, profile and legs: tap a leg to select it, and it is highlighted in the table, on the map and on the profile, where each stands. Tap the selected row again to open the waypoint; tap a pin to select its row. On an aerodrome between the route's ends, the waypoint's sheet has **When this route is flown**: turn on **Land here** to mark it as a usual stop, with its time on the ground and **Refuel**. Plan new flight from this route then starts with the stop on, and you can still switch it off for the day. A route put on the map and flown from Today stays one flight, without the stop: a stop needs a trip, and a trip is made in Plan new flight.
 - **Set altitudes…** sets many waypoints at once: a **Fixed altitude**, or a clearance **Above terrain**, with a preview of the lowest clearance on each leg and of the airspace the new profile runs into. The departure and the destination keep theirs. A route with no planned altitudes (often an imported GPX) says so: **No planned altitudes**.
@@ -677,7 +678,7 @@ If none of the route is on screen, a pill says where it is ("Route 12 NM · 045�
 
 **Map** (the layers button on the Cockpit's MAP) opens everything about how the map looks, in one sheet:
 
-- **Base chart**: **ICAO chart/Glider map** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE**, **Apple Maps** and **Apple Maps Satellite**. The Swiss layers are available within and near Switzerland. In offline mode, the cached ICAO chart is the only one. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map.
+- **Base chart**: **ICAO chart/Glider map** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, then the National Map at the closest zooms, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE**, **Apple Maps** and **Apple Maps Satellite**. The Swiss layers cover Switzerland and a margin around it; past their edge, Apple's map shows under them (its satellite map under SWISSIMAGE), never black. In offline mode, only the cached ICAO chart shows, with no Apple map under it. Every map of the app draws the same way: Plan › Map, the Cockpit's MAP, the dry run, the route editor and the coordinate picker. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map.
 - **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports, obstacles, the traffic circuits and the arrival and departure routes; **Everything** shows every marker, and the circuits and routes too. Airspace stays on in all three.
 - **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **Map tiles** (OpenAIP's raster tiles, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
 - **Map markers**, from the downloaded OpenAIP data (see [Aeronautical Data and Storage](#aeronautical-data-and-storage)): **Airports** (with frequencies on tap), **Navaids** (VOR, DME, NDB), **Reporting points** and **Obstacles** (towers, masts, wind turbines; off by default, they are dense). **Show all** or **Hide all**.
@@ -687,6 +688,17 @@ If none of the route is on screen, a pill says where it is ("Route 12 NM · 045�
 The foot of the sheet credits the sources it draws from: open flightmaps (with the AIRAC cycle on the device) and OpenAIP.
 
 When the downloaded airspace is aging, an amber mark sits on the **Map** button (or the layers button), and the sheet explains it ("Airspace data is out of date") with **Update**, so you know that what is drawn may not reflect recent changes.
+
+### The Aerodrome Card
+
+Tap an aerodrome on any map for its card, over the marker: its code in gold and its name, its frequencies, your [note](#aerodrome-notes) on it under a gold rule, and one row of buttons:
+
+- **Chart** opens its [official chart](#official-chart), where AéroCheck has a link for it.
+- **Note** opens your note, or starts one; in flight it opens a note that exists, read only.
+- **Divert**, in flight with a route, opens [Divert](#divert) on this field.
+- **+ Route**, in the route editor, adds it to the route.
+
+On the ground the note shows the first line of each part, up to two lines each; in flight, the Arrival part alone, up to three lines, and the card takes the Cockpit's sizes. A tap beside the card closes it, and in the Cockpit the controls step aside while it is open. Names the data writes in capitals read as names ("Bressaucourt", "La Chaux-de-Fonds"), here, in the search and on a note.
 
 ### Traffic Circuits and VFR Routes
 
@@ -716,7 +728,7 @@ On the Cockpit's MAP, the buttons sit low on the right edge, one above the other
 
 In Plan › Map, the controls are a labelled row, at the top of the chart on the iPad (under the next waypoint) and at its foot on the iPhone: a magnifying glass, **Map**, **North up** / **Track up**, **Centre** and, on the iPad, the zoom buttons, with the scale at the bottom left.
 
-The magnifying glass, immediately left of **Map**, opens **Search aerodromes**: type an ICAO code, a name or a town, from two letters, ignoring case and accents. It lists up to 12 aerodromes, the codes first, then the names, towns and other names, each group nearest to the map's centre first, each with its town, its country and its distance from that centre. Pick one and the map moves to it, about 8 NM across, so its circuits show, and, with **Airports** shown, opens its callout. The search is Plan › Map's only.
+The magnifying glass, immediately left of **Map**, opens **Search aerodromes**: type an ICAO code, a name or a town, from two letters, ignoring case and accents. It also finds an aerodrome by what your [note](#aerodrome-notes) on it says. It lists up to 12 aerodromes, nearest to the map's centre first, whatever found them, each with its town, its country and its distance from that centre; a field found by its note shows the line that matched ("Your note · On the ground: Restaurant closed on Mondays."). Pick one and the map moves to it, about 8 NM across, so its circuits show, and, with **Airports** shown, opens [its card](#the-aerodrome-card). The search is Plan › Map's only.
 
 ### The Status Slot
 
@@ -758,7 +770,7 @@ In Plan › Map, **Routes** takes their place: nothing is timed or marked before
 
 ### Divert
 
-**Divert** (in flight, the act band's third slot on MAP and ROUTE, or in **More**) answers "where do I go instead?" in two taps and no typing. It lists the aerodromes around you, **Ahead · soonest first** and **Behind · turn back**, with the destination and the alternate; tap one to see it (with its runway, elevation and **Official chart**), then **DIVERT TO** it. Tapping the destination itself is **DIRECT TO**, not a diversion. Glacier and mountain landing sites, heliports and closed fields are not listed. On a trip, **Later stops of the trip** come first, each with its distance and **Fly on**: it asks once ("Fly on to LSZG, without the stop at LSZB?"), then the route goes on along the next leg, the skipped stop becomes a waypoint, the next waypoint and the leg timer stay as they were, and the legs flown past leave the trip. With an ATC flight plan filed, the question says to tell the FIS your new destination. With a route on the map, an airport's callout on the map offers the diversion too, on its right (**Chart**, on its left, opens the official chart).
+**Divert** (in flight, the act band's third slot on MAP and ROUTE, or in **More**) answers "where do I go instead?" in two taps and no typing. It lists the aerodromes around you, **Ahead · soonest first** and **Behind · turn back**, with the destination and the alternate; tap one to see it (with its runway, elevation and **Official chart**), then **DIVERT TO** it. Tapping the destination itself is **DIRECT TO**, not a diversion. Glacier and mountain landing sites, heliports and closed fields are not listed. On a trip, **Later stops of the trip** come first, each with its distance and **Fly on**: it asks once ("Fly on to LSZG, without the stop at LSZB?"), then the route goes on along the next leg, the skipped stop becomes a waypoint, the next waypoint and the leg timer stay as they were, and the legs flown past leave the trip. With an ATC flight plan filed, the question says to tell the FIS your new destination. A field you have a [note](#aerodrome-notes) on carries **YOUR NOTE**, and its row shows the note's Arrival part. With a route on the map, an aerodrome's [card](#the-aerodrome-card) offers **Divert** too.
 
 A diversion changes where you navigate to and nothing else: Divert turns amber, NEXT shows **DIVERT** and the field, the frequencies follow it, ROUTE's DEST line shows the field, and **Resume route** (on that line on the iPad, and in the Divert sheet) takes you back to the route in one tap. With an ATC flight plan filed, ROUTE reminds you to tell FIS, under the DEST line ("ATC flight plan filed: tell FIS you are diverting to …"). Nothing administrative moves until you are on the ground; for what the flight's page offers after the landing, see [Trips and Stops](#trips-and-stops). On MAP, the status slot says **TELL FIS** as well. The Companion iPhone can divert the flight too (see [Companion Mode](#companion-mode)).
 
@@ -774,7 +786,7 @@ A diversion changes where you navigate to and nothing else: Divert turns amber, 
 - **Croatia** and **Bulgaria**: the AIP portal, behind a login (Croatia Control's by order, BULATSA's after a free sign-in; the button says which).
 - **Austria**, **Greece**, **Australia** and **New Zealand**: the AIP's start page (Greece's asks you to prove you are not a robot; Australia's and New Zealand's terms allow no other link).
 
-Italy has none (ENAV's terms forbid links to its site without its authorisation), nor do Belgium and Luxembourg (skeyes allows links to its home page only) or Malta (its AIP is sold), and neither do the countries elsewhere. The link is in the airport callout on the map (**Chart**, on the left), the route editor's airport callout, the Divert list, the departure and approach briefings, the PPR and Fees tasks of a flight's page, and the callout of a traffic circuit or a VFR route.
+Italy has none (ENAV's terms forbid links to its site without its authorisation), nor do Belgium and Luxembourg (skeyes allows links to its home page only) or Malta (its AIP is sold), and neither do the countries elsewhere. The link is in the aerodrome's [card](#the-aerodrome-card) on every map (**Chart**), the Divert list, the departure and approach briefings, the PPR and Fees tasks of a flight's page, and the callout of a traffic circuit or a VFR route.
 
 ### Track Vector
 
@@ -793,6 +805,31 @@ An external GPS receiver's fixes count as satellite fixes. If location access is
 ### Offline Maps
 
 The Swiss ICAO chart and the Segelflugkarte can be cached for offline use under **Settings › Navigation & Maps › Offline Maps** (up to about 250 MB), with **Offline Mode** to use the cache only. A cached chart is served from the device, so the map works without a connection. In Plan › Map, an **OFFLINE** or **CACHED** badge at the bottom left says which; tap it for the details. The Cockpit's MAP shows nothing while it can draw the chart, and **CHART OFFLINE** in its status slot when it cannot; the details are a tap on it, and in the Map sheet.
+
+---
+
+## Aerodrome Notes
+
+Your own notes on an aerodrome: what you would tell a friend flying there. A note has two parts, **Arrival** (approach, circuit, runway, radio) and **On the ground** (parking, fuel, food, contacts), each free text.
+
+### Writing a Note
+
+- From the aerodrome's [card](#the-aerodrome-card) on any map: **Note**.
+- From a flight's page: the **Route** block has a line for each of the flight's aerodromes, with **Add a note** or **More** (see [Plan](#plan)).
+- After landing: Close asks "Anything to remember about Grenchen?", with **Write** (see [Close](#close)).
+- From **Settings › iCloud & Log › Aerodrome notes**.
+
+The note's sheet has the aerodrome's code and name at the top, **Cancel** on the left and **Done** on the right, and under the parts when it was last changed, on which device, and whether it is in iCloud or on this device only. **Delete note** asks first. A note emptied of both parts is deleted.
+
+### In Flight
+
+In flight a note only reads, and only its Arrival part: on the aerodrome's card, at the end of the [approach briefing](#approach-briefing) for the destination, and in [Divert](#divert), which marks the fields you have a note on. Its sheet says "Read only in flight. You can add to it once on the ground.", and a link written in the note opens in the browser, a phone number calls. No note is started in flight.
+
+### Finding and Keeping Notes
+
+[Search aerodromes](#map-controls) in Plan › Map finds a field by what your note says. **Settings › iCloud & Log › Aerodrome notes** lists every note, with **Search notes**; swipe a note to delete it. **Share all notes (text file)** sends them all as one plain text file, each aerodrome and part under its heading. **Delete all notes…** asks first.
+
+Notes stay on the device and, with **Sync to iCloud** on, in your own iCloud Drive, one small file per aerodrome, so they follow you to your other devices; a note deleted on one device is deleted on the others. AéroCheck never sends them anywhere else. A note keeps the aerodrome's code, name and position, so it still finds its field when the data gives the field a new code. The [dry run](#dry-run) neither shows nor writes notes.
 
 ---
 
@@ -845,7 +882,7 @@ METAR and TAF join the briefing, and SIGMETs are shown on the map with their dis
 
 ### Approach Briefing
 
-Before approach, a similar briefing covers the **airport** and **elevation** (with the **Official chart**), **runway**, **wind**, **approach speeds** (initial, final, and stall), nearby **reporting points**, and the **go-around procedure**. When wind data is unavailable, it reminds you to check the windsock for calm, crosswind, headwind, or tailwind conditions.
+Before approach, a similar briefing covers the **airport** and **elevation** (with the **Official chart**), **runway**, **wind**, **approach speeds** (initial, final, and stall), nearby **reporting points**, and the **go-around procedure**. When wind data is unavailable, it reminds you to check the windsock for calm, crosswind, headwind, or tailwind conditions. With a [note](#aerodrome-notes) on the destination, it ends with **YOUR NOTE · ARRIVAL**: the note's Arrival part and when it was last changed.
 
 For a US destination, a **Traffic pattern** section follows the reporting points, from the FAA's NASR: each runway end with its side (**RWY 30**, "Right traffic"), then the **TPA** as the FAA publishes it ("806 ft (800 ft AGL)"). Where the FAA only has a remark about it, the TPA reads "See the FAA's remark" and the remark follows word for word, "(FAA NASR, as written)", never a figure taken from it ("TPA 1000 FT W & 800 FT E." at Palo Alto). Where the FAA says nothing, it reads "1000 ft AGL recommended (AIM)". The section ends with "Check the Chart Supplement."
 
@@ -1056,7 +1093,7 @@ The row was called Flight Planning before 6.4.0. Your **pilot name** (for the PI
 
 ### iCloud & Log
 
-**iCloud Sync** of settings and flights across devices, the GPS **Recording Interval** and **GPS Priority** (**Precision** or **Battery Saver**), and the numbers of recorded flights and GPS points.
+**iCloud Sync** of settings and flights across devices, **Aerodrome notes** (see [Aerodrome Notes](#aerodrome-notes)), the GPS **Recording Interval** and **GPS Priority** (**Precision** or **Battery Saver**), and the numbers of recorded flights and GPS points.
 
 ### Data & Storage
 

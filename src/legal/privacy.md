@@ -10,7 +10,7 @@ The short version: there is no account, no advertising, no analytics and no trac
 ## 1.0 What stays on your device
 
 ### 1.1 Flights and logbook
-The GPS track, times, landings, flight plans, routes and your logbook are stored in the app's own storage on the device, and in your iCloud if you let them (section 2.0). Apart from the rounded points listed in section 3.0, they leave the device only when you export or share them (section 5.0).
+The GPS track, times, landings, flight plans, routes, your aerodrome notes and your logbook are stored in the app's own storage on the device, and in your iCloud if you let them (section 2.0). Apart from the rounded points listed in section 3.0, they leave the device only when you export or share them (section 5.0).
 
 ### 1.2 Location and motion
 The app uses GPS for the moving map, the recorded track, the instruments and the automatic detection of take-offs and landings, and the barometric altimeter (motion data) for altitude. The barometer readings never leave the device. The requests that carry a position are all listed in section 3.0.
@@ -24,7 +24,7 @@ AéroCheck contains no analytics or advertising SDK, no crash reporter and no tr
 
 ## 2.0 iCloud
 
-With "Sync to iCloud" on (in the app's settings, on by default), your flights (with their tracks), flight plans, trips, flight pages and settings (including the pilot and instructor names you enter) are kept in AéroCheck's folder in your iCloud Drive, which is also why you can see them in the Files app, and settings and flights are synced between your devices through the app's private database in your iCloud account. Both are your own iCloud account: Apple stores the data under [Apple's privacy policy](https://www.apple.com/legal/privacy/), and the developer has no access to it.
+With "Sync to iCloud" on (in the app's settings, on by default), your flights (with their tracks), flight plans, trips, flight pages, aerodrome notes (one file per aerodrome) and settings (including the pilot and instructor names you enter) are kept in AéroCheck's folder in your iCloud Drive, which is also why you can see them in the Files app, and settings and flights are synced between your devices through the app's private database in your iCloud account. Both are your own iCloud account: Apple stores the data under [Apple's privacy policy](https://www.apple.com/legal/privacy/), and the developer has no access to it.
 
 With the switch off, all of it stays on the device: the app neither reads nor writes its iCloud Drive folder, and syncs nothing. Turning it off first copies what is in iCloud Drive to the device and leaves the files in iCloud Drive where they are (delete them in the Files app if you want them gone); turning it back on copies what you did in the meantime back to iCloud Drive. The switch applies to the device it is set on.
 
@@ -118,7 +118,7 @@ How long: everything is kept while the request is open. 90 days after it closes 
 
 ## 5.0 Exports and sharing
 
-You can export or share flights (GPX, JSON, ZIP), your logbook (PDF, CSV), flight plans and nav logs (GPX, JSON, spreadsheet, PDF) and share cards (images). Nothing is exported unless you ask. The copy the app prepares for the share sheet or the preview is deleted as soon as that sheet closes (or at the next launch, if the app was stopped first). Once shared, the file is yours to handle: it may contain your name and a detailed location history.
+You can export or share flights (GPX, JSON, ZIP), your logbook (PDF, CSV), flight plans and nav logs (GPX, JSON, spreadsheet, PDF), your aerodrome notes (one text file) and share cards (images). Nothing is exported unless you ask. The copy the app prepares for the share sheet or the preview is deleted as soon as that sheet closes (or at the next launch, if the app was stopped first). Once shared, the file is yours to handle: it may contain your name and a detailed location history.
 
 
 ## 6.0 Permissions

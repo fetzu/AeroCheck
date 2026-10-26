@@ -1,14 +1,12 @@
-6.6.0 reconstruit la page du vol en blocs, et laisse un voyage changer en route.
+6.7.0 apporte vos propres notes sur chaque aérodrome, et un même dessin de carte partout.
 
 À essayer :
-- Planifiez un vol pour demain et ouvrez sa page : la ligne sous le titre dit quand il part et ce qui reste, et la météo et les NOTAM attendent le jour du vol. Une coche par bloc. Mettez le vol à aujourd'hui : la météo et les NOTAM s'ouvrent.
-- Sur l'iPad, Préparer en deux colonnes ; sur l'iPhone, chaque bloc dans sa propre feuille.
-- Le bloc Météo : le METAR, le TAF et les SIGMET en mots, RAW pour le message tel qu'il a été émis. Dites ce qui se lit mal.
-- Le bloc plan de vol dit avant quand le déposer : 60 minutes avant le départ depuis la Suisse, la règle de chaque pays ailleurs.
-- Le crayon à côté du titre : Détails du vol, Modifier la route, Nommer ce vol. Sur l'étape d'un voyage : Détails de l’étape, Nommer cette étape, Nommer ce voyage.
-- Un voyage avec une escale : en vol, Dérouter liste les escales suivantes avec Continuer. Après un atterrissage au terrain de l'étape suivante, la page demande si vous avez passé l'escale. L'étape 2 redemande la météo, même cochée sur l'étape 1. Annuler tout le voyage marche depuis n'importe quelle étape.
-- Une route enregistrée (Planifier › Routes) : ouvrez un aérodrome entre ses extrémités, puis Quand cette route est volée › Atterrir ici. Planifier un vol depuis cette route commence avec l'escale activée.
-- Chaque feuille : Fermer ou Annuler à gauche, Terminé à droite. Signalez celle qui fait autrement.
-- Aujourd'hui et Planifier › Vols disent ce que dit la page du vol.
+- Planifier › Carte, touchez un aérodrome : sa fiche a les fréquences, Carte et Note. Note ouvre votre note en deux parties, Arrivée et Au sol. Écrivez-en une, puis touchez de nouveau l'aérodrome.
+- Rechercher un aérodrome trouve un terrain par ce que dit votre note, et montre la ligne trouvée. Tout est listé du plus proche au plus loin.
+- Le bloc Route d'un vol a une ligne par aérodrome avec votre note. Après l'atterrissage, CLÔTURER demande « Quelque chose à retenir sur … ? ».
+- En vol, la note se lit seulement, la partie Arrivée seule : dans la fiche, le briefing d'approche et Dérouter.
+- Réglages › iCloud et journal › Notes d'aérodrome : toutes les notes, Partager toutes les notes (fichier texte), en supprimer une ou toutes. Avec Synchroniser avec iCloud, les notes vous suivent sur vos autres appareils.
+- Les cartes : au-delà du bord des cartes suisses, la carte d'Apple s'affiche au lieu du noir. Zoomez dans Planifier › Carte ou la CARTE du Cockpit : la carte OACI, puis la carte vol à voile, puis la carte nationale.
+- La fiche dans l'éditeur de route : + Route ajoute l'aérodrome à la route.
 
 Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

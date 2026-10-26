@@ -94,7 +94,7 @@ enum MarketingScene {
     case planConflicts
     /// The bundled demo flights and Vol d'Alpes imported for the logbook.
     case flightLogDetail
-    /// LSZQ → LFSB on the next 1 August, prepared, its page open.
+    /// LSZQ → LFSB tomorrow at 10:00, prepared, its page open.
     case flightFollowed
     /// The same flight, for the shot that opens its Prepare blocks.
     case flightPrepare
@@ -379,20 +379,17 @@ enum MarketingSceneInjector {
     //
     // One demo flight serves three of them: LSZQ → LFSB (Bressaucourt → Basel-Mulhouse), chosen because
     // it crosses a border — that is what puts a customs row and the border pack on screen — and lands
-    // at a field every Swiss pilot knows. Dated the NEXT 1 August (Swiss National Day), computed at
-    // inject time so the scene stays repeatable in any year, and prepared to 10 of 11 so the readiness
-    // ring can never be misread as a date. (The user caught "9/11" on a hero shot.)
+    // at a field every Swiss pilot knows. Dated tomorrow at 10:00 on the capture clock, so its page reads
+    // "Tomorrow at 10:00" rather than a far date (the author, 25 Oct 2026; it read "Sun, 1 Aug at 10:00"),
+    // and prepared to 10 of 11 so the readiness ring can never be misread as a date. (The user caught
+    // "9/11" on a hero shot.)
 
-    /// The next 1 August at 10:00 local, strictly after now — so a planned flight is never in the past.
-    private static func nextFirstOfAugust() -> Date {
-        let cal = Calendar.current
-        let now = Date()
-        var comps = cal.dateComponents([.year], from: now)
-        comps.month = 8; comps.day = 1; comps.hour = 10; comps.minute = 0
-        let thisYear = cal.date(from: comps) ?? now
-        if thisYear > now { return thisYear }
-        comps.year = (comps.year ?? 2026) + 1
-        return cal.date(from: comps) ?? now
+    /// Tomorrow at 10:00 local, on the capture clock: the flight's page says "Tomorrow at 10:00". (6.7.0)
+    private static func tomorrowAtTen() -> Date {
+        let calendar = Calendar.current
+        let now = FlightClock.displayNow
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        return calendar.date(bySettingHour: 10, minute: 0, second: 0, of: tomorrow) ?? tomorrow
     }
 
     /// Today at 14:00 local — what makes the flight "today's" for the Home hero.
@@ -460,7 +457,7 @@ enum MarketingSceneInjector {
 
         switch scene {
         case .flightFollowed, .flightPrepare:
-            guard let plan = makeDemoPlan(departure: nextFirstOfAugust(),
+            guard let plan = makeDemoPlan(departure: tomorrowAtTen(),
                                           flightPlanManager: flightPlanManager,
                                           airportDataService: airportDataService) else { return }
             let thread = threadManager.createThread(from: plan)

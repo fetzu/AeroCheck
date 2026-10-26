@@ -81,7 +81,7 @@ flagship:
       fly: true
       where: true
       title: "La carte, avec les tours de piste"
-      description: "En route, la page passe à la carte : l'avion, la route et les espaces aériens, avec MARQUER et Dérouter sous le pouce. Autour des aérodromes, les tours de piste, les secteurs d'arrivée et les routes VFR d'open flightmaps, avec un lien vers la carte officielle."
+      description: "En route, la page passe à la carte : l'avion, la route et les espaces aériens, avec MARQUER et Dérouter sous le pouce. Autour des aérodromes, les tours de piste, les secteurs d'arrivée et les routes VFR d'open flightmaps. Touchez un aérodrome pour sa fiche : ses fréquences, sa carte officielle et votre propre note sur lui, écrite au sol et lue en vol."
       facts: ["Cartes OACI et vol à voile suisses, hors ligne", "Tours de piste et routes VFR dans {ofmCountries} pays", "Liens vers les cartes officielles dans {chartCountries} pays"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
@@ -124,7 +124,7 @@ faq:
     - q: "Qu'apporte l'iPhone ?"
       a: "Seul, l'iPhone offre le même cockpit, adapté à l'écran d'un téléphone. Associé à un iPad en mode compagnon, il devient un second écran qui suit le vol de l'iPad, et vous pouvez cocher les points sur l'un comme sur l'autre. Si votre iPad est un modèle Wi-Fi, sans GPS, l'iPhone lui prête aussi sa position. Le mode compagnon demande iOS 26 sur les deux appareils."
     - q: "Que deviennent mes données ?"
-      a: "Vos vols et vos traces restent sur votre appareil et dans votre propre iCloud. Pas de compte, pas de publicité, pas de pistage ; la politique de confidentialité donne le détail."
+      a: "Vos vols, vos traces et vos notes d'aérodrome restent sur votre appareil et dans votre propre iCloud. Pas de compte, pas de publicité, pas de pistage ; la politique de confidentialité donne le détail."
 
 also:
   label: "Aussi"

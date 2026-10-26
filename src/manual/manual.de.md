@@ -192,7 +192,7 @@ Unten auf der Seite fragt **Flug absagen** zuerst («Diesen Flug absagen?»): Di
 
 ### Planen
 
-- **Route** (AUTO): Der Flug hat eine Route. **Route ansehen** öffnet den Routeneditor. Auf einem Flug, der noch nicht geflogen ist, steht hier auch **Zwischenhalt hinzufügen…**, und auf einer Etappe **Mit nächster Etappe zusammenlegen** (siehe [Reisen und Zwischenhalte](#reisen-und-zwischenhalte)).
+- **Route** (AUTO): Der Flug hat eine Route. **Route ansehen** öffnet den Routeneditor. Auf einem Flug, der noch nicht geflogen ist, steht hier auch **Zwischenhalt hinzufügen…**, und auf einer Etappe **Mit nächster Etappe zusammenlegen** (siehe [Reisen und Zwischenhalte](#reisen-und-zwischenhalte)). Darunter steht für jeden Flugplatz des Flugs, seinen Abflugplatz, die Zwischenhalte und den Zielflugplatz, eine Zeile: **IHRE NOTIZ** mit der ersten Zeile Ihrer Notiz oder «Noch keine Notiz», und **Mehr** oder **Notiz hinzufügen** (siehe [Flugplatznotizen](#flugplatznotizen)). Sie werden nie abgehakt oder gezählt; die zusammengeklappte Zeile des Blocks sagt, wie viele Notizen es gibt.
 - **Treibstoff** (AUTO): **REQ** (Strecke + Ausweichflugplatz + Endreserve 45 Minuten + Extra) gegenüber **FOB** (was Sie mitzunehmen planen); der Block hakt sich selbst ab, sobald FOB das REQ deckt. Ein Tippen irgendwo auf den Block oder auf seine Anzeige **Treibstoff an Bord** öffnet [Treibstoff an Bord](#treibstoff-an-bord). Reicht der Treibstoff an Bord nicht, sagt der Block es in Bernsteinfarbe («Es fehlen 12.0 L»). Mit heruntergeladenen Flugplatzdaten nennt er auch die Treibstoffsorten, die der Zielflugplatz meldet.
 - **Masse und Schwerpunkt**: öffnet den Rechner für das Flugzeug des Flugs; siehe [Masse und Schwerpunkt](#masse-und-schwerpunkt).
 - **Flugzeug reserviert**: bei Ihrem Club gebucht. Eine Erinnerung; AéroCheck spricht mit keinem Reservationssystem.
@@ -234,6 +234,7 @@ Nach **FLUG BEENDEN** kommt Abschliessen auf der Seite zuerst, mit drei Blöcken
 - **ATC-Flugplan schliessen**: nur, wenn Sie den Block **ATC-Flugplan** abgehakt haben. Es ist der einzige Block mit einer Folge für den Such- und Rettungsdienst, und er folgt der Regel des Landes, in dem Sie gelandet sind. Darum öffnet sich die Seite, solange der Flugplan offen ist, mit einer roten Kachel, **Schliessen Sie Ihren ATC-Flugplan**, mit dieser Regel, den Nummern dieses Landes und **Als geschlossen markieren**: Die Kachel ist dieser Block. Der Tab Heute zeigt eine Markierung, und eine Mitteilung erinnert Sie daran. Siehe [Den ATC-Flugplan schliessen](#den-atc-flugplan-schliessen).
 - **Landetaxe**: ein Block pro Flugplatz, auf dem Sie landen und eine Taxe anfällt («Landetaxe LSGC»). **Flugkosten** öffnet die Kosten des Flugs, **Tarif des Betreibers** die eigene Tarifseite des Betreibers, wo AéroCheck sie kennt, und **Offizielle Karte** die Karte des Flugplatzes. Der Block erscheint nur, wenn die Kostenerfassung eingeschaltet ist. Nach einer Landung anderswo ist es die Taxe des Flugplatzes, auf dem Sie gelandet sind.
 - **Flugbucheintrag**: öffnet **Flugbuch & Kosten** für den aufgezeichneten Flug; siehe [Flugbuch & Kosten](#flugbuch--kosten).
+- **Ihre Notiz zum Flugplatz**: eine Kachel für den Flugplatz, auf dem Sie gelandet sind, «Ihre Notiz zu LSZG» mit ihrer ersten Zeile und **Bearbeiten**, oder, wenn dort noch keine Notiz besteht, «Etwas, das Sie sich zu Grenchen merken möchten?» und **Schreiben** (siehe [Flugplatznotizen](#flugplatznotizen)). Wie das Debriefing nie abgehakt und nie gezählt.
 - **Debriefing**, als optional markiert: ein Feld von ein paar Zeilen für das, was gut lief, und das, was zu ändern ist. Es sind die Notizen des Flugs, derselbe Text wie **NOTIZEN** in seinem Flugbucheintrag, also bearbeiten ihn beide Stellen. Es ist kein Block: nie abgehakt, nie gezählt, und der Abschluss ist ohne es vollständig.
 
 Tippen Sie auf **Beenden**, wenn Sie mit dem Flug fertig sind; was noch offen ist, hört einfach auf zu fragen. Ein beendeter Flug verlässt Planen › Flüge und bleibt im Flugbuch.
@@ -341,7 +342,7 @@ Der Routeneditor ist eine Karte mit **Von** und **Nach** darüber, dem Routenpro
 
 - Tippen Sie den Abflugplatz und den Zielflugplatz in **Von** und **Nach** ein (ICAO-Code oder Name; die Ergebnisse sind nach Distanz sortiert). Die Pfeile zwischen beiden vertauschen sie.
 - **Via** fügt einen Punkt nach seinem Namen hinzu: einen Flugplatz (nach Code oder Name), einen Meldepunkt oder eine Navigationshilfe. Ein vollständig eingetippter Code kommt zuerst. Der gewählte Punkt kommt auf die Teilstrecke, die er am wenigsten verlängert, ein Flugplatz mit seiner Kontaktfrequenz.
-- Auf der Karte können Sie **einen Wegpunkt ziehen**, um ihn zu verschieben, **die Routenlinie ziehen**, um einen Wegpunkt einzufügen, oder auf einer leeren Stelle **lange drücken**, um einen dort hinzuzufügen, wo er die Route am wenigsten verlängert. Ein Wegpunkt, der innerhalb von 2.5 NM eines Flugplatzes oder einer Navigationshilfe losgelassen wird (oder 1.2 NM eines Meldepunkts, wenn diese angezeigt werden), übernimmt dessen Namen, Frequenz und Position. Tippen Sie auf einen Flugplatz für seine Infoblase: **+** fügt ihn zur Route hinzu, **Karte** öffnet seine [offizielle Karte](#offizielle-karte).
+- Auf der Karte können Sie **einen Wegpunkt ziehen**, um ihn zu verschieben, **die Routenlinie ziehen**, um einen Wegpunkt einzufügen, oder auf einer leeren Stelle **lange drücken**, um einen dort hinzuzufügen, wo er die Route am wenigsten verlängert. Ein Wegpunkt, der innerhalb von 2.5 NM eines Flugplatzes oder einer Navigationshilfe losgelassen wird (oder 1.2 NM eines Meldepunkts, wenn diese angezeigt werden), übernimmt dessen Namen, Frequenz und Position. Tippen Sie auf einen Flugplatz für [seine Karte](#die-karte-des-flugplatzes): **+ Route** fügt ihn zur Route hinzu, **Karte** öffnet seine [offizielle Karte](#offizielle-karte), **Notiz** Ihre [Notiz](#flugplatznotizen) dazu. Die Infoblase einer Navigationshilfe oder eines Meldepunkts hat **+** an ihrer rechten Seite.
 - **Die Teilstrecken** sind eine Tabelle in den Spalten des Nav-Logs: **#**, **WEGPUNKT** (mit seinem Rufzeichen, wenn es abweicht), **MC**, **NM**, **EET**, **ALT FT** (direkt bearbeitbar) und ⚠. Die Werte sind die der Teilstrecke *ab* dem Wegpunkt; die letzte Zeile ist der Zielflugplatz. Auf dem iPhone stehen die Werte unter dem Namen.
 - **Eine Auswahl** für Karte, Profil und Teilstrecken: Tippen Sie auf eine Teilstrecke, um sie auszuwählen, und sie wird in der Tabelle, auf der Karte und im Profil hervorgehoben, jeweils dort, wo sie steht. Tippen Sie erneut auf die gewählte Zeile, um den Wegpunkt zu öffnen; tippen Sie auf eine Stecknadel, um ihre Zeile auszuwählen. Auf einem Flugplatz zwischen den Endpunkten der Route hat das Fenster des Wegpunkts **Wenn diese Route geflogen wird**: Schalten Sie **Hier landen** ein, um ihn als üblichen Zwischenhalt zu markieren, mit seiner Zeit am Boden und **Tanken**. Neuen Flug planen mit dieser Route beginnt dann mit eingeschaltetem Zwischenhalt, und Sie können ihn für den Tag noch ausschalten. Eine Route, die auf die Karte gelegt und von Heute aus geflogen wird, bleibt ein einziger Flug, ohne den Zwischenhalt: Ein Zwischenhalt braucht eine Reise, und eine Reise entsteht in Neuen Flug planen.
 - **Höhen festlegen…** setzt viele Wegpunkte auf einmal: eine **Feste Höhe** oder einen Abstand **Über Gelände**, mit einer Vorschau des geringsten Abstands auf jeder Teilstrecke und der Lufträume, in die das neue Profil hineinläuft. Abflug- und Zielflugplatz behalten ihre. Eine Route ohne geplante Höhen (oft ein importiertes GPX) sagt es: **Keine geplanten Höhen**.
@@ -677,7 +678,7 @@ Ist nichts von der Route auf dem Bildschirm, sagt ein Hinweis, wo sie liegt («R
 
 **Karte** (die Ebenentaste auf der KARTE des Cockpits) öffnet alles, was das Aussehen der Karte betrifft, in einem einzigen Fenster:
 
-- **Grundkarte**: **ICAO-Karte/Segelflugkarte** (die Schweizer Luftfahrtkarte 1:500'000, die beim Hineinzoomen zur Segelflugkarte 1:300'000 wird, ausser wenn **ICAO-Kartenebene erzwingen** eingeschaltet ist), **Landeskarte**, **SWISSIMAGE**, **Apple Karten** und **Apple Karten (Satellit)**. Die Schweizer Ebenen sind in der Schweiz und in ihrer Nähe verfügbar. Im Offline-Modus ist die gespeicherte ICAO-Karte die einzige. Die gewählte Karte bleibt auf dem Gerät gespeichert: Die Karte öffnet sich mit ihr, im Cockpit und in Planen › Karte.
+- **Grundkarte**: **ICAO-Karte/Segelflugkarte** (die Schweizer Luftfahrtkarte 1:500'000, die beim Hineinzoomen zur Segelflugkarte 1:300'000 wird, dann bei den stärksten Zoomstufen zur Landeskarte, ausser wenn **ICAO-Kartenebene erzwingen** eingeschaltet ist), **Landeskarte**, **SWISSIMAGE**, **Apple Karten** und **Apple Karten (Satellit)**. Die Schweizer Ebenen decken die Schweiz und einen Rand um sie ab; über ihren Rand hinaus liegt die Karte von Apple darunter (ihre Satellitenkarte unter SWISSIMAGE), nie Schwarz. Im Offline-Modus erscheint nur die gespeicherte ICAO-Karte, ohne Apples Karte darunter. Jede Karte der App wird gleich gezeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor und die Koordinatenauswahl. Die gewählte Karte bleibt auf dem Gerät gespeichert: Die Karte öffnet sich mit ihr, im Cockpit und in Planen › Karte.
 - **Voreinstellungen**: **Reiseflug** zeigt Lufträume und Meldepunkte; **Anflug** fügt Flugplätze, Hindernisse, die Platzrunden und die An- und Abflugrouten hinzu; **Alles** zeigt alle Markierungen, und auch die Platzrunden und Routen. Die Lufträume bleiben in allen drei eingeblendet.
 - **Luftraum & Karten**: **Luftraum** (die Lufträume von OpenAIP, als Vektorebene gezeichnet) und **Kartenkacheln** (die Rasterkacheln von OpenAIP, standardmässig aus). Ist der Luftraum eingeschaltet und sind keine Daten heruntergeladen, sagt es das Fenster und bietet **Daten herunterladen…** an.
 - **Kartenmarkierungen**, aus den heruntergeladenen OpenAIP-Daten (siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher)): **Flugplätze** (mit Frequenzen per Tippen), **Navigationshilfen** (VOR, DME, NDB), **Meldepunkte** und **Hindernisse** (Türme, Masten, Windturbinen; standardmässig aus, da sie dicht stehen). **Alle einblenden** oder **Alle ausblenden**.
@@ -687,6 +688,17 @@ Ist nichts von der Route auf dem Bildschirm, sagt ein Hinweis, wo sie liegt («R
 Am Fuss des Fensters stehen die Quellen, aus denen es zeichnet: open flightmaps (mit dem AIRAC-Zyklus auf dem Gerät) und OpenAIP.
 
 Altern die heruntergeladenen Luftraumdaten, sitzt eine bernsteinfarbene Markierung auf der Taste **Karte** (oder der Ebenentaste), und das Fenster erklärt es («Luftraumdaten veraltet») mit **Aktualisieren**, damit Sie wissen, dass das Gezeichnete jüngste Änderungen möglicherweise nicht wiedergibt.
+
+### Die Karte des Flugplatzes
+
+Tippen Sie auf einer beliebigen Karte auf einen Flugplatz für seine Karte, über der Markierung: sein Code in Gold und sein Name, seine Frequenzen, Ihre [Notiz](#flugplatznotizen) dazu unter einer goldenen Linie und eine Reihe von Tasten:
+
+- **Karte** öffnet seine [offizielle Karte](#offizielle-karte), wo AéroCheck einen Link dafür hat.
+- **Notiz** öffnet Ihre Notiz oder beginnt eine; im Flug öffnet es eine bestehende Notiz, nur zum Lesen.
+- **Ausweichen**, im Flug mit einer Route, öffnet [Ausweichen](#ausweichen) für diesen Flugplatz.
+- **+ Route**, im Routeneditor, fügt ihn zur Route hinzu.
+
+Am Boden zeigt die Notiz die erste Zeile jedes Teils, je bis zu zwei Zeilen; im Flug nur den Teil Anflug, bis zu drei Zeilen, und die Karte übernimmt die Grössen des Cockpits. Ein Tippen neben die Karte schliesst sie, und im Cockpit weichen die Bedienelemente beiseite, solange sie offen ist. Namen, die die Daten in Grossbuchstaben schreiben, lesen sich als Namen («Bressaucourt», «La Chaux-de-Fonds»), hier, in der Suche und auf einer Notiz.
 
 ### Platzrunden und VFR-Routen
 
@@ -716,7 +728,7 @@ Auf der KARTE des Cockpits sitzen die Tasten unten am rechten Rand, übereinande
 
 In Planen › Karte bilden die Bedienelemente eine beschriftete Reihe, auf dem iPad oben auf der Karte (unter dem nächsten Wegpunkt) und auf dem iPhone an ihrem Fuss: eine Lupe, **Karte**, **Norden oben** / **Kurs oben**, **Zentrieren** und, auf dem iPad, die Zoomtasten, mit dem Massstab unten links.
 
-Die Lupe, direkt links von **Karte**, öffnet **Flugplätze suchen**: Geben Sie einen ICAO-Code, einen Namen oder einen Ort ein, ab zwei Buchstaben, ohne Rücksicht auf Gross- und Kleinschreibung und Akzente. Die Liste zeigt bis zu 12 Flugplätze, zuerst die Codes, dann die Namen, Orte und anderen Namen, in jeder Gruppe der dem Kartenmittelpunkt nächste zuerst, jeder mit seinem Ort, seinem Land und seiner Distanz von diesem Mittelpunkt. Wählen Sie einen, und die Karte springt zu ihm, etwa 8 NM breit, damit seine Platzrunden erscheinen, und öffnet, wenn **Flugplätze** eingeblendet sind, seine Infoblase. Die Suche gibt es nur in Planen › Karte.
+Die Lupe, direkt links von **Karte**, öffnet **Flugplätze suchen**: Geben Sie einen ICAO-Code, einen Namen oder einen Ort ein, ab zwei Buchstaben, ohne Rücksicht auf Gross- und Kleinschreibung und Akzente. Sie findet einen Flugplatz auch nach dem, was Ihre [Notiz](#flugplatznotizen) dazu sagt. Die Liste zeigt bis zu 12 Flugplätze, der dem Kartenmittelpunkt nächste zuerst, gleich, wodurch sie gefunden wurden, jeder mit seinem Ort, seinem Land und seiner Distanz von diesem Mittelpunkt; ein Flugplatz, der über seine Notiz gefunden wurde, zeigt die Zeile, die gepasst hat («Ihre Notiz · Am Boden: Restaurant montags geschlossen.»). Wählen Sie einen, und die Karte springt zu ihm, etwa 8 NM breit, damit seine Platzrunden erscheinen, und öffnet, wenn **Flugplätze** eingeblendet sind, [seine Karte](#die-karte-des-flugplatzes). Die Suche gibt es nur in Planen › Karte.
 
 ### Das Statusfeld
 
@@ -758,7 +770,7 @@ In Planen › Karte nimmt **Routen** ihren Platz ein: Bevor es den Flug gibt, wi
 
 ### Ausweichen
 
-**Ausweichen** (im Flug das dritte Feld der Aktionsleiste auf KARTE und ROUTE, oder in **Mehr**) beantwortet «Wohin fliege ich stattdessen?» mit zwei Tippen und ohne Eingabe. Es listet die Flugplätze um Sie herum auf, **Voraus · nächster zuerst** und **Zurück · umkehren**, mit dem Zielflugplatz und dem Ausweichflugplatz; tippen Sie auf einen, um ihn anzusehen (mit seiner Piste, seiner Platzhöhe und der Taste **Offizielle Karte**), dann auf **AUSWEICHEN NACH**. Ein Tippen auf den Zielflugplatz selbst ergibt **DIREKT**, kein Ausweichen. Gletscher- und Gebirgslandeplätze, Heliports und geschlossene Flugplätze sind nicht aufgeführt. Auf einer Reise kommen **Weitere Zwischenhalte der Reise** zuerst, jeder mit seiner Distanz und **Weiterfliegen**: Es fragt einmal («Weiter nach LSZG, ohne Zwischenhalt in LSZB?»), dann geht die Route entlang der nächsten Etappe weiter, der übersprungene Zwischenhalt wird ein Wegpunkt, der nächste Wegpunkt und die Teilstrecken-Stoppuhr bleiben, wie sie waren, und die überflogenen Etappen verlassen die Reise. Ist ein ATC-Flugplan aufgegeben, sagt die Frage, dass Sie dem FIS Ihr neues Ziel melden. Mit einer Route auf der Karte bietet auch die Infoblase eines Flugplatzes auf der Karte das Ausweichen an, rechts (**Karte**, links, öffnet die offizielle Karte).
+**Ausweichen** (im Flug das dritte Feld der Aktionsleiste auf KARTE und ROUTE, oder in **Mehr**) beantwortet «Wohin fliege ich stattdessen?» mit zwei Tippen und ohne Eingabe. Es listet die Flugplätze um Sie herum auf, **Voraus · nächster zuerst** und **Zurück · umkehren**, mit dem Zielflugplatz und dem Ausweichflugplatz; tippen Sie auf einen, um ihn anzusehen (mit seiner Piste, seiner Platzhöhe und der Taste **Offizielle Karte**), dann auf **AUSWEICHEN NACH**. Ein Tippen auf den Zielflugplatz selbst ergibt **DIREKT**, kein Ausweichen. Gletscher- und Gebirgslandeplätze, Heliports und geschlossene Flugplätze sind nicht aufgeführt. Auf einer Reise kommen **Weitere Zwischenhalte der Reise** zuerst, jeder mit seiner Distanz und **Weiterfliegen**: Es fragt einmal («Weiter nach LSZG, ohne Zwischenhalt in LSZB?»), dann geht die Route entlang der nächsten Etappe weiter, der übersprungene Zwischenhalt wird ein Wegpunkt, der nächste Wegpunkt und die Teilstrecken-Stoppuhr bleiben, wie sie waren, und die überflogenen Etappen verlassen die Reise. Ist ein ATC-Flugplan aufgegeben, sagt die Frage, dass Sie dem FIS Ihr neues Ziel melden. Ein Flugplatz, zu dem Sie eine [Notiz](#flugplatznotizen) haben, trägt **IHRE NOTIZ**, und seine Zeile zeigt den Teil Anflug der Notiz. Mit einer Route auf der Karte bietet auch die [Karte](#die-karte-des-flugplatzes) eines Flugplatzes **Ausweichen** an.
 
 Ein Ausweichen ändert, wohin Sie navigieren, und sonst nichts: Ausweichen wird bernsteinfarben, NÄCHSTE zeigt **AUSWEICHEN** und den Flugplatz, die Frequenzen folgen ihm, die DEST-Zeile von ROUTE zeigt den Flugplatz, und **Route fortsetzen** (auf dieser Zeile auf dem iPad und im Fenster Ausweichen) bringt Sie mit einem Tippen zur Route zurück. Ist ein ATC-Flugplan aufgegeben, erinnert ROUTE Sie unter der DEST-Zeile daran, FIS zu informieren («ATC-Flugplan aufgegeben: Informieren Sie FIS, dass Sie nach … ausweichen»). Administrativ ändert sich nichts, bevor Sie am Boden sind; was die Seite des Flugs nach der Landung anbietet, siehe [Reisen und Zwischenhalte](#reisen-und-zwischenhalte). Auf KARTE zeigt auch das Statusfeld **FIS INFORMIEREN**. Auch das iPhone im Begleitmodus kann ein Ausweichen auslösen (siehe [Begleitmodus](#begleitmodus)).
 
@@ -774,7 +786,7 @@ Ein Ausweichen ändert, wohin Sie navigieren, und sonst nichts: Ausweichen wird 
 - **Kroatien** und **Bulgarien**: das AIP-Portal, hinter einem Login (bei Croatia Control auf Bestellung, bei BULATSA nach einer kostenlosen Registrierung; die Taste sagt, welches).
 - **Österreich**, **Griechenland**, **Australien** und **Neuseeland**: die Startseite der AIP (die griechische verlangt den Nachweis, dass Sie kein Roboter sind; die Bedingungen Australiens und Neuseelands erlauben keinen anderen Link).
 
-Italien hat keinen Link (die Bedingungen der ENAV verbieten Links auf ihre Website ohne ihre Bewilligung), ebenso wenig Belgien und Luxemburg (skeyes erlaubt nur Links auf seine Startseite) oder Malta (seine AIP ist kostenpflichtig), und auch die übrigen Länder nicht. Der Link steht in der Infoblase eines Flugplatzes auf der Karte (**Karte**, links), in der Flugplatz-Infoblase des Routeneditors, in der Liste von Ausweichen, im Abflug- und im Anflugbriefing, in den Aufgaben PPR und Taxen der Seite eines Flugs und in der Infoblase einer Platzrunde oder einer VFR-Route.
+Italien hat keinen Link (die Bedingungen der ENAV verbieten Links auf ihre Website ohne ihre Bewilligung), ebenso wenig Belgien und Luxemburg (skeyes erlaubt nur Links auf seine Startseite) oder Malta (seine AIP ist kostenpflichtig), und auch die übrigen Länder nicht. Der Link steht in der [Karte des Flugplatzes](#die-karte-des-flugplatzes) auf jeder Karte (**Karte**), in der Liste von Ausweichen, im Abflug- und im Anflugbriefing, in den Aufgaben PPR und Taxen der Seite eines Flugs und in der Infoblase einer Platzrunde oder einer VFR-Route.
 
 ### Kursvektor
 
@@ -793,6 +805,31 @@ Die Positionen eines externen GPS-Empfängers zählen als Satellitenpositionen. 
 ### Offline-Karten
 
 Die Schweizer ICAO-Karte und die Segelflugkarte lassen sich unter **Einstellungen › Navigation & Karten › Offline-Karten** für die Offline-Nutzung speichern (bis etwa 250 MB), mit **Offline-Modus**, um nur den Offline-Speicher zu nutzen. Eine gespeicherte Karte kommt vom Gerät, die Karte funktioniert also ohne Verbindung. In Planen › Karte zeigt unten links die Markierung **OFFLINE** oder **GESPEICHERT**, welcher Fall vorliegt; tippen Sie darauf für die Details. Die KARTE des Cockpits zeigt nichts, solange sie die Karte zeichnen kann, und **KARTE OFFLINE** in ihrem Statusfeld, wenn sie es nicht kann; die Details gibt es mit einem Tippen darauf und im Fenster Karte.
+
+---
+
+## Flugplatznotizen
+
+Ihre eigenen Notizen zu einem Flugplatz: was Sie einem Freund sagen würden, der dorthin fliegt. Eine Notiz hat zwei Teile, **Anflug** (Anflug, Platzrunde, Piste, Funk) und **Am Boden** (Parkieren, Treibstoff, Verpflegung, Kontakte), beide Freitext.
+
+### Eine Notiz schreiben
+
+- Auf der [Karte des Flugplatzes](#die-karte-des-flugplatzes) auf jeder Karte: **Notiz**.
+- Auf der Seite eines Flugs: Der Block **Route** hat für jeden Flugplatz des Flugs eine Zeile, mit **Notiz hinzufügen** oder **Mehr** (siehe [Planen](#planen)).
+- Nach der Landung: Abschliessen fragt «Etwas, das Sie sich zu Grenchen merken möchten?», mit **Schreiben** (siehe [Abschliessen](#abschliessen)).
+- Unter **Einstellungen › iCloud & Aufzeichnung › Flugplatznotizen**.
+
+Das Fenster der Notiz hat oben den Code und den Namen des Flugplatzes, links **Abbrechen** und rechts **Fertig**, und unter den Teilen, wann sie zuletzt geändert wurde, auf welchem Gerät und ob sie in iCloud oder nur auf diesem Gerät liegt. **Notiz löschen** fragt zuerst nach. Eine Notiz, in der beide Teile leer sind, wird gelöscht.
+
+### Im Flug
+
+Im Flug lässt sich eine Notiz nur lesen, und nur ihr Teil Anflug: auf der Karte des Flugplatzes, am Ende des [Anflugbriefings](#anflugbriefing) für den Zielflugplatz und in [Ausweichen](#ausweichen), das die Flugplätze markiert, zu denen Sie eine Notiz haben. Ihr Fenster sagt «Im Flug nur zum Lesen. Am Boden können Sie sie ergänzen.», ein in die Notiz geschriebener Link öffnet sich im Browser, eine Telefonnummer ruft an. Im Flug wird keine Notiz begonnen.
+
+### Notizen finden und aufbewahren
+
+[Flugplätze suchen](#bedienelemente-der-karte) in Planen › Karte findet einen Flugplatz nach dem, was Ihre Notiz sagt. **Einstellungen › iCloud & Aufzeichnung › Flugplatznotizen** listet jede Notiz auf, mit **Notizen durchsuchen**; streichen Sie eine Notiz, um sie zu löschen. **Alle Notizen teilen (Textdatei)** sendet sie alle als eine einzige Textdatei, jeder Flugplatz und jeder Teil unter seiner Überschrift. **Alle Notizen löschen…** fragt zuerst nach.
+
+Notizen bleiben auf dem Gerät und, mit eingeschaltetem **Mit iCloud synchronisieren**, in Ihrem eigenen iCloud Drive, eine kleine Datei pro Flugplatz, damit sie Ihnen auf Ihre anderen Geräte folgen; eine auf einem Gerät gelöschte Notiz wird auf den anderen gelöscht. AéroCheck sendet sie nie anderswohin. Eine Notiz behält Code, Name und Position des Flugplatzes, damit sie ihren Flugplatz noch findet, wenn die Daten ihm einen neuen Code geben. Die [Trockenübung](#trockenübung) zeigt und schreibt keine Notizen.
 
 ---
 
@@ -845,7 +882,7 @@ METAR und TAF ergänzen das Briefing, und SIGMET-Meldungen erscheinen auf der Ka
 
 ### Anflugbriefing
 
-Vor dem Anflug umfasst ein ähnliches Briefing **Flugplatz** und **Platzhöhe** (mit der Taste **Offizielle Karte**), **Piste**, **Wind**, **Anfluggeschwindigkeiten** (Anfangsanflug, Endanflug und Überziehen), **Meldepunkte** in der Nähe und das **Durchstartverfahren**. Fehlen Winddaten, erinnert es Sie daran, am Windsack Windstille, Seitenwind, Gegenwind oder Rückenwind zu prüfen.
+Vor dem Anflug umfasst ein ähnliches Briefing **Flugplatz** und **Platzhöhe** (mit der Taste **Offizielle Karte**), **Piste**, **Wind**, **Anfluggeschwindigkeiten** (Anfangsanflug, Endanflug und Überziehen), **Meldepunkte** in der Nähe und das **Durchstartverfahren**. Fehlen Winddaten, erinnert es Sie daran, am Windsack Windstille, Seitenwind, Gegenwind oder Rückenwind zu prüfen. Mit einer [Notiz](#flugplatznotizen) zum Zielflugplatz endet es mit **IHRE NOTIZ · ANFLUG**: dem Teil Anflug der Notiz und dem Zeitpunkt ihrer letzten Änderung.
 
 Für einen Zielflugplatz in den USA folgt nach den Meldepunkten ein Abschnitt **Platzrunde**, aus dem NASR der FAA: jedes Pistenende mit seiner Seite (**RWY 30**, «Rechtsplatzrunde»), dann die **TPA**, wie die FAA sie veröffentlicht («806 ft (800 ft AGL)»). Hat die FAA dazu nur eine Bemerkung, steht bei der TPA «Siehe Bemerkung der FAA», und die Bemerkung folgt im Wortlaut, «(FAA NASR, im Wortlaut)», nie eine daraus genommene Zahl («TPA 1000 FT W & 800 FT E.» in Palo Alto). Sagt die FAA nichts, steht dort «1000 ft AGL empfohlen (AIM)». Der Abschnitt endet mit «Prüfen Sie das Chart Supplement.»
 
@@ -1056,7 +1093,7 @@ Die Zeile hiess vor 6.4.0 Flugplanung. **Ihr Name** (für die Spalte PIC und das
 
 ### iCloud & Aufzeichnung
 
-**iCloud-Synchronisierung** der Einstellungen und Flüge zwischen Geräten, das **Aufzeichnungsintervall** des GPS und die **GPS-Priorität** (**Präzision** oder **Akku sparen**), und die Anzahl aufgezeichneter Flüge und GPS-Punkte.
+**iCloud-Synchronisierung** der Einstellungen und Flüge zwischen Geräten, **Flugplatznotizen** (siehe [Flugplatznotizen](#flugplatznotizen)), das **Aufzeichnungsintervall** des GPS und die **GPS-Priorität** (**Präzision** oder **Akku sparen**), und die Anzahl aufgezeichneter Flüge und GPS-Punkte.
 
 ### Daten & Speicher
 

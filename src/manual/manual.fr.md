@@ -192,7 +192,7 @@ En bas de la page, **Annuler le vol** demande d'abord (« Annuler ce vol ? ») :
 
 ### Planifier
 
-- **Route** (AUTO) : le vol a une route. **Voir la route** ouvre l'éditeur de route. Sur un vol qui n'a pas volé, **Ajouter une escale…** se trouve là aussi, et sur une étape, **Fusionner avec l'étape suivante** (voir [Voyages et escales](#voyages-et-escales)).
+- **Route** (AUTO) : le vol a une route. **Voir la route** ouvre l'éditeur de route. Sur un vol qui n'a pas volé, **Ajouter une escale…** se trouve là aussi, et sur une étape, **Fusionner avec l'étape suivante** (voir [Voyages et escales](#voyages-et-escales)). Dessous, une ligne pour chaque aérodrome du vol, son départ, ses escales et sa destination : **VOTRE NOTE** avec la première ligne de votre note, ou « Pas encore de note », et **Lire** ou **Ajouter une note** (voir [Notes d'aérodrome](#notes-daérodrome)). Elles ne sont jamais cochées ni comptées ; la ligne repliée du bloc dit combien il y a de notes.
 - **Carburant** (AUTO) : **REQ** (étape + dégagement + réserve finale 45 min + supplément) face à **FOB** (ce que vous prévoyez d'emporter) ; le bloc se coche de lui-même dès que le FOB couvre le REQ. Un toucher n'importe où sur le bloc, ou sur sa puce **Carburant à bord**, ouvre [Carburant à bord](#carburant-à-bord). Quand le carburant à bord ne suffit pas, le bloc le dit en ambre (« Il manque … L »). Avec les données d'aérodromes téléchargées, il indique aussi les grades de carburant annoncés à destination.
 - **Masse et centrage** : ouvre le calculateur pour l'avion du vol ; voir [Masse et centrage](#masse-et-centrage).
 - **Avion réservé** : réservé auprès de votre club. Un rappel ; AéroCheck ne parle à aucun système de réservation.
@@ -234,6 +234,7 @@ Après **TERMINER LE VOL**, Clôturer passe en premier sur la page, avec trois b
 - **Clôturer le plan de vol ATC** : seulement si vous avez coché le bloc **Plan de vol ATC**. C'est le seul bloc avec une conséquence de recherche et sauvetage, et il suit la règle du pays où vous vous êtes posé. Tant que le plan est ouvert, la page s'ouvre donc sur un encart rouge, **Clôturez votre plan de vol ATC**, avec cette règle, les numéros de ce pays et **Marquer clôturé** : l'encart est ce bloc. L'onglet Aujourd'hui porte une pastille, et une notification vous le rappelle. Voir [Clôturer le plan de vol ATC](#clôturer-le-plan-de-vol-atc).
 - **Taxe d'atterrissage** : un bloc par aérodrome où vous atterrissez et où une taxe s'applique (« Taxe d'atterrissage LSGC »). **Coût du vol** ouvre le coût du vol, **Tarif de l'exploitant** la page tarifaire de l'exploitant, lorsque AéroCheck la connaît, et **Carte officielle** la carte de l'aérodrome. N'apparaît que si le suivi des coûts est activé. Après un atterrissage ailleurs, c'est la taxe du terrain où vous vous êtes posé.
 - **Ligne du carnet de vol** : ouvre **Carnet et coûts** pour le vol enregistré ; voir [Carnet et coûts](#carnet-et-coûts).
+- **Votre note sur le terrain** : un encart pour l'aérodrome où vous vous êtes posé, « Votre note sur LSZG » avec sa première ligne et **Modifier**, ou, sans note encore, « Quelque chose à retenir sur Grenchen ? » et **Écrire** (voir [Notes d'aérodrome](#notes-daérodrome)). Comme le débriefing, jamais coché ni compté.
 - **Débriefing**, marqué facultatif : un champ de quelques lignes pour ce qui s'est bien passé et ce qu'il faut changer. Ce sont les notes du vol, le même texte que les **NOTES** de son entrée dans le carnet de vol, si bien que l'un ou l'autre endroit le modifie. Ce n'est pas un bloc : jamais coché, jamais compté, et la clôture est complète sans lui.
 
 **Terminez** le vol quand vous en avez fini ; ce qui reste ouvert cesse simplement de réclamer. Un vol terminé quitte Planifier › Vols et reste dans le carnet de vol.
@@ -341,7 +342,7 @@ L'éditeur de route est une carte avec **De** et **À** au-dessus, le profil de 
 
 - Saisissez le départ et la destination dans **De** et **À** (code OACI ou nom ; les résultats sont triés par distance). Les flèches entre les deux les inversent.
 - **Via** ajoute un point par son nom : un aérodrome (par son code ou son nom), un point de report ou une balise. Un code saisi en entier vient en premier. Une fois choisi, le point s'insère sur la branche qu'il allonge le moins, un aérodrome avec sa fréquence de contact.
-- Sur la carte, **glissez un point** pour le déplacer, **glissez la ligne de route** pour insérer un point, ou faites un **appui long** sur un endroit vide pour en ajouter un là où il allonge le moins la route. Un point relâché à moins de 2,5 NM d'un aérodrome ou d'une balise (ou à moins de 1,2 NM d'un point de report, quand ils sont affichés) en prend le nom, la fréquence et la position. Touchez un aérodrome pour sa bulle : **+** l'ajoute à la route, **Carte** ouvre sa [carte officielle](#carte-officielle).
+- Sur la carte, **glissez un point** pour le déplacer, **glissez la ligne de route** pour insérer un point, ou faites un **appui long** sur un endroit vide pour en ajouter un là où il allonge le moins la route. Un point relâché à moins de 2,5 NM d'un aérodrome ou d'une balise (ou à moins de 1,2 NM d'un point de report, quand ils sont affichés) en prend le nom, la fréquence et la position. Touchez un aérodrome pour [sa fiche](#la-fiche-de-laérodrome) : **+ Route** l'ajoute à la route, **Carte** ouvre sa [carte officielle](#carte-officielle), **Note** votre [note](#notes-daérodrome) sur lui. La bulle d'une balise ou d'un point de report porte **+** à sa droite.
 - **Les branches** forment un tableau aux colonnes du log de navigation : **#**, **POINT** (avec son indicatif quand il diffère), **Rm**, **NM**, **EET**, **ALT FT** (modifiable sur place) et ⚠. Les chiffres sont ceux de la branche *qui part* du point ; la dernière ligne est la destination. Sur l'iPhone, les chiffres passent sous le nom.
 - **Une seule sélection** pour la carte, le profil et les branches : touchez une branche pour la sélectionner, et elle est mise en évidence dans le tableau, sur la carte et sur le profil, chacun à sa place. Touchez à nouveau la ligne sélectionnée pour ouvrir le point ; touchez une épingle pour sélectionner sa ligne. Sur un aérodrome entre les extrémités de la route, la feuille du point propose **Quand cette route est volée** : activez **Atterrir ici** pour en faire une escale habituelle, avec son temps au sol et **Faire le plein**. Planifier un vol à partir de cette route part alors avec l'escale activée, et vous pouvez encore la désactiver pour ce jour-là. Une route mise sur la carte et volée depuis Aujourd'hui reste un seul vol, sans l'escale : une escale demande un voyage, et un voyage se crée dans Planifier un vol.
 - **Définir les altitudes…** règle plusieurs points d'un coup : une **Altitude fixe**, ou une marge **Au-dessus du relief**, avec un aperçu de la marge la plus faible sur chaque branche et des espaces aériens que le nouveau profil traverse. Le départ et la destination gardent la leur. Une route sans altitudes prévues (souvent un GPX importé) le signale : **Aucune altitude prévue**.
@@ -677,7 +678,7 @@ Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (
 
 **Carte** (le bouton des calques sur la CARTE du cockpit) ouvre tout ce qui règle l'apparence de la carte, en une seule feuille :
 
-- **Fond de carte** : **Carte OACI/Vol à voile** (la carte aéronautique suisse au 1:500 000, qui devient la carte de vol à voile, la Segelflugkarte au 1:300 000, quand vous zoomez, sauf si **Forcer la couche OACI** est activé), **Carte nationale**, **SWISSIMAGE**, **Plans d'Apple** et **Plans d'Apple (satellite)**. Les couches suisses sont disponibles en Suisse et à proximité. En mode hors ligne, la carte OACI en cache est la seule. Le fond choisi est gardé sur l'appareil : la carte s'ouvre dessus, dans le cockpit et dans Planifier › Carte.
+- **Fond de carte** : **Carte OACI/Vol à voile** (la carte aéronautique suisse au 1:500 000, qui devient la carte de vol à voile, la Segelflugkarte au 1:300 000, quand vous zoomez, puis la Carte nationale aux zooms les plus proches, sauf si **Forcer la couche OACI** est activé), **Carte nationale**, **SWISSIMAGE**, **Plans d'Apple** et **Plans d'Apple (satellite)**. Les couches suisses couvrent la Suisse et une marge autour ; au-delà de leur bord, la carte d'Apple s'affiche dessous (sa carte satellite sous SWISSIMAGE), jamais du noir. En mode hors ligne, seule la carte OACI en cache s'affiche, sans la carte d'Apple dessous. Toutes les cartes de l'app se dessinent de la même façon : Planifier › Carte, la CARTE du cockpit, le vol à blanc, l'éditeur de route et le sélecteur de coordonnées. Le fond choisi est gardé sur l'appareil : la carte s'ouvre dessus, dans le cockpit et dans Planifier › Carte.
 - **Préréglages** : **Croisière** affiche les espaces aériens et les points de report ; **Approche** y ajoute les aérodromes, les obstacles, les tours de piste et les routes d'arrivée et de départ ; **Tout** affiche tous les repères, et les tours de piste et les routes aussi. Les espaces aériens restent affichés dans les trois.
 - **Espace aérien et cartes** : **Espace aérien** (les espaces aériens OpenAIP, en superposition vectorielle) et **Tuiles de carte** (les tuiles raster d'OpenAIP, désactivées par défaut). Quand les espaces aériens sont activés sans données téléchargées, la feuille le dit et propose **Télécharger les données…**.
 - **Repères de carte**, issus des données OpenAIP téléchargées (voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage)) : **Aéroports** (avec fréquences au toucher), **Aides à la navigation** (VOR, DME, NDB), **Points de report** et **Obstacles** (pylônes, mâts, éoliennes ; désactivés par défaut, ils sont denses). **Tout afficher** ou **Tout masquer**.
@@ -687,6 +688,17 @@ Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (
 Le pied de la feuille cite les sources de ce qu'elle dessine : open flightmaps (avec le cycle AIRAC présent sur l'appareil) et OpenAIP.
 
 Quand les espaces aériens téléchargés vieillissent, une marque ambre apparaît sur le bouton **Carte** (ou le bouton des calques), et la feuille l'explique (« Données d'espace aérien obsolètes ») avec **Mettre à jour**, pour que vous sachiez que ce qui est dessiné peut ne pas refléter des changements récents.
+
+### La fiche de l'aérodrome
+
+Touchez un aérodrome sur n'importe quelle carte pour sa fiche, au-dessus du repère : son code en or et son nom, ses fréquences, votre [note](#notes-daérodrome) sur lui sous un filet or, et une rangée de boutons :
+
+- **Carte** ouvre sa [carte officielle](#carte-officielle), là où AéroCheck a un lien pour lui.
+- **Note** ouvre votre note, ou en commence une ; en vol, elle ouvre une note qui existe, en lecture seule.
+- **Dérouter**, en vol avec une route, ouvre [Déroutement](#déroutement) sur ce terrain.
+- **+ Route**, dans l'éditeur de route, l'ajoute à la route.
+
+Au sol, la note montre la première ligne de chaque partie, sur deux lignes au plus chacune ; en vol, la partie Arrivée seule, sur trois lignes au plus, et la fiche prend les tailles du cockpit. Un toucher à côté de la fiche la ferme, et dans le cockpit les commandes s'effacent tant qu'elle est ouverte. Les noms que les données écrivent en capitales se lisent comme des noms (« Bressaucourt », « La Chaux-de-Fonds »), ici, dans la recherche et sur une note.
 
 ### Tours de piste et routes VFR
 
@@ -716,7 +728,7 @@ Sur la CARTE du cockpit, les boutons se trouvent en bas du bord droit, l'un au-d
 
 Dans Planifier › Carte, les commandes forment une rangée légendée, en haut de la carte sur l'iPad (sous le prochain point) et à son pied sur l'iPhone : une loupe, **Carte**, **Nord en haut** / **Route en haut**, **Centrer** et, sur l'iPad, les boutons de zoom, avec l'échelle en bas à gauche.
 
-La loupe, juste à gauche de **Carte**, ouvre **Rechercher un aérodrome** : tapez un code OACI, un nom ou une ville, dès deux lettres, sans tenir compte des majuscules ni des accents. La liste donne jusqu'à 12 aérodromes, les codes d'abord, puis les noms, les villes et les autres noms, chaque groupe du plus proche au plus éloigné du centre de la carte, chacun avec sa ville, son pays et sa distance à ce centre. Choisissez-en un : la carte s'y déplace, sur environ 8 NM de large, pour que ses tours de piste s'affichent, et, avec **Aéroports** affichés, ouvre sa bulle. La recherche n'existe que dans Planifier › Carte.
+La loupe, juste à gauche de **Carte**, ouvre **Rechercher un aérodrome** : tapez un code OACI, un nom ou une ville, dès deux lettres, sans tenir compte des majuscules ni des accents. Elle trouve aussi un aérodrome par ce que dit votre [note](#notes-daérodrome) sur lui. La liste donne jusqu'à 12 aérodromes, du plus proche au plus éloigné du centre de la carte, quelle que soit la façon dont ils ont été trouvés, chacun avec sa ville, son pays et sa distance à ce centre ; un terrain trouvé par sa note montre la ligne qui correspond (« Votre note · Au sol : Restaurant fermé le lundi. »). Choisissez-en un : la carte s'y déplace, sur environ 8 NM de large, pour que ses tours de piste s'affichent, et, avec **Aéroports** affichés, ouvre [sa fiche](#la-fiche-de-laérodrome). La recherche n'existe que dans Planifier › Carte.
 
 ### L'emplacement d'état
 
@@ -758,7 +770,7 @@ Dans Planifier › Carte, **Routes** prend leur place : rien n'est chronométré
 
 ### Déroutement
 
-**Dérouter** (en vol, la troisième case de la barre d'actions sur CARTE et ROUTE, ou dans **Plus**) ouvre **Déroutement**, qui répond à « où aller à la place ? » en deux touchers et sans rien saisir. Il liste les aérodromes autour de vous, **Devant · le plus proche d'abord** et **Derrière · demi-tour**, avec la destination et le dégagement ; touchez-en un pour le voir (avec sa piste, son altitude et sa **Carte officielle**), puis **DÉROUTER VERS** lui. Toucher la destination elle-même donne **DIRECT VERS**, pas un déroutement. Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés. Sur un voyage, les **Escales suivantes du voyage** viennent en premier, chacune avec sa distance et **Continuer** : il demande une fois (« Continuer vers LSZG sans l'escale à LSZB ? »), puis la route continue le long de l'étape suivante, l'escale sautée devient un point, le prochain point et le chrono de branche restent tels quels, et les étapes survolées quittent le voyage. Avec un plan de vol ATC déposé, la question dit d'annoncer au FIS votre nouvelle destination. Avec une route sur la carte, la bulle d'un aérodrome sur la carte propose aussi le déroutement, à droite (**Carte**, à gauche, ouvre la carte officielle).
+**Dérouter** (en vol, la troisième case de la barre d'actions sur CARTE et ROUTE, ou dans **Plus**) ouvre **Déroutement**, qui répond à « où aller à la place ? » en deux touchers et sans rien saisir. Il liste les aérodromes autour de vous, **Devant · le plus proche d'abord** et **Derrière · demi-tour**, avec la destination et le dégagement ; touchez-en un pour le voir (avec sa piste, son altitude et sa **Carte officielle**), puis **DÉROUTER VERS** lui. Toucher la destination elle-même donne **DIRECT VERS**, pas un déroutement. Les glaciers et altisurfaces, les héliports et les terrains fermés ne sont pas listés. Sur un voyage, les **Escales suivantes du voyage** viennent en premier, chacune avec sa distance et **Continuer** : il demande une fois (« Continuer vers LSZG sans l'escale à LSZB ? »), puis la route continue le long de l'étape suivante, l'escale sautée devient un point, le prochain point et le chrono de branche restent tels quels, et les étapes survolées quittent le voyage. Avec un plan de vol ATC déposé, la question dit d'annoncer au FIS votre nouvelle destination. Un terrain sur lequel vous avez une [note](#notes-daérodrome) porte **VOTRE NOTE**, et sa ligne montre la partie Arrivée de la note. Avec une route sur la carte, la [fiche](#la-fiche-de-laérodrome) d'un aérodrome propose aussi **Dérouter**.
 
 Un déroutement change l'endroit vers lequel vous naviguez, et rien d'autre : Dérouter passe à l'ambre, SUIVANT affiche **DÉROUTEMENT** et le terrain, les fréquences le suivent, la ligne DEST de ROUTE montre le terrain, et **Reprendre la route** (sur cette ligne sur l'iPad, et dans Déroutement) vous ramène à la route d'un seul toucher. Avec un plan de vol ATC déposé, ROUTE vous rappelle de l'annoncer au FIS, sous la ligne DEST (« Plan de vol ATC déposé : annoncez votre déroutement vers … »). Rien d'administratif ne bouge avant le sol ; pour ce que la page du vol propose après l'atterrissage, voir [Voyages et escales](#voyages-et-escales). Sur CARTE, l'emplacement d'état affiche aussi **ANNONCER AU FIS**. L'iPhone compagnon peut aussi dérouter le vol (voir [Mode compagnon](#mode-compagnon)).
 
@@ -774,7 +786,7 @@ Un déroutement change l'endroit vers lequel vous naviguez, et rien d'autre : D�
 - **Croatie** et **Bulgarie** : le portail de l'AIP, derrière une connexion (sur commande chez Croatia Control, après une inscription gratuite chez BULATSA ; le bouton dit laquelle).
 - **Autriche**, **Grèce**, **Australie** et **Nouvelle-Zélande** : la page d'accueil de l'AIP (celle de la Grèce demande de prouver que vous n'êtes pas un robot ; les conditions de l'Australie et de la Nouvelle-Zélande n'autorisent aucun autre lien).
 
-L'Italie n'en a pas (les conditions de l'ENAV interdisent tout lien vers son site sans son autorisation), ni la Belgique et le Luxembourg (skeyes n'autorise que les liens vers sa page d'accueil), ni Malte (son AIP est payant), ni les pays d'ailleurs. Le lien se trouve dans la bulle d'un aérodrome sur la carte (**Carte**, à gauche), dans la bulle d'aérodrome de l'éditeur de route, dans la liste Déroutement, dans les briefings de départ et d'approche, dans les tâches PPR et Taxes de la page d'un vol, et dans la bulle d'un tour de piste ou d'une route VFR.
+L'Italie n'en a pas (les conditions de l'ENAV interdisent tout lien vers son site sans son autorisation), ni la Belgique et le Luxembourg (skeyes n'autorise que les liens vers sa page d'accueil), ni Malte (son AIP est payant), ni les pays d'ailleurs. Le lien se trouve dans la [fiche](#la-fiche-de-laérodrome) de l'aérodrome sur chaque carte (**Carte**), dans la liste Déroutement, dans les briefings de départ et d'approche, dans les tâches PPR et Taxes de la page d'un vol, et dans la bulle d'un tour de piste ou d'une route VFR.
 
 ### Vecteur de route
 
@@ -793,6 +805,31 @@ Les positions d'un récepteur GPS externe comptent comme satellite. Si l'accès 
 ### Cartes hors ligne
 
 La carte OACI suisse et la Segelflugkarte peuvent être mises en cache pour un usage hors ligne sous **Réglages › Navigation & Cartes › Cartes hors ligne** (jusqu'à environ 250 Mo), avec le **Mode hors ligne** pour n'utiliser que le cache. Une carte en cache est servie depuis l'appareil : la carte fonctionne sans connexion. Dans Planifier › Carte, un badge **HORS LIGNE** ou **EN CACHE** en bas à gauche indique lequel ; touchez-le pour les détails. La CARTE du cockpit n'affiche rien tant qu'elle peut dessiner la carte, et **CARTE HORS LIGNE** dans son emplacement d'état quand elle ne le peut pas ; les détails sont à un toucher dessus, et dans la feuille Carte.
+
+---
+
+## Notes d'aérodrome
+
+Vos propres notes sur un aérodrome : ce que vous diriez à un ami qui s'y rend. Une note a deux parties, **Arrivée** (approche, tour de piste, piste, radio) et **Au sol** (stationnement, carburant, restauration, contacts), chacune en texte libre.
+
+### Écrire une note
+
+- Depuis la [fiche](#la-fiche-de-laérodrome) de l'aérodrome sur n'importe quelle carte : **Note**.
+- Depuis la page d'un vol : le bloc **Route** a une ligne pour chacun des aérodromes du vol, avec **Ajouter une note** ou **Lire** (voir [Planifier](#planifier)).
+- Après l'atterrissage : Clôturer demande « Quelque chose à retenir sur Grenchen ? », avec **Écrire** (voir [Clôturer](#clôturer)).
+- Depuis **Réglages › iCloud et journal › Notes d'aérodrome**.
+
+La feuille de la note porte en haut le code et le nom de l'aérodrome, **Annuler** à gauche et **Terminé** à droite, et sous les parties la date de la dernière modification, l'appareil, et si elle est dans iCloud ou sur cet appareil seulement. **Supprimer la note** demande d'abord. Une note vidée de ses deux parties est supprimée.
+
+### En vol
+
+En vol, une note ne fait que se lire, et seulement sa partie Arrivée : sur la fiche de l'aérodrome, à la fin du [briefing d'approche](#briefing-dapproche) de la destination, et dans [Déroutement](#déroutement), qui marque les terrains sur lesquels vous avez une note. Sa feuille dit « Lecture seule en vol. Vous pourrez la compléter une fois au sol. », et un lien écrit dans la note s'ouvre dans le navigateur, un numéro de téléphone appelle. Aucune note ne se commence en vol.
+
+### Retrouver et garder ses notes
+
+[Rechercher un aérodrome](#les-commandes-de-la-carte) dans Planifier › Carte trouve un terrain par ce que dit votre note. **Réglages › iCloud et journal › Notes d'aérodrome** liste toutes les notes, avec **Rechercher dans les notes** ; balayez une note pour la supprimer. **Partager toutes les notes (fichier texte)** les envoie toutes en un seul fichier texte brut, chaque aérodrome et chaque partie sous son titre. **Supprimer toutes les notes…** demande d'abord.
+
+Les notes restent sur l'appareil et, avec **Synchroniser avec iCloud** activé, dans votre propre iCloud Drive, un petit fichier par aérodrome, si bien qu'elles vous suivent sur vos autres appareils ; une note supprimée sur un appareil l'est sur les autres. AéroCheck ne les envoie jamais ailleurs. Une note garde le code, le nom et la position de l'aérodrome, si bien qu'elle retrouve son terrain même quand les données lui donnent un nouveau code. Le [vol à blanc](#vol-à-blanc) ne montre ni n'écrit aucune note.
 
 ---
 
@@ -845,7 +882,7 @@ METAR et TAF rejoignent le briefing, et les SIGMET sont affichés sur la carte a
 
 ### Briefing d'approche
 
-Avant l'approche, un briefing similaire couvre l'**aérodrome** et son **altitude** (avec la **Carte officielle**), la **piste**, le **vent**, les **vitesses d'approche** (initiale, finale et décrochage), les **points de report** proches et la **procédure de remise de gaz**. Quand le vent n'est pas disponible, il vous rappelle de consulter la manche à air : calme, vent de travers, de face ou arrière.
+Avant l'approche, un briefing similaire couvre l'**aérodrome** et son **altitude** (avec la **Carte officielle**), la **piste**, le **vent**, les **vitesses d'approche** (initiale, finale et décrochage), les **points de report** proches et la **procédure de remise de gaz**. Quand le vent n'est pas disponible, il vous rappelle de consulter la manche à air : calme, vent de travers, de face ou arrière. Avec une [note](#notes-daérodrome) sur la destination, il se termine par **VOTRE NOTE · ARRIVÉE** : la partie Arrivée de la note et la date de sa dernière modification.
 
 Pour une destination aux États-Unis, une section **Tour de piste** suit les points de report, d'après le NASR de la FAA : chaque extrémité de piste avec son côté (**RWY 30**, « Tour de piste à droite »), puis la **TPA** telle que la FAA la publie (« 806 ft (800 ft AGL) »). Quand la FAA n'a qu'une remarque à ce sujet, la TPA indique « Voir la remarque de la FAA » et la remarque suit mot pour mot, « (FAA NASR, tel quel) », jamais un chiffre tiré d'elle (« TPA 1000 FT W & 800 FT E. » à Palo Alto). Quand la FAA ne dit rien, elle indique « 1000 ft AGL recommandés (AIM) ». La section se termine par « Vérifiez le Chart Supplement. »
 
@@ -1056,7 +1093,7 @@ La ligne s'appelait Planification de vol avant la 6.4.0. **Votre nom** (pour la 
 
 ### iCloud et journal
 
-**Synchronisation iCloud** des réglages et des vols entre appareils, l'**Intervalle d'enregistrement** GPS et la **Priorité GPS** (**Précision** ou **Économie de batterie**), et le nombre de vols et de points GPS enregistrés.
+**Synchronisation iCloud** des réglages et des vols entre appareils, les **Notes d'aérodrome** (voir [Notes d'aérodrome](#notes-daérodrome)), l'**Intervalle d'enregistrement** GPS et la **Priorité GPS** (**Précision** ou **Économie de batterie**), et le nombre de vols et de points GPS enregistrés.
 
 ### Données et stockage
 

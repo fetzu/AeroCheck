@@ -30,7 +30,7 @@ comes from a Watch Ultra 3 paired with an iPhone 17. English, French and German,
 The app side is DEBUG only, compiled out of Release builds:
 
 - **The scenes** (`AeroCheck/Services/MarketingLocationProvider.swift`, `MarketingScene` + `MarketingSceneInjector`):
-  launched with `AEROCHECK_SCENE=<key>`, the app drives itself into that state, a followed flight on the next 1 August,
+  launched with `AEROCHECK_SCENE=<key>`, the app drives itself into that state, a followed flight tomorrow at 10:00,
   the Cockpit in cruise, a route on the map. A scene sets model state only.
 - **The capture clock**, `AEROCHECK_CLOCK=09:41` (6.4.3): the app's own times agree with the status bar's 9:41.
 - **The weather fixture**, `AEROCHECK_WEATHER=fixture` (6.6.0): every weather request answered from files in the app's
@@ -65,7 +65,8 @@ views). It lives with the run in `CLAUDE/tools/shots/` (the private AeroCheck-to
   someone uses. The run makes its own throwaways and deletes them; never run a scene on your own simulator.
 - **A clean status bar.** No location arrow (it shows for some seconds after a launch) and no Live Activity in the
   iPhone's island: the run takes the screenshot again until it is clean, and lists any it couldn't clean.
-- **The demo flight is dated 1 August** (the *next* 1 August at inject time, so never in the past), and a readiness ring
+- **The demo flight is dated tomorrow at 10:00** on the capture clock (6.7.0; it was the next 1 August), so its page reads
+  "Tomorrow at 10:00" and NOTAMs and airspace wait for the day, and a readiness ring
   must never show a count that reads as a date (9/11 was caught on a hero shot; 10/12 was signed off). Adding a task
   to Plan or Prepare moves the denominator, so read the ring in the report.
 - **Read the report before anything is promoted**: GPS green, no alert over the screen, the aircraft and its track

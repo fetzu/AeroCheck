@@ -82,7 +82,7 @@ flagship:
       fly: true
       where: true
       title: "Die Karte, mit eingezeichneten Platzrunden"
-      description: "Unterwegs wechselt die Seite zur Karte: das Flugzeug, die Route und die Lufträume, mit ÜBERFLUG und Ausweichen unter dem Daumen. Rund um die Flugplätze die Platzrunden, Anflugsektoren und VFR-Routen von open flightmaps, mit einem Link zur offiziellen Karte."
+      description: "Unterwegs wechselt die Seite zur Karte: das Flugzeug, die Route und die Lufträume, mit ÜBERFLUG und Ausweichen unter dem Daumen. Rund um die Flugplätze die Platzrunden, Anflugsektoren und VFR-Routen von open flightmaps. Tippen Sie auf einen Flugplatz für seine Karte: seine Frequenzen, seine offizielle Karte und Ihre eigene Notiz dazu, am Boden geschrieben und im Flug gelesen."
       facts: ["Schweizer ICAO- und Segelflugkarten, offline", "Platzrunden und VFR-Routen in {ofmCountries} Ländern", "Links zu offiziellen Karten in {chartCountries} Ländern"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
@@ -125,7 +125,7 @@ faq:
     - q: "Was bringt das iPhone dazu?"
       a: "Für sich allein zeigt das iPhone dasselbe Cockpit, auf seinen Bildschirm zugeschnitten. Im Begleitmodus mit einem iPad gekoppelt, wird es zu einem zweiten Bildschirm, der dem Flug des iPad folgt, und Sie können Punkte auf beiden Geräten abhaken. Ist Ihr iPad ein Modell nur mit Wi-Fi, das kein eigenes GPS hat, leiht ihm das iPhone auch seine Position. Der Begleitmodus setzt iOS 26 auf beiden Geräten voraus."
     - q: "Was geschieht mit meinen Daten?"
-      a: "Ihre Flüge und Flugwege bleiben auf Ihrem Gerät und in Ihrer eigenen iCloud. Kein Konto, keine Werbung, kein Tracking; die Einzelheiten stehen in der Datenschutzerklärung."
+      a: "Ihre Flüge, Flugwege und Flugplatznotizen bleiben auf Ihrem Gerät und in Ihrer eigenen iCloud. Kein Konto, keine Werbung, kein Tracking; die Einzelheiten stehen in der Datenschutzerklärung."
 
 also:
   label: "Ausserdem"

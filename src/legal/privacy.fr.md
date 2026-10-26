@@ -10,7 +10,7 @@ En bref : pas de compte, pas de publicité, pas de statistiques d'utilisation, a
 ## 1.0 Ce qui reste sur votre appareil
 
 ### 1.1 Vols et carnet de vol
-La trace GPS, les heures, les atterrissages, les plans de vol, les routes et votre carnet de vol sont enregistrés dans le stockage propre à l'app sur l'appareil, et dans votre iCloud si vous le permettez (section 2.0). En dehors des points arrondis énumérés à la section 3.0, ils ne quittent l'appareil que lorsque vous les exportez ou les partagez (section 5.0).
+La trace GPS, les heures, les atterrissages, les plans de vol, les routes, vos notes d'aérodrome et votre carnet de vol sont enregistrés dans le stockage propre à l'app sur l'appareil, et dans votre iCloud si vous le permettez (section 2.0). En dehors des points arrondis énumérés à la section 3.0, ils ne quittent l'appareil que lorsque vous les exportez ou les partagez (section 5.0).
 
 ### 1.2 Position et mouvement
 L'app utilise le GPS pour la carte mobile, la trace enregistrée, les instruments et la détection automatique des décollages et des atterrissages, et l'altimètre barométrique (données de mouvement) pour l'altitude. Les mesures du baromètre ne quittent jamais l'appareil. Les requêtes qui portent une position sont toutes énumérées à la section 3.0.
@@ -24,7 +24,7 @@ AéroCheck ne contient aucun SDK de statistiques ou de publicité, aucun outil d
 
 ## 2.0 iCloud
 
-Avec « Synchroniser avec iCloud » activé (dans les réglages de l'app, activé par défaut), vos vols (avec leurs traces), plans de vol, voyages, pages de vol et réglages (y compris les noms de pilote et d'instructeur que vous saisissez) sont conservés dans le dossier d'AéroCheck de votre iCloud Drive, ce qui explique d'ailleurs que vous les voyiez dans l'app Fichiers, et les réglages et les vols sont synchronisés entre vos appareils par la base de données privée de l'app dans votre compte iCloud. Dans les deux cas, il s'agit de votre propre compte iCloud : Apple conserve les données selon sa [politique de confidentialité](https://www.apple.com/chfr/legal/privacy/), et le développeur n'y a pas accès.
+Avec « Synchroniser avec iCloud » activé (dans les réglages de l'app, activé par défaut), vos vols (avec leurs traces), plans de vol, voyages, pages de vol, notes d'aérodrome (un fichier par aérodrome) et réglages (y compris les noms de pilote et d'instructeur que vous saisissez) sont conservés dans le dossier d'AéroCheck de votre iCloud Drive, ce qui explique d'ailleurs que vous les voyiez dans l'app Fichiers, et les réglages et les vols sont synchronisés entre vos appareils par la base de données privée de l'app dans votre compte iCloud. Dans les deux cas, il s'agit de votre propre compte iCloud : Apple conserve les données selon sa [politique de confidentialité](https://www.apple.com/chfr/legal/privacy/), et le développeur n'y a pas accès.
 
 Avec l'option désactivée, tout reste sur l'appareil : l'app ne lit ni n'écrit son dossier iCloud Drive, et ne synchronise rien. La désactiver copie d'abord sur l'appareil ce qui se trouve dans iCloud Drive et laisse les fichiers d'iCloud Drive où ils sont (supprimez-les dans l'app Fichiers si vous voulez qu'ils disparaissent) ; la réactiver recopie dans iCloud Drive ce que vous avez fait entre-temps. L'option vaut pour l'appareil sur lequel elle est réglée.
 
@@ -118,7 +118,7 @@ Combien de temps : tout est conservé tant que la demande est ouverte. 90 jours 
 
 ## 5.0 Exports et partage
 
-Vous pouvez exporter ou partager des vols (GPX, JSON, ZIP), votre carnet de vol (PDF, CSV), des plans de vol et des logs de nav (GPX, JSON, tableur, PDF) et des cartes de partage (images). Rien n'est exporté sans que vous le demandiez. La copie que l'app prépare pour la feuille de partage ou l'aperçu est supprimée dès que cette feuille se ferme (ou au lancement suivant, si l'app a été arrêtée avant). Une fois partagé, le fichier est entre vos mains : il peut contenir votre nom et un historique détaillé de vos positions.
+Vous pouvez exporter ou partager des vols (GPX, JSON, ZIP), votre carnet de vol (PDF, CSV), des plans de vol et des logs de nav (GPX, JSON, tableur, PDF), vos notes d'aérodrome (un fichier texte) et des cartes de partage (images). Rien n'est exporté sans que vous le demandiez. La copie que l'app prépare pour la feuille de partage ou l'aperçu est supprimée dès que cette feuille se ferme (ou au lancement suivant, si l'app a été arrêtée avant). Une fois partagé, le fichier est entre vos mains : il peut contenir votre nom et un historique détaillé de vos positions.
 
 
 ## 6.0 Autorisations

@@ -130,7 +130,7 @@
       "website": true,
       "scene": "flight",
       "steps": {"all": ["prefer:routeThumbnail.map"]},
-      "what": "A followed flight LSZQ to LFSB on the next 1 August, on its own page."
+      "what": "A followed flight LSZQ to LFSB tomorrow at 10:00, on its own page."
     },
     {
       "key": "prepare",

@@ -130,6 +130,8 @@ enum L10n {
         static let sourceOSM = String(localized: "pilotMap.source.osm")
         static let sourceMapterhorn = String(localized: "pilotMap.source.mapterhorn")
         static let sourceMapLibre = String(localized: "pilotMap.source.maplibre")
+        /// Developer options, while 6.8.0's stack moves the maps.
+        static let drawWithMapLibre = String(localized: "pilotMap.devDrawWithMapLibre")
     }
 
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
@@ -2141,8 +2143,11 @@ enum L10n {
         static let icaoGliderNational = String(localized: "mapLayer.icaoGliderNational")
         static let landeskarte = String(localized: "mapLayer.landeskarte")
         static let swissimage = String(localized: "mapLayer.swissimage")
-        static let satellite = String(localized: "mapLayer.satellite")
-        static let standard = String(localized: "mapLayer.standard")
+        /// Apple's layers on MapKit; on MapLibre (6.8.0) the pilot's map and the aerial imagery that replace them.
+        static var satellite: String {
+            MapEngine.current ? String(localized: "pilotMap.aerialImagery") : String(localized: "mapLayer.satellite")
+        }
+        static var standard: String { MapEngine.current ? PilotMap.section : String(localized: "mapLayer.standard") }
         /// Under the Map sheet's charts, outside Switzerland: "ICAO chart: Switzerland only. Here, Apple Maps." (6.5.0)
         static func switzerlandOnly(_ chart: String, _ shown: String) -> String {
             String(format: String(localized: "mapLayer.switzerlandOnly"), chart, shown)

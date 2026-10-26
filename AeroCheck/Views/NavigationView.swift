@@ -1678,7 +1678,7 @@ struct NavigationMapView: View {
         // Always pass offlineMapManager so cache can be used opportunistically
         // In offline mode, only force ICAO if Segelflug cache is not available
         let effectiveForceICAO = appState.settings.forceICAOChartLayer || (isOfflineMode && !hasFullOfflineSupport)
-        AeroMapView(
+        MapEngineView(map: AeroMapView(
             layerType: isOfflineMode ? .icao : shownLayer,
             mapState: mapState,
             currentLocation: locationManager.currentLocation,
@@ -1713,7 +1713,7 @@ struct NavigationMapView: View {
             onOpenAerodromeNote: { aerodromeNote = $0 },
             isInFlight: appState.isFlightActive,
             features: dryRunSession == nil ? .navigation : .dryRun
-        )
+        ))
     }
 
     // MARK: - Top Bar

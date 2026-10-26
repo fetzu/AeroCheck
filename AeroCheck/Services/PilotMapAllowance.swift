@@ -38,7 +38,7 @@ final class PilotMapAllowance: @unchecked Sendable {
     private var currentPlan: Plan = .free
     private var lastLevel: Level
 
-    init(defaults: UserDefaults, now: @escaping @Sendable () -> Date = Date.init, timeZone: TimeZone = .current) {
+    init(defaults: UserDefaults, now: @escaping @Sendable () -> Date = { Date() }, timeZone: TimeZone = .current) {
         self.defaults = defaults
         self.now = now
         var calendar = Calendar(identifier: .gregorian)

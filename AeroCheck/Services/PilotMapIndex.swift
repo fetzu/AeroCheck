@@ -166,7 +166,7 @@ final class PilotMapIndexStore: @unchecked Sendable {
     private var current: PilotMapIndex?
     private var fetchedAt: Date?
 
-    init(directory: URL, fetch: @escaping Fetch = PilotMapConfig.fetch, now: @escaping @Sendable () -> Date = Date.init) {
+    init(directory: URL, fetch: @escaping Fetch = PilotMapConfig.fetch, now: @escaping @Sendable () -> Date = { Date() }) {
         file = directory.appendingPathComponent("index.json")
         self.fetch = fetch
         self.now = now

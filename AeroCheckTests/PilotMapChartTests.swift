@@ -45,7 +45,7 @@ final class PilotMapChartTests: XCTestCase {
         XCTAssertEqual(PilotMapCharts.rasters(for: .standard, policy: ChartPolicy()), [], "the pilot's map alone")
         XCTAssertEqual(PilotMapCharts.rasters(for: .landeskarten, policy: ChartPolicy()).map(\.id), ["chart-national"])
         XCTAssertEqual(PilotMapCharts.rasters(for: .swissimage, policy: ChartPolicy()).map(\.id), ["chart-swissimage"])
-        XCTAssertEqual(PilotMapCharts.rasters(for: .satellite, policy: ChartPolicy()).map(\.id), ["chart-swissimage"])
+        XCTAssertEqual(PilotMapCharts.rasters(for: .satellite, policy: ChartPolicy()).map(\.id), ["imagery"])
     }
 
     func testLocalAddressesParse() {
@@ -83,12 +83,12 @@ final class PilotMapChartTests: XCTestCase {
         // As stored.
         var spec = ChartTileSpec(key: "k", disk: tile)
         let stored = await PilotMapCharts.bytes(for: spec)
-        XCTAssertEqual(stored, try Data(contentsOf: tile))
+        XCTAssertEqual(stored, .data(try Data(contentsOf: tile)))
 
         // Processed, then PNG again.
         spec.process = { _ in Self.image(width: 8, height: 8) { _, _ in (0, 0, 0, 0) } }
         let processedBytes = await PilotMapCharts.bytes(for: spec)
-        let processed = try XCTUnwrap(processedBytes)
+        let processed = try XCTUnwrap(processedBytes.data)
         let decoded = try XCTUnwrap(CGImageSourceCreateWithData(processed as CFData, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) })
         XCTAssertEqual(decoded.width, 8)
 
@@ -96,11 +96,23 @@ final class PilotMapChartTests: XCTestCase {
         let white = dir.appendingPathComponent("white.jpg")
         try XCTUnwrap(Self.jpeg(Self.image(width: 64, height: 64) { _, _ in (255, 255, 255, 255) })).write(to: white)
         let blank = await PilotMapCharts.bytes(for: ChartTileSpec(key: "w", disk: white, dropsBlank: true))
-        XCTAssertNil(blank)
+        XCTAssertEqual(blank, .none)
 
-        // Nothing on disk and offline: none.
+        // Nothing on disk and offline: not now (a download may bring it), never kept as none.
         let missing = await PilotMapCharts.bytes(for: ChartTileSpec(key: "m", disk: dir.appendingPathComponent("none.png")))
-        XCTAssertNil(missing)
+        XCTAssertEqual(missing, .unavailable)
+
+        // The host: 404 is none, a failure or a 500 is not now.
+        var online = ChartTileSpec(key: "o")
+        online.fetch = { (Data(), HTTPURLResponse(url: URL(string: "https://x.example")!, statusCode: 404, httpVersion: nil, headerFields: [:])!) }
+        let gone = await PilotMapCharts.bytes(for: online)
+        XCTAssertEqual(gone, .none)
+        online.fetch = { (Data(), HTTPURLResponse(url: URL(string: "https://x.example")!, statusCode: 500, httpVersion: nil, headerFields: [:])!) }
+        let failing = await PilotMapCharts.bytes(for: online)
+        XCTAssertEqual(failing, .unavailable)
+        online.fetch = { throw URLError(.notConnectedToInternet) }
+        let unreachable = await PilotMapCharts.bytes(for: online)
+        XCTAssertEqual(unreachable, .unavailable)
     }
 
     // MARK: Helpers

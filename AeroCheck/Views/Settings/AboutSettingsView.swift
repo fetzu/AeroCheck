@@ -165,6 +165,22 @@ struct AboutSettingsView: View {
             dataSourceRow(name: "OpenStreetMap", detail: L10n.PilotMap.sourceOSM, url: "https://www.openstreetmap.org/copyright")
             dataSourceRow(name: "Mapterhorn", detail: L10n.PilotMap.sourceMapterhorn, url: "https://mapterhorn.com/attribution")
             dataSourceRow(name: "MapLibre", detail: L10n.PilotMap.sourceMapLibre, url: "https://github.com/maplibre/maplibre-native/blob/main/LICENSE.md")
+            // Each aerial imagery source, its licence and its change note, on a page of their own. (6.8.0)
+            NavigationLink {
+                ImageryCreditsView()
+            } label: {
+                HStack(spacing: 8) {
+                    SettingsRowLabel(icon: "photo", title: L10n.PilotMap.imageryTitle, subtitle: L10n.PilotMap.imageryDetail, tint: tint)
+                    Image(systemName: "chevron.right")
+                        .font(.aero(size: 14, weight: .semibold))
+                        .foregroundColor(.dimText)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             // open flightmaps' General Users' License asks for the credit and for a way to report errors
             // (the VFR callout's Report an error); its data is never a primary source, so the row says it
             // is indicative, as the map does. (6.2.0)

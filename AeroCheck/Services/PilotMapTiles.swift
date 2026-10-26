@@ -162,34 +162,53 @@ final class PilotTileSource: @unchecked Sendable {
         return (listed + orphans).filter { $0.touches(z: z, x: x, y: y) }
     }
 
+    /// A tile, nothing there, or nothing now: offline, the allowance used up, a read that failed. MapLibre keeps a
+    /// "nothing there" and retries a "nothing now", so the two must not be confused: a tile missing in flight would
+    /// otherwise stay missing after the region's download.
+    enum Lookup {
+        case tile(Tile)
+        case none
+        case unavailable
+    }
+
     func tile(_ kind: PilotMapKind, z: Int, x: Int, y: Int) async -> Tile? {
-        guard PilotMapTileMath.isValid(z: z, x: x, y: y) else { return nil }
+        if case let .tile(tile) = await lookup(kind, z: z, x: x, y: y) { return tile }
+        return nil
+    }
+
+    func lookup(_ kind: PilotMapKind, z: Int, x: Int, y: Int) async -> Lookup {
+        guard PilotMapTileMath.isValid(z: z, x: x, y: y) else { return .none }
         let regions = candidates(z: z, x: x, y: y).filter { $0.has(kind) }
         let downloaded = Set(storage.downloaded.map(\.id))
 
         for region in regions where downloaded.contains(region.id) {
             if let stored = storage.archive(region: region.id, kind: kind)?.tile(z: z, x: x, y: y),
                let plain = PMTiles.plain(stored) {
-                return Tile(data: plain, origin: .downloaded(region.id))
+                return .tile(Tile(data: plain, origin: .downloaded(region.id)))
             }
         }
 
-        guard isOnline() else { return nil }
-        for region in regions where !downloaded.contains(region.id) {
-            if Task.isCancelled { return nil }
+        let online = regions.filter { !downloaded.contains($0.id) }
+        guard !online.isEmpty else { return .none }
+        guard isOnline() else { return .unavailable }
+        var failed = false
+        for region in online {
+            if Task.isCancelled { return .unavailable }
             let remote = remoteArchive(region, kind)
-            guard let location = try? await remote.locate(z: z, x: x, y: y) else { continue }
-            guard allowance.reserve() else { return nil }
+            let location: PMTilesRemoteArchive.Location?
+            do { location = try await remote.locate(z: z, x: x, y: y) } catch { failed = true; continue }
+            guard let location else { continue }
+            guard allowance.reserve() else { return .unavailable }
             do {
                 let stored = try await remote.read(location)
-                guard let plain = PMTiles.plain(stored) else { return nil }
-                return Tile(data: plain, origin: .online(region.id))
+                guard let plain = PMTiles.plain(stored) else { return .none }
+                return .tile(Tile(data: plain, origin: .online(region.id)))
             } catch {
                 allowance.refund()
-                return nil
+                return .unavailable
             }
         }
-        return nil
+        return failed ? .unavailable : .none
     }
 
     private func remoteArchive(_ region: PilotMapRegion, _ kind: PilotMapKind) -> PMTilesRemoteArchive {
@@ -255,6 +274,8 @@ final class PilotTileURLProtocol: URLProtocol {
         case chart(layer: String, z: Int, x: Int, y: Int, offline: Bool)
         /// An OpenAIP tile, answered here.
         case openAIP(z: Int, x: Int, y: Int, offline: Bool)
+        /// An aerial imagery tile, composed here from the sources in it (`ImageryTiles`).
+        case imagery(z: Int, x: Int, y: Int)
         case unknown
     }
 
@@ -296,33 +317,49 @@ final class PilotTileURLProtocol: URLProtocol {
         if parts.count == 6, parts[2] == "openaip", let (z, x, y) = zxy(3) {
             return .openAIP(z: z, x: x, y: y, offline: offline)
         }
+        if parts.count == 6, parts[2] == "imagery", let (z, x, y) = zxy(3) {
+            return .imagery(z: z, x: x, y: y)
+        }
         return .unknown
     }
 
-    /// The answer's body and type; nil for a 404.
-    static func answer(_ request: Request) async -> (Data, String)? {
+    /// What a request gets: a body and its type, a 404 MapLibre keeps, or an error it retries.
+    enum Answer {
+        case body(Data, String)
+        case none
+        case unavailable
+    }
+
+    static func answer(_ request: Request) async -> Answer {
         switch request {
         case let .tile(kind, z, x, y):
-            guard let tile = await source?.tile(kind, z: z, x: x, y: y) else { return nil }
-            return (tile.data, kind == .map ? "application/x-protobuf" : "image/webp")
+            guard let source else { return .none }
+            switch await source.lookup(kind, z: z, x: x, y: y) {
+            case let .tile(tile): return .body(tile.data, kind == .map ? "application/x-protobuf" : "image/webp")
+            case .none: return .none
+            case .unavailable: return .unavailable
+            }
         case let .glyphs(fonts, range):
-            guard let folder = glyphsDirectory else { return nil }
+            guard let folder = glyphsDirectory else { return .none }
             for font in fonts {
                 if let data = try? Data(contentsOf: folder.appendingPathComponent(font).appendingPathComponent(range)) {
-                    return (data, "application/x-protobuf")
+                    return .body(data, "application/x-protobuf")
                 }
             }
-            return nil
+            return .none
         case let .chart(layer, z, x, y, offline):
-            guard let spec = PilotMapCharts.chartSpec(layer: layer, z: z, x: x, y: y, offline: offline),
-                  let data = await PilotMapCharts.bytes(for: spec) else { return nil }
-            return (data, PilotMapCharts.swisstopoLayers[layer] == "jpeg" ? "image/jpeg" : "image/png")
+            guard let spec = PilotMapCharts.chartSpec(layer: layer, z: z, x: x, y: y, offline: offline) else { return .none }
+            return await PilotMapCharts.bytes(for: spec)
+                .answer(type: PilotMapCharts.swisstopoLayers[layer] == "jpeg" ? "image/jpeg" : "image/png")
         case let .openAIP(z, x, y, offline):
-            guard let spec = PilotMapCharts.openAIPSpec(z: z, x: x, y: y, offline: offline),
-                  let data = await PilotMapCharts.bytes(for: spec) else { return nil }
-            return (data, "image/png")
+            guard let spec = PilotMapCharts.openAIPSpec(z: z, x: x, y: y, offline: offline) else { return .none }
+            return await PilotMapCharts.bytes(for: spec).answer(type: "image/png")
+        case let .imagery(z, x, y):
+            let tile = await ImageryTiles.tile(z: z, x: x, y: y, store: PilotMap.imagery, offline: !PilotMap.onlineAllowed)
+            if case let .data(data) = tile { return .body(data, data.starts(with: [0xFF, 0xD8]) ? "image/jpeg" : "image/png") }
+            return tile.answer(type: "image/png")
         case .unknown:
-            return nil
+            return .none
         }
     }
 
@@ -352,31 +389,40 @@ final class PilotTileURLProtocol: URLProtocol {
         loading?.cancel()
     }
 
-    private final class Answer: NSObject {
-        let body: (Data, String)?
-        init(_ body: (Data, String)?) { self.body = body }
+    private final class Boxed: NSObject {
+        let answer: Answer
+        init(_ answer: Answer) { self.answer = answer }
     }
 
     /// The client is called on the thread that started the load, as URLProtocol asks.
-    private func deliver(_ body: (Data, String)?) {
+    private func deliver(_ answer: Answer) {
         guard let thread = clientThread else { return }
-        perform(#selector(finish(_:)), on: thread, with: Answer(body), waitUntilDone: false, modes: modes)
+        perform(#selector(finish(_:)), on: thread, with: Boxed(answer), waitUntilDone: false, modes: modes)
     }
 
-    @objc private func finish(_ answer: Answer) {
+    @objc private func finish(_ boxed: Boxed) {
         guard !stopped, let url = request.url else { return }
-        let headers: [String: String]
-        if let (_, type) = answer.body {
+        let status: Int
+        var headers: [String: String]
+        var body: Data?
+        switch boxed.answer {
+        case let .body(data, type):
             // A month in MapLibre's cache: a tile read online is never read (or counted) twice.
+            status = 200
             headers = ["Content-Type": type, "Cache-Control": "max-age=2592000"]
-        } else {
-            // Not kept: a tile missing now (offline, the allowance used up) may come with a download.
-            headers = ["Cache-Control": "no-store"]
+            body = data
+        case .none:
+            // Nothing there: MapLibre keeps it, and asks again only when its entry expires (a day).
+            status = 404
+            headers = ["Cache-Control": "max-age=86400"]
+        case .unavailable:
+            // Nothing now: a server error, which MapLibre retries later and never keeps.
+            status = 503
+            headers = ["Cache-Control": "no-store", "Retry-After": "30"]
         }
-        let response = HTTPURLResponse(url: url, statusCode: answer.body == nil ? 404 : 200, httpVersion: "HTTP/1.1",
-                                       headerFields: headers)!
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        if let (data, _) = answer.body { client?.urlProtocol(self, didLoad: data) }
+        if let body { client?.urlProtocol(self, didLoad: body) }
         client?.urlProtocolDidFinishLoading(self)
     }
 }
@@ -392,6 +438,13 @@ enum PilotMap {
         get { lock.withLock { online } }
         set { lock.withLock { online = newValue } }
     }
+
+    /// The aerial imagery's sources (`ImageryStore`), beside the index.
+    static let imagery: ImageryStore = {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        return ImageryStore(directory: support.appendingPathComponent("PilotMap", isDirectory: true))
+    }()
 
     static let shared: PilotTileSource = {
         let fm = FileManager.default

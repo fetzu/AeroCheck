@@ -15581,6 +15581,98 @@
         }
       }
     },
+    "pilotMap.imagery.clipped": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An der Grenze zugeschnitten (Daten geändert)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clipped at the national border"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découpé à la frontière"
+          }
+        }
+      }
+    },
+    "pilotMap.imagery.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offene behördliche Orthofotos, jedes mit dem Vermerk seines Anbieters"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open government orthophotos, each credited by its provider"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orthophotos publiques ouvertes, chacune créditée à son fournisseur"
+          }
+        }
+      }
+    },
+    "pilotMap.imagery.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jedes Gerät lädt die Bilder vom Dienst des Anbieters, solange sie angezeigt werden; der Anbieter sieht die IP-Adresse des Geräts. Wo keine Quelle freigegeben ist, zeigt die Karte keine Luftbilder."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each device fetches the imagery from the provider's own service while it is on screen; the provider sees the device's IP address. Where no source is cleared, the map shows no imagery."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque appareil charge les images depuis le service du fournisseur pendant qu'elles sont affichées ; le fournisseur voit l'adresse IP de l'appareil. Là où aucune source n'est autorisée, la carte n'affiche pas d'image."
+          }
+        }
+      }
+    },
+    "pilotMap.imagery.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftbilder"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aerial imagery"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Images aériennes"
+          }
+        }
+      }
+    },
     "pilotMap.noRegions": {
       "extractionState": "manual",
       "localizations": {

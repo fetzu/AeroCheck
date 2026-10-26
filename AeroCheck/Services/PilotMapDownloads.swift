@@ -7,7 +7,7 @@ import UIKit
 /// the screens that show it. A downloaded region never counts against the allowance. (6.8.0)
 @MainActor
 final class PilotMapDownloads: ObservableObject {
-    static let shared = PilotMapDownloads(source: PilotMap.shared)
+    static let shared = PilotMapDownloads(source: PilotMap.shared, imagery: PilotMap.imagery)
 
     /// One file's transfer: the request, a progress callback (0…1), and the downloaded file, moved somewhere the
     /// caller owns. Tests replace it.
@@ -37,14 +37,18 @@ final class PilotMapDownloads: ObservableObject {
     @Published private(set) var allowanceLimit = PilotMapAllowance.freeReads
 
     let source: PilotTileSource
+    /// The imagery's sources, refreshed with the index; nil in tests that don't need them.
+    let imagery: ImageryStore?
     private let transfer: Transfer
     private let freeSpace: () -> Int64?
     private var tasks: [String: Task<Void, Never>] = [:]
     private var allowanceObserver: NSObjectProtocol?
 
-    init(source: PilotTileSource, transfer: @escaping Transfer = PilotMapDownloads.urlSessionTransfer,
+    init(source: PilotTileSource, imagery: ImageryStore? = nil,
+         transfer: @escaping Transfer = PilotMapDownloads.urlSessionTransfer,
          freeSpace: @escaping () -> Int64? = PilotMapDownloads.availableCapacity) {
         self.source = source
+        self.imagery = imagery
         self.transfer = transfer
         self.freeSpace = freeSpace
         reload()
@@ -80,6 +84,8 @@ final class PilotMapDownloads: ObservableObject {
     /// The index, when it is older than `maxAge`; drops the directories of builds it no longer lists.
     func refreshIndex(maxAge: TimeInterval = 6 * 3600) async {
         if await source.index.refresh(maxAge: maxAge) { source.pruneDirectoryCache() }
+        // The aerial imagery's sources come from the same host, as often. (6.8.0)
+        await imagery?.refresh(maxAge: maxAge)
         reload()
     }
 

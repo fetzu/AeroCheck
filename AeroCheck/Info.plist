@@ -52,6 +52,8 @@
 	<string>$(WEATHER_CLIENT_SECRET)</string>
 	<key>AppClientSecret</key>
 	<string>$(APP_CLIENT_SECRET)</string>
+	<key>ImagerySecret_DATAFORSYNINGEN_TOKEN</key>
+	<string>$(DATAFORSYNINGEN_TOKEN)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>B612-Regular.ttf</string>

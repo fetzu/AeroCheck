@@ -59,7 +59,8 @@ final class PilotMapDownloadTests: XCTestCase {
         let downloads = PilotMapDownloads(source: source, transfer: { request, progress in
             requests.add(request)
             guard status == 200 else { throw PilotMapDownloads.Failure.http(status) }
-            let kind = request.url!.deletingPathExtension().lastPathComponent
+            // map.pmtiles, or a named file: map-<hash>.pmtiles
+            let kind = String(request.url!.deletingPathExtension().lastPathComponent.split(separator: "-")[0])
             if let etag = etags[kind], request.value(forHTTPHeaderField: "If-None-Match") == etag { return .unchanged }
             let file = temp.appendingPathComponent(UUID().uuidString)
             try (files[kind] ?? Data()).write(to: file)
@@ -226,6 +227,18 @@ final class PilotMapDownloadTests: XCTestCase {
         XCTAssertEqual(storage.archive(region: "ch", kind: .map)?.tile(z: 0, x: 0, y: 0).flatMap(PMTiles.plain),
                        PMTilesFixture.content(0, 0, 0, "first"))
         XCTAssertEqual(storage.etag(region: "ch", kind: .map), "\"m-first\"", "the ETag kept with the file")
+    }
+
+    func testANamedFileIsDownloadedUnderItsName() async throws {
+        let files = archives("named")
+        let ch = PilotMapRegion(id: "ch", name: "CH", bounds: Self.chBounds, built: "20261026",
+                                mapBytes: files["map"]!.count, reliefBytes: files["relief"]!.count,
+                                mapFile: "map-1da3495153e271df.pmtiles", reliefFile: "relief-5b67c770f8c31da5.pmtiles")
+        let rig = try await rig([ch], files: files)
+        let ok = await rig.downloads.downloadNow(ch)
+        XCTAssertTrue(ok)
+        XCTAssertEqual(rig.requests.all.map(\.path).sorted(),
+                       ["/v1/ch/map-1da3495153e271df.pmtiles", "/v1/ch/relief-5b67c770f8c31da5.pmtiles"])
     }
 
     // MARK: The update every three months

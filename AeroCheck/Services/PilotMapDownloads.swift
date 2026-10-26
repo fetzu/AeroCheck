@@ -240,7 +240,7 @@ final class PilotMapDownloads: ObservableObject {
         do {
             for kind in kinds {
                 let expected = kind == .map ? region.mapBytes : region.reliefBytes
-                var request = URLRequest(url: PilotMapConfig.archiveURL(region: region.id, kind: kind),
+                var request = URLRequest(url: PilotMapConfig.archiveURL(region: region, kind: kind),
                                          cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
                 for (field, value) in PilotMapConfig.requestHeaders { request.setValue(value, forHTTPHeaderField: field) }
                 if present.contains(kind), let etag = source.storage.etag(region: region.id, kind: kind) {

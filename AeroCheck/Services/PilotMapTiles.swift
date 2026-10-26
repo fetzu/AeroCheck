@@ -227,10 +227,10 @@ final class PilotTileSource: @unchecked Sendable {
     }
 
     private func remoteArchive(_ region: PilotMapRegion, _ kind: PilotMapKind) -> PMTilesRemoteArchive {
-        let key = "\(region.id)-\(kind.rawValue)-\(region.build(of: kind))"
+        let key = Self.remoteKey(region, kind)
         return lock.withLock {
             if let open = remotes[key] { return open }
-            let remote = PMTilesRemoteArchive(url: PilotMapConfig.archiveURL(region: region.id, kind: kind),
+            let remote = PMTilesRemoteArchive(url: PilotMapConfig.archiveURL(region: region, kind: kind),
                                               cacheDirectory: cacheDirectory.appendingPathComponent(key, isDirectory: true),
                                               headers: headers(), fetch: fetch)
             remotes[key] = remote
@@ -238,11 +238,14 @@ final class PilotTileSource: @unchecked Sendable {
         }
     }
 
+    /// A remote archive's directories are cached per file and build: "ch-map-20261025", "ch-map-1da3…-20261102".
+    private static func remoteKey(_ region: PilotMapRegion, _ kind: PilotMapKind) -> String {
+        "\(region.id)-\(region.file(of: kind).dropLast(8))-\(region.build(of: kind))"
+    }
+
     /// Removes the cached directories of builds the index no longer lists.
     func pruneDirectoryCache() {
-        let live = Set(index.regions.flatMap { region in
-            PilotMapKind.allCases.map { "\(region.id)-\($0.rawValue)-\(region.build(of: $0))" }
-        })
+        let live = Set(index.regions.flatMap { region in PilotMapKind.allCases.map { Self.remoteKey(region, $0) } })
         let folders = (try? FileManager.default.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil)) ?? []
         for folder in folders where !live.contains(folder.lastPathComponent) {
             try? FileManager.default.removeItem(at: folder)

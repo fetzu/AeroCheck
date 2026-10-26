@@ -17,9 +17,10 @@ enum PilotMapConfig {
     /// The world outline, from the app's bundle (`PilotMapOutline`).
     static let outlineTileTemplate = "https://\(host)/local/outline/{z}/{x}/{y}"
 
-    /// A region's archive on R2.
-    static func archiveURL(region: String, kind: PilotMapKind) -> URL {
-        baseURL.appendingPathComponent(region).appendingPathComponent("\(kind.rawValue).pmtiles")
+    /// A region's archive on R2, under the name the index gives it (a new build is a new name, so no cache serves an
+    /// old file under a new index).
+    static func archiveURL(region: PilotMapRegion, kind: PilotMapKind) -> URL {
+        baseURL.appendingPathComponent(region.id).appendingPathComponent(region.file(of: kind))
     }
 
     /// The index is a few kilobytes; anything past this is not ours.
@@ -82,6 +83,9 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
     /// border cut have none.
     let mapHash: String?
     let reliefHash: String?
+    /// Each archive's name on R2 (`map-<hash>.pmtiles`); indexes before the names have none: `map.pmtiles`.
+    let mapFile: String?
+    let reliefFile: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, bounds, built
@@ -90,13 +94,17 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
         case reliefBuilt = "relief_built"
         case mapHash = "map_hash"
         case reliefHash = "relief_hash"
+        case mapFile = "map_file"
+        case reliefFile = "relief_file"
     }
 
     init(id: String, name: String, bounds: [Double], built: String, mapBytes: Int, reliefBytes: Int,
-         reliefBuilt: String? = nil, mapHash: String? = nil, reliefHash: String? = nil) {
+         reliefBuilt: String? = nil, mapHash: String? = nil, reliefHash: String? = nil, mapFile: String? = nil,
+         reliefFile: String? = nil) {
         self.id = id; self.name = name; self.bounds = bounds; self.built = built
         self.mapBytes = mapBytes; self.reliefBytes = reliefBytes; self.reliefBuilt = reliefBuilt
         self.mapHash = mapHash; self.reliefHash = reliefHash
+        self.mapFile = mapFile; self.reliefFile = reliefFile
     }
 
     init(from decoder: Decoder) throws {
@@ -110,6 +118,8 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
         reliefBuilt = try c.decodeIfPresent(String.self, forKey: .reliefBuilt)
         mapHash = try c.decodeIfPresent(String.self, forKey: .mapHash)
         reliefHash = try c.decodeIfPresent(String.self, forKey: .reliefHash)
+        mapFile = try c.decodeIfPresent(String.self, forKey: .mapFile)
+        reliefFile = try c.decodeIfPresent(String.self, forKey: .reliefFile)
     }
 
     /// An id is a path segment, on R2 and on disk: lowercase letters, digits and hyphens only.
@@ -119,6 +129,7 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
             && bounds.count == 4 && bounds[0] < bounds[2] && bounds[1] < bounds[3]
             && bounds[1] >= -90 && bounds[3] <= 90
             && built.count == 8 && built.allSatisfy(\.isNumber)
+            && [mapFile, reliefFile].allSatisfy { $0.map(Self.isFileName) ?? true }
     }
 
     func has(_ kind: PilotMapKind) -> Bool { kind == .map ? mapBytes > 0 : reliefBytes > 0 }
@@ -127,6 +138,18 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
     func build(of kind: PilotMapKind) -> String { kind == .relief ? reliefBuilt ?? built : built }
 
     func hash(of kind: PilotMapKind) -> String? { kind == .relief ? reliefHash : mapHash }
+
+    /// The archive's name on R2.
+    func file(of kind: PilotMapKind) -> String {
+        (kind == .relief ? reliefFile : mapFile) ?? "\(kind.rawValue).pmtiles"
+    }
+
+    /// A file name is one path segment: letters, digits, hyphens, and the .pmtiles extension.
+    static func isFileName(_ name: String) -> Bool {
+        name.hasSuffix(".pmtiles") && name.count <= 64 && name.dropLast(8).allSatisfy {
+            $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-")
+        } && name.count > 8
+    }
 
     var downloadBytes: Int { mapBytes + reliefBytes }
 

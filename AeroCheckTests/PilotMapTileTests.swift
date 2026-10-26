@@ -74,6 +74,21 @@ final class PilotMapTileTests: XCTestCase {
         XCTAssertEqual(index.regions[0].build(of: .relief), "20261025", "the map's date when the relief has none")
     }
 
+    func testRegionFileNames() {
+        let named = PilotMapRegion(id: "ch", name: "CH", bounds: [5.9, 45.8, 10.5, 47.8], built: "20261026", mapBytes: 1,
+                                   reliefBytes: 1, mapFile: "map-1da3495153e271df.pmtiles")
+        XCTAssertTrue(named.isValid)
+        XCTAssertEqual(named.file(of: .map), "map-1da3495153e271df.pmtiles")
+        XCTAssertEqual(named.file(of: .relief), "relief.pmtiles", "an entry without a name: the old file")
+        XCTAssertEqual(PilotMapConfig.archiveURL(region: named, kind: .map).absoluteString,
+                       "https://tiles.aerocheck.app/v1/ch/map-1da3495153e271df.pmtiles")
+        for bad in ["../index.json", "map.json", "a/b.pmtiles", ".pmtiles", "map%2F.pmtiles"] {
+            let region = PilotMapRegion(id: "ch", name: "CH", bounds: [5.9, 45.8, 10.5, 47.8], built: "20261026",
+                                        mapBytes: 1, reliefBytes: 1, mapFile: bad)
+            XCTAssertFalse(region.isValid, bad)
+        }
+    }
+
     func testIndexDropsInvalidAndDuplicateRegions() throws {
         let json = Data("""
         {"version": 1, "regions": [

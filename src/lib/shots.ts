@@ -15,7 +15,7 @@ export interface Shot { ipad: string; iphone: string; label: string; }
 // The app version the whole set was captured from, or checked against when a release changed none of
 // its screens (6.3.0). Bump it with every recapture: a build warns while the latest release is a newer
 // minor version than this (`warnIfShotsAreOld`).
-export const CAPTURED_FROM = '6.6.0';
+export const CAPTURED_FROM = '6.7.0';
 
 // Each URL carries a hash of the image (`?v=1a2b3c4d`), read at build time, so a recaptured image is
 // a new URL. The file names never change, and Cloudflare lets a browser keep an image for 4 hours:

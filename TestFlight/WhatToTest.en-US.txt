@@ -1,12 +1,12 @@
-6.7.0 brings your own notes on each aerodrome, and one map drawing everywhere.
+6.8.0 draws its own map, the Pilot's map, from OpenStreetMap, on every map of the app.
 
 What to try:
-- Plan › Map, tap an aerodrome: its card has the frequencies, Chart and Note. Note opens your note in two parts, Arrival and On the ground. Write one, then tap the aerodrome again.
-- Search aerodromes finds a field by what your note says, and shows the line that matched. Everything is listed nearest first.
-- A flight's Route block has a line per aerodrome with your note. After landing, CLOSE asks "Anything to remember about …?".
-- In flight the note reads only, Arrival part only: in the card, the approach briefing and Divert.
-- Settings › iCloud & Log › Aerodrome notes: every note, Share all notes (text file), delete one or all. With Sync to iCloud on, the notes follow you to your other devices.
-- The maps: past the Swiss charts' edge, Apple's map shows instead of black. Zoom in on Plan › Map or the Cockpit's MAP: the ICAO chart, then the glider chart, then the National Map.
-- The route builder's card: + Route adds the aerodrome to the route.
+- Settings › Data & Storage › Pilot's map: download Switzerland (about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws in Switzerland.
+- Map sheet › Base chart: Pilot's map and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map.
+- Zoom out to Europe: the world outline, with the countries' names inside them and their capitals.
+- Plan › Map, the Cockpit's MAP and the route editor: tap an aerodrome, a circuit's altitude, a navaid; drag a route point; the legs band; Search aerodromes. Tell us anything that moves differently from 6.7.
+- A flight in the logbook: its track map, and the share card on Pilot's map and on Aerial imagery.
+- Plan a flight crossing a border: the banner offers the pilot's map regions along the route.
+- The Swiss ICAO, glider and national charts: past their edge, the pilot's map now shows under them.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

@@ -1,12 +1,12 @@
-6.7.0 apporte vos propres notes sur chaque aérodrome, et un même dessin de carte partout.
+6.8.0 dessine sa propre carte, la carte du pilote, tirée d'OpenStreetMap, sur toutes les cartes de l'app.
 
 À essayer :
-- Planifier › Carte, touchez un aérodrome : sa fiche a les fréquences, Carte et Note. Note ouvre votre note en deux parties, Arrivée et Au sol. Écrivez-en une, puis touchez de nouveau l'aérodrome.
-- Rechercher un aérodrome trouve un terrain par ce que dit votre note, et montre la ligne trouvée. Tout est listé du plus proche au plus loin.
-- Le bloc Route d'un vol a une ligne par aérodrome avec votre note. Après l'atterrissage, CLÔTURER demande « Quelque chose à retenir sur … ? ».
-- En vol, la note se lit seulement, la partie Arrivée seule : dans la fiche, le briefing d'approche et Dérouter.
-- Réglages › iCloud et journal › Notes d'aérodrome : toutes les notes, Partager toutes les notes (fichier texte), en supprimer une ou toutes. Avec Synchroniser avec iCloud, les notes vous suivent sur vos autres appareils.
-- Les cartes : au-delà du bord des cartes suisses, la carte d'Apple s'affiche au lieu du noir. Zoomez dans Planifier › Carte ou la CARTE du Cockpit : la carte OACI, puis la carte vol à voile, puis la carte nationale.
-- La fiche dans l'éditeur de route : + Route ajoute l'aérodrome à la route.
+- Réglages › Données et stockage › Carte du pilote : téléchargez la Suisse (environ 90 Mo, Wi-Fi conseillé). Passez ensuite en mode avion : la carte se dessine toujours en Suisse.
+- Feuille Carte › Fond de carte : Carte du pilote et Images aériennes remplacent les deux fonds d'Apple. Sur Images aériennes, glissez de la Suisse vers la France ou l'Allemagne : chaque source est créditée au pied de la carte.
+- Dézoomez jusqu'à l'Europe : le contour du monde, avec le nom des pays à l'intérieur et leurs capitales.
+- Planifier › Carte, la CARTE du cockpit et l'éditeur de route : touchez un aérodrome, l'altitude d'un tour de piste, une balise ; déplacez un point de route ; la bande des étapes ; Rechercher un aérodrome. Dites-nous tout ce qui bouge autrement qu'en 6.7.
+- Un vol du carnet : la carte de sa trace, et la carte de partage sur Carte du pilote et sur Images aériennes.
+- Planifiez un vol qui passe une frontière : le bandeau propose les régions de la carte du pilote le long de la route.
+- Les cartes suisses OACI, vol à voile et nationale : au-delà de leur bord, la carte du pilote s'affiche maintenant dessous.
 
 Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

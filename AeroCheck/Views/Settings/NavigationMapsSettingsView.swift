@@ -13,6 +13,7 @@ struct NavigationMapsSettingsView: View {
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @ObservedObject private var openAIPAirportService = OpenAIPAirportDataService.shared
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
+    @ObservedObject private var pilotMap = PilotMapDownloads.shared
 
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
@@ -40,6 +41,8 @@ struct NavigationMapsSettingsView: View {
             navigationSection
             openAIPSection
             aerodromeProceduresSection
+            // The pilot's map's regions here too, where a pilot looks for maps, as in Data & Storage. (6.8.0)
+            PilotMapSettingsSection(downloads: pilotMap, tint: tint)
             offlineMapsSection
             airportDataSection
         }

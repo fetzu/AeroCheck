@@ -225,6 +225,7 @@ footer:
   in: "in"
   city: "der Schweiz"
   privacy: "Datenschutz"
+  map: "Kartendaten"
   terms: "Nutzungsbedingungen"
   support: "Support"
   license: "MIT"

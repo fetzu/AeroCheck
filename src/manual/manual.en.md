@@ -678,7 +678,7 @@ If none of the route is on screen, a pill says where it is ("Route 12 NM · 045�
 
 **Map** (the layers button on the Cockpit's MAP) opens everything about how the map looks, in one sheet:
 
-- **Base chart**: **ICAO chart/Glider map** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, then the National Map at the closest zooms, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE**, **Apple Maps** and **Apple Maps Satellite**. The Swiss layers cover Switzerland and a margin around it; past their edge, Apple's map shows under them (its satellite map under SWISSIMAGE), never black. In offline mode, only the cached ICAO chart shows, with no Apple map under it. Every map of the app draws the same way: Plan › Map, the Cockpit's MAP, the dry run, the route editor and the coordinate picker. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map.
+- **Base chart**: **ICAO chart/Glider map** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, then the National Map at the closest zooms, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE**, the **Pilot's map** (AéroCheck's own map for flying, see [The Pilot's Map](#the-pilots-map)) and **Aerial imagery** (open government orthophotos, see [Aerial Imagery](#aerial-imagery)). The Swiss layers cover Switzerland and a margin around it; past their edge, the pilot's map shows under them, never black. In offline mode, only the cached ICAO chart shows, over the pilot's map of the regions you downloaded. Every map of the app draws the same way: Plan › Map, the Cockpit's MAP, the dry run, the route editor and the coordinate picker. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map.
 - **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports, obstacles, the traffic circuits and the arrival and departure routes; **Everything** shows every marker, and the circuits and routes too. Airspace stays on in all three.
 - **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **Map tiles** (OpenAIP's raster tiles, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
 - **Map markers**, from the downloaded OpenAIP data (see [Aeronautical Data and Storage](#aeronautical-data-and-storage)): **Airports** (with frequencies on tap), **Navaids** (VOR, DME, NDB), **Reporting points** and **Obstacles** (towers, masts, wind turbines; off by default, they are dense). **Show all** or **Hide all**.
@@ -686,6 +686,21 @@ If none of the route is on screen, a pill says where it is ("Route 12 NM · 045�
 - **Flight**: **Track vector**.
 
 The foot of the sheet credits the sources it draws from: open flightmaps (with the AIRAC cycle on the device) and OpenAIP.
+
+### The Pilot's Map
+
+The **Pilot's map** is AéroCheck's own map for flying, drawn on the device from OpenStreetMap, with relief: towns and villages by size, main roads, railways, rivers and lakes, forests, built-up areas, glaciers, borders, cable cars, and peaks with their height in feet, in the cockpit's B612 typeface. It draws everywhere the app does: Plan › Map, the Cockpit's MAP, the dry run, the route editor, the coordinate picker, the logbook's track map, the route thumbnails and share cards.
+
+It comes in regions, one per country (Switzerland with Liechtenstein first). Where no region is on the device, the map shows the world outline the app carries: land, sea, the larger lakes and rivers, borders, countries and capitals.
+
+- **Online**, the map reads a region's tiles as the screen asks for them, within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. At 80 %, a line under the map offers the region's download; once it is used up, the map keeps the regions you downloaded and shows the world outline elsewhere until the 1st of the next month.
+- **Downloaded**, a region works offline and never counts against the allowance. Download one in **Settings › Data & Storage › Pilot's map**; a planned flight offers the regions along its route with its other data (see [Downloading Data](#downloading-data)).
+
+A downloaded region updates itself every three months, on Wi-Fi, never in flight; a region whose map did not change is never downloaded again. How the map is made, and what it keeps of OpenStreetMap, is on [this page](/map).
+
+### Aerial Imagery
+
+**Aerial imagery** shows open government orthophotos: swisstopo's in Switzerland, and those of Austria, France, the Netherlands, Luxembourg, Belgium, the Czech Republic, Poland, South Tyrol, twelve German states and the United States. Each source is cut at the border of the area it covers and credited at the foot of the map while it shows. Where no government publishes imagery the app may use, the pilot's map shows instead. The imagery comes from each government's own service while it is on screen, so it needs a connection: offline, only what the device has already shown. The sources and their licences are listed in **Settings › About › Aerial imagery** and on [the map page](/map#70-aerial-imagery).
 
 When the downloaded airspace is aging, an amber mark sits on the **Map** button (or the layers button), and the sheet explains it ("Airspace data is out of date") with **Update**, so you know that what is drawn may not reflect recent changes.
 
@@ -804,7 +819,7 @@ An external GPS receiver's fixes count as satellite fixes. If location access is
 
 ### Offline Maps
 
-The Swiss ICAO chart and the Segelflugkarte can be cached for offline use under **Settings › Navigation & Maps › Offline Maps** (up to about 250 MB), with **Offline Mode** to use the cache only. A cached chart is served from the device, so the map works without a connection. In Plan › Map, an **OFFLINE** or **CACHED** badge at the bottom left says which; tap it for the details. The Cockpit's MAP shows nothing while it can draw the chart, and **CHART OFFLINE** in its status slot when it cannot; the details are a tap on it, and in the Map sheet.
+The pilot's map works offline in the regions you downloaded (see [The Pilot's Map](#the-pilots-map)). The Swiss ICAO chart and the Segelflugkarte can be cached for offline use under **Settings › Navigation & Maps › Offline Maps** (up to about 250 MB), with **Offline Mode** to use the cache only. A cached chart is served from the device, so the map works without a connection. In Plan › Map, an **OFFLINE** or **CACHED** badge at the bottom left says which; tap it for the details. The Cockpit's MAP shows nothing while it can draw the chart, and **CHART OFFLINE** in its status slot when it cannot; the details are a tap on it, and in the Map sheet.
 
 ---
 
@@ -1039,13 +1054,15 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 - **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, in the {ofmCountries} countries open flightmaps covers. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
 - **US traffic patterns**: the side of each runway's pattern and the pattern altitude, from the FAA's NASR (public domain), through the AéroCheck service. Fetched the first time a US field needs them, then at most once a week.
 - **Charts**: Swiss ICAO, national map, and Segelflug charts from swisstopo.
+- **The pilot's map**: AéroCheck's own map, from OpenStreetMap (© OpenStreetMap contributors, ODbL) and Mapterhorn's relief, built monthly by country; see [The Pilot's Map](#the-pilots-map) and [how it is made](/map).
+- **Aerial imagery**: open government orthophotos, each credited by its provider; see [Aerial Imagery](#aerial-imagery).
 - **Official charts**: a link to each aerodrome's chart on its publisher's site in {chartCountries} countries (DFS, the SIA, skyguide on SkyBriefing, Austro Control, the FAA and the AIS of {chartOthers} more countries), never the chart itself; see [Official Chart](#official-chart) and, country by country, [Countries](/countries).
 - **Briefing links**: the official pages behind Prepare's blocks (weather, NOTAMs, airspace activity, area forecast, filing, with each country's filing time) and each country's rule and numbers for closing an ATC flight plan, from the AéroCheck service's briefing registry. It is built weekly on the AéroCheck server from each country's own publishers, every link checked, and the app ships with a copy, so the links and the numbers are there before the first download. Each link names its publisher.
 - **Landing-fee sources**: where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service.
 
 ### Downloading Data
 
-Download aeronautical data **by country or continent** from **Settings › Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, reporting points and aerodromes download together per country, and so do the VFR procedures, for the countries open flightmaps covers (the download page says which of yours get them).
+Download aeronautical data **by country or continent** from **Settings › Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, reporting points and aerodromes download together per country, and so do the VFR procedures, for the countries open flightmaps covers (the download page says which of yours get them). The **Pilot's map** downloads by region, on the same page, and when you plan a flight, the banner that offers its missing data adds the pilot's map regions along the route ("Pilot's map: Switzerland").
 
 If you used AéroCheck before 6.2.0, your countries are there but their VFR procedures are not yet: **Refresh** on the **VFR procedures (open flightmaps)** row of Data & Storage fetches them for the countries you have (so does a new download from Navigation & Maps).
 
@@ -1066,6 +1083,8 @@ The VFR procedures age by AIRAC cycle rather than by date. Their row in Data & S
 > Even current data is advisory. Always cross-check against official charts and NOTAMs.
 
 ### Offline Maps and Storage
+
+**Pilot's map**, first in **Data & Storage**, lists the regions: each with its state (**Downloaded**, **Update available**, or not downloaded), its build date and its size, and **Download**; a downloaded region's menu has **Update** when a newer build is out, and **Delete**. Switzerland with Liechtenstein is about 90 MB. Under the regions, the month's online use ("Online this month: 312 of 1,500 map tiles").
 
 Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). **Data & Storage** lists each dataset with its countries, size and currency (**Airspace**, **Navaids**, **Obstacles**, **Reporting points**, **Aerodromes** from OpenAIP, **Airports** from OurAirports, and **VFR procedures (open flightmaps)**), and lets you update or delete cached data to reclaim space. New aerodrome data (runways, frequencies) shows as soon as it is downloaded, without restarting the app.
 
@@ -1097,7 +1116,7 @@ The row was called Flight Planning before 6.4.0. Your **pilot name** (for the PI
 
 ### Data & Storage
 
-Aeronautical-data currency (one row per dataset, the VFR procedures with their AIRAC cycle), per-country and continent downloads, offline chart cache, and storage management. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
+The **Pilot's map** regions and the month's online use, aeronautical-data currency (one row per dataset, the VFR procedures with their AIRAC cycle), per-country and continent downloads, offline chart cache, and storage management. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
 
 ### Companion Mode
 
@@ -1105,4 +1124,4 @@ Pair an iPhone and iPad as a synced second screen (Wi-Fi Aware; requires iOS 26 
 
 ### About
 
-App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources (among them the briefing links' publishers, named on each link, and the FAA's NASR for the US traffic patterns); and hidden **Developer Options** (tap the version number five times to unlock).
+App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources (among them the briefing links' publishers, named on each link, the FAA's NASR for the US traffic patterns, the pilot's map's OpenStreetMap, Mapterhorn, MapLibre and B612, and **Aerial imagery**, each source with its credit and licence); and hidden **Developer Options** (tap the version number five times to unlock).

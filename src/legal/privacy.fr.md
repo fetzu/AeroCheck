@@ -56,7 +56,6 @@ Relief hors de Suisse, envoyé directement par l'app : des points le long d'une 
 - Tuiles de la carte OpenAIP (désactivées par défaut) : les tuiles montrent la zone à l'écran.
 
 ### 3.5 Apple
-- Les fonds de carte Apple, les vignettes des routes et les cartes des cartes de partage (sauf si vous choisissez un fond suisse) viennent d'Apple Plans, qui reçoit la zone affichée.
 - Lors de la première configuration, votre position actuelle, une fois, pour trouver votre pays et proposer quoi télécharger.
 - Les achats passent par l'App Store ; l'app ne voit jamais vos moyens de paiement ni votre identifiant Apple.
 
@@ -81,6 +80,15 @@ Seulement si vous nous envoyez la checklist d'un avion depuis l'app (Avions › 
 - pour la vérification contre les robots, l'app ouvre une page de ce site, aerocheck.app/send/app/, dans une petite vue web, qui charge Cloudflare Turnstile comme le formulaire.
 
 Une fois la demande envoyée, l'app garde son numéro et son lien sur l'appareil (le lien dans le trousseau de l'appareil) et la liste sous « Vos demandes ». Quand l'app revient au premier plan, au plus toutes les trois heures, elle demande au serveur des demandes où en est chaque demande ouverte, en n'envoyant que le code de ce lien. Une demande close depuis 30 jours quitte la liste.
+
+### 3.10 La carte du pilote (tiles.aerocheck.app)
+La carte que l'app dessine elle-même, aussi sous les vignettes des routes et sur les cartes de partage (sauf si vous choisissez un fond suisse) ; [comment elle est faite](/fr/map). Aucune position, aucun jeton de session, rien sur vous :
+- Une région que vous téléchargez : la requête nomme le fichier de la région.
+- Hors des régions présentes sur l'appareil, la carte est lue en ligne : chaque requête nomme le fichier d'une région et la partie qui contient les tuiles à l'écran, elle montre donc la zone que vous regardez, comme toute requête de tuiles.
+- Au plus toutes les six heures, l'app ouverte, la liste des régions et celle des sources d'images aériennes (section 3.11), sans aucune position.
+
+### 3.11 Images aériennes (services publics)
+Avec **Images aériennes** comme fond de carte, sur la carte ou sur une carte de partage, l'appareil charge les images depuis le service public qui les publie ([la liste](/fr/map#70-images-aériennes)) : les tuiles demandées montrent la zone à l'écran. Chaque service voit l'adresse IP de l'appareil, comme tout site web, selon ses propres règles : Digitaal Vlaanderen, pour la Flandre, la conserve jusqu'à 90 jours. Rien ne passe par nos serveurs, et l'app n'envoie rien d'autre.
 
 
 ## 4.0 Ce que nos serveurs conservent
@@ -114,6 +122,9 @@ Qui le lit : Julien Bono, qui développe AéroCheck, lit la demande et ses fichi
 Les e-mails au sujet de votre demande (réception, question, mise en ligne) et le lien du club partent par [Resend](https://resend.com/legal/privacy-policy), un service d'e-mail établi aux États-Unis, qui reçoit l'adresse, le message et le lien pour les livrer. Les réponses arrivent à support@aerocheck.app.
 
 Combien de temps : tout est conservé tant que la demande est ouverte. 90 jours après sa clôture (mise en ligne, refusée ou doublon), les fichiers sont supprimés, de même que toutes les adresses e-mail, votre nom, vos remarques, le nom et la fonction de la personne qui a répondu pour le club, et les messages ; reste sur le serveur des demandes la fiche de la demande (son numéro, les immatriculations, le type, le club, ses statuts et leurs dates). Le ticket GitHub reste tel quel (il n'a jamais contenu d'adresse e-mail ni votre nom), pour que nous sachions d'où vient une checklist. Une demande dont les fichiers n'ont jamais fini d'arriver est supprimée après 24 heures. Pour faire supprimer une demande plus tôt, ou savoir ce que nous en conservons, écrivez à support@aerocheck.app ou répondez à l'un de nos e-mails.
+
+### 4.4 Fichiers de la carte (tiles.aerocheck.app)
+Aucun code à nous ne tourne pour ces requêtes et nous n'en gardons aucun journal : Cloudflare sert les fichiers depuis son stockage et son cache. Pour empêcher les abus, Cloudflare compte les requêtes de chaque adresse IP sur une courte durée (une limite de débit) ; nous n'en voyons rien.
 
 
 ## 5.0 Exports et partage

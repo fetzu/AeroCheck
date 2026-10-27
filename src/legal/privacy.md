@@ -56,7 +56,6 @@ Terrain outside Switzerland, sent directly from the app: points along a route yo
 - OpenAIP chart tiles (off by default): the tiles show the area on screen.
 
 ### 3.5 Apple
-- The Apple map layers, the route thumbnails and the maps on share cards (unless you pick a Swiss layer) come from Apple Maps, which receives the area shown.
 - During the first setup, your current position once, to find your country and suggest what to download.
 - Purchases go through the App Store; the app never sees your payment details or your Apple ID.
 
@@ -81,6 +80,16 @@ Only if you send us an aircraft's checklist from the app (Aircraft › “Send u
 - for the check against robots, the app opens a page of this website, aerocheck.app/send/app/, in a small web view, which loads Cloudflare Turnstile as the form does.
 
 Once a request is sent, the app keeps its number and its link on the device (the link in the device's keychain) and lists it under “Your requests”. When the app comes to the foreground, at most every three hours, it asks the request server where each open request stands, sending that link's code and nothing else. A request closed for 30 days leaves the list.
+
+
+### 3.10 The pilot's map (tiles.aerocheck.app)
+The map the app draws itself, also under the route thumbnails and on share cards (unless you pick a Swiss layer); [how it is made](/map). No position, no session token, nothing about you:
+- A region you download: the request names the region's file.
+- Outside the regions on the device, the map is read online: each request names a region's file and the part of it that holds the tiles on screen, so it shows the area you look at, as a map tile request does.
+- At most every six hours, while the app is open, the list of regions and the list of imagery sources (section 3.11), without any position.
+
+### 3.11 Aerial imagery (government services)
+With **Aerial imagery** chosen as the base chart, on the map or on a share card, the device fetches the imagery from the government service that publishes it ([the list](/map#70-aerial-imagery)): the tiles requested show the area on screen. Each service sees the device's IP address, as any website does, under its own rules: Digitaal Vlaanderen, for Flanders, keeps it up to 90 days. Nothing passes through our servers, and the app sends nothing else.
 
 
 ## 4.0 What our servers keep
@@ -114,6 +123,9 @@ Who reads it: Julien Bono, who develops AéroCheck, reads the request and its fi
 The e-mails about your request (received, a question, live) and the club's link go out through [Resend](https://resend.com/legal/privacy-policy), an e-mail service based in the United States, which receives the address, the message and the link to deliver them. Replies reach support@aerocheck.app.
 
 How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files are deleted, and so are every e-mail address, your name, your notes, the name and role of whoever answered for the club, and the messages; what stays on the request server is the request's record (its number, the registrations, the type, the club, its statuses and their dates). The GitHub issue stays as it is (it never held an e-mail address or your name), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
+
+### 4.4 Map files (tiles.aerocheck.app)
+No code of ours runs for these requests and we keep no log of them: Cloudflare serves the files from its storage and its cache. To stop abuse, Cloudflare counts the requests from each IP address over a short window (a rate limit); we see none of it.
 
 
 ## 5.0 Exports and sharing

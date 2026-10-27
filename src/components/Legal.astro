@@ -1,6 +1,6 @@
 ---
 import type { Lang } from '../lib/site';
-type Doc = 'privacy' | 'terms';
+type Doc = 'privacy' | 'terms' | 'map';
 interface Props { lang: Lang; doc?: Doc; }
 const { lang, doc = 'privacy' } = Astro.props;
 // The terms are authored in English only (see the FR and DE notes): the translation would have to be
@@ -14,6 +14,11 @@ const COPY: Record<Doc, Record<Lang, Copy>> = {
     en: { eyebrow: 'Privacy', heading: 'Privacy policy', note: null },
     de: { eyebrow: 'Datenschutz', heading: 'Datenschutzerklärung', note: null },
     fr: { eyebrow: 'Confidentialité', heading: 'Politique de confidentialité', note: null },
+  },
+  map: {
+    en: { eyebrow: 'Map data', heading: 'How this map is made', note: null },
+    de: { eyebrow: 'Kartendaten', heading: 'So entsteht diese Karte', note: null },
+    fr: { eyebrow: 'Données de la carte', heading: 'Comment cette carte est faite', note: null },
   },
   terms: {
     en: { eyebrow: 'Legal', heading: 'Terms of use', note: null },
@@ -46,4 +51,7 @@ const t = COPY[doc][lang];
   .legal-body :global(strong) { color: var(--text); font-weight: 600; }
   .legal-body :global(a) { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--line-2); }
   .legal-body :global(a:hover) { border-color: var(--gold); }
+  .legal-body :global(table) { width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13px; line-height: 1.5; display: block; overflow-x: auto; }
+  .legal-body :global(th) { color: var(--text); font-weight: 600; text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line-2); }
+  .legal-body :global(td) { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 </style>

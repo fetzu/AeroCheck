@@ -56,7 +56,6 @@ Gelände ausserhalb der Schweiz, direkt von der App gesendet: Punkte entlang ein
 - Kartenkacheln von OpenAIP (standardmässig aus): Die Kacheln zeigen den Bereich auf dem Bildschirm.
 
 ### 3.5 Apple
-- Die Kartenebenen von Apple, die Vorschaubilder der Routen und die Karten auf Bildern zum Teilen (ausser Sie wählen eine Schweizer Ebene) stammen von Apple Karten, das den angezeigten Bereich erhält.
 - Bei der ersten Einrichtung einmal Ihre aktuelle Position, um Ihr Land zu bestimmen und vorzuschlagen, was heruntergeladen werden soll.
 - Käufe laufen über den App Store; die App sieht weder Ihre Zahlungsdaten noch Ihre Apple-ID.
 
@@ -81,6 +80,15 @@ Nur wenn Sie uns aus der App die Checkliste eines Flugzeugs senden (Flugzeuge �
 - für die Prüfung gegen Roboter öffnet die App eine Seite dieser Website, aerocheck.app/send/app/, in einer kleinen Webansicht, die Cloudflare Turnstile lädt, wie es das Formular tut.
 
 Ist eine Anfrage gesendet, behält die App ihre Nummer und ihren Link auf dem Gerät (den Link im Schlüsselbund des Geräts) und führt sie unter «Ihre Anfragen» auf. Wenn die App in den Vordergrund kommt, höchstens alle drei Stunden, fragt sie den Anfrageserver, wo jede offene Anfrage steht, und sendet dabei den Code dieses Links und sonst nichts. Eine Anfrage, die seit 30 Tagen abgeschlossen ist, verschwindet aus der Liste.
+
+### 3.10 Die Pilotenkarte (tiles.aerocheck.app)
+Die Karte, die die App selbst zeichnet, auch unter den Vorschaubildern der Routen und auf Bildern zum Teilen (ausser Sie wählen eine Schweizer Ebene); [wie sie entsteht](/de/map). Keine Position, kein Sitzungstoken, nichts über Sie:
+- Eine Region, die Sie herunterladen: Die Abfrage nennt die Datei der Region.
+- Ausserhalb der Regionen auf dem Gerät wird die Karte online gelesen: Jede Abfrage nennt die Datei einer Region und den Teil davon, der die Kacheln auf dem Bildschirm enthält, sie zeigt also den Bereich, den Sie ansehen, wie jede Abfrage von Kartenkacheln.
+- Höchstens alle sechs Stunden, während die App offen ist, die Liste der Regionen und die der Luftbildquellen (Abschnitt 3.11), ohne jede Position.
+
+### 3.11 Luftbilder (behördliche Dienste)
+Mit **Luftbilder** als Grundkarte, auf der Karte oder auf einem Bild zum Teilen, lädt das Gerät die Bilder vom behördlichen Dienst, der sie veröffentlicht ([die Liste](/de/map#70-luftbilder)): Die angeforderten Kacheln zeigen den Bereich auf dem Bildschirm. Jeder Dienst sieht die IP-Adresse des Geräts, wie jede Website, nach seinen eigenen Regeln: Digitaal Vlaanderen, für Flandern, bewahrt sie bis zu 90 Tage auf. Nichts geht über unsere Server, und die App sendet nichts anderes.
 
 
 ## 4.0 Was unsere Server aufbewahren
@@ -114,6 +122,9 @@ Wer das liest: Julien Bono, der AéroCheck entwickelt, liest die Anfrage und ihr
 Die E-Mails zu Ihrer Anfrage (Eingang, eine Rückfrage, in der App) und der Link des Clubs werden über [Resend](https://resend.com/legal/privacy-policy) versandt, einen E-Mail-Dienst mit Sitz in den Vereinigten Staaten, der die Adresse, die Nachricht und den Link erhält, um sie zuzustellen. Antworten erreichen support@aerocheck.app.
 
 Wie lange: Alles wird aufbewahrt, solange die Anfrage offen ist. 90 Tage, nachdem sie abgeschlossen wurde (in der App, abgelehnt oder ein Duplikat), werden die Dateien gelöscht, ebenso jede E-Mail-Adresse, Ihr Name, Ihre Notizen, Name und Funktion der Person, die für den Club geantwortet hat, und die Nachrichten; auf dem Anfrageserver bleibt der Datensatz der Anfrage (ihre Nummer, die Kennzeichen, der Typ, der Club, ihre Status mit Datum). Das GitHub-Issue bleibt, wie es ist (es enthielt nie eine E-Mail-Adresse oder Ihren Namen), damit wir wissen, woher eine Checkliste stammt. Eine Anfrage, deren Dateien nie fertig hochgeladen wurden, wird nach 24 Stunden gelöscht. Um eine Anfrage früher löschen zu lassen oder um zu erfahren, was wir darüber aufbewahren, schreiben Sie an support@aerocheck.app oder antworten Sie auf eine unserer E-Mails.
+
+### 4.4 Kartendateien (tiles.aerocheck.app)
+Für diese Abfragen läuft kein Code von uns, und wir führen kein Protokoll darüber: Cloudflare liefert die Dateien aus seinem Speicher und seinem Cache. Um Missbrauch zu verhindern, zählt Cloudflare die Abfragen jeder IP-Adresse über eine kurze Zeit (eine Ratenbegrenzung); wir sehen davon nichts.
 
 
 ## 5.0 Export und Teilen

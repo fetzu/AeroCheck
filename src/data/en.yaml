@@ -225,6 +225,7 @@ footer:
   in: "in"
   city: "Switzerland"
   privacy: "Privacy"
+  map: "Map data"
   terms: "Terms"
   support: "Support"
   license: "MIT"

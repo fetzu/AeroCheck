@@ -678,7 +678,7 @@ Ist nichts von der Route auf dem Bildschirm, sagt ein Hinweis, wo sie liegt («R
 
 **Karte** (die Ebenentaste auf der KARTE des Cockpits) öffnet alles, was das Aussehen der Karte betrifft, in einem einzigen Fenster:
 
-- **Grundkarte**: **ICAO-Karte/Segelflugkarte** (die Schweizer Luftfahrtkarte 1:500'000, die beim Hineinzoomen zur Segelflugkarte 1:300'000 wird, dann bei den stärksten Zoomstufen zur Landeskarte, ausser wenn **ICAO-Kartenebene erzwingen** eingeschaltet ist), **Landeskarte**, **SWISSIMAGE**, **Apple Karten** und **Apple Karten (Satellit)**. Die Schweizer Ebenen decken die Schweiz und einen Rand um sie ab; über ihren Rand hinaus liegt die Karte von Apple darunter (ihre Satellitenkarte unter SWISSIMAGE), nie Schwarz. Im Offline-Modus erscheint nur die gespeicherte ICAO-Karte, ohne Apples Karte darunter. Jede Karte der App wird gleich gezeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor und die Koordinatenauswahl. Die gewählte Karte bleibt auf dem Gerät gespeichert: Die Karte öffnet sich mit ihr, im Cockpit und in Planen › Karte.
+- **Grundkarte**: **ICAO-Karte/Segelflugkarte** (die Schweizer Luftfahrtkarte 1:500'000, die beim Hineinzoomen zur Segelflugkarte 1:300'000 wird, dann bei den stärksten Zoomstufen zur Landeskarte, ausser wenn **ICAO-Kartenebene erzwingen** eingeschaltet ist), **Landeskarte**, **SWISSIMAGE**, die **Pilotenkarte** (die eigene Karte von AéroCheck zum Fliegen, siehe [Die Pilotenkarte](#die-pilotenkarte)) und **Luftbilder** (offene behördliche Orthofotos, siehe [Luftbilder](#luftbilder)). Die Schweizer Ebenen decken die Schweiz und einen Rand um sie ab; über ihren Rand hinaus liegt die Pilotenkarte darunter, nie Schwarz. Im Offline-Modus erscheint nur die gespeicherte ICAO-Karte, über der Pilotenkarte der heruntergeladenen Regionen. Jede Karte der App wird gleich gezeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor und die Koordinatenauswahl. Die gewählte Karte bleibt auf dem Gerät gespeichert: Die Karte öffnet sich mit ihr, im Cockpit und in Planen › Karte.
 - **Voreinstellungen**: **Reiseflug** zeigt Lufträume und Meldepunkte; **Anflug** fügt Flugplätze, Hindernisse, die Platzrunden und die An- und Abflugrouten hinzu; **Alles** zeigt alle Markierungen, und auch die Platzrunden und Routen. Die Lufträume bleiben in allen drei eingeblendet.
 - **Luftraum & Karten**: **Luftraum** (die Lufträume von OpenAIP, als Vektorebene gezeichnet) und **Kartenkacheln** (die Rasterkacheln von OpenAIP, standardmässig aus). Ist der Luftraum eingeschaltet und sind keine Daten heruntergeladen, sagt es das Fenster und bietet **Daten herunterladen…** an.
 - **Kartenmarkierungen**, aus den heruntergeladenen OpenAIP-Daten (siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher)): **Flugplätze** (mit Frequenzen per Tippen), **Navigationshilfen** (VOR, DME, NDB), **Meldepunkte** und **Hindernisse** (Türme, Masten, Windturbinen; standardmässig aus, da sie dicht stehen). **Alle einblenden** oder **Alle ausblenden**.
@@ -686,6 +686,21 @@ Ist nichts von der Route auf dem Bildschirm, sagt ein Hinweis, wo sie liegt («R
 - **Flug**: **Kursvektor**.
 
 Am Fuss des Fensters stehen die Quellen, aus denen es zeichnet: open flightmaps (mit dem AIRAC-Zyklus auf dem Gerät) und OpenAIP.
+
+### Die Pilotenkarte
+
+Die **Pilotenkarte** ist die eigene Karte von AéroCheck zum Fliegen, auf dem Gerät aus OpenStreetMap gezeichnet, mit Relief: Städte und Dörfer nach ihrer Grösse, Hauptstrassen, Eisenbahnen, Flüsse und Seen, Wälder, Siedlungsgebiete, Gletscher, Grenzen, Seilbahnen und Gipfel mit ihrer Höhe in Fuss, in der Cockpit-Schrift B612. Sie erscheint überall, wo die App eine Karte zeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor, die Koordinatenauswahl, die Karte des Flugwegs im Flugbuch, die Vorschaubilder der Routen und die Bilder zum Teilen.
+
+Sie kommt in Regionen, eine pro Land (zuerst die Schweiz mit Liechtenstein). Wo keine Region auf dem Gerät ist, zeigt die Karte den Weltumriss, den die App mitbringt: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte.
+
+- **Online** liest die Karte die Kacheln einer Region, wie der Bildschirm sie verlangt, innerhalb eines monatlichen Kontingents pro Gerät: 1'500 Kacheln, oder 15'000 mit AéroCheck Pro. Bei 80 % bietet eine Zeile unter der Karte den Download der Region an; ist das Kontingent aufgebraucht, behält die Karte die heruntergeladenen Regionen und zeigt anderswo den Weltumriss, bis zum 1. des nächsten Monats.
+- **Heruntergeladen** funktioniert eine Region offline und zählt nie zum Kontingent. Laden Sie eine unter **Einstellungen › Daten & Speicher › Pilotenkarte** herunter; ein geplanter Flug bietet die Regionen entlang seiner Route mit seinen übrigen Daten an (siehe [Daten herunterladen](#daten-herunterladen)).
+
+Eine heruntergeladene Region aktualisiert sich alle drei Monate selbst, im WLAN, nie im Flug; eine Region, deren Karte sich nicht geändert hat, wird nie erneut heruntergeladen. Wie die Karte entsteht und was sie von OpenStreetMap behält, steht auf [dieser Seite](/de/map).
+
+### Luftbilder
+
+**Luftbilder** zeigt offene behördliche Orthofotos: die von swisstopo in der Schweiz und die von Österreich, Frankreich, den Niederlanden, Luxemburg, Belgien, Tschechien, Polen, Südtirol, zwölf deutschen Ländern und den USA. Jede Quelle ist an der Grenze des Gebiets zugeschnitten, das sie abdeckt, und wird am Fuss der Karte genannt, solange sie zu sehen ist. Wo keine Behörde Bilder veröffentlicht, die die App nutzen darf, erscheint stattdessen die Pilotenkarte. Die Bilder kommen vom Dienst jeder Behörde, solange sie auf dem Bildschirm sind, und brauchen deshalb eine Verbindung: offline nur das, was das Gerät schon gezeigt hat. Die Quellen und ihre Lizenzen stehen unter **Einstellungen › Info › Luftbilder** und auf [der Kartenseite](/de/map#70-luftbilder).
 
 Altern die heruntergeladenen Luftraumdaten, sitzt eine bernsteinfarbene Markierung auf der Taste **Karte** (oder der Ebenentaste), und das Fenster erklärt es («Luftraumdaten veraltet») mit **Aktualisieren**, damit Sie wissen, dass das Gezeichnete jüngste Änderungen möglicherweise nicht wiedergibt.
 
@@ -804,7 +819,7 @@ Die Positionen eines externen GPS-Empfängers zählen als Satellitenpositionen. 
 
 ### Offline-Karten
 
-Die Schweizer ICAO-Karte und die Segelflugkarte lassen sich unter **Einstellungen › Navigation & Karten › Offline-Karten** für die Offline-Nutzung speichern (bis etwa 250 MB), mit **Offline-Modus**, um nur den Offline-Speicher zu nutzen. Eine gespeicherte Karte kommt vom Gerät, die Karte funktioniert also ohne Verbindung. In Planen › Karte zeigt unten links die Markierung **OFFLINE** oder **GESPEICHERT**, welcher Fall vorliegt; tippen Sie darauf für die Details. Die KARTE des Cockpits zeigt nichts, solange sie die Karte zeichnen kann, und **KARTE OFFLINE** in ihrem Statusfeld, wenn sie es nicht kann; die Details gibt es mit einem Tippen darauf und im Fenster Karte.
+Die Pilotenkarte funktioniert offline in den heruntergeladenen Regionen (siehe [Die Pilotenkarte](#die-pilotenkarte)). Die Schweizer ICAO-Karte und die Segelflugkarte lassen sich unter **Einstellungen › Navigation & Karten › Offline-Karten** für die Offline-Nutzung speichern (bis etwa 250 MB), mit **Offline-Modus**, um nur den Offline-Speicher zu nutzen. Eine gespeicherte Karte kommt vom Gerät, die Karte funktioniert also ohne Verbindung. In Planen › Karte zeigt unten links die Markierung **OFFLINE** oder **GESPEICHERT**, welcher Fall vorliegt; tippen Sie darauf für die Details. Die KARTE des Cockpits zeigt nichts, solange sie die Karte zeichnen kann, und **KARTE OFFLINE** in ihrem Statusfeld, wenn sie es nicht kann; die Details gibt es mit einem Tippen darauf und im Fenster Karte.
 
 ---
 
@@ -1039,13 +1054,15 @@ AéroCheck stützt sich auf mehrere externe Datensätze, damit die Navigation ü
 - **Platzrunden und VFR-Routen**: die Platzrunden von open flightmaps (mit ihrer Höhe), die VFR-An- und -Abflugrouten und ihre Sektoren, in den {ofmCountries} Ländern, die open flightmaps abdeckt. Nur unverbindlich: open flightmaps ist eine Community-Quelle, nicht für die primäre Navigation. Die Daten folgen dem AIRAC-Zyklus (alle 28 Tage ein neuer) und werden wie der Rest offline gehalten (siehe [Platzrunden und VFR-Routen](#platzrunden-und-vfr-routen)).
 - **Platzrunden in den USA**: die Seite der Platzrunde jeder Piste und die Platzrundenhöhe, aus dem NASR der FAA (gemeinfrei), über den AéroCheck-Dienst. Abgerufen, wenn ein US-Flugplatz sie zum ersten Mal braucht, danach höchstens einmal pro Woche.
 - **Karten**: die Schweizer ICAO-Karte, die Landeskarte und die Segelflugkarte von swisstopo.
+- **Die Pilotenkarte**: die eigene Karte von AéroCheck, aus OpenStreetMap (© OpenStreetMap-Mitwirkende, ODbL) und dem Relief von Mapterhorn, jeden Monat pro Land erstellt; siehe [Die Pilotenkarte](#die-pilotenkarte) und [wie sie entsteht](/de/map).
+- **Luftbilder**: offene behördliche Orthofotos, jedes mit dem Vermerk seines Anbieters; siehe [Luftbilder](#luftbilder).
 - **Offizielle Karten**: ein Link zur Karte jedes Flugplatzes auf der Website ihres Herausgebers in {chartCountries} Ländern (DFS, SIA, skyguide auf SkyBriefing, Austro Control, die FAA und die AIS von {chartOthers} weiteren Ländern), nie die Karte selbst; siehe [Offizielle Karte](#offizielle-karte) und, Land für Land, [Länder](/de/countries).
 - **Briefing-Links**: die offiziellen Seiten hinter den Blöcken von Vorbereiten (Wetter, NOTAM, Luftraumstatus, Gebietsvorhersage, Flugplanaufgabe, mit der Frist für die Flugplanaufgabe jedes Landes) und die Regel und die Nummern jedes Landes zum Schliessen eines ATC-Flugplans, aus dem Briefing-Verzeichnis des AéroCheck-Dienstes. Es wird wöchentlich auf dem AéroCheck-Server aus den eigenen Herausgebern jedes Landes erstellt, jeder Link geprüft, und die App bringt eine Kopie mit, damit Links und Nummern schon vor dem ersten Download da sind. Jeder Link nennt seinen Herausgeber.
 - **Quellen der Landetaxen**: wo jeder Flugplatz seinen eigenen Tarif veröffentlicht (Links und Datumsangaben, nie Beträge), vom AéroCheck-Dienst.
 
 ### Daten herunterladen
 
-Laden Sie Luftfahrtdaten **nach Land oder Kontinent** unter **Einstellungen › Daten & Speicher** (oder **Navigation & Karten**) herunter. Die Einführung bietet ein empfohlenes Paket für Ihre Region und ihre Nachbarn an, damit Sie vom ersten Flug an abgedeckt sind. Lufträume, Navigationshilfen, Hindernisse, Meldepunkte und Flugplätze werden pro Land zusammen heruntergeladen, ebenso die VFR-Verfahren für die Länder, die open flightmaps abdeckt (die Download-Seite sagt, welche Ihrer Länder sie erhalten).
+Laden Sie Luftfahrtdaten **nach Land oder Kontinent** unter **Einstellungen › Daten & Speicher** (oder **Navigation & Karten**) herunter. Die Einführung bietet ein empfohlenes Paket für Ihre Region und ihre Nachbarn an, damit Sie vom ersten Flug an abgedeckt sind. Lufträume, Navigationshilfen, Hindernisse, Meldepunkte und Flugplätze werden pro Land zusammen heruntergeladen, ebenso die VFR-Verfahren für die Länder, die open flightmaps abdeckt (die Download-Seite sagt, welche Ihrer Länder sie erhalten). Die **Pilotenkarte** wird pro Region heruntergeladen, auf derselben Seite, und wenn Sie einen Flug planen, fügt das Banner, das die fehlenden Daten anbietet, die Regionen der Pilotenkarte entlang der Route hinzu («Pilotenkarte: Schweiz»).
 
 Wenn Sie AéroCheck schon vor 6.2.0 verwendet haben, sind Ihre Länder da, ihre VFR-Verfahren aber noch nicht: **Neu laden** in der Zeile **VFR-Verfahren (open flightmaps)** von Daten & Speicher holt sie für Ihre Länder (ebenso ein neuer Download unter Navigation & Karten).
 
@@ -1066,6 +1083,8 @@ Die VFR-Verfahren altern nach AIRAC-Zyklus statt nach Datum. Ihre Zeile in Daten
 > Auch aktuelle Daten sind unverbindlich. Gleichen Sie sie immer mit den offiziellen Karten und den NOTAM ab.
 
 ### Offline-Karten und Speicher
+
+**Pilotenkarte**, zuoberst in **Daten & Speicher**, listet die Regionen auf: jede mit ihrem Zustand (**Heruntergeladen**, **Aktualisierung verfügbar** oder nicht heruntergeladen), ihrem Erstellungsdatum und ihrer Grösse, und **Herunterladen**; das Menü einer heruntergeladenen Region bietet **Aktualisieren**, wenn eine neuere Version vorliegt, und **Löschen**. Die Schweiz mit Liechtenstein braucht etwa 90 MB. Unter den Regionen die Online-Nutzung des Monats («Diesen Monat online: 312 von 1'500 Kartenkacheln»).
 
 Speichern Sie die Schweizer ICAO-Karte und die Segelflugkarte für die Offline-Nutzung (~100–250 MB). **Daten & Speicher** listet jeden Datensatz mit seinen Ländern, seiner Grösse und seiner Aktualität auf (**Luftraum**, **Navigationshilfen**, **Hindernisse**, **Meldepunkte**, **Flugplatzdaten** von OpenAIP, **Flugplätze** von OurAirports und **VFR-Verfahren (open flightmaps)**) und lässt Sie gespeicherte Daten aktualisieren oder löschen, um Platz freizugeben. Neue Flugplatzdaten (Pisten, Frequenzen) erscheinen, sobald sie heruntergeladen sind, ohne Neustart der App.
 
@@ -1097,7 +1116,7 @@ Die Zeile hiess vor 6.4.0 Flugplanung. **Ihr Name** (für die Spalte PIC und das
 
 ### Daten & Speicher
 
-Aktualität der Luftfahrtdaten (eine Zeile pro Datensatz, die VFR-Verfahren mit ihrem AIRAC-Zyklus), Downloads pro Land und Kontinent, Offline-Kartenspeicher und Speicherverwaltung. Siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher).
+Die Regionen der **Pilotenkarte** und die Online-Nutzung des Monats, die Aktualität der Luftfahrtdaten (eine Zeile pro Datensatz, die VFR-Verfahren mit ihrem AIRAC-Zyklus), Downloads pro Land und Kontinent, Offline-Kartenspeicher und Speicherverwaltung. Siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher).
 
 ### Begleitmodus
 
@@ -1105,4 +1124,4 @@ Koppeln Sie ein iPhone und ein iPad als synchronisierten zweiten Bildschirm (Wi-
 
 ### Info
 
-App-Version, Website, Autor und Open-Source-Informationen; **LERNEN UND ÜBEN**, mit **Einführung wiederholen**, der geführten Trockenübung, **Teil für Teil** und dem freien Üben (siehe [Trockenübung](#trockenübung)); **Rechtliches** (der Sicherheitshinweis, die Nutzungsbedingungen und die Datenschutzerklärung) und die Datenquellen (darunter die Herausgeber der Briefing-Links, auf jedem Link genannt, und das NASR der FAA für die Platzrunden in den USA); und die versteckten **Entwickleroptionen** (tippen Sie fünfmal auf die Versionsnummer, um sie freizuschalten).
+App-Version, Website, Autor und Open-Source-Informationen; **LERNEN UND ÜBEN**, mit **Einführung wiederholen**, der geführten Trockenübung, **Teil für Teil** und dem freien Üben (siehe [Trockenübung](#trockenübung)); **Rechtliches** (der Sicherheitshinweis, die Nutzungsbedingungen und die Datenschutzerklärung) und die Datenquellen (darunter die Herausgeber der Briefing-Links, auf jedem Link genannt, das NASR der FAA für die Platzrunden in den USA, OpenStreetMap, Mapterhorn, MapLibre und B612 für die Pilotenkarte, und **Luftbilder**, jede Quelle mit ihrem Vermerk und ihrer Lizenz); und die versteckten **Entwickleroptionen** (tippen Sie fünfmal auf die Versionsnummer, um sie freizuschalten).

@@ -1104,7 +1104,7 @@ Die Einstellungen sind ein eigener Tab, gegliedert in eigene Seiten. Drei frühe
 
 ### Navigation & Karten
 
-**ICAO-Kartenebene erzwingen** und der **Kursvektor**; **Offline-Karten** (Offline-Modus, Kartenspeicher, Aktualisieren, Löschen, Herunterladen); die Luftraumebene von OpenAIP, die Ebenen für Navigationshilfen, Hindernisse und Meldepunkte, und **Online-Luftraumdaten** (Kontrollzonen in der Nähe, online geholt, wenn kein Luftraum heruntergeladen ist); die Schalter für **Flugplatzverfahren** (wie im Fenster Karte); die Flugplatzdaten; die Länder, die Sie herunterladen, mit einer roten Zeile, wenn eine Aktualisierung fehlgeschlagen ist.
+**ICAO-Kartenebene erzwingen** und der **Kursvektor**; die Regionen der **Pilotenkarte** (wie in Daten & Speicher); **Offline-Karten** (Offline-Modus, Kartenspeicher, Aktualisieren, Löschen, Herunterladen); die Luftraumebene von OpenAIP, die Ebenen für Navigationshilfen, Hindernisse und Meldepunkte, und **Online-Luftraumdaten** (Kontrollzonen in der Nähe, online geholt, wenn kein Luftraum heruntergeladen ist); die Schalter für **Flugplatzverfahren** (wie im Fenster Karte); die Flugplatzdaten; die Länder, die Sie herunterladen, mit einer roten Zeile, wenn eine Aktualisierung fehlgeschlagen ist.
 
 ### Flüge
 

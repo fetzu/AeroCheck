@@ -1104,7 +1104,7 @@ Settings is a tab of its own, organised into dedicated pages. Three former setti
 
 ### Navigation & Maps
 
-**Force ICAO Chart Layer** and the **Track vector**; **Offline Maps** (offline mode, chart cache, update, delete, download); the OpenAIP airspace overlay, the navaid, obstacle and reporting-point layers, and **Online Airspace Data** (nearby control zones fetched online when no airspace is downloaded); the **Aerodrome procedures** switches (as in the Map sheet); airport data; the countries you download, with a red line when an update failed.
+**Force ICAO Chart Layer** and the **Track vector**; the **Pilot's map** regions (as in Data & Storage); **Offline Maps** (offline mode, chart cache, update, delete, download); the OpenAIP airspace overlay, the navaid, obstacle and reporting-point layers, and **Online Airspace Data** (nearby control zones fetched online when no airspace is downloaded); the **Aerodrome procedures** switches (as in the Map sheet); airport data; the countries you download, with a red line when an update failed.
 
 ### Flights
 

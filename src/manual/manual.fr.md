@@ -1104,7 +1104,7 @@ Les réglages forment un onglet à part, organisé en pages dédiées. Trois anc
 
 ### Navigation & Cartes
 
-**Forcer la couche OACI** et le **Vecteur de route** ; **Cartes hors ligne** (mode hors ligne, cache des cartes, mise à jour, suppression, téléchargement) ; la superposition d'espaces aériens OpenAIP, les couches de balises, d'obstacles et de points de report, et **Données aéronautiques en ligne** (les zones de contrôle proches, récupérées en ligne quand aucun espace aérien n'est téléchargé) ; les interrupteurs des **Procédures d'aérodrome** (comme dans la feuille Carte) ; les données d'aérodromes ; les pays que vous téléchargez, avec une ligne rouge quand une mise à jour a échoué.
+**Forcer la couche OACI** et le **Vecteur de route** ; les régions de la **Carte du pilote** (comme dans Données et stockage) ; **Cartes hors ligne** (mode hors ligne, cache des cartes, mise à jour, suppression, téléchargement) ; la superposition d'espaces aériens OpenAIP, les couches de balises, d'obstacles et de points de report, et **Données aéronautiques en ligne** (les zones de contrôle proches, récupérées en ligne quand aucun espace aérien n'est téléchargé) ; les interrupteurs des **Procédures d'aérodrome** (comme dans la feuille Carte) ; les données d'aérodromes ; les pays que vous téléchargez, avec une ligne rouge quand une mise à jour a échoué.
 
 ### Vols
 

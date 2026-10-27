@@ -566,7 +566,7 @@ struct CoordinatePickerView: View {
             ZStack {
                 // The one map every surface draws with, the chart only. (6.7.0)
                 let policy = ChartPolicy.current(settings: appState.settings, offline: offlineMapManager)
-                MapEngineView(map: AeroMapView(
+                AeroMapView(
                     layerType: policy.layer(for: appState.navigationMapState.selectedLayer.shown(over: region)),
                     mapState: mapState,
                     currentLocation: nil,
@@ -576,7 +576,7 @@ struct CoordinatePickerView: View {
                     isStrictOfflineMode: policy.strictOffline,
                     hasSegelflugCache: policy.segelflugCache,
                     features: .picker
-                ))
+                )
                 .ignoresSafeArea()
 
                 // Crosshair

@@ -97,61 +97,7 @@ final class AirfieldSearchTests: XCTestCase {
         XCTAssertEqual(found.count, AirfieldSearch.limit)
     }
 
-    // MARK: - Where the map goes
-
-    /// 8 NM across the map's narrower side, whatever its shape: the camera's distance from the
-    /// proportion the map sees now. A fixed 13 km showed 3.5 NM across a phone (simulator, 11 Oct).
-    func testTheCameraDistanceShowsEightNMAcrossTheNarrowerSide() throws {
-        XCTAssertEqual(AirfieldSearch.spanNM, 8)
-        // A map that sees 0.1° north to south from 10 km.
-        let seen = 0.1, at = 10_000.0
-        func across(_ size: CGSize) throws -> (width: Double, height: Double) {
-            let distance = try XCTUnwrap(PendingCameraMove.distance(across: 8, viewSize: size,
-                                                                    seenLatitudeDelta: seen, at: at))
-            let heightNM = seen * 60 * distance / at
-            return (heightNM * size.width / size.height, heightNM)
-        }
-        let kneeboard = try across(CGSize(width: 820, height: 1_180))    // an iPad in portrait
-        XCTAssertEqual(kneeboard.width, 8, accuracy: 0.01, "portrait: the width has the 8 NM")
-        let side = try across(CGSize(width: 1_180, height: 700))         // an iPad on its side
-        XCTAssertEqual(side.height, 8, accuracy: 0.01, "landscape: the height has them")
-        let phone = try across(CGSize(width: 402, height: 600))
-        XCTAssertEqual(phone.width, 8, accuracy: 0.01)
-        XCTAssertNil(PendingCameraMove.distance(across: 8, viewSize: CGSize(width: 820, height: 1_180),
-                                                seenLatitudeDelta: 0, at: at), "nothing measured yet")
-        XCTAssertNil(PendingCameraMove.distance(across: 8, viewSize: .zero, seenLatitudeDelta: seen, at: at))
-    }
-
-    /// Within the chart's zoom range: the ICAO chart and its glider chart stop at 65 km
-    /// (`AeroMapView.cameraZoomRange`), further out than 8 NM; the national map comes closer.
-    func testTheDistanceIsHeldWithinTheChartsRange() {
-        let icao = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)
-        let national = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)
-        XCTAssertEqual(PendingCameraMove.held(30_000, within: icao), 65_000)
-        XCTAssertEqual(PendingCameraMove.held(30_000, within: national), 30_000)
-        XCTAssertEqual(PendingCameraMove.held(30_000, within: nil), 30_000)
-        XCTAssertEqual(PendingCameraMove.held(30_000, within: MKMapView().cameraZoomRange), 30_000,
-                       "a map's own range has no upper bound: 0, which held the camera at 56 m")
-    }
-
-    /// On a map: centred on the aerodrome, not down at the street.
-    @MainActor
-    func testTheCameraGoesToTheAerodrome() throws {
-        let lsgc = try XCTUnwrap(airports.first { $0.ident == "LSGC" })
-        let move = PendingCameraMove(to: lsgc)
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1_180))
-        window.isHidden = false
-        addTeardownBlock { @MainActor in window.isHidden = true }
-        let map = MKMapView(frame: window.bounds)
-        window.addSubview(map)
-        map.layoutIfNeeded()
-
-        XCTAssertTrue(move.apply(to: map))
-        XCTAssertEqual(map.camera.centerCoordinate.latitude, lsgc.latitude, accuracy: 1e-4)
-        XCTAssertEqual(map.camera.centerCoordinate.longitude, lsgc.longitude, accuracy: 1e-4)
-        XCTAssertGreaterThan(map.camera.centerCoordinateDistance, 5_000, "not the street")
-        XCTAssertFalse(move.apply(to: MKMapView()), "no size yet: left pending, as a fit is")
-    }
+    // MARK: - The callout
 
     /// Its callout opens when the airport layer draws its marker; otherwise the map only goes there.
     func testTheCalloutIsAskedForOnlyWhereTheMapDrawsAMarker() throws {
@@ -162,50 +108,19 @@ final class AirfieldSearchTests: XCTestCase {
         XCTAssertFalse(AirfieldSearch.hasMarker(heliport, airportsLayerOn: true))
     }
 
-    /// The callout waits for the camera and the marker, which comes with the map's next recompute,
-    /// then opens as a tap would; one whose marker never came is given up.
-    @MainActor
-    func testThePendingCalloutOpensOnItsMarkerOnceThereOrIsGivenUp() throws {
+    /// The callout waits for the camera: the map's centre within a tenth of its span of the aerodrome. A marker on
+    /// screen at the edge of where the map was isn't enough (`PilotMapMarkers.openPendingCallout`).
+    func testTheCalloutWaitsForTheCameraToArrive() throws {
         let lsgc = try XCTUnwrap(airports.first { $0.ident == "LSGC" })
         let lszq = try XCTUnwrap(airports.first { $0.ident == "LSZQ" })
-        let lsgn = try XCTUnwrap(airports.first { $0.ident == "LSGN" })
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1_180))
-        window.isHidden = false
-        addTeardownBlock { @MainActor in window.isHidden = true }
-        let map = MKMapView(frame: window.bounds)
-        window.addSubview(map)
-        func show(_ airport: Airport, meters: Double) {
-            map.setRegion(MKCoordinateRegion(center: airport.coordinate, latitudinalMeters: meters,
-                                             longitudinalMeters: meters), animated: false)
-            map.layoutIfNeeded()
-        }
-        let state = SharedMapState()
-        let now = Date()
-        let marker = AirportAnnotation(airport: lsgc)
-
-        // The camera still where the pilot was, LSGC's marker on screen at the edge: it waits.
-        show(lszq, meters: 80_000)
-        map.addAnnotation(marker)
-        state.pendingCallout = PendingCallout(lsgc, until: now.addingTimeInterval(AirfieldSearch.calloutWait))
-        AirfieldSearch.openPendingCallout(on: map, mapState: state, now: now)
-        XCTAssertNotNil(state.pendingCallout, "the camera isn't there yet: it waits")
-        XCTAssertTrue(map.selectedAnnotations.isEmpty)
-
-        // There, without its marker yet: it waits.
-        map.removeAnnotation(marker)
-        show(lsgc, meters: 15_000)
-        AirfieldSearch.openPendingCallout(on: map, mapState: state, now: now.addingTimeInterval(1))
-        XCTAssertNotNil(state.pendingCallout, "no marker yet: it waits")
-
-        map.addAnnotation(marker)
-        AirfieldSearch.openPendingCallout(on: map, mapState: state, now: now.addingTimeInterval(2))
-        XCTAssertNil(state.pendingCallout, "the camera there, its marker came: done")
-        XCTAssertTrue(map.selectedAnnotations.contains { $0 === marker }, "selected, as a tap would")
-
-        map.deselectAnnotation(marker, animated: false)
-        state.pendingCallout = PendingCallout(lsgn, until: now.addingTimeInterval(AirfieldSearch.calloutWait))
-        AirfieldSearch.openPendingCallout(on: map, mapState: state, now: now.addingTimeInterval(AirfieldSearch.calloutWait + 1))
-        XCTAssertNil(state.pendingCallout, "the marker never came (the layer switched off): given up")
-        XCTAssertTrue(map.selectedAnnotations.isEmpty)
+        let pending = PendingCallout(lsgc, until: Date().addingTimeInterval(AirfieldSearch.calloutWait))
+        let span = MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.3)
+        XCTAssertTrue(AirfieldSearch.hasArrived(at: pending, center: lsgc.coordinate, span: span))
+        let near = CLLocationCoordinate2D(latitude: lsgc.latitude + 0.019, longitude: lsgc.longitude - 0.029)
+        XCTAssertTrue(AirfieldSearch.hasArrived(at: pending, center: near, span: span), "within a tenth of the span")
+        XCTAssertFalse(AirfieldSearch.hasArrived(at: pending, center: lszq.coordinate, span: span),
+                       "the camera still where the pilot was: it waits")
+        XCTAssertFalse(AirfieldSearch.hasArrived(
+            at: pending, center: CLLocationCoordinate2D(latitude: lsgc.latitude + 0.021, longitude: lsgc.longitude), span: span))
     }
 }

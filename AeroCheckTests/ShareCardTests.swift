@@ -457,8 +457,11 @@ final class ShareCardTests: XCTestCase {
         XCTAssertEqual(ShareCardFigures.credit(mapLayer: .segelflugkarte, terrain: nil), "Chart © swisstopo / BAZL")
         XCTAssertEqual(ShareCardFigures.credit(mapLayer: .swissimage, terrain: .openMeteo),
                        "Imagery © swisstopo · Elevation: Open-Meteo")
-        XCTAssertEqual(ShareCardFigures.credit(mapLayer: .standard, terrain: nil), "Map: Apple Maps")
-        XCTAssertEqual(ShareCardFigures.credit(mapLayer: .satellite, terrain: nil), "Map: Apple Maps")
+        XCTAssertEqual(ShareCardFigures.credit(mapLayer: .standard, terrain: nil), "Map © OpenStreetMap contributors, Mapterhorn")
+        XCTAssertEqual(ShareCardFigures.credit(mapLayer: .satellite, terrain: nil), "Map © OpenStreetMap contributors, Mapterhorn",
+                       "no imagery source on the card: the pilot's map alone")
+        XCTAssertEqual(ShareCardFigures.credit(map: .aerialImagery(["©swisstopo", "Datenquelle: basemap.at"]), terrain: nil),
+                       "Map © OpenStreetMap contributors, Mapterhorn · Imagery: ©swisstopo, Datenquelle: basemap.at")
         XCTAssertEqual(ShareCardFigures.credit(mapLayer: nil, terrain: .openMeteo), "Elevation: Open-Meteo")
         XCTAssertNil(ShareCardFigures.credit(mapLayer: nil, terrain: nil))
     }
@@ -537,7 +540,8 @@ final class ShareCardTests: XCTestCase {
         "Map unavailable (offline?)": "Carte indisponible (hors ligne ?)",
         "Chart © swisstopo / BAZL": "Carte © swisstopo / BAZL",
         "Imagery © swisstopo": "Imagerie © swisstopo",
-        "Map: Apple Maps": "Carte : Plans d’Apple",
+        "shareCard.credit.pilotMap": "Carte © les contributeurs d'OpenStreetMap, Mapterhorn",
+        "shareCard.credit.aerialImagery": "Imagerie : %@",
         "Terrain © swisstopo": "Relief © swisstopo",
         "Elevation: Open-Meteo": "Relief : Open-Meteo",
         "Share Card": "Carte de partage",
@@ -871,7 +875,7 @@ final class ShareCardTests: XCTestCase {
         XCTAssertEqual(ShareCardMapZoom.choice(for: .swissimage, lonSpan: 0.115, outputWidth: 2032)?.source, .swissimage)
         XCTAssertNil(ShareCardMapZoom.choice(for: .standard, lonSpan: 0.115, outputWidth: 2032))
         XCTAssertNil(ShareCardMapZoom.choice(for: .satellite, lonSpan: 0.115, outputWidth: 2032))
-        XCTAssertEqual(ShareCardMapLayer.standard.credit, .appleMaps)
+        XCTAssertEqual(ShareCardMapLayer.standard.credit, .pilotMap)
         XCTAssertEqual(ShareCardMapLayer.icao.tileSource?.maxZoom, 11, "the layer serves 11 (B9)")
     }
 

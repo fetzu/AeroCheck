@@ -355,7 +355,7 @@ struct FlightPlanMapBuilderView: View {
     private var mapArea: some View {
         // The one map every surface draws with, the route builder's features. (6.7.0)
         let policy = ChartPolicy.current(settings: appState.settings, offline: offlineMapManager)
-        return MapEngineView(map: AeroMapView(
+        return AeroMapView(
             layerType: policy.layer(for: appState.navigationMapState.selectedLayer.shown(over: region)),
             mapState: mapState,
             currentLocation: nil,
@@ -386,7 +386,7 @@ struct FlightPlanMapBuilderView: View {
                 onPointAdd: appState.isFlightActive ? nil : { point in addPoint(point) }),
             selectedAirspaceId: selectedConflictId,
             liveRegion: liveRegion
-        ))
+        )
         .onChange(of: fitRouteToken) { _, _ in frame(waypoints.map(\.coordinate),
                                                     padding: UIEdgeInsets(top: 50, left: 50, bottom: 70, right: 50)) }
         .onChange(of: focusToken) { _, _ in

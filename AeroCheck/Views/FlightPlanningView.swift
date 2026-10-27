@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import MapLibre
 import UIKit
 import UniformTypeIdentifiers
 
@@ -1022,17 +1023,25 @@ final class RouteSnapshotCache: @unchecked Sendable {
         return img
     }
 
+    /// The route over the pilot's map (6.8.0: MapLibre's snapshot, in place of Apple's muted map).
+    @MainActor
     private func render(coords: [CLLocationCoordinate2D], size: CGSize, scale: CGFloat) async -> UIImage? {
-        let options = MKMapSnapshotter.Options()
-        options.region = Self.region(for: coords)
-        options.size = size
+        PilotMapStyle.prepare()
+        guard let styleURL = PilotMapStyle.url else { return nil }
+        let region = Self.region(for: coords)
+        let options = MLNMapSnapshotOptions(styleURL: styleURL, camera: MLNMapCamera(), size: size)
+        options.coordinateBounds = MLNCoordinateBounds(
+            sw: CLLocationCoordinate2D(latitude: region.center.latitude - region.span.latitudeDelta / 2,
+                                       longitude: region.center.longitude - region.span.longitudeDelta / 2),
+            ne: CLLocationCoordinate2D(latitude: region.center.latitude + region.span.latitudeDelta / 2,
+                                       longitude: region.center.longitude + region.span.longitudeDelta / 2))
         options.scale = scale
-        options.mapType = .mutedStandard
-        options.pointOfInterestFilter = .excludingAll
-        options.traitCollection = UITraitCollection(userInterfaceStyle: .dark)
-        let snapshotter = MKMapSnapshotter(options: options)
-        let snapshot: MKMapSnapshotter.Snapshot? = await withCheckedContinuation { cont in
-            snapshotter.start(with: DispatchQueue.global(qos: .userInitiated)) { snap, _ in cont.resume(returning: snap) }
+        // A thumbnail: no logo and no credit drawn into it, too small to read (About and the map credit the sources).
+        options.showsLogo = false
+        options.showsAttribution = false
+        let snapshotter = MLNMapSnapshotter(options: options)
+        let snapshot: MLNMapSnapshot? = await withCheckedContinuation { cont in
+            snapshotter.start { snap, _ in cont.resume(returning: snap) }
         }
         guard let snapshot else { return nil }
         let format = UIGraphicsImageRendererFormat()

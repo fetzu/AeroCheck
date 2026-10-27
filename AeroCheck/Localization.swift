@@ -135,8 +135,6 @@ enum L10n {
         static let imageryDetail = String(localized: "pilotMap.imagery.detail")
         static let imageryFooter = String(localized: "pilotMap.imagery.footer")
         static let clippedAtBorder = String(localized: "pilotMap.imagery.clipped")
-        /// Developer options, while 6.8.0's stack moves the maps.
-        static let drawWithMapLibre = String(localized: "pilotMap.devDrawWithMapLibre")
     }
 
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
@@ -1995,7 +1993,12 @@ enum L10n {
         static let mapUnavailable = String(localized: "Map unavailable (offline?)")
         static let creditChart = String(localized: "Chart © swisstopo / BAZL")
         static let creditImagery = String(localized: "Imagery © swisstopo")
-        static let creditAppleMaps = String(localized: "Map: Apple Maps")
+        /// The pilot's map on the card. (6.8.0)
+        static let creditPilotMap = String(localized: "shareCard.credit.pilotMap")
+        /// "Imagery: <the providers' own credits>". (6.8.0)
+        static func creditAerialImagery(_ sources: String) -> String {
+            String(format: String(localized: "shareCard.credit.aerialImagery"), sources)
+        }
         static let creditTerrainSwisstopo = String(localized: "Terrain © swisstopo")
         static let creditTerrainOpenMeteo = String(localized: "Elevation: Open-Meteo")
         /// A circuit or a short local flight, drawn on the national map instead of an aviation chart.
@@ -2148,11 +2151,9 @@ enum L10n {
         static let icaoGliderNational = String(localized: "mapLayer.icaoGliderNational")
         static let landeskarte = String(localized: "mapLayer.landeskarte")
         static let swissimage = String(localized: "mapLayer.swissimage")
-        /// Apple's layers on MapKit; on MapLibre (6.8.0) the pilot's map and the aerial imagery that replace them.
-        static var satellite: String {
-            MapEngine.current ? String(localized: "pilotMap.aerialImagery") : String(localized: "mapLayer.satellite")
-        }
-        static var standard: String { MapEngine.current ? PilotMap.section : String(localized: "mapLayer.standard") }
+        /// The pilot's map and the aerial imagery, in place of Apple's two layers since 6.8.0.
+        static var satellite: String { String(localized: "pilotMap.aerialImagery") }
+        static var standard: String { PilotMap.section }
         /// Under the Map sheet's charts, outside Switzerland: "ICAO chart: Switzerland only. Here, Apple Maps." (6.5.0)
         static func switzerlandOnly(_ chart: String, _ shown: String) -> String {
             String(format: String(localized: "mapLayer.switzerlandOnly"), chart, shown)

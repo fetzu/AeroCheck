@@ -151,8 +151,8 @@ extension PendingCameraMove {
 
 // MARK: - The route builder's editing on MapLibre
 
-/// The route builder's press-and-hold editing on MapLibre, as `PlannedRouteLayer` does it on MapKit: grab a waypoint
-/// to move it, grab a leg to insert a waypoint on it, hold longer on empty map to add one where it links in best. The
+/// The route builder's press-and-hold editing on MapLibre: grab a waypoint to move it, grab a leg to insert a waypoint
+/// on it, hold longer on empty map to add one where it links in best. The
 /// line follows the finger (`preview`); the change is committed on release through the route's closures. The map
 /// holds still meanwhile.
 @MainActor

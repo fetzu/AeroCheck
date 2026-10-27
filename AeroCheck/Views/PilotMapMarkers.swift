@@ -16,7 +16,7 @@ import UIKit
 /// turns along its downwind and a callout's buttons answer as before.
 @MainActor
 final class PilotMapMarkers {
-    /// The route being planned: its "+" and its pins' selection, as the MapKit view's (`PlannedRouteLayer`).
+    /// The route being planned: its "+" and its pins' selection (`PlannedRouteLayer`).
     private(set) lazy var plannedRoute = PlannedRouteLayer()
     private var markers: [String: PilotMarker] = [:]
     private var signature: Int?
@@ -333,8 +333,8 @@ final class PilotMapMarkers {
         return callout
     }
 
-    /// A search's aerodrome: its card, once the camera has arrived and its marker is on the map (MapKit's
-    /// `AirfieldSearch.openPendingCallout`).
+    /// A search's aerodrome: its card, once the camera has arrived (`AirfieldSearch.hasArrived`) and its marker is on
+    /// the map.
     func openPendingCallout(on mapView: MLNMapView, mapState: SharedMapState, now: Date = Date()) {
         guard let pending = mapState.pendingCallout else { return }
         guard now < pending.until else { mapState.pendingCallout = nil; return }
@@ -375,7 +375,7 @@ final class PilotAircraftMarker: NSObject, MLNAnnotation {
 }
 
 /// A marker's view: its image on the coordinate (or off it by `offset`), or a circuit's altitude pill turned along its
-/// downwind beside the line, only the pill taking a tap (`VFRAltitudeLabelView`'s geometry).
+/// downwind beside the line, only the pill taking a tap (`VFRPillTap`).
 final class PilotMarkerView: MLNAnnotationView {
     static let reuseIdentifier = "PilotMarker"
     private let imageView = UIImageView()
@@ -440,13 +440,13 @@ final class PilotMarkerView: MLNAnnotationView {
         }
     }
 
-    /// A circuit's altitude pill, as `VFRAltitudeLabelView.show` places it.
+    /// A circuit's altitude pill, turned by `angle`, its centre `offset` from the anchor (`VFRPill.offset`).
     func showPill(_ pill: UIImage, angle: CGFloat, offset: CGPoint, duplicate: Bool) {
         imageView.transform = .identity
         imageView.image = pill
         imageView.bounds = CGRect(origin: .zero, size: pill.size)
         imageView.transform = CGAffineTransform(rotationAngle: angle)
-        let tap = VFRAltitudeLabelView.tapSize(pill.size)
+        let tap = VFRPillTap.tapSize(pill.size)
         let (c, s) = (abs(cos(angle)), abs(sin(angle)))
         bounds = CGRect(x: 0, y: 0, width: ceil(tap.width * c + tap.height * s), height: ceil(tap.width * s + tap.height * c))
         imageView.center = CGPoint(x: bounds.midX, y: bounds.midY)
@@ -467,7 +467,7 @@ final class PilotMarkerView: MLNAnnotationView {
         guard let pillSize else { return super.point(inside: point, with: event) }
         let dx = point.x - bounds.midX, dy = point.y - bounds.midY
         let (c, s) = (cos(angle), sin(angle))
-        let tap = VFRAltitudeLabelView.tapSize(pillSize)
+        let tap = VFRPillTap.tapSize(pillSize)
         return abs(dx * c + dy * s) <= tap.width / 2 && abs(-dx * s + dy * c) <= tap.height / 2
     }
 
@@ -494,8 +494,7 @@ final class PilotMarkerView: MLNAnnotationView {
 
 /// A marker's card or callout on MapLibre (`MLNCalloutView`): MapLibre adds it when the marker is selected and takes
 /// it away when it is not, and a touch on it is the callout's, not the map's. It sits over its marker with its tail on
-/// it, sideways inside the map, as `AerodromeMarkerView` places the card on MapKit; `PilotMapMarkers.layout` moves it
-/// with the map.
+/// it, sideways inside the map (`CalloutPlacement`); `PilotMapMarkers.layout` moves it with the map.
 final class PilotMarkerCallout: UIView, MLNCalloutView {
     var representedObject: MLNAnnotation
     var leftAccessoryView = UIView()
@@ -523,7 +522,7 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
 
     /// Where a callout may sit: the map inside its safe area, a margin from every side.
     static func area(of mapView: UIView) -> CGRect {
-        mapView.bounds.inset(by: mapView.safeAreaInsets).insetBy(dx: AerodromeMarkerView.edge, dy: AerodromeMarkerView.edge)
+        mapView.bounds.inset(by: mapView.safeAreaInsets).insetBy(dx: CalloutPlacement.edge, dy: CalloutPlacement.edge)
     }
 
     func presentCallout(from rect: CGRect, in view: UIView, constrainedTo constrainedRect: CGRect, animated: Bool) {
@@ -532,13 +531,13 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
         if let mapView = sequence(first: view as UIView?, next: { $0?.superview }).lazy.compactMap({ $0 as? MLNMapView }).first {
             place(on: mapView, moving: false)
             // Selected right after a camera move (a search), the marker is placed a turn later: the callout follows, and
-            // only then may the map move for it, as `AerodromeMarkerView.show` does on MapKit.
+            // only then may the map move for it.
             DispatchQueue.main.async { [weak self, weak mapView] in
                 guard let self, let mapView, self.superview != nil else { return }
                 self.place(on: mapView, moving: true)
             }
         } else {
-            frame = AerodromeMarkerView.frame(for: bounds.size, over: CGPoint(x: rect.midX, y: rect.minY), in: Self.area(of: view))
+            frame = CalloutPlacement.frame(for: bounds.size, over: CGPoint(x: rect.midX, y: rect.minY), in: Self.area(of: view))
         }
         UIAccessibility.post(notification: .layoutChanged, argument: content)
     }
@@ -559,11 +558,11 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
             top = mapView.convert(marker.coordinate, toPointTo: mapView)
         }
         let area = Self.area(of: mapView)
-        let frame = AerodromeMarkerView.frame(for: bounds.size, over: top, in: area)
+        let frame = CalloutPlacement.frame(for: bounds.size, over: top, in: area)
         (content as? AerodromeCardView)?.tailX = top.x - frame.minX
         (content as? PilotMarkerBubble)?.tailX = top.x - frame.minX
         self.frame = superview.convert(frame, from: mapView)
-        let shortfall = AerodromeMarkerView.shortfall(of: frame, anchor: top, in: area)
+        let shortfall = CalloutPlacement.shortfall(of: frame, anchor: top, in: area)
         guard moving, shortfall > 0 else { return }
         let center = CGPoint(x: mapView.bounds.midX, y: mapView.bounds.midY - shortfall)
         mapView.setCenter(mapView.convert(center, toCoordinateFrom: mapView), animated: true)

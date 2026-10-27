@@ -9,8 +9,9 @@ import UIKit
 // three, so the copies can't drift the way the airspace diff once did.
 //
 // - What is drawn: the map view builds a `VFRMapContent` when its region moves (never on a GPS tick),
-//   gated by the visible span and capped; the representables hand it to `VFRMapLayer.sync`, which returns
-//   at once while the content's signature is unchanged and otherwise adds and removes overlays by id.
+//   gated by the visible span and capped; MapLibre draws it (`PilotMapShapes`, `PilotMapMarkers`), at once
+//   while the content's signature is unchanged and otherwise by id. (6.8.0: `VFRMapLayer.sync` drew it on
+//   MapKit until then.)
 // - How: dedicated overlay classes (`VFRCircuitOverlay`, `VFRRouteOverlay`, `VFRDashOverlay`,
 //   `VFRSectorOverlay`), never a bare `MKPolyline`, because every map has a generic `MKPolyline` branch
 //   in its renderer and the builder used to remove every `MKPolyline` when it redrew its route. They are
@@ -669,82 +670,19 @@ struct VFROrientedRect: Equatable, Sendable {
     }
 }
 
-/// A circuit's altitude pill. The pill turns along the downwind inside the view, which stays upright: a
-/// turned view turned its callout with it, and the callout was hard to read (6.2.0, device check 7 Oct).
-/// The view is the turned pill's box, 8 pt round it, off the anchor by `centerOffset`; only the pill
-/// takes a tap. The map picks an annotation by its view's box, not by that: `lastTouched` lets
-/// `VFRMapLayer.correctPillSelection` hand the selection to the pill the finger was on.
-final class VFRAltitudeLabelView: MKAnnotationView {
-    static let reuseIdentifier = "VFRAltitudeLabel"
+/// The area of a circuit's altitude pill that takes a tap: the pill turns along the downwind inside an upright marker
+/// view (`PilotMarkerView.showPill`), and only the pill and a margin round it take a tap, the corners of a turned pill's
+/// box being the chart or the next pill. (6.8.0)
+enum VFRPillTap {
     /// Round the turned pill.
     static let margin: CGFloat = 8
     /// The pill and its margin are at least this each way, a touch target: the iPhone's pill is 27 pt tall, 43 with
     /// its margin, a point short (the test that measures it failed on the iPhone since 6.4.3). (6.6.0)
     static let minimumTarget: CGFloat = 44
 
-    /// The pill a finger last went down on, and when.
-    private(set) static weak var lastTouched: VFRAltitudeLabelView?
-    private(set) static var lastTouchedAt = Date.distantPast
-
-    private let pillView = UIImageView()
-    private(set) var angle: CGFloat = 0
-    /// A pill with the same text is drawn on the same spot: this one isn't, and takes no tap.
-    private(set) var isDuplicate = false
-
-    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
-        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        pillView.isUserInteractionEnabled = false
-        addSubview(pillView)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    /// Shows `pill` turned by `angle`, its centre `offset` from the anchor (`VFRPill.offset`).
-    func show(_ pill: UIImage, angle: CGFloat, offset: CGPoint, duplicate: Bool) {
-        image = nil
-        transform = .identity
-        pillView.transform = .identity
-        pillView.image = pill
-        pillView.bounds = CGRect(origin: .zero, size: pill.size)
-        pillView.transform = CGAffineTransform(rotationAngle: angle)
-        // The box of the turned tap area: a horizontal pill's is the tap area itself, at least 44 pt tall.
-        let tap = Self.tapSize(pill.size)
-        let (c, s) = (abs(cos(angle)), abs(sin(angle)))
-        bounds = CGRect(x: 0, y: 0, width: ceil(tap.width * c + tap.height * s), height: ceil(tap.width * s + tap.height * c))
-        pillView.center = CGPoint(x: bounds.midX, y: bounds.midY)
-        centerOffset = offset
-        self.angle = angle
-        isDuplicate = duplicate
-        pillView.isHidden = duplicate
-        canShowCallout = !duplicate
-        // The callout's tip on the turned pill's highest point, the margin under the box's top.
-        calloutOffset = CGPoint(x: 0, y: Self.margin)
-    }
-
-    /// The pill's size, unturned.
-    var pillSize: CGSize { pillView.bounds.size }
-
     /// The area that takes a tap, unturned: the pill and the margin round it, at least `minimumTarget` each way.
     static func tapSize(_ pill: CGSize) -> CGSize {
         CGSize(width: max(pill.width + 2 * margin, minimumTarget), height: max(pill.height + 2 * margin, minimumTarget))
-    }
-
-    /// Only the pill (and the margin round it) takes a tap: the corners of a turned pill's box are the
-    /// chart, or the next pill.
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        guard !isDuplicate else { return false }
-        let dx = point.x - bounds.midX, dy = point.y - bounds.midY
-        let (c, s) = (cos(angle), sin(angle))
-        let along = dx * c + dy * s, across = -dx * s + dy * c
-        let tap = Self.tapSize(pillSize)
-        return abs(along) <= tap.width / 2 && abs(across) <= tap.height / 2
-    }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        Self.lastTouched = self
-        Self.lastTouchedAt = Date()
-        super.touchesBegan(touches, with: event)
     }
 }
 
@@ -793,7 +731,7 @@ enum VFRProcedureLabelImage {
     }
 
     /// A circuit's altitude pill, alone: its view turns it along the downwind and puts it beside the
-    /// line (`VFRAltitudeLabelView`).
+    /// line (`PilotMarkerView.showPill`).
     static func pillImage(text: String, palette: VFRMapPalette) -> UIImage {
         let size = fontSize(for: .circuit)
         let key = "pill|\(text)|\(palette.rawValue)|\(size)"
@@ -818,24 +756,10 @@ enum VFRProcedureLabelImage {
 
 // MARK: - The layer on a map
 
-/// Keeps a map's procedures in step with a `VFRMapContent`. Shared by the three maps.
+/// A `VFRMapContent`'s shapes, labels and paint: MapLibre draws them on the three maps (`PilotMapShapes`,
+/// `PilotMapMarkers`). (6.8.0)
 @MainActor
 enum VFRMapLayer {
-    /// What a map's coordinator remembers between updates. A class, not a struct passed `inout`:
-    /// adding an overlay makes MapKit ask the coordinator for its renderer there and then, and the
-    /// renderer reads `palette`, which an `inout` access held over the whole sync would make an
-    /// exclusivity violation (a crash, the first time a map in a window drew a procedure).
-    final class State {
-        /// The content last drawn; nil before the first.
-        var signature: Int?
-        /// The palette the renderers and labels on the map were made with.
-        var palette: VFRMapPalette = .day
-        /// The zoom the arrowheads were sized for.
-        var zoom: Zoom?
-
-        init() {}
-    }
-
     /// The map's zoom in half steps, which is what the arrowheads are sized for: they are drawn in map
     /// coordinates, so a pinch scales them until the next update brings them back to 12 pt.
     struct Zoom: Equatable {
@@ -844,142 +768,13 @@ enum VFRMapLayer {
         static func == (lhs: Zoom, rhs: Zoom) -> Bool { lhs.step == rhs.step }
 
         init(metersPerPoint: Double) { self.metersPerPoint = metersPerPoint }
-
-        /// Across the middle of the map, so turning it (track up) doesn't change it. Nil until the map
-        /// has a size.
-        @MainActor
-        init?(mapView: MKMapView) {
-            let bounds = mapView.bounds
-            guard bounds.width > 0, bounds.height > 0 else { return nil }
-            let left = mapView.convert(CGPoint(x: bounds.minX, y: bounds.midY), toCoordinateFrom: mapView)
-            let right = mapView.convert(CGPoint(x: bounds.maxX, y: bounds.midY), toCoordinateFrom: mapView)
-            guard CLLocationCoordinate2DIsValid(left), CLLocationCoordinate2DIsValid(right) else { return nil }
-            let meters = MKMapPoint(left).distance(to: MKMapPoint(right))
-            guard meters > 0, meters.isFinite else { return nil }
-            self.init(metersPerPoint: meters / Double(bounds.width))
-        }
     }
 
     /// An arrowhead's length on screen.
     static let arrowheadPoints: Double = 12
 
-    /// The route and the flight's lines, which the procedures stay under: the nav maps' route, diversion
-    /// line, track and track vector, and the builder's route, its casing and the selected leg's halo.
-    static func isRouteOverlay(_ overlay: MKOverlay) -> Bool {
-        overlay is FlightPlanRoutePolyline || overlay is GPSTrackPolyline || overlay is TrackVectorPolyline
-            || overlay is RouteLinePolyline || overlay is RouteCasingPolyline || overlay is SelectedLegPolyline
-    }
-
-    /// Bring `mapView` to `content`: nothing while its signature is the one drawn and the zoom is the
-    /// same (every GPS tick), otherwise remove what went and add what came, by id. A new palette
-    /// redraws everything; a new zoom, what is built for it (dashes, ticks, arrowheads).
-    static func sync(_ content: VFRMapContent, on mapView: MKMapView, state: State) {
-        let zoom = Zoom(mapView: mapView)
-        let contentChanged = state.signature != content.signature
-        let zoomChanged = state.zoom != zoom
-        guard contentChanged || zoomChanged else { return }
-        let paletteChanged = state.palette != content.palette
-        state.palette = content.palette
-        state.signature = content.signature
-        state.zoom = zoom
-
-        func key(_ overlay: MKOverlay) -> String { (overlay as? VFRProcedureShape)?.drawKey ?? "" }
-        let shapes = mapView.overlays.filter { $0 is VFRProcedureShape }
-        let scaled = shapes.filter { ($0 as? VFRProcedureShape)?.isScaled == true }
-        let fixed = shapes.filter { ($0 as? VFRProcedureShape)?.isScaled != true }
-        let wanted = Set(content.items.map(\.drawKey)).union(content.approach.map(\.drawKey))
-        let staleFixed = fixed.filter { paletteChanged || !wanted.contains(key($0)) }
-        // What is built for the zoom, all again for a new zoom or palette; otherwise what went.
-        let staleScaled = zoomChanged || paletteChanged ? scaled : scaled.filter { !wanted.contains(key($0)) }
-        let stale = staleFixed + staleScaled
-        if !stale.isEmpty { mapView.removeOverlays(stale) }
-
-        let fixedDrawn = Set(fixed.map(key)).subtracting(staleFixed.map(key))
-        let scaledDrawn = Set(scaled.map(key)).subtracting(staleScaled.map(key))
-        for item in content.items {
-            if !fixedDrawn.contains(item.drawKey) {
-                for overlay in overlays(for: item) { insert(overlay, on: mapView) }
-            }
-            if let zoom, !scaledDrawn.contains(item.drawKey) {
-                for overlay in scaledOverlays(for: item, zoom: zoom) { insert(overlay, on: mapView) }
-            }
-        }
-        for field in content.approach {
-            if let zoom, !scaledDrawn.contains(field.drawKey) {
-                for overlay in approachScaledOverlays(for: field, zoom: zoom) { insert(overlay, on: mapView) }
-            }
-        }
-
-        guard contentChanged else { return }
-        let labels = mapView.annotations.compactMap { $0 as? VFRProcedureAnnotation }
-        let wantedLabels = content.showsLabels ? Set(content.items.map(\.labelKey)) : []
-        let staleLabels = labels.filter { paletteChanged || !wantedLabels.contains($0.labelKey) }
-        if !staleLabels.isEmpty { mapView.removeAnnotations(staleLabels) }
-        let shown = Set(labels.map(\.labelKey)).subtracting(staleLabels.map(\.labelKey))
-        if content.showsLabels {
-            let added = content.items.filter { !shown.contains($0.labelKey) }.map(VFRProcedureAnnotation.init)
-            if !added.isEmpty { mapView.addAnnotations(added) }
-        }
-
-        // The approach view's runway numbers and parachutes.
-        let approachLabels = mapView.annotations.compactMap { $0 as? VFRApproachAnnotation }
-        let wantedApproach = content.approach.flatMap(VFRApproachAnnotation.annotations(for:))
-        let wantedApproachKeys = Set(wantedApproach.map(\.labelKey))
-        let staleApproach = approachLabels.filter { paletteChanged || !wantedApproachKeys.contains($0.labelKey) }
-        if !staleApproach.isEmpty { mapView.removeAnnotations(staleApproach) }
-        let approachShown = Set(approachLabels.map(\.labelKey)).subtracting(staleApproach.map(\.labelKey))
-        let approachAdded = wantedApproach.filter { !approachShown.contains($0.labelKey) }
-        if !approachAdded.isEmpty { mapView.addAnnotations(approachAdded) }
-    }
-
-    /// Turns the circuits' altitude pills along their downwind for the map's heading (track up turns
-    /// the map under them), outside the circuit and upright, and stacks the ones that would cover each
-    /// other on screen (`stackPills`). Cheap: a handful of labels. Called after every sync and when the
-    /// map's region or heading changed.
-    static func orientLabels(on mapView: MKMapView, palette: VFRMapPalette) {
-        let slots = pillSlots(on: mapView)
-        for label in mapView.annotations.compactMap({ $0 as? VFRProcedureAnnotation }) {
-            guard let view = mapView.view(for: label) as? VFRAltitudeLabelView else { continue }
-            orient(view, label: label, heading: mapView.camera.heading, slot: slots[label.labelKey] ?? .level(0),
-                   palette: palette)
-        }
-    }
-
-    /// One pill: turned along the downwind, beside the line (above or below it, `slot` pills out).
-    static func orient(_ view: VFRAltitudeLabelView, label: VFRProcedureAnnotation, heading: CLLocationDirection,
-                       slot: VFRPillSlot, palette: VFRMapPalette) {
-        guard case .altitude(let leg, let outsideLeft) = label.item.labelStyle, leg.count == 2 else { return }
-        let turn = labelTurn(leg: leg, outsideLeft: outsideLeft, heading: heading)
-        let level: Int
-        if case .level(let n) = slot { level = n } else { level = 0 }
-        let text = label.item.labelText
-        let offset = VFRPill.offset(size: VFRProcedureLabelImage.pillBox(text: text), level: level,
-                                    gap: VFRProcedureLabelImage.sideGap, angle: turn.angle, above: turn.above)
-        view.show(VFRProcedureLabelImage.pillImage(text: text, palette: palette), angle: turn.angle, offset: offset,
-                  duplicate: slot == .duplicate)
-    }
-
-    /// When the map selected a circuit's altitude other than the one the finger was on (it picks by the
-    /// views' boxes, and turned pills' boxes overlap), hands the selection to that one. True when it
-    /// did: the caller stops there, the map calls it again for the right one.
-    static func correctPillSelection(of annotation: MKAnnotation, on mapView: MKMapView, now: Date = Date()) -> Bool {
-        guard annotation is VFRProcedureAnnotation, now.timeIntervalSince(VFRAltitudeLabelView.lastTouchedAt) < 1,
-              let touched = VFRAltitudeLabelView.lastTouched?.annotation as? VFRProcedureAnnotation,
-              touched !== annotation, mapView.annotations.contains(where: { $0 === touched }) else { return false }
-        mapView.deselectAnnotation(annotation, animated: false)
-        DispatchQueue.main.async { mapView.selectAnnotation(touched, animated: true) }
-        return true
-    }
-
-    /// Where each circuit's altitude pill goes on this map as it is now (`stackPills`), by label key.
-    static func pillSlots(on mapView: MKMapView) -> [String: VFRPillSlot] {
-        pillSlots(for: mapView.annotations.compactMap { $0 as? VFRProcedureAnnotation }, heading: mapView.camera.heading) {
-            mapView.convert($0, toPointTo: mapView)
-        }
-    }
-
-    /// Where each of `labels`' altitude pills goes, on a map turned to `heading` that puts a coordinate at `point`:
-    /// either engine's map. (6.8.0)
+    /// Where each of `labels`' altitude pills goes, on a map turned to `heading` that puts a coordinate at `point`.
+    /// (6.8.0)
     static func pillSlots(for labels: [VFRProcedureAnnotation], heading: CLLocationDirection,
                           point: (CLLocationCoordinate2D) -> CGPoint) -> [String: VFRPillSlot] {
         let pills = labels.compactMap { label -> VFRPill? in
@@ -1306,24 +1101,8 @@ enum VFRMapLayer {
         }
     }
 
-    /// Under the route and the flight's lines (the aircraft is an annotation, above every overlay), above
-    /// the chart tiles and the airspace drawn so far, and in its tier among the procedures'.
-    static func insert(_ overlay: MKOverlay, on mapView: MKMapView) {
-        let mine = tier(of: overlay) ?? 0
-        let stack = mapView.overlays(in: .aboveLabels)
-        let anchor = stack.firstIndex { other in
-            isRouteOverlay(other) || (tier(of: other).map { $0 > mine } ?? false)
-        }
-        if let anchor {
-            mapView.insertOverlay(overlay, at: anchor, level: .aboveLabels)
-        } else {
-            mapView.addOverlay(overlay, level: .aboveLabels)
-        }
-    }
-
-    /// The renderer for a procedure's shape; nil for any other overlay. Every map asks this before its
-    /// generic `MKPolyline` branch. MapKit's own renderers, configured, with no dash pattern: they draw
-    /// as vectors, the same size at every zoom.
+    /// The renderer for a procedure's shape; nil for any other overlay. MapKit's own renderers, configured, with no
+    /// dash pattern; the MapLibre view reads its paint off them (`PilotMapShapes`). (6.8.0)
     nonisolated static func renderer(for overlay: MKOverlay, palette: VFRMapPalette) -> MKOverlayRenderer? {
         switch overlay {
         case let circuit as VFRCircuitOverlay:
@@ -1398,62 +1177,8 @@ enum VFRMapLayer {
         }
     }
 
-    /// A label's view, with its callout; nil for any other annotation.
-    /// - Parameters:
-    ///   - metrics: the callout's buttons, the Cockpit's sizes in flight.
-    ///   - openChart: opens the aerodrome's official chart; nil leaves the button out. (6.2.0)
-    static func annotationView(for annotation: MKAnnotation, on mapView: MKMapView,
-                               palette: VFRMapPalette, metrics: CalloutMetrics = .ground,
-                               openChart: ((URL) -> Void)? = nil) -> MKAnnotationView? {
-        if let approach = annotation as? VFRApproachAnnotation {
-            return approachView(for: approach, on: mapView, palette: palette)
-        }
-        guard let label = annotation as? VFRProcedureAnnotation else { return nil }
-        let view: MKAnnotationView
-        if case .altitude = label.item.labelStyle {
-            let id = VFRAltitudeLabelView.reuseIdentifier
-            view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-                ?? VFRAltitudeLabelView(annotation: label, reuseIdentifier: id)
-        } else {
-            let id = "VFRProcedureLabel"
-            view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-                ?? MKAnnotationView(annotation: label, reuseIdentifier: id)
-        }
-        view.annotation = label
-        view.transform = .identity
-        view.centerOffset = .zero
-        view.calloutOffset = .zero
-        view.canShowCallout = true
-        view.collisionMode = .rectangle
-        switch label.item.labelStyle {
-        case .badge:
-            view.image = labelImage(for: label, palette: palette)
-            // A sector's letter and a circuit's altitude are why the layer is on: never hidden.
-            view.displayPriority = .required
-        case .altitude:
-            view.displayPriority = .required
-            if let pill = view as? VFRAltitudeLabelView {
-                orient(pill, label: label, heading: mapView.camera.heading,
-                       slot: pillSlots(on: mapView)[label.labelKey] ?? .level(0), palette: palette)
-            }
-        case .name:
-            view.image = labelImage(for: label, palette: palette)
-            // Labels give way to each other and to the markers that must show: MapKit hides the colliding ones.
-            view.displayPriority = .defaultHigh
-        }
-        view.detailCalloutAccessoryView = VFRProcedureCallout.detailView(for: label.item, at: label.coordinate,
-                                                                         palette: palette, metrics: metrics,
-                                                                         openChart: openChart)
-        view.leftCalloutAccessoryView = nil
-        view.rightCalloutAccessoryView = nil
-        view.isAccessibilityElement = true
-        view.accessibilityLabel = VFRProcedureCallout.summary(for: label.item)
-        view.accessibilityTraits = .button
-        return view
-    }
-
     /// A sector's letter or a route's name, as drawn; nil for a circuit's altitude, which is a pill turned along its
-    /// downwind (`VFRProcedureLabelImage.pillImage`). Both map engines draw these. (6.8.0)
+    /// downwind (`VFRProcedureLabelImage.pillImage`). MapLibre draws these (`PilotMapMarkers`). (6.8.0)
     static func labelImage(for label: VFRProcedureAnnotation, palette: VFRMapPalette) -> UIImage? {
         switch label.item.labelStyle {
         case .badge: return VFRApproachImages.badge(label.item.labelText, palette: palette)
@@ -1474,22 +1199,6 @@ enum VFRMapLayer {
         case .patternAltitude(let feet):
             return (VFRApproachImages.patternAltitude(feet, palette: palette), L10n.VFRMap.patternAltitude(feet))
         }
-    }
-
-    /// A runway number or a parachute: no callout, never hidden.
-    static func approachView(for annotation: VFRApproachAnnotation, on mapView: MKMapView,
-                             palette: VFRMapPalette) -> MKAnnotationView {
-        let id = "VFRApproachLabel"
-        let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-            ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-        view.annotation = annotation
-        view.centerOffset = .zero
-        view.canShowCallout = false
-        view.displayPriority = .required
-        view.collisionMode = .rectangle
-        view.isAccessibilityElement = true
-        (view.image, view.accessibilityLabel) = approachImage(for: annotation, palette: palette)
-        return view
     }
 }
 

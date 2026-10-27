@@ -164,7 +164,7 @@ final class SwissChartLayerTests: XCTestCase {
         func planned(_ features: MapFeatures) -> PlannedRoute {
             AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                         isFollowingAircraft: .constant(false), forceICAOLayer: false, features: features,
-                        plannedRoute: route).makeCoordinator().plannedRoute.route
+                        plannedRoute: route).shownPlannedRoute
         }
         let builder = planned(.builder)
         XCTAssertEqual(builder.waypoints.count, 1)

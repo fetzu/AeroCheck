@@ -96,6 +96,30 @@ final class PilotMapMarkersTests: XCTestCase {
                        "a duplicate isn't drawn and takes no tap")
     }
 
+    /// The pill's view hugs it beside its line, a 44 pt target at least whatever the device's pill height (27 pt on
+    /// the iPhone), and only the pill takes a tap. (6.6.0, on MapLibre since 6.8.0)
+    func testAPillIsAFullTargetBesideItsLine() {
+        let view = PilotMarkerView(reuseIdentifier: nil)
+        let text = "2000 ft"
+        let pill = VFRProcedureLabelImage.pillImage(text: text, palette: .day)
+        XCTAssertEqual(pill.size, VFRProcedureLabelImage.pillBox(text: text))
+        for (angle, above) in [(CGFloat(0), true), (.pi / 6, false), (-.pi / 3, true)] {
+            let offset = VFRPill.offset(size: pill.size, level: 1, gap: 6, angle: angle, above: above)
+            view.showPill(pill, angle: angle, offset: offset, duplicate: false)
+            XCTAssertEqual(view.centerOffset, CGVector(dx: offset.x, dy: offset.y))
+            XCTAssertEqual(hypot(offset.x, offset.y), 6 + pill.size.height + 6 + pill.size.height / 2, accuracy: 0.01,
+                           "a pill further out than the one beside the line")
+            XCTAssertGreaterThanOrEqual(min(view.bounds.width, view.bounds.height), VFRPillTap.minimumTarget)
+            let centre = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+            XCTAssertTrue(view.point(inside: centre, with: nil), "\(angle)")
+            let edge = CGPoint(x: centre.x - 21.9 * sin(angle), y: centre.y + 21.9 * cos(angle))
+            XCTAssertTrue(view.point(inside: edge, with: nil), "22 pt across the pill, \(angle)")
+            if angle != 0 {
+                XCTAssertFalse(view.point(inside: CGPoint(x: 1, y: 1), with: nil), "a corner of the box: the chart, \(angle)")
+            }
+        }
+    }
+
     func testABubbleFitsItsText() {
         let bubble = PilotMarkerBubble(title: "WITZWIL", subtitle: "LSZQ · on request", detail: nil, add: {})
         XCTAssertGreaterThanOrEqual(bubble.bounds.width, 120)

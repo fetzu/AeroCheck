@@ -6,34 +6,6 @@ import SwiftUI
 
 /// Which engine draws the maps while 6.8.0 moves them to MapLibre: MapKit until the stack's last PR takes it out.
 /// Settings › About › Developer options switches it; a DEBUG launch can force it (`AEROCHECK_MAP_ENGINE=maplibre`).
-enum MapEngine {
-    static let defaultsKey = "mapEngineMapLibre"
-
-    static func drawsWithMapLibre(stored: Bool) -> Bool {
-        #if DEBUG
-        if let forced = ProcessInfo.processInfo.environment["AEROCHECK_MAP_ENGINE"] { return forced == "maplibre" }
-        #endif
-        return stored
-    }
-
-    /// The engine in use now, for code outside a view (the layer names).
-    static var current: Bool { drawsWithMapLibre(stored: UserDefaults.standard.bool(forKey: defaultsKey)) }
-}
-
-/// A map surface on the engine chosen: `AeroMapView` (MapKit) or `PilotMapView` (MapLibre), from the same inputs.
-struct MapEngineView: View {
-    let map: AeroMapView
-    @AppStorage(MapEngine.defaultsKey) private var mapLibre = false
-
-    var body: some View {
-        if MapEngine.drawsWithMapLibre(stored: mapLibre) {
-            PilotMapView(map: map)
-        } else {
-            map
-        }
-    }
-}
-
 // MARK: - The style
 
 /// The pilot's map's style (AeroCheck-maps `build/style.py`; the app ships a copy), its tile and glyph addresses
@@ -64,6 +36,15 @@ enum PilotMapStyle {
         ["en", "fr", "de"].contains(AppLanguage.current) ? AppLanguage.current : "en"
     }
 
+    private static var registered = false
+
+    /// Before the first map view or snapshot: MapLibre's session answered by `PilotTileURLProtocol`.
+    static func prepare() {
+        guard !registered else { return }
+        PilotTileURLProtocol.registerWithMapLibre(source: PilotMap.shared)
+        registered = true
+    }
+
     /// The peaks' mark: a small brown triangle, as the style's `peak` image.
     static let peakImage: UIImage = {
         let size = CGSize(width: 11, height: 9)
@@ -89,13 +70,8 @@ enum PilotMapStyle {
 struct PilotMapView: UIViewRepresentable {
     let map: AeroMapView
 
-    private static var registered = false
-
     func makeUIView(context: Context) -> MLNMapView {
-        if !Self.registered {
-            PilotTileURLProtocol.registerWithMapLibre(source: PilotMap.shared)
-            Self.registered = true
-        }
+        PilotMapStyle.prepare()
         // A frame of its own from the start: a camera set on a view of no size lands near 0° N 0° E.
         let view = MLNMapView(frame: CGRect(x: 0, y: 0, width: 320, height: 320), styleURL: PilotMapStyle.url)
         view.delegate = context.coordinator

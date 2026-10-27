@@ -1084,7 +1084,7 @@ Les procédures VFR vieillissent au rythme du cycle AIRAC plutôt que de leur da
 
 ### Cartes hors ligne et stockage
 
-**Carte du pilote**, en tête de **Données et stockage**, liste les régions : chacune avec son état (**Téléchargée**, **Mise à jour disponible**, ou non téléchargée), sa date de construction et sa taille, et **Télécharger** ; le menu d'une région téléchargée propose **Mettre à jour** quand une version plus récente existe, et **Supprimer**. La Suisse avec le Liechtenstein pèse environ 90 Mo. Sous les régions, l'usage en ligne du mois (« En ligne ce mois-ci : 312 tuiles de carte sur 1 500 »).
+**Carte du pilote**, dans **Données et stockage** sous les données aéronautiques, liste les régions : chacune avec son état (**Téléchargée**, **Mise à jour disponible**, ou non téléchargée), sa date de construction et sa taille, et **Télécharger** ; le menu d'une région téléchargée propose **Mettre à jour** quand une version plus récente existe, et **Supprimer**. La Suisse avec le Liechtenstein pèse environ 90 Mo. Sous les régions, l'usage en ligne du mois (« En ligne ce mois-ci : 312 tuiles de carte sur 1 500 »).
 
 Mettez en cache la carte OACI suisse et la Segelflugkarte pour un usage hors ligne (~100 à 250 Mo). **Données et stockage** liste chaque jeu de données avec ses pays, sa taille et sa fraîcheur (**Espace aérien**, **Aides à la navigation**, **Obstacles**, **Points de report**, **Aérodromes** d'OpenAIP, **Aéroports** d'OurAirports, et **Procédures VFR (open flightmaps)**), et permet de mettre à jour ou de supprimer les données en cache pour libérer de l'espace. Les nouvelles données d'aérodromes (pistes, fréquences) s'affichent dès leur téléchargement, sans redémarrer l'app.
 

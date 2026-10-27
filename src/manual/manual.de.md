@@ -1084,7 +1084,7 @@ Die VFR-Verfahren altern nach AIRAC-Zyklus statt nach Datum. Ihre Zeile in Daten
 
 ### Offline-Karten und Speicher
 
-**Pilotenkarte**, zuoberst in **Daten & Speicher**, listet die Regionen auf: jede mit ihrem Zustand (**Heruntergeladen**, **Aktualisierung verfügbar** oder nicht heruntergeladen), ihrem Erstellungsdatum und ihrer Grösse, und **Herunterladen**; das Menü einer heruntergeladenen Region bietet **Aktualisieren**, wenn eine neuere Version vorliegt, und **Löschen**. Die Schweiz mit Liechtenstein braucht etwa 90 MB. Unter den Regionen die Online-Nutzung des Monats («Diesen Monat online: 312 von 1'500 Kartenkacheln»).
+**Pilotenkarte**, in **Daten & Speicher** unter den Luftfahrtdaten, listet die Regionen auf: jede mit ihrem Zustand (**Heruntergeladen**, **Aktualisierung verfügbar** oder nicht heruntergeladen), ihrem Erstellungsdatum und ihrer Grösse, und **Herunterladen**; das Menü einer heruntergeladenen Region bietet **Aktualisieren**, wenn eine neuere Version vorliegt, und **Löschen**. Die Schweiz mit Liechtenstein braucht etwa 90 MB. Unter den Regionen die Online-Nutzung des Monats («Diesen Monat online: 312 von 1'500 Kartenkacheln»).
 
 Speichern Sie die Schweizer ICAO-Karte und die Segelflugkarte für die Offline-Nutzung (~100–250 MB). **Daten & Speicher** listet jeden Datensatz mit seinen Ländern, seiner Grösse und seiner Aktualität auf (**Luftraum**, **Navigationshilfen**, **Hindernisse**, **Meldepunkte**, **Flugplatzdaten** von OpenAIP, **Flugplätze** von OurAirports und **VFR-Verfahren (open flightmaps)**) und lässt Sie gespeicherte Daten aktualisieren oder löschen, um Platz freizugeben. Neue Flugplatzdaten (Pisten, Frequenzen) erscheinen, sobald sie heruntergeladen sind, ohne Neustart der App.
 

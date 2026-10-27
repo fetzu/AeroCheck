@@ -1084,7 +1084,7 @@ The VFR procedures age by AIRAC cycle rather than by date. Their row in Data & S
 
 ### Offline Maps and Storage
 
-**Pilot's map**, first in **Data & Storage**, lists the regions: each with its state (**Downloaded**, **Update available**, or not downloaded), its build date and its size, and **Download**; a downloaded region's menu has **Update** when a newer build is out, and **Delete**. Switzerland with Liechtenstein is about 90 MB. Under the regions, the month's online use ("Online this month: 312 of 1,500 map tiles").
+**Pilot's map**, in **Data & Storage** under the aeronautical data, lists the regions: each with its state (**Downloaded**, **Update available**, or not downloaded), its build date and its size, and **Download**; a downloaded region's menu has **Update** when a newer build is out, and **Delete**. Switzerland with Liechtenstein is about 90 MB. Under the regions, the month's online use ("Online this month: 312 of 1,500 map tiles").
 
 Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). **Data & Storage** lists each dataset with its countries, size and currency (**Airspace**, **Navaids**, **Obstacles**, **Reporting points**, **Aerodromes** from OpenAIP, **Airports** from OurAirports, and **VFR procedures (open flightmaps)**), and lets you update or delete cached data to reclaim space. New aerodrome data (runways, frequencies) shows as soon as it is downloaded, without restarting the app.
 

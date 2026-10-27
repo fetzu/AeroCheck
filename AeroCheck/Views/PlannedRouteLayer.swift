@@ -133,6 +133,20 @@ final class PlannedRouteLayer: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
+    /// The route's lines as this layer draws them, bottom first: the selected leg's halo, the casing, the core. The
+    /// MapLibre view draws these. (6.8.0)
+    static func lines(for route: PlannedRoute) -> [MKPolyline] {
+        let coords = route.waypoints.map(\.coordinate)
+        guard coords.count >= 2 else { return [] }
+        var lines: [MKPolyline] = []
+        if let leg = route.selectedLeg, leg >= 0, leg + 1 < coords.count {
+            lines.append(SelectedLegPolyline(coordinates: [coords[leg], coords[leg + 1]], count: 2))
+        }
+        lines.append(RouteCasingPolyline(coordinates: coords, count: coords.count))
+        lines.append(RouteLinePolyline(coordinates: coords, count: coords.count))
+        return lines
+    }
+
     /// The halo, the casing and the core; nil for any other overlay.
     static func renderer(for overlay: MKOverlay) -> MKOverlayRenderer? {
         // The selected leg's halo, under the route. (planning proposal D3)

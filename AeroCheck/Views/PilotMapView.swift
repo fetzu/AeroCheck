@@ -82,7 +82,8 @@ enum PilotMapStyle {
 // MARK: - The view
 
 /// `AeroMapView` drawn by MapLibre (6.8.0, the plan's PR 4): the pilot's map, the swisstopo charts and OpenAIP's tiles
-/// over it, the layer choice, the camera kept in `SharedMapState` as the MapKit view keeps it. The data layers, the
+/// over it, the layer choice, the camera kept in `SharedMapState` as the MapKit view keeps it; the airspace, the
+/// procedures, the track, the routes, the track vector and the aircraft over everything (`PilotMapShapes`, PR 6). The
 /// markers and their callouts, the legs band and the builder's gestures follow in the next PRs of the stack.
 struct PilotMapView: UIViewRepresentable {
     let map: AeroMapView
@@ -114,6 +115,7 @@ struct PilotMapView: UIViewRepresentable {
         coordinator.map = map
         PilotMap.onlineAllowed = !map.isStrictOfflineMode
         coordinator.applyLayers(on: view)
+        coordinator.applyShapes(on: view)
         coordinator.updateCredits(on: view)
         coordinator.applyZoomLimits(on: view)
         guard coordinator.hasSize(view) else { return }
@@ -127,6 +129,8 @@ struct PilotMapView: UIViewRepresentable {
         private var style: MLNStyle?
         /// The rasters on the map, to replace them only when the layer or the policy changes.
         private var drawnRasters: [PilotMapCharts.Raster] = []
+        /// The lines, areas and aircraft over the map.
+        private let shapes = PilotMapShapes()
         private var isUserInteracting = false
         /// The view's size when the camera was last placed from the shared state: placed again once SwiftUI has laid
         /// the view out, so the first report back describes the pilot's map, not the placeholder frame.
@@ -159,10 +163,20 @@ struct PilotMapView: UIViewRepresentable {
             self.style = style
             style.setImage(PilotMapStyle.peakImage, forName: "peak")
             drawnRasters = []
+            MainActor.assumeIsolated { shapes.reset() }
             applyLayers(on: mapView)
+            applyShapes(on: mapView)
         }
 
-        /// The chart's rasters, then OpenAIP's, above the pilot's map: a chart covers the map where it has tiles.
+        /// The airspace, procedures, track, routes, track vector and aircraft, as the MapKit view draws them.
+        func applyShapes(on mapView: MLNMapView) {
+            guard let style else { return }
+            // The map's delegate and SwiftUI's updates come on the main thread.
+            MainActor.assumeIsolated { shapes.apply(map, on: mapView, style: style) }
+        }
+
+        /// The chart's rasters, then OpenAIP's, above the pilot's map (a chart covers the map where it has tiles) and
+        /// under the lines and areas (`PilotMapShapes`).
         func applyLayers(on mapView: MLNMapView) {
             guard let style else { return }
             var wanted = PilotMapCharts.rasters(for: map.layerType, policy: policy)
@@ -182,7 +196,11 @@ struct PilotMapView: UIViewRepresentable {
                 let layer = MLNRasterStyleLayer(identifier: raster.id, source: source)
                 if let minZoom = raster.minZoom { layer.minimumZoomLevel = Float(minZoom) }
                 if let maxZoom = raster.maxZoom { layer.maximumZoomLevel = Float(maxZoom) }
-                style.addLayer(layer)
+                if let lines = MainActor.assumeIsolated({ shapes.lowestLayer(in: style) }) {
+                    style.insertLayer(layer, below: lines)
+                } else {
+                    style.addLayer(layer)
+                }
             }
             drawnRasters = wanted
         }
@@ -315,6 +333,8 @@ struct PilotMapView: UIViewRepresentable {
             guard mapView.window != nil, placedAt != CGSize(width: 320, height: 320) else { return }
             applyZoomLimits(on: mapView)
             updateCredits(on: mapView)
+            // The procedures' dashes and arrowheads are cut for the zoom.
+            applyShapes(on: mapView)
             let state = map.mapState
             let region = Self.region(of: mapView)
             map.liveRegion?.region = region

@@ -126,6 +126,18 @@ final class PilotMapDownloadTests: XCTestCase {
         XCTAssertEqual(rig.downloads.missingRegions(along: [route[0]]), [], "one point is no route")
     }
 
+    /// The allowance line offers the region under the chart, until it is on the device. (6.8.0)
+    func testTheRegionUnderTheChartUntilItIsDownloaded() async throws {
+        let files = archives("a")
+        let ch = Self.region("ch", Self.chBounds, mapBytes: files["map"]!.count, reliefBytes: files["relief"]!.count)
+        let rig = try await rig([ch, Self.region("fr-est", Self.frBounds)], files: files)
+        let bern = CLLocationCoordinate2D(latitude: 46.95, longitude: 7.44)
+        XCTAssertEqual(rig.downloads.missingRegion(at: bern)?.id, "ch")
+        await rig.downloads.downloadNow(ch)
+        XCTAssertNil(rig.downloads.missingRegion(at: bern), "downloaded: nothing to offer")
+        XCTAssertNil(rig.downloads.missingRegion(at: CLLocationCoordinate2D(latitude: 40, longitude: -30)), "no region there")
+    }
+
     // MARK: Install
 
     func testDownloadInstallsBothArchives() async throws {

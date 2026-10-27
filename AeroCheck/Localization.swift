@@ -113,6 +113,13 @@ enum L10n {
         }
         static let allowanceNear = String(localized: "pilotMap.allowanceNear")
         static let allowanceExhausted = String(localized: "pilotMap.allowanceExhausted")
+        /// Under Plan › Map's chart, short: "80 % of this month's online map used". (6.8.0)
+        static let lineNear = String(localized: "pilotMap.line.near")
+        static let lineExhausted = String(localized: "pilotMap.line.exhausted")
+        /// "Download Switzerland"
+        static func lineDownload(_ region: String) -> String {
+            String(format: String(localized: "pilotMap.line.download"), region)
+        }
         static let downloaded = String(localized: "pilotMap.downloaded")
         static let updateAvailable = String(localized: "pilotMap.updateAvailable")
         static let failed = String(localized: "pilotMap.failed")

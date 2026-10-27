@@ -676,17 +676,15 @@ extension ChartTileRenderer {
 
 /// The screenshot run's "map settled" signal (`AEROCHECK_MAP_SETTLE=1`): a Darwin notification every half second
 /// while each chart map in a window has kept its camera for 1.5 s and has every tile in view, none while one moves
-/// or waits. The tour's `mapSettled` step waits for it instead of a fixed time. Inert without the key. (6.6.0)
+/// or waits. The tour's `mapSettled` step waits for it instead of a fixed time. Inert without the key. (6.6.0; the
+/// MapLibre maps since 6.8.0, `PilotMapView`, which say they wait until MapLibre is idle.)
 @MainActor
 enum MapSettle {
     static let signal = "com.fetzu.aerocheck.debug.mapSettled"
     static let isOn = ProcessInfo.processInfo.environment["AEROCHECK_MAP_SETTLE"] == "1"
 
-    private static let renderers = NSHashTable<ChartTileRenderer>.weakObjects()
-    private static var watching = false
-
     /// What a map shows: its rectangle and heading, the same within a thousandth of the rectangle.
-    private struct View {
+    struct View {
         let rect: MKMapRect
         let heading: Double
 
@@ -697,9 +695,31 @@ enum MapSettle {
         }
     }
 
+    /// A map watched: what it shows and whether it still waits for tiles, nil while it isn't in a window.
+    private final class Watched {
+        weak var map: AnyObject?
+        let probe: @MainActor () -> (view: View, waiting: Bool)?
+        init(map: AnyObject, probe: @escaping @MainActor () -> (view: View, waiting: Bool)?) {
+            self.map = map
+            self.probe = probe
+        }
+    }
+
+    private static var watched: [Watched] = []
+    private static var watching = false
+
     static func watch(_ renderer: ChartTileRenderer) {
+        guard let map = renderer.mapView else { return }
+        watch(map: map) { [weak renderer] in
+            guard let renderer, let map = renderer.mapView, map.window != nil else { return nil }
+            return (View(rect: map.visibleMapRect, heading: map.camera.heading), renderer.awaitsTilesInView)
+        }
+    }
+
+    static func watch(map: AnyObject, probe: @escaping @MainActor () -> (view: View, waiting: Bool)?) {
         guard isOn else { return }
-        renderers.add(renderer)
+        watched.removeAll { $0.map == nil }
+        watched.append(Watched(map: map, probe: probe))
         guard !watching else { return }
         watching = true
         Task { @MainActor in
@@ -707,15 +727,18 @@ enum MapSettle {
             var calm = 0
             while true {
                 try? await Task.sleep(for: .milliseconds(500))
-                let shown = renderers.allObjects.filter { $0.mapView?.window != nil }
                 var views: [ObjectIdentifier: View] = [:]
-                for renderer in shown {
-                    guard let map = renderer.mapView else { continue }
-                    views[ObjectIdentifier(map)] = View(rect: map.visibleMapRect, heading: map.camera.heading)
+                var waiting = false
+                for item in watched {
+                    guard let map = item.map, let (view, waits) = item.probe() else { continue }
+                    let key = ObjectIdentifier(map)
+                    // One map, several renderers: it waits while any of them does.
+                    views[key] = view
+                    waiting = waiting || waits
                 }
                 let still = !views.isEmpty && views.count == last.count
                     && views.allSatisfy { key, view in last[key].map(view.isClose) ?? false }
-                calm = still && !shown.contains(where: \.awaitsTilesInView) ? calm + 1 : 0
+                calm = still && !waiting ? calm + 1 : 0
                 last = views
                 if calm >= 3 {
                     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),

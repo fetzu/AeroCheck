@@ -90,6 +90,17 @@ struct PilotMapView: UIViewRepresentable {
         tap.cancelsTouchesInView = false
         tap.delegate = context.coordinator
         view.addGestureRecognizer(tap)
+        #if DEBUG
+        // The screenshot run's "map settled": still, and nothing left for MapLibre to draw.
+        MapSettle.watch(map: view) { [weak view, weak coordinator = context.coordinator] in
+            guard let view, let coordinator, view.window != nil else { return nil }
+            let bounds = view.visibleCoordinateBounds
+            let nw = MKMapPoint(CLLocationCoordinate2D(latitude: bounds.ne.latitude, longitude: bounds.sw.longitude))
+            let se = MKMapPoint(CLLocationCoordinate2D(latitude: bounds.sw.latitude, longitude: bounds.ne.longitude))
+            let rect = MKMapRect(x: nw.x, y: nw.y, width: se.x - nw.x, height: se.y - nw.y)
+            return (MapSettle.View(rect: rect, heading: view.direction), !coordinator.isIdle)
+        }
+        #endif
         return view
     }
 
@@ -421,6 +432,13 @@ struct PilotMapView: UIViewRepresentable {
                 map.isFollowingAircraft = false
             }
         }
+
+        /// MapLibre has drawn all it was asked, tiles included; a new frame (a tile arriving, a camera change) ends it.
+        private(set) var isIdle = false
+
+        func mapViewDidBecomeIdle(_ mapView: MLNMapView) { isIdle = true }
+
+        func mapViewWillStartRenderingFrame(_ mapView: MLNMapView) { isIdle = false }
 
         func mapViewRegionIsChanging(_ mapView: MLNMapView) {
             MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) }

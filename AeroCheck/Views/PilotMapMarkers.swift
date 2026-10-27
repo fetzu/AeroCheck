@@ -528,8 +528,15 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
 
     func presentCallout(from rect: CGRect, in view: UIView, constrainedTo constrainedRect: CGRect, animated: Bool) {
         view.addSubview(self)
-        if let mapView = view as? MLNMapView ?? view.superview as? MLNMapView {
-            place(on: mapView, moving: true)
+        // MapLibre hands over a view of its own inside the map: the map is up the tree.
+        if let mapView = sequence(first: view as UIView?, next: { $0?.superview }).lazy.compactMap({ $0 as? MLNMapView }).first {
+            place(on: mapView, moving: false)
+            // Selected right after a camera move (a search), the marker is placed a turn later: the callout follows, and
+            // only then may the map move for it, as `AerodromeMarkerView.show` does on MapKit.
+            DispatchQueue.main.async { [weak self, weak mapView] in
+                guard let self, let mapView, self.superview != nil else { return }
+                self.place(on: mapView, moving: true)
+            }
         } else {
             frame = AerodromeMarkerView.frame(for: bounds.size, over: CGPoint(x: rect.midX, y: rect.minY), in: Self.area(of: view))
         }

@@ -262,6 +262,14 @@ class SharedMapState: ObservableObject {
     /// come during one, where publishing is not allowed. Read when it runs, so a marker tapped while
     /// another's callout is open (a deselect, then a select) doesn't flash the chrome back. (6.2.0)
     @MainActor
+    /// The MapLibre view's callout opened or closed. (6.8.0)
+    func noteCalloutOpen(_ open: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, open != self.isCalloutOpen else { return }
+            self.isCalloutOpen = open
+        }
+    }
+
     func noteCalloutSelection(on mapView: MKMapView) {
         DispatchQueue.main.async { [weak self, weak mapView] in
             guard let self else { return }
@@ -3336,6 +3344,49 @@ private func cachedWaypointMarker(number: Int, state: String, iconName: String, 
     return finalImage
 }
 
+/// The markers' images, for both map engines (6.8.0: out of the MapKit delegate).
+enum AeroMarkerImages {
+    /// Size and colour by the aerodrome's type: blue for the large and medium ones, green for the small.
+    static func airport(_ airport: Airport) -> UIImage? {
+        switch airport.type {
+        case .largeAirport:
+            return aeroMarkerSymbol("airplane.circle.fill", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0),
+                                    pointSize: 20, weight: .medium)
+        case .mediumAirport:
+            return aeroMarkerSymbol("airplane.circle", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9),
+                                    pointSize: 16, weight: .medium)
+        case .smallAirport:
+            return aeroMarkerSymbol("airplane", color: UIColor(red: 0.4, green: 0.7, blue: 0.4, alpha: 0.9),
+                                    pointSize: 14, weight: .medium)
+        default:
+            return aeroMarkerSymbol("circle.fill", color: UIColor.gray, pointSize: 12, weight: .medium)
+        }
+    }
+
+    static let navaid = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
+
+    static let obstacle = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0),
+                                           pointSize: 13)
+
+    static func reportingPoint(compulsory: Bool) -> UIImage? {
+        aeroMarkerSymbol(compulsory ? "triangle.fill" : "triangle", color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0),
+                         pointSize: 12)
+    }
+
+    /// A route waypoint's numbered disc: the next one bright magenta, the ones flown dimmed. Cached per state.
+    static func waypoint(_ annotation: FlightPlanWaypointAnnotation) -> UIImage? {
+        if annotation.isCurrentWaypoint {
+            return cachedWaypointMarker(number: annotation.waypointIndex + 1, state: "current", iconName: "target",
+                                        color: UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0))
+        } else if annotation.isCompletedWaypoint {
+            return cachedWaypointMarker(number: annotation.waypointIndex + 1, state: "completed", iconName: "checkmark.circle.fill",
+                                        color: UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7))
+        }
+        return cachedWaypointMarker(number: annotation.waypointIndex + 1, state: "future", iconName: "circle.fill",
+                                    color: UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9))
+    }
+}
+
 /// Re-lifts every non-tile overlay above freshly-(re)added tile overlays. Base/OpenAIP chart tiles
 /// are added at the same `.aboveLabels` level as the polygon/polyline overlays, so MapKit's
 /// insertion order buries the existing airspace/track/route overlays under a newly added tile —
@@ -4247,10 +4298,10 @@ struct AeroMapView: UIViewRepresentable {
     var liveRegion: LiveMapRegion?
 
     // The inputs as this surface's features let them through; the MapLibre view reads them too. (6.7.0, 6.8.0)
-    private var shownAirports: [Airport] { features.contains(.airports) ? visibleAirports : [] }
-    private var shownNavaids: [Navaid] { features.contains(.navaids) ? visibleNavaids : [] }
-    private var shownObstacles: [Obstacle] { features.contains(.obstacles) ? visibleObstacles : [] }
-    private var shownReportingPoints: [ReportingPoint] { features.contains(.reportingPoints) ? visibleReportingPoints : [] }
+    var shownAirports: [Airport] { features.contains(.airports) ? visibleAirports : [] }
+    var shownNavaids: [Navaid] { features.contains(.navaids) ? visibleNavaids : [] }
+    var shownObstacles: [Obstacle] { features.contains(.obstacles) ? visibleObstacles : [] }
+    var shownReportingPoints: [ReportingPoint] { features.contains(.reportingPoints) ? visibleReportingPoints : [] }
     var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
     private var shownOpenAIPTiles: Bool { features.contains(.openAIPTiles) && showOpenAIPTiles }
     var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
@@ -5085,7 +5136,7 @@ struct AeroMapView: UIViewRepresentable {
                     navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
                 }
                 navaidView.canShowCallout = true
-                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
+                navaidView.image = AeroMarkerImages.navaid
                 navaidView.rightCalloutAccessoryView = plannedRoute.addButton(for: navaidAnnotation)   // (6.7.0)
                 return navaidView
             }
@@ -5101,7 +5152,7 @@ struct AeroMapView: UIViewRepresentable {
                     obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
                 }
                 obstacleView.canShowCallout = true
-                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
+                obstacleView.image = AeroMarkerImages.obstacle
                 return obstacleView
             }
 
@@ -5119,8 +5170,7 @@ struct AeroMapView: UIViewRepresentable {
                 // "LSGC Les Eplatures · on request", plus a remark's own line when it has one. (6.0.1)
                 rpView.detailCalloutAccessoryView = reportingPointAnnotation.calloutDetailView()
                 rpView.rightCalloutAccessoryView = plannedRoute.addButton(for: reportingPointAnnotation)   // (6.7.0)
-                let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
-                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
+                rpView.image = AeroMarkerImages.reportingPoint(compulsory: reportingPointAnnotation.point.compulsory)
                 return rpView
             }
 
@@ -5169,29 +5219,7 @@ struct AeroMapView: UIViewRepresentable {
             }
             annotationView.canShowCallout = true
 
-            // Waypoint appearance based on state — image is cached per state. (PR-10)
-            let stateKey: String
-            let markerColor: UIColor
-            let iconName: String
-
-            if annotation.isCurrentWaypoint {
-                // Current/next waypoint - bright magenta with target icon
-                stateKey = "current"
-                markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
-                iconName = "target"
-            } else if annotation.isCompletedWaypoint {
-                // Completed waypoint - dimmed with checkmark
-                stateKey = "completed"
-                markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
-                iconName = "checkmark.circle.fill"
-            } else {
-                // Future waypoint - medium brightness
-                stateKey = "future"
-                markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
-                iconName = "circle.fill"
-            }
-
-            annotationView.image = cachedWaypointMarker(number: annotation.waypointIndex + 1, state: stateKey, iconName: iconName, color: markerColor)
+            annotationView.image = AeroMarkerImages.waypoint(annotation)
 
             // Add shadow
             annotationView.layer.shadowColor = UIColor.black.cgColor
@@ -5218,31 +5246,7 @@ struct AeroMapView: UIViewRepresentable {
                 annotationView = AerodromeMarkerView(annotation: annotation, reuseIdentifier: identifier)
             }
 
-            // Size and color based on airport type
-            let size: CGFloat
-            let iconName: String
-            let color: UIColor
-
-            switch annotation.airport.type {
-            case .largeAirport:
-                size = 20
-                iconName = "airplane.circle.fill"
-                color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0) // Blue
-            case .mediumAirport:
-                size = 16
-                iconName = "airplane.circle"
-                color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9) // Blue
-            case .smallAirport:
-                size = 14
-                iconName = "airplane"
-                color = UIColor(red: 0.4, green: 0.7, blue: 0.4, alpha: 0.9) // Green
-            default:
-                size = 12
-                iconName = "circle.fill"
-                color = UIColor.gray
-            }
-
-            annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
+            annotationView.image = AeroMarkerImages.airport(annotation.airport)
 
             return annotationView
         }

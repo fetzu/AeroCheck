@@ -95,7 +95,6 @@ final class PilotMapShapesTests: XCTestCase {
     func testLayersStackAsMapKitStackedThem() {
         typealias Key = PilotMapShapes.LayerKey
         let keys: [Key] = [
-            Key(group: .aircraft, tier: 0, kind: .symbol),
             Key(group: .route, tier: 1, kind: .line(cap: .round, dash: [])),
             Key(group: .airspace, tier: 1, kind: .line(cap: .round, dash: [])),
             Key(group: .airspace, tier: 0, kind: .line(cap: .round, dash: [])),
@@ -104,7 +103,7 @@ final class PilotMapShapesTests: XCTestCase {
         ]
         XCTAssertEqual(keys.sorted().map(\.id), [
             "aero.airspace.0.fill", "aero.airspace.0.line.1", "aero.airspace.1.line.1",
-            "aero.route.0.line.1", "aero.route.1.line.1", "aero.aircraft.0.symbol",
+            "aero.route.0.line.1", "aero.route.1.line.1",
         ])
     }
 

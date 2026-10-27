@@ -221,7 +221,8 @@ final class ImageryStore: @unchecked Sendable {
     @discardableResult
     func refresh(maxAge: TimeInterval = 6 * 3600) async -> Bool {
         if let fetchedAt = lock.withLock({ fetchedAt }), now().timeIntervalSince(fetchedAt) < maxAge { return false }
-        var request = URLRequest(url: Self.indexURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+        var request = URLRequest(url: PilotMapConfig.listURL(Self.indexURL, now: now()),
+                                 cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
         for (field, value) in PilotMapConfig.requestHeaders { request.setValue(value, forHTTPHeaderField: field) }
         guard let (data, response) = try? await fetch(request), response.statusCode == 200,
               data.count <= 4 << 20, let index = try? ImageryIndex.decode(data) else { return false }

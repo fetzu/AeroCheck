@@ -2,15 +2,15 @@
 Oktober 2026
 
 
-Seit Version 6.8.0 zeichnet AéroCheck seine eigene Karte zum Fliegen, die Pilotenkarte. Diese Seite sagt, woher ihre Daten kommen, was wir davon behalten und was wir weglassen, wie sie zugeschnitten und aktualisiert wird und wer genannt wird. Abschnitt 4.6 der Open Database Licence verlangt, dass alle, die eine aus OpenStreetMap erstellte Karte nutzen, erfahren können, wie sie entstanden ist: Das ist diese Seite.
+Seit Version 6.8.0 zeichnet AéroCheck seine eigene Karte zum Fliegen, den Atlas. Diese Seite sagt, woher ihre Daten kommen, was wir davon behalten und was wir weglassen, wie sie zugeschnitten und aktualisiert wird und wer genannt wird. Abschnitt 4.6 der Open Database Licence verlangt, dass alle, die eine aus OpenStreetMap erstellte Karte nutzen, erfahren können, wie sie entstanden ist: Das ist diese Seite.
 
 
 ## 1.0 Was die Karte ist
 
-Die Pilotenkarte wird auf Ihrem Gerät von MapLibre Native gezeichnet, aus Vektorkacheln, die wir jeden Monat aus OpenStreetMap erstellen, und aus dem Relief. Sie zeigt, was Sie aus dem Fenster suchen: Städte und Dörfer nach ihrer Grösse, Hauptstrassen, Eisenbahnen, Flüsse und Seen, Wälder, Siedlungsgebiete, Gletscher, Grenzen, Seilbahnen und Gipfel mit ihrer Höhe in Fuss. Die Luftfahrtebenen (Lufträume, Flugplätze, Verfahren, Ihre Route) liegen darüber, wie auf den Schweizer Karten.
+Der Atlas wird auf Ihrem Gerät von MapLibre Native gezeichnet, aus Vektorkacheln, die wir jeden Monat aus OpenStreetMap erstellen, und aus dem Relief. Er zeigt, was Sie aus dem Fenster suchen: Städte und Dörfer nach ihrer Grösse, Hauptstrassen, Eisenbahnen, Flüsse und Seen, Wälder, Siedlungsgebiete, Gletscher, Grenzen, Seilbahnen und Gipfel mit ihrer Höhe in Fuss. Die Luftfahrtebenen (Lufträume, Flugplätze, Verfahren, Ihre Route) liegen darüber, wie auf den Schweizer Karten.
 
-Sie besteht aus zwei Teilen:
-- **Der Weltumriss**, in der App selbst: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte. Ihn zeigt die Karte dort, wo keine Region auf dem Gerät ist.
+Er besteht aus zwei Teilen:
+- **Der Weltumriss**, in der App selbst: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte. Ihn zeigt die Karte dort, wo sie keine Region lesen kann: offline ausserhalb der heruntergeladenen Regionen, oder wenn das Online-Kontingent des Monats aufgebraucht ist.
 - **Regionen**, aus den vollständigen Daten erstellt: eine pro Land der Seite [Länder](/de/countries), die grossen in ihre Regionen geteilt (die US-Bundesstaaten, die deutschen Länder, die französischen Regionen…), etwa 236 insgesamt. Eine Region wird innerhalb eines monatlichen Kontingents online gelesen oder heruntergeladen und offline genutzt.
 
 

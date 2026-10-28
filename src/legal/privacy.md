@@ -82,7 +82,7 @@ Only if you send us an aircraft's checklist from the app (Aircraft › “Send u
 Once a request is sent, the app keeps its number and its link on the device (the link in the device's keychain) and lists it under “Your requests”. When the app comes to the foreground, at most every three hours, it asks the request server where each open request stands, sending that link's code and nothing else. A request closed for 30 days leaves the list.
 
 
-### 3.10 The pilot's map (tiles.aerocheck.app)
+### 3.10 The Atlas (tiles.aerocheck.app)
 The map the app draws itself, also under the route thumbnails and on share cards (unless you pick a Swiss layer); [how it is made](/map). No position, no session token, nothing about you:
 - A region you download: the request names the region's file.
 - Outside the regions on the device, the map is read online: each request names a region's file and the part of it that holds the tiles on screen, so it shows the area you look at, as a map tile request does.

@@ -81,7 +81,7 @@ Seulement si vous nous envoyez la checklist d'un avion depuis l'app (Avions › 
 
 Une fois la demande envoyée, l'app garde son numéro et son lien sur l'appareil (le lien dans le trousseau de l'appareil) et la liste sous « Vos demandes ». Quand l'app revient au premier plan, au plus toutes les trois heures, elle demande au serveur des demandes où en est chaque demande ouverte, en n'envoyant que le code de ce lien. Une demande close depuis 30 jours quitte la liste.
 
-### 3.10 La carte du pilote (tiles.aerocheck.app)
+### 3.10 L'Atlas (tiles.aerocheck.app)
 La carte que l'app dessine elle-même, aussi sous les vignettes des routes et sur les cartes de partage (sauf si vous choisissez un fond suisse) ; [comment elle est faite](/fr/map). Aucune position, aucun jeton de session, rien sur vous :
 - Une région que vous téléchargez : la requête nomme le fichier de la région.
 - Hors des régions présentes sur l'appareil, la carte est lue en ligne : chaque requête nomme le fichier d'une région et la partie qui contient les tuiles à l'écran, elle montre donc la zone que vous regardez, comme toute requête de tuiles.

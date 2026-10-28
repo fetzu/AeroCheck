@@ -2,15 +2,15 @@
 Octobre 2026
 
 
-Depuis la version 6.8.0, AéroCheck dessine sa propre carte pour le vol, la carte du pilote. Cette page dit d'où viennent ses données, ce que nous en gardons et ce que nous laissons de côté, comment elle est découpée et mise à jour, et qui est crédité. La section 4.6 de l'Open Database Licence demande que toute personne utilisant une carte faite à partir d'OpenStreetMap puisse savoir comment elle a été faite : c'est cette page.
+Depuis la version 6.8.0, AéroCheck dessine sa propre carte pour le vol, l'Atlas. Cette page dit d'où viennent ses données, ce que nous en gardons et ce que nous laissons de côté, comment elle est découpée et mise à jour, et qui est crédité. La section 4.6 de l'Open Database Licence demande que toute personne utilisant une carte faite à partir d'OpenStreetMap puisse savoir comment elle a été faite : c'est cette page.
 
 
 ## 1.0 Ce qu'est la carte
 
-La carte du pilote est dessinée sur votre appareil par MapLibre Native, à partir de tuiles vectorielles que nous construisons chaque mois depuis OpenStreetMap, et du relief. Elle montre ce que vous cherchez par la fenêtre : villes et villages selon leur taille, routes principales, voies ferrées, rivières et lacs, forêts, zones bâties, glaciers, frontières, téléphériques, et sommets avec leur altitude en pieds. Les couches aéronautiques (espaces aériens, aérodromes, procédures, votre route) sont dessinées par-dessus, comme sur les cartes suisses.
+L'Atlas est dessiné sur votre appareil par MapLibre Native, à partir de tuiles vectorielles que nous construisons chaque mois depuis OpenStreetMap, et du relief. Il montre ce que vous cherchez par la fenêtre : villes et villages selon leur taille, routes principales, voies ferrées, rivières et lacs, forêts, zones bâties, glaciers, frontières, téléphériques, et sommets avec leur altitude en pieds. Les couches aéronautiques (espaces aériens, aérodromes, procédures, votre route) sont dessinées par-dessus, comme sur les cartes suisses.
 
-Elle a deux parties :
-- **Le contour du monde**, dans l'app elle-même : terres, mer, grands lacs et grandes rivières, frontières, pays et capitales. C'est ce que la carte montre là où aucune région n'est sur l'appareil.
+Il a deux parties :
+- **Le contour du monde**, dans l'app elle-même : terres, mer, grands lacs et grandes rivières, frontières, pays et capitales. C'est ce que la carte montre là où elle n'a aucune région à lire : hors ligne en dehors des régions téléchargées, ou une fois le quota en ligne du mois épuisé.
 - **Les régions**, construites à partir des données complètes : une par pays de la page [Pays](/fr/countries), les grands découpés en régions (les États américains, les Länder allemands, les régions françaises…), environ 236 en tout. Une région se lit en ligne dans un quota mensuel, ou se télécharge et s'utilise hors ligne.
 
 

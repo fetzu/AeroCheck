@@ -86,6 +86,15 @@ flagship:
       facts: ["Swiss ICAO and glider charts, offline", "Circuits and VFR routes in {ofmCountries} countries", "Official chart links in {chartCountries} countries"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
+    - step: "Atlas"
+      anchor: "atlas"
+      fly: true
+      where: true
+      title: "Atlas: a map drawn for flying"
+      description: "AéroCheck draws its own map, from OpenStreetMap, for what you look for out of the window: towns by size, motorways and main roads, railways and cable cars, rivers, lakes and forests, glaciers, and peaks with their height in feet, over the relief. Every country of the Countries page, the large ones by region, joined at their borders."
+      facts: ["Download a region and it works offline", "Rebuilt every month from OpenStreetMap", "Aerial imagery from open government sources"]
+      note: "Online, the map reads what is on screen, within a monthly allowance: 1,500 tiles, 15,000 with Pro. A downloaded region never counts."
+      shot: "atlas"
     - step: "04 · Close"
       anchor: "close"
       title: "Landed. Now the logbook."

@@ -2,15 +2,15 @@
 October 2026
 
 
-Since version 6.8.0, AéroCheck draws its own map for flying, the pilot's map. This page says where its data comes from, what we keep of it and what we leave out, how it is cut and updated, and who is credited. Section 4.6 of the Open Database Licence asks that anyone using a map made from OpenStreetMap can find out how it was made: this is that page.
+Since version 6.8.0, AéroCheck draws its own map for flying, the Atlas. This page says where its data comes from, what we keep of it and what we leave out, how it is cut and updated, and who is credited. Section 4.6 of the Open Database Licence asks that anyone using a map made from OpenStreetMap can find out how it was made: this is that page.
 
 
 ## 1.0 What the map is
 
-The pilot's map is drawn on your device by MapLibre Native, from vector tiles we build each month from OpenStreetMap, and from relief. It shows what you look for out of the window: towns and villages by size, main roads, railways, rivers and lakes, forests, built-up areas, glaciers, borders, cable cars, and peaks with their height in feet. The aeronautical layers (airspace, aerodromes, procedures, your route) are drawn over it, as on the Swiss charts.
+The Atlas is drawn on your device by MapLibre Native, from vector tiles we build each month from OpenStreetMap, and from relief. It shows what you look for out of the window: towns and villages by size, main roads, railways, rivers and lakes, forests, built-up areas, glaciers, borders, cable cars, and peaks with their height in feet. The aeronautical layers (airspace, aerodromes, procedures, your route) are drawn over it, as on the Swiss charts.
 
 It comes in two parts:
-- **The world outline**, in the app itself: land, sea, the larger lakes and rivers, borders, countries and capitals. It is what the map shows where no region is on the device.
+- **The world outline**, in the app itself: land, sea, the larger lakes and rivers, borders, countries and capitals. It is what the map shows where it has no region to read: offline outside the downloaded regions, or once the month's online allowance is used up.
 - **Regions**, built from the full data: one per country on the [Countries](/countries) page, the large ones split into their regions (the US states, the German Länder, the French régions…), about 236 in all. A region is read online within a monthly allowance, or downloaded and used offline.
 
 

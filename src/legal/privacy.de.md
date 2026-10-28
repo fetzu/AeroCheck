@@ -81,7 +81,7 @@ Nur wenn Sie uns aus der App die Checkliste eines Flugzeugs senden (Flugzeuge �
 
 Ist eine Anfrage gesendet, behält die App ihre Nummer und ihren Link auf dem Gerät (den Link im Schlüsselbund des Geräts) und führt sie unter «Ihre Anfragen» auf. Wenn die App in den Vordergrund kommt, höchstens alle drei Stunden, fragt sie den Anfrageserver, wo jede offene Anfrage steht, und sendet dabei den Code dieses Links und sonst nichts. Eine Anfrage, die seit 30 Tagen abgeschlossen ist, verschwindet aus der Liste.
 
-### 3.10 Die Pilotenkarte (tiles.aerocheck.app)
+### 3.10 Der Atlas (tiles.aerocheck.app)
 Die Karte, die die App selbst zeichnet, auch unter den Vorschaubildern der Routen und auf Bildern zum Teilen (ausser Sie wählen eine Schweizer Ebene); [wie sie entsteht](/de/map). Keine Position, kein Sitzungstoken, nichts über Sie:
 - Eine Region, die Sie herunterladen: Die Abfrage nennt die Datei der Region.
 - Ausserhalb der Regionen auf dem Gerät wird die Karte online gelesen: Jede Abfrage nennt die Datei einer Region und den Teil davon, der die Kacheln auf dem Bildschirm enthält, sie zeigt also den Bereich, den Sie ansehen, wie jede Abfrage von Kartenkacheln.

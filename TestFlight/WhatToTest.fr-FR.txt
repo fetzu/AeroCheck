@@ -2,6 +2,7 @@
 
 À essayer :
 - Réglages › Données et stockage › Carte du pilote : téléchargez la Suisse (environ 90 Mo, Wi-Fi conseillé). Passez ensuite en mode avion : la carte se dessine toujours en Suisse.
+- Carte du pilote › Pays et régions : chaque pays de aerocheck.app/countries, les grands par région. Téléchargez aussi un voisin (Grand Est, Bade-Wurtemberg) : à la frontière, les deux côtés se dessinent, sans trou ni doublon.
 - Feuille Carte › Fond de carte : Carte du pilote et Images aériennes remplacent les deux fonds d'Apple. Sur Images aériennes, glissez de la Suisse vers la France ou l'Allemagne : chaque source est créditée au pied de la carte.
 - Dézoomez jusqu'à l'Europe : le contour du monde, avec le nom des pays à l'intérieur et leurs capitales.
 - Planifier › Carte, la CARTE du cockpit et l'éditeur de route : touchez un aérodrome, l'altitude d'un tour de piste, une balise ; déplacez un point de route ; la bande des étapes ; Rechercher un aérodrome. Dites-nous tout ce qui bouge autrement qu'en 6.7.

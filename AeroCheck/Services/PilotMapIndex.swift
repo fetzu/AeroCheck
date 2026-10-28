@@ -19,8 +19,12 @@ enum PilotMapConfig {
 
     /// What MapLibre asks for, all answered by `PilotTileURLProtocol`: the map's vector tiles, the relief's
     /// elevation tiles and the B612 glyphs. The style names these.
-    static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}"
-    static let reliefTileTemplate = "https://\(host)/v1/relief/{z}/{x}/{y}"
+    static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}?\(cacheGeneration)"
+    static let reliefTileTemplate = "https://\(host)/v1/relief/{z}/{x}/{y}?\(cacheGeneration)"
+    /// MapLibre keeps a tile under its address. The builds before 29 Oct 2026 kept half a border's tile for a month
+    /// (Switzerland's half, from before the other regions); a new query is a new address, so those are never drawn
+    /// again. The protocol reads only the path.
+    static let cacheGeneration = "g=2"
     static let glyphsTemplate = "https://\(host)/v1/glyphs/{fontstack}/{range}.pbf"
     /// The world outline, from the app's bundle (`PilotMapOutline`).
     static let outlineTileTemplate = "https://\(host)/local/outline/{z}/{x}/{y}"

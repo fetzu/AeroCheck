@@ -133,7 +133,8 @@ final class PilotMapStorage: @unchecked Sendable {
 ///    hold a part of it), joined into one tile;
 /// 2. online, the regions not downloaded, by range reads of their archives on tiles.aerocheck.app, counted against the
 ///    allowance, joined to the rest; up to zoom 7 the overview instead, which holds every region in one archive;
-/// 3. else (no region there, the allowance used up, offline) what the downloaded regions have, or nothing.
+/// 3. else (no region there, the allowance used up, offline) what the downloaded regions have, or nothing. That tile
+///    may be half a border's: it is drawn but never kept, so the other half comes once the device is back online.
 final class PilotTileSource: @unchecked Sendable {
     indirect enum Origin: Equatable, Sendable {
         case downloaded(String)
@@ -146,6 +147,9 @@ final class PilotTileSource: @unchecked Sendable {
         /// Plain bytes, as MapLibre wants them: the map's tiles un-gzipped.
         let data: Data
         let origin: Origin
+        /// False when a region that holds part of the tile couldn't be asked (offline, the allowance used up, a read
+        /// that failed): what's there is drawn, but MapLibre mustn't keep it for a month.
+        var whole = true
     }
 
     let index: PilotMapIndexStore
@@ -218,7 +222,9 @@ final class PilotTileSource: @unchecked Sendable {
         // downloaded. Offline or out of allowance, the downloaded parts are all there is.
         let overview = z <= Self.overviewMaxZoom ? index.overview.flatMap { $0.has(kind) ? $0 : nil } : nil
         let online = overview.map { [$0] } ?? regions.filter { !downloaded.contains($0.id) }
-        guard !online.isEmpty, isOnline() else { return merged(parts, kind) ?? (online.isEmpty ? .none : .unavailable) }
+        guard !online.isEmpty, isOnline() else {
+            return merged(parts, kind, whole: online.isEmpty) ?? (online.isEmpty ? .none : .unavailable)
+        }
         var fetched: [(data: Data, origin: Origin)] = []
         var failed = false
         for region in online {
@@ -227,27 +233,27 @@ final class PilotTileSource: @unchecked Sendable {
             let location: PMTilesRemoteArchive.Location?
             do { location = try await remote.locate(z: z, x: x, y: y) } catch { failed = true; continue }
             guard let location else { continue }
-            guard allowance.reserve() else { return merged(parts, kind) ?? .unavailable }
+            guard allowance.reserve() else { return merged(parts, kind, whole: false) ?? .unavailable }
             do {
                 let stored = try await remote.read(location)
                 if let plain = PMTiles.plain(stored) { fetched.append((plain, .online(region.id))) }
             } catch {
                 allowance.refund()
-                return .unavailable
+                return merged(parts, kind, whole: false) ?? .unavailable
             }
         }
         // The overview answered: it holds the downloaded regions too.
         if overview != nil, !fetched.isEmpty { return merged(fetched, kind) ?? .none }
         // A region that couldn't be asked: what the others have, or "nothing now" so MapLibre asks again.
-        return merged(parts + fetched, kind) ?? (failed ? .unavailable : .none)
+        return merged(parts + fetched, kind, whole: !failed) ?? (failed ? .unavailable : .none)
     }
 
     /// One tile from the parts found: the only one as it is, several joined (`PilotTileMerge`), none nil.
-    private func merged(_ parts: [(data: Data, origin: Origin)], _ kind: PilotMapKind) -> Lookup? {
+    private func merged(_ parts: [(data: Data, origin: Origin)], _ kind: PilotMapKind, whole: Bool = true) -> Lookup? {
         guard let first = parts.first else { return nil }
-        guard parts.count > 1 else { return .tile(Tile(data: first.data, origin: first.origin)) }
+        guard parts.count > 1 else { return .tile(Tile(data: first.data, origin: first.origin, whole: whole)) }
         let data = kind == .map ? PilotTileMerge.vector(parts.map(\.data)) : PilotTileMerge.relief(parts.map(\.data))
-        return .tile(Tile(data: data ?? first.data, origin: .merged(parts.map(\.origin))))
+        return .tile(Tile(data: data ?? first.data, origin: .merged(parts.map(\.origin)), whole: whole))
     }
 
     private func remoteArchive(_ region: PilotMapRegion, _ kind: PilotMapKind) -> PMTilesRemoteArchive {
@@ -373,6 +379,8 @@ final class PilotTileURLProtocol: URLProtocol {
     /// What a request gets: a body and its type, a 404 MapLibre keeps, or an error it retries.
     enum Answer {
         case body(Data, String)
+        /// A body MapLibre draws but doesn't keep: half a border's tile, the other half to come once online.
+        case passing(Data, String)
         case none
         case unavailable
     }
@@ -382,7 +390,9 @@ final class PilotTileURLProtocol: URLProtocol {
         case let .tile(kind, z, x, y):
             guard let source else { return .none }
             switch await source.lookup(kind, z: z, x: x, y: y) {
-            case let .tile(tile): return .body(tile.data, kind == .map ? "application/x-protobuf" : "image/webp")
+            case let .tile(tile):
+                let type = kind == .map ? "application/x-protobuf" : "image/webp"
+                return tile.whole ? .body(tile.data, type) : .passing(tile.data, type)
             case .none: return .none
             case .unavailable: return .unavailable
             }
@@ -461,6 +471,11 @@ final class PilotTileURLProtocol: URLProtocol {
             // A month in MapLibre's cache: a tile read online is never read (or counted) twice.
             status = 200
             headers = ["Content-Type": type, "Cache-Control": "max-age=2592000"]
+            body = data
+        case let .passing(data, type):
+            // Stale at once: MapLibre asks again the next time it needs the tile (it reads max-age, not no-store).
+            status = 200
+            headers = ["Content-Type": type, "Cache-Control": "no-store, max-age=0, must-revalidate"]
             body = data
         case .none:
             // Nothing there: MapLibre keeps it, and asks again only when its entry expires (a day).

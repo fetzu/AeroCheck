@@ -95,9 +95,17 @@ enum AirfieldSearch {
 /// across, far wider than the chart's own nearest zoom (simulator, 11 Oct).
 struct PendingCameraMove {
     let center: CLLocationCoordinate2D
+    /// Across the map's narrower side: the search's `AirfieldSearch.spanNM`, wider for the Atlas shot.
+    let spanNM: Double
 
     init(to airport: Airport) {
         center = airport.coordinate
+        spanNM = AirfieldSearch.spanNM
+    }
+
+    init(center: CLLocationCoordinate2D, spanNM: Double) {
+        self.center = center
+        self.spanNM = spanNM
     }
 }
 

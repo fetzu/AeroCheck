@@ -691,7 +691,7 @@ The foot of the sheet credits the sources it draws from: open flightmaps (with t
 
 The **Pilot's map** is AéroCheck's own map for flying, drawn on the device from OpenStreetMap, with relief: towns and villages by size, main roads, railways, rivers and lakes, forests, built-up areas, glaciers, borders, cable cars, and peaks with their height in feet, in the cockpit's B612 typeface. It draws everywhere the app does: Plan › Map, the Cockpit's MAP, the dry run, the route editor, the coordinate picker, the logbook's track map, the route thumbnails and share cards.
 
-It comes in regions, one per country (Switzerland with Liechtenstein first). Where no region is on the device, the map shows the world outline the app carries: land, sea, the larger lakes and rivers, borders, countries and capitals.
+It comes in regions: one per country on the [Countries](/countries) page, the large ones split into their regions (the US states, the German Länder, the French régions…), about 236 in all. Where no region is on the device, the map shows the world outline the app carries: land, sea, the larger lakes and rivers, borders, countries and capitals.
 
 - **Online**, the map reads a region's tiles as the screen asks for them, within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. At 80 %, a line under the map offers the region's download; once it is used up, the map keeps the regions you downloaded and shows the world outline elsewhere until the 1st of the next month.
 - **Downloaded**, a region works offline and never counts against the allowance. Download one in **Settings › Data & Storage › Pilot's map**; a planned flight offers the regions along its route with its other data (see [Downloading Data](#downloading-data)).
@@ -1084,7 +1084,7 @@ The VFR procedures age by AIRAC cycle rather than by date. Their row in Data & S
 
 ### Offline Maps and Storage
 
-**Pilot's map**, in **Data & Storage** under the aeronautical data, lists the regions: each with its state (**Downloaded**, **Update available**, or not downloaded), its build date and its size, and **Download**; a downloaded region's menu has **Update** when a newer build is out, and **Delete**. Switzerland with Liechtenstein is about 90 MB. Under the regions, the month's online use ("Online this month: 312 of 1,500 map tiles").
+**Pilot's map**, in **Data & Storage** under the aeronautical data (and in **Navigation & Maps**), lists the regions on the device, and **Countries and regions** every other one, by country, with a search: each with its state (**Downloaded**, **Update available**, or not downloaded), its build date and its size, and **Download**; a downloaded region's menu has **Update** when a newer build is out, and **Delete**. Half the regions are under 30 MB; Switzerland with Liechtenstein is about 90 MB. Under the regions, the month's online use ("Online this month: 312 of 1,500 map tiles").
 
 Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). **Data & Storage** lists each dataset with its countries, size and currency (**Airspace**, **Navaids**, **Obstacles**, **Reporting points**, **Aerodromes** from OpenAIP, **Airports** from OurAirports, and **VFR procedures (open flightmaps)**), and lets you update or delete cached data to reclaim space. New aerodrome data (runways, frequencies) shows as soon as it is downloaded, without restarting the app.
 

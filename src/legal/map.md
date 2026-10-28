@@ -11,13 +11,14 @@ The pilot's map is drawn on your device by MapLibre Native, from vector tiles we
 
 It comes in two parts:
 - **The world outline**, in the app itself: land, sea, the larger lakes and rivers, borders, countries and capitals. It is what the map shows where no region is on the device.
-- **Regions**, one per country, built from the full data: Switzerland with Liechtenstein first, more to follow. A region is read online within a monthly allowance, or downloaded and used offline.
+- **Regions**, built from the full data: one per country on the [Countries](/countries) page, the large ones split into their regions (the US states, the German Länder, the French régions…), about 236 in all. A region is read online within a monthly allowance, or downloaded and used offline.
 
 
 ## 2.0 Where the data comes from
 
 - **OpenStreetMap**: © OpenStreetMap contributors, under the [Open Database Licence](https://opendatacommons.org/licenses/odbl/1-0/) (ODbL 1.0), read through the daily build of the [Protomaps basemap](https://docs.protomaps.com/basemaps/downloads). The map's data is a produced work under the ODbL: you can find the data itself at [openstreetmap.org](https://www.openstreetmap.org/copyright).
 - **Relief**: [Mapterhorn](https://mapterhorn.com), open terrain data from national and global elevation models. Its sources and their licences are listed at [mapterhorn.com/attribution](https://mapterhorn.com/attribution).
+- **Each region's outline**: [Overture Maps](https://overturemaps.org), from OpenStreetMap's boundaries, under the same ODbL: © OpenStreetMap contributors, Overture Maps Foundation.
 - **Country names and major rivers** of the world outline: [Natural Earth](https://www.naturalearthdata.com) (public domain).
 - **Typeface**: [B612](https://github.com/polarsys/b612), designed for cockpit screens, under the SIL Open Font License 1.1.
 - **Drawing**: [MapLibre Native](https://maplibre.org), under the BSD 2-Clause licence.
@@ -46,7 +47,7 @@ The build reads the Protomaps tiles and keeps, feature by feature, what a pilot 
 
 ## 4.0 Cut at the border
 
-A region holds the data inside its own country and nothing else, so two regions never draw the same place twice. The border is OpenStreetMap's own, taken from the region's most detailed tiles and closed into a line around the country, with the enclaves left out. Every tile that crosses it is cut along it, at every zoom, and the relief outside it is cleared. Past the border, the neighbouring region takes over where it is on the device, and the world outline everywhere else.
+A region holds the data inside its own outline and nothing else, so two regions never draw the same place twice. The outline is OpenStreetMap's boundary as Overture Maps publishes it: on land, the border; at sea, the territorial waters (12 NM, 6 in the Aegean) or the middle of a strait, every island included. Every tile that crosses it is cut along it, at every zoom, and the relief outside it is cleared. Where two regions meet, the app joins their two halves of a tile; past the regions on the device, the world outline takes over. Borders are drawn as OpenStreetMap draws them.
 
 
 ## 5.0 Built each month
@@ -61,7 +62,7 @@ OpenStreetMap is edited every minute, so a monthly map is at most a few weeks be
 
 ## 6.0 How the app gets the map
 
-The files are kept on tiles.aerocheck.app, Cloudflare's storage under our name. A downloaded region is read on the device and works offline. Elsewhere the app reads the tiles on screen online, within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. A downloaded region never counts against it. What these requests show, and what we keep of them, is in [the privacy policy](/privacy), section 3.10.
+The files are kept on tiles.aerocheck.app, Cloudflare's storage under our name. A downloaded region is read on the device and works offline; a region is 30 MB for half of them, Switzerland and Liechtenstein about 90 MB, the largest a few hundred MB. Elsewhere the app reads the tiles on screen online (zoomed out, from one overview of every region), within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. A downloaded region never counts against it. What these requests show, and what we keep of them, is in [the privacy policy](/privacy), section 3.10.
 
 
 ## 7.0 Aerial imagery

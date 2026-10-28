@@ -11,13 +11,14 @@ La carte du pilote est dessinée sur votre appareil par MapLibre Native, à part
 
 Elle a deux parties :
 - **Le contour du monde**, dans l'app elle-même : terres, mer, grands lacs et grandes rivières, frontières, pays et capitales. C'est ce que la carte montre là où aucune région n'est sur l'appareil.
-- **Les régions**, une par pays, construites à partir des données complètes : la Suisse avec le Liechtenstein d'abord, d'autres suivront. Une région se lit en ligne dans un quota mensuel, ou se télécharge et s'utilise hors ligne.
+- **Les régions**, construites à partir des données complètes : une par pays de la page [Pays](/fr/countries), les grands découpés en régions (les États américains, les Länder allemands, les régions françaises…), environ 236 en tout. Une région se lit en ligne dans un quota mensuel, ou se télécharge et s'utilise hors ligne.
 
 
 ## 2.0 D'où viennent les données
 
 - **OpenStreetMap** : © les contributeurs d'OpenStreetMap, sous l'[Open Database Licence](https://opendatacommons.org/licenses/odbl/1-0/) (ODbL 1.0), lu via la compilation quotidienne du [fond de carte Protomaps](https://docs.protomaps.com/basemaps/downloads). Les données de la carte sont une œuvre produite au sens de l'ODbL : les données elles-mêmes se trouvent sur [openstreetmap.org](https://www.openstreetmap.org/copyright).
 - **Relief** : [Mapterhorn](https://mapterhorn.com), des données de terrain ouvertes issues de modèles d'altitude nationaux et mondiaux. Ses sources et leurs licences sont listées sur [mapterhorn.com/attribution](https://mapterhorn.com/attribution).
+- **Le contour de chaque région** : [Overture Maps](https://overturemaps.org), tiré des limites d'OpenStreetMap, sous la même ODbL : © les contributeurs d'OpenStreetMap, Overture Maps Foundation.
 - **Noms des pays et grandes rivières** du contour du monde : [Natural Earth](https://www.naturalearthdata.com) (domaine public).
 - **Police** : [B612](https://github.com/polarsys/b612), dessinée pour les écrans de cockpit, sous la SIL Open Font License 1.1.
 - **Dessin** : [MapLibre Native](https://maplibre.org), sous licence BSD à 2 clauses.
@@ -46,7 +47,7 @@ La construction lit les tuiles de Protomaps et garde, élément par élément, c
 
 ## 4.0 Découpée à la frontière
 
-Une région contient les données de son propre pays et rien d'autre, si bien que deux régions ne dessinent jamais deux fois le même endroit. La frontière est celle d'OpenStreetMap, prise dans les tuiles les plus détaillées de la région et refermée en une ligne autour du pays, enclaves exclues. Chaque tuile qui la traverse est découpée le long d'elle, à chaque zoom, et le relief au-delà est effacé. Passé la frontière, la région voisine prend le relais si elle est sur l'appareil, et le contour du monde partout ailleurs.
+Une région contient les données de son propre contour et rien d'autre, si bien que deux régions ne dessinent jamais deux fois le même endroit. Le contour est la limite d'OpenStreetMap telle qu'Overture Maps la publie : sur terre, la frontière ; en mer, les eaux territoriales (12 NM, 6 en mer Égée) ou le milieu d'un détroit, chaque île comprise. Chaque tuile qui le traverse est découpée le long de lui, à chaque zoom, et le relief au-delà est effacé. Là où deux régions se rencontrent, l'app réunit leurs deux moitiés d'une tuile ; au-delà des régions présentes sur l'appareil, le contour du monde prend le relais. Les frontières sont celles que dessine OpenStreetMap.
 
 
 ## 5.0 Construite chaque mois
@@ -61,7 +62,7 @@ OpenStreetMap est modifié chaque minute : une carte mensuelle a donc au plus qu
 
 ## 6.0 Comment l'app obtient la carte
 
-Les fichiers sont conservés sur tiles.aerocheck.app, le stockage de Cloudflare à notre nom. Une région téléchargée se lit sur l'appareil et fonctionne hors ligne. Ailleurs, l'app lit en ligne les tuiles à l'écran, dans un quota mensuel par appareil : 1 500 tuiles, ou 15 000 avec AéroCheck Pro. Une région téléchargée n'y compte jamais. Ce que ces requêtes montrent, et ce que nous en gardons, figure dans [la politique de confidentialité](/fr/privacy), section 3.10.
+Les fichiers sont conservés sur tiles.aerocheck.app, le stockage de Cloudflare à notre nom. Une région téléchargée se lit sur l'appareil et fonctionne hors ligne ; la moitié des régions font moins de 30 Mo, la Suisse avec le Liechtenstein environ 90 Mo, les plus grandes quelques centaines de Mo. Ailleurs, l'app lit en ligne les tuiles à l'écran (en vue d'ensemble, depuis un aperçu de toutes les régions), dans un quota mensuel par appareil : 1 500 tuiles, ou 15 000 avec AéroCheck Pro. Une région téléchargée n'y compte jamais. Ce que ces requêtes montrent, et ce que nous en gardons, figure dans [la politique de confidentialité](/fr/privacy), section 3.10.
 
 
 ## 7.0 Images aériennes

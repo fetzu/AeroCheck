@@ -11,13 +11,14 @@ Die Pilotenkarte wird auf Ihrem Gerät von MapLibre Native gezeichnet, aus Vekto
 
 Sie besteht aus zwei Teilen:
 - **Der Weltumriss**, in der App selbst: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte. Ihn zeigt die Karte dort, wo keine Region auf dem Gerät ist.
-- **Regionen**, eine pro Land, aus den vollständigen Daten erstellt: zuerst die Schweiz mit Liechtenstein, weitere folgen. Eine Region wird innerhalb eines monatlichen Kontingents online gelesen oder heruntergeladen und offline genutzt.
+- **Regionen**, aus den vollständigen Daten erstellt: eine pro Land der Seite [Länder](/de/countries), die grossen in ihre Regionen geteilt (die US-Bundesstaaten, die deutschen Länder, die französischen Regionen…), etwa 236 insgesamt. Eine Region wird innerhalb eines monatlichen Kontingents online gelesen oder heruntergeladen und offline genutzt.
 
 
 ## 2.0 Woher die Daten kommen
 
 - **OpenStreetMap**: © OpenStreetMap-Mitwirkende, unter der [Open Database Licence](https://opendatacommons.org/licenses/odbl/1-0/) (ODbL 1.0), gelesen über den täglichen Build der [Protomaps-Basiskarte](https://docs.protomaps.com/basemaps/downloads). Die Daten der Karte sind ein erzeugtes Werk im Sinne der ODbL: Die Daten selbst finden Sie auf [openstreetmap.org](https://www.openstreetmap.org/copyright).
 - **Relief**: [Mapterhorn](https://mapterhorn.com), offene Geländedaten aus nationalen und weltweiten Höhenmodellen. Seine Quellen und ihre Lizenzen stehen unter [mapterhorn.com/attribution](https://mapterhorn.com/attribution).
+- **Der Umriss jeder Region**: [Overture Maps](https://overturemaps.org), aus den Grenzen von OpenStreetMap, unter derselben ODbL: © OpenStreetMap-Mitwirkende, Overture Maps Foundation.
 - **Ländernamen und grosse Flüsse** des Weltumrisses: [Natural Earth](https://www.naturalearthdata.com) (gemeinfrei).
 - **Schrift**: [B612](https://github.com/polarsys/b612), für Cockpit-Bildschirme entworfen, unter der SIL Open Font License 1.1.
 - **Darstellung**: [MapLibre Native](https://maplibre.org), unter der BSD-2-Clause-Lizenz.
@@ -46,7 +47,7 @@ Der Build liest die Kacheln von Protomaps und behält, Objekt für Objekt, was e
 
 ## 4.0 An der Grenze zugeschnitten
 
-Eine Region enthält die Daten innerhalb ihres eigenen Landes und nichts sonst, sodass zwei Regionen nie denselben Ort zweimal zeichnen. Die Grenze ist die von OpenStreetMap, aus den detailliertesten Kacheln der Region genommen und zu einer Linie um das Land geschlossen, Enklaven ausgenommen. Jede Kachel, die sie kreuzt, wird entlang der Grenze zugeschnitten, auf jedem Zoom, und das Relief ausserhalb wird entfernt. Jenseits der Grenze übernimmt die Nachbarregion, wenn sie auf dem Gerät ist, und überall sonst der Weltumriss.
+Eine Region enthält die Daten innerhalb ihres eigenen Umrisses und nichts sonst, sodass zwei Regionen nie denselben Ort zweimal zeichnen. Der Umriss ist die Grenze von OpenStreetMap, wie Overture Maps sie veröffentlicht: an Land die Landesgrenze, auf See die Hoheitsgewässer (12 NM, 6 in der Ägäis) oder die Mitte einer Meerenge, jede Insel eingeschlossen. Jede Kachel, die ihn kreuzt, wird entlang des Umrisses zugeschnitten, auf jedem Zoom, und das Relief ausserhalb wird entfernt. Wo zwei Regionen aneinanderstossen, fügt die App ihre beiden Hälften einer Kachel zusammen; jenseits der Regionen auf dem Gerät übernimmt der Weltumriss. Die Grenzen sind die, die OpenStreetMap zeichnet.
 
 
 ## 5.0 Jeden Monat neu erstellt
@@ -61,7 +62,7 @@ OpenStreetMap wird jede Minute bearbeitet, eine monatliche Karte liegt also höc
 
 ## 6.0 Wie die App die Karte erhält
 
-Die Dateien liegen auf tiles.aerocheck.app, dem Speicher von Cloudflare unter unserem Namen. Eine heruntergeladene Region wird auf dem Gerät gelesen und funktioniert offline. Anderswo liest die App die Kacheln auf dem Bildschirm online, innerhalb eines monatlichen Kontingents pro Gerät: 1'500 Kacheln, oder 15'000 mit AéroCheck Pro. Eine heruntergeladene Region zählt nie dazu. Was diese Abfragen zeigen und was wir davon behalten, steht in der [Datenschutzerklärung](/de/privacy), Abschnitt 3.10.
+Die Dateien liegen auf tiles.aerocheck.app, dem Speicher von Cloudflare unter unserem Namen. Eine heruntergeladene Region wird auf dem Gerät gelesen und funktioniert offline; die Hälfte der Regionen ist kleiner als 30 MB, die Schweiz mit Liechtenstein etwa 90 MB, die grössten einige hundert MB. Anderswo liest die App die Kacheln auf dem Bildschirm online (herausgezoomt aus einer Übersicht aller Regionen), innerhalb eines monatlichen Kontingents pro Gerät: 1'500 Kacheln, oder 15'000 mit AéroCheck Pro. Eine heruntergeladene Region zählt nie dazu. Was diese Abfragen zeigen und was wir davon behalten, steht in der [Datenschutzerklärung](/de/privacy), Abschnitt 3.10.
 
 
 ## 7.0 Luftbilder

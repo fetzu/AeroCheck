@@ -129,13 +129,17 @@ final class PilotMapStorage: @unchecked Sendable {
 }
 
 /// Where each of MapLibre's tiles comes from (the plan's "one tile address for everything"): (6.8.0)
-/// 1. a downloaded region's archive when one has the tile (regions overlap at borders: the first in the index wins);
-/// 2. else, online, a range read of that region's archive on tiles.aerocheck.app, counted against the allowance;
-/// 3. else (no region there, the allowance used up, offline) nothing, and MapLibre draws what it has.
+/// 1. every downloaded region that has the tile (each is cut at its own outline: at a border, or at a low zoom, several
+///    hold a part of it), joined into one tile;
+/// 2. online, the regions not downloaded, by range reads of their archives on tiles.aerocheck.app, counted against the
+///    allowance, joined to the rest; up to zoom 7 the overview instead, which holds every region in one archive;
+/// 3. else (no region there, the allowance used up, offline) what the downloaded regions have, or nothing.
 final class PilotTileSource: @unchecked Sendable {
-    enum Origin: Equatable, Sendable {
+    indirect enum Origin: Equatable, Sendable {
         case downloaded(String)
         case online(String)
+        /// Several regions' parts joined into one tile.
+        case merged([Origin])
     }
 
     struct Tile: Sendable {
@@ -191,21 +195,31 @@ final class PilotTileSource: @unchecked Sendable {
         return nil
     }
 
+    /// Up to this tile zoom, online, the overview alone answers: a tile there spans many regions, and one archive is
+    /// one read where the regions would be dozens. (6.8.0, the worldwide regions)
+    static let overviewMaxZoom = 7
+
     func lookup(_ kind: PilotMapKind, z: Int, x: Int, y: Int) async -> Lookup {
         guard PilotMapTileMath.isValid(z: z, x: x, y: y) else { return .none }
         let regions = candidates(z: z, x: x, y: y).filter { $0.has(kind) }
         let downloaded = Set(storage.downloaded.map(\.id))
 
+        // Every downloaded region's part: each is cut at its own outline, so at a border, or at a low zoom, a tile
+        // holds a part in each.
+        var parts: [(data: Data, origin: Origin)] = []
         for region in regions where downloaded.contains(region.id) {
             if let stored = storage.archive(region: region.id, kind: kind)?.tile(z: z, x: x, y: y),
                let plain = PMTiles.plain(stored) {
-                return .tile(Tile(data: plain, origin: .downloaded(region.id)))
+                parts.append((plain, .downloaded(region.id)))
             }
         }
 
-        let online = regions.filter { !downloaded.contains($0.id) }
-        guard !online.isEmpty else { return .none }
-        guard isOnline() else { return .unavailable }
+        // Online: the overview at low zooms (it holds every region, downloaded or not), else each region not
+        // downloaded. Offline or out of allowance, the downloaded parts are all there is.
+        let overview = z <= Self.overviewMaxZoom ? index.overview.flatMap { $0.has(kind) ? $0 : nil } : nil
+        let online = overview.map { [$0] } ?? regions.filter { !downloaded.contains($0.id) }
+        guard !online.isEmpty, isOnline() else { return merged(parts, kind) ?? (online.isEmpty ? .none : .unavailable) }
+        var fetched: [(data: Data, origin: Origin)] = []
         var failed = false
         for region in online {
             if Task.isCancelled { return .unavailable }
@@ -213,17 +227,27 @@ final class PilotTileSource: @unchecked Sendable {
             let location: PMTilesRemoteArchive.Location?
             do { location = try await remote.locate(z: z, x: x, y: y) } catch { failed = true; continue }
             guard let location else { continue }
-            guard allowance.reserve() else { return .unavailable }
+            guard allowance.reserve() else { return merged(parts, kind) ?? .unavailable }
             do {
                 let stored = try await remote.read(location)
-                guard let plain = PMTiles.plain(stored) else { return .none }
-                return .tile(Tile(data: plain, origin: .online(region.id)))
+                if let plain = PMTiles.plain(stored) { fetched.append((plain, .online(region.id))) }
             } catch {
                 allowance.refund()
                 return .unavailable
             }
         }
-        return failed ? .unavailable : .none
+        // The overview answered: it holds the downloaded regions too.
+        if overview != nil, !fetched.isEmpty { return merged(fetched, kind) ?? .none }
+        // A region that couldn't be asked: what the others have, or "nothing now" so MapLibre asks again.
+        return merged(parts + fetched, kind) ?? (failed ? .unavailable : .none)
+    }
+
+    /// One tile from the parts found: the only one as it is, several joined (`PilotTileMerge`), none nil.
+    private func merged(_ parts: [(data: Data, origin: Origin)], _ kind: PilotMapKind) -> Lookup? {
+        guard let first = parts.first else { return nil }
+        guard parts.count > 1 else { return .tile(Tile(data: first.data, origin: first.origin)) }
+        let data = kind == .map ? PilotTileMerge.vector(parts.map(\.data)) : PilotTileMerge.relief(parts.map(\.data))
+        return .tile(Tile(data: data ?? first.data, origin: .merged(parts.map(\.origin))))
     }
 
     private func remoteArchive(_ region: PilotMapRegion, _ kind: PilotMapKind) -> PMTilesRemoteArchive {

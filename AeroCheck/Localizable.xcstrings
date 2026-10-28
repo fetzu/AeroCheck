@@ -15397,6 +15397,52 @@
         }
       }
     },
+    "pilotMap.allRegions": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länder und Regionen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Countries and regions"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pays et régions"
+          }
+        }
+      }
+    },
+    "pilotMap.allRegions.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Regionen, nach Land"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld regions, by country"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld régions, par pays"
+          }
+        }
+      }
+    },
     "pilotMap.allowance": {
       "extractionState": "manual",
       "localizations": {
@@ -15738,6 +15784,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "La liste des régions vient d'aerocheck.app dès que cet appareil est en ligne."
+          }
+        }
+      }
+    },
+    "pilotMap.searchRegions": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Land oder eine Region"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A country or a region"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pays ou une région"
           }
         }
       }

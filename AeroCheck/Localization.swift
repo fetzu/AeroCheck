@@ -130,6 +130,13 @@ enum L10n {
         static let download = String(localized: "Download")
         static let update = String(localized: "Update")
         static let noRegions = String(localized: "pilotMap.noRegions")
+        /// Settings: every region by country, on a page of its own. (6.8.0, the worldwide regions)
+        static let allRegions = String(localized: "pilotMap.allRegions")
+        /// "236 regions, by country".
+        static func allRegionsDetail(_ count: Int) -> String {
+            String(format: String(localized: "pilotMap.allRegions.detail"), count)
+        }
+        static let searchRegions = String(localized: "pilotMap.searchRegions")
         static let tripMissing = String(localized: "pilotMap.tripMissing")
         static func tripRegions(_ names: String) -> String {
             String(format: String(localized: "pilotMap.tripRegions"), names)

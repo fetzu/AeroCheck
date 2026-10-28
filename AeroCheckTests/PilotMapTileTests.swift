@@ -2,8 +2,8 @@ import XCTest
 @testable import AeroCheck
 
 /// Where the pilot's map's tiles come from (6.8.0): the regions index, the downloaded regions, the tile source
-/// (downloaded first, the first region at a border, online counted against the allowance, else nothing) and the
-/// URLProtocol MapLibre asks.
+/// (every region's part joined, online counted against the allowance, the overview online at low zooms, else
+/// nothing) and the URLProtocol MapLibre asks.
 final class PilotMapTileTests: XCTestCase {
 
     private static let ch = PilotMapRegion(id: "ch", name: "Switzerland and Liechtenstein",
@@ -21,9 +21,13 @@ final class PilotMapTileTests: XCTestCase {
         return list
     }
 
-    private func indexJSON(_ regions: [PilotMapRegion]) throws -> Data {
-        let body: [String: Any] = ["version": 1, "generated": "2026-10-26T07:32:40Z",
+    private static let overview = PilotMapRegion(id: "overview", name: "Overview", bounds: [-180, -60, 180, 80],
+                                                 built: "20261102", mapBytes: 9_000_000, reliefBytes: 0)
+
+    private func indexJSON(_ regions: [PilotMapRegion], overview: PilotMapRegion? = nil) throws -> Data {
+        var body: [String: Any] = ["version": 1, "generated": "2026-10-26T07:32:40Z",
                                    "regions": try regions.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) }]
+        if let overview { body["overview"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(overview)) }
         return try JSONSerialization.data(withJSONObject: body)
     }
 
@@ -39,10 +43,10 @@ final class PilotMapTileTests: XCTestCase {
     }
 
     /// A source on its own directories, defaults and fake server, with `regions` in its index.
-    private func rig(_ regions: [PilotMapRegion], online: Bool = true) async throws -> Rig {
+    private func rig(_ regions: [PilotMapRegion], overview: PilotMapRegion? = nil, online: Bool = true) async throws -> Rig {
         let root = makeTestDirectory()
         let server = PMTilesFixture.Server()
-        let index = try indexJSON(regions)
+        let index = try indexJSON(regions, overview: overview)
         let fetchIndex: PilotMapIndexStore.Fetch = { request in (index, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!) }
         let store = PilotMapIndexStore(directory: root.appendingPathComponent("index"), fetch: fetchIndex)
         await store.refresh()
@@ -193,12 +197,76 @@ final class PilotMapTileTests: XCTestCase {
         XCTAssertEqual(rig.allowance.used, 0)
     }
 
-    func testFirstRegionWinsAtABorder() async throws {
+    func testBothRegionsJoinAtABorder() async throws {
         let rig = try await rig([Self.ch, Self.fr])
         try download(Self.fr, PMTilesFixture.archive(tiles("fr")), into: rig.storage)
         try download(Self.ch, PMTilesFixture.archive(tiles("ch")), into: rig.storage)
         let tile = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
-        XCTAssertEqual(tile?.origin, .downloaded("ch"), "the index's order, not the download's")
+        XCTAssertEqual(tile?.origin, .merged([.downloaded("ch"), .downloaded("fr-est")]), "in the index's order")
+        XCTAssertEqual(rig.server.count, 0)
+    }
+
+    func testADownloadedPartAndAnOnlinePartJoin() async throws {
+        let rig = try await rig([Self.ch, Self.fr])
+        try download(Self.ch, PMTilesFixture.archive(tiles("ch")), into: rig.storage)
+        rig.server.put("/v1/fr-est/map.pmtiles", PMTilesFixture.archive(tiles("fr")))
+        let tile = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(tile?.origin, .merged([.downloaded("ch"), .online("fr-est")]))
+        XCTAssertEqual(rig.allowance.used, 1, "only the online part counts")
+    }
+
+    func testOfflineTheDownloadedPartsAreAllThereIs() async throws {
+        let rig = try await rig([Self.ch, Self.fr], online: false)
+        try download(Self.ch, PMTilesFixture.archive(tiles("ch")), into: rig.storage)
+        let tile = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(tile?.origin, .downloaded("ch"))
+    }
+
+    func testOnlineTheOverviewAnswersLowZooms() async throws {
+        let rig = try await rig([Self.ch, Self.fr], overview: Self.overview)
+        rig.server.put("/v1/overview/map.pmtiles", PMTilesFixture.archive(tiles("overview")))
+        rig.server.put("/v1/ch/map.pmtiles", PMTilesFixture.archive(tiles("ch")))
+        let low = await rig.source.tile(.map, z: 0, x: 0, y: 0)
+        XCTAssertEqual(low?.origin, .online("overview"))
+        XCTAssertEqual(rig.server.count(path: "/v1/ch/map.pmtiles"), 0, "no region asked at zoom 0")
+        let high = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(high?.origin, .online("ch"), "the regions from zoom 8")
+    }
+
+    func testOfflineALowZoomJoinsTheDownloadedRegions() async throws {
+        let rig = try await rig([Self.ch, Self.fr], overview: Self.overview, online: false)
+        try download(Self.ch, PMTilesFixture.archive(tiles("ch")), into: rig.storage)
+        try download(Self.fr, PMTilesFixture.archive(tiles("fr")), into: rig.storage)
+        let tile = await rig.source.tile(.map, z: 0, x: 0, y: 0)
+        XCTAssertEqual(tile?.origin, .merged([.downloaded("ch"), .downloaded("fr-est")]))
+    }
+
+    private static func tile(latitude: Double, longitude: Double, z: Int) -> (x: Int, y: Int) {
+        let n = Double(1 << z)
+        let y = (1 - asinh(tan(latitude * .pi / 180)) / .pi) / 2 * n
+        return (Int((longitude + 180) / 360 * n), Int(y))
+    }
+
+    func testARegionAcross180TouchesOnlyItsBoxes() {
+        let alaska = PilotMapRegion(id: "us-ak", name: "Alaska", bounds: [-180, 51.2, 180, 71.6], built: "20261102",
+                                    mapBytes: 1, reliefBytes: 1,
+                                    boxes: [[-180, 51.2, -129.9, 71.6], [172.4, 51.3, 180, 53.1]])
+        XCTAssertTrue(alaska.isValid)
+        let anchorage = Self.tile(latitude: 61.2, longitude: -149.9, z: 8)
+        XCTAssertTrue(alaska.touches(z: 8, x: anchorage.x, y: anchorage.y))
+        let bern = Self.tile(latitude: 46.95, longitude: 7.44, z: 8)
+        XCTAssertFalse(alaska.touches(z: 8, x: bern.x, y: bern.y), "the box over the whole world isn't used")
+        XCTAssertFalse(alaska.contains(latitude: 46.95, longitude: 7.44))
+    }
+
+    func testANameInTheAppsLanguage() {
+        let region = PilotMapRegion(id: "fr-bre", name: "Brittany", bounds: [-5.2, 47.2, -1.0, 48.9], built: "20261102",
+                                    mapBytes: 1, reliefBytes: 0, names: ["en": "Brittany", "fr": "Bretagne", "de": "Bretagne"],
+                                    country: "FR")
+        XCTAssertTrue(["Brittany", "Bretagne"].contains(region.displayName))
+        let old = PilotMapRegion(id: "ch", name: "Switzerland and Liechtenstein", bounds: [5.64, 45.6, 10.78, 48.0],
+                                 built: "20261025", mapBytes: 1, reliefBytes: 1)
+        XCTAssertEqual(old.displayName, "Switzerland and Liechtenstein", "an index from before the names")
     }
 
     func testOnlineReadIsCountedOnce() async throws {

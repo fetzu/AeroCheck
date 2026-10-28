@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Settings › Data & Storage › Pilot's map: the regions the index lists, each with its size, build date and state,
-/// to download, update or delete; the month's online allowance underneath. (6.8.0)
+/// Settings › Data & Storage › Pilot's map (and Navigation & Maps): the regions on this device, each with its size,
+/// build date and state, to update or delete; every other region by country on a page of its own, with a search; the
+/// month's online allowance underneath. (6.8.0)
 struct PilotMapSettingsSection: View {
     @ObservedObject var downloads: PilotMapDownloads
     var tint: Color = .aviationGreen
@@ -18,12 +19,31 @@ struct PilotMapSettingsSection: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
             }
-            ForEach(listed) { region in
+            ForEach(onDevice) { region in
                 PilotMapRegionRow(region: region, state: downloads.state(of: region.id),
                                   bytesToFetch: downloads.bytesToFetch(region), tint: tint,
                                   download: { downloads.download(region) },
                                   stop: { downloads.cancel(region.id) },
                                   delete: { pendingDelete = region })
+            }
+            if !downloads.regions.isEmpty {
+                NavigationLink {
+                    PilotMapRegionsPage(downloads: downloads, tint: tint)
+                } label: {
+                    HStack(spacing: 8) {
+                        SettingsRowLabel(icon: "map", title: L10n.PilotMap.allRegions,
+                                         subtitle: L10n.PilotMap.allRegionsDetail(downloads.regions.count), tint: tint)
+                        Image(systemName: "chevron.right")
+                            .font(.aero(size: 14, weight: .semibold))
+                            .foregroundColor(.dimText)
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("pilotMap.allRegions")
             }
             allowanceRow
         }
@@ -36,10 +56,16 @@ struct PilotMapSettingsSection: View {
         }
     }
 
-    /// The index's regions, then any downloaded region the index no longer lists (it still draws).
-    private var listed: [PilotMapRegion] {
+    /// The regions downloaded or downloading, the index's first, then any the index no longer lists (they still draw).
+    private var onDevice: [PilotMapRegion] {
         let ids = Set(downloads.regions.map(\.id))
-        return downloads.regions + downloads.downloaded.filter { !ids.contains($0.id) }
+        let here = Set(downloads.downloaded.map(\.id))
+        let listed = downloads.regions.filter { region in
+            if here.contains(region.id) { return true }
+            if case .downloading = downloads.state(of: region.id) { return true }
+            return downloads.state(of: region.id) == .failed
+        }
+        return listed + downloads.downloaded.filter { !ids.contains($0.id) }
     }
 
     private var allowanceRow: some View {
@@ -71,6 +97,67 @@ struct PilotMapSettingsSection: View {
     }
 }
 
+/// Every region of the index by country, alphabetically in the app's language, with a search on the country's and the
+/// region's names. A country of one region is that region's row; a larger one is its regions under its name. (6.8.0)
+struct PilotMapRegionsPage: View {
+    @ObservedObject var downloads: PilotMapDownloads
+    var tint: Color = .aviationGreen
+    @State private var search = ""
+    @State private var pendingDelete: PilotMapRegion?
+
+    struct Country: Identifiable {
+        let id: String
+        let name: String
+        let regions: [PilotMapRegion]
+    }
+
+    static func countries(_ regions: [PilotMapRegion], search: String, locale: Locale = .current) -> [Country] {
+        let grouped = Dictionary(grouping: regions) { $0.country ?? $0.id.uppercased() }
+        let query = search.trimmingCharacters(in: .whitespaces)
+        return grouped.map { code, regions in
+            let name = regions.count == 1 ? regions[0].displayName
+                : locale.localizedString(forRegionCode: code) ?? code
+            let sorted = regions.sorted { $0.displayName.localizedCompare($1.displayName) == .orderedAscending }
+            guard !query.isEmpty, !Self.matches(name, query) else { return Country(id: code, name: name, regions: sorted) }
+            return Country(id: code, name: name, regions: sorted.filter { Self.matches($0.displayName, query) })
+        }
+        .filter { !$0.regions.isEmpty }
+        .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+    }
+
+    static func matches(_ text: String, _ query: String) -> Bool {
+        text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    var body: some View {
+        SettingsPage {
+            ForEach(Self.countries(downloads.regions, search: search)) { country in
+                SettingsGroup(title: country.regions.count == 1 && country.name == country.regions[0].displayName
+                              ? nil : country.name, tint: tint) {
+                    ForEach(country.regions) { region in
+                        PilotMapRegionRow(region: region, state: downloads.state(of: region.id),
+                                          bytesToFetch: downloads.bytesToFetch(region), tint: tint,
+                                          download: { downloads.download(region) },
+                                          stop: { downloads.cancel(region.id) },
+                                          delete: { pendingDelete = region })
+                    }
+                }
+            }
+        }
+        .searchable(text: $search, prompt: L10n.PilotMap.searchRegions)
+        .navigationTitle(L10n.PilotMap.allRegions)
+        .navigationBarTitleDisplayMode(.inline)
+        .alert(L10n.DataStorage.deleteConfirmTitle, isPresented: Binding(get: { pendingDelete != nil },
+                                                                         set: { if !$0 { pendingDelete = nil } }),
+               presenting: pendingDelete) { region in
+            Button(L10n.DataStorage.delete, role: .destructive) { downloads.delete(region.id) }
+            Button(L10n.Button.cancel, role: .cancel) {}
+        } message: { _ in
+            Text(L10n.DataStorage.deleteConfirmMessage)
+        }
+    }
+}
+
 /// One region: name, then its state, build date and size; the action at the end.
 private struct PilotMapRegionRow: View {
     let region: PilotMapRegion
@@ -84,7 +171,7 @@ private struct PilotMapRegionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(region.name)
+                Text(region.displayName)
                     .font(.aero(.subheadline))
                     .foregroundColor(.primaryText)
                 Text(detail)

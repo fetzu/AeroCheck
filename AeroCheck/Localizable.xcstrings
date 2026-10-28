@@ -15817,19 +15817,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilotenkarte"
+            "value": "Atlas"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilot's map"
+            "value": "Atlas"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte du pilote"
+            "value": "Atlas"
           }
         }
       }
@@ -15863,19 +15863,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Relief der Pilotenkarte · offene Geländedaten, Quellen unter mapterhorn.com/attribution"
+            "value": "Relief des Atlas · offene Geländedaten, Quellen unter mapterhorn.com/attribution"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Relief on the pilot's map · open terrain data, its sources listed at mapterhorn.com/attribution"
+            "value": "The Atlas's relief · open terrain data, its sources listed at mapterhorn.com/attribution"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Relief de la carte du pilote · données de terrain ouvertes, sources listées sur mapterhorn.com/attribution"
+            "value": "Relief de l'Atlas · données de terrain ouvertes, sources listées sur mapterhorn.com/attribution"
           }
         }
       }
@@ -15886,19 +15886,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilotenkarte · © OpenStreetMap-Mitwirkende, ODbL, über den täglichen Build von Protomaps"
+            "value": "Atlas · © OpenStreetMap-Mitwirkende, ODbL, über den täglichen Build von Protomaps"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The pilot's map · © OpenStreetMap contributors, ODbL, via the Protomaps daily build"
+            "value": "Atlas · © OpenStreetMap contributors, ODbL, via the Protomaps daily build"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte du pilote · © les contributeurs d'OpenStreetMap, ODbL, via la compilation quotidienne de Protomaps"
+            "value": "Atlas · © les contributeurs d'OpenStreetMap, ODbL, via la compilation quotidienne de Protomaps"
           }
         }
       }
@@ -15932,19 +15932,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilotenkarte entlang Ihrer Route nicht heruntergeladen"
+            "value": "Atlas-Regionen entlang Ihrer Route nicht heruntergeladen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilot's map not downloaded along your route"
+            "value": "Atlas regions not downloaded along your route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte du pilote non téléchargée le long de votre route"
+            "value": "Régions de l'Atlas non téléchargées le long de votre route"
           }
         }
       }
@@ -15955,19 +15955,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilotenkarte: %@"
+            "value": "Atlas: %@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pilot's map: %@"
+            "value": "Atlas: %@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte du pilote : %@"
+            "value": "Atlas : %@"
           }
         }
       }

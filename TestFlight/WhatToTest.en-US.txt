@@ -1,13 +1,13 @@
-6.8.0 draws its own map, the Pilot's map, from OpenStreetMap, on every map of the app.
+6.8.0 draws its own map, the Atlas, from OpenStreetMap, on every map of the app.
 
 What to try:
-- Settings › Data & Storage › Pilot's map: download Switzerland (about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws in Switzerland.
-- Pilot's map › Countries and regions: every country of aerocheck.app/countries, the large ones by region. Download a neighbour too (Baden-Württemberg, Grand Est): at the border both sides draw, with no gap and nothing twice.
-- Map sheet › Base chart: Pilot's map and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map.
-- Zoom out to Europe: the world outline, with the countries' names inside them and their capitals.
+- Settings › Data & Storage › Atlas: download Switzerland (about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws in Switzerland.
+- Atlas › Countries and regions: every country of aerocheck.app/countries, the large ones by region. Download a neighbour too (Baden-Württemberg, Grand Est): at the border both sides draw, with no gap and nothing twice.
+- Map sheet › Base chart: Atlas and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map.
+- Zoom out to Europe: every country drawn in detail, with its cities, roads and relief.
 - Plan › Map, the Cockpit's MAP and the route editor: tap an aerodrome, a circuit's altitude, a navaid; drag a route point; the legs band; Search aerodromes. Tell us anything that moves differently from 6.7.
-- A flight in the logbook: its track map, and the share card on Pilot's map and on Aerial imagery.
-- Plan a flight crossing a border: the banner offers the pilot's map regions along the route.
-- The Swiss ICAO, glider and national charts: past their edge, the pilot's map now shows under them.
+- A flight in the logbook: its track map, and the share card on Atlas and on Aerial imagery.
+- Plan a flight crossing a border: the banner offers the Atlas regions along the route.
+- The Swiss ICAO, glider and national charts: past their edge, the Atlas now shows under them.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

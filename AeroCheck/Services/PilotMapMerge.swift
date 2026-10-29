@@ -148,6 +148,51 @@ enum PilotTileMerge {
         return png(merged)
     }
 
+    /// A relief tile `depth` zooms past an archive's deepest (the regions stop at tile zoom 10, Switzerland at 11,
+    /// Greenland at 8; the style asks to 11): the quarter (eighth, …) of the deepest tile that covers it, enlarged to
+    /// the tile's size. The heights are interpolated, not their encoded colours; next to a pixel outside the outline
+    /// the nearest pixel is taken as it is, so a border's cut never blends with the -100 m marker. Nil when the tile
+    /// doesn't decode.
+    static func reliefChild(_ tile: Data, depth: Int, x: Int, y: Int) -> Data? {
+        guard depth > 0, let parent = pixels(tile) else { return depth == 0 ? tile : nil }
+        let scale = 1 << depth
+        let w = parent.width, h = parent.height
+        let originX = Double((x & (scale - 1)) * w) / Double(scale)
+        let originY = Double((y & (scale - 1)) * h) / Double(scale)
+        func isOutside(_ i: Int) -> Bool {
+            parent.bytes[i] == outside.r && parent.bytes[i + 1] == outside.g && parent.bytes[i + 2] == outside.b
+        }
+        func height(_ i: Int) -> Double {
+            Double(parent.bytes[i]) * 256 + Double(parent.bytes[i + 1]) + Double(parent.bytes[i + 2]) / 256
+        }
+        var child = Pixels(width: w, height: h, bytes: [UInt8](repeating: 255, count: w * h * 4))
+        for row in 0..<h {
+            let v = min(max(originY + (Double(row) + 0.5) / Double(scale) - 0.5, 0), Double(h - 1))
+            let y0 = Int(v), y1 = min(y0 + 1, h - 1), fy = v - Double(y0)
+            for column in 0..<w {
+                let u = min(max(originX + (Double(column) + 0.5) / Double(scale) - 0.5, 0), Double(w - 1))
+                let x0 = Int(u), x1 = min(x0 + 1, w - 1), fx = u - Double(x0)
+                let c00 = (y0 * w + x0) * 4, c01 = (y0 * w + x1) * 4, c10 = (y1 * w + x0) * 4, c11 = (y1 * w + x1) * 4
+                let out = (row * w + column) * 4
+                if isOutside(c00) || isOutside(c01) || isOutside(c10) || isOutside(c11) {
+                    let nearest = ((fy < 0.5 ? y0 : y1) * w + (fx < 0.5 ? x0 : x1)) * 4
+                    child.bytes[out] = parent.bytes[nearest]
+                    child.bytes[out + 1] = parent.bytes[nearest + 1]
+                    child.bytes[out + 2] = parent.bytes[nearest + 2]
+                    continue
+                }
+                let top = height(c00) * (1 - fx) + height(c01) * fx
+                let bottom = height(c10) * (1 - fx) + height(c11) * fx
+                let value = top * (1 - fy) + bottom * fy
+                let whole = value.rounded(.down)
+                child.bytes[out] = UInt8(clamping: Int(whole) / 256)
+                child.bytes[out + 1] = UInt8(clamping: Int(whole) % 256)
+                child.bytes[out + 2] = UInt8(clamping: Int(((value - whole) * 256).rounded(.down)))
+            }
+        }
+        return png(child)
+    }
+
     struct Pixels {
         let width: Int
         let height: Int

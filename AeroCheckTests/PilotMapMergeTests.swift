@@ -105,6 +105,56 @@ final class PilotMapMergeTests: XCTestCase {
         XCTAssertEqual(Array(merged.bytes[12..<15]), [129, 30, 40], "France's side")
     }
 
+    /// A `size` × `size` Terrarium PNG, each pixel's height in metres from `height(column, row)`, the outside marker
+    /// where it gives nil.
+    private func relief(size: Int, height: (Int, Int) -> Double?) -> Data {
+        var bytes: [UInt8] = []
+        for row in 0..<size {
+            for column in 0..<size {
+                guard let h = height(column, row) else {
+                    let out = PilotTileMerge.outside
+                    bytes += [out.r, out.g, out.b, 255]
+                    continue
+                }
+                let v = h + 32768, whole = v.rounded(.down)
+                bytes += [UInt8(Int(whole) / 256), UInt8(Int(whole) % 256), UInt8(((v - whole) * 256).rounded(.down)), 255]
+            }
+        }
+        return PilotTileMerge.png(PilotTileMerge.Pixels(width: size, height: size, bytes: bytes))!
+    }
+
+    private func height(_ p: PilotTileMerge.Pixels, _ column: Int, _ row: Int) -> Double {
+        let i = (row * p.width + column) * 4
+        return Double(p.bytes[i]) * 256 + Double(p.bytes[i + 1]) + Double(p.bytes[i + 2]) / 256 - 32768
+    }
+
+    func testAnEnlargedTileIsItsQuarterOfTheTileAbove() throws {
+        // Heights rising 10 m a column and 100 m a row; the child one zoom down, east and north: columns 2–3, rows 0–1.
+        let parent = relief(size: 4) { column, row in 1000 + Double(column) * 10 + Double(row) * 100 }
+        let child = try XCTUnwrap(PilotTileMerge.pixels(XCTUnwrap(PilotTileMerge.reliefChild(parent, depth: 1, x: 1, y: 0))))
+        XCTAssertEqual(child.width, 4)
+        XCTAssertEqual(height(child, 0, 0), 1017.5, accuracy: 0.01, "between columns 1 and 2, on row 0")
+        XCTAssertEqual(height(child, 3, 3), 1155, accuracy: 0.01, "column 3, between rows 1 and 2")
+        XCTAssertEqual(height(child, 1, 1), 1047.5, accuracy: 0.01, "a quarter of the way across both")
+    }
+
+    func testTheOutsideStaysCrispWhenEnlarged() throws {
+        // The west half outside the outline, the east at 500 m.
+        let parent = relief(size: 4) { column, _ in column < 2 ? nil : 500 }
+        let west = try XCTUnwrap(PilotTileMerge.pixels(XCTUnwrap(PilotTileMerge.reliefChild(parent, depth: 1, x: 0, y: 0))))
+        let out = PilotTileMerge.outside
+        XCTAssertEqual(Array(west.bytes[0..<3]), [out.r, out.g, out.b])
+        let east = try XCTUnwrap(PilotTileMerge.pixels(XCTUnwrap(PilotTileMerge.reliefChild(parent, depth: 1, x: 1, y: 0))))
+        for column in 0..<4 {
+            XCTAssertEqual(height(east, column, 0), 500, accuracy: 0.01, "never blended with the -100 m marker")
+        }
+    }
+
+    func testNoDepthGivesTheTileBack() {
+        let tile = relief(size: 2) { _, _ in 300 }
+        XCTAssertEqual(PilotTileMerge.reliefChild(tile, depth: 0, x: 5, y: 7), tile)
+    }
+
     func testTheHeightsComeOutAsEncoded() throws {
         // A height of 431.5 m (Delémont): 32768 + 431.5 = 33199.5 → R 129, G 175, B 128.
         let tile = relief(left: (129, 175, 128), right: (129, 175, 128))

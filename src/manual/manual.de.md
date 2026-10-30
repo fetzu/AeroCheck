@@ -43,7 +43,7 @@ Am Boden hat AéroCheck fünf Tabs am unteren Rand: **Heute**, **Planen**, **Flu
 
 Heute behält jeden Tag dieselben Felder an denselben Stellen, ob gefüllt oder nicht.
 
-- Oben zwei Anzeigen: **Daten** (wie aktuell Ihre Luftfahrtdaten sind; tippen Sie darauf für Daten & Speicher) und **GPS bereit**, wenn der Standortzugriff erlaubt ist (das Signal selbst erscheint im Flug, siehe [GPS-Anzeigen](#gps-anzeigen)).
+- Oben zwei Anzeigen: **Daten** (wie aktuell Ihre Luftfahrtdaten sind; tippen Sie darauf für Offline-Daten) und **GPS bereit**, wenn der Standortzugriff erlaubt ist (das Signal selbst erscheint im Flug, siehe [GPS-Anzeigen](#gps-anzeigen)).
 - **NÄCHSTER FLUG**: der Flug, den die Taste für den Flugbeginn meint, als Kachel mit Zeit, Flugzeug, Name, einem Ring, der seine Blöcke zählt, und der Zeile, die seine Seite unter dem Titel hat («Noch 2 offen: NOTAM und Luftraum, das Nav-Log» oder «Alles abgehakt, bereit zum Fliegen»). Das ist der heutige Flug, ein Flug, den Sie in der Luft offen gelassen haben, oder die nächste Etappe einer Reise, sobald Sie bei einem Zwischenhalt gelandet sind. Eine Reise erscheint als eine Kachel: die Zahl ihrer Etappen (**3 ETAPPEN**), die ganze Route («LSZQ → LSGE → LSZQ») und eine Anzeige pro Etappe mit ihrer Zeit (✓, sobald geflogen). Tippen Sie auf die Kachel, um den Flug zu öffnen. Gibt es keinen solchen Flug, zeigt das Feld einen Flug, den Sie verfolgen oder noch abschliessen müssen, oder **Neuen Flug planen**.
 - Die grüne Taste für den Flugbeginn, immer an derselben Stelle: **DIESEN FLUG BEGINNEN**, wenn es einen Flug für heute gibt (**DIESEN FLUG FORTSETZEN**, sobald er in der Luft ist), sonst **FLUG BEGINNEN**. Für eine Etappe einer Reise lautet sie **FLUG BEGINNEN** und nennt darunter die Etappe («ETAPPE 1 · LSZQ → LSGE»).
 - Darunter **PLATZRUNDEN**, immer angeboten, neben **OHNE PLAN FLIEGEN**, wenn es einen Flug für heute gibt, oder **NEUEN FLUG PLANEN**, wenn nicht.
@@ -678,7 +678,7 @@ Ist nichts von der Route auf dem Bildschirm, sagt ein Hinweis, wo sie liegt («R
 
 **Karte** (die Ebenentaste auf der KARTE des Cockpits) öffnet alles, was das Aussehen der Karte betrifft, in einem einzigen Fenster:
 
-- **Grundkarte**: **ICAO-Karte/Segelflugkarte** (die Schweizer Luftfahrtkarte 1:500'000, die beim Hineinzoomen zur Segelflugkarte 1:300'000 wird, dann bei den stärksten Zoomstufen zur Landeskarte, ausser wenn **ICAO-Kartenebene erzwingen** eingeschaltet ist), **Landeskarte**, **SWISSIMAGE**, der **Atlas** (die eigene Karte von AéroCheck zum Fliegen, siehe [Der Atlas](#der-atlas)) und **Luftbilder** (offene behördliche Orthofotos, siehe [Luftbilder](#luftbilder)). Die Schweizer Ebenen decken die Schweiz und einen Rand um sie ab; über ihren Rand hinaus liegt der Atlas darunter, nie Schwarz. Im Offline-Modus erscheint nur die gespeicherte ICAO-Karte, über dem Atlas der heruntergeladenen Regionen. Jede Karte der App wird gleich gezeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor und die Koordinatenauswahl. Die gewählte Karte bleibt auf dem Gerät gespeichert: Die Karte öffnet sich mit ihr, im Cockpit und in Planen › Karte.
+- **Grundkarte**: **ICAO-Karte/Segelflugkarte** (die Schweizer Luftfahrtkarte 1:500'000, die beim Hineinzoomen zur Segelflugkarte 1:300'000 wird, dann bei den stärksten Zoomstufen zur Landeskarte, ausser wenn **ICAO-Karte in jeder Zoomstufe**, der Schalter unter dieser Zeile, solange sie die Grundkarte ist, eingeschaltet ist), **Landeskarte**, **SWISSIMAGE**, der **Atlas** (die eigene Karte von AéroCheck zum Fliegen, siehe [Der Atlas](#der-atlas)) und **Luftbilder** (offene behördliche Orthofotos, siehe [Luftbilder](#luftbilder)). Die Schweizer Ebenen decken die Schweiz und einen Rand um sie ab; über ihren Rand hinaus liegt der Atlas darunter, nie Schwarz. Im Offline-Modus erscheint nur die gespeicherte ICAO-Karte, über dem Atlas der heruntergeladenen Regionen. Jede Karte der App wird gleich gezeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor und die Koordinatenauswahl. Die gewählte Karte bleibt auf dem Gerät gespeichert: Die Karte öffnet sich mit ihr, im Cockpit und in Planen › Karte.
 - **Voreinstellungen**: **Reiseflug** zeigt Lufträume und Meldepunkte; **Anflug** fügt Flugplätze, Hindernisse, die Platzrunden und die An- und Abflugrouten hinzu; **Alles** zeigt alle Markierungen, und auch die Platzrunden und Routen. Die Lufträume bleiben in allen drei eingeblendet.
 - **Luftraum & Karten**: **Luftraum** (die Lufträume von OpenAIP, als Vektorebene gezeichnet) und **Kartenkacheln** (die Rasterkacheln von OpenAIP, standardmässig aus). Ist der Luftraum eingeschaltet und sind keine Daten heruntergeladen, sagt es das Fenster und bietet **Daten herunterladen…** an.
 - **Kartenmarkierungen**, aus den heruntergeladenen OpenAIP-Daten (siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher)): **Flugplätze** (mit Frequenzen per Tippen), **Navigationshilfen** (VOR, DME, NDB), **Meldepunkte** und **Hindernisse** (Türme, Masten, Windturbinen; standardmässig aus, da sie dicht stehen). **Alle einblenden** oder **Alle ausblenden**.
@@ -691,12 +691,12 @@ Am Fuss des Fensters stehen die Quellen, aus denen es zeichnet: open flightmaps 
 
 Der **Atlas** ist die eigene Karte von AéroCheck zum Fliegen, auf dem Gerät aus OpenStreetMap gezeichnet, mit Relief: Städte und Dörfer nach ihrer Grösse, Hauptstrassen, Eisenbahnen, Flüsse und Seen, Wälder, Siedlungsgebiete, Gletscher, Grenzen, Seilbahnen und Gipfel mit ihrer Höhe in Fuss, in der Cockpit-Schrift B612. Er erscheint überall, wo die App eine Karte zeichnet: Planen › Karte, die KARTE des Cockpits, die Trockenübung, der Routeneditor, die Koordinatenauswahl, die Karte des Flugwegs im Flugbuch, die Vorschaubilder der Routen und die Bilder zum Teilen.
 
-Er kommt in Regionen: eine pro Land der Seite [Länder](/de/countries), die grossen in ihre Regionen geteilt (die US-Bundesstaaten, die deutschen Länder, die französischen Regionen…), etwa 236 insgesamt. Offline ausserhalb der heruntergeladenen Regionen, oder wenn das Online-Kontingent des Monats aufgebraucht ist, zeigt die Karte den Weltumriss, den die App mitbringt: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte.
+Er kommt in Regionen: eine pro Land der Seite [Länder](/de/countries), die grossen in ihre Regionen geteilt (die US-Bundesstaaten, die deutschen Länder, die französischen Regionen…), etwa 236 insgesamt. Offline zeichnet die Karte, was auf dem Gerät ist, und nichts anderes: die heruntergeladenen Regionen, herausgezoomt die **Atlas-Übersicht**, wenn Sie sie heruntergeladen haben (jedes Land, etwa 43 MB), und anderswo den Weltumriss, den die App mitbringt (Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte). Offline heisst im Flugmodus oder ohne Empfang ebenso wie mit dem **Offline-Modus**. Ist das Online-Kontingent des Monats aufgebraucht, macht die Karte dasselbe bis zum 1. des nächsten Monats.
 
 - **Online** liest die Karte die Kacheln einer Region, wie der Bildschirm sie verlangt, innerhalb eines monatlichen Kontingents pro Gerät: 1'500 Kacheln, oder 15'000 mit AéroCheck Pro. Bei 80 % bietet eine Zeile unter der Karte den Download der Region an; ist das Kontingent aufgebraucht, behält die Karte die heruntergeladenen Regionen und zeigt anderswo den Weltumriss, bis zum 1. des nächsten Monats.
-- **Heruntergeladen** funktioniert eine Region offline und zählt nie zum Kontingent. Laden Sie eine unter **Einstellungen › Daten & Speicher › Atlas** herunter; ein geplanter Flug bietet die Regionen entlang seiner Route mit seinen übrigen Daten an (siehe [Daten herunterladen](#daten-herunterladen)).
+- **Heruntergeladen** funktioniert eine Region offline und zählt nie zum Kontingent. Der Atlas eines Landes kommt mit dem Land unter **Einstellungen › Offline-Daten** (ein grosses Land nimmt alle seine Regionen mit einem Tippen oder die, in denen Sie fliegen); ein geplanter Flug bietet die Regionen entlang seiner Route mit seinen übrigen Daten an (siehe [Daten herunterladen](#daten-herunterladen)).
 
-Eine heruntergeladene Region aktualisiert sich alle drei Monate selbst, im WLAN, nie im Flug; eine Region, deren Karte sich nicht geändert hat, wird nie erneut heruntergeladen. Wie die Karte entsteht und was sie von OpenStreetMap behält, steht auf [dieser Seite](/de/map).
+Eine heruntergeladene Region aktualisiert sich alle drei Monate selbst, im WLAN, nie im Flug, solange **Automatisch im WLAN aktualisieren** eingeschaltet ist; eine Region, deren Karte sich nicht geändert hat, wird nie erneut heruntergeladen. Wie die Karte entsteht und was sie von OpenStreetMap behält, steht auf [dieser Seite](/de/map).
 
 ### Luftbilder
 
@@ -717,7 +717,7 @@ Am Boden zeigt die Notiz die erste Zeile jedes Teils, je bis zu zwei Zeilen; im 
 
 ### Platzrunden und VFR-Routen
 
-Ist **Platzrunden** oder **An- und Abflugrouten** eingeschaltet, zeichnet die Karte die Flugplatzverfahren, die open flightmaps veröffentlicht, in {ofmCountries} Ländern (im grössten Teil Europas; am vollständigsten sind die Schweiz, Österreich, Deutschland, Tschechien, die Slowakei und Ungarn; die Seite [Länder](/de/countries) hat die Zahlen): in Planen › Karte, in der KARTE des Cockpits und im Routeneditor (seine Ebenentaste hat dieselben drei Schalter, ebenso **Einstellungen › Navigation & Karten**). Sie sind **unverbindlich**: open flightmaps ist eine Community-Quelle, und die offizielle Karte des Flugplatzes geht immer vor (sie ist einen Fingertipp entfernt, siehe unten).
+Ist **Platzrunden** oder **An- und Abflugrouten** eingeschaltet, zeichnet die Karte die Flugplatzverfahren, die open flightmaps veröffentlicht, in {ofmCountries} Ländern (im grössten Teil Europas; am vollständigsten sind die Schweiz, Österreich, Deutschland, Tschechien, die Slowakei und Ungarn; die Seite [Länder](/de/countries) hat die Zahlen): in Planen › Karte, in der KARTE des Cockpits und im Routeneditor (seine Ebenentaste hat dieselben drei Schalter). Sie sind **unverbindlich**: open flightmaps ist eine Community-Quelle, und die offizielle Karte des Flugplatzes geht immer vor (sie ist einen Fingertipp entfernt, siehe unten).
 
 - **Eine Platzrunde** ist eine durchgezogene dunkelblaue Linie mit weissem Rand, mit ihrer Höhe im Gegenanflug («2900 ft» oder «Höhe: siehe Karte», wenn open flightmaps keine angibt). Ein Flugplatz mit mehreren Platzrunden (je nach Piste oder Luftfahrzeugart) zeigt jede davon. Höhen, die sich auf dem Bildschirm überdecken würden, werden gestapelt, jede eine Beschriftung weiter aussen, und zwei gleiche erscheinen nur einmal.
 - **Eine Anflug- oder Abflugroute** ist eine gestrichelte blaue Linie mit ihrem Namen auf halber Länge und einer Pfeilspitze zum Flugplatz hin (Anflug) oder von ihm weg (Abflug). **Ein Sektor** ist eine hellblaue Fläche mit gestrichelter Umrandung; die österreichischen Lärmschutzgebiete haben eine grau schraffierte Umrandung.
@@ -733,7 +733,7 @@ In der Nähe eines Flugplatzes fügt die Karte seine Anflugansicht hinzu: im Flu
 
 In den USA, wo open flightmaps keine Daten hat, zeigt **Platzrunden** stattdessen die Platzrunden aus dem NASR der FAA. Jede Pistennummer trägt die Seite, zu der ihre Platzrunde dreht («30 RECHTS», «12 LINKS»), und der Flugplatz seine Platzrundenhöhe, wo die FAA eine veröffentlicht («TPA 806 ft», über Meer, wie das Chart Supplement sie druckt). Gezeichnet wird keine Platzrunde: Die FAA veröffentlicht keine Form. In Planen › Karte zeigen sie die sichtbaren US-Flugplätze bei 8 NM oder weniger, im Flug der Zielflugplatz. VoiceOver liest «Piste 30, Rechtsplatzrunde». Die Platzrunden werden abgerufen, wenn ein US-Flugplatz sie zum ersten Mal braucht, nie beim Start der App.
 
-Die Verfahren kommen mit den Luftfahrtdaten jedes Landes (siehe [Daten herunterladen](#daten-herunterladen)). Ist ein Schalter eingeschaltet und hat das Land unter der Karte keine auf dem Gerät, sagt es eine Einblendung («VFR-Verfahren für CZ unter Daten & Speicher herunterladen»), und ein Tippen führt Sie dorthin.
+Die Verfahren kommen mit den Luftfahrtdaten jedes Landes (siehe [Daten herunterladen](#daten-herunterladen)). Ist ein Schalter eingeschaltet und hat das Land unter der Karte keine auf dem Gerät, sagt es eine Einblendung («Laden Sie die VFR-Verfahren für Tschechien herunter»), und ein Tippen öffnet die Seite dieses Landes in Offline-Daten.
 
 Ist **Meldepunkte** eingeschaltet, zeigt die Karte auch die wenigen Meldepunkte, die OpenAIP fehlen, von open flightmaps. Sie sehen aus wie die anderen; ihre Infoblase nennt zusätzlich ihre Herkunft («open flightmaps · AIRAC 2610»), ebenso die Suche des Routeneditors.
 
@@ -805,7 +805,7 @@ Italien hat keinen Link (die Bedingungen der ENAV verbieten Links auf ihre Websi
 
 ### Kursvektor
 
-Der Kursvektor verlängert Ihren geglätteten Kurs über Grund 5 Minuten nach vorn, mit Marken bei 1, 2 und 5 Minuten. Unter 5 kt verschwindet er, da ein Kurs dort nichts aussagt. Ausschalten lässt er sich im Fenster Karte (**Kursvektor**) oder unter **Einstellungen › Navigation & Karten**.
+Der Kursvektor verlängert Ihren geglätteten Kurs über Grund 5 Minuten nach vorn, mit Marken bei 1, 2 und 5 Minuten. Unter 5 kt verschwindet er, da ein Kurs dort nichts aussagt. Ausschalten lässt er sich im Fenster Karte (**Kursvektor**).
 
 ### GPS-Anzeigen
 
@@ -819,7 +819,7 @@ Die Positionen eines externen GPS-Empfängers zählen als Satellitenpositionen. 
 
 ### Offline-Karten
 
-Der Atlas funktioniert offline in den heruntergeladenen Regionen (siehe [Der Atlas](#der-atlas)). Die Schweizer ICAO-Karte und die Segelflugkarte lassen sich unter **Einstellungen › Navigation & Karten › Offline-Karten** für die Offline-Nutzung speichern (bis etwa 250 MB), mit **Offline-Modus**, um nur den Offline-Speicher zu nutzen. Eine gespeicherte Karte kommt vom Gerät, die Karte funktioniert also ohne Verbindung. In Planen › Karte zeigt unten links die Markierung **OFFLINE** oder **GESPEICHERT**, welcher Fall vorliegt; tippen Sie darauf für die Details. Die KARTE des Cockpits zeigt nichts, solange sie die Karte zeichnen kann, und **KARTE OFFLINE** in ihrem Statusfeld, wenn sie es nicht kann; die Details gibt es mit einem Tippen darauf und im Fenster Karte.
+Der Atlas funktioniert offline in den heruntergeladenen Regionen (siehe [Der Atlas](#der-atlas)). Die Schweizer ICAO-Karte und die Segelflugkarte lassen sich auf der Seite der Schweiz unter **Einstellungen › Offline-Daten** für die Offline-Nutzung herunterladen (bis etwa 250 MB); der **Offline-Modus**, oben in Offline-Daten, nutzt nur, was auf dem Gerät ist, auch mit Verbindung. Eine gespeicherte Karte kommt vom Gerät, die Karte funktioniert also ohne Verbindung. In Planen › Karte zeigt unten links die Markierung **OFFLINE** oder **GESPEICHERT**, welcher Fall vorliegt; tippen Sie darauf für die Details. Die KARTE des Cockpits zeigt nichts, solange sie die Karte zeichnen kann, und **KARTE OFFLINE** in ihrem Statusfeld, wenn sie es nicht kann; die Details gibt es mit einem Tippen darauf und im Fenster Karte.
 
 ---
 
@@ -1062,31 +1062,38 @@ AéroCheck stützt sich auf mehrere externe Datensätze, damit die Navigation ü
 
 ### Daten herunterladen
 
-Laden Sie Luftfahrtdaten **nach Land oder Kontinent** unter **Einstellungen › Daten & Speicher** (oder **Navigation & Karten**) herunter. Die Einführung bietet ein empfohlenes Paket für Ihre Region und ihre Nachbarn an, damit Sie vom ersten Flug an abgedeckt sind. Lufträume, Navigationshilfen, Hindernisse, Meldepunkte und Flugplätze werden pro Land zusammen heruntergeladen, ebenso die VFR-Verfahren für die Länder, die open flightmaps abdeckt (die Download-Seite sagt, welche Ihrer Länder sie erhalten). Der **Atlas** wird pro Region heruntergeladen, auf derselben Seite, und wenn Sie einen Flug planen, fügt das Banner, das die fehlenden Daten anbietet, die Regionen des Atlas entlang der Route hinzu («Atlas: Schweiz»).
+Alles wird **nach Land** heruntergeladen, unter **Einstellungen › Offline-Daten**. Ein Land umfasst seinen Atlas, seine Lufträume, Flugplätze, Navigationshilfen, Hindernisse und Meldepunkte sowie seine VFR-Verfahren, wo open flightmaps es abdeckt. **Land hinzufügen** listet zuerst Ihr Land und seine Nachbarn auf, dann Europa, dann den Rest der Welt, mit einer Suche nach Ländern und Regionen: Ein Land aus einer einzigen Region des Atlas lädt mit einem Tippen; ein grösseres (Frankreich, Deutschland, Italien, die USA…) öffnet seine Seite, mit **Alles herunterladen** mit einem Tippen oder seinen Regionen einzeln. Die Luftfahrtdaten gelten immer für das ganze Land: Sie sind klein. Die Einführung bietet Ihr Land und seine Nachbarn auf dieselbe Weise an, ganz, mit ihren Grössen.
 
-Wenn Sie AéroCheck schon vor 6.2.0 verwendet haben, sind Ihre Länder da, ihre VFR-Verfahren aber noch nicht: **Neu laden** in der Zeile **VFR-Verfahren (open flightmaps)** von Daten & Speicher holt sie für Ihre Länder (ebenso ein neuer Download unter Navigation & Karten).
+Die Seite eines Landes listet seine Teile mit Datum und Grösse auf: die Luftfahrtdaten (OpenAIP), die VFR-Verfahren mit ihrem AIRAC-Zyklus, die Regionen des Atlas und auf der Seite der Schweiz die Schweizer Karten (die ICAO-Karte, die Segelflugkarte; die Landeskarte und SWISSIMAGE gibt es nur online). **Dieses Land löschen** entfernt das ganze Land. Wenn Sie einen Flug planen, fügt das Banner, das die fehlenden Daten anbietet, die Regionen des Atlas entlang der Route hinzu («Atlas: Schweiz»).
 
 ### Daten aktuell halten
 
 Luftfahrtdaten ändern sich regelmässig, deshalb zeigt AéroCheck ihre Aktualität an mehreren Stellen:
 
-- Die Anzeige **Daten** auf Heute und eine Übersicht der Aktualität in **Daten & Speicher**
+- Die Anzeige **Daten** auf Heute und der Status oben in **Offline-Daten** («Alles aktuell» oder «2 Aktualisierungen» mit **Jetzt aktualisieren**)
 - Ein **Hinweis**, den Sie auf später verschieben können, wenn ein Datensatz veraltet ist
 - Die bernsteinfarbene Markierung auf der Taste **Karte** der Kartenansicht (oder auf der Ebenentaste), wenn heruntergeladene Luftraumdaten altern (siehe [Das Fenster Karte](#das-fenster-karte))
 - **Vorabladen entlang der Route**: Wenn eine Route ein Land kreuzt, das Sie nicht heruntergeladen haben, bietet AéroCheck an, diese Daten zu holen, und holt nur, was fehlt
-- Eine rote Zeile unter einem Datensatz, dessen letzte Aktualisierung fehlgeschlagen ist («CH, DE konnten nicht aktualisiert werden. Versuchen Sie es mit Wi-Fi erneut.»), in Daten & Speicher und in Navigation & Karten; die nächste erfolgreiche Aktualisierung entfernt sie
+- Eine rote Zeile auf der Seite eines Landes, wenn seine letzte Aktualisierung fehlgeschlagen ist («CH konnte nicht aktualisiert werden. Versuchen Sie es mit Wi-Fi erneut.»); die nächste erfolgreiche Aktualisierung entfernt sie
 
-Die Daten werden aktualisiert, wenn Sie die App in den Vordergrund holen (es gibt keinen Download im Hintergrund), so dass Aktualisierungen geschehen, während Sie die App verwenden, und nicht auf Kosten des Akkus in Ihrer Tasche.
+Ist **Automatisch im WLAN aktualisieren** eingeschaltet (Standard), werden die Daten aktualisiert, wenn Sie die App im WLAN in den Vordergrund holen, nie im Flug (es gibt keinen Download im Hintergrund), so dass Aktualisierungen geschehen, während Sie die App verwenden, und nicht auf Kosten des Akkus in Ihrer Tasche. Ist es ausgeschaltet, erledigt **Jetzt aktualisieren** das, wann Sie es wählen.
 
-Die VFR-Verfahren altern nach AIRAC-Zyklus statt nach Datum. Ihre Zeile in Daten & Speicher gibt den Zyklus auf dem Gerät und seine Gültigkeit an («AIRAC 2610 · gültig 1. Okt. – 28. Okt. 2026»). Die Daten gelten als alternd ab dem Tag, an dem der nächste Zyklus in Kraft tritt (und die Zeile sagt Ihnen, wenn open flightmaps diesen Zyklus noch nicht veröffentlicht hat: «AIRAC 2610 · ein neuerer Zyklus ist noch nicht veröffentlicht»), und als veraltet vier Wochen später. AéroCheck holt den neuen Zyklus, sobald die Daten altern, beim nächsten Mal, wenn Sie die App in den Vordergrund holen.
+Die VFR-Verfahren altern nach AIRAC-Zyklus statt nach Datum. Die Seite eines Landes gibt den Zyklus auf dem Gerät an («open flightmaps · AIRAC 2610»). Die Daten gelten als alternd ab dem Tag, an dem der nächste Zyklus in Kraft tritt (und die Seite sagt Ihnen, wenn open flightmaps diesen Zyklus noch nicht veröffentlicht hat: «AIRAC 2610 · ein neuerer Zyklus ist noch nicht veröffentlicht»), und als veraltet vier Wochen später. AéroCheck holt den neuen Zyklus, sobald die Daten altern, beim nächsten Mal, wenn Sie die App in den Vordergrund holen.
 
 > Auch aktuelle Daten sind unverbindlich. Gleichen Sie sie immer mit den offiziellen Karten und den NOTAM ab.
 
 ### Offline-Karten und Speicher
 
-**Atlas**, in **Daten & Speicher** unter den Luftfahrtdaten (und in **Navigation & Karten**), listet die Regionen auf dem Gerät auf, und **Länder und Regionen** alle anderen, nach Land, mit einer Suche: jede mit ihrem Zustand (**Heruntergeladen**, **Aktualisierung verfügbar** oder nicht heruntergeladen), ihrem Erstellungsdatum und ihrer Grösse, und **Herunterladen**; das Menü einer heruntergeladenen Region bietet **Aktualisieren**, wenn eine neuere Version vorliegt, und **Löschen**. Die Hälfte der Regionen ist kleiner als 30 MB; die Schweiz mit Liechtenstein braucht etwa 90 MB. Unter den Regionen die Online-Nutzung des Monats («Diesen Monat online: 312 von 1'500 Kartenkacheln»).
+**Einstellungen › Offline-Daten** enthält alles, was auf dem Gerät ist, von oben nach unten:
 
-Speichern Sie die Schweizer ICAO-Karte und die Segelflugkarte für die Offline-Nutzung (~100–250 MB). **Daten & Speicher** listet jeden Datensatz mit seinen Ländern, seiner Grösse und seiner Aktualität auf (**Luftraum**, **Navigationshilfen**, **Hindernisse**, **Meldepunkte**, **Flugplatzdaten** von OpenAIP, **Flugplätze** von OurAirports und **VFR-Verfahren (open flightmaps)**) und lässt Sie gespeicherte Daten aktualisieren oder löschen, um Platz freizugeben. Neue Flugplatzdaten (Pisten, Frequenzen) erscheinen, sobald sie heruntergeladen sind, ohne Neustart der App.
+- der Status: die Länder, die offline bereit sind, und ihre Grösse, dann **Alles aktuell** oder die wartenden Aktualisierungen, mit **Jetzt aktualisieren**, und **Automatisch im WLAN aktualisieren**;
+- **Verbindung**: **Offline-Modus** (nur was auf dem Gerät ist, auch mit Verbindung) und **Lufträume online** (Kontrollzonen in der Nähe, online geholt, wo kein Luftraum heruntergeladen ist);
+- **Ihre Länder**, jedes mit seinem Inhalt und seiner Grösse, und **Land hinzufügen** (siehe [Daten herunterladen](#daten-herunterladen)). Auf der Seite eines Landes hat jede Region des Atlas ihren Zustand (**Heruntergeladen**, **Aktualisierung verfügbar** oder nicht heruntergeladen), ihr Erstellungsdatum und ihre Grösse; das Menü einer heruntergeladenen Region bietet **Aktualisieren**, wenn eine neuere Version vorliegt, und **Löschen**. Die Hälfte der Regionen ist kleiner als 30 MB; die Schweiz mit Liechtenstein braucht etwa 90 MB;
+- **Weltweit**: **Flugplätze und Frequenzen** (OurAirports, jedes Land) und die **Atlas-Übersicht** (jedes Land herausgezoomt, offline, etwa 43 MB);
+- **Atlas online**: die Online-Nutzung des Monats («Diesen Monat online: 312 von 1'500 Kartenkacheln»);
+- **Speicher**: was die Downloads auf dem Gerät belegen, und **Alle Downloads entfernen**.
+
+Neue Flugplatzdaten (Pisten, Frequenzen) erscheinen, sobald sie heruntergeladen sind, ohne Neustart der App. Die Ebenen der Karte (Lufträume, Navigationshilfen, Hindernisse, Meldepunkte, Flugplätze, Verfahren) schalten Sie im Fenster Karte, auf der Karte.
 
 ---
 
@@ -1096,15 +1103,15 @@ Die Einstellungen sind ein eigener Tab, gegliedert in eigene Seiten. Drei frühe
 
 ### Flugzeuge & Abonnement
 
-**AéroCheck Pro** (abonnieren, die Testphase beginnen, Lebenslang kaufen oder Käufe wiederherstellen), das Flugzeug, das Sie fliegen (mit **Neueste Flugzeugdaten laden**, um die Liste zu aktualisieren und nach Aktualisierungen der Checklisten zu suchen, und **Senden Sie uns die Checkliste eines Flugzeugs**), **Ihre Anfragen**, sobald Sie eine gesendet haben (siehe [Die Checkliste eines Flugzeugs senden](#die-checkliste-eines-flugzeugs-senden)), und **Sichtbarkeit der Flugzeuge**, um Flugzeuge einzeln oder nach Aeroclub ein- oder auszublenden.
+**AéroCheck Pro** (abonnieren, die Testphase beginnen, Lebenslang kaufen oder Käufe wiederherstellen), das Flugzeug, das Sie fliegen (mit **Neueste Flugzeugdaten laden**, um die Liste zu aktualisieren und nach Aktualisierungen der Checklisten zu suchen, und **Senden Sie uns die Checkliste eines Flugzeugs**), **Ihre Anfragen**, sobald Sie eine gesendet haben (siehe [Die Checkliste eines Flugzeugs senden](#die-checkliste-eines-flugzeugs-senden)), **Sichtbarkeit der Flugzeuge**, um Flugzeuge einzeln oder nach Aeroclub ein- oder auszublenden, und **Checklisten**: die auf dem Gerät, nach Club, mit ihren Versionen, und **Nach Aktualisierungen der Checklisten suchen**.
 
 ### Checkliste & Flug
 
 **Memory Items ausblenden** und **Checklistensprache**; **Motorstunden erfassen** (standardmässig ein) und **Landungen und Durchstarts bestätigen** (standardmässig aus, siehe [Flugereignisse](#flugereignisse)); unter **Funk**, **Flugplätze entlang der Route** (standardmässig ein: Ein Flugplatz, an dem die Route innerhalb von 2 NM vorbeiführt, erscheint unter NÄCHSTE als ABHÖREN, siehe [AKT. und NÄCHSTE](#akt-und-nächste)); **Immer UTC-Zeiten verwenden**; das **Cockpit-Design** (Auto / Tag / Nacht) und **Hoher Kontrast bei Sonnenlicht**.
 
-### Navigation & Karten
+### Offline-Daten
 
-**ICAO-Kartenebene erzwingen** und der **Kursvektor**; die Regionen des **Atlas** (wie in Daten & Speicher); **Offline-Karten** (Offline-Modus, Kartenspeicher, Aktualisieren, Löschen, Herunterladen); die Luftraumebene von OpenAIP, die Ebenen für Navigationshilfen, Hindernisse und Meldepunkte, und **Online-Luftraumdaten** (Kontrollzonen in der Nähe, online geholt, wenn kein Luftraum heruntergeladen ist); die Schalter für **Flugplatzverfahren** (wie im Fenster Karte); die Flugplatzdaten; die Länder, die Sie herunterladen, mit einer roten Zeile, wenn eine Aktualisierung fehlgeschlagen ist.
+Alles Heruntergeladene, nach Land: der Status und **Automatisch im WLAN aktualisieren**, **Offline-Modus** und **Lufträume online**, Ihre Länder und **Land hinzufügen**, die weltweiten Flugplätze und die Atlas-Übersicht, die Online-Nutzung des Monats und der Speicher. Diese Seite hat in 6.8.0 Daten & Speicher und Navigation & Karten ersetzt; die Ebenen der Karte und der **Kursvektor** sind im Fenster Karte, und **ICAO-Karte in jeder Zoomstufe** unter der ICAO-Zeile dort. Siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher).
 
 ### Flüge
 
@@ -1113,10 +1120,6 @@ Die Zeile hiess vor 6.4.0 Flugplanung. **Ihr Name** (für die Spalte PIC und das
 ### iCloud & Aufzeichnung
 
 **iCloud-Synchronisierung** der Einstellungen und Flüge zwischen Geräten, **Flugplatznotizen** (siehe [Flugplatznotizen](#flugplatznotizen)), das **Aufzeichnungsintervall** des GPS und die **GPS-Priorität** (**Präzision** oder **Akku sparen**), und die Anzahl aufgezeichneter Flüge und GPS-Punkte.
-
-### Daten & Speicher
-
-Die Regionen des **Atlas** und die Online-Nutzung des Monats, die Aktualität der Luftfahrtdaten (eine Zeile pro Datensatz, die VFR-Verfahren mit ihrem AIRAC-Zyklus), Downloads pro Land und Kontinent, Offline-Kartenspeicher und Speicherverwaltung. Siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher).
 
 ### Begleitmodus
 

@@ -70,10 +70,13 @@ enum AirfieldSearch {
             .map(\.element)
     }
 
-    /// Whether the aerodrome has a marker on the map to open: the airport layer is on, and draws its
-    /// kind. Otherwise the map only goes there.
-    static func hasMarker(_ airport: Airport, airportsLayerOn: Bool) -> Bool {
-        airportsLayerOn && types.contains(airport.type)
+    /// Whether the search opens the aerodrome's card: the airport layer draws its kind.
+    static func opensCard(_ airport: Airport) -> Bool { types.contains(airport.type) }
+
+    /// Whether the map must draw the aerodrome's marker for its card: the airport layer is off. That one marker shows
+    /// until the card closes; the layer stays off (the author's answer to device check pm-10, 30 Oct 2026).
+    static func needsItsOwnMarker(_ airport: Airport, airportsLayerOn: Bool) -> Bool {
+        opensCard(airport) && !airportsLayerOn
     }
 
     /// How long a callout asked for waits for the camera and the marker.

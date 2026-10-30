@@ -99,13 +99,16 @@ final class AirfieldSearchTests: XCTestCase {
 
     // MARK: - The callout
 
-    /// Its callout opens when the airport layer draws its marker; otherwise the map only goes there.
-    func testTheCalloutIsAskedForOnlyWhereTheMapDrawsAMarker() throws {
+    /// Its card opens for every kind the airport layer draws, the layer on or off; with it off, the map draws that
+    /// aerodrome's marker alone for its card (device check pm-10). A heliport has no card.
+    func testTheCardOpensWithTheAirportLayerOnOrOff() throws {
         let lsgc = try XCTUnwrap(airports.first { $0.ident == "LSGC" })
         let heliport = try XCTUnwrap(airports.first { $0.ident == "CH-9001" })
-        XCTAssertTrue(AirfieldSearch.hasMarker(lsgc, airportsLayerOn: true))
-        XCTAssertFalse(AirfieldSearch.hasMarker(lsgc, airportsLayerOn: false))
-        XCTAssertFalse(AirfieldSearch.hasMarker(heliport, airportsLayerOn: true))
+        XCTAssertTrue(AirfieldSearch.opensCard(lsgc))
+        XCTAssertFalse(AirfieldSearch.needsItsOwnMarker(lsgc, airportsLayerOn: true))
+        XCTAssertTrue(AirfieldSearch.needsItsOwnMarker(lsgc, airportsLayerOn: false))
+        XCTAssertFalse(AirfieldSearch.opensCard(heliport))
+        XCTAssertFalse(AirfieldSearch.needsItsOwnMarker(heliport, airportsLayerOn: false))
     }
 
     /// The callout waits for the camera: the map's centre within a tenth of its span of the aerodrome. A marker on

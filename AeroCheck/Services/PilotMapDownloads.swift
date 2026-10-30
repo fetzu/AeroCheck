@@ -107,12 +107,21 @@ final class PilotMapDownloads: ObservableObject {
         if let fraction = progress[id] { return .downloading(fraction) }
         if failed.contains(id) { return .failed }
         guard let installed = downloaded.first(where: { $0.id == id }) else { return .notDownloaded }
-        guard let listed = regions.first(where: { $0.id == id }) else { return .downloaded }
+        guard let listed = listed(id) else { return .downloaded }
         return Self.kindsToFetch(listed: listed, installed: installed, filesPresent: filesPresent(id)).isEmpty
             ? .downloaded : .updateAvailable
     }
 
     var bytesOnDisk: Int64 { source.storage.bytesOnDisk }
+
+    /// The overview to download, its map only: every country zoomed out, offline (the author's answer to question
+    /// 10, 30 Oct 2026). nil until the index has one.
+    var overview: PilotMapRegion? { source.index.overview?.mapOnly(named: L10n.PilotMap.overview) }
+
+    /// The entry the index lists for a downloaded id: a region, or the overview.
+    private func listed(_ id: String) -> PilotMapRegion? {
+        id == PilotMapRegion.overviewID ? overview : regions.first { $0.id == id }
+    }
 
     /// What a download fetches: each archive the index lists that is missing here or of another build.
     static func kindsToFetch(listed: PilotMapRegion, installed: PilotMapRegion?, filesPresent: Set<PilotMapKind>) -> [PilotMapKind] {
@@ -292,7 +301,7 @@ final class PilotMapDownloads: ObservableObject {
         if conditions.isConnected { await refreshIndex() }
         guard Self.allowsSilentDownload(conditions), !inFlight else { return }
         for region in downloaded {
-            guard let listed = regions.first(where: { $0.id == region.id }), state(of: region.id) == .updateAvailable,
+            guard let listed = listed(region.id), state(of: region.id) == .updateAvailable,
                   Self.autoUpdateDue(listed: listed, installed: region, filesPresent: filesPresent(region.id), now: now)
             else { continue }
             await downloadNow(listed)

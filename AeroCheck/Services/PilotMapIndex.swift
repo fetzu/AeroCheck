@@ -24,8 +24,9 @@ enum PilotMapConfig {
     /// MapLibre keeps a tile under its address. A new query is a new address, so what an earlier build kept is never
     /// drawn again; the protocol reads only the path. g=2: the builds before 29 Oct 2026 kept half a border's tile for
     /// a month (Switzerland's half, from before the other regions). g=3: they kept "nothing there" for a day where a
-    /// region's relief stops before the style's zoom 11 (every region but Switzerland's).
-    static let cacheGeneration = "g=3"
+    /// region's relief stops before the style's zoom 11 (every region but Switzerland's). g=4: MapLibre keeps no Atlas
+    /// tile since 30 Oct 2026; the ones it kept before must not draw offline (question 9).
+    static let cacheGeneration = "g=4"
     static let glyphsTemplate = "https://\(host)/v1/glyphs/{fontstack}/{range}.pbf"
     /// The world outline, from the app's bundle (`PilotMapOutline`).
     static let outlineTileTemplate = "https://\(host)/local/outline/{z}/{x}/{y}"
@@ -128,6 +129,15 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
         self.mapHash = mapHash; self.reliefHash = reliefHash
         self.mapFile = mapFile; self.reliefFile = reliefFile
         self.boxes = boxes; self.names = names; self.country = country
+    }
+
+    /// The index's overview, downloaded as a region of this id, its map only. (6.8.0, question 10)
+    static let overviewID = "overview"
+
+    /// This entry with its map only: what the overview downloads (its relief stays online), named for the list.
+    func mapOnly(named label: String) -> PilotMapRegion {
+        PilotMapRegion(id: id, name: label, bounds: bounds, built: built, mapBytes: mapBytes, reliefBytes: 0,
+                       mapHash: mapHash, mapFile: mapFile, boxes: boxes, country: country)
     }
 
     init(from decoder: Decoder) throws {

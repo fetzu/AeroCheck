@@ -106,6 +106,8 @@ enum L10n {
     // MARK: - The pilot's map (6.8.0)
     enum PilotMap {
         static let section = String(localized: "pilotMap.section")
+        /// The overview downloaded, its map only: every country zoomed out, offline. (6.8.0)
+        static let overview = String(localized: "pilotMap.overview")
         static let footer = String(localized: "pilotMap.footer")
         /// "Online this month: 312 of 1,500 map tiles."
         static func allowance(used: Int, limit: Int) -> String {

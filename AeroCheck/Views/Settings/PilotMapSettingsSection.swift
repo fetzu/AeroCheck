@@ -26,6 +26,14 @@ struct PilotMapSettingsSection: View {
                                   stop: { downloads.cancel(region.id) },
                                   delete: { pendingDelete = region })
             }
+            // Every country zoomed out, offline: a row of its own (question 10). (6.8.0)
+            if let overview = downloads.overview {
+                PilotMapRegionRow(region: overview, state: downloads.state(of: overview.id),
+                                  bytesToFetch: downloads.bytesToFetch(overview), tint: tint,
+                                  download: { downloads.download(overview) },
+                                  stop: { downloads.cancel(overview.id) },
+                                  delete: { pendingDelete = overview })
+            }
             if !downloads.regions.isEmpty {
                 NavigationLink {
                     PilotMapRegionsPage(downloads: downloads, tint: tint)
@@ -65,7 +73,7 @@ struct PilotMapSettingsSection: View {
             if case .downloading = downloads.state(of: region.id) { return true }
             return downloads.state(of: region.id) == .failed
         }
-        return listed + downloads.downloaded.filter { !ids.contains($0.id) }
+        return listed + downloads.downloaded.filter { !ids.contains($0.id) && $0.id != PilotMapRegion.overviewID }
     }
 
     private var allowanceRow: some View {

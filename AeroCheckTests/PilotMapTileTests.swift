@@ -43,7 +43,10 @@ final class PilotMapTileTests: XCTestCase {
     }
 
     /// A source on its own directories, defaults and fake server, with `regions` in its index.
-    private func rig(_ regions: [PilotMapRegion], overview: PilotMapRegion? = nil, online: Bool = true) async throws -> Rig {
+    final class Switch: @unchecked Sendable { var on = true }
+
+    private func rig(_ regions: [PilotMapRegion], overview: PilotMapRegion? = nil, online: Bool = true,
+                     onlineSwitch: Switch? = nil) async throws -> Rig {
         let root = makeTestDirectory()
         let server = PMTilesFixture.Server()
         let index = try indexJSON(regions, overview: overview)
@@ -54,7 +57,7 @@ final class PilotMapTileTests: XCTestCase {
         let allowance = PilotMapAllowance(defaults: makeTestDefaults())
         let source = PilotTileSource(index: store, storage: storage, allowance: allowance,
                                      cacheDirectory: root.appendingPathComponent("directories"),
-                                     headers: { [:] }, fetch: server.fetch, isOnline: { online })
+                                     headers: { [:] }, fetch: server.fetch, isOnline: { onlineSwitch?.on ?? online })
         return Rig(source: source, server: server, storage: storage, allowance: allowance)
     }
 
@@ -378,6 +381,64 @@ final class PilotMapTileTests: XCTestCase {
 
     /// MapLibre keeps a "none" and retries a "not now": a tile missing offline, or past the allowance, must come
     /// back once online or downloaded.
+    // MARK: Offline, what is on the device (question 9, 30 Oct 2026)
+
+    /// A tile read online is kept on the device: online again, it costs no read and no allowance.
+    func testATileReadOnlineIsReadOnce() async throws {
+        let rig = try await rig([Self.ch])
+        rig.server.put("/v1/ch/map.pmtiles", PMTilesFixture.archive(tiles("online")))
+        let first = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
+        let reads = rig.server.count
+        let again = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(again?.data, first?.data)
+        XCTAssertEqual(rig.server.count, reads, "from the device")
+        XCTAssertEqual(rig.allowance.used, 1)
+    }
+
+    /// Offline, a tile once read online is not drawn: the Atlas draws what was downloaded, the outline elsewhere.
+    func testOfflineATileReadOnlineIsNotDrawn() async throws {
+        let network = Switch()
+        let rig = try await rig([Self.ch], onlineSwitch: network)
+        rig.server.put("/v1/ch/map.pmtiles", PMTilesFixture.archive(tiles("online")))
+        _ = await rig.source.tile(.map, z: border.z, x: border.x, y: border.y)
+        network.on = false
+        guard case .absent = await rig.source.lookup(.map, z: border.z, x: border.x, y: border.y) else {
+            return XCTFail("offline: nothing here for now")
+        }
+    }
+
+    /// The overview downloaded, its map only, answers alone at low zooms, offline too; never past zoom 7, and never
+    /// as a region.
+    func testTheOverviewOnTheDeviceAnswersZoomedOut() async throws {
+        let rig = try await rig([Self.ch], overview: Self.overview, online: false)
+        let mapOnly = Self.overview.mapOnly(named: "Overview")
+        XCTAssertFalse(mapOnly.has(.relief))
+        try download(mapOnly, PMTilesFixture.archive(tiles("overview")), into: rig.storage)
+        let low = await rig.source.tile(.map, z: 0, x: 0, y: 0)
+        XCTAssertEqual(low?.origin, .downloaded(PilotMapRegion.overviewID))
+        XCTAssertEqual(low?.whole, true)
+        guard case .absent = await rig.source.lookup(.map, z: border.z, x: border.x, y: border.y) else {
+            return XCTFail("past zoom 7 the overview has nothing; offline, nothing here for now")
+        }
+        XCTAssertFalse(rig.source.candidates(z: border.z, x: border.x, y: border.y).contains { $0.id == PilotMapRegion.overviewID })
+    }
+
+    /// "Nothing here for now" is a 404 MapLibre doesn't keep: the tile comes once it can.
+    func testNothingHereForNowIsNotKept() async throws {
+        let rig = try await rig([Self.ch], online: false)
+        let previousSource = PilotTileURLProtocol.source
+        PilotTileURLProtocol.source = rig.source
+        defer { PilotTileURLProtocol.source = previousSource }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PilotTileURLProtocol.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let (_, response) = try await session.data(from: URL(string: "https://tiles.aerocheck.app/v1/map/13/\(border.x)/\(border.y)")!)
+        let http = try XCTUnwrap(response as? HTTPURLResponse)
+        XCTAssertEqual(http.statusCode, 404)
+        XCTAssertTrue((http.value(forHTTPHeaderField: "Cache-Control") ?? "").contains("max-age=0"))
+    }
+
     /// A first launch, before the index has come: no tile is "nothing there", which MapLibre would keep a day.
     func testBeforeTheFirstIndexNothingIsKeptAsNone() async throws {
         let root = makeTestDirectory()
@@ -399,11 +460,13 @@ final class PilotMapTileTests: XCTestCase {
 
     func testNoneOnlyWhereNothingCanCome() async throws {
         func kind(_ lookup: PilotTileSource.Lookup) -> String {
-            switch lookup { case .tile: return "tile"; case .none: return "none"; case .unavailable: return "unavailable" }
+            switch lookup {
+            case .tile: return "tile"; case .none: return "none"; case .absent: return "absent"; case .unavailable: return "unavailable"
+            }
         }
         let offline = try await rig([Self.ch], online: false)
         let atBorderOffline = await offline.source.lookup(.map, z: border.z, x: border.x, y: border.y)
-        XCTAssertEqual(kind(atBorderOffline), "unavailable")
+        XCTAssertEqual(kind(atBorderOffline), "absent", "offline: nothing here for now, the outline shows")
         let nowhere = await offline.source.lookup(.map, z: 13, x: 100, y: 100)
         XCTAssertEqual(kind(nowhere), "none", "no region there at all")
 
@@ -411,7 +474,7 @@ final class PilotMapTileTests: XCTestCase {
         exhausted.server.put("/v1/ch/map.pmtiles", PMTilesFixture.archive(tiles("online")))
         for _ in 0..<PilotMapAllowance.freeReads { _ = exhausted.allowance.reserve() }
         let spent = await exhausted.source.lookup(.map, z: border.z, x: border.x, y: border.y)
-        XCTAssertEqual(kind(spent), "unavailable")
+        XCTAssertEqual(kind(spent), "absent", "out of allowance: as offline")
 
         let down = try await rig([Self.ch])   // nothing published: the header read fails
         let unreachable = await down.source.lookup(.map, z: border.z, x: border.x, y: border.y)
@@ -535,7 +598,8 @@ final class PilotMapTileTests: XCTestCase {
 
         let (tile, tileResponse) = try await session.data(from: URL(string: "https://tiles.aerocheck.app/v1/map/13/\(border.x)/\(border.y)")!)
         XCTAssertEqual((tileResponse as? HTTPURLResponse)?.statusCode, 200)
-        XCTAssertEqual((tileResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "Cache-Control"), "max-age=2592000")
+        XCTAssertEqual((tileResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "Cache-Control"),
+                       "no-store, max-age=0, must-revalidate", "MapLibre keeps no Atlas tile: the app keeps its own")
         XCTAssertEqual(tile, PMTilesFixture.content(13, border.x, border.y, "local"))
 
         let (_, missing) = try await session.data(from: URL(string: "https://tiles.aerocheck.app/v1/map/13/10/10")!)

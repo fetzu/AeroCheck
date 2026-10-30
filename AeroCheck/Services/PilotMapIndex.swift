@@ -266,6 +266,9 @@ final class PilotMapIndexStore: @unchecked Sendable {
 
     func region(id: String) -> PilotMapRegion? { regions.first { $0.id == id } }
 
+    /// Whether an index was ever read or fetched: until then no tile can be said to have nothing there.
+    var hasIndex: Bool { lock.withLock { current != nil } }
+
     /// The low-zoom archive over every region, when the index has one.
     var overview: PilotMapRegion? { lock.withLock { current?.overview } }
 

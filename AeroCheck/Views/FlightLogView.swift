@@ -2976,12 +2976,11 @@ struct FlightMapView: UIViewRepresentable {
         /// A balloon in `tint` with `symbol` in white, its tip on the coordinate, as MapKit's marker drew it.
         static func marker(tint: UIColor, symbol: String) -> UIImage {
             let size = CGSize(width: 30, height: 40)
-            let balloon = UIGraphicsImageRenderer(size: size).image { _ in
-                let path = UIBezierPath(ovalIn: CGRect(x: 1, y: 1, width: 28, height: 28))
-                path.move(to: CGPoint(x: 8, y: 25))
-                path.addLine(to: CGPoint(x: 15, y: 39))
-                path.addLine(to: CGPoint(x: 22, y: 25))
-                path.close()
+            // Twice the balloon's height, the balloon in the top half: MapLibre centres the image on the coordinate,
+            // which is then the tip. (An alignment inset centred the balloon's upper half on it instead: device
+            // check pm-20, 30 Oct 2026.)
+            return UIGraphicsImageRenderer(size: CGSize(width: size.width, height: size.height * 2)).image { _ in
+                let path = Self.balloonOutline(width: size.width, height: size.height)
                 tint.setFill()
                 path.fill()
                 UIColor.white.setStroke()
@@ -2992,8 +2991,24 @@ struct FlightMapView: UIViewRepresentable {
                     glyph.draw(at: CGPoint(x: 15 - glyph.size.width / 2, y: 15 - glyph.size.height / 2))
                 }
             }
-            // The tip on the coordinate: MapLibre centres an annotation image's alignment rect on it.
-            return balloon.withAlignmentRectInsets(UIEdgeInsets(top: 0, left: 0, bottom: size.height / 2, right: 0))
+        }
+
+        /// The balloon as one outline, its tip at the bottom centre. A circle and a triangle in one path left their
+        /// overlap empty, the white edge across it (device check pm-13).
+        static func balloonOutline(width: CGFloat, height: CGFloat) -> UIBezierPath {
+            let r = width / 2 - 4.5, centre = CGPoint(x: width / 2, y: r + 4.5)
+            let tip = CGPoint(x: width / 2, y: height - 1.5)
+            let path = UIBezierPath()
+            path.move(to: tip)
+            path.addCurve(to: CGPoint(x: centre.x - r, y: centre.y),
+                          controlPoint1: CGPoint(x: centre.x - 3, y: height * 0.78),
+                          controlPoint2: CGPoint(x: centre.x - r, y: height * 0.62))
+            path.addArc(withCenter: centre, radius: r, startAngle: .pi, endAngle: 0, clockwise: true)
+            path.addCurve(to: tip,
+                          controlPoint1: CGPoint(x: centre.x + r, y: height * 0.62),
+                          controlPoint2: CGPoint(x: centre.x + 3, y: height * 0.78))
+            path.close()
+            return path
         }
 
         func mapView(_ mapView: MLNMapView, annotationCanShowCallout annotation: MLNAnnotation) -> Bool {

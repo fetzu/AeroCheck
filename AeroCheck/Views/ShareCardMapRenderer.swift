@@ -83,14 +83,19 @@ enum ShareCardMapRenderer {
         PilotMapStyle.prepare()
         guard let styleURL = PilotMapStyle.url else { return nil }
         let sw = MKMapPoint(x: rect.minX, y: rect.maxY).coordinate, ne = MKMapPoint(x: rect.maxX, y: rect.minY).coordinate
-        let options = MLNMapSnapshotOptions(styleURL: styleURL, camera: MLNMapCamera(), size: size)
+        // Drawn at a third of the image's size and three times its scale: the same pixels, and the map's names and
+        // numbers at a size that reads on the card. At the image's own size they came out a third as big
+        // (device check pm-21, 30 Oct 2026). A fixed scale, not the screen's: the same image on every device.
+        let satellite = layer == .satellite
+        // Not under the imagery: drawn smaller, it would load a zoom coarser and come out blurred.
+        let k = satellite ? 1 : ShareCardMapStyle.mapLabelScale
+        let options = MLNMapSnapshotOptions(styleURL: styleURL, camera: MLNMapCamera(),
+                                            size: CGSize(width: size.width / k, height: size.height / k))
         options.coordinateBounds = MLNCoordinateBounds(sw: sw, ne: ne)
-        // A fixed scale, not the screen's: the same image on every device.
-        options.scale = ShareCardMapStyle.renderScale
+        options.scale = ShareCardMapStyle.renderScale * k
         // The card prints its own credit line under the map (`ShareCardFigures.credit`).
         options.showsLogo = false
         options.showsAttribution = false
-        let satellite = layer == .satellite
         let snapshotter = MLNMapSnapshotter(options: options)
         let addImagery = SnapshotStyle(satellite: satellite)
         snapshotter.delegate = addImagery
@@ -102,10 +107,13 @@ enum ShareCardMapRenderer {
         }
         withExtendedLifetime(addImagery) {}
         guard let snapshot else { return nil }
-        let image = UIGraphicsImageRenderer(size: snapshot.image.size, format: rendererFormat).image { context in
-            snapshot.image.draw(at: .zero)
+        let image = UIGraphicsImageRenderer(size: size, format: rendererFormat).image { context in
+            snapshot.image.draw(in: CGRect(origin: .zero, size: size))
             drawOverlay(in: context.cgContext, request: request, trackColor: UIColor(scheme.accentColor),
-                        size: size, project: { snapshot.point(for: $0) })
+                        size: size, project: { coordinate in
+                            let p = snapshot.point(for: coordinate)
+                            return CGPoint(x: p.x * k, y: p.y * k)
+                        })
         }
         let credit: ShareCardMapCredit
         if satellite {

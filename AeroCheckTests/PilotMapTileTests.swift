@@ -378,6 +378,25 @@ final class PilotMapTileTests: XCTestCase {
 
     /// MapLibre keeps a "none" and retries a "not now": a tile missing offline, or past the allowance, must come
     /// back once online or downloaded.
+    /// A first launch, before the index has come: no tile is "nothing there", which MapLibre would keep a day.
+    func testBeforeTheFirstIndexNothingIsKeptAsNone() async throws {
+        let root = makeTestDirectory()
+        let store = PilotMapIndexStore(directory: root.appendingPathComponent("index"),
+                                       fetch: { _ in throw URLError(.notConnectedToInternet) })
+        XCTAssertFalse(store.hasIndex)
+        let source = PilotTileSource(index: store, storage: PilotMapStorage(root: root.appendingPathComponent("regions")),
+                                     allowance: PilotMapAllowance(defaults: makeTestDefaults()),
+                                     cacheDirectory: root.appendingPathComponent("directories"),
+                                     headers: { [:] }, fetch: PMTilesFixture.Server().fetch, isOnline: { true })
+        guard case .unavailable = await source.lookup(.map, z: border.z, x: border.x, y: border.y) else {
+            return XCTFail("before the index: not now")
+        }
+        let indexed = try await rig([Self.ch])
+        guard case .none = await indexed.source.lookup(.map, z: 13, x: 100, y: 100) else {
+            return XCTFail("with the index, far from every region: nothing there")
+        }
+    }
+
     func testNoneOnlyWhereNothingCanCome() async throws {
         func kind(_ lookup: PilotTileSource.Lookup) -> String {
             switch lookup { case .tile: return "tile"; case .none: return "none"; case .unavailable: return "unavailable" }

@@ -15811,6 +15811,29 @@
         }
       }
     },
+    "pilotMap.overview": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas-Übersicht: jedes Land, herausgezoomt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas overview: every country, zoomed out"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vue d'ensemble de l'Atlas : tous les pays, en vue éloignée"
+          }
+        }
+      }
+    },
     "pilotMap.searchRegions": {
       "extractionState": "manual",
       "localizations": {

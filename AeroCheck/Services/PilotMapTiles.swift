@@ -1,5 +1,6 @@
 import Foundation
 import MapLibre
+import Network
 
 /// The pilot's map regions downloaded on this device: `<root>/<region>/map.pmtiles`, `relief.pmtiles` and
 /// `region.json` (the index entry they were downloaded from). Kept out of device backups: they come back from
@@ -181,16 +182,20 @@ final class PilotTileSource: @unchecked Sendable {
     func candidates(z: Int, x: Int, y: Int) -> [PilotMapRegion] {
         let listed = index.regions
         let ids = Set(listed.map(\.id))
-        let orphans = storage.downloaded.filter { !ids.contains($0.id) }
+        // The overview downloaded is no region: it answers alone at low zooms (`lookup`).
+        let orphans = storage.downloaded.filter { !ids.contains($0.id) && $0.id != PilotMapRegion.overviewID }
         return (listed + orphans).filter { $0.touches(z: z, x: x, y: y) }
     }
 
-    /// A tile, nothing there, or nothing now: offline, the allowance used up, a read that failed. MapLibre keeps a
-    /// "nothing there" and retries a "nothing now", so the two must not be confused: a tile missing in flight would
-    /// otherwise stay missing after the region's download.
+    /// A tile, nothing there, nothing here for now, or nothing now. MapLibre keeps a "nothing there" a day, so it is
+    /// said only where no region will ever have the tile. Offline or out of allowance with nothing downloaded there,
+    /// "nothing here for now": the outline shows, and the tile is asked again once it can come, never stretched from a
+    /// coarser one MapLibre still has. A read that failed, or no index yet: "nothing now", retried. (6.8.0, the
+    /// author's answer to question 9, 30 Oct 2026: offline, the Atlas draws what is on the device.)
     enum Lookup {
         case tile(Tile)
         case none
+        case absent
         case unavailable
     }
 
@@ -205,6 +210,12 @@ final class PilotTileSource: @unchecked Sendable {
 
     func lookup(_ kind: PilotMapKind, z: Int, x: Int, y: Int) async -> Lookup {
         guard PilotMapTileMath.isValid(z: z, x: x, y: y) else { return .none }
+        // The overview on the device, map only: zoomed out it holds every region, online or not. (Question 10.)
+        if kind == .map, z <= Self.overviewMaxZoom,
+           let stored = storage.archive(region: PilotMapRegion.overviewID, kind: .map)?.tile(z: z, x: x, y: y),
+           let plain = PMTiles.plain(stored) {
+            return .tile(Tile(data: plain, origin: .downloaded(PilotMapRegion.overviewID)))
+        }
         let regions = candidates(z: z, x: x, y: y).filter { $0.has(kind) }
         let downloaded = Set(storage.downloaded.map(\.id))
 
@@ -227,11 +238,9 @@ final class PilotTileSource: @unchecked Sendable {
         let online = overview.map { [$0] } ?? regions.filter { !downloaded.contains($0.id) }
         // Before the first index there are no regions to ask yet: "not now", never "nothing there", which MapLibre
         // keeps a day (a first launch showed the outline only, a day long, where the map was first looked at).
-        let indexed = index.hasIndex
-        guard !online.isEmpty, isOnline() else {
-            return merged(parts, kind, whole: online.isEmpty && indexed)
-                ?? (online.isEmpty && indexed ? .none : .unavailable)
-        }
+        guard index.hasIndex else { return merged(parts, kind, whole: false) ?? .unavailable }
+        guard !online.isEmpty else { return merged(parts, kind) ?? .none }
+        guard isOnline() else { return merged(parts, kind, whole: false) ?? .absent }
         var fetched: [(data: Data, origin: Origin)] = []
         var failed = false
         for region in online {
@@ -244,18 +253,19 @@ final class PilotTileSource: @unchecked Sendable {
                 location = try await remote.locate(z: z - depth, x: x >> depth, y: y >> depth)
             } catch { failed = true; continue }
             guard let location else { continue }
-            // An enlarged tile's three siblings come from the same one: read once, not four times.
-            let key = "\(Self.remoteKey(region, kind))/\(z - depth)/\(x >> depth)/\(y >> depth)"
-            var plain = depth > 0 ? lock.withLock({ enlarged[key] }) : nil
+            // Read once: kept on the device for the next time online (never offline, question 9), and an enlarged
+            // tile's three siblings come from the same one.
+            let file = tileFile(region, kind, z: z - depth, x: x >> depth, y: y >> depth)
+            var plain = try? Data(contentsOf: file)
             if plain == nil {
-                guard allowance.reserve() else { return merged(parts, kind, whole: false) ?? .unavailable }
+                guard allowance.reserve() else { return merged(parts, kind, whole: false) ?? .absent }
                 do {
                     plain = PMTiles.plain(try await remote.read(location))
                 } catch {
                     allowance.refund()
                     return merged(parts, kind, whole: false) ?? .unavailable
                 }
-                if depth > 0, let plain { lock.withLock { Self.keep(plain, as: key, in: &enlarged) } }
+                if let plain { keep(plain, at: file) }
             }
             if let plain, let part = PilotTileMerge.reliefChild(plain, depth: depth, x: x, y: y) {
                 fetched.append((part, .online(region.id)))
@@ -267,19 +277,46 @@ final class PilotTileSource: @unchecked Sendable {
         return merged(parts + fetched, kind, whole: !failed) ?? (failed ? .unavailable : .none)
     }
 
+    // MARK: Tiles read online, kept on the device
+
+    /// Where a tile read online is kept: beside its archive's directories, so a build the index drops takes its
+    /// tiles with it (`pruneDirectoryCache`).
+    private func tileFile(_ region: PilotMapRegion, _ kind: PilotMapKind, z: Int, x: Int, y: Int) -> URL {
+        cacheDirectory.appendingPathComponent(Self.remoteKey(region, kind), isDirectory: true)
+            .appendingPathComponent("tiles", isDirectory: true)
+            .appendingPathComponent("\(z)-\(x)-\(y).tile")
+    }
+
+    private func keep(_ data: Data, at file: URL) {
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: file, options: .atomic)
+    }
+
+    /// The tiles kept from online reads, at most this many bytes: the oldest go first (`trimTileCache`).
+    static let tileCacheLimit: Int64 = 300_000_000
+
+    /// Keeps the tiles read online under `limit`, the least recently written first out.
+    func trimTileCache(limit: Int64 = tileCacheLimit) {
+        let fm = FileManager.default
+        let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
+        guard let walk = fm.enumerator(at: cacheDirectory, includingPropertiesForKeys: keys) else { return }
+        var files: [(url: URL, size: Int64, date: Date)] = []
+        for case let url as URL in walk where url.pathExtension == "tile" {
+            let values = try? url.resourceValues(forKeys: Set(keys))
+            files.append((url, Int64(values?.fileSize ?? 0), values?.contentModificationDate ?? .distantPast))
+        }
+        var total = files.reduce(0) { $0 + $1.size }
+        for file in files.sorted(by: { $0.date < $1.date }) where total > limit {
+            try? fm.removeItem(at: file.url)
+            total -= file.size
+        }
+    }
+
     /// How many zooms past an archive's deepest a tile is: the relief's archives stop at different zooms (Switzerland's
     /// at 11, the other regions' at 10, Greenland's at 8) while the style asks to 11, so a deeper tile is the deepest
     /// one above it, enlarged (`PilotTileMerge.reliefChild`). The map's archives all go as deep as the style asks.
     static func depth(_ kind: PilotMapKind, z: Int, deepest: Int) -> Int {
         kind == .relief ? max(0, z - deepest) : 0
-    }
-
-    /// The tiles read online to be enlarged, a few dozen at most: a screen's worth of them.
-    private var enlarged: [String: Data] = [:]
-
-    private static func keep(_ data: Data, as key: String, in cache: inout [String: Data]) {
-        if cache.count >= 48 { cache.removeAll() }
-        cache[key] = data
     }
 
     /// One tile from the parts found: the only one as it is, several joined (`PilotTileMerge`), none nil.
@@ -309,12 +346,15 @@ final class PilotTileSource: @unchecked Sendable {
 
     /// Removes the cached directories of builds the index no longer lists.
     func pruneDirectoryCache() {
-        let live = Set(index.regions.flatMap { region in PilotMapKind.allCases.map { Self.remoteKey(region, $0) } })
+        let live = Set((index.regions + [index.overview].compactMap { $0 }).flatMap { region in
+            PilotMapKind.allCases.map { Self.remoteKey(region, $0) }
+        })
         let folders = (try? FileManager.default.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil)) ?? []
         for folder in folders where !live.contains(folder.lastPathComponent) {
             try? FileManager.default.removeItem(at: folder)
         }
         lock.withLock { remotes = remotes.filter { live.contains($0.key) } }
+        trimTileCache()
     }
 }
 
@@ -413,9 +453,12 @@ final class PilotTileURLProtocol: URLProtocol {
     /// What a request gets: a body and its type, a 404 MapLibre keeps, or an error it retries.
     enum Answer {
         case body(Data, String)
-        /// A body MapLibre draws but doesn't keep: half a border's tile, the other half to come once online.
+        /// A body MapLibre draws but doesn't keep: every tile of the Atlas, whose keeping is the app's own (offline,
+        /// only what is on the device draws; question 9).
         case passing(Data, String)
         case none
+        /// Nothing here for now: a 404 MapLibre doesn't keep, so the outline shows and the tile is asked again.
+        case absentNow
         case unavailable
     }
 
@@ -425,9 +468,10 @@ final class PilotTileURLProtocol: URLProtocol {
             guard let source else { return .none }
             switch await source.lookup(kind, z: z, x: x, y: y) {
             case let .tile(tile):
-                let type = kind == .map ? "application/x-protobuf" : "image/webp"
-                return tile.whole ? .body(tile.data, type) : .passing(tile.data, type)
+                // Never kept by MapLibre: what it kept drew offline, whatever its zoom or age (device check pm-36).
+                return .passing(tile.data, kind == .map ? "application/x-protobuf" : "image/webp")
             case .none: return .none
+            case .absent: return .absentNow
             case .unavailable: return .unavailable
             }
         case let .glyphs(fonts, range):
@@ -515,6 +559,10 @@ final class PilotTileURLProtocol: URLProtocol {
             // Nothing there: MapLibre keeps it, and asks again only when its entry expires (a day).
             status = 404
             headers = ["Cache-Control": "max-age=86400"]
+        case .absentNow:
+            // Nothing here for now: drawn as nothing, not kept, asked again the next time it is needed.
+            status = 404
+            headers = ["Cache-Control": "no-store, max-age=0, must-revalidate"]
         case .unavailable:
             // Nothing now: a server error, which MapLibre retries later and never keeps.
             status = 503
@@ -532,12 +580,23 @@ final class PilotTileURLProtocol: URLProtocol {
 enum PilotMap {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var online = true
+    nonisolated(unsafe) private static var network = true
 
-    /// Off in the app's strict offline mode: no tile is read from tiles.aerocheck.app, the downloaded regions only.
+    /// Off in the app's strict offline mode, and with no network (airplane mode, no signal): no tile is read from
+    /// tiles.aerocheck.app, the device's own only. Airplane mode used to count as online, every read failed, and
+    /// MapLibre kept stretching coarser tiles (device check pm-36). Set with the offline mode; the network is the
+    /// Atlas's own path monitor's.
     static var onlineAllowed: Bool {
-        get { lock.withLock { online } }
+        get { _ = pathMonitor; return lock.withLock { online && network } }
         set { lock.withLock { online = newValue } }
     }
+
+    private static let pathMonitor: NWPathMonitor = {
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { path in lock.withLock { network = path.status == .satisfied } }
+        monitor.start(queue: DispatchQueue(label: "app.aerocheck.atlas.network", qos: .utility))
+        return monitor
+    }()
 
     /// The world outline (AeroCheck-maps `build/outline.py`, decided 26 Oct 2026): land and sea, borders, country
     /// names, capitals, major rivers and lakes, to tile zoom 6. Bundled, so the map is never blank where no region is

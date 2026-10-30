@@ -9,6 +9,14 @@ enum PilotMapConfig {
     static let baseURL = URL(string: "https://\(host)/v1/")!
     static let indexURL = baseURL.appendingPathComponent("index.json")
 
+    /// A list's address for this hour. Cloudflare keeps what tiles.aerocheck.app serves for a day, and the cache
+    /// rule can't tell the lists from the archives: under its bare name, the index a monthly build replaces would
+    /// still come back for up to a day, naming files the cleanup removes. A query string is a key of its own, so a
+    /// new hour asks R2 again and every device in that hour shares the answer.
+    static func listURL(_ url: URL, now: Date) -> URL {
+        url.appending(queryItems: [URLQueryItem(name: "h", value: String(Int(now.timeIntervalSince1970 / 3600)))])
+    }
+
     /// What MapLibre asks for, all answered by `PilotTileURLProtocol`: the map's vector tiles, the relief's
     /// elevation tiles and the B612 glyphs. The style names these.
     static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}"
@@ -221,7 +229,8 @@ final class PilotMapIndexStore: @unchecked Sendable {
     @discardableResult
     func refresh(maxAge: TimeInterval = 6 * 3600) async -> Bool {
         if let fetchedAt = lock.withLock({ fetchedAt }), now().timeIntervalSince(fetchedAt) < maxAge { return false }
-        var request = URLRequest(url: PilotMapConfig.indexURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+        var request = URLRequest(url: PilotMapConfig.listURL(PilotMapConfig.indexURL, now: now()),
+                                 cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
         for (field, value) in PilotMapConfig.requestHeaders { request.setValue(value, forHTTPHeaderField: field) }
         do {
             let (data, response) = try await fetch(request)

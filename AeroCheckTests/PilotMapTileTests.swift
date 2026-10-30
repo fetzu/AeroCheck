@@ -130,8 +130,20 @@ final class PilotMapTileTests: XCTestCase {
         await store.refresh()
         await store.refresh()
         XCTAssertEqual(asked.count, 1, "a second refresh within six hours asks nothing")
-        XCTAssertEqual(asked.requests.first?.url, PilotMapConfig.indexURL)
+        XCTAssertEqual(asked.requests.first?.url?.path, PilotMapConfig.indexURL.path)
+        XCTAssertEqual(asked.requests.first?.url?.query?.hasPrefix("h="), true, "the hour's key, past the edge cache")
         XCTAssertNotNil(asked.requests.first?.value(forHTTPHeaderField: "User-Agent"))
+    }
+
+    /// The lists are asked under the hour's key: the edge cache keeps a bare name for a day, and a monthly build's new
+    /// index must not wait that long behind the one it replaced. (6.8.0)
+    func testAListIsAskedUnderTheHoursKey() {
+        let at = Date(timeIntervalSince1970: 1_792_998_100)
+        let url = PilotMapConfig.listURL(PilotMapConfig.indexURL, now: at)
+        XCTAssertEqual(url.absoluteString, "https://tiles.aerocheck.app/v1/index.json?h=498055")
+        XCTAssertEqual(PilotMapConfig.listURL(PilotMapConfig.indexURL, now: at.addingTimeInterval(1_800)), url,
+                       "every device in the hour shares the cached answer")
+        XCTAssertNotEqual(PilotMapConfig.listURL(PilotMapConfig.indexURL, now: at.addingTimeInterval(3_600)), url)
     }
 
     // MARK: Regions and tiles

@@ -325,6 +325,7 @@ struct NavigationMapView: View {
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
     /// The US traffic patterns, for the approach view: its `revision` too. (6.5.0)
     @ObservedObject private var nasrPatterns = NASRPatternService.shared
+    @ObservedObject private var pilotMap = PilotMapDownloads.shared   // the allowance line (6.8.0)
     /// A dry run's: the runway it lands on is the one in use on its map. (6.5.0)
     @Environment(\.dryRunSession) private var dryRunSession
 
@@ -1904,6 +1905,10 @@ struct NavigationMapView: View {
     /// The offline/cache badge over the scale bar. A tap on the badge says where the chart comes from.
     private var mapStatus: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if pilotMap.allowanceLevel != .open, !isOfflineMode {
+                PilotMapAllowanceLine(downloads: pilotMap, center: mapState.region.center)
+                    .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
+            }
             if isOfflineMode || isCachedMode {
                 Button(action: { showCacheInfoModal = true }) {
                     HStack(spacing: 6) {
@@ -5387,3 +5392,41 @@ struct UndoOfferFollower: ViewModifier {
             }
     }
 }
+
+/// Plan › Map's line once 80 % of the month's online map is used, or all of it: what that means, and the download of
+/// the region under the chart when it isn't on the device. Never in the Cockpit: nothing comes up in flight. (6.8.0)
+struct PilotMapAllowanceLine: View {
+    @ObservedObject var downloads: PilotMapDownloads
+    let center: CLLocationCoordinate2D
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        let region = downloads.missingRegion(at: center)
+        HStack(spacing: 10) {
+            Image(systemName: "map")
+                .accessibilityHidden(true)
+            Text(downloads.allowanceLevel == .exhausted ? L10n.PilotMap.lineExhausted : L10n.PilotMap.lineNear)
+                .fixedSize(horizontal: false, vertical: true)
+            if let region {
+                if case let .downloading(fraction) = downloads.state(of: region.id) {
+                    Text(L10n.PilotMap.downloading(fraction))
+                        .monospacedDigit()
+                } else {
+                    Button(L10n.PilotMap.lineDownload(region.name)) { downloads.download(region) }
+                        .font(.aero(size: 13, weight: .bold))
+                        .foregroundColor(theme.action)
+                        .frame(minHeight: 44)
+                }
+            }
+        }
+        .font(.aero(size: 13, weight: .semibold))
+        .foregroundColor(theme.textPrimary)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 44)
+        .background(theme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.warning.opacity(0.8), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("map.allowanceLine")
+    }
+}
+

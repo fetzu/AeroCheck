@@ -163,13 +163,25 @@ final class PilotMapDownloads: ObservableObject {
     static func regions(along route: [CLLocationCoordinate2D], in regions: [PilotMapRegion]) -> [PilotMapRegion] {
         var found: [PilotMapRegion] = []
         for point in RouteDataCalculator.sampledPoints(for: route) {
-            guard let region = regions.first(where: {
-                point.longitude >= $0.bounds[0] && point.longitude <= $0.bounds[2]
-                    && point.latitude >= $0.bounds[1] && point.latitude <= $0.bounds[3]
-            }) else { continue }
+            guard let region = region(at: point, in: regions) else { continue }
             if !found.contains(where: { $0.id == region.id }) { found.append(region) }
         }
         return found
+    }
+
+    /// The first region in the index whose box holds the point, as the map picks it.
+    static func region(at point: CLLocationCoordinate2D, in regions: [PilotMapRegion]) -> PilotMapRegion? {
+        regions.first {
+            point.longitude >= $0.bounds[0] && point.longitude <= $0.bounds[2]
+                && point.latitude >= $0.bounds[1] && point.latitude <= $0.bounds[3]
+        }
+    }
+
+    /// The region under a point when it isn't on the device yet: what the allowance line offers. (6.8.0)
+    func missingRegion(at point: CLLocationCoordinate2D) -> PilotMapRegion? {
+        guard let region = Self.region(at: point, in: regions),
+              !downloaded.contains(where: { $0.id == region.id }) else { return nil }
+        return region
     }
 
     /// The route's regions not downloaded yet (an update due is not a gap: the old build still draws).

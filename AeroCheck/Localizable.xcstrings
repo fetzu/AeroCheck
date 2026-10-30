@@ -15650,6 +15650,75 @@
         }
       }
     },
+    "pilotMap.line.download": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ herunterladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Télécharger %@"
+          }
+        }
+      }
+    },
+    "pilotMap.line.exhausted": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Online-Karte bis zum 1. aufgebraucht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Online map used up until the 1st"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte en ligne épuisée jusqu'au 1er du mois"
+          }
+        }
+      }
+    },
+    "pilotMap.line.near": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "80 % der Online-Karte dieses Monats verbraucht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "80 % of this month's online map used"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "80 % de la carte en ligne du mois utilisés"
+          }
+        }
+      }
+    },
     "pilotMap.noRegions": {
       "extractionState": "manual",
       "localizations": {

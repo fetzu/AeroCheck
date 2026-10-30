@@ -1,12 +1,12 @@
-6.7.0 bringt Ihre eigenen Notizen zu jedem Flugplatz, und überall dieselbe Karte.
+6.8.0 zeichnet seine eigene Karte, die Pilotenkarte, aus OpenStreetMap, auf jeder Karte der App.
 
 Zum Ausprobieren:
-- «Planen» › «Karte», tippen Sie auf einen Flugplatz: Seine Karte zeigt die Frequenzen, «Karte» und «Notiz». «Notiz» öffnet Ihre Notiz in zwei Teilen, «Anflug» und «Am Boden». Schreiben Sie eine, dann tippen Sie erneut auf den Flugplatz.
-- «Flugplätze suchen» findet einen Flugplatz nach dem, was Ihre Notiz sagt, und zeigt die gefundene Zeile. Alles ist nach Entfernung geordnet, der nächste zuerst.
-- Der Block «Route» eines Flugs hat pro Flugplatz eine Zeile mit Ihrer Notiz. Nach der Landung fragt ABSCHLIESSEN: «Etwas, das Sie sich zu … merken möchten?»
-- Im Flug ist die Notiz nur zum Lesen, nur der Teil «Anflug»: auf der Karte des Flugplatzes, im Anflugbriefing und bei «Ausweichen».
-- «Einstellungen» › «iCloud & Aufzeichnung» › «Flugplatznotizen»: alle Notizen, «Alle Notizen teilen (Textdatei)», eine oder alle löschen. Mit «Mit iCloud synchronisieren» folgen die Notizen Ihnen auf Ihre anderen Geräte.
-- Die Karten: Jenseits des Rands der Schweizer Karten erscheint Apples Karte statt Schwarz. Zoomen Sie in «Planen» › «Karte» oder der KARTE des Cockpits hinein: die ICAO-Karte, dann die Segelflugkarte, dann die Landeskarte.
-- Die Karte des Flugplatzes im Routeneditor: «+ Route» fügt den Flugplatz der Route hinzu.
+- «Einstellungen» › «Daten & Speicher» › «Pilotenkarte»: Laden Sie die Schweiz herunter (etwa 90 MB, WLAN empfohlen). Schalten Sie dann den Flugmodus ein: Die Karte zeichnet in der Schweiz weiter.
+- Fenster «Karte» › «Grundkarte»: «Pilotenkarte» und «Luftbilder» ersetzen die beiden Ebenen von Apple. Schieben Sie auf «Luftbilder» von der Schweiz nach Frankreich oder Deutschland: Jede Quelle wird am Fuss der Karte genannt.
+- Zoomen Sie bis Europa hinaus: der Weltumriss, mit den Namen der Länder in ihnen und ihren Hauptstädten.
+- «Planen» › «Karte», die KARTE des Cockpits und der Routeneditor: Tippen Sie auf einen Flugplatz, die Höhe einer Platzrunde, eine Navigationshilfe; ziehen Sie einen Routenpunkt; das Teilstreckenband; «Flugplätze suchen». Sagen Sie uns alles, was sich anders bewegt als in 6.7.
+- Ein Flug im Flugbuch: die Karte seines Flugwegs und das Bild zum Teilen auf «Pilotenkarte» und auf «Luftbilder».
+- Planen Sie einen Flug über eine Grenze: Das Banner bietet die Regionen der Pilotenkarte entlang der Route an.
+- Die Schweizer ICAO-, Segelflug- und Landeskarten: Jenseits ihres Rands liegt nun die Pilotenkarte darunter.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

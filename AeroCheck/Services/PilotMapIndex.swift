@@ -19,8 +19,12 @@ enum PilotMapConfig {
 
     /// What MapLibre asks for, all answered by `PilotTileURLProtocol`: the map's vector tiles, the relief's
     /// elevation tiles and the B612 glyphs. The style names these.
-    static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}"
-    static let reliefTileTemplate = "https://\(host)/v1/relief/{z}/{x}/{y}"
+    static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}?\(cacheGeneration)"
+    static let reliefTileTemplate = "https://\(host)/v1/relief/{z}/{x}/{y}?\(cacheGeneration)"
+    /// MapLibre keeps a tile under its address. The builds before 29 Oct 2026 kept half a border's tile for a month
+    /// (Switzerland's half, from before the other regions); a new query is a new address, so those are never drawn
+    /// again. The protocol reads only the path.
+    static let cacheGeneration = "g=2"
     static let glyphsTemplate = "https://\(host)/v1/glyphs/{fontstack}/{range}.pbf"
     /// The world outline, from the app's bundle (`PilotMapOutline`).
     static let outlineTileTemplate = "https://\(host)/local/outline/{z}/{x}/{y}"
@@ -73,8 +77,9 @@ enum PilotMapKind: String, CaseIterable, Codable, Sendable {
     case relief
 }
 
-/// A downloadable region of the pilot's map, as `index.json` lists it. Regions overlap at borders (each country
-/// carries a margin): where they do, the first in the index wins, so nothing is drawn twice. (6.8.0)
+/// A downloadable region of the pilot's map, as `index.json` lists it: a country, or a first-level division of a large
+/// one (a US state, a German Land), cut at its outline. A tile at a border belongs to both regions, each with its part
+/// (`PilotTileSource` joins them). (6.8.0)
 struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
@@ -94,6 +99,13 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
     /// Each archive's name on R2 (`map-<hash>.pmtiles`); indexes before the names have none: `map.pmtiles`.
     let mapFile: String?
     let reliefFile: String?
+    /// The region's boxes, west, south, east, north: two for one across 180° (Alaska), where `bounds` spans the whole
+    /// world. Indexes before the worldwide regions (28 Oct 2026) have none: `bounds` is the box.
+    let boxes: [[Double]]?
+    /// The name in English, French and German, from Overture; `name` is the English one.
+    let names: [String: String]?
+    /// ISO 3166-1 code of the region's country ("FR" for Brittany), for grouping.
+    let country: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, bounds, built
@@ -104,15 +116,17 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
         case reliefHash = "relief_hash"
         case mapFile = "map_file"
         case reliefFile = "relief_file"
+        case boxes, names, country
     }
 
     init(id: String, name: String, bounds: [Double], built: String, mapBytes: Int, reliefBytes: Int,
          reliefBuilt: String? = nil, mapHash: String? = nil, reliefHash: String? = nil, mapFile: String? = nil,
-         reliefFile: String? = nil) {
+         reliefFile: String? = nil, boxes: [[Double]]? = nil, names: [String: String]? = nil, country: String? = nil) {
         self.id = id; self.name = name; self.bounds = bounds; self.built = built
         self.mapBytes = mapBytes; self.reliefBytes = reliefBytes; self.reliefBuilt = reliefBuilt
         self.mapHash = mapHash; self.reliefHash = reliefHash
         self.mapFile = mapFile; self.reliefFile = reliefFile
+        self.boxes = boxes; self.names = names; self.country = country
     }
 
     init(from decoder: Decoder) throws {
@@ -128,6 +142,9 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
         reliefHash = try c.decodeIfPresent(String.self, forKey: .reliefHash)
         mapFile = try c.decodeIfPresent(String.self, forKey: .mapFile)
         reliefFile = try c.decodeIfPresent(String.self, forKey: .reliefFile)
+        boxes = try c.decodeIfPresent([[Double]].self, forKey: .boxes)
+        names = try c.decodeIfPresent([String: String].self, forKey: .names)
+        country = try c.decodeIfPresent(String.self, forKey: .country)
     }
 
     /// An id is a path segment, on R2 and on disk: lowercase letters, digits and hyphens only.
@@ -138,6 +155,18 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
             && bounds[1] >= -90 && bounds[3] <= 90
             && built.count == 8 && built.allSatisfy(\.isNumber)
             && [mapFile, reliefFile].allSatisfy { $0.map(Self.isFileName) ?? true }
+            && (boxes ?? []).allSatisfy(Self.isBox)
+    }
+
+    static func isBox(_ box: [Double]) -> Bool {
+        box.count == 4 && box[0] < box[2] && box[1] < box[3] && box[1] >= -90 && box[3] <= 90
+            && box[0] >= -180 && box[2] <= 180
+    }
+
+    /// The name in the app's language (English, French or German), else the index's.
+    var displayName: String {
+        let language = Bundle.main.preferredLocalizations.first.map { String($0.prefix(2)) } ?? "en"
+        return names?[language] ?? name
     }
 
     func has(_ kind: PilotMapKind) -> Bool { kind == .map ? mapBytes > 0 : reliefBytes > 0 }
@@ -161,10 +190,17 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
 
     var downloadBytes: Int { mapBytes + reliefBytes }
 
-    /// Whether the region's box touches the tile (web mercator, `z`/`x`/`y` as in the tile URLs).
+    /// Whether one of the region's boxes touches the tile (web mercator, `z`/`x`/`y` as in the tile URLs).
     func touches(z: Int, x: Int, y: Int) -> Bool {
         let tile = PilotMapTileMath.bounds(z: z, x: x, y: y)
-        return tile.west < bounds[2] && tile.east > bounds[0] && tile.south < bounds[3] && tile.north > bounds[1]
+        return (boxes ?? [bounds]).contains { box in
+            tile.west < box[2] && tile.east > box[0] && tile.south < box[3] && tile.north > box[1]
+        }
+    }
+
+    /// Whether one of the region's boxes holds the point.
+    func contains(latitude: Double, longitude: Double) -> Bool {
+        (boxes ?? [bounds]).contains { $0[0] <= longitude && longitude <= $0[2] && $0[1] <= latitude && latitude <= $0[3] }
     }
 }
 
@@ -188,6 +224,9 @@ struct PilotMapIndex: Codable, Equatable, Sendable {
     let version: Int
     let generated: String?
     let regions: [PilotMapRegion]
+    /// Zooms 0 to 7 over every region at once (since 28 Oct 2026): online, a low-zoom tile spanning dozens of regions
+    /// is read from it alone. Not a region to download.
+    var overview: PilotMapRegion? = nil
 
     /// What the app keeps: version 1, the regions it can use (an invalid one is dropped, not the index).
     static func decode(_ data: Data) throws -> PilotMapIndex {
@@ -195,7 +234,8 @@ struct PilotMapIndex: Codable, Equatable, Sendable {
         guard raw.version == 1 else { throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "index version \(raw.version)")) }
         var seen = Set<String>()
         let kept = raw.regions.filter { $0.isValid && seen.insert($0.id).inserted }
-        return PilotMapIndex(version: raw.version, generated: raw.generated, regions: kept)
+        return PilotMapIndex(version: raw.version, generated: raw.generated, regions: kept,
+                             overview: raw.overview.flatMap { $0.isValid && $0.id == "overview" ? $0 : nil })
     }
 }
 
@@ -224,6 +264,9 @@ final class PilotMapIndexStore: @unchecked Sendable {
     var regions: [PilotMapRegion] { lock.withLock { current?.regions ?? [] } }
 
     func region(id: String) -> PilotMapRegion? { regions.first { $0.id == id } }
+
+    /// The low-zoom archive over every region, when the index has one.
+    var overview: PilotMapRegion? { lock.withLock { current?.overview } }
 
     /// Fetches the index unless the one kept is younger than `maxAge`. Keeps the old one on any failure.
     @discardableResult

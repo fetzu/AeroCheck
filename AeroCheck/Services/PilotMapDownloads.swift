@@ -159,7 +159,8 @@ final class PilotMapDownloads: ObservableObject {
     // MARK: - A route's regions
 
     /// The regions a route needs: for every point along it (sampled every 10 NM), the first region in the index
-    /// whose box holds it, as the map itself picks them. A region's box carries its margin past the border.
+    /// whose box holds it. Boxes overlap at borders, so a point near one may name the neighbour: the route's next
+    /// points name the right one, and a download too many is a small one.
     static func regions(along route: [CLLocationCoordinate2D], in regions: [PilotMapRegion]) -> [PilotMapRegion] {
         var found: [PilotMapRegion] = []
         for point in RouteDataCalculator.sampledPoints(for: route) {
@@ -171,10 +172,7 @@ final class PilotMapDownloads: ObservableObject {
 
     /// The first region in the index whose box holds the point, as the map picks it.
     static func region(at point: CLLocationCoordinate2D, in regions: [PilotMapRegion]) -> PilotMapRegion? {
-        regions.first {
-            point.longitude >= $0.bounds[0] && point.longitude <= $0.bounds[2]
-                && point.latitude >= $0.bounds[1] && point.latitude <= $0.bounds[3]
-        }
+        regions.first { $0.contains(latitude: point.latitude, longitude: point.longitude) }
     }
 
     /// The region under a point when it isn't on the device yet: what the allowance line offers. (6.8.0)

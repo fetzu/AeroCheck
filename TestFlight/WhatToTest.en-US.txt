@@ -2,6 +2,7 @@
 
 What to try:
 - Settings › Data & Storage › Pilot's map: download Switzerland (about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws in Switzerland.
+- Pilot's map › Countries and regions: every country of aerocheck.app/countries, the large ones by region. Download a neighbour too (Baden-Württemberg, Grand Est): at the border both sides draw, with no gap and nothing twice.
 - Map sheet › Base chart: Pilot's map and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map.
 - Zoom out to Europe: the world outline, with the countries' names inside them and their capitals.
 - Plan › Map, the Cockpit's MAP and the route editor: tap an aerodrome, a circuit's altitude, a navaid; drag a route point; the legs band; Search aerodromes. Tell us anything that moves differently from 6.7.

@@ -2774,7 +2774,7 @@ struct TripDataBanner: View {
         var parts: [String] = []
         if !needed.isEmpty { parts.append(needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")) }
         let regions = tripNeededRegions
-        if !regions.isEmpty { parts.append(L10n.PilotMap.tripRegions(regions.map(\.name).joined(separator: ", "))) }
+        if !regions.isEmpty { parts.append(L10n.PilotMap.tripRegions(regions.map(\.displayName).joined(separator: ", "))) }
         // The regions' size is exact (the index says it); the layers' is estimated, or still coming.
         let regionBytes = Int64(regions.reduce(0) { $0 + $1.downloadBytes })
         let layers = needed.isEmpty ? nil : tripSizeEstimate

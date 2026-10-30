@@ -41,6 +41,7 @@
 		012AFE5E2D3C1089C2BF1663 /* PMTilesFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 882BEE7E7E5F0CA86D152F67 /* PMTilesFixture.swift */; };
 		5C32CF556358609B89E4BEE3 /* PilotMapArchiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8146B8D5DB9851393555680A /* PilotMapArchiveTests.swift */; };
 		9E775712E6F52EA1AEC63827 /* PilotMapTileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BCF1E482C16B42F769A7B4A /* PilotMapTileTests.swift */; };
+		0D25B325D7F811819DB1CA58 /* PilotMapMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */; };
 		07F3E1135A1951EC6BA4C201 /* PilotMapAllowanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */; };
 		9AD3B81D7EA690CED1CA955A /* PilotMapDownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */; };
 		8D9B14781A99C8E88AE54852 /* PilotMapChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */; };
@@ -299,6 +300,7 @@
 		501D0FF15B97F3E53FC300BE /* PilotMapIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B7BB35BFE90481B580DBDB /* PilotMapIndex.swift */; };
 		B0D79AB60059A19B1929E009 /* PilotMapAllowance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1331EA81BEF33708CF3B32B /* PilotMapAllowance.swift */; };
 		CF3311EF6A82422D31A2ECB5 /* PilotMapTiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CFABD2FBC8337F9546606D /* PilotMapTiles.swift */; };
+		A15EE815AC9B25A997F78965 /* PilotMapMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402C3EF0B706787694C57C61 /* PilotMapMerge.swift */; };
 		0C3A8968C08F3A5DDDA4546E /* PilotMapCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3208B60DFB287B851819B8D1 /* PilotMapCharts.swift */; };
 		B61B75693F04502D83A8977D /* PilotMapImagery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D889A68AF2A4D7593C1292F /* PilotMapImagery.swift */; };
 		8922D28EC341857C67E0A7CC /* PilotMapDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ECEB0E100FAED0B2E361694 /* PilotMapDownloads.swift */; };
@@ -522,6 +524,7 @@
 		882BEE7E7E5F0CA86D152F67 /* PMTilesFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PMTilesFixture.swift; sourceTree = "<group>"; };
 		8146B8D5DB9851393555680A /* PilotMapArchiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapArchiveTests.swift; sourceTree = "<group>"; };
 		4BCF1E482C16B42F769A7B4A /* PilotMapTileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapTileTests.swift; sourceTree = "<group>"; };
+		00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMergeTests.swift; sourceTree = "<group>"; };
 		1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapAllowanceTests.swift; sourceTree = "<group>"; };
 		D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapDownloadTests.swift; sourceTree = "<group>"; };
 		BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapChartTests.swift; sourceTree = "<group>"; };
@@ -783,6 +786,7 @@
 		F7B7BB35BFE90481B580DBDB /* PilotMapIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapIndex.swift; sourceTree = "<group>"; };
 		C1331EA81BEF33708CF3B32B /* PilotMapAllowance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapAllowance.swift; sourceTree = "<group>"; };
 		91CFABD2FBC8337F9546606D /* PilotMapTiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapTiles.swift; sourceTree = "<group>"; };
+		402C3EF0B706787694C57C61 /* PilotMapMerge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMerge.swift; sourceTree = "<group>"; };
 		3208B60DFB287B851819B8D1 /* PilotMapCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapCharts.swift; sourceTree = "<group>"; };
 		6D889A68AF2A4D7593C1292F /* PilotMapImagery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapImagery.swift; sourceTree = "<group>"; };
 		5ECEB0E100FAED0B2E361694 /* PilotMapDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapDownloads.swift; sourceTree = "<group>"; };
@@ -994,6 +998,7 @@
 				882BEE7E7E5F0CA86D152F67 /* PMTilesFixture.swift */,
 				8146B8D5DB9851393555680A /* PilotMapArchiveTests.swift */,
 				4BCF1E482C16B42F769A7B4A /* PilotMapTileTests.swift */,
+				00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */,
 				1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */,
 				D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */,
 				BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */,
@@ -1413,6 +1418,7 @@
 				F7B7BB35BFE90481B580DBDB /* PilotMapIndex.swift */,
 				C1331EA81BEF33708CF3B32B /* PilotMapAllowance.swift */,
 				91CFABD2FBC8337F9546606D /* PilotMapTiles.swift */,
+				402C3EF0B706787694C57C61 /* PilotMapMerge.swift */,
 				3208B60DFB287B851819B8D1 /* PilotMapCharts.swift */,
 				6D889A68AF2A4D7593C1292F /* PilotMapImagery.swift */,
 				5ECEB0E100FAED0B2E361694 /* PilotMapDownloads.swift */,
@@ -1773,6 +1779,7 @@
 				012AFE5E2D3C1089C2BF1663 /* PMTilesFixture.swift in Sources */,
 				5C32CF556358609B89E4BEE3 /* PilotMapArchiveTests.swift in Sources */,
 				9E775712E6F52EA1AEC63827 /* PilotMapTileTests.swift in Sources */,
+				0D25B325D7F811819DB1CA58 /* PilotMapMergeTests.swift in Sources */,
 				07F3E1135A1951EC6BA4C201 /* PilotMapAllowanceTests.swift in Sources */,
 				9AD3B81D7EA690CED1CA955A /* PilotMapDownloadTests.swift in Sources */,
 				8D9B14781A99C8E88AE54852 /* PilotMapChartTests.swift in Sources */,
@@ -2021,6 +2028,7 @@
 				501D0FF15B97F3E53FC300BE /* PilotMapIndex.swift in Sources */,
 				B0D79AB60059A19B1929E009 /* PilotMapAllowance.swift in Sources */,
 				CF3311EF6A82422D31A2ECB5 /* PilotMapTiles.swift in Sources */,
+				A15EE815AC9B25A997F78965 /* PilotMapMerge.swift in Sources */,
 				0C3A8968C08F3A5DDDA4546E /* PilotMapCharts.swift in Sources */,
 				B61B75693F04502D83A8977D /* PilotMapImagery.swift in Sources */,
 				8922D28EC341857C67E0A7CC /* PilotMapDownloads.swift in Sources */,

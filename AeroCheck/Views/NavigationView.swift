@@ -5422,7 +5422,7 @@ struct PilotMapAllowanceLine: View {
                     Text(L10n.PilotMap.downloading(fraction))
                         .monospacedDigit()
                 } else {
-                    Button(L10n.PilotMap.lineDownload(region.name)) { downloads.download(region) }
+                    Button(L10n.PilotMap.lineDownload(region.displayName)) { downloads.download(region) }
                         .font(.aero(size: 13, weight: .bold))
                         .foregroundColor(theme.action)
                         .frame(minHeight: 44)

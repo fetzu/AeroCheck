@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import MapKit
+import MapLibre
 
 /// What the card's map is asked for: the shape of its frame, the track, the plan's waypoints and how
 /// they are drawn. (6.1)
@@ -36,7 +37,7 @@ struct ShareCardMapImage {
     let substitute: ShareCardTileSource?
 }
 
-/// Draws the share card's map: swisstopo tiles composited in Web Mercator, or a MapKit snapshot,
+/// Draws the share card's map: swisstopo tiles composited in Web Mercator, or a snapshot of the pilot's map,
 /// with the track, the start and end dots and the plan's waypoints on top. (6.1: moved out of the
 /// sheet, zoom 11 for the ICAO chart, the national map for short flights, the waypoints, a frame of
 /// any shape.)
@@ -69,33 +70,71 @@ enum ShareCardMapRenderer {
             return ShareCardMapImage(image: image, credit: source.credit,
                                      substitute: source == layer.tileSource ? nil : source)
         }
-        guard let image = await appleSnapshot(layer: layer, scheme: scheme, rect: rect, size: size, request: request)
-        else { return nil }
-        return ShareCardMapImage(image: image, credit: .appleMaps, substitute: nil)
+        return await pilotSnapshot(layer: layer, scheme: scheme, rect: rect, size: size, request: request)
     }
 
-    // MARK: - Apple Maps
+    // MARK: - The pilot's map
 
+    /// The pilot's map, or for Satellite the open government imagery over it, rendered by MapLibre at `rect` with
+    /// the track over it (6.8.0: in place of Apple's map). The imagery is credited by the sources in the picture.
     @MainActor
-    private static func appleSnapshot(layer: ShareCardMapLayer, scheme: ShareCardColorScheme, rect: MKMapRect,
-                                      size: CGSize, request: ShareCardMapRequest) async -> UIImage? {
-        let options = MKMapSnapshotter.Options()
-        options.mapRect = rect
-        options.size = size
+    static func pilotSnapshot(layer: ShareCardMapLayer, scheme: ShareCardColorScheme, rect: MKMapRect,
+                              size: CGSize, request: ShareCardMapRequest) async -> ShareCardMapImage? {
+        PilotMapStyle.prepare()
+        guard let styleURL = PilotMapStyle.url else { return nil }
+        let sw = MKMapPoint(x: rect.minX, y: rect.maxY).coordinate, ne = MKMapPoint(x: rect.maxX, y: rect.minY).coordinate
+        let options = MLNMapSnapshotOptions(styleURL: styleURL, camera: MLNMapCamera(), size: size)
+        options.coordinateBounds = MLNCoordinateBounds(sw: sw, ne: ne)
         // A fixed scale, not the screen's: the same image on every device.
         options.scale = ShareCardMapStyle.renderScale
-        options.traitCollection = UITraitCollection(userInterfaceStyle: scheme.mapTraitStyle)
-        options.mapType = layer == .satellite ? .satellite : .standard
-        do {
-            let snapshot = try await MKMapSnapshotter(options: options).start()
-            return UIGraphicsImageRenderer(size: snapshot.image.size, format: rendererFormat).image { context in
-                snapshot.image.draw(at: .zero)
-                drawOverlay(in: context.cgContext, request: request, trackColor: UIColor(scheme.accentColor),
-                            size: size, project: { snapshot.point(for: $0) })
+        // The card prints its own credit line under the map (`ShareCardFigures.credit`).
+        options.showsLogo = false
+        options.showsAttribution = false
+        let satellite = layer == .satellite
+        let snapshotter = MLNMapSnapshotter(options: options)
+        let addImagery = SnapshotStyle(satellite: satellite)
+        snapshotter.delegate = addImagery
+        let snapshot: MLNMapSnapshot? = await withCheckedContinuation { continuation in
+            snapshotter.start { snapshot, error in
+                if let error { AppLog.general.debugLine("Share card map snapshot error: \(error)") }
+                continuation.resume(returning: snapshot)
             }
-        } catch {
-            AppLog.general.debugLine("Share card map snapshot error: \(error)")
-            return nil
+        }
+        withExtendedLifetime(addImagery) {}
+        guard let snapshot else { return nil }
+        let image = UIGraphicsImageRenderer(size: snapshot.image.size, format: rendererFormat).image { context in
+            snapshot.image.draw(at: .zero)
+            drawOverlay(in: context.cgContext, request: request, trackColor: UIColor(scheme.accentColor),
+                        size: size, project: { snapshot.point(for: $0) })
+        }
+        let credit: ShareCardMapCredit
+        if satellite {
+            let mercator = CGRect(x: rect.minX / MKMapSize.world.width, y: rect.minY / MKMapSize.world.height,
+                                  width: rect.width / MKMapSize.world.width, height: rect.height / MKMapSize.world.height)
+            let zoom = log2(Double(size.width) / 512 / max(mercator.width, 1e-12))
+            let sources = ImageryTiles.credited(in: mercator, zoom: zoom, store: PilotMap.imagery)
+            credit = .aerialImagery(sources.map { $0.creditLine() })
+        } else {
+            credit = .pilotMap
+        }
+        return ShareCardMapImage(image: image, credit: credit, substitute: nil)
+    }
+
+    /// Adds the imagery to a snapshot's style once it has loaded.
+    private final class SnapshotStyle: NSObject, MLNMapSnapshotterDelegate {
+        let satellite: Bool
+        init(satellite: Bool) { self.satellite = satellite }
+
+        func mapSnapshotter(_ snapshotter: MLNMapSnapshotter, didFinishLoading style: MLNStyle) {
+            style.setImage(PilotMapStyle.peakImage, forName: "peak")
+            guard satellite else { return }
+            for raster in PilotMapCharts.rasters(for: .satellite, policy: ChartPolicy()) {
+                let source = MLNRasterTileSource(identifier: raster.id, tileURLTemplates: [raster.template], options: [
+                    .minimumZoomLevel: raster.minTileZoom, .maximumZoomLevel: raster.maxTileZoom, .tileSize: 256,
+                ])
+                style.addSource(source)
+                style.addLayer(MLNRasterStyleLayer(identifier: raster.id, source: source))
+            }
         }
     }
 

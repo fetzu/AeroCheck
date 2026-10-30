@@ -79,38 +79,17 @@ enum AirfieldSearch {
     /// How long a callout asked for waits for the camera and the marker.
     static let calloutWait: TimeInterval = 5
 
-    /// Whether the camera has got to the aerodrome: the map's centre within a tenth of its span of it.
+    /// Whether the camera has got to the aerodrome: the map's centre within a tenth of its span of it. Not before:
+    /// a callout opening at the edge of where the map was moves the map a little, whose report of its region could
+    /// take the camera back from the aerodrome (simulator, 11 Oct). (`PilotMapMarkers.openPendingCallout`)
     static func hasArrived(at pending: PendingCallout, center: CLLocationCoordinate2D, span: MKCoordinateSpan) -> Bool {
         abs(center.latitude - pending.latitude) <= span.latitudeDelta / 10
             && abs(center.longitude - pending.longitude) <= span.longitudeDelta / 10
     }
-
-    /// Opens the callout the search asked for, as a tap on the marker would, once the camera is there
-    /// and the marker on the map. Both map views call it after their airport markers are updated.
-    ///
-    /// Not before the camera has arrived: the marker is often on screen already, at the edge of where
-    /// the map was, and a callout opening there moves the map a little, whose report of its region
-    /// could take the camera back from the aerodrome (simulator, 11 Oct). MapKit ignores a marker still
-    /// off screen: asked again at the next update until it takes.
-    @MainActor
-    static func openPendingCallout(on mapView: MKMapView, mapState: SharedMapState, now: Date = Date()) {
-        guard let pending = mapState.pendingCallout else { return }
-        guard now < pending.until else {
-            mapState.pendingCallout = nil
-            return
-        }
-        guard hasArrived(at: pending, center: mapView.centerCoordinate, span: mapView.region.span),
-              let marker = mapView.annotations.lazy
-                .compactMap({ $0 as? AirportAnnotation })
-                .first(where: { $0.airport.ident == pending.ident }) else { return }
-        mapView.selectAnnotation(marker, animated: true)
-        if mapView.selectedAnnotations.contains(where: { $0 === marker }) {
-            mapState.pendingCallout = nil
-        }
-    }
 }
 
-/// Where a search sends the map's camera (`SharedMapState.pendingCameraMove`). (6.2.0)
+/// Where a search sends the map's camera (`SharedMapState.pendingCameraMove`): the MapLibre view applies it
+/// (`apply(to:)` in PilotMapCamera.swift). (6.2.0, 6.8.0)
 ///
 /// A camera at a distance, not a rectangle to fit: on the ICAO chart MapKit's fit stopped about 45 NM
 /// across, far wider than the chart's own nearest zoom (simulator, 11 Oct).
@@ -119,48 +98,6 @@ struct PendingCameraMove {
 
     init(to airport: Airport) {
         center = airport.coordinate
-    }
-
-    /// The camera there at once, `AirfieldSearch.spanNM` across the map's narrower side, within `range`
-    /// (the swisstopo charts' zoom range: the ICAO chart's stops short of 8 NM), keeping its heading.
-    /// False while the map has no size yet: left pending, as a fit is.
-    @MainActor
-    func apply(to mapView: MKMapView, within range: MKMapView.CameraZoomRange? = nil) -> Bool {
-        let size = mapView.bounds.size
-        guard size.width > 0, size.height > 0 else { return false }
-        let wanted = Self.distance(across: AirfieldSearch.spanNM, viewSize: size,
-                                   seenLatitudeDelta: mapView.region.span.latitudeDelta,
-                                   at: mapView.camera.centerCoordinateDistance)
-            ?? Self.fallbackDistance
-        mapView.setCamera(MKMapCamera(lookingAtCenter: center, fromDistance: Self.held(wanted, within: range),
-                                      pitch: 0, heading: mapView.camera.heading), animated: false)
-        return true
-    }
-
-    /// The camera's distance for `spanNM` across a map of `viewSize`'s narrower side. A camera looking
-    /// straight down sees a north-south extent in proportion to its distance, whatever the map's shape;
-    /// the map as it is now (`seenLatitudeDelta` from `distance`) gives the proportion. Nil when the
-    /// map has nothing to measure yet.
-    static func distance(across spanNM: Double, viewSize: CGSize, seenLatitudeDelta: Double,
-                         at distance: Double) -> Double? {
-        guard viewSize.width > 0, viewSize.height > 0, seenLatitudeDelta > 0, seenLatitudeDelta < 90,
-              distance > 0 else { return nil }
-        let seenPerDistance = seenLatitudeDelta * 60 * 1852 / distance
-        // North to south is the map's height; the narrower side has the span.
-        let height = spanNM * 1852 * max(1, viewSize.height / viewSize.width)
-        return height / seenPerDistance
-    }
-
-    /// Before the map has measured anything: about 8 NM on a square map.
-    static let fallbackDistance: Double = 30_000
-
-    /// `distance`, held within `range`. A range with no upper bound (an MKMapView's own, never set)
-    /// reports 0 for it: held to 0, the camera went down to 56 m.
-    static func held(_ distance: Double, within range: MKMapView.CameraZoomRange?) -> Double {
-        guard let range else { return distance }
-        let upper = range.maxCenterCoordinateDistance > range.minCenterCoordinateDistance
-            ? range.maxCenterCoordinateDistance : .greatestFiniteMagnitude
-        return min(max(distance, range.minCenterCoordinateDistance), upper)
     }
 }
 

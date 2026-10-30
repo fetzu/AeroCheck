@@ -15466,29 +15466,6 @@
         }
       }
     },
-    "pilotMap.devDrawWithMapLibre": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Karten mit MapLibre zeichnen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Draw the maps with MapLibre"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dessiner les cartes avec MapLibre"
-          }
-        }
-      }
-    },
     "pilotMap.downloaded": {
       "extractionState": "manual",
       "localizations": {
@@ -16727,6 +16704,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tours de piste aux États-Unis · FAA, domaine public"
+          }
+        }
+      }
+    },
+    "shareCard.credit.aerialImagery": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftbilder: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagery: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imagerie : %@"
+          }
+        }
+      }
+    },
+    "shareCard.credit.pilotMap": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karte © OpenStreetMap-Mitwirkende, Mapterhorn"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map © OpenStreetMap contributors, Mapterhorn"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte © les contributeurs d'OpenStreetMap, Mapterhorn"
           }
         }
       }
@@ -30575,52 +30598,6 @@
         }
       }
     },
-    "mapLayer.satellite": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Karten (Satellit)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Maps Satellite"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plans d'Apple (satellite)"
-          }
-        }
-      }
-    },
-    "mapLayer.standard": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Karten"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Maps"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plans d'Apple"
-          }
-        }
-      }
-    },
     "mapLayer.icaoGlider": {
       "extractionState": "manual",
       "localizations": {
@@ -38852,22 +38829,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Imagerie © swisstopo"
-          }
-        }
-      }
-    },
-    "Map: Apple Maps": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Karte: Apple Karten"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carte : Plans d’Apple"
           }
         }
       }

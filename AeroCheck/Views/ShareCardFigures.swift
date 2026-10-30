@@ -303,7 +303,11 @@ struct ShareCardFigures {
         case .chart?: parts.append(L10n.ShareCard.creditChart)
         case .imagery?: parts.append(L10n.ShareCard.creditImagery)
         case .nationalMap?: parts.append(L10n.ShareCard.creditNationalMap)
-        case .appleMaps?: parts.append(L10n.ShareCard.creditAppleMaps)
+        case .pilotMap?: parts.append(L10n.ShareCard.creditPilotMap)
+        case .aerialImagery(let lines)?:
+            // The pilot's map is drawn under the imagery, and shows wherever no source covers the card.
+            parts.append(L10n.ShareCard.creditPilotMap)
+            if !lines.isEmpty { parts.append(L10n.ShareCard.creditAerialImagery(lines.joined(separator: ", "))) }
         case nil: break
         }
         if terrains.contains(.swisstopo) { parts.append(L10n.ShareCard.creditTerrainSwisstopo) }
@@ -752,8 +756,10 @@ enum ShareCardMapCredit: Equatable {
     case imagery
     /// The national map: "National map © swisstopo".
     case nationalMap
-    /// MapKit: "Map: Apple Maps".
-    case appleMaps
+    /// The pilot's map: "Map © OpenStreetMap contributors". (6.8.0: Apple's map before)
+    case pilotMap
+    /// Aerial imagery from open government sources: each one in the picture, in its own words. (6.8.0)
+    case aerialImagery([String])
 }
 
 /// A swisstopo WMTS layer the card's map is made of (EPSG:3857 tiles from wmts.geo.admin.ch).

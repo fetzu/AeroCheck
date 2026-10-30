@@ -5,8 +5,7 @@ import SwiftUI
 
 /// The aerodrome procedures on the maps (6.2.0): which procedures the switches show, the density gates
 /// and the cap, where the labels go and which way the arrows point, the overlay classes and their
-/// renderers on all three maps (never the generic `MKPolyline` branch), the diff that keeps them under
-/// the route and survives the route's redraws, the callout, and the error report to open flightmaps.
+/// renderers, the callout, and the error report to open flightmaps.
 /// Fixtures are cut from the real AIRAC 2610 Swiss file (© open flightmaps association).
 @MainActor
 final class VFRMapLayerTests: XCTestCase {
@@ -294,227 +293,40 @@ final class VFRMapLayerTests: XCTestCase {
         XCTAssertLessThan(approximate.alpha, 1, "and lighter")
     }
 
-    /// The renderer branch comes before every map's generic `MKPolyline` branch (the flown track on the
-    /// navigation maps, magenta in the builder): each map gets the procedures' renderers, MapKit's own,
-    /// without a dash pattern (which MapKit rasterizes).
-    func testEveryMapDrawsThemWithTheirOwnRenderers() throws {
-        let map = MKMapView()
+    /// Each procedure shape has its renderer, MapKit's own, configured without a dash pattern (which MapKit rasterized);
+    /// the MapLibre view reads its paint off it (`PilotMapShapes`). Any other overlay has none. (6.8.0)
+    func testTheProceduresHaveTheirOwnRenderers() throws {
         let arrival = item(try procedure(named: "ARR SECTOR EAST"))
         let fixed = VFRMapLayer.overlays(for: arrival) + VFRMapLayer.overlays(for: item(try procedure(named: "TC")))
         let scaled = VFRMapLayer.scaledOverlays(for: arrival, zoom: tenMetersAPoint)
-        let state = SharedMapState()
-        let native = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        let swiss = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
-                                 isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        let builder = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
-                                  isFollowingAircraft: .constant(true), forceICAOLayer: false,
-                                  features: .builder).makeCoordinator()
-        let renderers: [(String, (MKOverlay) -> MKOverlayRenderer)] = [
-            ("AeroMapView on Apple's map", { native.mapView(map, rendererFor: $0) }),
-            ("AeroMapView", { swiss.mapView(map, rendererFor: $0) }),
-            ("AeroMapView in the route builder", { builder.mapView(map, rendererFor: $0) }),
-        ]
+        let renderer = { (overlay: MKOverlay) in VFRMapLayer.renderer(for: overlay, palette: .day) }
         // fixed: the sector's fill, the arrival's casing and core, the circuit's casing and core. scaled:
         // the sector's outline, the arrival's arrowhead.
         let day = VFRMapPalette.day
         XCTAssertEqual(fixed.count, 5)
         XCTAssertEqual(scaled.count, 2)
         guard fixed.count == 5, scaled.count == 2 else { return }
-        for (name, renderer) in renderers {
-            let sector = try XCTUnwrap(renderer(fixed[0]) as? MKPolygonRenderer, name)
-            XCTAssertEqual(sector.fillColor, day.sectorFill, name)
-            let routeCore = try XCTUnwrap(renderer(fixed[2]) as? MKPolylineRenderer, name)
-            XCTAssertEqual(routeCore.strokeColor, day.procedure, name)
-            XCTAssertEqual(routeCore.lineWidth, 2.4, name)
-            XCTAssertNil(routeCore.lineDashPattern, name)
-            let casing = try XCTUnwrap(renderer(fixed[3]) as? MKPolylineRenderer, name)
-            XCTAssertEqual(casing.strokeColor, day.casing, name)
-            XCTAssertEqual(casing.lineWidth, 6, name)
-            let core = try XCTUnwrap(renderer(fixed[4]) as? MKPolylineRenderer, name)
-            XCTAssertEqual(core.strokeColor, day.procedure, "\(name): the procedure's blue, not the generic branch's colour")
-            XCTAssertEqual(core.lineWidth, 3, name)
-            let outline = try XCTUnwrap(renderer(scaled[0]) as? MKMultiPolylineRenderer, name)
-            XCTAssertEqual(outline.strokeColor, day.sectorStroke, name)
-            XCTAssertNil(outline.lineDashPattern, "\(name): cut into dashes, not a raster dash pattern")
-            let arrow = try XCTUnwrap(renderer(scaled[1]) as? MKPolygonRenderer, name)
-            XCTAssertEqual(arrow.fillColor, day.procedure, name)
-            XCTAssertEqual(arrow.strokeColor, day.casing, name)
-            // A plain polyline still goes to the map's own branch.
-            let plain = try XCTUnwrap(renderer(MKPolyline(coordinates: [CLLocationCoordinate2D](), count: 0)) as? MKPolylineRenderer, name)
-            XCTAssertNotEqual(plain.strokeColor, day.procedure, name)
-        }
+        let sector = try XCTUnwrap(renderer(fixed[0]) as? MKPolygonRenderer)
+        XCTAssertEqual(sector.fillColor, day.sectorFill)
+        let routeCore = try XCTUnwrap(renderer(fixed[2]) as? MKPolylineRenderer)
+        XCTAssertEqual(routeCore.strokeColor, day.procedure)
+        XCTAssertEqual(routeCore.lineWidth, 2.4)
+        XCTAssertNil(routeCore.lineDashPattern)
+        let casing = try XCTUnwrap(renderer(fixed[3]) as? MKPolylineRenderer)
+        XCTAssertEqual(casing.strokeColor, day.casing)
+        XCTAssertEqual(casing.lineWidth, 6)
+        let core = try XCTUnwrap(renderer(fixed[4]) as? MKPolylineRenderer)
+        XCTAssertEqual(core.strokeColor, day.procedure)
+        XCTAssertEqual(core.lineWidth, 3)
+        let outline = try XCTUnwrap(renderer(scaled[0]) as? MKMultiPolylineRenderer)
+        XCTAssertEqual(outline.strokeColor, day.sectorStroke)
+        XCTAssertNil(outline.lineDashPattern, "cut into dashes, not a raster dash pattern")
+        let arrow = try XCTUnwrap(renderer(scaled[1]) as? MKPolygonRenderer)
+        XCTAssertEqual(arrow.fillColor, day.procedure)
+        XCTAssertEqual(arrow.strokeColor, day.casing)
+        XCTAssertNil(renderer(MKPolyline(coordinates: [CLLocationCoordinate2D](), count: 0)), "a plain polyline isn't theirs")
         XCTAssertEqual((VFRMapLayer.renderer(for: fixed[4], palette: .night) as? MKPolylineRenderer)?.strokeColor,
                        VFRMapPalette.night.procedure)
-
-        // The labels: a bitmap at least 44 pt square with a callout, on every map, never a default pin. A
-        // circuit's altitude draws its bitmap turned inside an upright view (`VFRAltitudeLabelView`).
-        let label = VFRProcedureAnnotation(item: item(try procedure(named: "TC")))
-        let views: [(String, MKAnnotationView?)] = [
-            ("AeroMapView on Apple's map", native.mapView(map, viewFor: label)),
-            ("AeroMapView", swiss.mapView(map, viewFor: label)),
-            ("AeroMapView in the route builder", builder.mapView(map, viewFor: label)),
-        ]
-        for (name, view) in views {
-            let view = try XCTUnwrap(view, name)
-            XCTAssertFalse(view is MKMarkerAnnotationView, name)
-            let pill = try XCTUnwrap(view as? VFRAltitudeLabelView, name)
-            XCTAssertGreaterThanOrEqual(pill.bounds.width, 44, name)
-            XCTAssertGreaterThanOrEqual(pill.bounds.height, 44, name)
-            XCTAssertTrue(pill.subviews.contains { ($0 as? UIImageView)?.image != nil }, name)
-            XCTAssertTrue(view.canShowCallout, name)
-            XCTAssertNotNil(view.detailCalloutAccessoryView, name)
-        }
-    }
-
-    // MARK: - The layer on a map
-
-    /// A map in a window, sized as an iPad's, so it has a zoom.
-    private func onScreenMap(delegate: MKMapViewDelegate? = nil, spanNM: Double = 10) -> (MKMapView, UIWindow) {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1_180))
-        window.isHidden = false
-        let map = MKMapView(frame: window.bounds)
-        map.delegate = delegate
-        window.addSubview(map)
-        map.setRegion(region(spanNM: spanNM), animated: false)
-        map.layoutIfNeeded()
-        addTeardownBlock { @MainActor in window.isHidden = true }
-        return (map, window)
-    }
-
-    func testTheDiffAddsAndRemovesByIdAndSkipsUnchangedContent() throws {
-        let map = MKMapView()   // no window, no zoom: only what doesn't depend on it
-        let state = VFRMapLayer.State()
-        let all = try procedures()
-        let first = VFRMapContent.make(candidates: Array(all.prefix(2)), region: region(spanNM: 10),
-                                       selection: everything, palette: .day)
-        VFRMapLayer.sync(first, on: map, state: state)
-        XCTAssertEqual(map.overlays.count, 5, "the circuit's casing and core, the arrival's sector and its line's casing and core")
-        XCTAssertEqual(map.annotations.compactMap { $0 as? VFRProcedureAnnotation }.count, 2)
-        let circuit = try XCTUnwrap(map.overlays.first { ($0 as? VFRCircuitOverlay)?.stroke == .core })
-
-        // The same content again (a GPS tick): nothing touched.
-        VFRMapLayer.sync(VFRMapContent.make(candidates: Array(all.prefix(2)), region: region(spanNM: 10),
-                                            selection: everything, palette: .day), on: map, state: state)
-        XCTAssertTrue(map.overlays.contains { $0 === circuit })
-
-        // The arrival goes, LSGR's circuit comes; LSZQ's circuit stays the same object.
-        let second = VFRMapContent.make(candidates: [all[0], all[2]], region: region(spanNM: 10),
-                                        selection: everything, palette: .day)
-        VFRMapLayer.sync(second, on: map, state: state)
-        XCTAssertEqual(map.overlays.count, 4)
-        XCTAssertTrue(map.overlays.contains { $0 === circuit })
-        XCTAssertFalse(map.overlays.contains { $0 is VFRSectorOverlay })
-
-        // Labels off past 20 NM; the lines stay.
-        let wider = VFRMapContent.make(candidates: [all[0], all[2]], region: region(spanNM: 30),
-                                       selection: everything, palette: .day)
-        VFRMapLayer.sync(wider, on: map, state: state)
-        XCTAssertEqual(map.overlays.count, 4)
-        XCTAssertTrue(map.annotations.compactMap { $0 as? VFRProcedureAnnotation }.isEmpty)
-
-        // Night: everything again, in the night palette.
-        let night = VFRMapContent.make(candidates: [all[0], all[2]], region: region(spanNM: 10),
-                                       selection: everything, palette: .night)
-        VFRMapLayer.sync(night, on: map, state: state)
-        XCTAssertEqual(state.palette, .night)
-        XCTAssertEqual(map.overlays.count, 4)
-        XCTAssertFalse(map.overlays.contains { $0 === circuit }, "redrawn for the new palette")
-        XCTAssertEqual(map.annotations.compactMap { $0 as? VFRProcedureAnnotation }.count, 2)
-
-        // Switched off.
-        VFRMapLayer.sync(.empty(.night), on: map, state: state)
-        XCTAssertTrue(map.overlays.isEmpty)
-        XCTAssertTrue(map.annotations.isEmpty)
-    }
-
-    /// On screen, MapKit asks the map's coordinator for a renderer while the sync is adding the overlay,
-    /// and the coordinator reads the layer's palette then. With the state passed `inout` that was an
-    /// exclusivity violation: the app crashed on the first procedure drawn. Every map, in a window; and
-    /// a new zoom redraws what is built for it, nothing else.
-    func testAMapOnScreenDrawsThemWhileTheyAreAdded() throws {
-        let content = VFRMapContent.make(candidates: try procedures(), region: region(spanNM: 10),
-                                         selection: everything, palette: .day)
-        let state = SharedMapState()
-        let native = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        let swiss = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
-                                 isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        let builder = AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
-                                  isFollowingAircraft: .constant(true), forceICAOLayer: false,
-                                  features: .builder).makeCoordinator()
-        let maps: [(String, MKMapViewDelegate, VFRMapLayer.State)] = [
-            ("AeroMapView on Apple's map", native, native.vfrLayer),
-            ("AeroMapView", swiss, swiss.vfrLayer),
-            ("AeroMapView in the route builder", builder, builder.vfrLayer),
-        ]
-        for (name, delegate, layer) in maps {
-            let (map, _) = onScreenMap(delegate: delegate)
-            VFRMapLayer.sync(content, on: map, state: layer)
-            let fixed = map.overlays.filter { ($0 as? VFRProcedureShape)?.isScaled == false }
-            let scaled = map.overlays.filter { ($0 as? VFRProcedureShape)?.isScaled == true }
-            XCTAssertEqual(fixed.count, 3 * 2 + 1 + 2 * 2, "\(name): three solid circuits cased, a sector's fill, two solid routes cased")
-            // The sector's outline; three dashed or dotted lines cased; three routes' arrowheads.
-            XCTAssertEqual(scaled.count, 1 + 3 * 2 + 3, name)
-            XCTAssertTrue(map.overlays.contains { ($0 as? VFRCircuitOverlay)?.stroke == .core
-                && (map.renderer(for: $0) as? MKPolylineRenderer)?.strokeColor == VFRMapPalette.day.procedure },
-                          "\(name): drawn as added")
-
-            // Zoomed in: what is built for the zoom, again; the rest stays as it is.
-            map.setRegion(region(spanNM: 3), animated: false)
-            VFRMapLayer.sync(content, on: map, state: layer)
-            XCTAssertTrue(fixed.allSatisfy { shape in map.overlays.contains { $0 === shape } }, name)
-            XCTAssertFalse(scaled.contains { shape in map.overlays.contains { $0 === shape } }, name)
-            XCTAssertEqual(map.overlays.filter { ($0 as? VFRProcedureShape)?.isScaled == true }.count, scaled.count, name)
-            map.removeFromSuperview()
-        }
-    }
-
-    func testTheProceduresStayUnderTheRouteAndTheTrack() throws {
-        let (map, _) = onScreenMap()
-        let route = FlightPlanRoutePolyline(coordinates: [CLLocationCoordinate2D(latitude: 47, longitude: 7),
-                                                          CLLocationCoordinate2D(latitude: 47.5, longitude: 7.5)], count: 2)
-        let track = GPSTrackPolyline(coordinates: [CLLocationCoordinate2D(latitude: 47, longitude: 7),
-                                                   CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1)], count: 2)
-        map.addOverlay(route, level: .aboveLabels)
-        map.addOverlay(track, level: .aboveLabels)
-        let state = VFRMapLayer.State()
-        VFRMapLayer.sync(VFRMapContent.make(candidates: try procedures(), region: region(spanNM: 10),
-                                            selection: everything, palette: .day), on: map, state: state)
-        let stack = map.overlays(in: .aboveLabels)
-        let routeIndex = try XCTUnwrap(stack.firstIndex { $0 === route })
-        let lastProcedure = try XCTUnwrap(stack.lastIndex { $0 is VFRProcedureShape })
-        XCTAssertLessThan(lastProcedure, routeIndex, "under the route")
-        // Bottom to top, whatever the order the procedures came in: tiers never go down.
-        let tiers = stack.compactMap { VFRMapLayer.tier(of: $0) }
-        XCTAssertEqual(tiers, tiers.sorted())
-        XCTAssertEqual(Set(tiers), [0, 1, 2, 3, 5, 6, 7], "sectors, outlines, route casings and cores, arrowheads, circuits")
-    }
-
-    /// The builder's three redraws (`updateRoute`, `redrawDragRoute`, `redrawCommittedRoute`) and the
-    /// Swiss map's layer switch take off their own lines only.
-    func testTheRouteRedrawsKeepTheProcedures() throws {
-        let (map, _) = onScreenMap()
-        let state = VFRMapLayer.State()
-        VFRMapLayer.sync(VFRMapContent.make(candidates: try procedures(), region: region(spanNM: 10),
-                                            selection: everything, palette: .day), on: map, state: state)
-        let procedures = map.overlays.count
-        XCTAssertGreaterThan(procedures, 20)
-        let coordinates = [CLLocationCoordinate2D(latitude: 47, longitude: 7), CLLocationCoordinate2D(latitude: 47.2, longitude: 7.2)]
-        map.addOverlay(RouteCasingPolyline(coordinates: coordinates, count: 2), level: .aboveLabels)
-        map.addOverlay(RouteLinePolyline(coordinates: coordinates, count: 2), level: .aboveLabels)
-        map.addOverlay(SelectedLegPolyline(coordinates: coordinates, count: 2), level: .aboveLabels)
-
-        PlannedRouteLayer.removeRouteOverlays(from: map)
-        XCTAssertEqual(map.overlays.count, procedures)
-        XCTAssertTrue(map.overlays.allSatisfy { $0 is VFRProcedureShape })
-
-        let route = FlightPlanRoutePolyline(coordinates: coordinates, count: 2)
-        map.addOverlay(route, level: .aboveLabels)
-        map.addOverlay(GPSTrackPolyline(coordinates: coordinates, count: 2), level: .aboveLabels)
-        AeroMapView.removeTrackForRecolour(on: map)
-        XCTAssertEqual(map.overlays.count, procedures + 1, "the track only")
-        XCTAssertTrue(map.overlays.contains { $0 === route })
     }
 
     // MARK: - Callout and report
@@ -801,80 +613,31 @@ final class VFRMapLayerTests: XCTestCase {
         let west = try XCTUnwrap(labels.first)
         XCTAssertLessThan(west.coordinate.longitude, 7.02427, "07's number past the west end, where it is landed from")
 
-        let map = MKMapView()
         for label in labels {
-            let view = try XCTUnwrap(VFRMapLayer.annotationView(for: label, on: map, palette: .day))
-            XCTAssertEqual(view.displayPriority, .required)
-            XCTAssertFalse(view.canShowCallout)
-            XCTAssertGreaterThanOrEqual(view.image?.size.width ?? 0, 44)
-            XCTAssertNotNil(view.accessibilityLabel)
+            let (image, spoken) = VFRMapLayer.approachImage(for: label, palette: .day)
+            XCTAssertGreaterThanOrEqual(image.size.width, 44)
+            XCTAssertFalse(spoken.isEmpty)
         }
         XCTAssertEqual(L10n.VFRMap.runwayInUse("07"), "Runway 07, in use")
+        XCTAssertTrue(scaled.allSatisfy { $0 is VFRDashOverlay || $0 is VFRRouteOverlay },
+                      "the centrelines and arrowheads only, nothing washing the chart")
 
-        // On the map: the content's signature changes with the approach view, and the sync adds and
-        // removes its shapes and labels.
-        let state = VFRMapLayer.State()
+        // The content's signature changes with the approach view, so the map redraws.
         let plain = VFRMapContent(items: [], showsLabels: true, palette: .day)
         let approach = VFRMapContent(items: [], showsLabels: true, palette: .day, approach: [field])
         XCTAssertNotEqual(plain.signature, approach.signature)
-        VFRMapLayer.sync(approach, on: map, state: state)
-        XCTAssertTrue(map.overlays.allSatisfy { $0 is VFRDashOverlay || $0 is VFRRouteOverlay },
-                      "the centrelines and arrowheads only, nothing washing the chart")
-        XCTAssertEqual(map.annotations.compactMap { $0 as? VFRApproachAnnotation }.count, 3)
-        VFRMapLayer.sync(plain, on: map, state: state)
-        XCTAssertTrue(map.annotations.isEmpty)
     }
 
-    /// The badge: a 44 pt square (the touch target), never hidden by a collision, with its callout.
-    func testTheBadgeIsAFixedSizeTargetWithItsCallout() throws {
+    /// The badge: a 44 pt square (the touch target). A circuit's altitude has no fixed image: it is a pill turned
+    /// along the downwind (`VFRProcedureLabelImage.pillImage`).
+    func testTheBadgeIsAFixedSizeTarget() throws {
         let arrival = VFRMapItem.drawn(try procedure(named: "ARR SECTOR EAST"), field: nil, country: "CH",
                                        region: "LSAS", airac: "2610")
-        let view = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: arrival), on: MKMapView(), palette: .day))
-        XCTAssertEqual(view.image?.size, CGSize(width: 44, height: 44))
-        XCTAssertEqual(view.displayPriority, .required)
-        XCTAssertTrue(view.canShowCallout)
+        let badge = try XCTUnwrap(VFRMapLayer.labelImage(for: VFRProcedureAnnotation(item: arrival), palette: .day))
+        XCTAssertEqual(badge.size, CGSize(width: 44, height: 44))
         XCTAssertEqual(VFRProcedureCallout.summary(for: arrival), "VFR arrival · Sector · LSZQ")
-        // The circuit's altitude: required too, the pill turned along the downwind inside a view that
-        // stays upright, so its callout reads like any other (device check, 7 Oct).
         let circuit = VFRMapItem.drawn(try procedure(named: "TC"), field: nil, country: "CH", region: nil, airac: nil)
-        let pillView = try XCTUnwrap(VFRMapLayer.annotationView(for: VFRProcedureAnnotation(item: circuit), on: MKMapView(), palette: .day))
-        let pill = try XCTUnwrap(pillView as? VFRAltitudeLabelView)
-        XCTAssertEqual(pill.displayPriority, .required)
-        XCTAssertEqual(pill.transform, .identity, "the view upright")
-        XCTAssertNotEqual(pill.angle, 0, "the pill turned along the downwind")
-        XCTAssertTrue(pill.canShowCallout)
-        XCTAssertNil(pill.image)
-    }
-
-    /// The pill alone takes a tap, the view hugs it (a 44 pt target at least) beside its line, and the
-    /// callout's tip sits on it, upright.
-    func testTheAltitudeViewTakesTapsOnThePillAndSitsBesideItsLine() {
-        let view = VFRAltitudeLabelView(annotation: nil, reuseIdentifier: nil)
-        let text = "2000 ft"
-        let pill = VFRProcedureLabelImage.pillImage(text: text, palette: .day)
-        XCTAssertEqual(pill.size, VFRProcedureLabelImage.pillBox(text: text))
-        for (angle, above) in [(CGFloat(0), true), (.pi / 6, false), (-.pi / 3, true)] {
-            let offset = VFRPill.offset(size: pill.size, level: 1, gap: 6, angle: angle, above: above)
-            view.show(pill, angle: angle, offset: offset, duplicate: false)
-            XCTAssertEqual(view.transform, .identity)
-            XCTAssertEqual(view.centerOffset, offset)
-            XCTAssertEqual(hypot(offset.x, offset.y), 6 + pill.size.height + 6 + pill.size.height / 2, accuracy: 0.01,
-                           "a pill further out than the one beside the line")
-            XCTAssertGreaterThanOrEqual(min(view.bounds.width, view.bounds.height), 44)
-            let centre = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
-            XCTAssertTrue(view.point(inside: centre, with: nil), "\(angle)")
-            // 44 pt across the pill takes a tap, whatever the device's pill height (27 pt on the iPhone)
-            let edge = CGPoint(x: centre.x - 21.9 * sin(angle), y: centre.y + 21.9 * cos(angle))
-            XCTAssertTrue(view.point(inside: edge, with: nil), "22 pt across the pill, \(angle)")
-            if angle != 0 {
-                XCTAssertFalse(view.point(inside: CGPoint(x: 1, y: 1), with: nil), "a corner of the box: the chart, \(angle)")
-            }
-            XCTAssertEqual(view.calloutOffset, CGPoint(x: 0, y: VFRAltitudeLabelView.margin))
-        }
-        view.show(pill, angle: 0, offset: .zero, duplicate: true)
-        XCTAssertFalse(view.canShowCallout)
-        XCTAssertFalse(view.point(inside: CGPoint(x: view.bounds.midX, y: view.bounds.midY), with: nil),
-                       "a duplicate takes no tap")
+        XCTAssertNil(VFRMapLayer.labelImage(for: VFRProcedureAnnotation(item: circuit), palette: .day))
     }
 
     /// Circuits sharing a downwind: a pill that would cover another goes a level out, the one with an

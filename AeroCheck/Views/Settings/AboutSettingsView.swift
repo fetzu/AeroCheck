@@ -12,7 +12,6 @@ struct AboutSettingsView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var showDeveloperOptions: Bool = false
-    @AppStorage(MapEngine.defaultsKey) private var mapLibreEngine = false
     @State private var versionTapCount: Int = 0
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
@@ -325,9 +324,6 @@ struct AboutSettingsView: View {
 
                 SettingsToggleRow(icon: "person.crop.circle.badge.xmark", title: L10n.Settings.forceNotSubscribed,
                                   tint: tint, isOn: $subscriptionManager.debugForceNotSubscribed)
-
-                // 6.8.0, while the maps move to MapLibre: every map surface on MapLibre instead of MapKit.
-                SettingsToggleRow(icon: "map", title: L10n.PilotMap.drawWithMapLibre, tint: tint, isOn: $mapLibreEngine)
 
                 SettingsButtonRow(icon: "doc.text.magnifyingglass", title: L10n.Settings.showAllTransactions,
                                   tint: tint, showsChevron: false) {

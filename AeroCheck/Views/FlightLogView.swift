@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import MapLibre
 import Charts
 import UniformTypeIdentifiers
 import Compression
@@ -2866,6 +2867,8 @@ extension Array where Element == GPSPoint {
     }
 }
 
+/// A flight's track on the pilot's map (6.8.0: MapLibre, as every map): the track in gold, its start and end, and the
+/// position at the time scrubbed to.
 struct FlightMapView: UIViewRepresentable {
     let points: [GPSPoint]
     let selectedTime: Date?
@@ -2876,48 +2879,23 @@ struct FlightMapView: UIViewRepresentable {
         return points.closestByTimestamp(to: time)
     }
 
-    func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
+    func makeUIView(context: Context) -> MLNMapView {
+        PilotMapStyle.prepare()
+        // A frame of its own from the start: a camera set on a view of no size lands near 0° N 0° E.
+        let mapView = MLNMapView(frame: CGRect(x: 0, y: 0, width: 320, height: 320), styleURL: PilotMapStyle.url)
         mapView.delegate = context.coordinator
-        mapView.overrideUserInterfaceStyle = .dark
+        mapView.logoView.isHidden = true
+        mapView.attributionButtonPosition = .bottomLeft
+        mapView.isPitchEnabled = false
         return mapView
     }
 
-    func updateUIView(_ mapView: MKMapView, context: Context) {
+    func updateUIView(_ mapView: MLNMapView, context: Context) {
         let coordinator = context.coordinator
+        coordinator.points = points
+        coordinator.drawTrack(on: mapView)
 
-        // Rebuild the static track layer (polyline + start/end markers) ONLY when the track itself
-        // changes — not on every scrub, which previously tore down and re-added the whole O(n)
-        // polyline each frame. For an immutable past flight this runs exactly once. (PR-26)
-        if coordinator.builtPointCount != points.count {
-            coordinator.builtPointCount = points.count
-            mapView.removeOverlays(mapView.overlays)
-            // Remove only the start/end markers, never the live selection marker.
-            let staticMarkers = mapView.annotations.compactMap { $0 as? FlightAnnotation }.filter { !$0.isSelected }
-            mapView.removeAnnotations(staticMarkers)
-
-            if points.count >= 2 {
-                let coordinates = points.map { $0.coordinate }
-                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                mapView.addOverlay(polyline)
-
-                if let first = points.first, let last = points.last {
-                    mapView.addAnnotations([
-                        FlightAnnotation(coordinate: first.coordinate, title: L10n.FlightDetail.trackStart, isStart: true, isSelected: false),
-                        FlightAnnotation(coordinate: last.coordinate, title: L10n.FlightDetail.trackEnd, isStart: false, isSelected: false)
-                    ])
-                }
-                // Set the visible region only on initial load, not when selection changes.
-                if coordinator.initialRegionSet == false {
-                    let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
-                    mapView.setVisibleMapRect(polyline.boundingMapRect, edgePadding: padding, animated: false)
-                    coordinator.initialRegionSet = true
-                }
-            }
-        }
-
-        // Update ONLY the selected-position marker on scrub. MOVE the existing annotation in place
-        // (KVO on `coordinate`) instead of remove+add, which flickered the marker each frame. (round 9)
+        // Update ONLY the selected-position marker on scrub, moved in place. (round 9, PR-26)
         if let selected = selectedPoint {
             if let existing = coordinator.selectedAnnotation {
                 existing.coordinate = selected.coordinate
@@ -2936,65 +2914,95 @@ struct FlightMapView: UIViewRepresentable {
         Coordinator()
     }
 
-    class Coordinator: NSObject, MKMapViewDelegate {
+    class Coordinator: NSObject, MLNMapViewDelegate {
+        var points: [GPSPoint] = []
         var initialRegionSet = false
         /// Number of track points the static layer was last built for (-1 = not yet built). (PR-26)
         var builtPointCount = -1
         /// The live selection marker, updated in place on scrub. (PR-26)
         var selectedAnnotation: FlightAnnotation?
+        private var style: MLNStyle?
 
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let polyline = overlay as? MKPolyline {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(Color.aviationGold)
-                renderer.lineWidth = 4
-                renderer.lineCap = .round
-                renderer.lineJoin = .round
-                return renderer
-            }
-            return MKOverlayRenderer(overlay: overlay)
+        func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
+            self.style = style
+            style.setImage(PilotMapStyle.peakImage, forName: "peak")
+            builtPointCount = -1
+            drawTrack(on: mapView)
         }
 
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard let flightAnnotation = annotation as? FlightAnnotation else { return nil }
+        /// The track and its start and end, rebuilt only when the track itself changes: for a past flight, once.
+        func drawTrack(on mapView: MLNMapView) {
+            guard let style, builtPointCount != points.count else { return }
+            builtPointCount = points.count
+            mapView.removeAnnotations((mapView.annotations ?? []).compactMap { $0 as? FlightAnnotation }.filter { !$0.isSelected })
+            let coordinates = subsampledTrackCoordinates(points)
+            let line = MLNPolylineFeature(coordinates: coordinates, count: UInt(coordinates.count))
+            if let source = style.source(withIdentifier: "logbook.track") as? MLNShapeSource {
+                source.shape = coordinates.count >= 2 ? line : nil
+            } else {
+                let source = MLNShapeSource(identifier: "logbook.track", shape: coordinates.count >= 2 ? line : nil, options: nil)
+                style.addSource(source)
+                let layer = MLNLineStyleLayer(identifier: "logbook.track", source: source)
+                layer.lineColor = NSExpression(forConstantValue: UIColor(Color.aviationGold))
+                layer.lineWidth = NSExpression(forConstantValue: 4)
+                layer.lineCap = NSExpression(forConstantValue: "round")
+                layer.lineJoin = NSExpression(forConstantValue: "round")
+                style.addLayer(layer)
+            }
+            guard let first = points.first, let last = points.last, points.count >= 2 else { return }
+            mapView.addAnnotations([
+                FlightAnnotation(coordinate: first.coordinate, title: L10n.FlightDetail.trackStart, isStart: true, isSelected: false),
+                FlightAnnotation(coordinate: last.coordinate, title: L10n.FlightDetail.trackEnd, isStart: false, isSelected: false),
+            ])
+            // The whole track, on first load only, not when the selection changes.
+            if !initialRegionSet, mapView.bounds.width > 0 {
+                var coords = coordinates
+                mapView.setVisibleCoordinates(&coords, count: UInt(coords.count),
+                                              edgePadding: UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50), animated: false)
+                initialRegionSet = true
+            }
+        }
 
-            // Handle selected position marker
-            if flightAnnotation.isSelected {
-                let identifier = "selected"
-                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+        func mapView(_ mapView: MLNMapView, imageFor annotation: MLNAnnotation) -> MLNAnnotationImage? {
+            guard let flight = annotation as? FlightAnnotation else { return nil }
+            let id = flight.isSelected ? "logbook.selected" : flight.isStart ? "logbook.start" : "logbook.end"
+            if let reused = mapView.dequeueReusableAnnotationImage(withIdentifier: id) { return reused }
+            let (tint, symbol) = flight.isSelected
+                ? (UIColor(Color.aviationGold), "location.fill")
+                : flight.isStart ? (UIColor(Color.aviationGreen), "airplane.departure") : (UIColor(Color.aviationRed), "airplane.arrival")
+            return MLNAnnotationImage(image: Self.marker(tint: tint, symbol: symbol), reuseIdentifier: id)
+        }
 
-                if view == nil {
-                    view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+        /// A balloon in `tint` with `symbol` in white, its tip on the coordinate, as MapKit's marker drew it.
+        static func marker(tint: UIColor, symbol: String) -> UIImage {
+            let size = CGSize(width: 30, height: 40)
+            let balloon = UIGraphicsImageRenderer(size: size).image { _ in
+                let path = UIBezierPath(ovalIn: CGRect(x: 1, y: 1, width: 28, height: 28))
+                path.move(to: CGPoint(x: 8, y: 25))
+                path.addLine(to: CGPoint(x: 15, y: 39))
+                path.addLine(to: CGPoint(x: 22, y: 25))
+                path.close()
+                tint.setFill()
+                path.fill()
+                UIColor.white.setStroke()
+                path.lineWidth = 1.5
+                path.stroke()
+                if let glyph = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold))?
+                    .withTintColor(.white, renderingMode: .alwaysOriginal) {
+                    glyph.draw(at: CGPoint(x: 15 - glyph.size.width / 2, y: 15 - glyph.size.height / 2))
                 }
-
-                view?.annotation = annotation
-                view?.markerTintColor = UIColor(Color.aviationGold)
-                view?.glyphImage = UIImage(systemName: "location.fill")
-                view?.displayPriority = .required
-                view?.zPriority = .max
-
-                return view
             }
+            // The tip on the coordinate: MapLibre centres an annotation image's alignment rect on it.
+            return balloon.withAlignmentRectInsets(UIEdgeInsets(top: 0, left: 0, bottom: size.height / 2, right: 0))
+        }
 
-            // Handle start/end markers
-            let identifier = flightAnnotation.isStart ? "start" : "end"
-            var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-
-            if view == nil {
-                view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-            }
-
-            view?.annotation = annotation
-            view?.markerTintColor = flightAnnotation.isStart ? UIColor(Color.aviationGreen) : UIColor(Color.aviationRed)
-            view?.glyphImage = UIImage(systemName: flightAnnotation.isStart ? "airplane.departure" : "airplane.arrival")
-            view?.displayPriority = .required
-
-            return view
+        func mapView(_ mapView: MLNMapView, annotationCanShowCallout annotation: MLNAnnotation) -> Bool {
+            !((annotation as? FlightAnnotation)?.isSelected ?? true)
         }
     }
 }
 
-class FlightAnnotation: NSObject, MKAnnotation {
+class FlightAnnotation: NSObject, MLNAnnotation {
     // KVO-observable so the selection marker can be MOVED in place on scrub (no remove/add flicker).
     @objc dynamic var coordinate: CLLocationCoordinate2D
     let title: String?
@@ -3631,7 +3639,7 @@ enum ShareCardMapLayer: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// The swisstopo tiles the layer is made of; nil for Apple's maps. The chart actually drawn can
+    /// The swisstopo tiles the layer is made of; nil for the pilot's map and its imagery. The chart actually drawn can
     /// be another one: `ShareCardMapZoom.choice`. (6.1)
     var tileSource: ShareCardTileSource? {
         switch self {
@@ -3644,7 +3652,7 @@ enum ShareCardMapLayer: String, Codable, CaseIterable, Identifiable {
 
     /// What the credit line names for this layer.
     var credit: ShareCardMapCredit {
-        tileSource?.credit ?? .appleMaps
+        tileSource?.credit ?? (self == .satellite ? .aerialImagery([]) : .pilotMap)
     }
 }
 

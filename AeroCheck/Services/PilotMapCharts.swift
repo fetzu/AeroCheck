@@ -108,10 +108,11 @@ enum PilotMapCharts {
         return spec
     }
 
-    /// An OpenAIP tile: the downloaded copy, else OpenAIP's host with the key in its header (SA-11), its fills stripped.
+    /// An OpenAIP tile from OpenAIP's host with the key in its header (SA-11), its fills stripped. Online only since
+    /// 6.8.0: the tiles are no longer downloaded (the author's answer to question 17, 30 Oct 2026).
     static func openAIPSpec(z: Int, x: Int, y: Int, offline: Bool) -> ChartTileSpec? {
         guard z >= OpenAIPConfig.tileMinZoom, z <= OpenAIPConfig.tileMaxZoom else { return nil }
-        var spec = ChartTileSpec(key: "openaip/\(z)/\(x)/\(y)", disk: OpenAIPCacheManager.tileFileURL(z: z, x: x, y: y))
+        var spec = ChartTileSpec(key: "openaip/\(z)/\(x)/\(y)")
         spec.process = { OpenAIPTileOverlay.strippingFills(of: $0) }
         if !offline, let request = OpenAIPConfig.tileRequest(z: z, x: x, y: y) {
             spec.fetch = { try await ExternalRequest.data(for: request, maxResponseBytes: OpenAIPConfig.maxTileBytes) }

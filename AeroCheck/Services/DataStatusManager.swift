@@ -501,40 +501,6 @@ struct SwissChartsProvider: DataSetProvider {
     func delete() { manager.deleteCache() }
 }
 
-/// OpenAIP raster map TILES — cartographic IMAGERY, optional and cosmetic (the app draws its own
-/// airspace from the vector DATA above; tiles only add labels/navaid symbols). No TTL, so it's fresh
-/// when present, and it never drives the Home dot. Surfaced separately per the data-first/tiles-optional
-/// stance. (v4.1.0)
-@MainActor
-struct OpenAIPTilesProvider: DataSetProvider {
-    let manager: OpenAIPCacheManager
-    var id: String { "openaip.tiles" }
-
-    func makeDataSet(now: Date) -> DataSet {
-        DataSet(
-            id: id,
-            displayName: L10n.DataStorage.openAIPTilesName,
-            detail: L10n.DataStorage.openAIPTilesDetail,
-            urgency: .imagery,
-            provenance: .community,
-            refreshPolicy: .largeTilesConfirmCellular,
-            lastUpdated: manager.cacheDate,
-            freshness: manager.isCacheAvailable ? .fresh : .missing,
-            sizeOnDisk: manager.cacheSizeBytes > 0 ? manager.cacheSizeBytes : nil,
-            coverage: manager.cachedCountries,
-            isDownloaded: manager.isCacheAvailable
-        )
-    }
-
-    func refresh() async {
-        let countries = manager.cachedCountries
-        guard !countries.isEmpty else { return }
-        await manager.downloadTiles(for: countries)
-    }
-
-    func delete() { manager.deleteCache() }
-}
-
 /// OpenAIP navaids (VOR/DME/NDB) — structured, nav-relevant data, so it gets the data-first freshness
 /// class (primary, small-JSON), not the cosmetic-tile class. (v4.1.0)
 @MainActor

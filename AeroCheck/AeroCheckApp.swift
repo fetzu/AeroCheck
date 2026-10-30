@@ -84,6 +84,9 @@ struct AeroCheckApp: App {
         _openAIPDataService = StateObject(wrappedValue: openAIP)
         let openAIPCache = OpenAIPCacheManager()
         _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
+        // The OpenAIP chart is online only since 6.8.0 (the author's answer to question 17, 30 Oct 2026): tiles an
+        // earlier version downloaded go, as nothing reads them any more.
+        openAIPCache.deleteCache()
         let navaids = OpenAIPNavaidDataService.shared
         _openAIPNavaidDataService = StateObject(wrappedValue: navaids)
         // Per-location magnetic declination for flight-plan course calc, sourced from navaid data
@@ -120,7 +123,6 @@ struct AeroCheckApp: App {
                 OFMProceduresProvider(service: OFMDataService.shared,
                                       offlineCountries: { openAIP.downloadedCountries }),
                 SwissChartsProvider(manager: offline),
-                OpenAIPTilesProvider(manager: openAIPCache),
             ],
             networkMonitor: net
         ))

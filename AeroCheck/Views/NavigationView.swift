@@ -3764,7 +3764,9 @@ struct OverlaysSections: View {
                     .padding(.vertical, 10)
                 }
                 Divider().padding(.leading, 56)
-                toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
+                // OpenAIP's own chart, online only since 6.8.0 (the author's answer to question 17, 30 Oct 2026).
+                toggleRow(icon: "square.grid.3x3", title: L10n.Nav.openAIPChart, subtitle: L10n.Nav.openAIPChartDetail,
+                          isOn: appState.settings.showOpenAIPTiles) {
                     appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
                 }
             }
@@ -3972,13 +3974,19 @@ struct OverlaysSections: View {
         }
     }
 
-    private func toggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+    private func toggleRow(icon: String, title: String, subtitle: String? = nil, isOn: Bool,
+                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon).font(.aero(size: 20))
                     .foregroundColor(isOn ? theme.action : theme.textSecondary).frame(width: 32)
                 // Opened in flight as well, from the iPad Map sheet: kneeboard-size rows. (v6.0 · P6)
-                Text(title).font(.aero(size: CockpitType.label, weight: .medium)).foregroundColor(theme.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.aero(size: CockpitType.label, weight: .medium)).foregroundColor(theme.textPrimary)
+                    if let subtitle {
+                        Text(subtitle).font(.aero(size: 14)).foregroundColor(theme.textSecondary)
+                    }
+                }
                 Spacer()
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
                     .font(.aero(size: 24))

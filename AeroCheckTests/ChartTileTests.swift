@@ -491,8 +491,8 @@ final class ChartTileTests: XCTestCase {
 
     // MARK: - OpenAIP
 
-    /// OpenAIP's tiles drawn by the renderer as the charts are: the downloaded copy first, the key in a header, never
-    /// a request offline, its fills stripped, and none of its labels enlarged past its last zoom. (the review's F8)
+    /// OpenAIP's tiles drawn by the renderer as the charts are: online only (never downloaded since 6.8.0), the key in a
+    /// header, never a request offline, its fills stripped, and none of its labels enlarged past its last zoom. (the review's F8)
     func testOpenAIPsTilesComeThroughTheRenderer() throws {
         let overlay = OpenAIPTileOverlay()
         XCTAssertTrue(ChartTileRenderer.renderer(for: overlay, on: nil) is ChartTileRenderer)
@@ -501,7 +501,7 @@ final class ChartTileTests: XCTestCase {
         let tile = ChartTile(z: 9, x: 268, y: 179)
         let spec = try XCTUnwrap(overlay.spec(for: tile))
         XCTAssertEqual(spec.key, "openaip/9/268/179", "one key whatever the subdomain")
-        XCTAssertEqual(spec.disk?.path.hasSuffix("MapData/OpenAIP/9/268/179.png"), true)
+        XCTAssertNil(spec.disk, "online only since 6.8.0")
         XCTAssertNotNil(spec.fetch)
         XCTAssertNil(OpenAIPTileOverlay(isStrictOfflineMode: true).spec(for: tile)?.fetch, "offline: no request")
         let renderer = ChartTileRenderer(source: overlay, loader: ChartTileLoader(limit: 1))

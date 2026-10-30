@@ -241,4 +241,20 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual(MapSheet.baseCharts.filter(\.isSwissLayer), [.icao, .landeskarten, .swissimage])
         XCTAssertEqual(L10n.MapLayer.switzerlandOnlyShort, "Switzerland only")
     }
+
+    /// The Swiss charts are offered to a pilot based in Switzerland, or while the map shows part of it, and the chart
+    /// in use always stays (the author's answer to question 13, 30 Oct 2026).
+    func testTheSwissChartsAreOfferedWhereTheyApply() {
+        let paris = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 48.85, longitude: 2.35),
+                                       span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1))
+        let basel = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47.56, longitude: 7.59),
+                                       span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1))
+        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: "LFPN", mapRegion: paris, selected: .standard), [.standard, .satellite])
+        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: "LSZQ", mapRegion: paris, selected: .standard), MapSheet.baseCharts,
+                       "based in Switzerland")
+        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: nil, mapRegion: basel, selected: .standard), MapSheet.baseCharts,
+                       "the map shows Switzerland")
+        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: "LFPN", mapRegion: paris, selected: .icao), [.standard, .satellite, .icao],
+                       "the chart in use stays")
+    }
 }

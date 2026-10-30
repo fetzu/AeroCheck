@@ -266,7 +266,15 @@ struct PilotMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, didDeselect annotation: MLNAnnotation) {
             let state = map.mapState
-            MainActor.assumeIsolated { state.noteCalloutOpen(false) }
+            let closed = ((annotation as? PilotMarker)?.base as? AirportAnnotation)?.airport.ident
+            MainActor.assumeIsolated {
+                state.noteCalloutOpen(false)
+                // The searched aerodrome's own marker goes with its card. (6.8.0, device check pm-10)
+                if let searched = state.searchedAerodrome, searched.ident == closed {
+                    state.searchedAerodrome = nil
+                    state.objectWillChange.send()
+                }
+            }
         }
 
         /// The airspace, procedures, track, routes, track vector and aircraft, as the MapKit view draws them.

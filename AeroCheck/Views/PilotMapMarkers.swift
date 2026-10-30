@@ -337,7 +337,12 @@ final class PilotMapMarkers {
     /// the map.
     func openPendingCallout(on mapView: MLNMapView, mapState: SharedMapState, now: Date = Date()) {
         guard let pending = mapState.pendingCallout else { return }
-        guard now < pending.until else { mapState.pendingCallout = nil; return }
+        guard now < pending.until else {
+            mapState.pendingCallout = nil
+            // Its card never opened: the searched aerodrome's own marker goes too. (6.8.0)
+            if mapState.searchedAerodrome?.ident == pending.ident { mapState.searchedAerodrome = nil; mapState.objectWillChange.send() }
+            return
+        }
         let bounds = mapView.visibleCoordinateBounds
         let span = MKCoordinateSpan(latitudeDelta: abs(bounds.ne.latitude - bounds.sw.latitude),
                                     longitudeDelta: abs(bounds.ne.longitude - bounds.sw.longitude))

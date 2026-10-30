@@ -188,6 +188,9 @@ class SharedMapState: ObservableObject {
     /// The aerodrome a search chose, whose callout opens once the camera and its marker are there
     /// (`PilotMapMarkers.openPendingCallout`). (6.2.0)
     var pendingCallout: PendingCallout?
+    /// The aerodrome a search chose while the airport layer is off: its marker alone is drawn, for its card, until the
+    /// card closes. (6.8.0, device check pm-10)
+    var searchedAerodrome: Airport?
     /// What the map shows while the legs panel's band has the camera, for the airports and airspace
     /// drawn on it. The band never writes `region`, `cameraDistance` or `cameraHeading`: they keep the
     /// map the pilot left, which closing the panel puts back. nil with the panel closed. (6.1, option C)
@@ -1054,7 +1057,8 @@ struct NavigationMapView: View {
     }
 
     private var mapSheet: some View {
-        MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
+        MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center,
+                     mapRegion: mapState.region)
             .environment(appState)
             .environment(\.cockpitTheme, theme)
             .environmentObject(openAIPDataService)
@@ -1116,11 +1120,13 @@ struct NavigationMapView: View {
     #endif
 
     /// An aerodrome chosen in the search: the map goes there, about 8 NM across, and stops following the
-    /// aircraft (the pilot asked to look there), and its callout opens as a tap on its marker would,
-    /// when the airport layer draws one. Otherwise the map only goes there.
+    /// aircraft (the pilot asked to look there), and its callout opens as a tap on its marker would. With the airport
+    /// layer off, that aerodrome's marker is drawn alone until its card closes. (6.8.0, device check pm-10)
     private func showAerodrome(_ airport: Airport) {
         isFollowingAircraft = false
-        mapState.pendingCallout = AirfieldSearch.hasMarker(airport, airportsLayerOn: appState.settings.showAirportsOnMap)
+        mapState.searchedAerodrome = AirfieldSearch.needsItsOwnMarker(airport, airportsLayerOn: appState.settings.showAirportsOnMap)
+            ? airport : nil
+        mapState.pendingCallout = AirfieldSearch.opensCard(airport)
             ? PendingCallout(airport, until: Date().addingTimeInterval(AirfieldSearch.calloutWait))
             : nil
         mapState.pendingCameraMove = PendingCameraMove(to: airport)
@@ -2273,7 +2279,8 @@ struct NavigationMapView: View {
             mapControls(withZoom: false, orientationSegments: false)
         }
         .sheet(isPresented: $showMapSheet) {
-            MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center)
+            MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center,
+                     mapRegion: mapState.region)
                 .environment(appState)
                 .environment(\.cockpitTheme, theme)
                 .environmentObject(openAIPDataService)
@@ -3395,11 +3402,22 @@ struct MapSheet: View {
     let isOfflineMode: Bool
     /// Where the map is, for the aerodrome procedures' missing-data hint. (6.2.0)
     var mapCenter: CLLocationCoordinate2D? = nil
+    /// What the map shows as the sheet opens, for whether the Swiss charts are offered. (6.8.0)
+    var mapRegion: MKCoordinateRegion? = nil
     @State private var showCacheInfo = false
 
     /// The maps for everywhere first, then Switzerland's, each marked so (the author's device check pm-6, 6.8.0):
     /// the Atlas, the aerial imagery, the ICAO chart (with the charts it gives way to), the National Map, SWISSIMAGE.
     static let baseCharts: [MapLayerType] = [.standard, .satellite, .icao, .landeskarten, .swissimage]
+
+    /// The list as offered: the Swiss charts only for a pilot based in Switzerland (an LS… home aerodrome) or while the
+    /// map shows part of it, and always the chart in use, so it can be switched away from (the author's answer to
+    /// question 13, 30 Oct 2026).
+    static func offeredCharts(homeIdent: String?, mapRegion: MKCoordinateRegion?, selected: MapLayerType) -> [MapLayerType] {
+        let swiss = (homeIdent?.uppercased().hasPrefix("LS") ?? false)
+            || (mapRegion.map(SwissChartCoverage.reaches) ?? true)
+        return baseCharts.filter { !$0.isSwissLayer || swiss || $0 == selected }
+    }
 
     var body: some View {
         NavigationStack {
@@ -3450,7 +3468,8 @@ struct MapSheet: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                ForEach(Array(Self.baseCharts.enumerated()), id: \.element) { index, layer in
+                ForEach(Array(Self.offeredCharts(homeIdent: appState.settings.homeAerodromeIdent, mapRegion: mapRegion,
+                                                 selected: selectedLayer).enumerated()), id: \.element) { index, layer in
                     if index > 0 { Divider().padding(.leading, 60) }
                     baseChartRow(layer)
                 }
@@ -4010,7 +4029,14 @@ struct AeroMapView: View {
     var liveRegion: LiveMapRegion?
 
     // The inputs as this surface's features let them through; the MapLibre view reads them too. (6.7.0, 6.8.0)
-    var shownAirports: [Airport] { features.contains(.airports) ? visibleAirports : [] }
+    var shownAirports: [Airport] {
+        guard features.contains(.airports) else { return [] }
+        // A searched aerodrome with the layer off: its marker alone, for its card. (6.8.0)
+        if let searched = mapState.searchedAerodrome, !visibleAirports.contains(where: { $0.ident == searched.ident }) {
+            return visibleAirports + [searched]
+        }
+        return visibleAirports
+    }
     var shownNavaids: [Navaid] { features.contains(.navaids) ? visibleNavaids : [] }
     var shownObstacles: [Obstacle] { features.contains(.obstacles) ? visibleObstacles : [] }
     var shownReportingPoints: [ReportingPoint] { features.contains(.reportingPoints) ? visibleReportingPoints : [] }

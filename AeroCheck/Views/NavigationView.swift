@@ -4246,29 +4246,29 @@ struct AeroMapView: UIViewRepresentable {
     /// builder's profile band) reads it, and nothing else is rebuilt 60 times a second. (6.4.2)
     var liveRegion: LiveMapRegion?
 
-    // The inputs as this surface's features let them through. (6.7.0)
+    // The inputs as this surface's features let them through; the MapLibre view reads them too. (6.7.0, 6.8.0)
     private var shownAirports: [Airport] { features.contains(.airports) ? visibleAirports : [] }
     private var shownNavaids: [Navaid] { features.contains(.navaids) ? visibleNavaids : [] }
     private var shownObstacles: [Obstacle] { features.contains(.obstacles) ? visibleObstacles : [] }
     private var shownReportingPoints: [ReportingPoint] { features.contains(.reportingPoints) ? visibleReportingPoints : [] }
-    private var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
+    var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
     private var shownOpenAIPTiles: Bool { features.contains(.openAIPTiles) && showOpenAIPTiles }
-    private var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
-    private var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }
-    private var shownAircraft: CLLocation? { features.contains(.aircraft) ? currentLocation : nil }
-    private var shownTrack: [GPSPoint] { features.contains(.track) ? gpsTrack : [] }
-    private var shownTrackVector: Bool { features.contains(.trackVector) && trackVectorEnabled }
+    var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
+    var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }
+    var shownAircraft: CLLocation? { features.contains(.aircraft) ? currentLocation : nil }
+    var shownTrack: [GPSPoint] { features.contains(.track) ? gpsTrack : [] }
+    var shownTrackVector: Bool { features.contains(.trackVector) && trackVectorEnabled }
     var chartOpener: ((URL) -> Void)? { features.contains(.officialChartCallout) ? onOpenOfficialChart : nil }
     var divertHandler: ((String) -> Void)? { features.contains(.divertCallout) ? onAirportDivert : nil }
     var noteOpener: ((AerodromeRef) -> Void)? { features.contains(.noteCallout) ? onOpenAerodromeNote : nil }
     var atoTap: ((Int) -> Void)? { features.contains(.recordATO) ? onWaypointATOTap : nil }
-    private var shownPlannedRoute: PlannedRoute {
+    var shownPlannedRoute: PlannedRoute {
         guard features.contains(.plannedRoute) else { return PlannedRoute() }
         var route = features.contains(.editRoute) ? plannedRoute : plannedRoute.drawnOnly
         if !features.contains(.addToRouteCallout) { route.onPointAdd = nil }
         return route
     }
-    private var shownAirspaceSelection: String? { features.contains(.airspace) ? selectedAirspaceId : nil }
+    var shownAirspaceSelection: String? { features.contains(.airspace) ? selectedAirspaceId : nil }
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4637,25 +4637,8 @@ struct AeroMapView: UIViewRepresentable {
         mapView.removeOverlays(existingFlightPlanPolylines)
         mapView.removeAnnotations(existingWaypointAnnotations)
 
-        // Draw route segments
-        let coordinates = flightPlan.waypoints.map { $0.coordinate }
-
-        // Draw completed segments (dimmed) - use .aboveLabels to ensure visibility over tile overlays
-        if currentWaypointIndex > 0 {
-            let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
-            let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
-            completedPolyline.isCompletedSegment = true
-            mapView.addOverlay(completedPolyline, level: .aboveLabels)
-        }
-
-        // Draw remaining segments (bright) - use .aboveLabels to ensure visibility over tile overlays
-        if currentWaypointIndex < flightPlan.waypoints.count {
-            let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
-            let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
-            // Diverting: the rest of the route stays on the map for "Resume", dimmed. (v5.1)
-            remainingPolyline.isCompletedSegment = flightPlan.diversion != nil
-            mapView.addOverlay(remainingPolyline, level: .aboveLabels)
-        }
+        // The route's segments, above the tile overlays.
+        for polyline in Self.routePolylines(for: flightPlan) { mapView.addOverlay(polyline, level: .aboveLabels) }
 
         // Add waypoint annotations
         for (index, waypoint) in flightPlan.waypoints.enumerated() {
@@ -4668,6 +4651,96 @@ struct AeroMapView: UIViewRepresentable {
             mapView.addAnnotation(annotation)
         }
     }
+
+    /// The route's lines: what is flown dimmed, what is left bright (dimmed too while diverting, kept for "Resume").
+    /// Both map engines draw these. (v5.1, 6.8.0)
+    static func routePolylines(for plan: FlightPlan) -> [FlightPlanRoutePolyline] {
+        guard plan.waypoints.count >= 2 else { return [] }
+        let coordinates = plan.waypoints.map(\.coordinate)
+        let current = plan.currentWaypointIndex
+        var lines: [FlightPlanRoutePolyline] = []
+        if current > 0 {
+            let flown = Array(coordinates.prefix(current + 1))
+            let line = FlightPlanRoutePolyline(coordinates: flown, count: flown.count)
+            line.isCompletedSegment = true
+            lines.append(line)
+        }
+        if current < coordinates.count {
+            let left = Array(coordinates.suffix(from: current))
+            let line = FlightPlanRoutePolyline(coordinates: left, count: left.count)
+            line.isCompletedSegment = plan.diversion != nil
+            lines.append(line)
+        }
+        return lines
+    }
+
+    /// The flight's lines as MapKit draws them, for both map engines: the route (magenta, amber when diverting), the
+    /// track vector over its casing, the flown track (magenta on the ICAO chart, else the flown-track colour). Nil
+    /// for any other overlay. (6.8.0: out of the delegate)
+    static func lineRenderer(for overlay: MKOverlay, layerType: MapLayerType) -> MKOverlayRenderer? {
+        if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
+            let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+            if flightPlanPolyline.isDiversion {
+                // Diversion — amber, a non-normal state, so it cannot be mistaken for the planned route. (v5.1)
+                renderer.strokeColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
+                renderer.lineWidth = 5
+                renderer.lineCap = .round
+                return renderer
+            }
+            if flightPlanPolyline.isCompletedSegment {
+                // Completed segments - dimmed magenta
+                renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
+                renderer.lineWidth = 4
+            } else {
+                // Active/remaining segments - bright magenta with black outline effect
+                renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                renderer.lineWidth = 5
+            }
+            renderer.lineDashPattern = nil // Solid line
+            return renderer
+        }
+        if let casing = overlay as? TrackVectorCasingPolyline {
+            let renderer = MKPolylineRenderer(polyline: casing)
+            renderer.strokeColor = UIColor.black.withAlphaComponent(0.5)
+            renderer.lineWidth = 6
+            return renderer
+        }
+        if let trackVector = overlay as? TrackVectorPolyline {
+            let renderer = MKPolylineRenderer(polyline: trackVector)
+            renderer.strokeColor = UIColor(red: 0.20, green: 0.95, blue: 1.0, alpha: 1.0)
+            renderer.lineWidth = 3
+            return renderer
+        }
+        if let polyline = overlay as? MKPolyline {
+            let renderer = MKPolylineRenderer(polyline: polyline)
+            // Bright magenta for visibility on aeronautical charts; gold on the others.
+            renderer.strokeColor = layerType == .icao ? UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0) : UIColor.flownTrack
+            renderer.lineWidth = 3
+            return renderer
+        }
+        return nil
+    }
+
+    /// The ownship: the airplane symbol in white with a dark outline (the flight-deck convention; gold sank into the
+    /// ICAO chart's own yellows), pointing east (heading 90°). Both map engines draw it. (v6.0 · P5, 6.8.0)
+    static let ownshipImage: UIImage? = {
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
+        guard let image = UIImage(systemName: "airplane", withConfiguration: config) else { return nil }
+        let strokeWidth: CGFloat = 2.0
+        let size = CGSize(width: image.size.width + strokeWidth * 2, height: image.size.height + strokeWidth * 2)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            // The outline: offset copies in black, then the symbol in white on top.
+            let offsets: [CGPoint] = [
+                CGPoint(x: -strokeWidth, y: 0), CGPoint(x: strokeWidth, y: 0),
+                CGPoint(x: 0, y: -strokeWidth), CGPoint(x: 0, y: strokeWidth),
+                CGPoint(x: -strokeWidth * 0.7, y: -strokeWidth * 0.7), CGPoint(x: strokeWidth * 0.7, y: -strokeWidth * 0.7),
+                CGPoint(x: -strokeWidth * 0.7, y: strokeWidth * 0.7), CGPoint(x: strokeWidth * 0.7, y: strokeWidth * 0.7),
+            ]
+            let outline = image.withTintColor(.black, renderingMode: .alwaysOriginal)
+            for offset in offsets { outline.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y)) }
+            image.withTintColor(.white, renderingMode: .alwaysOriginal).draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+        }
+    }()
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
         if let overlay = ChartPolicy(forceICAO: forceICAOLayer, strictOffline: isStrictOfflineMode,
@@ -4970,55 +5043,8 @@ struct AeroMapView: UIViewRepresentable {
                 return ChartTileRenderer.renderer(for: tileOverlay, on: mapView)
             }
 
-            // Flight plan route (magenta - high visibility on aviation charts)
-            if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
-                let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
-                if flightPlanPolyline.isDiversion {
-                    // Diversion — amber, a non-normal state, so it cannot be mistaken for the planned route. (v5.1)
-                    renderer.strokeColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
-                    renderer.lineWidth = 5
-                    renderer.lineCap = .round
-                    return renderer
-                }
-                if flightPlanPolyline.isCompletedSegment {
-                    // Completed segments - dimmed magenta
-                    renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
-                    renderer.lineWidth = 4
-                } else {
-                    // Active/remaining segments - bright magenta with black outline effect
-                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
-                    renderer.lineWidth = 5
-                }
-                renderer.lineDashPattern = nil // Solid line
-                return renderer
-            }
-
-            // GPS track - use magenta on ICAO/Segelflugkarte layers for visibility,
-            // gold on other layers
-            if let casing = overlay as? TrackVectorCasingPolyline {
-                let renderer = MKPolylineRenderer(polyline: casing)
-                renderer.strokeColor = UIColor.black.withAlphaComponent(0.5)
-                renderer.lineWidth = 6
-                return renderer
-            }
-
-            if let trackVector = overlay as? TrackVectorPolyline {
-                let renderer = MKPolylineRenderer(polyline: trackVector)
-                renderer.strokeColor = UIColor(red: 0.20, green: 0.95, blue: 1.0, alpha: 1.0)
-                renderer.lineWidth = 3
-                return renderer
-            }
-
-            if let polyline = overlay as? MKPolyline {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                let isICAOLayer = (currentLayerType ?? parent.layerType) == .icao
-                if isICAOLayer {
-                    // Bright magenta for visibility on aeronautical charts
-                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
-                } else {
-                    renderer.strokeColor = UIColor.flownTrack
-                }
-                renderer.lineWidth = 3
+            // The route, the track vector and the flown track (`lineRenderer`, shared with the MapLibre view).
+            if let renderer = AeroMapView.lineRenderer(for: overlay, layerType: currentLayerType ?? parent.layerType) {
                 return renderer
             }
 
@@ -5109,48 +5135,8 @@ struct AeroMapView: UIViewRepresentable {
             let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView.canShowCallout = false
 
-            // Create aircraft marker with outline for visibility on all map backgrounds
-            // Following aviation UI/UX best practices: high contrast with dark outline
-            // Ownship: white with a dark outline, the flight-deck convention; gold sank into the ICAO
-            // chart's own yellows. (v6.0 · P5)
-            let ownshipColor = UIColor.white
-            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
-
-            if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                // Create image with stroke outline for better visibility
-                let strokeColor = UIColor.black
-                let strokeWidth: CGFloat = 2.0
-                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
-                                       height: image.size.height + strokeWidth * 2)
-
-                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
-                defer { UIGraphicsEndImageContext() }
-
-                // Draw stroke (multiple offset copies create outline effect)
-                let offsets: [CGPoint] = [
-                    CGPoint(x: -strokeWidth, y: 0),
-                    CGPoint(x: strokeWidth, y: 0),
-                    CGPoint(x: 0, y: -strokeWidth),
-                    CGPoint(x: 0, y: strokeWidth),
-                    CGPoint(x: -strokeWidth * 0.7, y: -strokeWidth * 0.7),
-                    CGPoint(x: strokeWidth * 0.7, y: -strokeWidth * 0.7),
-                    CGPoint(x: -strokeWidth * 0.7, y: strokeWidth * 0.7),
-                    CGPoint(x: strokeWidth * 0.7, y: strokeWidth * 0.7)
-                ]
-
-                let tintedStroke = image.withTintColor(strokeColor, renderingMode: .alwaysOriginal)
-                for offset in offsets {
-                    tintedStroke.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
-                }
-
-                // Draw main icon on top
-                let tintedImage = image.withTintColor(ownshipColor, renderingMode: .alwaysOriginal)
-                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
-
-                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
-                    annotationView.image = finalImage
-                }
-            }
+            // The ownship (`ownshipImage`, shared with the MapLibre view).
+            annotationView.image = AeroMapView.ownshipImage
 
             // Apply rotation for heading
             // SF Symbol "airplane" points to the right (90°/East) by default
@@ -5453,7 +5439,7 @@ class GPSTrackPolyline: MKPolyline {
 /// Max vertices drawn for the GPS breadcrumb. Long flights are subsampled to this so MapKit doesn't
 /// re-tessellate thousands of points on every fix; short tracks pass through unchanged. (v4.0.0 review P2)
 private let maxTrackVertices = 3000
-private func subsampledTrackCoordinates(_ track: [GPSPoint]) -> [CLLocationCoordinate2D] {
+func subsampledTrackCoordinates(_ track: [GPSPoint]) -> [CLLocationCoordinate2D] {
     guard track.count > maxTrackVertices else { return track.map { $0.coordinate } }
     let step = Double(track.count - 1) / Double(maxTrackVertices - 1)
     var result: [CLLocationCoordinate2D] = []

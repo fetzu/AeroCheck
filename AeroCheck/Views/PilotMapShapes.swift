@@ -255,7 +255,7 @@ final class PilotMapShapes {
 
 extension PilotMapShapes {
     /// Every group drawn from `map`'s inputs, as `AeroMapView` would draw them with MapKit.
-    func apply(_ map: AeroMapView, on mapView: MLNMapView, style: MLNStyle) {
+    func apply(_ map: AeroMapView, on mapView: MLNMapView, style: MLNStyle, routePreview: [CLLocationCoordinate2D]? = nil) {
         let traits = mapView.traitCollection
 
         // The airspace: each polygon as `AirspacePolygon.style` paints it, the selected one on top.
@@ -303,7 +303,12 @@ extension PilotMapShapes {
         }
 
         // The route builder's route: the selected leg's halo, the casing, the core.
-        let planned = map.shownPlannedRoute
+        // While a finger drags it, the working geometry, with no leg selected.
+        var planned = map.shownPlannedRoute
+        if let routePreview {
+            planned.waypoints = routePreview.map { FlightPlanWaypoint(coordinate: $0) }
+            planned.selectedLeg = nil
+        }
         sync(.plannedRoute, signature: Self.hash(planned.waypoints.map { "\($0.latitude),\($0.longitude)" }, planned.selectedLeg),
              on: style, traits: traits) {
             PlannedRouteLayer.lines(for: planned).enumerated().map { tier, line in

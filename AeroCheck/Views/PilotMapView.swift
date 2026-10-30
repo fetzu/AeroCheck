@@ -108,12 +108,20 @@ struct PilotMapView: UIViewRepresentable {
         view.showsScale = platformControls
         view.showsUserLocation = platformControls
         context.coordinator.placeCamera(on: view)
+        // A tap on the map, not on a marker or a callout, closes the callout open: MapLibre's own tap recognizer never
+        // fired under SwiftUI's chrome (7.0.0-pre2), neither to select nor to deselect.
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.mapTapped(_:)))
+        tap.cancelsTouchesInView = false
+        tap.delegate = context.coordinator
+        view.addGestureRecognizer(tap)
         return view
     }
 
     func updateUIView(_ view: MLNMapView, context: Context) {
         let coordinator = context.coordinator
         coordinator.map = map
+        // A finger dragging the planned route has the map until release. (6.7.0)
+        if coordinator.routeDragging(on: view) { return }
         PilotMap.onlineAllowed = !map.isStrictOfflineMode
         coordinator.applyLayers(on: view)
         coordinator.applyShapes(on: view)
@@ -126,7 +134,7 @@ struct PilotMapView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(map: map) }
 
-    final class Coordinator: NSObject, MLNMapViewDelegate {
+    final class Coordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDelegate {
         var map: AeroMapView
         private var style: MLNStyle?
         /// The rasters on the map, to replace them only when the layer or the policy changes.
@@ -135,6 +143,24 @@ struct PilotMapView: UIViewRepresentable {
         private let shapes = PilotMapShapes()
         /// The markers, their cards and callouts.
         private let markers = PilotMapMarkers()
+        /// The legs panel's band, which has the camera while the panel is open.
+        private let legsBand = PilotLegsBand()
+        /// The route builder's editing.
+        private let editing = PilotRouteEditing()
+
+        /// The planned route given to the editing; true while a finger drags it.
+        func routeDragging(on mapView: MLNMapView) -> Bool {
+            let map = self.map
+            return MainActor.assumeIsolated {
+                editing.route = map.shownPlannedRoute
+                editing.install(on: mapView)
+                editing.onPreview = { [weak self, weak mapView] in
+                    guard let self, let mapView else { return }
+                    self.applyShapes(on: mapView)
+                }
+                return editing.isDragging
+            }
+        }
         private var isUserInteracting = false
         /// The view's size when the camera was last placed from the shared state: placed again once SwiftUI has laid
         /// the view out, so the first report back describes the pilot's map, not the placeholder frame.
@@ -174,6 +200,20 @@ struct PilotMapView: UIViewRepresentable {
 
         // MARK: Markers
 
+        @objc func mapTapped(_ gesture: UITapGestureRecognizer) {
+            guard gesture.state == .ended, let mapView = gesture.view as? MLNMapView else { return }
+            let point = gesture.location(in: mapView)
+            var hit = mapView.hitTest(point, with: nil)
+            while let view = hit {
+                if view is PilotMarkerView || view is PilotMarkerCallout { return }
+                hit = view.superview
+            }
+            for annotation in mapView.selectedAnnotations { mapView.deselectAnnotation(annotation, animated: true) }
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
         /// The markers as the MapKit view shows them, and a search's aerodrome's card once the map is there.
         func applyMarkers(on mapView: MLNMapView) {
             guard style != nil else { return }
@@ -187,7 +227,18 @@ struct PilotMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, viewFor annotation: MLNAnnotation) -> MLNAnnotationView? {
             if let aircraft = annotation as? PilotAircraftMarker {
-                return MainActor.assumeIsolated { markers.view(for: aircraft, on: mapView) }
+                // The route builder's dragged pin, or the aircraft.
+                return MainActor.assumeIsolated {
+                    if aircraft === editing.draggedPin {
+                        let view = PilotMarkerView(reuseIdentifier: nil)
+                        view.annotation = aircraft
+                        let image = PilotMapMarkers.pinImage(number: 0, conflict: false)
+                        view.show(image, offset: CGVector(dx: 0, dy: -image.size.height / 2))
+                        view.isEnabled = false
+                        return view
+                    }
+                    return markers.view(for: aircraft, on: mapView)
+                }
             }
             guard let marker = annotation as? PilotMarker else { return nil }
             return MainActor.assumeIsolated { markers.view(for: marker, on: mapView, inFlight: map.isInFlight) }
@@ -235,7 +286,7 @@ struct PilotMapView: UIViewRepresentable {
         func applyShapes(on mapView: MLNMapView) {
             guard let style else { return }
             // The map's delegate and SwiftUI's updates come on the main thread.
-            MainActor.assumeIsolated { shapes.apply(map, on: mapView, style: style) }
+            MainActor.assumeIsolated { shapes.apply(map, on: mapView, style: style, routePreview: editing.preview) }
         }
 
         /// The chart's rasters, then OpenAIP's, above the pilot's map (a chart covers the map where it has tiles) and
@@ -345,6 +396,9 @@ struct PilotMapView: UIViewRepresentable {
         /// followed, the heading in track-up.
         func applyCamera(on mapView: MLNMapView) {
             let state = map.mapState
+            let map = self.map
+            // The open legs panel's band has the camera until it has closed and put the pilot's back.
+            if MainActor.assumeIsolated({ legsBand.update(mapView, band: map.legsBand, mapState: state) }) { return }
             if state.pendingHeadingReset {
                 state.pendingHeadingReset = false
                 let camera = mapView.camera
@@ -358,6 +412,13 @@ struct PilotMapView: UIViewRepresentable {
                 state.pendingFitPadding = nil
                 var coordinates = fit
                 mapView.setVisibleCoordinates(&coordinates, count: UInt(coordinates.count), edgePadding: padding, animated: false)
+                state.cameraDistance = mapView.camera.altitude
+                state.updateFromFit(Self.region(of: mapView))
+                return
+            }
+            // A search's aerodrome, within the chart's zoom range. (6.2.0)
+            if let move = state.pendingCameraMove, MainActor.assumeIsolated({ move.apply(to: mapView) }) {
+                state.pendingCameraMove = nil
                 state.cameraDistance = mapView.camera.altitude
                 state.updateFromFit(Self.region(of: mapView))
                 return
@@ -393,8 +454,18 @@ struct PilotMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             isUserInteracting = false
+            // An animation cut short by the next one (two zoom taps): its halfway camera is nobody's.
+            if reason.contains(.transitionCancelled) { return }
             // Not before the view is on screen at its size: the placeholder's camera is nobody's.
             guard mapView.window != nil, placedAt != CGSize(width: 320, height: 320) else { return }
+            // The band's camera isn't the pilot's: the shared state keeps theirs, to go back to.
+            if MainActor.assumeIsolated({ legsBand.ownsCamera }) {
+                map.mapState.updateBandRegion(Self.region(of: mapView))
+                applyShapes(on: mapView)
+                MainActor.assumeIsolated { markers.layout(on: mapView, atRest: true) }
+                return
+            }
+            MainActor.assumeIsolated { legsBand.mapCameToRest(mapView, mapState: map.mapState) }
             applyZoomLimits(on: mapView)
             updateCredits(on: mapView)
             // The procedures' dashes and arrowheads are cut for the zoom.

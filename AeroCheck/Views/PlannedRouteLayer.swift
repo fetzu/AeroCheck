@@ -427,9 +427,15 @@ final class PlannedRouteLayer: NSObject, UIGestureRecognizerDelegate {
 
     /// Index of the waypoint whose marker is closest to `point` (within `maxPointDistance` px), or nil.
     private func waypointIndex(near point: CGPoint, mapView: MKMapView, maxPointDistance: CGFloat) -> Int? {
+        Self.waypointIndex(near: point, points: route.waypoints.map { mapView.convert($0.coordinate, toPointTo: mapView) },
+                           maxPointDistance: maxPointDistance)
+    }
+
+    /// Of `points` (the waypoints on screen), the one whose balloon is closest to `point`, within `maxPointDistance`.
+    /// Both map engines hit-test with this. (6.8.0)
+    static func waypointIndex(near point: CGPoint, points: [CGPoint], maxPointDistance: CGFloat) -> Int? {
         var best: (index: Int, dist: CGFloat)?
-        for (i, w) in route.waypoints.enumerated() {
-            let p = mapView.convert(w.coordinate, toPointTo: mapView)
+        for (i, p) in points.enumerated() {
             // The marker balloon sits above its coordinate tip — bias the hit centre up.
             let centre = CGPoint(x: p.x, y: p.y - 14)
             let d = hypot(point.x - centre.x, point.y - centre.y)
@@ -445,20 +451,23 @@ final class PlannedRouteLayer: NSObject, UIGestureRecognizerDelegate {
 
     /// Start index of the route segment closest to `point` (within `maxPointDistance` px), or nil.
     private func closestSegment(to point: CGPoint, mapView: MKMapView, maxPointDistance: CGFloat) -> Int? {
-        let wpts = route.waypoints
-        guard wpts.count >= 2 else { return nil }
+        Self.closestSegment(to: point, points: route.waypoints.map { mapView.convert($0.coordinate, toPointTo: mapView) },
+                            maxPointDistance: maxPointDistance)
+    }
+
+    /// Of the route through `points`, the start of the leg closest to `point`, within `maxPointDistance`. (6.8.0)
+    static func closestSegment(to point: CGPoint, points: [CGPoint], maxPointDistance: CGFloat) -> Int? {
+        guard points.count >= 2 else { return nil }
         var best: (index: Int, dist: CGFloat)?
-        for i in 0..<(wpts.count - 1) {
-            let a = mapView.convert(wpts[i].coordinate, toPointTo: mapView)
-            let b = mapView.convert(wpts[i + 1].coordinate, toPointTo: mapView)
-            let d = distance(from: point, toSegment: a, b)
+        for i in 0..<(points.count - 1) {
+            let d = distance(from: point, toSegment: points[i], points[i + 1])
             if best == nil || d < best!.dist { best = (i, d) }
         }
         if let best = best, best.dist <= maxPointDistance { return best.index }
         return nil
     }
 
-    private func distance(from p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
+    private static func distance(from p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
         let ab = CGPoint(x: b.x - a.x, y: b.y - a.y)
         let ap = CGPoint(x: p.x - a.x, y: p.y - a.y)
         let len2 = ab.x * ab.x + ab.y * ab.y

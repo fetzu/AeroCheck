@@ -73,8 +73,11 @@ enum PilotMapCharts {
         case .satellite:
             // The aerial imagery: open government orthophotos, each source clipped to its area (`ImageryTiles`), none
             // where nothing is cleared. Online only, as the screen asks: offline, what MapLibre's cache holds.
+            // Hidden further out than any source starts (`ImageryTiles.minimumZoom`): MapLibre would otherwise keep a
+            // closer zoom's tiles on screen where the farther ones are none, and their credits with them.
             return offline ? [] : [Raster(id: "imagery", template: imageryTemplate, minTileZoom: 0, maxTileZoom: 19,
-                                          minZoom: nil, maxZoom: nil)]
+                                          minZoom: MapZoom.mapLibre(fromMapKit: Double(ImageryTiles.minimumZoom)),
+                                          maxZoom: nil)]
         case .landeskarten, .swissimage:
             guard let id = layer.swisstopoLayerIdentifier, !offline else { return [] }
             return [Raster(id: "chart-\(layer == .swissimage ? "swissimage" : "national")",

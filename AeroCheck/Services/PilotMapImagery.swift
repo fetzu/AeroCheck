@@ -255,6 +255,10 @@ final class ImageryStore: @unchecked Sendable {
 /// One imagery tile for MapLibre: from a source covering the whole tile, its bytes as they come; across a border, each
 /// source's image clipped to its area and drawn into one PNG, transparent where no source is cleared. (6.8.0)
 enum ImageryTiles {
+    /// No source starts further out than this tile zoom (AeroCheck-maps' sources.json keeps every min_zoom at 8 or
+    /// more): the imagery layer is hidden below it.
+    static let minimumZoom = 8
+
     typealias Fetch = PMTilesRemoteArchive.Fetch
 
     static let maxTileBytes = 4 << 20

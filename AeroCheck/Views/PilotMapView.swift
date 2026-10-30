@@ -441,7 +441,12 @@ struct PilotMapView: UIViewRepresentable {
         /// MapLibre has drawn all it was asked, tiles included; a new frame (a tile arriving, a camera change) ends it.
         private(set) var isIdle = false
 
-        func mapViewDidBecomeIdle(_ mapView: MLNMapView) { isIdle = true }
+        func mapViewDidBecomeIdle(_ mapView: MLNMapView) {
+            isIdle = true
+            // The credits as the map came to rest: the last camera change of a quick series of zoom taps can end
+            // cancelled, and its regionDidChange returns early.
+            updateCredits(on: mapView)
+        }
 
         func mapViewWillStartRenderingFrame(_ mapView: MLNMapView) { isIdle = false }
 

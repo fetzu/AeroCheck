@@ -209,7 +209,7 @@ final class PilotMapImageryTests: XCTestCase {
         for source in index.sources {
             XCTAssertNotNil(source.url(z: 12, x: 2134, y: 1442), source.id)
             XCTAssertFalse(source.area.polygons.isEmpty, source.id)
-            XCTAssertGreaterThanOrEqual(source.minZoom, 8, source.id)
+            XCTAssertGreaterThanOrEqual(source.minZoom, ImageryTiles.minimumZoom, source.id)
             XCTAssertFalse(source.template.contains("_DAF"), source.id)
         }
         XCTAssertEqual(Set(index.sources.map(\.id)).count, index.sources.count)
@@ -217,6 +217,8 @@ final class PilotMapImageryTests: XCTestCase {
 
     func testImageryLayerIsOnlineOnly() {
         XCTAssertEqual(PilotMapCharts.rasters(for: .satellite, policy: ChartPolicy()).map(\.id), ["imagery"])
+        XCTAssertEqual(PilotMapCharts.rasters(for: .satellite, policy: ChartPolicy()).first?.minZoom, 7,
+                       "hidden further out than any source starts (tile zoom 8), so no closer tile lingers")
         XCTAssertEqual(PilotMapCharts.rasters(for: .satellite, policy: ChartPolicy(strictOffline: true)).map(\.id),
                        ["chart-icao"], "offline the downloaded chart, as on MapKit")
         XCTAssertEqual(PilotTileURLProtocol.parse(URL(string: "https://tiles.aerocheck.app/local/imagery/12/2134/1442")),

@@ -9,6 +9,7 @@
 #
 #   OPENAIP_API_KEY        — OpenAIP airspace tiles / CTR REST
 #   WEATHER_CLIENT_SECRET  — X-AeroCheck-Client header for wx.aerocheck.app
+#   DATAFORSYNINGEN_TOKEN  — Denmark's aerial imagery (Klimadatastyrelsen, 6.8.0); empty: none there
 #   APP_CLIENT_SECRET      — X-AeroCheck-Client header for api.aerocheck.app's
 #                            /airfields routes (the landing-fee registry)
 #
@@ -49,4 +50,11 @@ if [ -n "${APP_CLIENT_SECRET:-}" ]; then
     echo "ci_post_clone: APP_CLIENT_SECRET is set"
 else
     echo "ci_post_clone: APP_CLIENT_SECRET not set — the airfield routes will answer 403 and landing fees will be missing"
+fi
+
+if [ -n "${DATAFORSYNINGEN_TOKEN:-}" ]; then
+    printf 'DATAFORSYNINGEN_TOKEN = %s\n' "$DATAFORSYNINGEN_TOKEN" >> "$SECRETS_FILE"
+    echo "ci_post_clone: DATAFORSYNINGEN_TOKEN is set"
+else
+    echo "ci_post_clone: DATAFORSYNINGEN_TOKEN not set — no aerial imagery over Denmark"
 fi

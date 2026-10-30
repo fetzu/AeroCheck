@@ -214,6 +214,34 @@ final class PilotMapTileTests: XCTestCase {
         XCTAssertEqual(rig.server.count, 0)
     }
 
+    /// MapLibre keeps a "none" and retries a "not now": a tile missing offline, or past the allowance, must come
+    /// back once online or downloaded.
+    func testNoneOnlyWhereNothingCanCome() async throws {
+        func kind(_ lookup: PilotTileSource.Lookup) -> String {
+            switch lookup { case .tile: return "tile"; case .none: return "none"; case .unavailable: return "unavailable" }
+        }
+        let offline = try await rig([Self.ch], online: false)
+        let atBorderOffline = await offline.source.lookup(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(kind(atBorderOffline), "unavailable")
+        let nowhere = await offline.source.lookup(.map, z: 13, x: 100, y: 100)
+        XCTAssertEqual(kind(nowhere), "none", "no region there at all")
+
+        let exhausted = try await rig([Self.ch])
+        exhausted.server.put("/v1/ch/map.pmtiles", PMTilesFixture.archive(tiles("online")))
+        for _ in 0..<PilotMapAllowance.freeReads { _ = exhausted.allowance.reserve() }
+        let spent = await exhausted.source.lookup(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(kind(spent), "unavailable")
+
+        let down = try await rig([Self.ch])   // nothing published: the header read fails
+        let unreachable = await down.source.lookup(.map, z: border.z, x: border.x, y: border.y)
+        XCTAssertEqual(kind(unreachable), "unavailable")
+
+        let missing = try await rig([Self.ch])
+        missing.server.put("/v1/ch/map.pmtiles", PMTilesFixture.archive(tiles("online")))
+        let notInArchive = await missing.source.lookup(.map, z: 13, x: 4260, y: 2877)
+        XCTAssertEqual(kind(notInArchive), "none", "the archive has no tile there")
+    }
+
     func testFailedReadIsRefunded() async throws {
         let rig = try await rig([Self.ch])
         let archive = PMTilesFixture.archive(tiles("online"))
@@ -300,8 +328,7 @@ final class PilotMapTileTests: XCTestCase {
         XCTAssertEqual(tile, PMTilesFixture.content(13, border.x, border.y, "local"))
 
         let (_, missing) = try await session.data(from: URL(string: "https://tiles.aerocheck.app/v1/map/13/10/10")!)
-        XCTAssertEqual((missing as? HTTPURLResponse)?.statusCode, 404)
-        XCTAssertEqual((missing as? HTTPURLResponse)?.value(forHTTPHeaderField: "Cache-Control"), "no-store")
+        XCTAssertEqual((missing as? HTTPURLResponse)?.statusCode, 404, "no region there: nothing, kept a day")
 
         let (glyph, _) = try await session.data(from: URL(string: "https://tiles.aerocheck.app/v1/glyphs/B612%20Bold,B612%20Regular/0-255.pbf")!)
         XCTAssertEqual(glyph, Data("glyph range".utf8), "the first font of the stack that exists")

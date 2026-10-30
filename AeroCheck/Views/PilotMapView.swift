@@ -106,6 +106,7 @@ struct PilotMapView: UIViewRepresentable {
         coordinator.map = map
         PilotMap.onlineAllowed = !map.isStrictOfflineMode
         coordinator.applyLayers(on: view)
+        coordinator.updateCredits(on: view)
         coordinator.applyZoomLimits(on: view)
         guard coordinator.hasSize(view) else { return }
         coordinator.applyCamera(on: view)
@@ -178,6 +179,64 @@ struct PilotMapView: UIViewRepresentable {
             drawnRasters = wanted
         }
 
+        // MARK: Imagery credits
+
+        /// Each imagery source on screen, credited in its own words with its link, while the imagery shows (the licence
+        /// register's first rule): at a border, every source in view.
+        private lazy var credits: UITextView = {
+            let view = UITextView()
+            view.isEditable = false
+            view.isScrollEnabled = false
+            view.backgroundColor = UIColor.white.withAlphaComponent(0.85)
+            view.layer.cornerRadius = 6
+            view.textContainerInset = UIEdgeInsets(top: 3, left: 5, bottom: 3, right: 5)
+            view.textContainer.lineFragmentPadding = 0
+            view.font = UIFont.systemFont(ofSize: 11)
+            view.linkTextAttributes = [.foregroundColor: UIColor(red: 0.13, green: 0.37, blue: 0.59, alpha: 1)]
+            view.accessibilityIdentifier = "map.imageryCredits"
+            view.translatesAutoresizingMaskIntoConstraints = false
+            return view
+        }()
+        private var shownCredits: [String] = []
+
+        func updateCredits(on mapView: MLNMapView) {
+            let showing = policy.layer(for: map.layerType) == .satellite && !map.isStrictOfflineMode
+            let sources = showing ? ImageryTiles.credited(in: Self.mercatorRect(of: mapView), zoom: mapView.zoomLevel,
+                                                          store: PilotMap.imagery) : []
+            let ids = sources.map(\.id)
+            guard ids != shownCredits else { return }
+            shownCredits = ids
+            guard !sources.isEmpty else { credits.removeFromSuperview(); return }
+            let text = NSMutableAttributedString()
+            for (i, source) in sources.enumerated() {
+                if i > 0 { text.append(NSAttributedString(string: " · ")) }
+                var attributes: [NSAttributedString.Key: Any] = [:]
+                if let link = source.creditLink.flatMap(URL.init(string:)) { attributes[.link] = link }
+                text.append(NSAttributedString(string: source.creditLine(), attributes: attributes))
+            }
+            text.addAttributes([.font: UIFont.systemFont(ofSize: 11), .foregroundColor: UIColor(white: 0.1, alpha: 1)],
+                               range: NSRange(location: 0, length: text.length))
+            credits.attributedText = text
+            if credits.superview == nil {
+                mapView.addSubview(credits)
+                let guide = mapView.safeAreaLayoutGuide
+                NSLayoutConstraint.activate([
+                    credits.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 8),
+                    credits.trailingAnchor.constraint(lessThanOrEqualTo: guide.trailingAnchor, constant: -8),
+                    // Above the app's scale bar and MapLibre's attribution button, both at the bottom left.
+                    credits.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -64),
+                ])
+            }
+        }
+
+        /// The view in web mercator [0, 1].
+        static func mercatorRect(of mapView: MLNMapView) -> CGRect {
+            let b = mapView.visibleCoordinateBounds
+            let nw = ImageryGeometry.mercator(lon: b.sw.longitude, lat: b.ne.latitude)
+            let se = ImageryGeometry.mercator(lon: b.ne.longitude, lat: b.sw.latitude)
+            return CGRect(x: nw.x, y: nw.y, width: max(se.x - nw.x, 1e-9), height: max(se.y - nw.y, 1e-9))
+        }
+
         // MARK: Camera
 
         /// The layer's camera range (`ChartPolicy`, in camera distances, as on MapKit) in MapLibre's zooms for this
@@ -247,6 +306,7 @@ struct PilotMapView: UIViewRepresentable {
             // Not before the view is on screen at its size: the placeholder's camera is nobody's.
             guard mapView.window != nil, placedAt != CGSize(width: 320, height: 320) else { return }
             applyZoomLimits(on: mapView)
+            updateCredits(on: mapView)
             let state = map.mapState
             let region = Self.region(of: mapView)
             map.liveRegion?.region = region

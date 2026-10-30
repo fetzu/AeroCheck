@@ -130,6 +130,11 @@ enum L10n {
         static let sourceOSM = String(localized: "pilotMap.source.osm")
         static let sourceMapterhorn = String(localized: "pilotMap.source.mapterhorn")
         static let sourceMapLibre = String(localized: "pilotMap.source.maplibre")
+        /// About › Data sources › Aerial imagery. (6.8.0)
+        static let imageryTitle = String(localized: "pilotMap.imagery.title")
+        static let imageryDetail = String(localized: "pilotMap.imagery.detail")
+        static let imageryFooter = String(localized: "pilotMap.imagery.footer")
+        static let clippedAtBorder = String(localized: "pilotMap.imagery.clipped")
         /// Developer options, while 6.8.0's stack moves the maps.
         static let drawWithMapLibre = String(localized: "pilotMap.devDrawWithMapLibre")
     }

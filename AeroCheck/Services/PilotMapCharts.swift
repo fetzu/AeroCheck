@@ -23,6 +23,8 @@ enum PilotMapCharts {
         "https://\(PilotMapConfig.host)/\(localPrefix)/chart/\(layer)/{z}/{x}/{y}?offline=\(offline ? 1 : 0)"
     }
 
+    static let imageryTemplate = "https://\(PilotMapConfig.host)/\(localPrefix)/imagery/{z}/{x}/{y}"
+
     static func openAIPTemplate(offline: Bool) -> String {
         "https://\(PilotMapConfig.host)/\(localPrefix)/openaip/{z}/{x}/{y}?offline=\(offline ? 1 : 0)"
     }
@@ -69,9 +71,10 @@ enum PilotMapCharts {
             }
             return rasters
         case .satellite:
-            // Until the aerial imagery's sources (the plan's PR 5): SWISSIMAGE over Switzerland, as MapKit drew it over
-            // Apple's satellite map.
-            return rasters(for: .swissimage, policy: policy)
+            // The aerial imagery: open government orthophotos, each source clipped to its area (`ImageryTiles`), none
+            // where nothing is cleared. Online only, as the screen asks: offline, what MapLibre's cache holds.
+            return offline ? [] : [Raster(id: "imagery", template: imageryTemplate, minTileZoom: 0, maxTileZoom: 19,
+                                          minZoom: nil, maxZoom: nil)]
         case .landeskarten, .swissimage:
             guard let id = layer.swisstopoLayerIdentifier, !offline else { return [] }
             return [Raster(id: "chart-\(layer == .swissimage ? "swissimage" : "national")",
@@ -113,20 +116,28 @@ enum PilotMapCharts {
         return spec
     }
 
-    /// The bytes MapLibre gets for a spec: the image as stored, or as processed (re-encoded as PNG); nil for none.
-    static func bytes(for spec: ChartTileSpec) async -> Data? {
+    /// The bytes MapLibre gets for a spec: the image as stored, or as processed (re-encoded as PNG). None when the host
+    /// says there is no tile (400, 404) or the tile is blank; "not now" when it can't be reached, or offline without a
+    /// download (one may come).
+    static func bytes(for spec: ChartTileSpec) async -> LocalTile {
         var data: Data?
         if let disk = spec.disk { data = try? Data(contentsOf: disk) }
-        if data == nil, let fetch = spec.fetch, let (fetched, response) = try? await fetch(), response.statusCode == 200 {
-            data = fetched
+        if data == nil {
+            guard let fetch = spec.fetch else { return .unavailable }
+            guard let (fetched, response) = try? await fetch() else { return .unavailable }
+            switch response.statusCode {
+            case 200: data = fetched
+            case 204, 400, 404: return .none
+            default: return .unavailable
+            }
         }
-        guard let data, !data.isEmpty else { return nil }
-        if spec.dropsBlank && SwisstopoTiles.isBlank(data) { return nil }
-        guard let process = spec.process else { return data }
+        guard let data, !data.isEmpty else { return .none }
+        if spec.dropsBlank && SwisstopoTiles.isBlank(data) { return .none }
+        guard let process = spec.process else { return .data(data) }
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              let processed = process(image) else { return nil }
-        return png(processed)
+              let processed = process(image), let png = png(processed) else { return .none }
+        return .data(png)
     }
 
     static func png(_ image: CGImage) -> Data? {
@@ -134,6 +145,23 @@ enum PilotMapCharts {
         guard let destination = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(destination, image, nil)
         return CGImageDestinationFinalize(destination) ? out as Data : nil
+    }
+}
+
+/// A local tile: its bytes, nothing there (MapLibre keeps that), or nothing now (it retries). (6.8.0)
+enum LocalTile: Equatable {
+    case data(Data)
+    case none
+    case unavailable
+
+    var data: Data? { if case let .data(data) = self { return data } else { return nil } }
+
+    func answer(type: String) -> PilotTileURLProtocol.Answer {
+        switch self {
+        case let .data(data): return .body(data, type)
+        case .none: return .none
+        case .unavailable: return .unavailable
+        }
     }
 }
 

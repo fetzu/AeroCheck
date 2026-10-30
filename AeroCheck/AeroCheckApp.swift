@@ -84,6 +84,9 @@ struct AeroCheckApp: App {
         _openAIPDataService = StateObject(wrappedValue: openAIP)
         let openAIPCache = OpenAIPCacheManager()
         _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
+        // The OpenAIP chart is online only since 6.8.0 (the author's answer to question 17, 30 Oct 2026): tiles an
+        // earlier version downloaded go, as nothing reads them any more.
+        openAIPCache.deleteCache()
         let navaids = OpenAIPNavaidDataService.shared
         _openAIPNavaidDataService = StateObject(wrappedValue: navaids)
         // Per-location magnetic declination for flight-plan course calc, sourced from navaid data
@@ -120,7 +123,6 @@ struct AeroCheckApp: App {
                 OFMProceduresProvider(service: OFMDataService.shared,
                                       offlineCountries: { openAIP.downloadedCountries }),
                 SwissChartsProvider(manager: offline),
-                OpenAIPTilesProvider(manager: openAIPCache),
             ],
             networkMonitor: net
         ))
@@ -399,7 +401,12 @@ struct AeroCheckApp: App {
                     if phase == .background { companionConnectivityManager.appWentToBackground() }
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
-                    Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
+                    // Settings › Offline data's switch: on Wi-Fi, never in flight, every kind of data (the author's
+                    // answer 6 A, 30 Oct 2026). (6.8.0)
+                    let autoUpdate = appState.settings.autoUpdateOfflineData && !appState.isFlightActive
+                    if autoUpdate {
+                        Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: false) }
+                    }
                     // The chart registry when a week old, or a new AIRAC cycle's French folder. (6.2.0)
                     Task { await OfficialChartService.shared.refreshIfNeeded() }
                     Task { await BriefingRegistryService.shared.refreshIfNeeded() }
@@ -412,7 +419,7 @@ struct AeroCheckApp: App {
                     PilotMapDownloads.shared.setPro(subscriptionManager.shouldAllowPremiumAccess())
                     Task {
                         await PilotMapDownloads.shared.updateDownloaded(conditions: networkMonitor.conditions,
-                                                                        inFlight: appState.isFlightActive)
+                                                                        inFlight: !autoUpdate)
                     }
                     // The aircraft requests, at most every few hours, never in flight. (6.3.0, author 11
                     // Oct: when the app opens, no background work.) Nor during a dry run. (6.4.0)

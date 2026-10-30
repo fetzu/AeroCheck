@@ -1,8 +1,9 @@
 6.8.0 draws its own map, the Atlas, from OpenStreetMap, on every map of the app.
 
 What to try:
-- Settings › Data & Storage › Atlas: download Switzerland (about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws in Switzerland.
-- Atlas › Countries and regions: every country of aerocheck.app/countries, the large ones by region. Download a neighbour too (Baden-Württemberg, Grand Est): at the border both sides draw, with no gap and nothing twice.
+- Settings › Offline data replaces Data & Storage and Navigation & Maps: one status at the top, your countries, the worldwide airports and the Atlas overview.
+- Offline data › Add a country: a country downloads at one press, its Atlas with its airspace, aerodromes and VFR procedures (Switzerland is about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws there.
+- A large country (France, Germany) opens its page: all of it at one press, or the regions you fly. Download a neighbour too: at the border both sides draw, with no gap and nothing twice.
 - Map sheet › Base chart: Atlas and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map.
 - Zoom out to Europe: every country drawn in detail, with its cities, roads and relief.
 - Plan › Map, the Cockpit's MAP and the route editor: tap an aerodrome, a circuit's altitude, a navaid; drag a route point; the legs band; Search aerodromes. Tell us anything that moves differently from 6.7.

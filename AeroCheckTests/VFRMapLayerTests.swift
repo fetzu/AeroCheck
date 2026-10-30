@@ -682,7 +682,7 @@ final class VFRMapLayerTests: XCTestCase {
             "Traffic circuits": "Tours de piste",
             "Arrival & departure routes (with sectors)": "Routes d’arrivée et de départ (avec secteurs)",
             "Glider, UL & helicopter": "Planeurs, ULM et hélicoptères",
-            "Download VFR procedures for %@ in Data & Storage": "Téléchargez les procédures VFR pour %@ dans Données et stockage",
+            "Download VFR procedures for %@ in Data & Storage": "Téléchargez les procédures VFR pour %@",
             "Circuits & VFR routes © open flightmaps · AIRAC %@ · indicative":
                 "Tours de piste et routes VFR © open flightmaps · AIRAC %@ · indicatif",
             "Circuits & VFR routes © open flightmaps · indicative": "Tours de piste et routes VFR © open flightmaps · indicatif",
@@ -706,6 +706,7 @@ final class VFRMapLayerTests: XCTestCase {
         }
         XCTAssertNotEqual(french.localizedString(forKey: "From open flightmaps, for the countries in Data & Storage. Indicative only: always check the official chart.",
                                                  value: missing, table: nil), missing)
-        XCTAssertEqual(L10n.VFRMap.downloadHint("CH"), "Download VFR procedures for CH in Data & Storage")
+        // The hint opens the country's page in Offline data since 6.8.0, so it no longer names where.
+        XCTAssertEqual(L10n.VFRMap.downloadHint("Switzerland"), "Download the VFR procedures for Switzerland")
     }
 }

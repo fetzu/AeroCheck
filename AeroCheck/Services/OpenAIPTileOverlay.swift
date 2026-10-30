@@ -57,13 +57,12 @@ class OpenAIPTileOverlay: MKTileOverlay, ChartTileSource {
             ?? URL(string: "about:blank")!
     }
 
-    /// The downloaded copy first, then the network unless offline, from OpenAIP's one tile host with the key in a header
-    /// (SA-11); every tile's fills stripped (`strippingFills`). Drawn by `ChartTileRenderer`, which keeps the stripped
+    /// From the network unless offline (online only since 6.8.0: the tiles are no longer downloaded), from OpenAIP's one
+    /// tile host with the key in a header (SA-11); every tile's fills stripped (`strippingFills`). Drawn by `ChartTileRenderer`, which keeps the stripped
     /// image: until 6.4.2 MapKit's renderer dropped some of them, as it did the charts', and a failed tile was a
     /// transparent one never asked again (the map tile review, F8).
     func spec(for tile: ChartTile) -> ChartTileSpec? {
-        var spec = ChartTileSpec(key: "openaip/\(tile.z)/\(tile.x)/\(tile.y)",
-                                 disk: OpenAIPCacheManager.tileFileURL(z: tile.z, x: tile.x, y: tile.y))
+        var spec = ChartTileSpec(key: "openaip/\(tile.z)/\(tile.x)/\(tile.y)")
         spec.process = { Self.strippingFills(of: $0) }
         guard !isStrictOfflineMode else { return spec }
         guard let request = OpenAIPConfig.tileRequest(z: tile.z, x: tile.x, y: tile.y) else {

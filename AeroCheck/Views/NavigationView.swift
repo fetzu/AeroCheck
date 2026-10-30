@@ -3472,6 +3472,9 @@ struct MapSheet: View {
                                                  selected: selectedLayer).enumerated()), id: \.element) { index, layer in
                     if index > 0 { Divider().padding(.leading, 60) }
                     baseChartRow(layer)
+                    if layer == .icao && selectedLayer == .icao {
+                        icaoEveryZoomRow
+                    }
                 }
                 if let shownLayer, shownLayer != selectedLayer {
                     Divider().padding(.leading, 60)
@@ -3518,6 +3521,41 @@ struct MapSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// Under the ICAO row while it is the base chart: keep the ICAO chart at every zoom, where it otherwise gives way to
+    /// the glider map, then the National Map. From Navigation & Maps, which Settings no longer has (the author's
+    /// answer 14 A, 30 Oct 2026). Offline it gives way to the glider map only. (6.8.0)
+    private var icaoEveryZoomRow: some View {
+        let isOn = appState.settings.forceICAOChartLayer
+        return Button {
+            appState.settings.forceICAOChartLayer.toggle()
+            appState.saveSettings()
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.MapLayer.icaoEveryZoom)
+                        .font(.aero(size: CockpitType.label, weight: .medium))
+                        .foregroundColor(theme.textPrimary)
+                    Text(L10n.MapLayer.icaoEveryZoomDetail)
+                        .font(.aero(size: 14))
+                        .foregroundColor(theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: isOn ? "checkmark.square.fill" : "square")
+                    .font(.aero(size: 24))
+                    .foregroundColor(isOn ? theme.action : theme.textDim)
+            }
+            .padding(.leading, 60)
+            .padding(.trailing, 16)
+            .padding(.vertical, 8)
+            .frame(minHeight: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityIdentifier("mapSheet.icaoEveryZoom")
     }
 
     /// The ICAO layer's name by what it shows. (6.7.0)
@@ -3661,9 +3699,9 @@ struct OverlaysSections: View {
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
     /// Where the map is: the aerodrome procedures' hint names the country there when its data is missing.
     var mapCenter: CLLocationCoordinate2D? = nil
-    /// Settings, opened at Navigation & Maps for the no-data download flow (v4.2 UX fix), or at Data &
-    /// Storage for the VFR procedures (6.2.0).
-    @State private var settingsSection: SettingsView.Section?
+    /// The download hints' destination: the page of the country under the map in Offline data, or Offline data itself
+    /// when the map is over no country (the author's mockup 6, 30 Oct 2026). (v4.2, 6.2.0, 6.8.0)
+    @State private var dataRoute: OfflineDataRoute?
 
     private var anyMarkerOn: Bool {
         appState.settings.showAirportsOnMap || appState.settings.showNavaidsOnMap ||
@@ -3712,7 +3750,9 @@ struct OverlaysSections: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Button {
-                            settingsSection = .navigation
+                            dataRoute = mapCenter
+                                .flatMap { CountryBoundaries.shared.countries(near: $0, bufferNm: 0).sorted().first }
+                                .map(OfflineDataRoute.country) ?? .offlineData
                         } label: {
                             Text(L10n.Nav.downloadAirspaceData)
                                 .font(.aero(.caption).weight(.semibold))
@@ -3724,7 +3764,9 @@ struct OverlaysSections: View {
                     .padding(.vertical, 10)
                 }
                 Divider().padding(.leading, 56)
-                toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
+                // OpenAIP's own chart, online only since 6.8.0 (the author's answer to question 17, 30 Oct 2026).
+                toggleRow(icon: "square.grid.3x3", title: L10n.Nav.openAIPChart, subtitle: L10n.Nav.openAIPChartDetail,
+                          isOn: appState.settings.showOpenAIPTiles) {
                     appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
                 }
             }
@@ -3772,10 +3814,8 @@ struct OverlaysSections: View {
                 }
             }
         }
-        .sheet(item: $settingsSection) { section in
-            // Settings opened at a section (same deep-link mechanism as Home's data chip): Navigation &
-            // Maps, where country selection + the download flow live (v4.2 UX fix), or Data & Storage.
-            SettingsView(initialSection: section)
+        .sheet(item: $dataRoute) { route in
+            OfflineDataRouteView(route: route)
         }
     }
 
@@ -3802,12 +3842,12 @@ struct OverlaysSections: View {
             }
             if let country = vfrCountryWithoutData {
                 Divider().padding(.leading, 56)
-                Button { settingsSection = .dataStorage } label: {
+                Button { dataRoute = .country(country) } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: "arrow.down.circle")
                             .foregroundColor(theme.action)
                             .accessibilityHidden(true)
-                        Text(L10n.VFRMap.downloadHint(country))
+                        Text(L10n.VFRMap.downloadHint(OpenAIPConfig.countryName(for: country)))
                             .font(.aero(size: 15))
                             .foregroundColor(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -3934,13 +3974,19 @@ struct OverlaysSections: View {
         }
     }
 
-    private func toggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+    private func toggleRow(icon: String, title: String, subtitle: String? = nil, isOn: Bool,
+                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon).font(.aero(size: 20))
                     .foregroundColor(isOn ? theme.action : theme.textSecondary).frame(width: 32)
                 // Opened in flight as well, from the iPad Map sheet: kneeboard-size rows. (v6.0 · P6)
-                Text(title).font(.aero(size: CockpitType.label, weight: .medium)).foregroundColor(theme.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.aero(size: CockpitType.label, weight: .medium)).foregroundColor(theme.textPrimary)
+                    if let subtitle {
+                        Text(subtitle).font(.aero(size: 14)).foregroundColor(theme.textSecondary)
+                    }
+                }
                 Spacer()
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
                     .font(.aero(size: 24))

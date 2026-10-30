@@ -41,6 +41,7 @@
 		012AFE5E2D3C1089C2BF1663 /* PMTilesFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 882BEE7E7E5F0CA86D152F67 /* PMTilesFixture.swift */; };
 		5C32CF556358609B89E4BEE3 /* PilotMapArchiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8146B8D5DB9851393555680A /* PilotMapArchiveTests.swift */; };
 		9E775712E6F52EA1AEC63827 /* PilotMapTileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BCF1E482C16B42F769A7B4A /* PilotMapTileTests.swift */; };
+		OC00680000030C00680003AA /* OfflineCountriesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000040C00680004AA /* OfflineCountriesTests.swift */; };
 		0D25B325D7F811819DB1CA58 /* PilotMapMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */; };
 		07F3E1135A1951EC6BA4C201 /* PilotMapAllowanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */; };
 		9AD3B81D7EA690CED1CA955A /* PilotMapDownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */; };
@@ -263,6 +264,7 @@
 		5E4C0A1B2C3D4E5F60718294 /* AirportSearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */; };
 		A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */; };
 		A1000001211111110000C62 /* OFMDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C62 /* OFMDataService.swift */; };
+		OC00680000010C00680001AA /* OfflineCountries.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000020C00680002AA /* OfflineCountries.swift */; };
 		A1000001211111110000C80 /* OfficialChartService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C80 /* OfficialChartService.swift */; };
 		A1000001211111110000B01 /* BriefingRegistryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B01 /* BriefingRegistryService.swift */; };
 		A1000001211111110000B02 /* PrepareWeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B02 /* PrepareWeatherService.swift */; };
@@ -415,9 +417,9 @@
 		A1000001211111110000910 /* SigmetRelevance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000910 /* SigmetRelevance.swift */; };
 		I1000001211111110000001 /* AircraftSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000001 /* AircraftSettingsView.swift */; };
 		I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000002 /* ChecklistFlightSettingsView.swift */; };
-		I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000003 /* NavigationMapsSettingsView.swift */; };
-		I1000001211111110000010 /* DataStorageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000010 /* DataStorageSettingsView.swift */; };
-		2B39057516A2F9F0D00A4C77 /* PilotMapSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE49FC2D2783F03EECFD8034 /* PilotMapSettingsSection.swift */; };
+		I1000001211111110000003 /* OfflineCountryPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000003 /* OfflineCountryPages.swift */; };
+		I1000001211111110000010 /* OfflineDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000010 /* OfflineDataSettingsView.swift */; };
+		2B39057516A2F9F0D00A4C77 /* PilotMapRegionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE49FC2D2783F03EECFD8034 /* PilotMapRegionRow.swift */; };
 		5603E658768FFBA85E162180 /* ImageryCreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02A886F92519C5806CD6AA1 /* ImageryCreditsView.swift */; };
 		I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000004 /* FlightPlanningSettingsView.swift */; };
 		I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000005 /* SyncDataSettingsView.swift */; };
@@ -524,6 +526,7 @@
 		882BEE7E7E5F0CA86D152F67 /* PMTilesFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PMTilesFixture.swift; sourceTree = "<group>"; };
 		8146B8D5DB9851393555680A /* PilotMapArchiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapArchiveTests.swift; sourceTree = "<group>"; };
 		4BCF1E482C16B42F769A7B4A /* PilotMapTileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapTileTests.swift; sourceTree = "<group>"; };
+		OC00680000040C00680004AA /* OfflineCountriesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCountriesTests.swift; sourceTree = "<group>"; };
 		00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMergeTests.swift; sourceTree = "<group>"; };
 		1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapAllowanceTests.swift; sourceTree = "<group>"; };
 		D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapDownloadTests.swift; sourceTree = "<group>"; };
@@ -750,6 +753,7 @@
 		5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportSearchIndex.swift; sourceTree = "<group>"; };
 		A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunwayDesignatorOverrides.swift; sourceTree = "<group>"; };
 		A1000001111111110000C62 /* OFMDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OFMDataService.swift; sourceTree = "<group>"; };
+		OC00680000020C00680002AA /* OfflineCountries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCountries.swift; sourceTree = "<group>"; };
 		A1000001111111110000C80 /* OfficialChartService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartService.swift; sourceTree = "<group>"; };
 		A1000001111111110000B01 /* BriefingRegistryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistryService.swift; sourceTree = "<group>"; };
 		A1000001111111110000B02 /* PrepareWeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrepareWeatherService.swift; sourceTree = "<group>"; };
@@ -897,9 +901,9 @@
 		A1000001111111110000910 /* SigmetRelevance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetRelevance.swift; sourceTree = "<group>"; };
 		I1000001111111110000001 /* AircraftSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000002 /* ChecklistFlightSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistFlightSettingsView.swift; sourceTree = "<group>"; };
-		I1000001111111110000003 /* NavigationMapsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMapsSettingsView.swift; sourceTree = "<group>"; };
-		I1000001111111110000010 /* DataStorageSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStorageSettingsView.swift; sourceTree = "<group>"; };
-		BE49FC2D2783F03EECFD8034 /* PilotMapSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapSettingsSection.swift; sourceTree = "<group>"; };
+		I1000001111111110000003 /* OfflineCountryPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCountryPages.swift; sourceTree = "<group>"; };
+		I1000001111111110000010 /* OfflineDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineDataSettingsView.swift; sourceTree = "<group>"; };
+		BE49FC2D2783F03EECFD8034 /* PilotMapRegionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapRegionRow.swift; sourceTree = "<group>"; };
 		D02A886F92519C5806CD6AA1 /* ImageryCreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageryCreditsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000004 /* FlightPlanningSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000005 /* SyncDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncDataSettingsView.swift; sourceTree = "<group>"; };
@@ -998,6 +1002,7 @@
 				882BEE7E7E5F0CA86D152F67 /* PMTilesFixture.swift */,
 				8146B8D5DB9851393555680A /* PilotMapArchiveTests.swift */,
 				4BCF1E482C16B42F769A7B4A /* PilotMapTileTests.swift */,
+				OC00680000040C00680004AA /* OfflineCountriesTests.swift */,
 				00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */,
 				1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */,
 				D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */,
@@ -1285,9 +1290,9 @@
 				I1000001111111110000001 /* AircraftSettingsView.swift */,
 				I1000001111111110000002 /* ChecklistFlightSettingsView.swift */,
 				I1000001111111110000004 /* FlightPlanningSettingsView.swift */,
-				I1000001111111110000003 /* NavigationMapsSettingsView.swift */,
-				I1000001111111110000010 /* DataStorageSettingsView.swift */,
-				BE49FC2D2783F03EECFD8034 /* PilotMapSettingsSection.swift */,
+				I1000001111111110000003 /* OfflineCountryPages.swift */,
+				I1000001111111110000010 /* OfflineDataSettingsView.swift */,
+				BE49FC2D2783F03EECFD8034 /* PilotMapRegionRow.swift */,
 				D02A886F92519C5806CD6AA1 /* ImageryCreditsView.swift */,
 				I1000001111111110000005 /* SyncDataSettingsView.swift */,
 				8FC501942B69AEC5D1EFBBAD /* AerodromeNotesSettingsView.swift */,
@@ -1394,6 +1399,7 @@
 				5E4C0A1B2C3D4E5F60718293 /* AirportSearchIndex.swift */,
 				A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */,
 				A1000001111111110000C62 /* OFMDataService.swift */,
+				OC00680000020C00680002AA /* OfflineCountries.swift */,
 				A1000001111111110000C80 /* OfficialChartService.swift */,
 				A1000001111111110000B01 /* BriefingRegistryService.swift */,
 				A1000001111111110000B02 /* PrepareWeatherService.swift */,
@@ -1779,6 +1785,7 @@
 				012AFE5E2D3C1089C2BF1663 /* PMTilesFixture.swift in Sources */,
 				5C32CF556358609B89E4BEE3 /* PilotMapArchiveTests.swift in Sources */,
 				9E775712E6F52EA1AEC63827 /* PilotMapTileTests.swift in Sources */,
+				OC00680000030C00680003AA /* OfflineCountriesTests.swift in Sources */,
 				0D25B325D7F811819DB1CA58 /* PilotMapMergeTests.swift in Sources */,
 				07F3E1135A1951EC6BA4C201 /* PilotMapAllowanceTests.swift in Sources */,
 				9AD3B81D7EA690CED1CA955A /* PilotMapDownloadTests.swift in Sources */,
@@ -2003,6 +2010,7 @@
 				5E4C0A1B2C3D4E5F60718294 /* AirportSearchIndex.swift in Sources */,
 				A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */,
 				A1000001211111110000C62 /* OFMDataService.swift in Sources */,
+				OC00680000010C00680001AA /* OfflineCountries.swift in Sources */,
 				A1000001211111110000C80 /* OfficialChartService.swift in Sources */,
 				A1000001211111110000B01 /* BriefingRegistryService.swift in Sources */,
 				A1000001211111110000B02 /* PrepareWeatherService.swift in Sources */,
@@ -2124,9 +2132,9 @@
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,
 				I1000001211111110000001 /* AircraftSettingsView.swift in Sources */,
 				I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */,
-				I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */,
-				I1000001211111110000010 /* DataStorageSettingsView.swift in Sources */,
-				2B39057516A2F9F0D00A4C77 /* PilotMapSettingsSection.swift in Sources */,
+				I1000001211111110000003 /* OfflineCountryPages.swift in Sources */,
+				I1000001211111110000010 /* OfflineDataSettingsView.swift in Sources */,
+				2B39057516A2F9F0D00A4C77 /* PilotMapRegionRow.swift in Sources */,
 				5603E658768FFBA85E162180 /* ImageryCreditsView.swift in Sources */,
 				I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */,
 				I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */,

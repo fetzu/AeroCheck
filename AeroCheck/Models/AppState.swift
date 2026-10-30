@@ -234,6 +234,9 @@ struct AppSettings: Codable, Equatable {
     var showOpenAIPTiles: Bool = false // When true, overlays the OpenAIP raster chart tiles (data-first: tiles are an opt-in, separate from the airspace vector) — OFF by default (v4.1.0)
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
+    /// The downloaded data's updates when the app opens on Wi-Fi, never in flight: Settings › Offline data's one
+    /// switch for every kind (the author's answer 6 A, 30 Oct 2026). On by default. (6.8.0)
+    var autoUpdateOfflineData: Bool = true
 
     // Numbers (v5.0.0) — all user-entered. Rates and mass & balance data are not published as
     // data anywhere, differ per member category and per registration, and are the pilot's to own.
@@ -467,6 +470,7 @@ struct AppSettings: Codable, Equatable {
         case showOpenAIPTiles
         case openAIPOfflineCountries
         case enableAirspaceStreaming
+        case autoUpdateOfflineData
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
@@ -553,6 +557,7 @@ struct AppSettings: Codable, Equatable {
         showOpenAIPTiles = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPTiles) ?? false
         openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
+        autoUpdateOfflineData = try container.decodeIfPresent(Bool.self, forKey: .autoUpdateOfflineData) ?? true
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
         // developerMode intentionally excluded - always defaults to false each launch

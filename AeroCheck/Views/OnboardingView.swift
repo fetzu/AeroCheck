@@ -64,6 +64,8 @@ struct OnboardingView: View {
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @ObservedObject private var pilotMap = PilotMapDownloads.shared
+    @ObservedObject private var countryDownloads = OfflineCountryDownloads.shared
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var currentPage = 0
     /// The edge the next page slides in from: trailing going forward, leading going back.
@@ -92,17 +94,41 @@ struct OnboardingView: View {
             : [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)]
     }
 
-    /// True when every selected country's airspace is already cached — drives the "Downloaded" state so
-    /// it reflects the CURRENT selection (selecting a new country flips it back to needing a download).
-    private var openAIPFullyDownloaded: Bool {
-        let downloaded = Set(openAIPDataService.downloadedCountries.map { $0.uppercased() })
-        var wanted = selectedCountries
-        wanted.insert(effectiveHome)
-        return !wanted.isEmpty && wanted.isSubset(of: downloaded)
+    /// The countries the step offers: home, then its neighbours, each a whole country with its Atlas (the author's
+    /// answer 15 A, 30 Oct 2026). (6.8.0)
+    private var offeredCountries: [OfflineCountry] {
+        let catalog = OfflineCountryCatalog.countries(atlasRegions: pilotMap.regions,
+                                                      vfrCountries: Set(OFMDataService.shared.supportedCountries))
+        return ([effectiveHome] + CountryNeighbors.neighbors(of: effectiveHome)).compactMap { code in
+            catalog.first { $0.id == code }
+        }
     }
 
-    /// Rough size estimate for the OpenAIP download — the four GeoJSON layers run ~5 MB per country.
-    private var openAIPEstimateMB: Int { max(1, selectedCountries.union([effectiveHome]).count) * 5 }
+    /// Home, always, and the neighbours ticked.
+    private var wantedCountries: [OfflineCountry] {
+        offeredCountries.filter { $0.id == effectiveHome || selectedCountries.contains($0.id) }
+    }
+
+    /// A country whose aeronautical data and every Atlas region are on the device.
+    private func isOnDevice(_ country: OfflineCountry) -> Bool {
+        let here = Set(pilotMap.downloaded.map(\.id))
+        return (!country.hasAeronauticalData || openAIPDataService.downloadedCountries.contains(country.id))
+            && country.atlasRegions.allSatisfy { here.contains($0.id) }
+    }
+
+    /// What a country still needs, for its chip and the total.
+    private func bytesToFetch(_ country: OfflineCountry) -> Int64 {
+        OfflineCountryCatalog.bytesToFetch(country, downloadedRegions: Set(pilotMap.downloaded.map(\.id)),
+                                           aeronauticalKept: openAIPDataService.downloadedCountries.contains(country.id))
+    }
+
+    private var countriesDone: Bool { !wantedCountries.isEmpty && wantedCountries.allSatisfy(isOnDevice) }
+
+    private var countriesDownloading: Bool {
+        countryDownloads.isSyncing || wantedCountries.contains { country in
+            country.atlasRegions.contains { if case .downloading = pilotMap.state(of: $0.id) { return true }; return false }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -378,6 +404,21 @@ struct OnboardingView: View {
                 action: { Task { await airportDataService.downloadData() } }
             )
 
+            // Every country zoomed out, offline: offered here (the author's note to question 10, 30 Oct 2026). (6.8.0)
+            if let overview = pilotMap.overview {
+                let state = pilotMap.state(of: overview.id)
+                downloadButton(
+                    title: L10n.Onboarding.atlasOverview,
+                    icon: "globe.europe.africa",
+                    isDownloading: { if case .downloading = state { return true }; return false }(),
+                    progress: { if case let .downloading(fraction) = state { return fraction }; return 0 }(),
+                    isCompleted: state == .downloaded || state == .updateAvailable,
+                    detail: L10n.Onboarding.atlasOverviewDetail(OfflineDataView.bytes(Int64(overview.downloadBytes))),
+                    action: { pilotMap.download(overview) }
+                )
+                .padding(.top, 11)
+            }
+
             if effectiveHome == "CH" {
                 downloadButton(
                     title: String(localized: "Swiss charts"),
@@ -415,6 +456,7 @@ struct OnboardingView: View {
         .padding(.bottom, 40)
         .task {
             if selectedCountries.isEmpty { selectedCountries = [effectiveHome] }
+            await pilotMap.refreshIndex()
             await detectRegion()
         }
     }
@@ -432,19 +474,20 @@ struct OnboardingView: View {
         .accessibilityLabel(Text(String(localized: "Detected region")) + Text(": \(name)"))
     }
 
-    /// Recommended OpenAIP card — downloads airspace + navaids + obstacles + reporting points for the
-    /// selected countries (home pre-selected, neighbours opt-in). (onboarding revamp)
+    /// The home country and its neighbours, each whole: its Atlas, airspace, aerodromes, navaids, obstacles, reporting
+    /// points and VFR procedures, as Settings › Offline data downloads them (the author's answers 8 A and 15 A, 30 Oct
+    /// 2026). Home is always in; a neighbour is one tap. (onboarding revamp, 6.8.0)
     private var openAIPDownloadCard: some View {
-        let anyDownloading = openAIPDataService.isDownloading || navaidService.isDownloading
-            || obstacleService.isDownloading || reportingPointService.isDownloading
-        let done = openAIPFullyDownloaded
+        let done = countriesDone
+        let downloading = countriesDownloading
+        let total = wantedCountries.reduce(Int64(0)) { $0 + bytesToFetch($1) }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 9) {
                 Image(systemName: done ? "checkmark.circle.fill" : "shield.lefthalf.filled")
                     .scaledFont(size: 19, relativeTo: .title3)
                     .foregroundColor(done ? .aviationGreen : .aviationGold)
                     .accessibilityHidden(true)
-                Text(String(localized: "Airspace, navaids & reporting points"))
+                Text(L10n.OfflineData.yourCountries)
                     .font(.aero(.subheadline).weight(.medium))
                     .foregroundColor(.primaryText)
                 Spacer()
@@ -456,20 +499,27 @@ struct OnboardingView: View {
                     .background(Capsule().fill(Color.aviationGold))
             }
             countryChipRow
+            Text(L10n.Onboarding.countriesDetail)
+                .font(.aero(.caption2))
+                .foregroundColor(.dimText)
+                .fixedSize(horizontal: false, vertical: true)
             HStack {
-                if anyDownloading {
-                    ProgressView(value: openAIPDataService.downloadProgress)
+                if downloading {
+                    ProgressView()
+                        .controlSize(.small)
                         .tint(.aviationGold)
-                        .frame(maxWidth: 160)
+                    Text(L10n.OfflineData.downloading)
+                        .font(.aero(.caption2))
+                        .foregroundColor(.dimText)
                 } else if !done {
-                    Text(String(localized: "≈ \(openAIPEstimateMB) MB"))
+                    Text("\(L10n.Onboarding.countryCount(wantedCountries.count)) · \(OfflineDataView.bytes(total))")
                         .font(.aero(.caption2))
                         .foregroundColor(.dimText)
                 }
                 Spacer()
-                // Green "Downloaded" only when EVERY selected country is cached; selecting a new
-                // country flips it back to a gold "Download". (Maps & Data UX fix)
-                Button(action: downloadOpenAIP) {
+                // Green "Downloaded" only when every chosen country is whole on the device; ticking another flips it
+                // back to a gold "Download". (Maps & Data UX fix)
+                Button(action: downloadCountries) {
                     HStack(spacing: 6) {
                         Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").scaledFont(size: 14, relativeTo: .subheadline)
                         Text(done ? L10n.Onboarding.downloaded : String(localized: "Download"))
@@ -480,8 +530,8 @@ struct OnboardingView: View {
                     .padding(.vertical, 7)
                     .background(RoundedRectangle(cornerRadius: 9).fill(done ? Color.aviationGreen : Color.aviationGold))
                 }
-                .disabled(anyDownloading || done)
-                .opacity(anyDownloading ? 0.5 : 1)
+                .disabled(downloading || done)
+                .opacity(downloading ? 0.5 : 1)
             }
         }
         .padding(14)
@@ -496,19 +546,26 @@ struct OnboardingView: View {
     private var countryChipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                countryChip(effectiveHome, isHome: true)
-                ForEach(CountryNeighbors.neighbors(of: effectiveHome), id: \.self) { code in
-                    Button { toggleCountry(code) } label: { countryChip(code, isHome: false) }
-                        .buttonStyle(.plain)
+                ForEach(offeredCountries) { country in
+                    if country.id == effectiveHome {
+                        countryChip(country, isHome: true)
+                    } else {
+                        Button { toggleCountry(country.id) } label: { countryChip(country, isHome: false) }
+                            .buttonStyle(.plain)
+                    }
                 }
             }
             .padding(.vertical, 1)
         }
     }
 
-    private func countryChip(_ code: String, isHome: Bool) -> some View {
+    /// "CH ✓ 90 MB", "+ AT 127 MB": the code, ticked or not, and what it would fetch.
+    private func countryChip(_ country: OfflineCountry, isHome: Bool) -> some View {
+        let code = country.id
         let selected = isHome || selectedCountries.contains(code)
-        return Text(isHome ? "\(code) ✓" : (selected ? code : "+ \(code)"))
+        let bytes = bytesToFetch(country)
+        let label = selected ? "\(code) ✓" : "+ \(code)"
+        return Text(bytes > 0 ? "\(label) \(OfflineDataView.bytes(bytes))" : label)
             .font(.aero(.caption).weight(.medium))
             .foregroundColor(selected ? .black : .secondaryText)
             .padding(.horizontal, 9)
@@ -522,6 +579,8 @@ struct OnboardingView: View {
                                           style: StrokeStyle(lineWidth: 1, dash: isHome ? [] : [3]))
                     )
             )
+            .accessibilityLabel(country.name)
+            .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func toggleCountry(_ code: String) {
@@ -532,21 +591,15 @@ struct OnboardingView: View {
         }
     }
 
-    private func downloadOpenAIP() {
-        var countries = selectedCountries
-        countries.insert(effectiveHome)   // home is always included
-        let list = Array(countries)
-        Task {
-            await openAIPDataService.downloadData(for: list)
-            await navaidService.downloadData(for: list)
-            await obstacleService.downloadData(for: list)
-            await reportingPointService.downloadData(for: list)
-            // The aerodromes as OpenAIP has them: the frequencies' names as the AIPs write them (8.33 kHz,
-            // "LSZQ AD 122.055"), merged over OurAirports. Until 6.4.2 only Settings › Navigation & Maps fetched
-            // them, and a device set up here kept OurAirports' 25 kHz names. (6.4.2)
-            await OpenAIPAirportDataService.shared.downloadData(for: list)
-            // Circuits and VFR routes where open flightmaps publishes them (22 countries). (6.2.0)
-            await OFMDataService.shared.downloadData(for: list)
+    /// The chosen countries, whole: their aeronautical data in one sync, and every Atlas region not on the device.
+    /// The aerodromes come with them as OpenAIP has them (6.4.2), and open flightmaps' circuits and routes (6.2.0).
+    private func downloadCountries() {
+        let wanted = wantedCountries
+        countryDownloads.add(wanted.filter { $0.hasAeronauticalData || $0.hasVFRProcedures }.map(\.id),
+                             appState: appState, airspace: openAIPDataService, navaids: navaidService)
+        let here = Set(pilotMap.downloaded.map(\.id))
+        for region in wanted.flatMap(\.atlasRegions) where !here.contains(region.id) {
+            pilotMap.download(region)
         }
     }
 

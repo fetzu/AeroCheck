@@ -123,6 +123,9 @@ final class PilotMapDownloads: ObservableObject {
         id == PilotMapRegion.overviewID ? overview : regions.first { $0.id == id }
     }
 
+    /// The entry to download for an update of `id`. (6.8.0)
+    func listedRegion(_ id: String) -> PilotMapRegion? { listed(id) }
+
     /// What a download fetches: each archive the index lists that is missing here or of another build.
     static func kindsToFetch(listed: PilotMapRegion, installed: PilotMapRegion?, filesPresent: Set<PilotMapKind>) -> [PilotMapKind] {
         PilotMapKind.allCases.filter { kind in

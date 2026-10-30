@@ -1,8 +1,9 @@
 6.8.0 dessine sa propre carte, l'Atlas, tirée d'OpenStreetMap, sur toutes les cartes de l'app.
 
 À essayer :
-- Réglages › Données et stockage › Atlas : téléchargez la Suisse (environ 90 Mo, Wi-Fi conseillé). Passez ensuite en mode avion : la carte se dessine toujours en Suisse.
-- Atlas › Pays et régions : chaque pays de aerocheck.app/countries, les grands par région. Téléchargez aussi un voisin (Grand Est, Bade-Wurtemberg) : à la frontière, les deux côtés se dessinent, sans trou ni doublon.
+- Réglages › Données hors ligne remplace Données et stockage et Navigation & Cartes : un seul état en haut, vos pays, les aéroports du monde entier et la vue d'ensemble de l'Atlas.
+- Données hors ligne › Ajouter un pays : un pays se télécharge d'une pression, son Atlas avec ses espaces aériens, aérodromes et procédures VFR (la Suisse fait environ 90 Mo, Wi-Fi conseillé). Passez ensuite en mode avion : la carte s'y dessine toujours.
+- Un grand pays (France, Allemagne) ouvre sa page : tout d'une pression, ou les régions où vous volez. Téléchargez aussi un voisin : à la frontière, les deux côtés se dessinent, sans trou ni doublon.
 - Feuille Carte › Fond de carte : Atlas et Images aériennes remplacent les deux fonds d'Apple. Sur Images aériennes, glissez de la Suisse vers la France ou l'Allemagne : chaque source est créditée au pied de la carte.
 - Dézoomez jusqu'à l'Europe : chaque pays dessiné en détail, avec ses villes, ses routes et son relief.
 - Planifier › Carte, la CARTE du cockpit et l'éditeur de route : touchez un aérodrome, l'altitude d'un tour de piste, une balise ; déplacez un point de route ; la bande des étapes ; Rechercher un aérodrome. Dites-nous tout ce qui bouge autrement qu'en 6.7.

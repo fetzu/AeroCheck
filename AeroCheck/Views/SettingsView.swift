@@ -29,17 +29,18 @@ struct SettingsView: View {
     /// with the chosen section in the detail pane; on iPhone/compact it automatically collapses to
     /// the previous single-column push navigation. (UX-22)
     enum Section: Hashable, CaseIterable, Identifiable {
-        case aircraft, checklist, navigation, flightPlanning, sync, dataStorage, companion, about
+        // Navigation & Maps went into Offline data in 6.8.0: its downloads by country, its two connection switches,
+        // and the map's layers left to the Map sheet (the author's answer 14 A, 30 Oct 2026).
+        case aircraft, checklist, dataStorage, flightPlanning, sync, companion, about
         var id: Self { self }
 
         var icon: String {
             switch self {
             case .aircraft: return "airplane"
             case .checklist: return "checklist"
-            case .navigation: return "map"
             case .flightPlanning: return "point.topleft.down.to.point.bottomright.curvepath"
             case .sync: return "icloud"
-            case .dataStorage: return "internaldrive"
+            case .dataStorage: return "arrow.down.circle"
             case .companion: return "ipad.and.iphone"
             case .about: return "info.circle"
             }
@@ -48,7 +49,6 @@ struct SettingsView: View {
             switch self {
             case .aircraft: return L10n.Settings.aircraftAndSubscription
             case .checklist: return L10n.Settings.checklistAndFlight
-            case .navigation: return L10n.Settings.navigationAndMaps
             // The page's own name: it holds the pilot, the home aerodrome and the cost as well as the planning.
             // (6.4.0)
             case .flightPlanning: return L10n.Flights.title
@@ -62,7 +62,6 @@ struct SettingsView: View {
             switch self {
             case .aircraft: return L10n.Settings.aircraftAndSubscriptionSubtitle
             case .checklist: return L10n.Settings.checklistAndFlightSubtitle
-            case .navigation: return L10n.Settings.navigationAndMapsSubtitle
             case .flightPlanning: return L10n.Settings.flightPlanningSubtitle
             case .sync: return L10n.Settings.syncAndDataSubtitle
             case .dataStorage: return L10n.DataStorage.subtitle
@@ -75,7 +74,6 @@ struct SettingsView: View {
             switch self {
             case .aircraft: return .aviationGold
             case .checklist: return .altimeterBlue
-            case .navigation: return .aviationGreen
             case .flightPlanning: return .orange
             case .sync: return .altimeterBlue
             case .dataStorage: return .aviationGreen
@@ -216,10 +214,9 @@ struct SettingsView: View {
         switch section {
         case .aircraft: AircraftSettingsView()
         case .checklist: ChecklistFlightSettingsView()
-        case .navigation: NavigationMapsSettingsView()
         case .flightPlanning: FlightPlanningSettingsView()
         case .sync: SyncDataSettingsView()
-        case .dataStorage: DataStorageSettingsView()
+        case .dataStorage: OfflineDataSettingsView()
         case .companion: CompanionSettingsView()
         case .about: AboutSettingsView()
         case nil:
@@ -303,305 +300,6 @@ struct WarningItem: View {
                 .foregroundColor(.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-}
-
-// MARK: - Offline Map Download Sheet
-
-struct OfflineMapDownloadSheet: View {
-    @EnvironmentObject var offlineMapManager: OfflineMapManager
-    @Environment(\.dismiss) var dismiss
-    @Binding var offlineMode: Bool
-    /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.
-    var asPage: Bool = false
-    @State private var selectedCacheOption: CacheOption = .icaoOnly
-
-    private func storageEstimate(for option: CacheOption) -> String {
-        switch option {
-        case .icaoOnly: return "~100 MB"
-        case .icaoAndSegelflug: return "~250 MB"
-        }
-    }
-
-    var body: some View {
-        Group {
-            if asPage {
-                sheetContent
-            } else {
-                NavigationStack {
-                    sheetContent
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                if !offlineMapManager.isDownloading {
-                                    Button(L10n.Button.cancel) {
-                                        if !offlineMapManager.isCacheAvailable { offlineMode = false }
-                                        dismiss()
-                                    }
-                                }
-                            }
-                        }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-        .interactiveDismissDisabled(offlineMapManager.isDownloading)
-        .onAppear {
-            if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
-                selectedCacheOption = .icaoAndSegelflug
-            }
-        }
-        .onDisappear {
-            // As a pushed page, backing out without a cache reverts Offline Mode (mirrors the sheet's Cancel).
-            if asPage && !offlineMapManager.isDownloading && !offlineMapManager.isCacheAvailable {
-                offlineMode = false
-            }
-        }
-    }
-
-    private var sheetContent: some View {
-        VStack(spacing: 20) {
-                Image(systemName: "map.fill")
-                    .scaledFont(size: 50, relativeTo: .largeTitle)
-                    .foregroundColor(.aviationGold)
-                    .padding(.top, 24)
-
-                Text(L10n.Settings.downloadCharts)
-                    .scaledFont(size: 22, weight: .bold, relativeTo: .title2)
-                    .foregroundColor(.primaryText)
-
-                Text(L10n.Download.description)
-                    .scaledFont(size: 14, relativeTo: .subheadline)
-                    .foregroundColor(.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                if !offlineMapManager.isDownloading {
-                    VStack(spacing: 12) {
-                        Text(L10n.Download.selectCharts)
-                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                            .foregroundColor(.secondaryText)
-
-                        ForEach(CacheOption.allCases) { option in
-                            CacheOptionRow(
-                                option: option,
-                                storageEstimate: storageEstimate(for: option),
-                                isSelected: selectedCacheOption == option,
-                                isAlreadyCached: isCached(option)
-                            ) {
-                                selectedCacheOption = option
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-
-                Spacer()
-
-                if offlineMapManager.isDownloading {
-                    VStack(spacing: 12) {
-                        ProgressView(value: offlineMapManager.downloadProgress)
-                            .progressViewStyle(LinearProgressViewStyle(tint: .aviationGold))
-                            .padding(.horizontal, 40)
-
-                        if let layer = offlineMapManager.currentDownloadingLayer {
-                            Text(L10n.Download.downloadingLayer(layer.displayName))
-                                .scaledFont(size: 14, relativeTo: .subheadline)
-                                .foregroundColor(.secondaryText)
-                        } else {
-                            Text(L10n.Download.downloadingTiles)
-                                .scaledFont(size: 14, relativeTo: .subheadline)
-                                .foregroundColor(.secondaryText)
-                        }
-
-                        Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
-                            .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
-                            .foregroundColor(.secondaryText)
-
-                        if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
-                            Text(L10n.Download.estimatedTimeRemaining(formattedTimeRemaining(eta)))
-                                .scaledFont(size: 13, relativeTo: .caption)
-                                .foregroundColor(.dimText)
-                        }
-
-                        // PERF-23: surface server rate-limiting so a throttled (HTTP 429)
-                        // download isn't mistaken for ordinary slowness or tile failures.
-                        if offlineMapManager.downloadWasThrottled {
-                            Label(L10n.Download.throttled, systemImage: "clock.badge.exclamationmark")
-                                .scaledFont(size: 12, relativeTo: .caption)
-                                .foregroundColor(.aviationGold)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 24)
-                        }
-                    }
-                } else if let error = offlineMapManager.downloadError {
-                    VStack(spacing: 12) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .scaledFont(size: 36, relativeTo: .largeTitle)
-                            .foregroundColor(.aviationRed)
-
-                        Text(error)
-                            .scaledFont(size: 13, relativeTo: .caption)
-                            .foregroundColor(.aviationRed)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                    }
-                }
-
-                if !offlineMapManager.isDownloading && (offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable) {
-                    VStack(spacing: 8) {
-                        HStack(spacing: 16) {
-                            if offlineMapManager.isCacheAvailable {
-                                CacheStatusBadge(name: "ICAO", isAvailable: true)
-                            }
-                            if offlineMapManager.isSegelflugCacheAvailable {
-                                CacheStatusBadge(name: "Segelflug", isAvailable: true)
-                            }
-                        }
-                        Text(L10n.Download.total(offlineMapManager.formattedCacheSize))
-                            .scaledFont(size: 12, relativeTo: .caption)
-                            .foregroundColor(.dimText)
-                    }
-                }
-
-                Spacer()
-
-                VStack(spacing: 12) {
-                    if offlineMapManager.isDownloading {
-                        // No action button while downloading
-                    } else {
-                        Button(action: startDownload) {
-                            Text(downloadButtonText)
-                                .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.aviationGold)
-                                )
-                        }
-                        .padding(.horizontal, 24)
-
-                        // No "Done" under the download any more: the page has nothing to confirm, and its back button
-                        // leaves it (the author's A, 25 Oct 2026). (6.6.0)
-                    }
-                }
-                .padding(.bottom, 24)
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Settings.downloadCharts)
-            .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var downloadButtonText: String {
-        if offlineMapManager.isCacheAvailable && offlineMapManager.isSegelflugCacheAvailable {
-            return "Re-download Charts"
-        } else if offlineMapManager.isCacheAvailable && selectedCacheOption == .icaoAndSegelflug {
-            return "Download Segelflugkarte"
-        } else {
-            return "Download \(selectedCacheOption.displayName)"
-        }
-    }
-
-    private func isCached(_ option: CacheOption) -> Bool {
-        switch option {
-        case .icaoOnly:
-            return offlineMapManager.isCacheAvailable
-        case .icaoAndSegelflug:
-            return offlineMapManager.isCacheAvailable && offlineMapManager.isSegelflugCacheAvailable
-        }
-    }
-
-    private func startDownload() {
-        Task { await offlineMapManager.downloadCharts(option: selectedCacheOption) }
-    }
-
-    private func formattedTimeRemaining(_ interval: TimeInterval) -> String {
-        let totalSeconds = Int(interval)
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        if minutes > 0 {
-            return "\(minutes)m \(seconds)s"
-        } else {
-            return "\(seconds)s"
-        }
-    }
-}
-
-// MARK: - Cache Option Row
-
-struct CacheOptionRow: View {
-    let option: CacheOption
-    let storageEstimate: String
-    let isSelected: Bool
-    let isAlreadyCached: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(option.displayName)
-                            .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
-                            .foregroundColor(.primaryText)
-                        if isAlreadyCached {
-                            Text("CACHED")
-                                .scaledFont(size: 9, weight: .bold, relativeTo: .caption2)
-                                .foregroundColor(.aviationGreen)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color.aviationGreen.opacity(0.2))
-                                )
-                        }
-                    }
-                    Text(storageEstimate)
-                        .scaledFont(size: 12, relativeTo: .caption)
-                        .foregroundColor(.dimText)
-                }
-
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .scaledFont(size: 22, relativeTo: .title2)
-                    .foregroundColor(isSelected ? .aviationGold : .dimText)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.aviationGold.opacity(0.1) : Color.panelBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(isSelected ? Color.aviationGold : Color.clear, lineWidth: 1)
-                    )
-            )
-        }
-    }
-}
-
-// MARK: - Cache Status Badge
-
-struct CacheStatusBadge: View {
-    let name: String
-    let isAvailable: Bool
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: isAvailable ? "checkmark.circle.fill" : "xmark.circle")
-                .scaledFont(size: 12, relativeTo: .caption)
-            Text(name)
-                .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
-        }
-        .foregroundColor(isAvailable ? .aviationGreen : .dimText)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isAvailable ? Color.aviationGreen.opacity(0.15) : Color.panelBackground)
-        )
     }
 }
 

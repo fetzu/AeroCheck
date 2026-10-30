@@ -7253,19 +7253,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Flugplatzdaten sind noch nicht auf diesem Gerät, daher ist bis zu ihrem Download nur LSZQ verfügbar (Einstellungen › Daten & Speicher)."
+            "value": "Die Flugplatzdaten sind noch nicht auf diesem Gerät, daher ist bis zu ihrem Download nur LSZQ verfügbar (Einstellungen › Offline-Daten)."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The airport data isn't on this device yet, so only LSZQ is available until you download it (Settings › Data & Storage)."
+            "value": "The airport data isn't on this device yet, so only LSZQ is available until you download it (Settings › Offline data)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les données d'aérodromes ne sont pas encore sur cet appareil : seul LSZQ est disponible jusqu'à leur téléchargement (Réglages › Données et stockage)."
+            "value": "Les données d'aérodromes ne sont pas encore sur cet appareil : seul LSZQ est disponible jusqu'à leur téléchargement (Réglages › Données hors ligne)."
           }
         }
       }
@@ -14745,6 +14745,52 @@
         }
       }
     },
+    "mapLayer.icaoEveryZoom": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Karte in jeder Zoomstufe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO chart at every zoom"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte OACI à tous les zooms"
+          }
+        }
+      }
+    },
+    "mapLayer.icaoEveryZoomDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus: beim Hineinzoomen die Segelflugkarte, dann die Landeskarte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off: the glider map, then the national map, as you zoom in"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé : la carte vol à voile, puis la carte nationale, en zoomant"
+          }
+        }
+      }
+    },
     "mapLayer.switzerlandOnly": {
       "extractionState": "manual",
       "localizations": {
@@ -14833,6 +14879,1727 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quand cette route est volée"
+          }
+        }
+      }
+    },
+    "offlineData.addCountry": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Land hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a country"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un pays"
+          }
+        }
+      }
+    },
+    "offlineData.addFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Land aus einer Region lädt mit einem Tippen. Ein grösseres öffnet seine Seite: dort alles mit einem Tippen oder die Regionen, in denen Sie fliegen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A country in one region downloads at one press. A larger one opens its page: all of it at one press there, or the regions you fly."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pays d'une seule région se télécharge d'une pression. Un plus grand ouvre sa page : tout d'une pression, ou les régions où vous volez."
+          }
+        }
+      }
+    },
+    "offlineData.aeronauticalDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume, Flugplätze, Funknavigationshilfen, Hindernisse, Meldepunkte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace, aerodromes, navaids, obstacles, reporting points"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espaces aériens, aérodromes, aides radio, obstacles, points de report"
+          }
+        }
+      }
+    },
+    "offlineData.aeronauticalOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Luftfahrtdaten, noch kein Atlas"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aeronautical data only, no Atlas yet"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données aéronautiques seulement, pas encore d'Atlas"
+          }
+        }
+      }
+    },
+    "offlineData.aeronauticalTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftfahrtdaten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aeronautical data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données aéronautiques"
+          }
+        }
+      }
+    },
+    "offlineData.airports": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flugplätze und Frequenzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airports and frequencies"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aéroports et fréquences"
+          }
+        }
+      }
+    },
+    "offlineData.airportsCount": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OurAirports · %@ Flugplätze"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OurAirports · %@ airports"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OurAirports · %@ aéroports"
+          }
+        }
+      }
+    },
+    "offlineData.atlasOnline": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas online"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas online"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas en ligne"
+          }
+        }
+      }
+    },
+    "offlineData.atlasOnlineFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wo nichts heruntergeladen ist, wird der Atlas online gelesen, innerhalb dieses Monatskontingents. Ein heruntergeladenes Land zählt nie."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where nothing is downloaded, the Atlas is read online, within this monthly allowance. A downloaded country never counts."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Là où rien n'est téléchargé, l'Atlas est lu en ligne, dans ce quota mensuel. Un pays téléchargé ne compte jamais."
+          }
+        }
+      }
+    },
+    "offlineData.atlasRegions %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas · %lld Region"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas · %lld Regionen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas · %lld region"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas · %lld regions"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas · %lld région"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas · %lld régions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "offlineData.autoUpdate": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch im WLAN aktualisieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update automatically on Wi-Fi"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre à jour automatiquement en Wi-Fi"
+          }
+        }
+      }
+    },
+    "offlineData.autoUpdateDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie im Flug"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never in flight"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jamais en vol"
+          }
+        }
+      }
+    },
+    "offlineData.bytesOnDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ auf diesem Gerät"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ on this device"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sur cet appareil"
+          }
+        }
+      }
+    },
+    "offlineData.checked": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifié %@"
+          }
+        }
+      }
+    },
+    "offlineData.connection": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion"
+          }
+        }
+      }
+    },
+    "offlineData.credits": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume von [OpenAIP](https://www.openaip.net) (CC BY-NC 4.0) · VFR-Verfahren © open flightmaps · Atlas © OpenStreetMap-Mitwirkende"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace from [OpenAIP](https://www.openaip.net) (CC BY-NC 4.0) · VFR procedures © open flightmaps · Atlas © OpenStreetMap contributors"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espaces aériens d'[OpenAIP](https://www.openaip.net) (CC BY-NC 4.0) · procédures VFR © open flightmaps · Atlas © les contributeurs d'OpenStreetMap"
+          }
+        }
+      }
+    },
+    "offlineData.deleteCountry": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Land löschen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer ce pays"
+          }
+        }
+      }
+    },
+    "offlineData.deleteCountryTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten dieses Landes löschen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete %@?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les données de ce pays ?"
+          }
+        }
+      }
+    },
+    "offlineData.downloadAllOf": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles herunterladen · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download all of %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout télécharger · %@"
+          }
+        }
+      }
+    },
+    "offlineData.downloading": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird heruntergeladen…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement…"
+          }
+        }
+      }
+    },
+    "offlineData.edition": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgabe %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edition %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Édition %@"
+          }
+        }
+      }
+    },
+    "offlineData.elsewhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anderswo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elsewhere"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ailleurs"
+          }
+        }
+      }
+    },
+    "offlineData.europe": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Europa"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Europe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Europe"
+          }
+        }
+      }
+    },
+    "offlineData.gliderChart": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segelflugkarte 1:300 000"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glider map 1:300,000"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte vol à voile 1:300 000"
+          }
+        }
+      }
+    },
+    "offlineData.gliderChartDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr Details beim Hineinzoomen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More detail as you zoom in"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus de détails en zoomant"
+          }
+        }
+      }
+    },
+    "offlineData.icaoChart": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO-Karte 1:500 000"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ICAO chart 1:500,000"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte OACI 1:500 000"
+          }
+        }
+      }
+    },
+    "offlineData.inRegions": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ in %2$lld von %3$lld Regionen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ in %2$lld of its %3$lld regions"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ dans %2$lld de ses %3$lld régions"
+          }
+        }
+      }
+    },
+    "offlineData.nextTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachbarländer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next to %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pays voisins"
+          }
+        }
+      }
+    },
+    "offlineData.noCountries": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch kein Land auf diesem Gerät."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No country on this device yet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun pays sur cet appareil pour l'instant."
+          }
+        }
+      }
+    },
+    "offlineData.noMatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Land passt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No country matches."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun pays ne correspond."
+          }
+        }
+      }
+    },
+    "offlineData.notOnDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht auf diesem Gerät"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not on this device"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas sur cet appareil"
+          }
+        }
+      }
+    },
+    "offlineData.nothingYet": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nichts heruntergeladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing downloaded yet"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien de téléchargé pour l'instant"
+          }
+        }
+      }
+    },
+    "offlineData.nudge": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Luftfahrtdaten sind veraltet. Öffnen Sie Offline-Daten, um sie zu aktualisieren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some aeronautical data is out of date. Open Offline data to update."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines données aéronautiques sont périmées. Ouvrez Données hors ligne pour les mettre à jour."
+          }
+        }
+      }
+    },
+    "offlineData.offlineMode": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline-Modus"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline mode"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode hors ligne"
+          }
+        }
+      }
+    },
+    "offlineData.offlineModeDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur was auf diesem Gerät ist, auch mit Verbindung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only what is on this device, even with a connection"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seulement ce qui est sur cet appareil, même avec une connexion"
+          }
+        }
+      }
+    },
+    "offlineData.onThisDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf diesem Gerät"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On this device"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur cet appareil"
+          }
+        }
+      }
+    },
+    "offlineData.onlineAirspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume online"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Online airspace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espaces aériens en ligne"
+          }
+        }
+      }
+    },
+    "offlineData.onlineAirspaceDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahe Kontrollzonen, online geladen, wo nichts heruntergeladen ist"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nearby control zones fetched online where nothing is downloaded"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les zones de contrôle proches, chargées en ligne là où rien n'est téléchargé"
+          }
+        }
+      }
+    },
+    "offlineData.onlineCharts": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landeskarte, SWISSIMAGE"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "National map, SWISSIMAGE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte nationale, SWISSIMAGE"
+          }
+        }
+      }
+    },
+    "offlineData.onlineChartsDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur online, von swisstopo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Online only, from swisstopo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En ligne seulement, de swisstopo"
+          }
+        }
+      }
+    },
+    "offlineData.partAeronautical": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftfahrtdaten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aeronautical data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "données aéronautiques"
+          }
+        }
+      }
+    },
+    "offlineData.partAtlas": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas"
+          }
+        }
+      }
+    },
+    "offlineData.partAtlasIn %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas in %lld Region"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas in %lld Regionen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas in %lld region"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas in %lld regions"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas en %lld région"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Atlas en %lld régions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "offlineData.partAtlasSome": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas, %1$lld von %2$lld Regionen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas, %1$lld of %2$lld regions"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas, %1$lld régions sur %2$lld"
+          }
+        }
+      }
+    },
+    "offlineData.partSwissCharts": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schweizer Karten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swiss charts"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cartes suisses"
+          }
+        }
+      }
+    },
+    "offlineData.partVFR": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VFR-Verfahren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VFR procedures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "procédures VFR"
+          }
+        }
+      }
+    },
+    "offlineData.readyIn %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Offline bereit in %lld Land"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Offline bereit in %lld Ländern"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ready offline in %lld country"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ready offline in %lld countries"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Prêt hors ligne dans %lld pays"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Prêt hors ligne dans %lld pays"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "offlineData.searchPrompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Land oder eine Region"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A country or region"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pays ou une région"
+          }
+        }
+      }
+    },
+    "offlineData.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länder, Atlas, Flugplätze"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Countries, Atlas, airports"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pays, Atlas, aéroports"
+          }
+        }
+      }
+    },
+    "offlineData.swissCharts": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schweizer Karten · swisstopo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swiss charts · swisstopo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cartes suisses · swisstopo"
+          }
+        }
+      }
+    },
+    "offlineData.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline-Daten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données hors ligne"
+          }
+        }
+      }
+    },
+    "offlineData.upToDate": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles aktuell"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything up to date"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout est à jour"
+          }
+        }
+      }
+    },
+    "offlineData.updateNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt aktualisieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update now"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre à jour"
+          }
+        }
+      }
+    },
+    "offlineData.updates %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Aktualisierung"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Aktualisierungen"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld update"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld updates"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mise à jour"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld mises à jour"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "offlineData.updating": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird aktualisiert…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour…"
+          }
+        }
+      }
+    },
+    "offlineData.vfrDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platzrunden, VFR-An- und Abflugrouten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traffic circuits, VFR arrival and departure routes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tours de piste, routes VFR d'arrivée et de départ"
+          }
+        }
+      }
+    },
+    "offlineData.vfrTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VFR-Verfahren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VFR procedures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procédures VFR"
+          }
+        }
+      }
+    },
+    "offlineData.wholeCountryFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Luftfahrtdaten gelten für das ganze Land, welche Regionen Sie auch wählen: Sie sind klein."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The aeronautical data is for all of %@ whatever regions you take: it is small."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données aéronautiques couvrent tout le pays, quelles que soient les régions choisies : elles sont légères."
+          }
+        }
+      }
+    },
+    "offlineData.withAeronautical": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kommt mit den Luftfahrtdaten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comes with the aeronautical data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vient avec les données aéronautiques"
+          }
+        }
+      }
+    },
+    "offlineData.worldwide": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weltweit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worldwide"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monde entier"
+          }
+        }
+      }
+    },
+    "offlineData.yourCountries": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Länder"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your countries"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos pays"
+          }
+        }
+      }
+    },
+    "offlineData.yourCountriesFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Land umfasst seinen Atlas, seine Lufträume, Flugplätze, Funknavigationshilfen, Hindernisse und Meldepunkte sowie seine VFR-Verfahren, wo open flightmaps es abdeckt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A country is its Atlas, its airspace, aerodromes, navaids, obstacles and reporting points, and its VFR procedures where open flightmaps covers it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pays, c'est son Atlas, ses espaces aériens, aérodromes, aides radio, obstacles et points de report, et ses procédures VFR là où open flightmaps le couvre."
+          }
+        }
+      }
+    },
+    "offlineData.yourCountry": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Land"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your country"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre pays"
+          }
+        }
+      }
+    },
+    "onboarding.maps.atlasOverview": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas-Übersicht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas overview"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vue d'ensemble de l'Atlas"
+          }
+        }
+      }
+    },
+    "onboarding.maps.atlasOverviewDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jedes Land, herausgezoomt, offline · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every country, zoomed out, offline · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les pays, en vue éloignée, hors ligne · %@"
+          }
+        }
+      }
+    },
+    "onboarding.maps.countriesDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jedes Land: sein Atlas, seine Lufträume, Flugplätze, Funknavigationshilfen, Hindernisse und Meldepunkte sowie seine VFR-Verfahren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each country: its Atlas, airspace, aerodromes, navaids, obstacles and reporting points, and its VFR procedures."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque pays : son Atlas, ses espaces aériens, aérodromes, aides radio, obstacles et points de report, et ses procédures VFR."
+          }
+        }
+      }
+    },
+    "onboarding.maps.countryCount %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Land"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Länder"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld country"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld countries"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pays"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pays"
+                }
+              }
+            }
           }
         }
       }
@@ -15098,13 +16865,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Von open flightmaps, für die Länder unter Daten & Speicher. Unverbindlich: Prüfen Sie immer die offizielle Karte."
+            "value": "Von open flightmaps, für die Länder unter Offline-Daten. Unverbindlich: Prüfen Sie immer die offizielle Karte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From open flightmaps, for the countries in Offline data. Indicative only: always check the official chart."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Issues d’open flightmaps, pour les pays de Données et stockage. Indicatives seulement : vérifiez toujours la carte officielle."
+            "value": "Issues d’open flightmaps, pour les pays de Données hors ligne. Indicatives seulement : vérifiez toujours la carte officielle."
           }
         }
       }
@@ -15114,13 +16887,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Laden Sie die VFR-Verfahren für %@ unter Daten & Speicher herunter"
+            "value": "Laden Sie die VFR-Verfahren für %@ herunter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download the VFR procedures for %@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Téléchargez les procédures VFR pour %@ dans Données et stockage"
+            "value": "Téléchargez les procédures VFR pour %@"
           }
         }
       }
@@ -37609,19 +39388,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weitere Länder können Sie jederzeit unter Einstellungen → Daten & Speicher hinzufügen."
+            "value": "Weitere Länder können Sie jederzeit unter Einstellungen → Offline-Daten hinzufügen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add more countries anytime in Settings → Data & Storage."
+            "value": "Add more countries anytime in Settings → Offline data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez d'autres pays à tout moment dans Réglages → Données et stockage."
+            "value": "Ajoutez d'autres pays à tout moment dans Réglages → Données hors ligne."
           }
         }
       }
@@ -41905,19 +43684,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ohne heruntergeladene Luftraumdaten sehen Sie beim Navigieren weder Lufträume noch Frequenzen. Sie können dies später unter Einstellungen → Daten & Speicher einrichten."
+            "value": "Ohne heruntergeladene Luftraumdaten sehen Sie beim Navigieren weder Lufträume noch Frequenzen. Sie können dies später unter Einstellungen → Offline-Daten einrichten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data & Storage."
+            "value": "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Offline data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sans télécharger les données d'espace aérien, vous ne verrez ni les espaces aériens ni les fréquences en navigation. Vous pourrez le configurer plus tard dans Réglages → Données et stockage."
+            "value": "Sans télécharger les données d'espace aérien, vous ne verrez ni les espaces aériens ni les fréquences en navigation. Vous pourrez le configurer plus tard dans Réglages → Données hors ligne."
           }
         }
       }

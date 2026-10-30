@@ -153,12 +153,101 @@ enum L10n {
         static let clippedAtBorder = String(localized: "pilotMap.imagery.clipped")
     }
 
+    // MARK: - Offline data (6.8.0)
+    /// Settings › Offline data and its pages: the device's data by country (the author's answers of 30 Oct 2026).
+    enum OfflineData {
+        static let title = String(localized: "offlineData.title")
+        static let subtitle = String(localized: "offlineData.subtitle")
+        static let nothingYet = String(localized: "offlineData.nothingYet")
+        static let upToDate = String(localized: "offlineData.upToDate")
+        static let updateNow = String(localized: "offlineData.updateNow")
+        static let updating = String(localized: "offlineData.updating")
+        static let autoUpdate = String(localized: "offlineData.autoUpdate")
+        static let autoUpdateDetail = String(localized: "offlineData.autoUpdateDetail")
+        static let connection = String(localized: "offlineData.connection")
+        static let offlineMode = String(localized: "offlineData.offlineMode")
+        static let offlineModeDetail = String(localized: "offlineData.offlineModeDetail")
+        static let onlineAirspace = String(localized: "offlineData.onlineAirspace")
+        static let onlineAirspaceDetail = String(localized: "offlineData.onlineAirspaceDetail")
+        static let yourCountries = String(localized: "offlineData.yourCountries")
+        static let yourCountriesFooter = String(localized: "offlineData.yourCountriesFooter")
+        static let noCountries = String(localized: "offlineData.noCountries")
+        static let addCountry = String(localized: "offlineData.addCountry")
+        static let partAtlas = String(localized: "offlineData.partAtlas")
+        static let partAeronautical = String(localized: "offlineData.partAeronautical")
+        static let partVFR = String(localized: "offlineData.partVFR")
+        static let partSwissCharts = String(localized: "offlineData.partSwissCharts")
+        static let downloading = String(localized: "offlineData.downloading")
+        static let worldwide = String(localized: "offlineData.worldwide")
+        static let airports = String(localized: "offlineData.airports")
+        static let atlasOnline = String(localized: "offlineData.atlasOnline")
+        static let atlasOnlineFooter = String(localized: "offlineData.atlasOnlineFooter")
+        static let onThisDevice = String(localized: "offlineData.onThisDevice")
+        static let credits = String(localized: "offlineData.credits")
+        static let yourCountry = String(localized: "offlineData.yourCountry")
+        static let europe = String(localized: "offlineData.europe")
+        static let elsewhere = String(localized: "offlineData.elsewhere")
+        static let aeronauticalOnly = String(localized: "offlineData.aeronauticalOnly")
+        static let addFooter = String(localized: "offlineData.addFooter")
+        static let noMatch = String(localized: "offlineData.noMatch")
+        static let searchPrompt = String(localized: "offlineData.searchPrompt")
+        static let notOnDevice = String(localized: "offlineData.notOnDevice")
+        static let aeronauticalTitle = String(localized: "offlineData.aeronauticalTitle")
+        static let aeronauticalDetail = String(localized: "offlineData.aeronauticalDetail")
+        static let vfrTitle = String(localized: "offlineData.vfrTitle")
+        static let vfrDetail = String(localized: "offlineData.vfrDetail")
+        static let withAeronautical = String(localized: "offlineData.withAeronautical")
+        static let swissCharts = String(localized: "offlineData.swissCharts")
+        static let icaoChart = String(localized: "offlineData.icaoChart")
+        static let gliderChart = String(localized: "offlineData.gliderChart")
+        static let gliderChartDetail = String(localized: "offlineData.gliderChartDetail")
+        static let onlineCharts = String(localized: "offlineData.onlineCharts")
+        static let onlineChartsDetail = String(localized: "offlineData.onlineChartsDetail")
+        static let nudge = String(localized: "offlineData.nudge")
+        static let airportsSource = "OurAirports"
+        /// "Ready offline in 2 countries".
+        static func readyIn(_ count: Int) -> String { String(localized: "offlineData.readyIn \(count)") }
+        /// "France in 3 of its 13 regions".
+        static func inRegions(_ country: String, _ downloaded: Int, _ total: Int) -> String {
+            String(format: String(localized: "offlineData.inRegions"), country, downloaded, total)
+        }
+        /// "Checked 2 hours ago".
+        static func checked(_ when: String) -> String { String(format: String(localized: "offlineData.checked"), when) }
+        static func updates(_ count: Int) -> String { String(localized: "offlineData.updates \(count)") }
+        /// "Atlas, 3 of 13 regions".
+        static func partAtlasSome(_ downloaded: Int, _ total: Int) -> String {
+            String(format: String(localized: "offlineData.partAtlasSome"), downloaded, total)
+        }
+        /// "Atlas in 13 regions".
+        static func partAtlasIn(_ count: Int) -> String { String(localized: "offlineData.partAtlasIn \(count)") }
+        static func airportsCount(_ count: Int) -> String {
+            String(format: String(localized: "offlineData.airportsCount"), count.formatted())
+        }
+        static func nextTo(_ country: String) -> String { String(format: String(localized: "offlineData.nextTo"), country) }
+        static func bytesOnDevice(_ size: String) -> String { String(format: String(localized: "offlineData.bytesOnDevice"), size) }
+        static func downloadAllOf(_ country: String) -> String {
+            String(format: String(localized: "offlineData.downloadAllOf"), country)
+        }
+        static func wholeCountryFooter(_ country: String) -> String {
+            String(format: String(localized: "offlineData.wholeCountryFooter"), country)
+        }
+        static func atlasRegions(_ count: Int) -> String { String(localized: "offlineData.atlasRegions \(count)") }
+        static func edition(_ edition: String) -> String { String(format: String(localized: "offlineData.edition"), edition) }
+        static func deleteCountry(_ country: String) -> String {
+            String(format: String(localized: "offlineData.deleteCountry"), country)
+        }
+        static func deleteCountryTitle(_ country: String) -> String {
+            String(format: String(localized: "offlineData.deleteCountryTitle"), country)
+        }
+    }
+
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like other newly-introduced UI strings.
     enum DataStorage {
-        static let title = String(localized: "Data & Storage")
-        static let subtitle = String(localized: "Updates & offline storage")
+        // Settings › Offline data since 6.8.0.
+        static let title = OfflineData.title
+        static let subtitle = OfflineData.subtitle
         static let aeronauticalSection = String(localized: "Aeronautical data")
         static let chartsSection = String(localized: "Offline charts")
         static let storageSection = String(localized: "Storage")
@@ -178,7 +267,7 @@ enum L10n {
         static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
         static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
-        static let nudgeMessage = String(localized: "Some aeronautical data is out of date. Open Data & Storage to update.")
+        static let nudgeMessage = OfflineData.nudge
         static let homeLabel = String(localized: "Data")
         static let statusNoData = String(localized: "No data")
         // Per-dataset name + source/description — source named first (device-test feedback).
@@ -1519,6 +1608,13 @@ enum L10n {
 
     // MARK: - Onboarding
     enum Onboarding {
+        /// Maps & Data: whole countries with their Atlas, and the Atlas overview (6.8.0).
+        static let countriesDetail = String(localized: "onboarding.maps.countriesDetail")
+        static func countryCount(_ count: Int) -> String { String(localized: "onboarding.maps.countryCount \(count)") }
+        static let atlasOverview = String(localized: "onboarding.maps.atlasOverview")
+        static func atlasOverviewDetail(_ size: String) -> String {
+            String(format: String(localized: "onboarding.maps.atlasOverviewDetail"), size)
+        }
         static let welcomeTitle = String(localized: "onboarding.welcome.title")
         static let welcomeSubtitle = String(localized: "onboarding.welcome.subtitle")
         static let navigationTitle = String(localized: "onboarding.navigation.title")
@@ -2166,6 +2262,9 @@ enum L10n {
         /// (6.4.2)
         static let icaoGliderNational = String(localized: "mapLayer.icaoGliderNational")
         static let landeskarte = String(localized: "mapLayer.landeskarte")
+        /// The Map sheet's switch under the ICAO row, from Navigation & Maps (the author's answer 14 A). (6.8.0)
+        static let icaoEveryZoom = String(localized: "mapLayer.icaoEveryZoom")
+        static let icaoEveryZoomDetail = String(localized: "mapLayer.icaoEveryZoomDetail")
         static let swissimage = String(localized: "mapLayer.swissimage")
         /// The pilot's map and the aerial imagery, in place of Apple's two layers since 6.8.0.
         static var satellite: String { String(localized: "pilotMap.aerialImagery") }

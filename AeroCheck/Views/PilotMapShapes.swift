@@ -5,7 +5,8 @@ import UIKit
 // MARK: - The map's lines and areas on MapLibre (6.8.0)
 
 /// `AeroMapView`'s lines and areas drawn by MapLibre (the plan's PR 6): the airspace, the aerodrome procedures, the
-/// flown track, the planned route, the route and its diversion line, the track vector, and the aircraft.
+/// flown track, the planned route, the route and its diversion line, the track vector. (The aircraft is a marker, above
+/// every marker as on MapKit: `PilotMapMarkers`.)
 ///
 /// Nothing here decides a colour or a width. Each group is built as the MapKit view builds it (the same overlay
 /// objects, from the same functions) and painted as its MapKit renderer says (`Paint`, read off the renderer the
@@ -22,7 +23,6 @@ final class PilotMapShapes {
         case plannedRoute
         case route
         case trackVector
-        case aircraft
 
         var sourceID: String { "aero.\(self)" }
     }
@@ -84,7 +84,6 @@ final class PilotMapShapes {
         enum Kind: Hashable {
             case fill
             case line(cap: CGLineCap, dash: [Double])
-            case symbol
         }
 
         let group: Group
@@ -97,7 +96,6 @@ final class PilotMapShapes {
             case let .line(cap, dash):
                 let pattern = dash.map { String(format: "%.2f", $0) }.joined(separator: "-")
                 return "\(group.sourceID).\(tier).line.\(cap.rawValue)" + (dash.isEmpty ? "" : ".\(pattern)")
-            case .symbol: return "\(group.sourceID).\(tier).symbol"
             }
         }
 
@@ -105,7 +103,6 @@ final class PilotMapShapes {
             switch kind {
             case .fill: return 0
             case .line: return 1
-            case .symbol: return 2
             }
         }
 
@@ -207,28 +204,6 @@ final class PilotMapShapes {
         setLayers(keys, for: group, source: source, in: style)
     }
 
-    /// The aircraft: the ownship symbol at its position, pointing along its heading, turning with the map (MapLibre
-    /// rotates it with a track-up map; MapKit's annotation had to be turned back by hand).
-    func syncAircraft(_ location: CLLocation?, heading: Double, on style: MLNStyle) {
-        let signature = location.map { var h = Hasher(); h.combine($0.coordinate.latitude); h.combine($0.coordinate.longitude)
-            h.combine((heading * 2).rounded()); return h.finalize() } ?? 0
-        guard signatures[.aircraft] != signature else { return }
-        signatures[.aircraft] = signature
-        if style.image(forName: "aero.ownship") == nil, let image = AeroMapView.ownshipImage {
-            style.setImage(image, forName: "aero.ownship")
-        }
-        let source = self.source(for: .aircraft, in: style)
-        if let location {
-            let point = MLNPointFeature()
-            point.coordinate = location.coordinate
-            point.attributes = ["heading": heading]
-            source.shape = point
-        } else {
-            source.shape = nil
-        }
-        setLayers([LayerKey(group: .aircraft, tier: 0, kind: .symbol)], for: .aircraft, source: source, in: style)
-    }
-
     private func source(for group: Group, in style: MLNStyle) -> MLNShapeSource {
         if let source = style.source(withIdentifier: group.sourceID) as? MLNShapeSource { return source }
         let source = MLNShapeSource(identifier: group.sourceID, shape: nil, options: nil)
@@ -271,15 +246,6 @@ final class PilotMapShapes {
             layer.lineJoin = NSExpression(forConstantValue: "round")
             layer.lineCap = NSExpression(forConstantValue: cap == .butt ? "butt" : cap == .square ? "square" : "round")
             if !dash.isEmpty { layer.lineDashPattern = NSExpression(forConstantValue: dash) }
-            return layer
-        case .symbol:
-            let layer = MLNSymbolStyleLayer(identifier: key.id, source: source)
-            layer.iconImageName = NSExpression(forConstantValue: "aero.ownship")
-            // The symbol points east: heading 0 (north) is a quarter turn back.
-            layer.iconRotation = NSExpression(mglJSONObject: ["-", ["get", "heading"], 90])
-            layer.iconRotationAlignment = NSExpression(forConstantValue: "map")
-            layer.iconAllowsOverlap = NSExpression(forConstantValue: true)
-            layer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
             return layer
         }
     }
@@ -377,10 +343,6 @@ extension PilotMapShapes {
             }
         }
 
-        // The aircraft, on its cached course (it survives GPS gaps).
-        let aircraft = map.shownAircraft
-        let heading = map.cachedHeading ?? aircraft.map { $0.course >= 0 ? $0.course : 0 } ?? 0
-        syncAircraft(aircraft, heading: heading, on: style)
     }
 
     /// The map's zoom as `VFRMapLayer` sizes its arrowheads and dashes: metres per point at the map's middle.

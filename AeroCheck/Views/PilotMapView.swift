@@ -83,8 +83,9 @@ enum PilotMapStyle {
 
 /// `AeroMapView` drawn by MapLibre (6.8.0, the plan's PR 4): the pilot's map, the swisstopo charts and OpenAIP's tiles
 /// over it, the layer choice, the camera kept in `SharedMapState` as the MapKit view keeps it; the airspace, the
-/// procedures, the track, the routes, the track vector and the aircraft over everything (`PilotMapShapes`, PR 6). The
-/// markers and their callouts, the legs band and the builder's gestures follow in the next PRs of the stack.
+/// procedures, the track, the routes, the track vector and the aircraft over everything (`PilotMapShapes`, PR 6); the
+/// markers and their cards and callouts (`PilotMapMarkers`, PR 7). The legs band and the builder's gestures follow in
+/// the next PRs of the stack.
 struct PilotMapView: UIViewRepresentable {
     let map: AeroMapView
 
@@ -116,6 +117,7 @@ struct PilotMapView: UIViewRepresentable {
         PilotMap.onlineAllowed = !map.isStrictOfflineMode
         coordinator.applyLayers(on: view)
         coordinator.applyShapes(on: view)
+        coordinator.applyMarkers(on: view)
         coordinator.updateCredits(on: view)
         coordinator.applyZoomLimits(on: view)
         guard coordinator.hasSize(view) else { return }
@@ -131,6 +133,8 @@ struct PilotMapView: UIViewRepresentable {
         private var drawnRasters: [PilotMapCharts.Raster] = []
         /// The lines, areas and aircraft over the map.
         private let shapes = PilotMapShapes()
+        /// The markers, their cards and callouts.
+        private let markers = PilotMapMarkers()
         private var isUserInteracting = false
         /// The view's size when the camera was last placed from the shared state: placed again once SwiftUI has laid
         /// the view out, so the first report back describes the pilot's map, not the placeholder frame.
@@ -166,6 +170,65 @@ struct PilotMapView: UIViewRepresentable {
             MainActor.assumeIsolated { shapes.reset() }
             applyLayers(on: mapView)
             applyShapes(on: mapView)
+        }
+
+        // MARK: Markers
+
+        /// The markers as the MapKit view shows them, and a search's aerodrome's card once the map is there.
+        func applyMarkers(on mapView: MLNMapView) {
+            guard style != nil else { return }
+            let map = self.map
+            MainActor.assumeIsolated {
+                markers.onWaypointLongPress = { map.atoTap?($0) }
+                markers.sync(map, on: mapView)
+                markers.openPendingCallout(on: mapView, mapState: map.mapState)
+            }
+        }
+
+        func mapView(_ mapView: MLNMapView, viewFor annotation: MLNAnnotation) -> MLNAnnotationView? {
+            if let aircraft = annotation as? PilotAircraftMarker {
+                return MainActor.assumeIsolated { markers.view(for: aircraft, on: mapView) }
+            }
+            guard let marker = annotation as? PilotMarker else { return nil }
+            return MainActor.assumeIsolated { markers.view(for: marker, on: mapView, inFlight: map.isInFlight) }
+        }
+
+        func mapView(_ mapView: MLNMapView, annotationCanShowCallout annotation: MLNAnnotation) -> Bool {
+            guard let marker = annotation as? PilotMarker else { return false }
+            return MainActor.assumeIsolated { PilotMapMarkers.hasCallout(marker.base) }
+        }
+
+        func mapView(_ mapView: MLNMapView, calloutViewFor annotation: MLNAnnotation) -> MLNCalloutView? {
+            guard let marker = annotation as? PilotMarker else { return nil }
+            let map = self.map
+            return MainActor.assumeIsolated {
+                markers.callout(for: marker, map: map, on: mapView) { [weak mapView] in
+                    mapView?.deselectAnnotation(marker, animated: true)
+                }
+            }
+        }
+
+        func mapView(_ mapView: MLNMapView, didSelect annotation: MLNAnnotation) {
+            guard let marker = annotation as? PilotMarker else { return }
+            MainActor.assumeIsolated {
+                switch marker.base {
+                case let waypoint as FlightPlanWaypointAnnotation:
+                    // A tap records the time over the waypoint, in flight only: on Plan › Map a tap stamped one. (6.5.0)
+                    mapView.deselectAnnotation(annotation, animated: false)
+                    if map.isInFlight { map.atoTap?(waypoint.waypointIndex) }
+                case is VFRApproachAnnotation:
+                    mapView.deselectAnnotation(annotation, animated: false)
+                default:
+                    // A route pin selects its row in the route builder too. (planning proposal D3)
+                    _ = markers.plannedRoute.didSelect(marker.base)
+                    map.mapState.noteCalloutOpen(true)   // the chrome steps aside (6.2.0)
+                }
+            }
+        }
+
+        func mapView(_ mapView: MLNMapView, didDeselect annotation: MLNAnnotation) {
+            let state = map.mapState
+            MainActor.assumeIsolated { state.noteCalloutOpen(false) }
         }
 
         /// The airspace, procedures, track, routes, track vector and aircraft, as the MapKit view draws them.
@@ -323,6 +386,7 @@ struct PilotMapView: UIViewRepresentable {
         }
 
         func mapViewRegionIsChanging(_ mapView: MLNMapView) {
+            MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) }
             guard mapView.window != nil, placedAt != CGSize(width: 320, height: 320) else { return }
             map.liveRegion?.region = Self.region(of: mapView)
         }
@@ -335,6 +399,10 @@ struct PilotMapView: UIViewRepresentable {
             updateCredits(on: mapView)
             // The procedures' dashes and arrowheads are cut for the zoom.
             applyShapes(on: mapView)
+            MainActor.assumeIsolated {
+                markers.layout(on: mapView, atRest: true)
+                markers.openPendingCallout(on: mapView, mapState: map.mapState)
+            }
             let state = map.mapState
             let region = Self.region(of: mapView)
             map.liveRegion?.region = region

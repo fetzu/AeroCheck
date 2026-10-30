@@ -46,6 +46,7 @@
 		8D9B14781A99C8E88AE54852 /* PilotMapChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */; };
 		D1C6FD69FBAEFE4FD8F201AB /* PilotMapImageryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428053F50E506F09A515613F /* PilotMapImageryTests.swift */; };
 		7A31C0E2B94D4F1A8C6E0D55 /* PilotMapShapesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D56 /* PilotMapShapesTests.swift */; };
+		7A31C0E2B94D4F1A8C6E0D59 /* PilotMapMarkersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D5A /* PilotMapMarkersTests.swift */; };
 		C1C01A950000000000000AC3 /* AircraftRequestsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C01A950000000000000AC4 /* AircraftRequestsTests.swift */; };
 		A50000A3111111110000002 /* ExportStagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000A3111111110000001 /* ExportStagingTests.swift */; };
 		A5000026111111110000002 /* NavaidTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000026111111110000001 /* NavaidTests.swift */; };
@@ -394,6 +395,7 @@
 		4CB20F4EB931BD27A27253DC /* MapFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */; };
 		2F4293CE9CC02A015F6F3F3A /* PilotMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B4591E99556C879B4944842 /* PilotMapView.swift */; };
 		7A31C0E2B94D4F1A8C6E0D53 /* PilotMapShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D54 /* PilotMapShapes.swift */; };
+		7A31C0E2B94D4F1A8C6E0D57 /* PilotMapMarkers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D58 /* PilotMapMarkers.swift */; };
 		851C2D8CED1ABA6D782C9139 /* PlannedRouteLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */; };
 		AA42C0CAF37368D938C5F337 /* AerodromeMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */; };
 		855F5BB902B42E59257958D5 /* AerodromeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58A88DEE03A2690E8A59265C /* AerodromeCard.swift */; };
@@ -523,6 +525,7 @@
 		BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapChartTests.swift; sourceTree = "<group>"; };
 		428053F50E506F09A515613F /* PilotMapImageryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapImageryTests.swift; sourceTree = "<group>"; };
 		7A31C0E2B94D4F1A8C6E0D56 /* PilotMapShapesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapShapesTests.swift; sourceTree = "<group>"; };
+		7A31C0E2B94D4F1A8C6E0D5A /* PilotMapMarkersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMarkersTests.swift; sourceTree = "<group>"; };
 		C1C01A950000000000000AC4 /* AircraftRequestsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftRequestsTests.swift; sourceTree = "<group>"; };
 		A50000A3111111110000001 /* ExportStagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportStagingTests.swift; sourceTree = "<group>"; };
 		A5000026111111110000001 /* NavaidTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavaidTests.swift; sourceTree = "<group>"; };
@@ -870,6 +873,7 @@
 		9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapFeatures.swift; sourceTree = "<group>"; };
 		1B4591E99556C879B4944842 /* PilotMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapView.swift; sourceTree = "<group>"; };
 		7A31C0E2B94D4F1A8C6E0D54 /* PilotMapShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapShapes.swift; sourceTree = "<group>"; };
+		7A31C0E2B94D4F1A8C6E0D58 /* PilotMapMarkers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMarkers.swift; sourceTree = "<group>"; };
 		58A88DEE03A2690E8A59265C /* AerodromeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeCard.swift; sourceTree = "<group>"; };
 		74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AerodromeMarkerView.swift; sourceTree = "<group>"; };
 		FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedRouteLayer.swift; sourceTree = "<group>"; };
@@ -991,6 +995,7 @@
 				BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */,
 				428053F50E506F09A515613F /* PilotMapImageryTests.swift */,
 				7A31C0E2B94D4F1A8C6E0D56 /* PilotMapShapesTests.swift */,
+				7A31C0E2B94D4F1A8C6E0D5A /* PilotMapMarkersTests.swift */,
 				C1C01A950000000000000AC4 /* AircraftRequestsTests.swift */,
 				A50000A3111111110000001 /* ExportStagingTests.swift */,
 				A5000026111111110000001 /* NavaidTests.swift */,
@@ -1247,6 +1252,7 @@
 				9C26307CEB5D20DBAAE27EBF /* MapFeatures.swift */,
 				1B4591E99556C879B4944842 /* PilotMapView.swift */,
 				7A31C0E2B94D4F1A8C6E0D54 /* PilotMapShapes.swift */,
+				7A31C0E2B94D4F1A8C6E0D58 /* PilotMapMarkers.swift */,
 				FFEB1C86740082D794677AC1 /* PlannedRouteLayer.swift */,
 				74B1EB212F14D8946E6549A5 /* AerodromeMarkerView.swift */,
 				58A88DEE03A2690E8A59265C /* AerodromeCard.swift */,
@@ -1766,6 +1772,7 @@
 				8D9B14781A99C8E88AE54852 /* PilotMapChartTests.swift in Sources */,
 				D1C6FD69FBAEFE4FD8F201AB /* PilotMapImageryTests.swift in Sources */,
 				7A31C0E2B94D4F1A8C6E0D55 /* PilotMapShapesTests.swift in Sources */,
+				7A31C0E2B94D4F1A8C6E0D59 /* PilotMapMarkersTests.swift in Sources */,
 				C1C01A950000000000000AC3 /* AircraftRequestsTests.swift in Sources */,
 				A50000A3111111110000002 /* ExportStagingTests.swift in Sources */,
 				A5000026111111110000002 /* NavaidTests.swift in Sources */,
@@ -2089,6 +2096,7 @@
 				4CB20F4EB931BD27A27253DC /* MapFeatures.swift in Sources */,
 				2F4293CE9CC02A015F6F3F3A /* PilotMapView.swift in Sources */,
 				7A31C0E2B94D4F1A8C6E0D53 /* PilotMapShapes.swift in Sources */,
+				7A31C0E2B94D4F1A8C6E0D57 /* PilotMapMarkers.swift in Sources */,
 				851C2D8CED1ABA6D782C9139 /* PlannedRouteLayer.swift in Sources */,
 				AA42C0CAF37368D938C5F337 /* AerodromeMarkerView.swift in Sources */,
 				855F5BB902B42E59257958D5 /* AerodromeCard.swift in Sources */,

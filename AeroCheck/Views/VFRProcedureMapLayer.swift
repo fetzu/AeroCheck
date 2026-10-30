@@ -973,13 +973,21 @@ enum VFRMapLayer {
 
     /// Where each circuit's altitude pill goes on this map as it is now (`stackPills`), by label key.
     static func pillSlots(on mapView: MKMapView) -> [String: VFRPillSlot] {
-        let heading = mapView.camera.heading
-        let pills = mapView.annotations.compactMap { $0 as? VFRProcedureAnnotation }.compactMap { label -> VFRPill? in
+        pillSlots(for: mapView.annotations.compactMap { $0 as? VFRProcedureAnnotation }, heading: mapView.camera.heading) {
+            mapView.convert($0, toPointTo: mapView)
+        }
+    }
+
+    /// Where each of `labels`' altitude pills goes, on a map turned to `heading` that puts a coordinate at `point`:
+    /// either engine's map. (6.8.0)
+    static func pillSlots(for labels: [VFRProcedureAnnotation], heading: CLLocationDirection,
+                          point: (CLLocationCoordinate2D) -> CGPoint) -> [String: VFRPillSlot] {
+        let pills = labels.compactMap { label -> VFRPill? in
             guard case .altitude(let leg, let outsideLeft) = label.item.labelStyle, leg.count == 2 else { return nil }
             let turn = labelTurn(leg: leg, outsideLeft: outsideLeft, heading: heading)
             let procedure = label.item.procedure
             return VFRPill(key: label.labelKey, text: label.item.labelText,
-                           anchor: mapView.convert(label.coordinate, toPointTo: mapView),
+                           anchor: point(label.coordinate),
                            angle: turn.angle, above: turn.above,
                            size: VFRProcedureLabelImage.pillBox(text: label.item.labelText),
                            order: [procedure.altitudeFt == nil ? 1 : 0,
@@ -1412,7 +1420,6 @@ enum VFRMapLayer {
                 ?? MKAnnotationView(annotation: label, reuseIdentifier: id)
         }
         view.annotation = label
-        let kind = label.item.procedure.kind
         view.transform = .identity
         view.centerOffset = .zero
         view.calloutOffset = .zero
@@ -1420,7 +1427,7 @@ enum VFRMapLayer {
         view.collisionMode = .rectangle
         switch label.item.labelStyle {
         case .badge:
-            view.image = VFRApproachImages.badge(label.item.labelText, palette: palette)
+            view.image = labelImage(for: label, palette: palette)
             // A sector's letter and a circuit's altitude are why the layer is on: never hidden.
             view.displayPriority = .required
         case .altitude:
@@ -1430,7 +1437,7 @@ enum VFRMapLayer {
                        slot: pillSlots(on: mapView)[label.labelKey] ?? .level(0), palette: palette)
             }
         case .name:
-            view.image = VFRProcedureLabelImage.image(text: label.item.labelText, kind: kind, palette: palette)
+            view.image = labelImage(for: label, palette: palette)
             // Labels give way to each other and to the markers that must show: MapKit hides the colliding ones.
             view.displayPriority = .defaultHigh
         }
@@ -1445,6 +1452,30 @@ enum VFRMapLayer {
         return view
     }
 
+    /// A sector's letter or a route's name, as drawn; nil for a circuit's altitude, which is a pill turned along its
+    /// downwind (`VFRProcedureLabelImage.pillImage`). Both map engines draw these. (6.8.0)
+    static func labelImage(for label: VFRProcedureAnnotation, palette: VFRMapPalette) -> UIImage? {
+        switch label.item.labelStyle {
+        case .badge: return VFRApproachImages.badge(label.item.labelText, palette: palette)
+        case .name: return VFRProcedureLabelImage.image(text: label.item.labelText, kind: label.item.procedure.kind, palette: palette)
+        case .altitude: return nil
+        }
+    }
+
+    /// A runway number, a parachute or a pattern altitude, and what VoiceOver reads for it. (6.8.0)
+    static func approachImage(for annotation: VFRApproachAnnotation, palette: VFRMapPalette) -> (UIImage, String) {
+        switch annotation.kind {
+        case .runway(let ident, let inUse, let pattern):
+            let runway = inUse ? L10n.VFRMap.runwayInUse(ident) : L10n.VFRMap.runway(ident)
+            return (VFRApproachImages.runway(ident, inUse: inUse, pattern: pattern, palette: palette),
+                    pattern.map { "\(runway), \(L10n.VFRMap.patternTraffic($0))" } ?? runway)
+        case .parachute:
+            return (VFRApproachImages.parachute(palette: palette), L10n.VFRMap.parachuting)
+        case .patternAltitude(let feet):
+            return (VFRApproachImages.patternAltitude(feet, palette: palette), L10n.VFRMap.patternAltitude(feet))
+        }
+    }
+
     /// A runway number or a parachute: no callout, never hidden.
     static func approachView(for annotation: VFRApproachAnnotation, on mapView: MKMapView,
                              palette: VFRMapPalette) -> MKAnnotationView {
@@ -1457,18 +1488,7 @@ enum VFRMapLayer {
         view.displayPriority = .required
         view.collisionMode = .rectangle
         view.isAccessibilityElement = true
-        switch annotation.kind {
-        case .runway(let ident, let inUse, let pattern):
-            view.image = VFRApproachImages.runway(ident, inUse: inUse, pattern: pattern, palette: palette)
-            let runway = inUse ? L10n.VFRMap.runwayInUse(ident) : L10n.VFRMap.runway(ident)
-            view.accessibilityLabel = pattern.map { "\(runway), \(L10n.VFRMap.patternTraffic($0))" } ?? runway
-        case .parachute:
-            view.image = VFRApproachImages.parachute(palette: palette)
-            view.accessibilityLabel = L10n.VFRMap.parachuting
-        case .patternAltitude(let feet):
-            view.image = VFRApproachImages.patternAltitude(feet, palette: palette)
-            view.accessibilityLabel = L10n.VFRMap.patternAltitude(feet)
-        }
+        (view.image, view.accessibilityLabel) = approachImage(for: annotation, palette: palette)
         return view
     }
 }

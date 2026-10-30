@@ -1,13 +1,13 @@
-6.8.0 zeichnet seine eigene Karte, die Pilotenkarte, aus OpenStreetMap, auf jeder Karte der App.
+6.8.0 zeichnet seine eigene Karte, den Atlas, aus OpenStreetMap, auf jeder Karte der App.
 
 Zum Ausprobieren:
-- «Einstellungen» › «Daten & Speicher» › «Pilotenkarte»: Laden Sie die Schweiz herunter (etwa 90 MB, WLAN empfohlen). Schalten Sie dann den Flugmodus ein: Die Karte zeichnet in der Schweiz weiter.
-- «Pilotenkarte» › «Länder und Regionen»: jedes Land von aerocheck.app/countries, die grossen nach Region. Laden Sie auch einen Nachbarn herunter (Baden-Württemberg, Grand Est): An der Grenze zeichnen sich beide Seiten, ohne Lücke und ohne Doppeltes.
-- Fenster «Karte» › «Grundkarte»: «Pilotenkarte» und «Luftbilder» ersetzen die beiden Ebenen von Apple. Schieben Sie auf «Luftbilder» von der Schweiz nach Frankreich oder Deutschland: Jede Quelle wird am Fuss der Karte genannt.
-- Zoomen Sie bis Europa hinaus: der Weltumriss, mit den Namen der Länder in ihnen und ihren Hauptstädten.
+- «Einstellungen» › «Daten & Speicher» › «Atlas»: Laden Sie die Schweiz herunter (etwa 90 MB, WLAN empfohlen). Schalten Sie dann den Flugmodus ein: Die Karte zeichnet in der Schweiz weiter.
+- «Atlas» › «Länder und Regionen»: jedes Land von aerocheck.app/countries, die grossen nach Region. Laden Sie auch einen Nachbarn herunter (Baden-Württemberg, Grand Est): An der Grenze zeichnen sich beide Seiten, ohne Lücke und ohne Doppeltes.
+- Fenster «Karte» › «Grundkarte»: «Atlas» und «Luftbilder» ersetzen die beiden Ebenen von Apple. Schieben Sie auf «Luftbilder» von der Schweiz nach Frankreich oder Deutschland: Jede Quelle wird am Fuss der Karte genannt.
+- Zoomen Sie bis Europa hinaus: jedes Land im Detail, mit seinen Städten, Strassen und seinem Relief.
 - «Planen» › «Karte», die KARTE des Cockpits und der Routeneditor: Tippen Sie auf einen Flugplatz, die Höhe einer Platzrunde, eine Navigationshilfe; ziehen Sie einen Routenpunkt; das Teilstreckenband; «Flugplätze suchen». Sagen Sie uns alles, was sich anders bewegt als in 6.7.
-- Ein Flug im Flugbuch: die Karte seines Flugwegs und das Bild zum Teilen auf «Pilotenkarte» und auf «Luftbilder».
-- Planen Sie einen Flug über eine Grenze: Das Banner bietet die Regionen der Pilotenkarte entlang der Route an.
-- Die Schweizer ICAO-, Segelflug- und Landeskarten: Jenseits ihres Rands liegt nun die Pilotenkarte darunter.
+- Ein Flug im Flugbuch: die Karte seines Flugwegs und das Bild zum Teilen auf «Atlas» und auf «Luftbilder».
+- Planen Sie einen Flug über eine Grenze: Das Banner bietet die Regionen des Atlas entlang der Route an.
+- Die Schweizer ICAO-, Segelflug- und Landeskarten: Jenseits ihres Rands liegt nun der Atlas darunter.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

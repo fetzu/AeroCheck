@@ -8,7 +8,7 @@ AéroCheck walks a pilot through the checklists of a flight on an iPad (or an iP
 
 _This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
 
-It was built for the kneeboard: an iPad in portrait on the pilot's knee, three pages in flight (the checklist, the chart and the route), big type, and buttons that stay where the thumb expects them. Around that it plans routes on the Swiss charts (OpenAIP elsewhere), briefs the departure and the approach, reads the METARs and SIGMETs, draws traffic circuits and VFR routes from open flightmaps, keeps a logbook, and can pair an iPhone as a second screen (iOS 26 on both). What it does, screen by screen, is in the [manual](https://aerocheck.app/manual/) (EN/FR); what changed, and when, is in the [releases](https://github.com/fetzu/AeroCheck/releases).
+It was built for the kneeboard: an iPad in portrait on the pilot's knee, three pages in flight (the checklist, the chart and the route), big type, and buttons that stay where the thumb expects them. Around that it plans routes on the Swiss charts and, everywhere, on the Atlas, its own map drawn from OpenStreetMap and offline by region (OpenAIP's airspace on both), briefs the departure and the approach, reads the METARs and SIGMETs, draws traffic circuits and VFR routes from open flightmaps, keeps a logbook, and can pair an iPhone as a second screen (iOS 26 on both). What it does, screen by screen, is in the [manual](https://aerocheck.app/manual/) (EN/FR); what changed, and when, is in the [releases](https://github.com/fetzu/AeroCheck/releases).
 
 The WT9 Dynamic's checklist (F-HVXA) is bundled and free. The other aircraft (15 registrations, from GVMP Porrentruy, Lausanne Aéroclub and GVMN Neuchâtel) come from the AeroCheck API with an AeroCheck Pro subscription: monthly, yearly or a one-time lifetime purchase, through the App Store. The current list is on [aerocheck.app](https://aerocheck.app).
 
@@ -45,6 +45,8 @@ AéroCheck shows other people's geographic, aeronautical and weather data, under
 | Data | Source | Attribution |
 |------|--------|-------------|
 | ICAO / Segelflug / Landeskarte / SwissImage chart tiles | **swisstopo / BAZL** (geo.admin.ch) | © swisstopo / BAZL |
+| The Atlas, the app's own map (built monthly by region, served from tiles.aerocheck.app) | **OpenStreetMap** (ODbL), via the Protomaps daily build; region outlines from **Overture Maps** (ODbL); relief from **Mapterhorn**; drawn by **MapLibre Native** (BSD-2-Clause) in **B612** (OFL) | © OpenStreetMap contributors, Mapterhorn; how it is made: [aerocheck.app/map](https://aerocheck.app/map/) |
+| Aerial imagery | Open government orthophotos (swisstopo, basemap.at, IGN, and others), fetched from each provider's own service | Each provider's own credit, on the map while its imagery shows |
 | Terrain elevation (Switzerland) | **swisstopo** profile API | © swisstopo |
 | Terrain elevation (worldwide), winds aloft | **Open-Meteo** (CC BY 4.0) | Elevation: Open-Meteo |
 | Wind (experimental, Switzerland) | **MeteoSwiss** Open Data (geo.admin.ch) | © MeteoSwiss |

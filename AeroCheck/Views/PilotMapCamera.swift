@@ -133,15 +133,15 @@ final class PilotLegsBand {
 }
 
 extension PendingCameraMove {
-    /// The search's aerodrome on MapLibre: `AirfieldSearch.spanNM` across the map's narrower side, held within the
-    /// chart's zoom range, keeping the heading, at once. False while the map has no size yet: left pending.
+    /// The search's aerodrome on MapLibre: `spanNM` across the map's narrower side, held within the chart's zoom
+    /// range, keeping the heading, at once. False while the map has no size yet: left pending.
     @MainActor
     func apply(to mapView: MLNMapView) -> Bool {
         let size = mapView.bounds.size
         guard size.width > 0, size.height > 0 else { return false }
         let narrower = Double(min(size.width, size.height))
         // Metres per point for the span, as map points per point at the aerodrome's latitude.
-        let metresPerPoint = AirfieldSearch.spanNM * 1852 / narrower
+        let metresPerPoint = spanNM * 1852 / narrower
         let scale = metresPerPoint * MKMapPointsPerMeterAtLatitude(center.latitude)
         let zoom = min(max(PilotMapZoom.zoom(forScale: scale), mapView.minimumZoomLevel), mapView.maximumZoomLevel)
         mapView.setCenter(center, zoomLevel: zoom, direction: mapView.direction, animated: false)

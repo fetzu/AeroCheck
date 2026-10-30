@@ -1086,9 +1086,19 @@ struct NavigationMapView: View {
     #if DEBUG
     /// DEV-ONLY (`AEROCHECK_SCENE=circuits`, the website's `circuits` shot): Plan › Map framed on LSZQ as the
     /// search frames an aerodrome, about 8 NM across, without the callout the shot had to close. (6.3.0)
+    /// `AEROCHECK_SCENE=atlas`: Basel, 45 NM across, Mulhouse and Freiburg in view. (6.8.0)
     private func frameForCaptureIfAsked() {
-        guard chrome == .plan, ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() == "circuits"
-        else { return }
+        guard chrome == .plan else { return }
+        let scene = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased()
+        if scene == "atlas" {
+            isFollowingAircraft = false
+            mapState.pendingCallout = nil
+            mapState.pendingCameraMove = PendingCameraMove(center: CLLocationCoordinate2D(latitude: 47.70, longitude: 7.55),
+                                                           spanNM: 45)
+            mapState.objectWillChange.send()
+            return
+        }
+        guard scene == "circuits" else { return }
         Task {
             await airportDataService.ensureLoaded()
             // The airport list may still be downloading on a fresh simulator.

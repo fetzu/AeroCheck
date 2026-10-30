@@ -37,7 +37,7 @@ struct MapEngineView: View {
 // MARK: - The style
 
 /// The pilot's map's style (AeroCheck-maps `build/style.py`; the app ships a copy), its tile and glyph addresses
-/// filled in with the ones `PilotTileURLProtocol` answers. (6.8.0)
+/// filled in with the ones `PilotTileURLProtocol` answers, and the outline's names in the app's language. (6.8.0)
 enum PilotMapStyle {
     /// Written once per launch beside the app's caches, for MapLibre to load as a file.
     static let url: URL? = {
@@ -47,6 +47,8 @@ enum PilotMapStyle {
             .replacingOccurrences(of: "{{MAP_TILES}}", with: PilotMapConfig.mapTileTemplate)
             .replacingOccurrences(of: "{{RELIEF_TILES}}", with: PilotMapConfig.reliefTileTemplate)
             .replacingOccurrences(of: "{{GLYPHS}}", with: PilotMapConfig.glyphsTemplate)
+            .replacingOccurrences(of: "{{OUTLINE_TILES}}", with: PilotMapConfig.outlineTileTemplate)
+            .replacingOccurrences(of: "{{LANG}}", with: outlineLanguage)
         let out = FileManager.default.temporaryDirectory.appendingPathComponent("pilot-day.style.json")
         do {
             try filled.write(to: out, atomically: true, encoding: .utf8)
@@ -55,6 +57,12 @@ enum PilotMapStyle {
             return nil
         }
     }()
+
+    /// The outline names countries, capitals, rivers and lakes in English, French and German: the app's language
+    /// when it is one of them, else English.
+    static var outlineLanguage: String {
+        ["en", "fr", "de"].contains(AppLanguage.current) ? AppLanguage.current : "en"
+    }
 
     /// The peaks' mark: a small brown triangle, as the style's `peak` image.
     static let peakImage: UIImage = {

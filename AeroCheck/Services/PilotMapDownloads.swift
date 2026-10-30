@@ -3,15 +3,27 @@ import Foundation
 import UIKit
 
 /// The pilot's map regions on this device: the index, the downloads (Settings › Data & Storage, and a planned
-/// flight's regions with its other trip data), the monthly update by the index's dates, and the allowance's level for
-/// the screens that show it. A downloaded region never counts against the allowance. (6.8.0)
+/// flight's regions with its other trip data), the update every three months, and the allowance's level for the
+/// screens that show it. A downloaded region never counts against the allowance. The same tiles are never fetched
+/// twice: a file whose hash (or date) the index still lists isn't asked for, and one that is goes with its ETag, so
+/// R2 answers "not modified" when nothing changed. (6.8.0)
 @MainActor
 final class PilotMapDownloads: ObservableObject {
     static let shared = PilotMapDownloads(source: PilotMap.shared, imagery: PilotMap.imagery)
 
-    /// One file's transfer: the request, a progress callback (0…1), and the downloaded file, moved somewhere the
-    /// caller owns. Tests replace it.
-    typealias Transfer = @Sendable (URLRequest, @escaping @Sendable (Double) -> Void) async throws -> URL
+    /// One file's transfer: the request, a progress callback (0…1), and what came back. Tests replace it.
+    typealias Transfer = @Sendable (URLRequest, @escaping @Sendable (Double) -> Void) async throws -> Transferred
+
+    enum Transferred: Equatable, Sendable {
+        /// The downloaded file, moved somewhere the caller owns, and its ETag.
+        case file(URL, etag: String?)
+        /// 304: the copy here (its ETag sent as If-None-Match) is the file on the server.
+        case unchanged
+    }
+
+    /// A downloaded region updates itself once its copy is this many months old (decided 26 Oct 2026: a month of OpenStreetMap
+    /// edits changes nearly every tile and little a pilot sees, so monthly updates cost much and give little).
+    static let autoUpdateMonths = 3
 
     enum State: Equatable {
         case notDownloaded
@@ -107,7 +119,27 @@ final class PilotMapDownloads: ObservableObject {
         PilotMapKind.allCases.filter { kind in
             guard listed.has(kind) else { return false }
             guard let installed, filesPresent.contains(kind) else { return true }
+            if let have = installed.hash(of: kind), have == listed.hash(of: kind) { return false }
             return installed.build(of: kind) != listed.build(of: kind)
+        }
+    }
+
+    /// Whether the update every three months is due: a file is missing, or one to fetch is from a build that old.
+    static func autoUpdateDue(listed: PilotMapRegion, installed: PilotMapRegion, filesPresent: Set<PilotMapKind>,
+                              now: Date = Date()) -> Bool {
+        let kinds = kindsToFetch(listed: listed, installed: installed, filesPresent: filesPresent)
+        // Build dates are UTC days: the cutoff is counted in UTC too, whatever the device's time zone.
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        guard let cutoff = utc.date(byAdding: .month, value: -autoUpdateMonths, to: now) else { return false }
+        let format = DateFormatter()
+        format.calendar = utc
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.timeZone = TimeZone(identifier: "UTC")
+        format.dateFormat = "yyyyMMdd"
+        return kinds.contains { kind in
+            guard filesPresent.contains(kind), let built = format.date(from: installed.build(of: kind)) else { return true }
+            return built <= cutoff
         }
     }
 
@@ -202,29 +234,40 @@ final class PilotMapDownloads: ObservableObject {
         defer { if background != .invalid { UIApplication.shared.endBackgroundTask(background) } }
 
         var files: [PilotMapKind: URL] = [:]
+        var etags: [PilotMapKind: String] = [:]
         var done = 0
+        let present = filesPresent(region.id)
         do {
             for kind in kinds {
                 let expected = kind == .map ? region.mapBytes : region.reliefBytes
-                var request = URLRequest(url: PilotMapConfig.archiveURL(region: region.id, kind: kind),
+                var request = URLRequest(url: PilotMapConfig.archiveURL(region: region, kind: kind),
                                          cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
                 for (field, value) in PilotMapConfig.requestHeaders { request.setValue(value, forHTTPHeaderField: field) }
+                if present.contains(kind), let etag = source.storage.etag(region: region.id, kind: kind) {
+                    request.setValue(etag, forHTTPHeaderField: "If-None-Match")
+                }
                 let before = done
-                let file = try await transfer(request) { [weak self] fraction in
+                let answer = try await transfer(request) { [weak self] fraction in
                     Task { @MainActor in
                         guard let self, self.progress[region.id] != nil else { return }
                         self.progress[region.id] = Double(before) / Double(max(total, 1))
                             + fraction * Double(expected) / Double(max(total, 1))
                     }
                 }
+                done += expected
+                guard case let .file(file, etag) = answer else {
+                    // Not modified: the file here stays, under the index's newer entry.
+                    try Task.checkCancellation()
+                    continue
+                }
                 files[kind] = file
+                if let etag { etags[kind] = etag }
                 let size = (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? -1
                 guard expected <= 0 || size == expected else { throw Failure.wrongSize }
-                done += expected
                 try Task.checkCancellation()
             }
-            try source.storage.install(region, files: files)
-            AppLog.general.publicLine("Pilot's map region downloaded (\(kinds.count) files)")
+            try source.storage.install(region, files: files, etags: etags)
+            AppLog.general.publicLine("Pilot's map region downloaded (\(files.count) of \(kinds.count) files changed)")
         } catch {
             for file in files.values { try? FileManager.default.removeItem(at: file) }
             if !(error is CancellationError) { failed.insert(region.id) }
@@ -232,13 +275,15 @@ final class PilotMapDownloads: ObservableObject {
         }
     }
 
-    /// The monthly update: each downloaded region the index has a newer build of, on an unmetered network only
-    /// (a region is a hundred megabytes or more), never in flight. Called when the app comes to the foreground.
-    func updateDownloaded(conditions: NetworkConditions, inFlight: Bool) async {
+    /// The update every three months: each downloaded region the index has another build of, once the copy here is
+    /// three months old, on an unmetered network only (a region is tens of megabytes or more), never in flight.
+    /// A pilot can update sooner by hand. Called when the app comes to the foreground.
+    func updateDownloaded(conditions: NetworkConditions, inFlight: Bool, now: Date = Date()) async {
         if conditions.isConnected { await refreshIndex() }
         guard Self.allowsSilentDownload(conditions), !inFlight else { return }
         for region in downloaded {
-            guard let listed = regions.first(where: { $0.id == region.id }), state(of: region.id) == .updateAvailable
+            guard let listed = regions.first(where: { $0.id == region.id }), state(of: region.id) == .updateAvailable,
+                  Self.autoUpdateDue(listed: listed, installed: region, filesPresent: filesPresent(region.id), now: now)
             else { continue }
             await downloadNow(listed)
         }
@@ -258,23 +303,26 @@ final class PilotMapDownloads: ObservableObject {
     }
 
     /// A download task on the pilot's map session, its progress observed, the file moved out of URLSession's
-    /// temporary place before the handler returns.
+    /// temporary place before the handler returns; a 304 (the If-None-Match matched) is `.unchanged`.
     nonisolated static let urlSessionTransfer: Transfer = { request, onProgress in
         let box = TransferBox()
         return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Transferred, Error>) in
                 let task = PilotMapConfig.session.downloadTask(with: request) { location, response, error in
                     box.observation?.invalidate()
                     if let error { continuation.resume(throwing: error); return }
-                    guard let http = response as? HTTPURLResponse, let location else {
+                    guard let http = response as? HTTPURLResponse else {
                         continuation.resume(throwing: URLError(.badServerResponse)); return
                     }
-                    guard http.statusCode == 200 else { continuation.resume(throwing: Failure.http(http.statusCode)); return }
+                    if http.statusCode == 304 { continuation.resume(returning: .unchanged); return }
+                    guard http.statusCode == 200, let location else {
+                        continuation.resume(throwing: Failure.http(http.statusCode)); return
+                    }
                     let kept = FileManager.default.temporaryDirectory
                         .appendingPathComponent("pilotmap-\(UUID().uuidString).pmtiles")
                     do {
                         try FileManager.default.moveItem(at: location, to: kept)
-                        continuation.resume(returning: kept)
+                        continuation.resume(returning: .file(kept, etag: http.value(forHTTPHeaderField: "ETag")))
                     } catch {
                         continuation.resume(throwing: error)
                     }

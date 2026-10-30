@@ -74,6 +74,21 @@ final class PilotMapTileTests: XCTestCase {
         XCTAssertEqual(index.regions[0].build(of: .relief), "20261025", "the map's date when the relief has none")
     }
 
+    func testRegionFileNames() {
+        let named = PilotMapRegion(id: "ch", name: "CH", bounds: [5.9, 45.8, 10.5, 47.8], built: "20261026", mapBytes: 1,
+                                   reliefBytes: 1, mapFile: "map-1da3495153e271df.pmtiles")
+        XCTAssertTrue(named.isValid)
+        XCTAssertEqual(named.file(of: .map), "map-1da3495153e271df.pmtiles")
+        XCTAssertEqual(named.file(of: .relief), "relief.pmtiles", "an entry without a name: the old file")
+        XCTAssertEqual(PilotMapConfig.archiveURL(region: named, kind: .map).absoluteString,
+                       "https://tiles.aerocheck.app/v1/ch/map-1da3495153e271df.pmtiles")
+        for bad in ["../index.json", "map.json", "a/b.pmtiles", ".pmtiles", "map%2F.pmtiles"] {
+            let region = PilotMapRegion(id: "ch", name: "CH", bounds: [5.9, 45.8, 10.5, 47.8], built: "20261026",
+                                        mapBytes: 1, reliefBytes: 1, mapFile: bad)
+            XCTAssertFalse(region.isValid, bad)
+        }
+    }
+
     func testIndexDropsInvalidAndDuplicateRegions() throws {
         let json = Data("""
         {"version": 1, "regions": [
@@ -303,6 +318,31 @@ final class PilotMapTileTests: XCTestCase {
         for font in ["B612 Regular", "B612 Bold", "B612 Italic", "B612 Bold Italic"] {
             XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent(font).appendingPathComponent("0-255.pbf").path), font)
         }
+    }
+
+    /// The world outline comes from the bundle, to tile zoom 6, offline or not.
+    func testBundledOutlineAnswersItsTiles() async throws {
+        XCTAssertEqual(PilotTileURLProtocol.parse(URL(string: "https://tiles.aerocheck.app/local/outline/5/16/11")),
+                       .outline(z: 5, x: 16, y: 11))
+        XCTAssertNotNil(PilotMap.outline)
+        guard case let .body(data, type) = await PilotTileURLProtocol.answer(.outline(z: 5, x: 16, y: 11)) else {
+            return XCTFail("Switzerland's zoom-5 tile")
+        }
+        XCTAssertEqual(type, "application/x-protobuf")
+        XCTAssertFalse(PMTiles.isGzip(data), "MapLibre gets the tile unzipped")
+        guard case .none = await PilotTileURLProtocol.answer(.outline(z: 7, x: 66, y: 45)) else {
+            return XCTFail("nothing past zoom 6: MapLibre draws zoom 6 enlarged")
+        }
+    }
+
+    /// The style as MapLibre loads it: every address filled in, the outline's names in the app's language.
+    func testStyleIsFilledIn() throws {
+        let url = try XCTUnwrap(PilotMapStyle.url)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertFalse(text.contains("{{"), "a placeholder left")
+        XCTAssertTrue(text.contains(PilotMapConfig.outlineTileTemplate))
+        XCTAssertTrue(text.contains("\"label:\(PilotMapStyle.outlineLanguage)\""))
+        XCTAssertTrue(["en", "fr", "de"].contains(PilotMapStyle.outlineLanguage))
     }
 
     /// MapLibre's session, as `registerWithMapLibre` sets it up, without MapLibre: a session with the protocol.

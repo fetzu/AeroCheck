@@ -201,6 +201,9 @@ class SharedMapState: ObservableObject {
     /// laid over the chart where a callout opens, the scale bar and the off-screen route pill, steps aside
     /// until it closes. Kept by the representables' coordinators from MapKit's selection. (6.2.0)
     @Published private(set) var isCalloutOpen = false
+    /// How far the chrome at the chart's bottom left reaches above the scale bar (Plan › Map's allowance line): the
+    /// imagery credits sit above it. (6.8.0)
+    @Published var footerLift: CGFloat = 0
 
     init() {
         // Default to Switzerland center
@@ -1908,6 +1911,13 @@ struct NavigationMapView: View {
             if pilotMap.allowanceLevel != .open, !isOfflineMode {
                 PilotMapAllowanceLine(downloads: pilotMap, center: mapState.region.center)
                     .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
+                    // The imagery credits move up above the line, never under it.
+                    .background(GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { mapState.footerLift = proxy.size.height + 8 }
+                            .onChange(of: proxy.size.height) { _, height in mapState.footerLift = height + 8 }
+                    })
+                    .onDisappear { mapState.footerLift = 0 }
             }
             if isOfflineMode || isCachedMode {
                 Button(action: { showCacheInfoModal = true }) {

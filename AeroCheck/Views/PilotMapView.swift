@@ -90,6 +90,17 @@ struct PilotMapView: UIViewRepresentable {
         tap.cancelsTouchesInView = false
         tap.delegate = context.coordinator
         view.addGestureRecognizer(tap)
+        #if DEBUG
+        // The screenshot run's "map settled": still, and nothing left for MapLibre to draw.
+        MapSettle.watch(map: view) { [weak view, weak coordinator = context.coordinator] in
+            guard let view, let coordinator, view.window != nil else { return nil }
+            let bounds = view.visibleCoordinateBounds
+            let nw = MKMapPoint(CLLocationCoordinate2D(latitude: bounds.ne.latitude, longitude: bounds.sw.longitude))
+            let se = MKMapPoint(CLLocationCoordinate2D(latitude: bounds.sw.latitude, longitude: bounds.ne.longitude))
+            let rect = MKMapRect(x: nw.x, y: nw.y, width: se.x - nw.x, height: se.y - nw.y)
+            return (MapSettle.View(rect: rect, heading: view.direction), !coordinator.isIdle)
+        }
+        #endif
         return view
     }
 
@@ -314,12 +325,15 @@ struct PilotMapView: UIViewRepresentable {
             return view
         }()
         private var shownCredits: [String] = []
+        private var creditsBottom: NSLayoutConstraint?
 
         func updateCredits(on mapView: MLNMapView) {
             let showing = policy.layer(for: map.layerType) == .satellite && !map.isStrictOfflineMode
             let sources = showing ? ImageryTiles.credited(in: Self.mercatorRect(of: mapView), zoom: mapView.zoomLevel,
                                                           store: PilotMap.imagery) : []
             let ids = sources.map(\.id)
+            // Above the scale bar and MapLibre's attribution button, and above Plan › Map's allowance line.
+            creditsBottom?.constant = -(64 + map.mapState.footerLift)
             guard ids != shownCredits else { return }
             shownCredits = ids
             guard !sources.isEmpty else { credits.removeFromSuperview(); return }
@@ -336,11 +350,13 @@ struct PilotMapView: UIViewRepresentable {
             if credits.superview == nil {
                 mapView.addSubview(credits)
                 let guide = mapView.safeAreaLayoutGuide
+                let bottom = credits.bottomAnchor.constraint(equalTo: guide.bottomAnchor,
+                                                             constant: -(64 + map.mapState.footerLift))
+                creditsBottom = bottom
                 NSLayoutConstraint.activate([
                     credits.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 8),
                     credits.trailingAnchor.constraint(lessThanOrEqualTo: guide.trailingAnchor, constant: -8),
-                    // Above the app's scale bar and MapLibre's attribution button, both at the bottom left.
-                    credits.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -64),
+                    bottom,
                 ])
             }
         }
@@ -421,6 +437,13 @@ struct PilotMapView: UIViewRepresentable {
                 map.isFollowingAircraft = false
             }
         }
+
+        /// MapLibre has drawn all it was asked, tiles included; a new frame (a tile arriving, a camera change) ends it.
+        private(set) var isIdle = false
+
+        func mapViewDidBecomeIdle(_ mapView: MLNMapView) { isIdle = true }
+
+        func mapViewWillStartRenderingFrame(_ mapView: MLNMapView) { isIdle = false }
 
         func mapViewRegionIsChanging(_ mapView: MLNMapView) {
             MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) }

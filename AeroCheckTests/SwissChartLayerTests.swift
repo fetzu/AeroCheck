@@ -232,4 +232,13 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual(WaypointPickerMapLayer(MapLayerType.icao.shown(over: paloAlto)), .apple)
         XCTAssertFalse(L10n.MapLayer.switzerlandOnly("ICAO chart", "Apple Maps").isEmpty)
     }
+
+    // MARK: - The Base chart list (6.8.0)
+
+    /// The maps for everywhere first, then the three Swiss ones, each marked "Switzerland only" (device check pm-6).
+    func testTheBaseChartListPutsTheMapsForEverywhereFirst() {
+        XCTAssertEqual(MapSheet.baseCharts, [.standard, .satellite, .icao, .landeskarten, .swissimage])
+        XCTAssertEqual(MapSheet.baseCharts.filter(\.isSwissLayer), [.icao, .landeskarten, .swissimage])
+        XCTAssertEqual(L10n.MapLayer.switzerlandOnlyShort, "Switzerland only")
+    }
 }

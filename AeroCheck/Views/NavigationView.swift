@@ -3397,10 +3397,9 @@ struct MapSheet: View {
     var mapCenter: CLLocationCoordinate2D? = nil
     @State private var showCacheInfo = false
 
-    /// Aeronautical first: the chart a VFR pilot navigates on, then the swisstopo maps, then Apple's.
-    /// The route builder's order: the charts, the National Map, SWISSIMAGE, then Apple's maps (the author's device
-    /// check mp-1, 6.4.2).
-    private static let baseCharts: [MapLayerType] = [.icao, .landeskarten, .swissimage, .standard, .satellite]
+    /// The maps for everywhere first, then Switzerland's, each marked so (the author's device check pm-6, 6.8.0):
+    /// the Atlas, the aerial imagery, the ICAO chart (with the charts it gives way to), the National Map, SWISSIMAGE.
+    static let baseCharts: [MapLayerType] = [.standard, .satellite, .icao, .landeskarten, .swissimage]
 
     var body: some View {
         NavigationStack {
@@ -3478,10 +3477,17 @@ struct MapSheet: View {
                 // The ICAO chart with the charts it gives way to, in its name, no line under it (the author's device
                 // check mp-1, 6.4.2): the National Map too since 6.7.0, as the route builder names it; the glider
                 // chart last offline; the ICAO chart alone when forced.
-                Text(layer == .icao ? Self.icaoName(forced: appState.settings.forceICAOChartLayer, offline: isOfflineMode)
-                     : Self.name(of: layer))
-                    .font(.aero(size: CockpitType.label, weight: selected ? .bold : .medium))
-                    .foregroundColor(theme.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(layer == .icao ? Self.icaoName(forced: appState.settings.forceICAOChartLayer, offline: isOfflineMode)
+                         : Self.name(of: layer))
+                        .font(.aero(size: CockpitType.label, weight: selected ? .bold : .medium))
+                        .foregroundColor(theme.textPrimary)
+                    if layer.isSwissLayer {
+                        Text(L10n.MapLayer.switzerlandOnlyShort)
+                            .font(.aero(size: 14))
+                            .foregroundColor(theme.textSecondary)
+                    }
+                }
                 Spacer()
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.aero(size: 24))

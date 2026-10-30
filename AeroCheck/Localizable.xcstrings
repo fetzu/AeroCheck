@@ -14768,6 +14768,29 @@
         }
       }
     },
+    "mapLayer.switzerlandOnlyShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Schweiz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switzerland only"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suisse seulement"
+          }
+        }
+      }
+    },
     "nav.usualStopHint": {
       "extractionState": "manual",
       "localizations": {

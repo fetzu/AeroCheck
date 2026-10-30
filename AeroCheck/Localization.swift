@@ -2168,6 +2168,8 @@ enum L10n {
         /// The pilot's map and the aerial imagery, in place of Apple's two layers since 6.8.0.
         static var satellite: String { String(localized: "pilotMap.aerialImagery") }
         static var standard: String { PilotMap.section }
+        /// Under each Swiss chart in the Base chart list. (6.8.0)
+        static let switzerlandOnlyShort = String(localized: "mapLayer.switzerlandOnlyShort")
         /// Under the Map sheet's charts, outside Switzerland: "ICAO chart: Switzerland only. Here, Apple Maps." (6.5.0)
         static func switzerlandOnly(_ chart: String, _ shown: String) -> String {
             String(format: String(localized: "mapLayer.switzerlandOnly"), chart, shown)

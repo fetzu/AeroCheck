@@ -21,10 +21,11 @@ enum PilotMapConfig {
     /// elevation tiles and the B612 glyphs. The style names these.
     static let mapTileTemplate = "https://\(host)/v1/map/{z}/{x}/{y}?\(cacheGeneration)"
     static let reliefTileTemplate = "https://\(host)/v1/relief/{z}/{x}/{y}?\(cacheGeneration)"
-    /// MapLibre keeps a tile under its address. The builds before 29 Oct 2026 kept half a border's tile for a month
-    /// (Switzerland's half, from before the other regions); a new query is a new address, so those are never drawn
-    /// again. The protocol reads only the path.
-    static let cacheGeneration = "g=2"
+    /// MapLibre keeps a tile under its address. A new query is a new address, so what an earlier build kept is never
+    /// drawn again; the protocol reads only the path. g=2: the builds before 29 Oct 2026 kept half a border's tile for
+    /// a month (Switzerland's half, from before the other regions). g=3: they kept "nothing there" for a day where a
+    /// region's relief stops before the style's zoom 11 (every region but Switzerland's).
+    static let cacheGeneration = "g=3"
     static let glyphsTemplate = "https://\(host)/v1/glyphs/{fontstack}/{range}.pbf"
     /// The world outline, from the app's bundle (`PilotMapOutline`).
     static let outlineTileTemplate = "https://\(host)/local/outline/{z}/{x}/{y}"

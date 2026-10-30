@@ -58,11 +58,12 @@ final class PilotMapTileTests: XCTestCase {
         return Rig(source: source, server: server, storage: storage, allowance: allowance)
     }
 
-    private func download(_ region: PilotMapRegion, _ data: Data, into storage: PilotMapStorage) throws {
-        let file = makeTestDirectory().appendingPathComponent("map.pmtiles")
+    private func download(_ region: PilotMapRegion, _ data: Data, into storage: PilotMapStorage,
+                          kind: PilotMapKind = .map) throws {
+        let file = makeTestDirectory().appendingPathComponent("\(kind.rawValue).pmtiles")
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: file)
-        try storage.install(region, files: [.map: file])
+        try storage.install(region, files: [kind: file])
     }
 
     // MARK: Index
@@ -261,6 +262,50 @@ final class PilotMapTileTests: XCTestCase {
         let tile = await rig.source.tile(.map, z: 0, x: 0, y: 0)
         XCTAssertEqual(tile?.origin, .merged([.downloaded("ch"), .downloaded("fr-est")]))
         XCTAssertEqual(tile?.whole, false, "online, the overview has the rest of the world")
+    }
+
+    // MARK: Relief past a region's depth
+
+    /// A relief archive as most regions have it: its deepest tile at zoom 10, over Neuchâtel, a uniform `metres`.
+    private func reliefToTen(metres: Double) -> Data {
+        let v = metres + 32768
+        var bytes: [UInt8] = []
+        for _ in 0..<16 { bytes += [UInt8(Int(v) / 256), UInt8(Int(v) % 256), 0, 255] }
+        let png = PilotTileMerge.png(PilotTileMerge.Pixels(width: 4, height: 4, bytes: bytes))!
+        return PMTilesFixture.archive([.init(z: 10, x: border.x >> 3, y: border.y >> 3, bytes: png)], gzipTiles: false)
+    }
+
+    func testReliefPastARegionsDepthIsTheTileAboveEnlarged() async throws {
+        let rig = try await rig([Self.ch])
+        try download(Self.ch, PMTilesFixture.archive(tiles("ch")), into: rig.storage)
+        try download(Self.ch, reliefToTen(metres: 430), into: rig.storage, kind: .relief)
+        let enlarged = await rig.source.tile(.relief, z: 11, x: border.x >> 2, y: border.y >> 2)
+        let tile = try XCTUnwrap(enlarged)
+        XCTAssertEqual(tile.origin, .downloaded("ch"))
+        let pixels = try XCTUnwrap(PilotTileMerge.pixels(tile.data))
+        XCTAssertEqual(pixels.width, 4)
+        XCTAssertEqual(Array(pixels.bytes[0..<3]), [129, 174, 0], "430 m, enlarged from zoom 10")
+        let atTen = await rig.source.tile(.relief, z: 10, x: border.x >> 3, y: border.y >> 3)
+        let own = try XCTUnwrap(atTen)
+        XCTAssertEqual(own.data, try XCTUnwrap(rig.storage.archive(region: "ch", kind: .relief)?.tile(z: 10, x: border.x >> 3, y: border.y >> 3)),
+                       "at its own depth, the tile as it is")
+    }
+
+    func testOnlineAnEnlargedTilesFourSiblingsCostOneRead() async throws {
+        let rig = try await rig([Self.ch])
+        rig.server.put("/v1/ch/relief.pmtiles", reliefToTen(metres: 430))
+        let (px, py) = (border.x >> 3, border.y >> 3)
+        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+            let tile = await rig.source.tile(.relief, z: 11, x: px * 2 + dx, y: py * 2 + dy)
+            XCTAssertEqual(tile?.origin, .online("ch"))
+        }
+        XCTAssertEqual(rig.allowance.used, 1, "the zoom-10 tile read once for its four quarters")
+    }
+
+    func testTheMapIsNeverEnlarged() {
+        XCTAssertEqual(PilotTileSource.depth(.map, z: 13, deepest: 10), 0)
+        XCTAssertEqual(PilotTileSource.depth(.relief, z: 11, deepest: 8), 3, "Greenland")
+        XCTAssertEqual(PilotTileSource.depth(.relief, z: 11, deepest: 11), 0, "Switzerland")
     }
 
     private static func tile(latitude: Double, longitude: Double, z: Int) -> (x: Int, y: Int) {

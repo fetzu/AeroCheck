@@ -212,9 +212,12 @@ final class PilotTileSource: @unchecked Sendable {
         // holds a part in each.
         var parts: [(data: Data, origin: Origin)] = []
         for region in regions where downloaded.contains(region.id) {
-            if let stored = storage.archive(region: region.id, kind: kind)?.tile(z: z, x: x, y: y),
-               let plain = PMTiles.plain(stored) {
-                parts.append((plain, .downloaded(region.id)))
+            guard let archive = storage.archive(region: region.id, kind: kind) else { continue }
+            let depth = Self.depth(kind, z: z, deepest: archive.header.maxZoom)
+            if let stored = archive.tile(z: z - depth, x: x >> depth, y: y >> depth),
+               let plain = PMTiles.plain(stored),
+               let part = PilotTileMerge.reliefChild(plain, depth: depth, x: x, y: y) {
+                parts.append((part, .downloaded(region.id)))
             }
         }
 
@@ -230,22 +233,49 @@ final class PilotTileSource: @unchecked Sendable {
         for region in online {
             if Task.isCancelled { return .unavailable }
             let remote = remoteArchive(region, kind)
+            let depth: Int
             let location: PMTilesRemoteArchive.Location?
-            do { location = try await remote.locate(z: z, x: x, y: y) } catch { failed = true; continue }
-            guard let location else { continue }
-            guard allowance.reserve() else { return merged(parts, kind, whole: false) ?? .unavailable }
             do {
-                let stored = try await remote.read(location)
-                if let plain = PMTiles.plain(stored) { fetched.append((plain, .online(region.id))) }
-            } catch {
-                allowance.refund()
-                return merged(parts, kind, whole: false) ?? .unavailable
+                depth = Self.depth(kind, z: z, deepest: try await remote.header().maxZoom)
+                location = try await remote.locate(z: z - depth, x: x >> depth, y: y >> depth)
+            } catch { failed = true; continue }
+            guard let location else { continue }
+            // An enlarged tile's three siblings come from the same one: read once, not four times.
+            let key = "\(Self.remoteKey(region, kind))/\(z - depth)/\(x >> depth)/\(y >> depth)"
+            var plain = depth > 0 ? lock.withLock({ enlarged[key] }) : nil
+            if plain == nil {
+                guard allowance.reserve() else { return merged(parts, kind, whole: false) ?? .unavailable }
+                do {
+                    plain = PMTiles.plain(try await remote.read(location))
+                } catch {
+                    allowance.refund()
+                    return merged(parts, kind, whole: false) ?? .unavailable
+                }
+                if depth > 0, let plain { lock.withLock { Self.keep(plain, as: key, in: &enlarged) } }
+            }
+            if let plain, let part = PilotTileMerge.reliefChild(plain, depth: depth, x: x, y: y) {
+                fetched.append((part, .online(region.id)))
             }
         }
         // The overview answered: it holds the downloaded regions too.
         if overview != nil, !fetched.isEmpty { return merged(fetched, kind) ?? .none }
         // A region that couldn't be asked: what the others have, or "nothing now" so MapLibre asks again.
         return merged(parts + fetched, kind, whole: !failed) ?? (failed ? .unavailable : .none)
+    }
+
+    /// How many zooms past an archive's deepest a tile is: the relief's archives stop at different zooms (Switzerland's
+    /// at 11, the other regions' at 10, Greenland's at 8) while the style asks to 11, so a deeper tile is the deepest
+    /// one above it, enlarged (`PilotTileMerge.reliefChild`). The map's archives all go as deep as the style asks.
+    static func depth(_ kind: PilotMapKind, z: Int, deepest: Int) -> Int {
+        kind == .relief ? max(0, z - deepest) : 0
+    }
+
+    /// The tiles read online to be enlarged, a few dozen at most: a screen's worth of them.
+    private var enlarged: [String: Data] = [:]
+
+    private static func keep(_ data: Data, as key: String, in cache: inout [String: Data]) {
+        if cache.count >= 48 { cache.removeAll() }
+        cache[key] = data
     }
 
     /// One tile from the parts found: the only one as it is, several joined (`PilotTileMerge`), none nil.

@@ -334,6 +334,9 @@ enum ShareCardMapPlaceholder: Equatable {
 /// (85 MB for the Full map band). Sizes are in the image's points: half of it on the card. (6.1)
 struct ShareCardMapStyle: Equatable {
     static let renderScale: CGFloat = 1
+    /// The Atlas is drawn at a third of the map image's points, three times their scale, so its names read on the
+    /// card as they do on a phone. (6.8.0)
+    static let mapLabelScale: CGFloat = 3
     /// The map image's points per point of its frame on the card.
     static let imagePointsPerCardPoint: CGFloat = 2
 

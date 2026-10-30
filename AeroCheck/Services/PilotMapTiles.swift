@@ -225,8 +225,12 @@ final class PilotTileSource: @unchecked Sendable {
         // downloaded. Offline or out of allowance, the downloaded parts are all there is.
         let overview = z <= Self.overviewMaxZoom ? index.overview.flatMap { $0.has(kind) ? $0 : nil } : nil
         let online = overview.map { [$0] } ?? regions.filter { !downloaded.contains($0.id) }
+        // Before the first index there are no regions to ask yet: "not now", never "nothing there", which MapLibre
+        // keeps a day (a first launch showed the outline only, a day long, where the map was first looked at).
+        let indexed = index.hasIndex
         guard !online.isEmpty, isOnline() else {
-            return merged(parts, kind, whole: online.isEmpty) ?? (online.isEmpty ? .none : .unavailable)
+            return merged(parts, kind, whole: online.isEmpty && indexed)
+                ?? (online.isEmpty && indexed ? .none : .unavailable)
         }
         var fetched: [(data: Data, origin: Origin)] = []
         var failed = false

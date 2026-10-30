@@ -159,6 +159,11 @@ struct AboutSettingsView: View {
         SettingsGroup(title: L10n.DataStorage.dataSourcesTitle, tint: tint) {
             dataSourceRow(name: "swisstopo / BAZL", detail: L10n.DataStorage.sourceCharts, url: "https://www.swisstopo.admin.ch")
             dataSourceRow(name: "OpenAIP", detail: L10n.DataStorage.sourceAirspace, url: "https://www.openaip.net")
+            // The pilot's map (6.8.0): the ODbL asks for the credit, Mapterhorn lists its terrain sources on its own
+            // page, MapLibre's BSD licence asks for its notice. The map also credits OpenStreetMap on screen.
+            dataSourceRow(name: "OpenStreetMap", detail: L10n.PilotMap.sourceOSM, url: "https://www.openstreetmap.org/copyright")
+            dataSourceRow(name: "Mapterhorn", detail: L10n.PilotMap.sourceMapterhorn, url: "https://mapterhorn.com/attribution")
+            dataSourceRow(name: "MapLibre", detail: L10n.PilotMap.sourceMapLibre, url: "https://github.com/maplibre/maplibre-native/blob/main/LICENSE.md")
             // open flightmaps' General Users' License asks for the credit and for a way to report errors
             // (the VFR callout's Report an error); its data is never a primary source, so the row says it
             // is indicative, as the map does. (6.2.0)

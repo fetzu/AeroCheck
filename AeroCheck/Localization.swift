@@ -103,6 +103,35 @@ enum L10n {
         }
     }
 
+    // MARK: - The pilot's map (6.8.0)
+    enum PilotMap {
+        static let section = String(localized: "pilotMap.section")
+        static let footer = String(localized: "pilotMap.footer")
+        /// "Online this month: 312 of 1,500 map tiles."
+        static func allowance(used: Int, limit: Int) -> String {
+            String(format: String(localized: "pilotMap.allowance"), used.formatted(), limit.formatted())
+        }
+        static let allowanceNear = String(localized: "pilotMap.allowanceNear")
+        static let allowanceExhausted = String(localized: "pilotMap.allowanceExhausted")
+        static let downloaded = String(localized: "pilotMap.downloaded")
+        static let updateAvailable = String(localized: "pilotMap.updateAvailable")
+        static let failed = String(localized: "pilotMap.failed")
+        static func downloading(_ fraction: Double) -> String {
+            String(format: String(localized: "pilotMap.downloading"), fraction.formatted(.percent.precision(.fractionLength(0))))
+        }
+        static let stop = String(localized: "pilotMap.stop")
+        static let download = String(localized: "Download")
+        static let update = String(localized: "Update")
+        static let noRegions = String(localized: "pilotMap.noRegions")
+        static let tripMissing = String(localized: "pilotMap.tripMissing")
+        static func tripRegions(_ names: String) -> String {
+            String(format: String(localized: "pilotMap.tripRegions"), names)
+        }
+        static let sourceOSM = String(localized: "pilotMap.source.osm")
+        static let sourceMapterhorn = String(localized: "pilotMap.source.mapterhorn")
+        static let sourceMapLibre = String(localized: "pilotMap.source.maplibre")
+    }
+
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like other newly-introduced UI strings.

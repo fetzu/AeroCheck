@@ -8,6 +8,7 @@ struct DataStorageSettingsView: View {
     @EnvironmentObject private var dataStatusManager: DataStatusManager
     @EnvironmentObject private var aircraftDataService: AircraftDataService
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
+    @ObservedObject private var pilotMap = PilotMapDownloads.shared
 
     @State private var isPrefetchingTrip = false
     @State private var refreshingIDs: Set<String> = []
@@ -65,6 +66,9 @@ struct DataStorageSettingsView: View {
                     openAIPCredit   // airspace is OpenAIP data
                 }
             }
+            // The pilot's map's regions and the month's online allowance, before the offline charts (the author,
+            // 26 Oct 2026). (6.8.0)
+            PilotMapSettingsSection(downloads: pilotMap, tint: tint)
             if !imageryDataSets.isEmpty {
                 VStack(alignment: .leading, spacing: 7) {
                     SettingsGroup(title: L10n.DataStorage.chartsSection, tint: tint) {
@@ -97,6 +101,7 @@ struct DataStorageSettingsView: View {
         .alert(L10n.DataStorage.removeAllConfirmTitle, isPresented: $showRemoveAllConfirm) {
             Button(L10n.DataStorage.removeAll, role: .destructive) {
                 dataStatusManager.removeAll()
+                pilotMap.deleteAll()
                 recomputeSizes()
             }
             Button(L10n.Button.cancel, role: .cancel) {}
@@ -481,7 +486,7 @@ struct DataStorageSettingsView: View {
     private var totalSizeString: String {
         let total = dataStatusManager.dataSets.reduce(Int64(0)) { sum, dataSet in
             sum + (dataSet.sizeOnDisk ?? sizes[dataSet.id] ?? 0)
-        }
+        } + Int64(pilotMap.downloaded.reduce(0) { $0 + $1.downloadBytes })   // the pilot's map's regions (6.8.0)
         return Self.byteFormatter.string(fromByteCount: total)
     }
 

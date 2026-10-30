@@ -251,12 +251,17 @@ final class PilotTileURLProtocol: URLProtocol {
     enum Request: Equatable {
         case tile(PilotMapKind, z: Int, x: Int, y: Int)
         case glyphs(fonts: [String], range: String)
+        /// A swisstopo chart's tile, answered here (`PilotMapCharts`).
+        case chart(layer: String, z: Int, x: Int, y: Int, offline: Bool)
+        /// An OpenAIP tile, answered here.
+        case openAIP(z: Int, x: Int, y: Int, offline: Bool)
         case unknown
     }
 
     static func parse(_ url: URL?) -> Request {
         guard let url, url.host == PilotMapConfig.host else { return .unknown }
         let parts = url.pathComponents   // ["/", "v1", "map", z, x, y]
+        if parts.count >= 2, parts[1] == PilotMapCharts.localPrefix { return parseLocal(url, parts) }
         guard parts.count >= 3, parts[1] == "v1" else { return .unknown }
         if parts.count == 6, let kind = PilotMapKind(rawValue: parts[2]),
            let z = Int(parts[3]), let x = Int(parts[4]), let y = Int(parts[5]) {
@@ -276,6 +281,24 @@ final class PilotTileURLProtocol: URLProtocol {
         return .unknown
     }
 
+    /// /local/chart/<layer>/z/x/y and /local/openaip/z/x/y, `offline=1` for the downloaded tiles only.
+    private static func parseLocal(_ url: URL, _ parts: [String]) -> Request {
+        let offline = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+            .first { $0.name == "offline" }?.value == "1"
+        func zxy(_ from: Int) -> (Int, Int, Int)? {
+            guard parts.count == from + 3, let z = Int(parts[from]), let x = Int(parts[from + 1]), let y = Int(parts[from + 2]),
+                  PilotMapTileMath.isValid(z: z, x: x, y: y) else { return nil }
+            return (z, x, y)
+        }
+        if parts.count == 7, parts[2] == "chart", PilotMapCharts.swisstopoLayers[parts[3]] != nil, let (z, x, y) = zxy(4) {
+            return .chart(layer: parts[3], z: z, x: x, y: y, offline: offline)
+        }
+        if parts.count == 6, parts[2] == "openaip", let (z, x, y) = zxy(3) {
+            return .openAIP(z: z, x: x, y: y, offline: offline)
+        }
+        return .unknown
+    }
+
     /// The answer's body and type; nil for a 404.
     static func answer(_ request: Request) async -> (Data, String)? {
         switch request {
@@ -290,6 +313,14 @@ final class PilotTileURLProtocol: URLProtocol {
                 }
             }
             return nil
+        case let .chart(layer, z, x, y, offline):
+            guard let spec = PilotMapCharts.chartSpec(layer: layer, z: z, x: x, y: y, offline: offline),
+                  let data = await PilotMapCharts.bytes(for: spec) else { return nil }
+            return (data, PilotMapCharts.swisstopoLayers[layer] == "jpeg" ? "image/jpeg" : "image/png")
+        case let .openAIP(z, x, y, offline):
+            guard let spec = PilotMapCharts.openAIPSpec(z: z, x: x, y: y, offline: offline),
+                  let data = await PilotMapCharts.bytes(for: spec) else { return nil }
+            return (data, "image/png")
         case .unknown:
             return nil
         }
@@ -353,6 +384,15 @@ final class PilotTileURLProtocol: URLProtocol {
 /// The app's own pilot's map: the index and downloads in Application Support, the remote directories in Caches,
 /// the allowance in the standard defaults. Tests build their own. (6.8.0)
 enum PilotMap {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var online = true
+
+    /// Off in the app's strict offline mode: no tile is read from tiles.aerocheck.app, the downloaded regions only.
+    static var onlineAllowed: Bool {
+        get { lock.withLock { online } }
+        set { lock.withLock { online = newValue } }
+    }
+
     static let shared: PilotTileSource = {
         let fm = FileManager.default
         let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -362,6 +402,7 @@ enum PilotMap {
         return PilotTileSource(index: PilotMapIndexStore(directory: root),
                                storage: PilotMapStorage(root: root.appendingPathComponent("Regions", isDirectory: true)),
                                allowance: PilotMapAllowance(defaults: .standard),
-                               cacheDirectory: caches.appendingPathComponent("PilotMap/Directories", isDirectory: true))
+                               cacheDirectory: caches.appendingPathComponent("PilotMap/Directories", isDirectory: true),
+                               isOnline: { PilotMap.onlineAllowed })
     }()
 }

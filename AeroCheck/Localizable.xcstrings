@@ -15374,6 +15374,29 @@
         }
       }
     },
+    "pilotMap.aerialImagery": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftbilder"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aerial imagery"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Images aériennes"
+          }
+        }
+      }
+    },
     "pilotMap.allowance": {
       "extractionState": "manual",
       "localizations": {
@@ -15439,6 +15462,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "80 % du quota mensuel de carte en ligne est utilisé. Téléchargez les régions où vous volez pour garder la carte sans limite."
+          }
+        }
+      }
+    },
+    "pilotMap.devDrawWithMapLibre": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karten mit MapLibre zeichnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draw the maps with MapLibre"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dessiner les cartes avec MapLibre"
           }
         }
       }

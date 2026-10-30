@@ -72,10 +72,18 @@ final class PilotMapMarkersTests: XCTestCase {
         XCTAssertFalse(PilotMapMarkers.hasCallout(VFRApproachAnnotation(kind: .parachute, field: "LSZQ", coordinate: lszq)))
     }
 
-    func testThePinIsABalloonWithItsNumber() {
+    /// Marker C (the author's pick, 30 Oct 2026): a numbered disc centred on the waypoint, amber on a conflict.
+    func testThePinIsADiscWithItsNumber() {
         let pin = PilotMapMarkers.pinImage(number: 3, conflict: false)
-        XCTAssertEqual(pin.size, CGSize(width: 30, height: 40))
+        XCTAssertEqual(pin.size, CGSize(width: 38, height: 38), "square: centred on the point, no tip")
         XCTAssertNotEqual(pin.pngData(), PilotMapMarkers.pinImage(number: 3, conflict: true).pngData())
+    }
+
+    /// While dragged, the disc rides above the finger on a stem; its dot lands on the coordinate.
+    func testTheDraggedPinIsLiftedWithItsDotOnThePoint() {
+        let lifted = PilotMapMarkers.liftedPinImage(label: "2")
+        XCTAssertEqual(lifted.image.size, CGSize(width: 48, height: 100))
+        XCTAssertEqual(lifted.dotOffset, CGVector(dx: 0, dy: -42), "the dot, 92 pt down a 100 pt image, on the point")
     }
 
     func testAMarkerTakesATapOverItsImage() throws {

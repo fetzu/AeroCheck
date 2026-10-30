@@ -153,6 +153,7 @@ final class PilotMapMarkers {
             ?? PilotMarkerView(reuseIdentifier: PilotMarkerView.reuseIdentifier)
         view.annotation = marker
         view.accessibilityLabel = Self.accessibilityLabel(for: marker.base)
+        view.layer.zPosition = 0   // a reused view may have been a route pin's (raised below)
         switch marker.base {
         case let airport as AirportAnnotation:
             view.show(AeroMarkerImages.airport(airport.airport))
@@ -166,9 +167,10 @@ final class PilotMapMarkers {
             view.show(AeroMarkerImages.waypoint(waypoint), shadow: true)
             view.onLongPress = { [weak self] in self?.onWaypointLongPress?(waypoint.waypointIndex) }
         case let pin as RouteWaypointAnnotation:
-            // The balloon's tip on the waypoint, as MapKit's marker.
-            let image = Self.pinImage(number: pin.index + 1, conflict: pin.hasConflict)
-            view.show(image, offset: CGVector(dx: 0, dy: -image.size.height / 2))
+            // The disc centred on the waypoint, above the aerodrome or navaid marker it sits on (its number would
+            // otherwise be hidden under it), below the aircraft.
+            view.show(Self.pinImage(number: pin.index + 1, conflict: pin.hasConflict))
+            view.layer.zPosition = 500
         case let label as VFRProcedureAnnotation:
             if case .altitude = label.item.labelStyle {
                 view.show(VFRProcedureLabelImage.pillImage(text: label.item.labelText, palette: palette))
@@ -194,29 +196,49 @@ final class PilotMapMarkers {
         [annotation.title ?? nil, annotation.subtitle ?? nil].compactMap { $0 }.joined(separator: ", ")
     }
 
-    /// The route builder's numbered pin: a balloon in navigation magenta, amber where the leg from it has a conflict,
-    /// as MapKit's marker draws it. (planning proposal D2)
+    /// The route builder's numbered pin: a disc centred on the waypoint, the route's line through its middle, in
+    /// navigation magenta, amber where the leg from it has a conflict (the author's pick, marker C, 30 Oct 2026; the
+    /// balloon before it left an empty lens between its circle and its tip, device check pm-13).
     static func pinImage(number: Int, conflict: Bool) -> UIImage {
-        let tint = conflict ? UIColor(red: 1.0, green: 0.75, blue: 0.0, alpha: 1) : UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1)
-        let size = CGSize(width: 30, height: 40)
+        let size = CGSize(width: 38, height: 38)
         return UIGraphicsImageRenderer(size: size).image { _ in
-            let circle = CGRect(x: 1, y: 1, width: 28, height: 28)
-            let path = UIBezierPath(ovalIn: circle)
-            path.move(to: CGPoint(x: 8, y: 25))
-            path.addLine(to: CGPoint(x: 15, y: 39))
-            path.addLine(to: CGPoint(x: 22, y: 25))
-            path.close()
-            tint.setFill()
-            path.fill()
-            UIColor.white.setStroke()
-            path.lineWidth = 1.5
-            path.stroke()
-            let text = "\(number)" as NSString
-            let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.aero(size: 14, weight: .bold),
-                                                             .foregroundColor: UIColor.white]
-            let textSize = text.size(withAttributes: attributes)
-            text.draw(at: CGPoint(x: circle.midX - textSize.width / 2, y: circle.midY - textSize.height / 2), withAttributes: attributes)
+            drawDisc(in: CGRect(x: 3, y: 3, width: 32, height: 32), label: "\(number)", tint: pinTint(conflict: conflict),
+                     fontSize: 17)
         }
+    }
+
+    /// The pin while a finger drags it: lifted above the finger, a little larger, on a stem to a dot on the exact
+    /// point where it will land (the author's answer to question 16). `dotOffset` puts that dot on the coordinate.
+    static func liftedPinImage(label: String) -> (image: UIImage, dotOffset: CGVector) {
+        let size = CGSize(width: 48, height: 100)
+        let dot = CGPoint(x: 24, y: 92)
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            let stem = UIBezierPath()
+            stem.move(to: CGPoint(x: dot.x, y: 44))
+            stem.addLine(to: dot)
+            UIColor.white.setStroke(); stem.lineWidth = 5; stem.stroke()
+            pinTint(conflict: false).setStroke(); stem.lineWidth = 2; stem.stroke()
+            let ring = UIBezierPath(ovalIn: CGRect(x: dot.x - 4, y: dot.y - 4, width: 8, height: 8))
+            UIColor.white.setFill(); ring.fill()
+            pinTint(conflict: false).setStroke(); ring.lineWidth = 2.5; ring.stroke()
+            drawDisc(in: CGRect(x: 4, y: 4, width: 40, height: 40), label: label, tint: pinTint(conflict: false), fontSize: 20)
+        }
+        return (image, CGVector(dx: 0, dy: -(dot.y - size.height / 2)))
+    }
+
+    private static func pinTint(conflict: Bool) -> UIColor {
+        conflict ? UIColor(red: 1.0, green: 0.75, blue: 0.0, alpha: 1) : UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1)
+    }
+
+    private static func drawDisc(in rect: CGRect, label: String, tint: UIColor, fontSize: CGFloat) {
+        let disc = UIBezierPath(ovalIn: rect)
+        tint.setFill(); disc.fill()
+        UIColor.white.setStroke(); disc.lineWidth = 3; disc.stroke()
+        let text = label as NSString
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.aero(size: fontSize, weight: .bold),
+                                                         .foregroundColor: UIColor.white]
+        let textSize = text.size(withAttributes: attributes)
+        text.draw(at: CGPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2), withAttributes: attributes)
     }
 
     // MARK: Layout

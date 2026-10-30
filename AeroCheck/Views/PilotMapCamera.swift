@@ -177,6 +177,15 @@ final class PilotRouteEditing: NSObject, UIGestureRecognizerDelegate {
 
     var isDragging: Bool { mode != nil }
 
+    /// The dragged pin's label: the number the waypoint has, or will have once inserted; "+" while a point added on
+    /// empty map is still finding its place in the route.
+    var draggedLabel: String {
+        switch mode {
+        case .move, .insert: return "\(index + 1)"
+        case .append, nil: return "+"
+        }
+    }
+
     func install(on mapView: MLNMapView) {
         guard press == nil, route.isEditable else { return }
         let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(handle(_:)))

@@ -219,8 +219,8 @@ struct PilotMapView: UIViewRepresentable {
                     if aircraft === editing.draggedPin {
                         let view = PilotMarkerView(reuseIdentifier: nil)
                         view.annotation = aircraft
-                        let image = PilotMapMarkers.pinImage(number: 0, conflict: false)
-                        view.show(image, offset: CGVector(dx: 0, dy: -image.size.height / 2))
+                        let lifted = PilotMapMarkers.liftedPinImage(label: editing.draggedLabel)
+                        view.show(lifted.image, offset: lifted.dotOffset)
                         view.isEnabled = false
                         return view
                     }

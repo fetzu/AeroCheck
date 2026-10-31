@@ -64,10 +64,31 @@ enum PilotMapConfig {
         return URLSession(configuration: config)
     }()
 
+    /// A range read of an archive. It carries today's day value (the Atlas gate, `AtlasAccess`), and a 403 asks for
+    /// a fresh value once before giving up: the rule turned over to a new day, or the server's secret changed.
     static let fetch: PMTilesRemoteArchive.Fetch = { request in
+        try await fetch(request, dayValue: { await AtlasAccess.shared.dayValue() },
+                    refresh: { await AtlasAccess.shared.refreshDayValue() }, send: send)
+    }
+
+    static let send: PMTilesRemoteArchive.Fetch = { request in
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
         return (data, http)
+    }
+
+    /// `fetch`, with its parts passed in for the tests.
+    static func fetch(_ request: URLRequest, dayValue: @Sendable () async -> String?,
+                      refresh: @Sendable () async -> String?,
+                      send: PMTilesRemoteArchive.Fetch) async throws -> (Data, HTTPURLResponse) {
+        guard request.url?.pathExtension == "pmtiles" else { return try await send(request) }
+        var request = request
+        if let value = await dayValue() { request.setValue(value, forHTTPHeaderField: AtlasAccess.dayHeader) }
+        let answer = try await send(request)
+        guard answer.1.statusCode == 403, let fresh = await refresh(),
+              fresh != request.value(forHTTPHeaderField: AtlasAccess.dayHeader) else { return answer }
+        request.setValue(fresh, forHTTPHeaderField: AtlasAccess.dayHeader)
+        return try await send(request)
     }
 }
 

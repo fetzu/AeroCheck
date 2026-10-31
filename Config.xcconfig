@@ -24,10 +24,17 @@ WEATHER_CLIENT_SECRET =
 // writes it in ci_post_clone.sh.
 APP_CLIENT_SECRET =
 
+// The Atlas gate's developer token (AeroCheck-server DEPLOYMENT.md, "The Atlas gate"): stands in for App
+// Attest where a Debug build can't attest (the Simulator); the sandbox accepts it, production never does.
+// Set it in Secrets.xcconfig; the Release line after the include keeps it out of every TestFlight and
+// App Store build. (6.8.0)
+ATLAS_DEV_TOKEN =
+
 // Pull in untracked local secrets if the file exists (the "?" makes it optional,
 // so a fresh checkout without Secrets.xcconfig still builds). Later assignments
 // win, so a value here overrides the empty default above.
 #include? "Secrets.xcconfig"
+ATLAS_DEV_TOKEN[config=Release] =
 
 // --- API endpoint (SEC-C2 / SUB-2) ---
 // The production worker refuses Sandbox StoreKit transactions, because a TestFlight purchase is

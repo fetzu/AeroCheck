@@ -18527,6 +18527,29 @@
         }
       }
     },
+    "pilotMap.ceiling": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Downloads dieses Monats sind aufgebraucht (%@ Dateien). Ab dem %@ geht es wieder."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This month's downloads are used up (%@ files). They start again on %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les téléchargements du mois sont épuisés (%@ fichiers). Ils reprennent le %@."
+          }
+        }
+      }
+    },
     "pilotMap.downloaded": {
       "extractionState": "manual",
       "localizations": {

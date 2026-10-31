@@ -216,7 +216,7 @@ struct OfflineDataSettingsView: View {
                                   bytesToFetch: pilotMap.bytesToFetch(overview), tint: tint,
                                   download: { pilotMap.download(overview) },
                                   stop: { pilotMap.cancel(overview.id) },
-                                  delete: { pendingOverviewDelete = true })
+                                  delete: { pendingOverviewDelete = true }, failure: pilotMap.ceilingMessage)
             }
         }
     }

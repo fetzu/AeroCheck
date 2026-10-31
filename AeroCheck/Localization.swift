@@ -115,6 +115,11 @@ enum L10n {
         }
         static let allowanceNear = String(localized: "pilotMap.allowanceNear")
         static let allowanceExhausted = String(localized: "pilotMap.allowanceExhausted")
+        /// The Atlas gate refused a download: "This month's downloads are used up (40 files). They start again on 1 Nov."
+        static func ceiling(limit: Int, resetsAt: Date) -> String {
+            String(format: String(localized: "pilotMap.ceiling"), limit.formatted(),
+                   resetsAt.formatted(.dateTime.day().month(.abbreviated)))
+        }
         /// Under Plan › Map's chart, short: "80 % of this month's online map used". (6.8.0)
         static let lineNear = String(localized: "pilotMap.line.near")
         static let lineExhausted = String(localized: "pilotMap.line.exhausted")

@@ -11,5 +11,6 @@ What to try:
 - Plan a flight crossing a border: the banner offers the Atlas regions along the route.
 - The Swiss ICAO, glider and national charts: past their edge, the Atlas now shows under them.
 - A new introduction: Settings › About › Replay introduction. Five short screens (your base is suggested from where you are), then a circuit on the ground in about three minutes. Afterwards Today shows a Getting started card, and a few tips show once where a feature lives.
+- Atlas downloads now have a monthly limit per device: 40 files, or 120 with AéroCheck Pro (a region is one or two files). If you meet it, the region's row says when it starts again: tell us.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

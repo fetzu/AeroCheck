@@ -40,7 +40,8 @@ final class PilotMapDownloadTests: XCTestCase {
     /// `root` shared by two rigs is one device across two months' indexes. `etags`: the ETag the server gives each
     /// kind's file; a request whose If-None-Match matches it gets a 304.
     private func rig(_ regions: [PilotMapRegion], files: [String: Data], status: Int = 200, etags: [String: String] = [:],
-                     freeSpace: Int64? = nil, root: URL? = nil) async throws -> Rig {
+                     freeSpace: Int64? = nil, root: URL? = nil,
+                     links: @escaping PilotMapDownloads.Links = { _ in .unavailable }) async throws -> Rig {
         let root = root ?? makeTestDirectory()
         let index = try JSONSerialization.data(withJSONObject: [
             "version": 1, "regions": try regions.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) },
@@ -66,7 +67,7 @@ final class PilotMapDownloadTests: XCTestCase {
             try (files[kind] ?? Data()).write(to: file)
             progress(1)
             return .file(file, etag: etags[kind])
-        }, freeSpace: { freeSpace })
+        }, links: links, freeSpace: { freeSpace })
         return Rig(downloads: downloads, requests: requests)
     }
 
@@ -178,6 +179,47 @@ final class PilotMapDownloadTests: XCTestCase {
                        PMTilesFixture.content(0, 0, 0, "november"))
         XCTAssertEqual(storage.archive(region: "ch", kind: .relief)?.tile(z: 0, x: 0, y: 0), Data("dem first".utf8),
                        "the relief kept through the update")
+    }
+
+    // MARK: The Atlas gate's links
+
+    func testADownloadUsesTheGatesLinksWithoutTheClientValue() async throws {
+        let files = archives("first")
+        let ch = Self.region("ch", Self.chBounds, mapBytes: files["map"]!.count, reliefBytes: files["relief"]!.count)
+        let asked = Requests()
+        let rig = try await rig([ch], files: files, links: { names in
+            for name in names { asked.add(URLRequest(url: URL(string: "https://names.invalid/\(name)")!)) }
+            return .links(Dictionary(uniqueKeysWithValues: names.map { name in
+                (name, URL(string: "https://acct.r2.cloudflarestorage.com/aerocheck-maps/v1/\(name)?X-Amz-Signature=x")!)
+            }))
+        })
+        let ok = await rig.downloads.downloadNow(ch)
+        XCTAssertTrue(ok)
+        XCTAssertEqual(asked.all.map(\.path), ["/ch/map.pmtiles", "/ch/relief.pmtiles"])
+        XCTAssertEqual(Set(rig.requests.all.map(\.host)), ["acct.r2.cloudflarestorage.com"])
+        XCTAssertEqual(rig.downloads.state(of: "ch"), .downloaded)
+        XCTAssertNil(rig.downloads.ceiling)
+    }
+
+    func testTheCeilingStopsADownloadAndSaysWhy() async throws {
+        let ch = Self.region("ch", Self.chBounds)
+        let reset = Date(timeIntervalSince1970: 1_793_491_200) // 1 Nov 2026
+        let rig = try await rig([ch], files: [:], links: { _ in .ceiling(limit: 40, resetsAt: reset) })
+        let ok = await rig.downloads.downloadNow(ch)
+        XCTAssertFalse(ok)
+        XCTAssertEqual(rig.downloads.state(of: "ch"), .failed)
+        XCTAssertEqual(rig.requests.all, [], "nothing asked of the storage")
+        XCTAssertEqual(rig.downloads.ceiling, PilotMapDownloads.Ceiling(limit: 40, resetsAt: reset))
+        XCTAssertNotNil(rig.downloads.ceilingMessage)
+    }
+
+    func testWithoutTheGateTheFilesComeFromTheTilesHostAsBefore() async throws {
+        let files = archives("first")
+        let ch = Self.region("ch", Self.chBounds, mapBytes: files["map"]!.count, reliefBytes: files["relief"]!.count)
+        let rig = try await rig([ch], files: files)
+        let ok = await rig.downloads.downloadNow(ch)
+        XCTAssertTrue(ok)
+        XCTAssertEqual(Set(rig.requests.all.map(\.host)), ["tiles.aerocheck.app"])
     }
 
     func testWrongSizeFailsAndInstallsNothing() async throws {

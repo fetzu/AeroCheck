@@ -40,6 +40,15 @@ final class PilotMapDownloads: ObservableObject {
         case notEnoughSpace
     }
 
+    /// The month's downloads used up on this device (the Atlas gate's ceiling: free 40, Pro 120 files). (6.8.0)
+    struct Ceiling: Equatable {
+        let limit: Int
+        let resetsAt: Date?
+    }
+
+    /// The links a download asks the Atlas gate for; the tests replace it.
+    typealias Links = @Sendable ([String]) async -> AtlasAccess.Links
+
     @Published private(set) var regions: [PilotMapRegion] = []
     @Published private(set) var downloaded: [PilotMapRegion] = []
     @Published private(set) var progress: [String: Double] = [:]
@@ -47,21 +56,39 @@ final class PilotMapDownloads: ObservableObject {
     @Published private(set) var allowanceLevel: PilotMapAllowance.Level = .open
     @Published private(set) var allowanceUsed = 0
     @Published private(set) var allowanceLimit = PilotMapAllowance.freeReads
+    /// Set when the server refused a download for the month's ceiling; cleared by the next download it allows.
+    @Published private(set) var ceiling: Ceiling?
+
+    /// "This month's downloads are used up (40 files). They start again on 1 Nov.", while the ceiling holds.
+    var ceilingMessage: String? {
+        guard let ceiling else { return nil }
+        return L10n.PilotMap.ceiling(limit: ceiling.limit, resetsAt: ceiling.resetsAt ?? Self.nextMonth())
+    }
+
+    /// The first of next month, where the server didn't say when the ceiling resets.
+    nonisolated static func nextMonth(_ now: Date = Date()) -> Date {
+        let calendar = Calendar.current
+        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
+        return calendar.date(byAdding: .month, value: 1, to: start) ?? now
+    }
 
     let source: PilotTileSource
     /// The imagery's sources, refreshed with the index; nil in tests that don't need them.
     let imagery: ImageryStore?
     private let transfer: Transfer
+    private let links: Links
     private let freeSpace: () -> Int64?
     private var tasks: [String: Task<Void, Never>] = [:]
     private var allowanceObserver: NSObjectProtocol?
 
     init(source: PilotTileSource, imagery: ImageryStore? = nil,
          transfer: @escaping Transfer = PilotMapDownloads.urlSessionTransfer,
+         links: @escaping Links = { await AtlasAccess.shared.links($0) },
          freeSpace: @escaping () -> Int64? = PilotMapDownloads.availableCapacity) {
         self.source = source
         self.imagery = imagery
         self.transfer = transfer
+        self.links = links
         self.freeSpace = freeSpace
         reload()
         allowanceObserver = NotificationCenter.default.addObserver(forName: PilotMapAllowance.levelChanged,
@@ -255,6 +282,23 @@ final class PilotMapDownloads: ObservableObject {
         let background = UIApplication.shared.beginBackgroundTask(withName: "PilotMapDownload")
         defer { if background != .invalid { UIApplication.shared.endBackgroundTask(background) } }
 
+        // The Atlas gate: one-hour links to Cloudflare's storage, counted against this month's ceiling. Without the
+        // gate on the server (yet), the files come from tiles.aerocheck.app as before.
+        let names = kinds.map { Self.archiveName(region, $0) }
+        var linked: [String: URL] = [:]
+        switch await links(names) {
+        case let .links(urls):
+            linked = urls
+            ceiling = nil
+        case let .ceiling(limit, resetsAt):
+            ceiling = Ceiling(limit: limit, resetsAt: resetsAt)
+            failed.insert(region.id)
+            AppLog.general.publicLine("Pilot's map download refused: this month's downloads are used up")
+            return
+        case .unavailable:
+            break
+        }
+
         var files: [PilotMapKind: URL] = [:]
         var etags: [PilotMapKind: String] = [:]
         var done = 0
@@ -262,9 +306,14 @@ final class PilotMapDownloads: ObservableObject {
         do {
             for kind in kinds {
                 let expected = kind == .map ? region.mapBytes : region.reliefBytes
-                var request = URLRequest(url: PilotMapConfig.archiveURL(region: region, kind: kind),
+                let link = linked[Self.archiveName(region, kind)]
+                var request = URLRequest(url: link ?? PilotMapConfig.archiveURL(region: region, kind: kind),
                                          cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
-                for (field, value) in PilotMapConfig.requestHeaders { request.setValue(value, forHTTPHeaderField: field) }
+                if link == nil {
+                    for (field, value) in PilotMapConfig.requestHeaders { request.setValue(value, forHTTPHeaderField: field) }
+                } else {
+                    request.setValue(PilotMapConfig.userAgent, forHTTPHeaderField: "User-Agent")
+                }
                 if present.contains(kind), let etag = source.storage.etag(region: region.id, kind: kind) {
                     request.setValue(etag, forHTTPHeaderField: "If-None-Match")
                 }
@@ -295,6 +344,11 @@ final class PilotMapDownloads: ObservableObject {
             if !(error is CancellationError) { failed.insert(region.id) }
             AppLog.general.publicLine("Pilot's map download failed: \(type(of: error))")
         }
+    }
+
+    /// An archive as the Atlas gate names it: `<region>/<file>`.
+    nonisolated static func archiveName(_ region: PilotMapRegion, _ kind: PilotMapKind) -> String {
+        "\(region.id)/\(region.file(of: kind))"
     }
 
     /// The update every three months: each downloaded region the index has another build of, once the copy here is

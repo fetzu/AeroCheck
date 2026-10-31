@@ -48,6 +48,7 @@
 		0D25B325D7F811819DB1CA58 /* PilotMapMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */; };
 		07F3E1135A1951EC6BA4C201 /* PilotMapAllowanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */; };
 		9AD3B81D7EA690CED1CA955A /* PilotMapDownloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */; };
+		OC00680000120C00680012AA /* AtlasAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000120C00680012BB /* AtlasAccessTests.swift */; };
 		8D9B14781A99C8E88AE54852 /* PilotMapChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */; };
 		D1C6FD69FBAEFE4FD8F201AB /* PilotMapImageryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428053F50E506F09A515613F /* PilotMapImageryTests.swift */; };
 		7A31C0E2B94D4F1A8C6E0D55 /* PilotMapShapesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D56 /* PilotMapShapesTests.swift */; };
@@ -306,6 +307,7 @@
 		9A7D9BFBBEDBF4E39BBEF290 /* ChartPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B07C9866F0A82B7ED7A782 /* ChartPolicy.swift */; };
 		CCB1A38BD7C0C5D466F65770 /* PMTilesArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F8F1D806BC84B447B5551E /* PMTilesArchive.swift */; };
 		501D0FF15B97F3E53FC300BE /* PilotMapIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B7BB35BFE90481B580DBDB /* PilotMapIndex.swift */; };
+		OC00680000110C00680011AA /* AtlasAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000110C00680011BB /* AtlasAccess.swift */; };
 		B0D79AB60059A19B1929E009 /* PilotMapAllowance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1331EA81BEF33708CF3B32B /* PilotMapAllowance.swift */; };
 		CF3311EF6A82422D31A2ECB5 /* PilotMapTiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CFABD2FBC8337F9546606D /* PilotMapTiles.swift */; };
 		A15EE815AC9B25A997F78965 /* PilotMapMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402C3EF0B706787694C57C61 /* PilotMapMerge.swift */; };
@@ -539,6 +541,7 @@
 		00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMergeTests.swift; sourceTree = "<group>"; };
 		1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapAllowanceTests.swift; sourceTree = "<group>"; };
 		D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapDownloadTests.swift; sourceTree = "<group>"; };
+		OC00680000120C00680012BB /* AtlasAccessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasAccessTests.swift; sourceTree = "<group>"; };
 		BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapChartTests.swift; sourceTree = "<group>"; };
 		428053F50E506F09A515613F /* PilotMapImageryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapImageryTests.swift; sourceTree = "<group>"; };
 		7A31C0E2B94D4F1A8C6E0D56 /* PilotMapShapesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapShapesTests.swift; sourceTree = "<group>"; };
@@ -800,6 +803,7 @@
 		E2B07C9866F0A82B7ED7A782 /* ChartPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartPolicy.swift; sourceTree = "<group>"; };
 		A9F8F1D806BC84B447B5551E /* PMTilesArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PMTilesArchive.swift; sourceTree = "<group>"; };
 		F7B7BB35BFE90481B580DBDB /* PilotMapIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapIndex.swift; sourceTree = "<group>"; };
+		OC00680000110C00680011BB /* AtlasAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasAccess.swift; sourceTree = "<group>"; };
 		C1331EA81BEF33708CF3B32B /* PilotMapAllowance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapAllowance.swift; sourceTree = "<group>"; };
 		91CFABD2FBC8337F9546606D /* PilotMapTiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapTiles.swift; sourceTree = "<group>"; };
 		402C3EF0B706787694C57C61 /* PilotMapMerge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapMerge.swift; sourceTree = "<group>"; };
@@ -1018,6 +1022,7 @@
 				00F98FC9FA26034DBB08436A /* PilotMapMergeTests.swift */,
 				1D855949041B82DC5BB42087 /* PilotMapAllowanceTests.swift */,
 				D33C962E222BBE4615420C85 /* PilotMapDownloadTests.swift */,
+				OC00680000120C00680012BB /* AtlasAccessTests.swift */,
 				BC158CB5CE801A5FCABFE471 /* PilotMapChartTests.swift */,
 				428053F50E506F09A515613F /* PilotMapImageryTests.swift */,
 				7A31C0E2B94D4F1A8C6E0D56 /* PilotMapShapesTests.swift */,
@@ -1440,6 +1445,7 @@
 				E2B07C9866F0A82B7ED7A782 /* ChartPolicy.swift */,
 				A9F8F1D806BC84B447B5551E /* PMTilesArchive.swift */,
 				F7B7BB35BFE90481B580DBDB /* PilotMapIndex.swift */,
+				OC00680000110C00680011BB /* AtlasAccess.swift */,
 				C1331EA81BEF33708CF3B32B /* PilotMapAllowance.swift */,
 				91CFABD2FBC8337F9546606D /* PilotMapTiles.swift */,
 				402C3EF0B706787694C57C61 /* PilotMapMerge.swift */,
@@ -1810,6 +1816,7 @@
 				0D25B325D7F811819DB1CA58 /* PilotMapMergeTests.swift in Sources */,
 				07F3E1135A1951EC6BA4C201 /* PilotMapAllowanceTests.swift in Sources */,
 				9AD3B81D7EA690CED1CA955A /* PilotMapDownloadTests.swift in Sources */,
+				OC00680000120C00680012AA /* AtlasAccessTests.swift in Sources */,
 				8D9B14781A99C8E88AE54852 /* PilotMapChartTests.swift in Sources */,
 				D1C6FD69FBAEFE4FD8F201AB /* PilotMapImageryTests.swift in Sources */,
 				7A31C0E2B94D4F1A8C6E0D55 /* PilotMapShapesTests.swift in Sources */,
@@ -2058,6 +2065,7 @@
 				9A7D9BFBBEDBF4E39BBEF290 /* ChartPolicy.swift in Sources */,
 				CCB1A38BD7C0C5D466F65770 /* PMTilesArchive.swift in Sources */,
 				501D0FF15B97F3E53FC300BE /* PilotMapIndex.swift in Sources */,
+				OC00680000110C00680011AA /* AtlasAccess.swift in Sources */,
 				B0D79AB60059A19B1929E009 /* PilotMapAllowance.swift in Sources */,
 				CF3311EF6A82422D31A2ECB5 /* PilotMapTiles.swift in Sources */,
 				A15EE815AC9B25A997F78965 /* PilotMapMerge.swift in Sources */,

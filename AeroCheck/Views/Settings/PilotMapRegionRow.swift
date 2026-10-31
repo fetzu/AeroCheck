@@ -21,6 +21,11 @@ struct PilotMapAllowanceRow: View {
                     .font(.aero(.caption))
                     .foregroundColor(.aviationAmber)
             }
+            if let message = downloads.ceilingMessage {
+                Text(message)
+                    .font(.aero(.caption))
+                    .foregroundColor(.aviationAmber)
+            }
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -38,6 +43,8 @@ struct PilotMapRegionRow: View {
     let download: () -> Void
     let stop: () -> Void
     let delete: () -> Void
+    /// Why a failed download failed, when there is more to say than "failed": the month's ceiling. (6.8.0)
+    var failure: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -69,7 +76,7 @@ struct PilotMapRegionRow: View {
         case let .downloading(fraction): parts.append(L10n.PilotMap.downloading(fraction))
         case .downloaded: parts.append(L10n.PilotMap.downloaded)
         case .updateAvailable: parts.append(L10n.PilotMap.updateAvailable)
-        case .failed: parts.append(L10n.PilotMap.failed)
+        case .failed: parts.append(failure ?? L10n.PilotMap.failed)
         }
         if let built = Self.date(region.built) { parts.append(L10n.DataStorage.asOf(built)) }
         // What is on the device, or what the tap would fetch (an update: only the archives rebuilt).

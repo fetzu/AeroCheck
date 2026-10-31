@@ -11,5 +11,6 @@
 - Planifiez un vol qui passe une frontière : le bandeau propose les régions de l'Atlas le long de la route.
 - Les cartes suisses OACI, vol à voile et nationale : au-delà de leur bord, l'Atlas s'affiche maintenant dessous.
 - Une nouvelle introduction : Réglages › À propos › Revoir l'introduction. Cinq courts écrans (votre base est suggérée d'après l'endroit où vous êtes), puis un tour de piste au sol en trois minutes environ. Ensuite, Aujourd'hui montre un encart Pour commencer, et quelques astuces s'affichent une fois là où se trouve une fonction.
+- Les téléchargements de l'Atlas ont maintenant une limite mensuelle par appareil : 40 fichiers, ou 120 avec AéroCheck Pro (une région fait un ou deux fichiers). Si vous l'atteignez, la ligne de la région dit quand ils reprennent : dites-le-nous.
 
 Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

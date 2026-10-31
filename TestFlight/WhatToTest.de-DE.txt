@@ -11,5 +11,6 @@ Zum Ausprobieren:
 - Planen Sie einen Flug über eine Grenze: Das Banner bietet die Regionen des Atlas entlang der Route an.
 - Die Schweizer ICAO-, Segelflug- und Landeskarten: Jenseits ihres Rands liegt nun der Atlas darunter.
 - Eine neue Einführung: Einstellungen › Info › Einführung wiederholen. Fünf kurze Bildschirme (Ihre Basis wird anhand Ihres Standorts vorgeschlagen), dann eine Platzrunde am Boden in etwa drei Minuten. Danach zeigt Heute eine Kachel Erste Schritte, und einige Tipps erscheinen je einmal dort, wo eine Funktion ist.
+- Downloads des Atlas haben nun ein Monatslimit pro Gerät: 40 Dateien, oder 120 mit AéroCheck Pro (eine Region sind eine oder zwei Dateien). Wenn Sie es erreichen, sagt die Zeile der Region, ab wann es wieder geht: Melden Sie es uns.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

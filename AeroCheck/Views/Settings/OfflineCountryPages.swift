@@ -247,7 +247,7 @@ struct OfflineCountryPage: View {
                                           bytesToFetch: pilotMap.bytesToFetch(region), tint: tint,
                                           download: { downloadRegion(region, holding: holding) },
                                           stop: { pilotMap.cancel(region.id) },
-                                          delete: { pendingRegionDelete = region })
+                                          delete: { pendingRegionDelete = region }, failure: pilotMap.ceilingMessage)
                     }
                 }
             }

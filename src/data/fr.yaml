@@ -85,6 +85,15 @@ flagship:
       facts: ["Cartes OACI et vol à voile suisses, hors ligne", "Tours de piste et routes VFR dans {ofmCountries} pays", "Liens vers les cartes officielles dans {chartCountries} pays"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
+    - step: "Atlas"
+      anchor: "atlas"
+      fly: true
+      where: true
+      title: "Atlas : une carte dessinée pour le vol"
+      description: "AéroCheck dessine sa propre carte, tirée d'OpenStreetMap, pour ce que vous cherchez par la fenêtre : les villes selon leur taille, autoroutes et routes principales, voies ferrées et téléphériques, rivières, lacs et forêts, glaciers, et les sommets avec leur altitude en pieds, sur le relief. Chaque pays de la page Pays, les grands par région, réunis à leurs frontières."
+      facts: ["Téléchargez une région : elle fonctionne hors ligne", "Reconstruite chaque mois depuis OpenStreetMap", "Images aériennes de sources publiques ouvertes"]
+      note: "En ligne, la carte lit ce qui est à l'écran, dans un quota mensuel : 1 500 tuiles, 15 000 avec Pro. Une région téléchargée n'y compte jamais."
+      shot: "atlas"
     - step: "04 · Clôturer"
       anchor: "close"
       title: "Posé. Place au carnet."
@@ -224,6 +233,7 @@ footer:
   in: "en"
   city: "Suisse"
   privacy: "Confidentialité"
+  map: "Données de la carte"
   terms: "Conditions"
   support: "Assistance"
   license: "MIT"

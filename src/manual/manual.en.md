@@ -7,16 +7,21 @@ AéroCheck is a flight companion, not a certified instrument. Everything it show
 
 ### First Launch
 
-The very first screen is a **safety notice** you must acknowledge before anything else; it comes back whenever its wording changes materially, and you can read it again at any time under **Settings › About › Safety notice**. A short introduction then walks you through setup:
+The very first screen is a **safety notice** you must acknowledge before anything else; it comes back whenever its wording changes materially, and you can read it again at any time under **Settings › About › Safety notice**. Five short screens then set the app up, in about a minute and a half; **Skip** at the top (on every screen but the location one) leaves the introduction, and whatever is left waits on Today's **Getting started** card:
 
-- **Use your location**: needed for the GPS track, ground speed and the map. Grant "While Using the App" or "Always". "Always" is what keeps the track recording when the screen locks or you switch apps in flight; if you grant only "While Using the App", AéroCheck asks to **upgrade to "Always"** when you start a flight.
-- **Maps & Data**: the aeronautical data for your country (detected from the device region or, if available, a GPS fix) and its neighbours, the worldwide airport database and, optionally, the Swiss charts. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
-- **Checklists**: **Hide memory items** and the checklist language.
-- **Flights**: the four chapters AéroCheck follows a flight through: Plan, Prepare, Fly, Close. See [Following a Flight](#following-a-flight).
-- **Home aerodrome** (optional): where you are based. Plan new flight starts from it, and the landings you make there count as landings at base on the nav log. Set or change it later under **Settings › Flights**.
-- **Your map** and **In flight & features**: what the map draws (airspace, track vector, obstacles, the ICAO chart at every zoom), engine-hour logging and iCloud sync.
+1. **Welcome**: what AéroCheck does for a flight.
+2. **Use your location**: needed for the GPS track, the frequency for where you are, and the home aerodrome suggestion. Grant "While Using the App" or "Always". "Always" is what keeps the track recording when the screen locks or you switch apps in flight; if you grant only "While Using the App", AéroCheck asks to **upgrade to "Always"** when you start a flight.
+3. **About you**: **Based at**, filled in with the aerodrome nearest to you ("Nearest to you: LSZQ Bressaucourt, 6 NM"; change it if it is wrong), **You fly** (the free WT9 Dynamic, then each club's aircraft, those with AéroCheck Pro marked) and the checklist language. The home aerodrome is where Plan new flight starts from, and the landings you make there count as landings at base on the nav log; change it later under **Settings › Flights**.
+4. **Works with no signal**: one row for your country (its Atlas and its aeronautical data), **Airports and frequencies** and the **Atlas overview**, ticked, and for a Swiss base the **Swiss charts**, not ticked. Each row shows its size; **Download** fetches what is ticked, each row with its own progress, and **Continue** never waits for it. Other countries are in **Settings › Offline data**, and a route across a border offers its own. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
+5. **A circuit on the ground**: **Fly it** (see [A Circuit on the Ground](#a-circuit-on-the-ground)), or **Go to Today**.
 
-The last page, **You're Ready**, offers **Start using AéroCheck**, or **Fly my first flight on the ground**, the guided dry run (see [Dry Run](#dry-run)). You can replay the whole tour at any time from **Settings › About › Replay introduction**.
+You can replay it at any time from **Settings › About › Replay introduction**.
+
+### Getting Started and Tips
+
+After the introduction, Today shows a **Getting started** card under the start buttons: **Your base and aircraft**, **Offline data** for your country (with its progress while it downloads), **Your first flight**, **Fly** your aircraft's **own checklist** (only if you chose an aircraft that needs AéroCheck Pro and have no Pro: **Try Pro free**), **Plan your first route** and **The full dry run**. Each row ticks itself off once done, and a tap on an open row goes where it is done. **Free practice** and **Hide** sit at its foot; the card goes for good once everything is ticked or you hide it.
+
+A few **tips** show once each, where a feature lives: the **Map** button on Plan › Map, the track vector on the Cockpit's map, **NOW and NEXT**, your first flight's line in the logbook, and the offline data when a route crosses into a country not on the device. They never show in flight past the line-up, nor in a dry run. **Settings › About › Show the tips again** brings them back from the next launch.
 
 ### AéroCheck Pro
 
@@ -43,11 +48,11 @@ On the ground, AéroCheck has five tabs along the bottom: **Today**, **Plan**, *
 
 Today keeps the same slots in the same places every day, filled or not.
 
-- At the top, two chips: **Data** (how current your aeronautical data is; tap it for Data & Storage) and **GPS Ready** when location access is granted (the signal itself shows in flight, see [GPS Indicators](#gps-indicators)).
+- At the top, two chips: **Data** (how current your aeronautical data is; tap it for Offline data) and **GPS Ready** when location access is granted (the signal itself shows in flight, see [GPS Indicators](#gps-indicators)).
 - **NEXT FLIGHT**: the flight the start button is about, as a card with its time, aircraft, name, a ring counting its blocks, and the line its page has under the title ("2 left: NOTAMs and airspace, the nav log", or "Everything ticked, ready to fly"). That is today's flight, a flight you left in the air, or the next leg of a trip once you have landed at a stop. A trip shows as one card: its number of legs (**3 LEGS**), the whole route ("LSZQ → LSGE → LSZQ"), and a chip per leg with its time (✓ once flown). Tap the card to open the flight. With no such flight, the slot shows a flight you are following or still have to close, or **Plan new flight**.
 - The green start button, always in the same place: **START THIS FLIGHT** when there is a flight for today (**RESUME THIS FLIGHT** once it is in the air), **START FLIGHT** otherwise. For a leg of a trip it reads **START FLIGHT** and names the leg under it ("LEG 1 · LSZQ → LSGE").
 - Under it, **CIRCUITS**, always offered, beside **FLY WITHOUT A PLAN** when there is a flight for today, or **PLAN NEW FLIGHT** when there is not.
-- While your logbook is empty, a card under them offers **Fly your first flight on the ground**, the guided dry run (see [Dry Run](#dry-run)).
+- After the introduction, the **Getting started** card (see [Getting Started and Tips](#getting-started-and-tips)). Before 6.8.0's introduction, while your logbook is empty, a card offers **Fly your first flight on the ground**, the guided dry run (see [Dry Run](#dry-run)).
 - **AIRCRAFT AND LAST FLIGHT**: the aircraft you fly (tap it to switch, see below) and your last flight (tap it for its details). With nothing planned, a route you have put on the map shows here as well; tap it to open **Plan › Routes**.
 
 ### Choosing Your Aircraft
@@ -101,10 +106,16 @@ A dry run is a flight flown on the ground, in the real Cockpit: the aircraft is 
 
 ### Starting a Dry Run
 
-- **The introduction's last page**: **Fly my first flight on the ground** starts the guided dry run.
-- **Today**: while your logbook is empty, a card offers **Fly your first flight on the ground**, with **Start the dry run** and **Not now** (which puts the card away for good on this device). It also goes once you have flown the guided dry run, or a real flight.
+- **The introduction's last screen**: **Fly it** flies [A Circuit on the Ground](#a-circuit-on-the-ground).
+- **Today**: the **Getting started** card's **Your first flight**, **The full dry run** and **Free practice**. Set up before 6.8.0, with an empty logbook: a card offers **Fly your first flight on the ground**, with **Start the dry run** and **Not now** (which puts the card away for good on this device); it also goes once you have flown the guided dry run, or a real flight.
 - **Settings › About**, under **LEARN AND PRACTISE** (between ABOUT and LEGAL): **Replay introduction**, **Your first flight, from plan to logbook** (the guided dry run, about 15 minutes), **One part at a time**, and **Fly a dry run on the ground** (free practice).
 - **A route**: **Fly a dry run**, in the route editor's **…** menu or in the route's swipe to the right in **Plan › Routes**, flies that route in free practice.
+
+### A Circuit on the Ground
+
+The introduction's short flight: one circuit at your home aerodrome, about three minutes of your time, in the aircraft you chose when you have AéroCheck Pro for it, else in the WT9. Three moments are yours: the **before engine start check**, tapping **CHECK** for each item; **MAP** at the take-off, with **NOW and NEXT**; and the **landing check** on short final. The rest (the other checks, the taxi, the circuit, the shutdown) goes by quickly on its own, done as you would. The card's header counts the moments (**1 OF 3**); **END** stops it at any time.
+
+After **END FLIGHT** it ends on Today with **Landed and logged** and the logbook line it made ("LSZQ → LSZQ · 1 landing · 0:10"), then **The full dry run** (about 15 minutes, from the plan to the logbook), **Free practice** (the route or circuits you choose, at your pace) and **Done**. With a Pro aircraft flown as the WT9, **Fly HB-KFD's own checklist: try Pro free** comes first. As in any dry run, nothing of it is kept.
 
 ### The Guided Dry Run
 
@@ -678,14 +689,29 @@ If none of the route is on screen, a pill says where it is ("Route 12 NM · 045�
 
 **Map** (the layers button on the Cockpit's MAP) opens everything about how the map looks, in one sheet:
 
-- **Base chart**: **ICAO chart/Glider map** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, then the National Map at the closest zooms, unless **Force ICAO Chart Layer** is on), **National map**, **SWISSIMAGE**, **Apple Maps** and **Apple Maps Satellite**. The Swiss layers cover Switzerland and a margin around it; past their edge, Apple's map shows under them (its satellite map under SWISSIMAGE), never black. In offline mode, only the cached ICAO chart shows, with no Apple map under it. Every map of the app draws the same way: Plan › Map, the Cockpit's MAP, the dry run, the route editor and the coordinate picker. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map.
+- **Base chart**: **ICAO chart/Glider map** (the Swiss aeronautical chart 1:500,000, which becomes the glider chart, the Segelflugkarte 1:300,000, when you zoom in, then the National Map at the closest zooms, unless **Lock to ICAO chart**, the switch under that row while it is the base chart, is on), **National map**, **SWISSIMAGE**, the **Atlas** (AéroCheck's own map for flying, see [The Atlas](#the-atlas)) and **Aerial imagery** (open government orthophotos, see [Aerial Imagery](#aerial-imagery)). The Swiss layers are offered while the map shows part of Switzerland, and the one in use always; they cover Switzerland and a margin around it; past their edge, the Atlas shows under them, never black. In offline mode, only the cached ICAO chart shows, over the Atlas of the regions you downloaded. Every map of the app draws the same way: Plan › Map, the Cockpit's MAP, the dry run, the route editor and the coordinate picker. The chart you pick is kept on the device: the map opens on it, in the Cockpit and in Plan › Map, and on the Atlas the first time.
 - **Presets**: **Cruise** shows airspace and reporting points; **Approach** adds airports, obstacles, the traffic circuits and the arrival and departure routes; **Everything** shows every marker, and the circuits and routes too. Airspace stays on in all three.
-- **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **Map tiles** (OpenAIP's raster tiles, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
+- **Airspace & charts**: **Airspace** (the OpenAIP airspace, drawn as a vector overlay) and **OpenAIP chart** (OpenAIP's own raster chart, online only, off by default). When the airspace is on and no data is downloaded, the sheet says so and offers **Download data…**.
 - **Map markers**, from the downloaded OpenAIP data (see [Aeronautical Data and Storage](#aeronautical-data-and-storage)): **Airports** (with frequencies on tap), **Navaids** (VOR, DME, NDB), **Reporting points** and **Obstacles** (towers, masts, wind turbines; off by default, they are dense). **Show all** or **Hide all**.
 - **Aerodrome procedures**, from open flightmaps: **Traffic circuits**, **Arrival & departure routes (with sectors)** and **Glider, UL & helicopter**. All three are off by default, and no preset turns on the third. See [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes).
 - **Flight**: **Track vector**.
 
 The foot of the sheet credits the sources it draws from: open flightmaps (with the AIRAC cycle on the device) and OpenAIP.
+
+### The Atlas
+
+The **Atlas** is AéroCheck's own map for flying, drawn on the device from OpenStreetMap, with relief: towns and villages by size, main roads, railways, rivers and lakes, forests, built-up areas, glaciers, borders, cable cars, and peaks with their height in feet, in the cockpit's B612 typeface. It draws everywhere the app does: Plan › Map, the Cockpit's MAP, the dry run, the route editor, the coordinate picker, the logbook's track map, the route thumbnails and share cards.
+
+It comes in regions: one per country on the [Countries](/countries) page, the large ones split into their regions (the US states, the German Länder, the French régions…), about 236 in all. Offline, the map draws what is on the device and nothing else: the downloaded regions, the **Atlas overview** zoomed out when you downloaded it (every country, about 43 MB), and elsewhere the world outline the app carries: land, sea, the larger lakes and rivers, borders, countries and capitals. Offline means airplane mode or no signal as well as **Offline mode**. Once the month's online allowance is used up, the map does the same until the 1st.
+
+- **Online**, the map reads a region's tiles as the screen asks for them, within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. At 80 %, a line under the map offers the region's download; once it is used up, the map keeps the regions you downloaded and shows the world outline elsewhere until the 1st of the next month.
+- **Downloaded**, a region works offline and never counts against the allowance. A country's Atlas comes with the country in **Settings › Offline data** (a large country takes all its regions at one press, or the ones you fly); a planned flight offers the regions along its route with its other data (see [Downloading Data](#downloading-data)). Downloads have a monthly limit of their own per device: 40 files, or 120 with AéroCheck Pro (a region is one or two files); past it, the region's row says when they start again.
+
+A downloaded region updates itself every three months, on Wi-Fi, never in flight, while **Update automatically on Wi-Fi** is on; a region whose map did not change is never downloaded again. How the map is made, and what it keeps of OpenStreetMap, is on [this page](/map).
+
+### Aerial Imagery
+
+**Aerial imagery** shows open government orthophotos: swisstopo's in Switzerland, and those of Austria, France, the Netherlands, Luxembourg, Belgium, the Czech Republic, Poland, South Tyrol, twelve German states and the United States. Each source is cut at the border of the area it covers and credited at the foot of the map while it shows. Where no government publishes imagery the app may use, the Atlas shows instead. The imagery comes from each government's own service while it is on screen, so it needs a connection: offline, only what the device has already shown. The sources and their licences are listed in **Settings › About › Aerial imagery** and on [the map page](/map#70-aerial-imagery).
 
 When the downloaded airspace is aging, an amber mark sits on the **Map** button (or the layers button), and the sheet explains it ("Airspace data is out of date") with **Update**, so you know that what is drawn may not reflect recent changes.
 
@@ -702,7 +728,7 @@ On the ground the note shows the first line of each part, up to two lines each; 
 
 ### Traffic Circuits and VFR Routes
 
-With **Traffic circuits** or **Arrival & departure routes** on, the map draws the aerodrome procedures that open flightmaps publishes, in {ofmCountries} countries (most of Europe; the most complete are Switzerland, Austria, Germany, the Czech Republic, Slovakia and Hungary; the [Countries](/countries) page has the figures): in Plan › Map, in the Cockpit's MAP, and in the route editor (its layers button has the same three switches, as does **Settings › Navigation & Maps**). They are **indicative**: open flightmaps is a community source, and the aerodrome's official chart always prevails (it is one tap away, see below).
+With **Traffic circuits** or **Arrival & departure routes** on, the map draws the aerodrome procedures that open flightmaps publishes, in {ofmCountries} countries (most of Europe; the most complete are Switzerland, Austria, Germany, the Czech Republic, Slovakia and Hungary; the [Countries](/countries) page has the figures): in Plan › Map, in the Cockpit's MAP, and in the route editor (its layers button has the same three switches). They are **indicative**: open flightmaps is a community source, and the aerodrome's official chart always prevails (it is one tap away, see below).
 
 - **A traffic circuit** is a solid dark-blue line with a white edge, with its altitude on the downwind ("2900 ft", or "Alt: see chart" when open flightmaps gives none). A field with several circuits (by runway, or by type of aircraft) shows each of them. Altitudes that would cover each other on screen are stacked, each one a label further out, and two identical ones show once.
 - **An arrival or a departure** is a dashed blue line with its name halfway along, and an arrowhead toward the field (arrival) or away from it (departure). **A sector** is a light blue area with a dashed outline; Austria's noise-abatement areas are a grey hatched outline.
@@ -718,7 +744,7 @@ Near an aerodrome, the map adds its approach view: in flight, for the destinatio
 
 In the United States, where open flightmaps has no data, **Traffic circuits** shows the traffic patterns of the FAA's NASR instead. Each runway number carries the side its pattern turns ("30 RIGHT", "12 LEFT"), and the field its pattern altitude where the FAA publishes one ("TPA 806 ft", above sea level, as the Chart Supplement prints it). No pattern is drawn: the FAA publishes no shape. In Plan › Map, the US fields in view at 8 NM or less show it; in flight, the destination. VoiceOver reads "Runway 30, right-hand traffic". The patterns are fetched the first time a US field needs them, never at launch.
 
-The procedures come with the aeronautical data of each country (see [Downloading Data](#downloading-data)). When a switch is on and the country under the map has none on the device, the card says so ("Download VFR procedures for CZ in Data & Storage"), and a tap takes you there.
+The procedures come with the aeronautical data of each country (see [Downloading Data](#downloading-data)). When a switch is on and the country under the map has none on the device, the card says so ("Download the VFR procedures for Czechia"), and a tap opens that country's page in Offline data.
 
 With **Reporting points** on, the map also shows the few reporting points OpenAIP lacks, from open flightmaps. They look like the others; their callout adds where they come from ("open flightmaps · AIRAC 2610"), and so does the route editor's search.
 
@@ -790,7 +816,7 @@ Italy has none (ENAV's terms forbid links to its site without its authorisation)
 
 ### Track Vector
 
-The track vector projects your smoothed ground track 5 minutes ahead, with ticks at 1, 2 and 5 minutes. It hides below 5 kt, where a track means nothing. Turn it off in the Map sheet (**Track vector**) or under **Settings › Navigation & Maps**.
+The track vector projects your smoothed ground track 5 minutes ahead, with ticks at 1, 2 and 5 minutes. It hides below 5 kt, where a track means nothing. Turn it off in the Cockpit's Map sheet, in flight, or in **Settings › Checklist & Flight**, on the ground (**Track vector** in both).
 
 ### GPS Indicators
 
@@ -804,7 +830,7 @@ An external GPS receiver's fixes count as satellite fixes. If location access is
 
 ### Offline Maps
 
-The Swiss ICAO chart and the Segelflugkarte can be cached for offline use under **Settings › Navigation & Maps › Offline Maps** (up to about 250 MB), with **Offline Mode** to use the cache only. A cached chart is served from the device, so the map works without a connection. In Plan › Map, an **OFFLINE** or **CACHED** badge at the bottom left says which; tap it for the details. The Cockpit's MAP shows nothing while it can draw the chart, and **CHART OFFLINE** in its status slot when it cannot; the details are a tap on it, and in the Map sheet.
+The Atlas works offline in the regions you downloaded (see [The Atlas](#the-atlas)). The Swiss ICAO chart and the Segelflugkarte can be downloaded for offline use on Switzerland's page in **Settings › Offline data** (up to about 250 MB); **Offline mode**, at the top of Offline data, uses only what is on the device, even with a connection. A cached chart is served from the device, so the map works without a connection. In Plan › Map, an **OFFLINE** or **CACHED** badge at the bottom left says which; tap it for the details. The Cockpit's MAP shows nothing while it can draw the chart, and **CHART OFFLINE** in its status slot when it cannot; the details are a tap on it, and in the Map sheet.
 
 ---
 
@@ -1039,35 +1065,46 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 - **Traffic circuits and VFR routes**: open flightmaps' traffic circuits (with their altitude), VFR arrival and departure routes and their sectors, in the {ofmCountries} countries open flightmaps covers. Indicative only: open flightmaps is a community source, not for primary navigation. They follow the AIRAC cycle (a new one every 28 days) and are kept offline like the rest (see [Traffic Circuits and VFR Routes](#traffic-circuits-and-vfr-routes)).
 - **US traffic patterns**: the side of each runway's pattern and the pattern altitude, from the FAA's NASR (public domain), through the AéroCheck service. Fetched the first time a US field needs them, then at most once a week.
 - **Charts**: Swiss ICAO, national map, and Segelflug charts from swisstopo.
+- **The Atlas**: AéroCheck's own map, from OpenStreetMap (© OpenStreetMap contributors, ODbL) and Mapterhorn's relief, built monthly by region; see [The Atlas](#the-atlas) and [how it is made](/map).
+- **Aerial imagery**: open government orthophotos, each credited by its provider; see [Aerial Imagery](#aerial-imagery).
 - **Official charts**: a link to each aerodrome's chart on its publisher's site in {chartCountries} countries (DFS, the SIA, skyguide on SkyBriefing, Austro Control, the FAA and the AIS of {chartOthers} more countries), never the chart itself; see [Official Chart](#official-chart) and, country by country, [Countries](/countries).
 - **Briefing links**: the official pages behind Prepare's blocks (weather, NOTAMs, airspace activity, area forecast, filing, with each country's filing time) and each country's rule and numbers for closing an ATC flight plan, from the AéroCheck service's briefing registry. It is built weekly on the AéroCheck server from each country's own publishers, every link checked, and the app ships with a copy, so the links and the numbers are there before the first download. Each link names its publisher.
 - **Landing-fee sources**: where each aerodrome publishes its own tariff (links and dates, never amounts), from the AéroCheck service.
 
 ### Downloading Data
 
-Download aeronautical data **by country or continent** from **Settings › Data & Storage** (or **Navigation & Maps**). Onboarding offers a recommended set for your region and its neighbours so you are covered from the first flight. Airspace, navaids, obstacles, reporting points and aerodromes download together per country, and so do the VFR procedures, for the countries open flightmaps covers (the download page says which of yours get them).
+Everything downloads **by country**, in **Settings › Offline data**. A country is its Atlas, its airspace, aerodromes, navaids, obstacles and reporting points, and its VFR procedures where open flightmaps covers it. **Add a country** lists your country and its neighbours first, then Europe, then elsewhere, with a search on countries and regions: a country in one Atlas region downloads at one press; a larger one (France, Germany, Italy, the US…) opens its page, with **Download all of** it at one press, or its regions one by one. The aeronautical data is always for the whole country: it is small. Onboarding offers your country the same way, whole, with its size; the neighbours are here and in a route's offer.
 
-If you used AéroCheck before 6.2.0, your countries are there but their VFR procedures are not yet: **Refresh** on the **VFR procedures (open flightmaps)** row of Data & Storage fetches them for the countries you have (so does a new download from Navigation & Maps).
+A country's page lists its parts with their dates and sizes: the aeronautical data (OpenAIP), the VFR procedures with their AIRAC cycle, the Atlas regions, and on Switzerland's page the Swiss charts (the ICAO chart, the glider map; the National Map and SWISSIMAGE are online only). **Delete** removes the whole country. When you plan a flight, the banner that offers its missing data adds the Atlas regions along the route ("Atlas: Switzerland").
 
 ### Keeping Data Current
 
 Aeronautical data changes regularly, so AéroCheck surfaces its freshness in several places:
 
-- The **Data** chip on Today and a freshness summary in **Data & Storage**
+- The **Data** chip on Today and the status at the top of **Offline data** ("Everything up to date", or "2 updates" with **Update now**)
 - A snoozable **nudge** when a dataset is out of date
 - The amber mark on the map's **Map** button (or the layers button) when downloaded airspace is aging (see [The Map Sheet](#the-map-sheet))
 - **Route-aware prefetch**: when a route crosses a country you haven't downloaded, AéroCheck offers to fetch that data, and fetches only what is missing
-- A red line under a dataset whose last update failed ("Couldn't update CH, DE. Try again on Wi-Fi."), in Data & Storage and in Navigation & Maps; the next update that completes clears it
+- A red line on a country's page when its last update failed ("Couldn't update CH. Try again on Wi-Fi."); the next update that completes clears it
 
-Data refreshes when you bring the app to the foreground (there is no background download), so updates happen while you're using the app, not on battery in your pocket.
+With **Update automatically on Wi-Fi** on (the default), data refreshes when you bring the app to the foreground on Wi-Fi, never in flight (there is no background download), so updates happen while you're using the app, not on battery in your pocket. Off, **Update now** does it when you choose.
 
-The VFR procedures age by AIRAC cycle rather than by date. Their row in Data & Storage gives the cycle on the device and its validity ("AIRAC 2610 · valid 1 Oct – 28 Oct 2026"). It turns aging the day the next cycle takes effect (and tells you when open flightmaps has not published that cycle yet: "AIRAC 2610 · a newer cycle isn't published yet"), and stale four weeks later. AéroCheck fetches the new cycle as soon as the data is aging, the next time you bring the app to the foreground.
+The VFR procedures age by AIRAC cycle rather than by date. A country's page gives the cycle on the device ("open flightmaps · AIRAC 2610"). It turns aging the day the next cycle takes effect (and tells you when open flightmaps has not published that cycle yet: "AIRAC 2610 · a newer cycle isn't published yet"), and stale four weeks later. AéroCheck fetches the new cycle as soon as the data is aging, the next time you bring the app to the foreground.
 
 > Even current data is advisory. Always cross-check against official charts and NOTAMs.
 
 ### Offline Maps and Storage
 
-Cache the Swiss ICAO Chart and Segelflugkarte for offline use (~100–250 MB). **Data & Storage** lists each dataset with its countries, size and currency (**Airspace**, **Navaids**, **Obstacles**, **Reporting points**, **Aerodromes** from OpenAIP, **Airports** from OurAirports, and **VFR procedures (open flightmaps)**), and lets you update or delete cached data to reclaim space. New aerodrome data (runways, frequencies) shows as soon as it is downloaded, without restarting the app.
+**Settings › Offline data** holds everything on the device, from the top:
+
+- the status: the countries ready offline and their size, then **Everything up to date** or the updates waiting, with **Update now**, and **Update automatically on Wi-Fi**;
+- **Connection**: **Offline mode** (only what is on the device, even with a connection) and **Online airspace** (nearby control zones fetched online where no airspace is downloaded);
+- **Your countries**, each with what it holds and its size, and **Add a country** (see [Downloading Data](#downloading-data)). On a country's page, each Atlas region has its state (**Downloaded**, **Update available**, or not downloaded), its build date and its size; a downloaded region's menu has **Update** when a newer build is out, and **Delete**. Half the regions are under 30 MB; Switzerland with Liechtenstein is about 90 MB;
+- **Worldwide**: **Airports and frequencies** (OurAirports, every country) and the **Atlas overview** (every country zoomed out, offline, about 43 MB);
+- **Atlas online**: the month's online use ("Online this month: 312 of 1,500 map tiles");
+- **Storage**: what the downloads take on the device, and **Remove all downloads**.
+
+New aerodrome data (runways, frequencies) shows as soon as it is downloaded, without restarting the app. The map's layers (airspace, navaids, obstacles, reporting points, airports, procedures) are switched in the Map sheet, on the map.
 
 ---
 
@@ -1077,15 +1114,15 @@ Settings is a tab of its own, organised into dedicated pages. Three former setti
 
 ### Aircraft & Subscription
 
-**AéroCheck Pro** (subscribe, start the trial, buy Lifetime, or restore purchases), the aircraft you fly (with **Get latest aircraft data** to refresh the list and check for checklist updates, and **Send us an aircraft's checklist**), **Your requests** once you have sent one (see [Sending an Aircraft's Checklist](#sending-an-aircrafts-checklist)), and **Aircraft Visibility**, to show or hide aircraft one by one or by aeroclub.
+**AéroCheck Pro** (subscribe, start the trial, buy Lifetime, or restore purchases), the aircraft you fly (with **Get latest aircraft data** to refresh the list and check for checklist updates, and **Send us an aircraft's checklist**), **Your requests** once you have sent one (see [Sending an Aircraft's Checklist](#sending-an-aircrafts-checklist)), **Aircraft Visibility**, to show or hide aircraft one by one or by aeroclub, and **Checklists**: those on the device, by club, with their versions, and **Check for checklist updates**.
 
 ### Checklist & Flight
 
 **Hide memory items** and **Checklist Language**; **Log Engine Hours** (on by default) and **Confirm landings and go-arounds** (off by default, see [Flight Events](#flight-events)); under **Radio**, **Aerodromes on the way** (on by default: an aerodrome the route passes within 2 NM shows in NEXT as LISTEN, see [NOW and NEXT](#now-and-next)); **Always Use UTC Times**; the **Cockpit theme** (Auto / Day / Night) and **High contrast in sunlight**.
 
-### Navigation & Maps
+### Offline data
 
-**Force ICAO Chart Layer** and the **Track vector**; **Offline Maps** (offline mode, chart cache, update, delete, download); the OpenAIP airspace overlay, the navaid, obstacle and reporting-point layers, and **Online Airspace Data** (nearby control zones fetched online when no airspace is downloaded); the **Aerodrome procedures** switches (as in the Map sheet); airport data; the countries you download, with a red line when an update failed.
+Everything downloaded, by country: the status and **Update automatically on Wi-Fi**, **Offline mode** and **Online airspace**, your countries and **Add a country**, the worldwide airports and the Atlas overview, the month's online use, and the storage. It replaced Data & Storage and Navigation & Maps in 6.8.0; the map's layers and the **Track vector** are in the Map sheet, and **Lock to ICAO chart** under the ICAO row there. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
 
 ### Flights
 
@@ -1095,14 +1132,10 @@ The row was called Flight Planning before 6.4.0. Your **pilot name** (for the PI
 
 **iCloud Sync** of settings and flights across devices, **Aerodrome notes** (see [Aerodrome Notes](#aerodrome-notes)), the GPS **Recording Interval** and **GPS Priority** (**Precision** or **Battery Saver**), and the numbers of recorded flights and GPS points.
 
-### Data & Storage
-
-Aeronautical-data currency (one row per dataset, the VFR procedures with their AIRAC cycle), per-country and continent downloads, offline chart cache, and storage management. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
-
 ### Companion Mode
 
 Pair an iPhone and iPad as a synced second screen (Wi-Fi Aware; requires iOS 26 on both devices): **Enable Companion Mode**, then **Paired Devices**, with **Pair New Device** (shown even with the mode off), **Forget** for each device, and **Ask Each Flight** for a phone you always allowed. See [Companion Mode](#companion-mode).
 
 ### About
 
-App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources (among them the briefing links' publishers, named on each link, and the FAA's NASR for the US traffic patterns); and hidden **Developer Options** (tap the version number five times to unlock).
+App version, website, author and open-source information; **LEARN AND PRACTISE**, with **Replay introduction**, the guided dry run, **One part at a time** and free practice (see [Dry Run](#dry-run)); **Legal** (the safety notice, the terms of use and the privacy policy) and the data sources (among them the briefing links' publishers, named on each link, the FAA's NASR for the US traffic patterns, the Atlas's OpenStreetMap, Mapterhorn, MapLibre and B612, and **Aerial imagery**, each source with its credit and licence); and hidden **Developer Options** (tap the version number five times to unlock).

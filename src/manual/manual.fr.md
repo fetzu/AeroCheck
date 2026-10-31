@@ -7,16 +7,21 @@ AéroCheck est un compagnon de vol, pas un instrument certifié. Tout ce qu'il a
 
 ### Premier lancement
 
-Le tout premier écran est un **avis de sécurité** à accepter avant toute chose ; il revient lorsque son texte change de façon substantielle, et vous pouvez le relire à tout moment sous **Réglages › À propos › Avertissement de sécurité**. Une courte introduction vous guide ensuite dans la configuration :
+Le tout premier écran est un **avis de sécurité** à accepter avant toute chose ; il revient lorsque son texte change de façon substantielle, et vous pouvez le relire à tout moment sous **Réglages › À propos › Avertissement de sécurité**. Cinq courts écrans configurent ensuite l'app, en une minute et demie environ ; **Passer**, en haut (sur chaque écran sauf celui de la position), quitte l'introduction, et ce qui reste attend sur l'encart **Pour commencer** d'Aujourd'hui :
 
-- **Utiliser votre position** : nécessaire à la trace GPS, à la vitesse sol et à la carte. Accordez « Lorsque l'app est active » ou « Toujours ». « Toujours » permet à la trace de continuer à s'enregistrer quand l'écran se verrouille ou que vous changez d'app en vol ; si vous n'accordez que « Lorsque l'app est active », AéroCheck demande de **passer à « Toujours »** au démarrage d'un vol.
-- **Cartes et données** : les données aéronautiques de votre pays (détecté d'après la région de l'appareil ou, si disponible, une position GPS) et de ses voisins, la base mondiale des aérodromes et, au choix, les cartes suisses. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
-- **Checklists** : **Masquer les éléments mémoire** et la langue des checklists.
-- **Vols** : les quatre chapitres par lesquels AéroCheck suit un vol : Planifier, Préparer, Voler, Clôturer. Voir [Suivre un vol](#suivre-un-vol).
-- **Aérodrome de base** (facultatif) : là où vous êtes basé. Planifier un vol part de lui, et les atterrissages que vous y faites comptent comme atterrissages à la base sur le log de nav. À définir ou modifier plus tard sous **Réglages › Vols**.
-- **Votre carte** et **En vol et fonctionnalités** : ce que la carte dessine (espaces aériens, vecteur de trajectoire, obstacles, carte OACI à tous les zooms), le relevé des heures moteur et la synchronisation iCloud.
+1. **Bienvenue** : ce qu'AéroCheck fait pour un vol.
+2. **Utiliser votre position** : nécessaire à la trace GPS, à la fréquence de l'endroit où vous êtes et à la suggestion de l'aérodrome d'attache. Accordez « Lorsque l'app est active » ou « Toujours ». « Toujours » permet à la trace de continuer à s'enregistrer quand l'écran se verrouille ou que vous changez d'app en vol ; si vous n'accordez que « Lorsque l'app est active », AéroCheck demande de **passer à « Toujours »** au démarrage d'un vol.
+3. **À propos de vous** : **Basé à**, rempli avec l'aérodrome le plus proche (« Le plus proche : LSZQ Bressaucourt, à 6 NM » ; changez-le s'il ne convient pas), **Vous volez sur** (le WT9 Dynamic gratuit, puis les avions de chaque club, ceux d'AéroCheck Pro signalés) et la langue des checklists. L'aérodrome d'attache est le point de départ de Planifier un vol, et les atterrissages que vous y faites comptent comme atterrissages à la base sur le log de nav ; à modifier plus tard sous **Réglages › Vols**.
+4. **Fonctionne sans réseau** : une ligne pour votre pays (son Atlas et ses données aéronautiques), **Aéroports et fréquences** et la **Vue d'ensemble de l'Atlas**, cochés, et pour une base suisse les **Cartes suisses**, non cochées. Chaque ligne indique sa taille ; **Télécharger** récupère ce qui est coché, chaque ligne avec sa progression, et **Continuer** ne l'attend jamais. Les autres pays sont dans **Réglages › Données hors ligne**, et une route qui passe une frontière propose les siens. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
+5. **Un tour de piste au sol** : **C'est parti** (voir [Un tour de piste au sol](#un-tour-de-piste-au-sol)), ou **Aller à Aujourd'hui**.
 
-La dernière page, **Vous êtes prêt**, propose **Commencer à utiliser AéroCheck**, ou **Faire mon premier vol au sol**, le vol à blanc guidé (voir [Vol à blanc](#vol-à-blanc)). Vous pouvez rejouer tout le parcours à tout moment depuis **Réglages › À propos › Revoir l'introduction**.
+Vous pouvez la rejouer à tout moment depuis **Réglages › À propos › Revoir l'introduction**.
+
+### Pour commencer et astuces
+
+Après l'introduction, Aujourd'hui montre un encart **Pour commencer** sous les boutons de départ : **Votre base et votre avion**, **Données hors ligne** pour votre pays (avec sa progression pendant le téléchargement), **Votre premier vol**, **Volez avec la checklist** de votre avion (seulement si vous avez choisi un avion qui demande AéroCheck Pro sans l'avoir : **Essayez Pro gratuitement**), **Préparez votre première route** et **Le vol à blanc complet**. Chaque ligne se coche d'elle-même une fois faite, et toucher une ligne ouverte mène là où elle se fait. **La pratique libre** et **Masquer** sont au pied de l'encart ; il s'en va pour de bon une fois tout coché, ou masqué.
+
+Quelques **astuces** s'affichent une fois chacune, là où se trouve une fonction : le bouton **Carte** de Planifier › Carte, le vecteur de route sur la carte du cockpit, **ACT et SUIV**, la ligne de votre premier vol dans le carnet, et les données hors ligne quand une route entre dans un pays absent de l'appareil. Elles ne s'affichent jamais en vol après l'alignement, ni pendant un vol à blanc. **Réglages › À propos › Revoir les astuces** les ramène dès la prochaine ouverture.
 
 ### AéroCheck Pro
 
@@ -43,11 +48,11 @@ Au sol, AéroCheck a cinq onglets en bas de l'écran : **Aujourd'hui**, **Planif
 
 Aujourd'hui garde les mêmes emplacements aux mêmes endroits chaque jour, remplis ou non.
 
-- En haut, deux puces : **Données** (la fraîcheur de vos données aéronautiques ; touchez-la pour Données et stockage) et **GPS prêt** quand l'accès à la localisation est accordé (le signal lui-même s'affiche en vol, voir [Indicateurs GPS](#indicateurs-gps)).
+- En haut, deux puces : **Données** (la fraîcheur de vos données aéronautiques ; touchez-la pour Données hors ligne) et **GPS prêt** quand l'accès à la localisation est accordé (le signal lui-même s'affiche en vol, voir [Indicateurs GPS](#indicateurs-gps)).
 - **PROCHAIN VOL** : le vol dont parle le bouton de démarrage, dans un encart avec son heure, son avion, son nom, un anneau qui compte ses blocs, et la ligne que sa page porte sous le titre (« 2 à faire : NOTAM et espaces aériens, le log de nav », ou « Tout est coché, prêt à voler »). C'est le vol du jour, un vol que vous avez laissé en l'air, ou l'étape suivante d'un voyage une fois posé à une escale. Un voyage tient dans un seul encart : son nombre d'étapes (**3 ÉTAPES**), toute la route (« LSZQ → LSGE → LSZQ »), et une puce par étape avec son heure (✓ une fois volée). Touchez l'encart pour ouvrir le vol. Sans un tel vol, l'emplacement montre un vol que vous suivez ou qu'il reste à clôturer, ou **Planifier un vol**.
 - Le bouton vert de démarrage, toujours au même endroit : **DÉMARRER CE VOL** quand un vol est prévu aujourd'hui (**REPRENDRE CE VOL** une fois en l'air), **DÉMARRER LE VOL** sinon. Pour une étape d'un voyage, il indique **DÉMARRER LE VOL** et nomme l'étape en dessous (« ÉTAPE 1 · LSZQ → LSGE »).
 - En dessous, **TOURS DE PISTE**, toujours proposé, à côté de **VOLER SANS PLAN** quand un vol est prévu aujourd'hui, ou de **PLANIFIER UN VOL** sinon.
-- Tant que votre carnet de vol est vide, un encart sous ces boutons propose **Faites votre premier vol au sol**, le vol à blanc guidé (voir [Vol à blanc](#vol-à-blanc)).
+- Après l'introduction, l'encart **Pour commencer** (voir [Pour commencer et astuces](#pour-commencer-et-astuces)). Avant l'introduction de la 6.8.0, tant que votre carnet de vol est vide, un encart propose **Faites votre premier vol au sol**, le vol à blanc guidé (voir [Vol à blanc](#vol-à-blanc)).
 - **AVION ET DERNIER VOL** : l'avion que vous pilotez (touchez-le pour en changer, voir ci-dessous) et votre dernier vol (touchez-le pour ses détails). Quand rien n'est prévu, une route que vous avez mise sur la carte s'affiche aussi ici ; touchez-la pour ouvrir **Planifier › Routes**.
 
 ### Choisir son avion
@@ -101,10 +106,16 @@ Un vol à blanc est un vol fait au sol, dans le vrai cockpit : l'avion est pilot
 
 ### Lancer un vol à blanc
 
-- **La dernière page de l'introduction** : **Faire mon premier vol au sol** lance le vol à blanc guidé.
-- **Aujourd'hui** : tant que votre carnet de vol est vide, un encart propose **Faites votre premier vol au sol**, avec **Commencer le vol à blanc** et **Pas maintenant** (qui range l'encart pour de bon sur cet appareil). Il s'en va aussi une fois le vol à blanc guidé effectué, ou un vrai vol.
+- **Le dernier écran de l'introduction** : **C'est parti** vole [Un tour de piste au sol](#un-tour-de-piste-au-sol).
+- **Aujourd'hui** : dans l'encart **Pour commencer**, **Votre premier vol**, **Le vol à blanc complet** et **La pratique libre**. Configuré avant la 6.8.0, carnet vide : un encart propose **Faites votre premier vol au sol**, avec **Commencer le vol à blanc** et **Pas maintenant** (qui range l'encart pour de bon sur cet appareil) ; il s'en va aussi une fois le vol à blanc guidé effectué, ou un vrai vol.
 - **Réglages › À propos**, sous **APPRENDRE ET S'EXERCER** (entre À PROPOS et MENTIONS LÉGALES) : **Revoir l'introduction**, **Votre premier vol, du plan au carnet** (le vol à blanc guidé, environ 15 minutes), **Une partie à la fois**, et **Faire un vol à blanc** (la pratique libre).
 - **Une route** : **Faire un vol à blanc**, dans le menu **…** de l'éditeur de route ou en balayant la route vers la droite dans **Planifier › Routes**, fait voler cette route en pratique libre.
+
+### Un tour de piste au sol
+
+Le court vol de l'introduction : un tour de piste à votre aérodrome d'attache, environ trois minutes de votre temps, avec l'avion choisi si vous avez AéroCheck Pro pour lui, sinon avec le WT9. Trois moments sont à vous : la **vérification avant mise en route**, en touchant **COCHER** pour chaque élément ; **CARTE** au décollage, avec **ACT et SUIV** ; et la **vérification d'atterrissage** en courte finale. Le reste (les autres vérifications, le roulage, le tour de piste, l'arrêt du moteur) défile vite et seul, fait comme vous le feriez. L'en-tête de la carte compte les moments (**1 SUR 3**) ; **FIN** l'arrête à tout moment.
+
+Après **TERMINER LE VOL**, il se termine sur Aujourd'hui avec **Posé et inscrit au carnet** et la ligne qu'il a faite (« LSZQ → LSZQ · 1 atterrissage · 0:10 »), puis **Le vol à blanc complet** (environ 15 minutes, de la préparation au carnet de vol), **La pratique libre** (la route ou les tours de piste que vous choisissez, à votre rythme) et **Terminé**. Avec un avion Pro volé comme le WT9, **Volez avec la checklist de HB-KFD : essayez Pro gratuitement** vient en premier. Comme pour tout vol à blanc, rien n'en est gardé.
 
 ### Le vol à blanc guidé
 
@@ -678,14 +689,29 @@ Si rien de la route n'est à l'écran, une pastille indique où elle se trouve (
 
 **Carte** (le bouton des calques sur la CARTE du cockpit) ouvre tout ce qui règle l'apparence de la carte, en une seule feuille :
 
-- **Fond de carte** : **Carte OACI/Vol à voile** (la carte aéronautique suisse au 1:500 000, qui devient la carte de vol à voile, la Segelflugkarte au 1:300 000, quand vous zoomez, puis la Carte nationale aux zooms les plus proches, sauf si **Forcer la couche OACI** est activé), **Carte nationale**, **SWISSIMAGE**, **Plans d'Apple** et **Plans d'Apple (satellite)**. Les couches suisses couvrent la Suisse et une marge autour ; au-delà de leur bord, la carte d'Apple s'affiche dessous (sa carte satellite sous SWISSIMAGE), jamais du noir. En mode hors ligne, seule la carte OACI en cache s'affiche, sans la carte d'Apple dessous. Toutes les cartes de l'app se dessinent de la même façon : Planifier › Carte, la CARTE du cockpit, le vol à blanc, l'éditeur de route et le sélecteur de coordonnées. Le fond choisi est gardé sur l'appareil : la carte s'ouvre dessus, dans le cockpit et dans Planifier › Carte.
+- **Fond de carte** : **Carte OACI/Vol à voile** (la carte aéronautique suisse au 1:500 000, qui devient la carte de vol à voile, la Segelflugkarte au 1:300 000, quand vous zoomez, puis la Carte nationale aux zooms les plus proches, sauf si **Verrouiller sur la carte OACI**, l'interrupteur sous cette ligne quand elle est le fond de carte, est activé), **Carte nationale**, **SWISSIMAGE**, l'**Atlas** (la carte d'AéroCheck pour le vol, voir [L'Atlas](#latlas)) et **Images aériennes** (des orthophotos publiques ouvertes, voir [Images aériennes](#images-aériennes)). Les couches suisses sont proposées tant que la carte montre une partie de la Suisse, et celle en usage toujours ; elles couvrent la Suisse et une marge autour ; au-delà de leur bord, l'Atlas s'affiche dessous, jamais du noir. En mode hors ligne, seule la carte OACI en cache s'affiche, sur l'Atlas des régions téléchargées. Toutes les cartes de l'app se dessinent de la même façon : Planifier › Carte, la CARTE du cockpit, le vol à blanc, l'éditeur de route et le sélecteur de coordonnées. Le fond choisi est gardé sur l'appareil : la carte s'ouvre dessus, dans le cockpit et dans Planifier › Carte, et sur l'Atlas la première fois.
 - **Préréglages** : **Croisière** affiche les espaces aériens et les points de report ; **Approche** y ajoute les aérodromes, les obstacles, les tours de piste et les routes d'arrivée et de départ ; **Tout** affiche tous les repères, et les tours de piste et les routes aussi. Les espaces aériens restent affichés dans les trois.
-- **Espace aérien et cartes** : **Espace aérien** (les espaces aériens OpenAIP, en superposition vectorielle) et **Tuiles de carte** (les tuiles raster d'OpenAIP, désactivées par défaut). Quand les espaces aériens sont activés sans données téléchargées, la feuille le dit et propose **Télécharger les données…**.
+- **Espace aérien et cartes** : **Espace aérien** (les espaces aériens OpenAIP, en superposition vectorielle) et **Carte OpenAIP** (la carte raster d'OpenAIP, en ligne seulement, désactivée par défaut). Quand les espaces aériens sont activés sans données téléchargées, la feuille le dit et propose **Télécharger les données…**.
 - **Repères de carte**, issus des données OpenAIP téléchargées (voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage)) : **Aéroports** (avec fréquences au toucher), **Aides à la navigation** (VOR, DME, NDB), **Points de report** et **Obstacles** (pylônes, mâts, éoliennes ; désactivés par défaut, ils sont denses). **Tout afficher** ou **Tout masquer**.
 - **Procédures d'aérodrome**, issues d'open flightmaps : **Tours de piste**, **Routes d'arrivée et de départ (avec secteurs)** et **Planeurs, ULM et hélicoptères**. Les trois interrupteurs sont désactivés par défaut, et aucun préréglage n'active le troisième. Voir [Tours de piste et routes VFR](#tours-de-piste-et-routes-vfr).
 - **Vol** : **Vecteur de route**.
 
 Le pied de la feuille cite les sources de ce qu'elle dessine : open flightmaps (avec le cycle AIRAC présent sur l'appareil) et OpenAIP.
+
+### L'Atlas
+
+L'**Atlas** est la carte d'AéroCheck pour le vol, dessinée sur l'appareil à partir d'OpenStreetMap, avec le relief : villes et villages selon leur taille, routes principales, voies ferrées, rivières et lacs, forêts, zones bâties, glaciers, frontières, téléphériques, et sommets avec leur altitude en pieds, dans la police B612 du cockpit. Il se dessine partout où l'app dessine une carte : Planifier › Carte, la CARTE du cockpit, le vol à blanc, l'éditeur de route, le sélecteur de coordonnées, la carte de la trace dans le carnet, les vignettes des routes et les cartes de partage.
+
+Il vient par régions : une par pays de la page [Pays](/fr/countries), les grands découpés en régions (les États américains, les Länder allemands, les régions françaises…), environ 236 en tout. Hors ligne, la carte ne dessine que ce qui est sur l'appareil : les régions téléchargées, la **Vue d'ensemble de l'Atlas** en vue éloignée si vous l'avez téléchargée (tous les pays, environ 43 Mo) et, ailleurs, le contour du monde que l'app contient (terres, mer, grands lacs et grandes rivières, frontières, pays et capitales). Hors ligne veut dire en mode avion ou sans réseau aussi bien qu'avec le **Mode hors ligne**. Une fois le quota en ligne du mois épuisé, la carte fait de même jusqu'au 1er du mois suivant.
+
+- **En ligne**, la carte lit les tuiles d'une région au fur et à mesure que l'écran les demande, dans un quota mensuel par appareil : 1 500 tuiles, ou 15 000 avec AéroCheck Pro. À 80 %, une ligne sous la carte propose de télécharger la région ; une fois le quota épuisé, la carte garde les régions téléchargées et montre le contour du monde ailleurs, jusqu'au 1er du mois suivant.
+- **Téléchargée**, une région fonctionne hors ligne et ne compte jamais dans le quota. L'Atlas d'un pays vient avec le pays dans **Réglages › Données hors ligne** (un grand pays prend toutes ses régions d'une pression, ou celles où vous volez) ; un vol planifié propose les régions le long de sa route avec ses autres données (voir [Télécharger les données](#télécharger-des-données)). Les téléchargements ont leur propre limite mensuelle par appareil : 40 fichiers, ou 120 avec AéroCheck Pro (une région fait un ou deux fichiers) ; au-delà, la ligne de la région dit quand ils reprennent.
+
+Une région téléchargée se met à jour d'elle-même tous les trois mois, en Wi-Fi, jamais en vol, tant que **Mettre à jour automatiquement en Wi-Fi** est activé ; une région dont la carte n'a pas changé n'est jamais retéléchargée. Comment la carte est faite, et ce qu'elle garde d'OpenStreetMap, figure sur [cette page](/fr/map).
+
+### Images aériennes
+
+**Images aériennes** montre des orthophotos publiques ouvertes : celles de swisstopo en Suisse, et celles de l'Autriche, de la France, des Pays-Bas, du Luxembourg, de la Belgique, de la Tchéquie, de la Pologne, du Tyrol du Sud, de douze Länder allemands et des États-Unis. Chaque source est découpée à la limite de la zone qu'elle couvre et créditée au pied de la carte tant qu'elle s'affiche. Là où aucun État ne publie d'images que l'app peut utiliser, l'Atlas s'affiche à la place. Les images viennent du service de chaque État pendant qu'elles sont à l'écran, il faut donc une connexion : hors ligne, seulement ce que l'appareil a déjà affiché. Les sources et leurs licences sont listées sous **Réglages › À propos › Images aériennes** et sur [la page de la carte](/fr/map#70-images-aériennes).
 
 Quand les espaces aériens téléchargés vieillissent, une marque ambre apparaît sur le bouton **Carte** (ou le bouton des calques), et la feuille l'explique (« Données d'espace aérien obsolètes ») avec **Mettre à jour**, pour que vous sachiez que ce qui est dessiné peut ne pas refléter des changements récents.
 
@@ -702,7 +728,7 @@ Au sol, la note montre la première ligne de chaque partie, sur deux lignes au p
 
 ### Tours de piste et routes VFR
 
-Avec **Tours de piste** ou **Routes d'arrivée et de départ** activé, la carte dessine les procédures d'aérodrome qu'open flightmaps publie, dans {ofmCountries} pays (la plupart de l'Europe ; les plus complets sont la Suisse, l'Autriche, l'Allemagne, la Tchéquie, la Slovaquie et la Hongrie ; la page [Pays](/fr/countries) donne les chiffres) : dans Planifier › Carte, dans la CARTE du cockpit et dans l'éditeur de route (son bouton des calques porte les trois mêmes interrupteurs, tout comme **Réglages › Navigation & Cartes**). Elles sont **indicatives** : open flightmaps est une source communautaire, et la carte officielle de l'aérodrome l'emporte toujours (elle est à un toucher, voir plus bas).
+Avec **Tours de piste** ou **Routes d'arrivée et de départ** activé, la carte dessine les procédures d'aérodrome qu'open flightmaps publie, dans {ofmCountries} pays (la plupart de l'Europe ; les plus complets sont la Suisse, l'Autriche, l'Allemagne, la Tchéquie, la Slovaquie et la Hongrie ; la page [Pays](/fr/countries) donne les chiffres) : dans Planifier › Carte, dans la CARTE du cockpit et dans l'éditeur de route (son bouton des calques porte les trois mêmes interrupteurs). Elles sont **indicatives** : open flightmaps est une source communautaire, et la carte officielle de l'aérodrome l'emporte toujours (elle est à un toucher, voir plus bas).
 
 - **Un tour de piste** est une ligne continue bleu foncé bordée de blanc, avec son altitude sur la branche vent arrière (« 2900 ft », ou « Alt. : voir carte » quand open flightmaps n'en donne pas). Un terrain qui en a plusieurs (par piste, ou par type d'avion) les montre tous. Des altitudes qui se recouvriraient à l'écran sont empilées, chacune une étiquette plus loin, et deux altitudes identiques ne s'affichent qu'une fois.
 - **Une arrivée ou un départ** est une ligne bleue en tirets, avec son nom à mi-parcours et une pointe de flèche vers le terrain (arrivée) ou qui s'en éloigne (départ). **Un secteur** est une zone bleu clair au contour en tirets ; les zones de moindre bruit autrichiennes ont un contour hachuré gris.
@@ -718,7 +744,7 @@ Près d'un aérodrome, la carte ajoute sa vue d'approche : en vol, pour la desti
 
 Aux États-Unis, où open flightmaps n'a pas de données, **Tours de piste** montre à la place les tours de piste du NASR de la FAA. Chaque numéro de piste porte le côté où tourne son tour de piste (« 30 DROITE », « 12 GAUCHE »), et le terrain son altitude de tour de piste quand la FAA en publie une (« TPA 806 ft », au-dessus du niveau de la mer, comme l'imprime le Chart Supplement). Aucun tour de piste n'est dessiné : la FAA n'en publie pas la forme. Dans Planifier › Carte, les terrains américains visibles à 8 NM ou moins le montrent ; en vol, la destination. VoiceOver lit « Piste 30, tour de piste à droite ». Les tours de piste sont téléchargés la première fois qu'un terrain américain en a besoin, jamais au lancement.
 
-Les procédures viennent avec les données aéronautiques de chaque pays (voir [Télécharger des données](#télécharger-des-données)). Quand un interrupteur est activé et que le pays sous la carte n'en a aucune sur l'appareil, l'encart le dit (« Téléchargez les procédures VFR pour CZ dans Données et stockage ») et un toucher vous y emmène.
+Les procédures viennent avec les données aéronautiques de chaque pays (voir [Télécharger des données](#télécharger-des-données)). Quand un interrupteur est activé et que le pays sous la carte n'en a aucune sur l'appareil, l'encart le dit (« Téléchargez les procédures VFR pour Tchéquie ») et un toucher ouvre la page de ce pays dans Données hors ligne.
 
 Avec **Points de report** activé, la carte montre aussi les quelques points de report qui manquent à OpenAIP, issus d'open flightmaps. Ils ressemblent aux autres ; leur bulle ajoute d'où ils viennent (« open flightmaps · AIRAC 2610 »), tout comme la recherche de l'éditeur de route.
 
@@ -790,7 +816,7 @@ L'Italie n'en a pas (les conditions de l'ENAV interdisent tout lien vers son sit
 
 ### Vecteur de route
 
-Le vecteur de route projette votre route sol lissée 5 minutes en avant, avec des repères à 1, 2 et 5 minutes. Il disparaît en dessous de 5 kt, où une route suivie ne veut rien dire. Désactivez-le dans la feuille Carte (**Vecteur de route**) ou sous **Réglages › Navigation & Cartes**.
+Le vecteur de route projette votre route sol lissée 5 minutes en avant, avec des repères à 1, 2 et 5 minutes. Il disparaît en dessous de 5 kt, où une route suivie ne veut rien dire. Désactivez-le dans la feuille Carte du cockpit, en vol, ou dans **Réglages › Checklist & Vol**, au sol (**Vecteur de route** dans les deux).
 
 ### Indicateurs GPS
 
@@ -804,7 +830,7 @@ Les positions d'un récepteur GPS externe comptent comme satellite. Si l'accès 
 
 ### Cartes hors ligne
 
-La carte OACI suisse et la Segelflugkarte peuvent être mises en cache pour un usage hors ligne sous **Réglages › Navigation & Cartes › Cartes hors ligne** (jusqu'à environ 250 Mo), avec le **Mode hors ligne** pour n'utiliser que le cache. Une carte en cache est servie depuis l'appareil : la carte fonctionne sans connexion. Dans Planifier › Carte, un badge **HORS LIGNE** ou **EN CACHE** en bas à gauche indique lequel ; touchez-le pour les détails. La CARTE du cockpit n'affiche rien tant qu'elle peut dessiner la carte, et **CARTE HORS LIGNE** dans son emplacement d'état quand elle ne le peut pas ; les détails sont à un toucher dessus, et dans la feuille Carte.
+L'Atlas fonctionne hors ligne dans les régions téléchargées (voir [L'Atlas](#latlas)). La carte OACI suisse et la Segelflugkarte peuvent être téléchargées pour un usage hors ligne sur la page de la Suisse dans **Réglages › Données hors ligne** (jusqu'à environ 250 Mo) ; le **Mode hors ligne**, en haut de Données hors ligne, n'utilise que ce qui est sur l'appareil, même avec une connexion. Une carte en cache est servie depuis l'appareil : la carte fonctionne sans connexion. Dans Planifier › Carte, un badge **HORS LIGNE** ou **EN CACHE** en bas à gauche indique lequel ; touchez-le pour les détails. La CARTE du cockpit n'affiche rien tant qu'elle peut dessiner la carte, et **CARTE HORS LIGNE** dans son emplacement d'état quand elle ne le peut pas ; les détails sont à un toucher dessus, et dans la feuille Carte.
 
 ---
 
@@ -1039,35 +1065,46 @@ AéroCheck s'appuie sur plusieurs jeux de données externes pour que la navigati
 - **Tours de piste et routes VFR** : les tours de piste d'open flightmaps (avec leur altitude), les routes d'arrivée et de départ VFR et leurs secteurs, dans les {ofmCountries} pays que couvre open flightmaps. Indicatifs seulement : open flightmaps est une source communautaire, non destinée à la navigation primaire. Ils suivent le cycle AIRAC (un nouveau tous les 28 jours) et se gardent hors ligne comme le reste (voir [Tours de piste et routes VFR](#tours-de-piste-et-routes-vfr)).
 - **Tours de piste aux États-Unis** : le côté du tour de piste de chaque piste et son altitude, du NASR de la FAA (domaine public), par le service AéroCheck. Téléchargés la première fois qu'un terrain américain en a besoin, puis au plus une fois par semaine.
 - **Cartes** : cartes OACI, nationales et de vol à voile suisses de swisstopo.
+- **L'Atlas** : la carte d'AéroCheck, tirée d'OpenStreetMap (© les contributeurs d'OpenStreetMap, ODbL) et du relief de Mapterhorn, construite chaque mois par région ; voir [L'Atlas](#latlas) et [comment elle est faite](/fr/map).
+- **Images aériennes** : des orthophotos publiques ouvertes, chacune créditée à son fournisseur ; voir [Images aériennes](#images-aériennes).
 - **Cartes officielles** : un lien vers la carte de chaque aérodrome sur le site de son éditeur dans {chartCountries} pays (DFS, SIA, skyguide sur SkyBriefing, Austro Control, la FAA et le service d'information aéronautique de {chartOthers} autres pays), jamais la carte elle-même ; voir [Carte officielle](#carte-officielle) et, pays par pays, [Pays](/fr/countries).
 - **Liens de briefing** : les pages officielles derrière les blocs de Préparer (météo, NOTAM, activité de l'espace aérien, prévision de zone, dépôt, avec le délai de dépôt de chaque pays) et la règle et les numéros de chaque pays pour clôturer un plan de vol ATC, depuis le registre de briefing du service AéroCheck. Il est construit chaque semaine sur le serveur d'AéroCheck à partir des éditeurs propres à chaque pays, chaque lien vérifié, et l'app en embarque une copie, si bien que les liens et les numéros sont là avant le premier téléchargement. Chaque lien nomme son éditeur.
 - **Sources de taxes d'atterrissage** : l'endroit où chaque aérodrome publie son propre tarif (liens et dates, jamais de montants), depuis le service AéroCheck.
 
 ### Télécharger des données
 
-Téléchargez les données aéronautiques **par pays ou par continent** depuis **Réglages › Données et stockage** (ou **Navigation & Cartes**). L'accueil propose un ensemble recommandé pour votre région et ses voisins, pour être couvert dès le premier vol. Espaces aériens, balises, obstacles, points de report et aérodromes se téléchargent ensemble par pays, tout comme les procédures VFR, pour les pays que couvre open flightmaps (la page de téléchargement indique lesquels des vôtres les reçoivent).
+Tout se télécharge **par pays**, dans **Réglages › Données hors ligne**. Un pays, c'est son Atlas, ses espaces aériens, aérodromes, balises, obstacles et points de report, et ses procédures VFR là où open flightmaps le couvre. **Ajouter un pays** liste d'abord votre pays et ses voisins, puis l'Europe, puis ailleurs, avec une recherche sur les pays et les régions : un pays d'une seule région de l'Atlas se télécharge d'une pression ; un plus grand (la France, l'Allemagne, l'Italie, les États-Unis…) ouvre sa page, avec **Tout télécharger** d'une pression, ou ses régions une par une. Les données aéronautiques couvrent toujours tout le pays : elles sont légères. L'introduction propose votre pays de la même façon, entier, avec sa taille ; les voisins sont ici et dans l'offre d'une route.
 
-Si vous utilisiez AéroCheck avant la 6.2.0, vos pays sont là, mais pas encore leurs procédures VFR : **Actualiser** sur la ligne **Procédures VFR (open flightmaps)** de Données et stockage les récupère pour vos pays (un nouveau téléchargement depuis Navigation & Cartes aussi).
+La page d'un pays liste ses parties avec leurs dates et leurs tailles : les données aéronautiques (OpenAIP), les procédures VFR avec leur cycle AIRAC, les régions de l'Atlas et, sur la page de la Suisse, les cartes suisses (la carte OACI, la carte vol à voile ; la Carte nationale et SWISSIMAGE sont en ligne seulement). **Supprimer ce pays** retire le pays entier. Quand vous planifiez un vol, le bandeau qui propose les données manquantes y ajoute les régions de l'Atlas le long de la route (« Atlas : Suisse »).
 
 ### Garder les données à jour
 
 Les données aéronautiques changent régulièrement ; AéroCheck affiche donc leur fraîcheur à plusieurs endroits :
 
-- La puce **Données** sur Aujourd'hui et un résumé de fraîcheur dans **Données et stockage**
+- La puce **Données** sur Aujourd'hui et l'état en haut de **Données hors ligne** (« Tout est à jour », ou « 2 mises à jour » avec **Mettre à jour**)
 - Un **rappel** reportable quand un jeu de données est périmé
 - La marque ambre sur le bouton **Carte** de la carte (ou le bouton des calques) quand les espaces aériens téléchargés vieillissent (voir [La feuille Carte](#la-feuille-carte))
 - Le **préchargement selon la route** : quand une route traverse un pays non téléchargé, AéroCheck propose de récupérer ces données, et ne récupère que ce qui manque
-- Une ligne rouge sous un jeu de données dont la dernière mise à jour a échoué (« Mise à jour impossible : CH, DE. Réessayez en Wi-Fi. »), dans Données et stockage et dans Navigation & Cartes ; la prochaine mise à jour réussie l'efface
+- Une ligne rouge sur la page d'un pays quand sa dernière mise à jour a échoué (« Mise à jour impossible : CH. Réessayez en Wi-Fi. ») ; la prochaine mise à jour réussie l'efface
 
-Les données se rafraîchissent quand l'app revient au premier plan (aucun téléchargement en arrière-plan) : les mises à jour se font pendant que vous utilisez l'app, pas sur batterie dans votre poche.
+Avec **Mettre à jour automatiquement en Wi-Fi** activé (par défaut), les données se rafraîchissent quand l'app revient au premier plan en Wi-Fi, jamais en vol (aucun téléchargement en arrière-plan) : les mises à jour se font pendant que vous utilisez l'app, pas sur batterie dans votre poche. Désactivé, **Mettre à jour** le fait quand vous le choisissez.
 
-Les procédures VFR vieillissent au rythme du cycle AIRAC plutôt que de leur date. Leur ligne dans Données et stockage donne le cycle présent sur l'appareil et sa validité (« AIRAC 2610 · en vigueur 1 oct. – 28 oct. 2026 »). Elle recommande une mise à jour dès le jour où le cycle suivant entre en vigueur, et précise quand open flightmaps ne l'a pas encore publié (« AIRAC 2610 · le cycle suivant n'est pas encore publié ») ; les données sont périmées quatre semaines plus tard. AéroCheck récupère le nouveau cycle dès que les données vieillissent, au prochain retour de l'app au premier plan.
+Les procédures VFR vieillissent au rythme du cycle AIRAC plutôt que de leur date. La page d'un pays donne le cycle présent sur l'appareil (« open flightmaps · AIRAC 2610 »). Elle recommande une mise à jour dès le jour où le cycle suivant entre en vigueur, et précise quand open flightmaps ne l'a pas encore publié (« AIRAC 2610 · le cycle suivant n'est pas encore publié ») ; les données sont périmées quatre semaines plus tard. AéroCheck récupère le nouveau cycle dès que les données vieillissent, au prochain retour de l'app au premier plan.
 
 > Même à jour, les données sont indicatives. Vérifiez toujours avec les cartes officielles et les NOTAM.
 
 ### Cartes hors ligne et stockage
 
-Mettez en cache la carte OACI suisse et la Segelflugkarte pour un usage hors ligne (~100 à 250 Mo). **Données et stockage** liste chaque jeu de données avec ses pays, sa taille et sa fraîcheur (**Espace aérien**, **Aides à la navigation**, **Obstacles**, **Points de report**, **Aérodromes** d'OpenAIP, **Aéroports** d'OurAirports, et **Procédures VFR (open flightmaps)**), et permet de mettre à jour ou de supprimer les données en cache pour libérer de l'espace. Les nouvelles données d'aérodromes (pistes, fréquences) s'affichent dès leur téléchargement, sans redémarrer l'app.
+**Réglages › Données hors ligne** réunit tout ce qui est sur l'appareil, de haut en bas :
+
+- l'état : les pays prêts hors ligne et leur taille, puis **Tout est à jour** ou les mises à jour en attente, avec **Mettre à jour**, et **Mettre à jour automatiquement en Wi-Fi** ;
+- **Connexion** : le **Mode hors ligne** (seulement ce qui est sur l'appareil, même avec une connexion) et **Espaces aériens en ligne** (les zones de contrôle proches, récupérées en ligne là où aucun espace aérien n'est téléchargé) ;
+- **Vos pays**, chacun avec ce qu'il contient et sa taille, et **Ajouter un pays** (voir [Télécharger des données](#télécharger-des-données)). Sur la page d'un pays, chaque région de l'Atlas a son état (**Téléchargée**, **Mise à jour disponible**, ou non téléchargée), sa date de construction et sa taille ; le menu d'une région téléchargée propose **Mettre à jour** quand une version plus récente existe, et **Supprimer**. La moitié des régions font moins de 30 Mo ; la Suisse avec le Liechtenstein environ 90 Mo ;
+- **Monde entier** : **Aéroports et fréquences** (OurAirports, tous les pays) et la **Vue d'ensemble de l'Atlas** (tous les pays en vue éloignée, hors ligne, environ 43 Mo) ;
+- **Atlas en ligne** : l'usage en ligne du mois (« En ligne ce mois-ci : 312 tuiles de carte sur 1 500 ») ;
+- **Stockage** : la place que prennent les téléchargements sur l'appareil, et **Supprimer tous les téléchargements**.
+
+Les nouvelles données d'aérodromes (pistes, fréquences) s'affichent dès leur téléchargement, sans redémarrer l'app. Les calques de la carte (espaces aériens, balises, obstacles, points de report, aéroports, procédures) s'activent dans la feuille Carte, sur la carte.
 
 ---
 
@@ -1077,15 +1114,15 @@ Les réglages forment un onglet à part, organisé en pages dédiées. Trois anc
 
 ### Avions & Abonnement
 
-**AéroCheck Pro** (abonnement, essai, achat à vie ou restauration des achats), l'avion que vous pilotez (avec **Obtenir les dernières données** pour actualiser la liste et vérifier les mises à jour des checklists, et **Envoyez-nous la checklist d'un avion**), **Vos demandes** dès que vous en avez envoyé une (voir [Envoyer la checklist d'un avion](#envoyer-la-checklist-dun-avion)), et **Visibilité des avions**, pour afficher ou masquer les avions un par un ou par aéroclub.
+**AéroCheck Pro** (abonnement, essai, achat à vie ou restauration des achats), l'avion que vous pilotez (avec **Obtenir les dernières données** pour actualiser la liste et vérifier les mises à jour des checklists, et **Envoyez-nous la checklist d'un avion**), **Vos demandes** dès que vous en avez envoyé une (voir [Envoyer la checklist d'un avion](#envoyer-la-checklist-dun-avion)), **Visibilité des avions**, pour afficher ou masquer les avions un par un ou par aéroclub, et **Checklists** : celles présentes sur l'appareil, par club, avec leurs versions, et **Rechercher des mises à jour des listes**.
 
 ### Checklist & Vol
 
 **Masquer les éléments mémoire** et **Langue des checklists** ; **Heures moteur** (activé par défaut) et **Confirmer atterrissages et remises de gaz** (désactivé par défaut, voir [Événements de vol](#événements-de-vol)) ; sous **Radio**, **Aérodromes sur la route** (activé par défaut : un aérodrome que la route passe à moins de 2 NM s'affiche en SUIV comme ÉCOUTE, voir [ACT et SUIV](#act-et-suiv)) ; **Toujours utiliser l'heure UTC** ; le **Thème cockpit** (Auto / Jour / Nuit) et **Contraste élevé au soleil**.
 
-### Navigation & Cartes
+### Données hors ligne
 
-**Forcer la couche OACI** et le **Vecteur de route** ; **Cartes hors ligne** (mode hors ligne, cache des cartes, mise à jour, suppression, téléchargement) ; la superposition d'espaces aériens OpenAIP, les couches de balises, d'obstacles et de points de report, et **Données aéronautiques en ligne** (les zones de contrôle proches, récupérées en ligne quand aucun espace aérien n'est téléchargé) ; les interrupteurs des **Procédures d'aérodrome** (comme dans la feuille Carte) ; les données d'aérodromes ; les pays que vous téléchargez, avec une ligne rouge quand une mise à jour a échoué.
+Tout ce qui est téléchargé, par pays : l'état et **Mettre à jour automatiquement en Wi-Fi**, le **Mode hors ligne** et **Espaces aériens en ligne**, vos pays et **Ajouter un pays**, les aéroports du monde entier et la Vue d'ensemble de l'Atlas, l'usage en ligne du mois, et le stockage. Cette page a remplacé Données et stockage et Navigation & Cartes dans la 6.8.0 ; les calques de la carte et le **Vecteur de route** sont dans la feuille Carte, et **Verrouiller sur la carte OACI** sous la ligne OACI de cette feuille. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
 
 ### Vols
 
@@ -1095,14 +1132,10 @@ La ligne s'appelait Planification de vol avant la 6.4.0. **Votre nom** (pour la 
 
 **Synchronisation iCloud** des réglages et des vols entre appareils, les **Notes d'aérodrome** (voir [Notes d'aérodrome](#notes-daérodrome)), l'**Intervalle d'enregistrement** GPS et la **Priorité GPS** (**Précision** ou **Économie de batterie**), et le nombre de vols et de points GPS enregistrés.
 
-### Données et stockage
-
-Fraîcheur des données aéronautiques (une ligne par jeu de données, les procédures VFR avec leur cycle AIRAC), téléchargements par pays et par continent, cache de cartes hors ligne et gestion du stockage. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
-
 ### Mode compagnon
 
 Appariez un iPhone et un iPad comme second écran synchronisé (Wi-Fi Aware ; nécessite iOS 26 sur les deux appareils) : **Activer le mode compagnon**, puis **Appareils appairés**, avec **Appairer un nouvel appareil** (affiché même mode désactivé), **Oublier** pour chaque appareil, et **Demander à chaque vol** pour un téléphone toujours autorisé. Voir [Mode compagnon](#mode-compagnon).
 
 ### À propos
 
-Version de l'app, site web, auteur et informations open source ; **APPRENDRE ET S'EXERCER**, avec **Revoir l'introduction**, le vol à blanc guidé, **Une partie à la fois** et la pratique libre (voir [Vol à blanc](#vol-à-blanc)) ; **Mentions légales** (l'avertissement de sécurité, les conditions d'utilisation et la politique de confidentialité) et les sources des données (dont les éditeurs des liens de briefing, nommés sur chaque lien, et le NASR de la FAA pour les tours de piste aux États-Unis) ; et les **Options développeur** masquées (touchez cinq fois le numéro de version pour les déverrouiller).
+Version de l'app, site web, auteur et informations open source ; **APPRENDRE ET S'EXERCER**, avec **Revoir l'introduction**, le vol à blanc guidé, **Une partie à la fois** et la pratique libre (voir [Vol à blanc](#vol-à-blanc)) ; **Mentions légales** (l'avertissement de sécurité, les conditions d'utilisation et la politique de confidentialité) et les sources des données (dont les éditeurs des liens de briefing, nommés sur chaque lien, le NASR de la FAA pour les tours de piste aux États-Unis, OpenStreetMap, Mapterhorn, MapLibre et B612 pour l'Atlas, et **Images aériennes**, chaque source avec sa mention et sa licence) ; et les **Options développeur** masquées (touchez cinq fois le numéro de version pour les déverrouiller).

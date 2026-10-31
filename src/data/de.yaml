@@ -86,6 +86,15 @@ flagship:
       facts: ["Schweizer ICAO- und Segelflugkarten, offline", "Platzrunden und VFR-Routen in {ofmCountries} Ländern", "Links zu offiziellen Karten in {chartCountries} Ländern"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
+    - step: "Atlas"
+      anchor: "atlas"
+      fly: true
+      where: true
+      title: "Atlas: eine Karte zum Fliegen"
+      description: "AéroCheck zeichnet seine eigene Karte aus OpenStreetMap, für das, was Sie aus dem Fenster suchen: Städte nach ihrer Grösse, Autobahnen und Hauptstrassen, Eisenbahnen und Seilbahnen, Flüsse, Seen und Wälder, Gletscher und Gipfel mit ihrer Höhe in Fuss, über dem Relief. Jedes Land der Seite Länder, die grossen nach Region, an ihren Grenzen zusammengefügt."
+      facts: ["Laden Sie eine Region herunter: Sie funktioniert offline", "Jeden Monat neu aus OpenStreetMap erstellt", "Luftbilder aus offenen behördlichen Quellen"]
+      note: "Online liest die Karte, was auf dem Bildschirm ist, innerhalb eines monatlichen Kontingents: 1'500 Kacheln, 15'000 mit Pro. Eine heruntergeladene Region zählt nie dazu."
+      shot: "atlas"
     - step: "04 · Abschliessen"
       anchor: "close"
       title: "Gelandet. Jetzt das Flugbuch."
@@ -225,6 +234,7 @@ footer:
   in: "in"
   city: "der Schweiz"
   privacy: "Datenschutz"
+  map: "Kartendaten"
   terms: "Nutzungsbedingungen"
   support: "Support"
   license: "MIT"

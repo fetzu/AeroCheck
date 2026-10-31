@@ -35,6 +35,9 @@ final class DryRunSession: ObservableObject, Identifiable {
     @Published private(set) var isWaiting = false
     /// On final, its end still the pilot's to choose (the card on final).
     @Published private(set) var isOnFinal = false
+    /// The card on final, the pilot's choice of how it ends; not in the first flight, whose one landing is a full stop
+    /// (the onboarding's circuit, 6.8.0).
+    var showsFinalCard: Bool { isOnFinal && setup.guided?.isFirstFlight != true }
     /// How this final ends; a full stop at the start of each. Picked on the card, it lets the flight go on.
     @Published var finalChoice: DryRunGenerator.Landing = .fullStop {
         didSet {
@@ -124,7 +127,9 @@ final class DryRunSession: ObservableObject, Identifiable {
         self.setup = setup
         rate = setup.rate
         landings = setup.landings
-        coach = setup.guided.map { DryRunCoach(start: $0) }
+        coach = setup.guided.map { start in
+            DryRunCoach(start: start, steps: start.isFirstFlight ? DryRunFirstFlight.steps : DryRunStory.steps)
+        }
         // The story ends at the parking: no NEW CIRCUIT to tap by mistake (r6-12).
         world.appState.newCircuitAllowed = !setup.isGuided
         generator = DryRunGenerator(departure: setup.departure, mission: setup.generatorMission,
@@ -546,7 +551,9 @@ final class DryRunSession: ObservableObject, Identifiable {
            let plan = world.plans.flightPlans.first(where: { $0.id == planId }) {
             world.plans.activateFlightPlan(plan)
         }
-        guard world.startFlight(circuits: false, aerodromes: setup.aerodromes.map(\.airport), airports: airports) else {
+        // In circuit mode for the first flight's circuit (6.8.0): Cruise and Descent skipped, the full stop counted.
+        guard world.startFlight(circuits: setup.isCircuits, aerodromes: setup.aerodromes.map(\.airport),
+                                airports: airports) else {
             AppLog.general.publicLine("Dry run: the flight didn't start")
             return false
         }
@@ -689,6 +696,35 @@ final class DryRunCenter: ObservableObject {
         startRequest = StartRequest(route: route)
     }
 
+    /// The first flight's "Try Pro" button, given by whoever asked for it (onboarding: Settings › Aircraft &
+    /// Subscription on the real app), and the aircraft it names; nil when the pilot flies the aircraft they chose.
+    /// (6.8.0)
+    private(set) var firstFlightPro: (registration: String, open: () -> Void)?
+
+    /// Onboarding's circuit on the ground (`DryRunFirstFlight`). `pro`: the pilot's Pro aircraft, flown with the WT9
+    /// since they have no Pro yet, and what its offer opens (the author's answer p1 B, 31 Oct 2026). (6.8.0)
+    func requestFirstFlight(pro: (registration: String, open: () -> Void)? = nil) {
+        firstFlightPro = pro
+        requestGuided(.firstFlight)
+    }
+
+    /// The first flight's end: the full dry run, free practice, or the Pro offer, each once this one has ended.
+    func endFirstFlight(then next: FirstFlightNext) {
+        let pro = firstFlightPro
+        firstFlightPro = nil
+        // Ticked on the Getting started card, whichever way the pilot goes on.
+        UserDefaults.standard.set(true, forKey: GettingStarted.firstFlightFlownKey)
+        switch next {
+        case .done: break
+        case .story: whenNotRunning { [weak self] in self?.requestGuided(.story) }
+        case .practice: whenNotRunning { [weak self] in self?.requestStart() }
+        case .pro: if let pro { whenNotRunning(pro.open) }
+        }
+        end()
+    }
+
+    enum FirstFlightNext { case done, story, practice, pro }
+
     /// Asks `presenter` (the app's root by default) for the guided dry run, from `start`.
     func requestGuided(_ start: DryRunStart = .story, presenter: String = DryRunCenter.rootPresenter) {
         guard !isRunning, prepared == nil, !isStarting else { return }
@@ -704,8 +740,16 @@ final class DryRunCenter: ObservableObject {
         await airports.ensureLoaded()
         await OFMDataService.shared.ensureLoaded()
         let home = settings().homeAerodromeIdent.flatMap { Self.aerodrome($0, airports: airports) } ?? .lszq
-        let setup = DryRunSetup(mission: .route(DryRunChapters.route(from: home), departure: home, destination: home),
+        var setup = DryRunSetup(mission: .route(DryRunChapters.route(from: home), departure: home, destination: home),
                                 guided: start)
+        if start.isFirstFlight {
+            // One circuit at home, with the aircraft chosen when the pilot can fly it, else the WT9. (6.8.0)
+            let pilot = settings()
+            setup = DryRunSetup(mission: .circuits(home),
+                                aircraft: AircraftOption.flyable(remote: aircraftData.availableAircraft, settings: pilot)
+                                    .first { $0.isSelected(in: pilot) && $0.bundledType == nil },
+                                landings: [.fullStop], guided: start)
+        }
         return await begin(setup, settings: settings, airports: airports, aircraftData: aircraftData,
                            isFlightActive: isFlightActive, presenter: presenter)
     }
@@ -730,9 +774,11 @@ final class DryRunCenter: ObservableObject {
     /// The pilot's settings for the world: the guided dry run teaches with every item shown. With the memory
     /// items hidden, a check's card waited for a slot that named it "from memory" (the author's second run,
     /// 16 Oct). Its card on the Menu shows where to hide them, in the world only.
-    static func worldSettings(_ settings: AppSettings, guided: Bool) -> AppSettings {
+    static func worldSettings(_ settings: AppSettings, guided: Bool, firstFlight: Bool = false) -> AppSettings {
         var settings = settings
         if guided { settings.learningMode = true }
+        // No engine hours to type in three minutes. (6.8.0)
+        if firstFlight { settings.logEngineHours = false }
         return settings
     }
 
@@ -744,7 +790,9 @@ final class DryRunCenter: ObservableObject {
         services = (settings, airports, aircraftData)
         // Where the detector finds the aerodromes, and the map their frequencies.
         await airports.ensureLoaded()
-        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided), aircraft: setup.aircraft,
+        let world = DryRunWorld(settings: Self.worldSettings(settings(), guided: setup.isGuided,
+                                                             firstFlight: setup.guided?.isFirstFlight ?? false),
+                                aircraft: setup.aircraft,
                                 mapLayer: NavigationMapState.savedLayer(in: .standard))
         guard await world.loadChecklist(aircraftDataService: aircraftData) else {
             world.tearDown()
@@ -767,7 +815,8 @@ final class DryRunCenter: ObservableObject {
         let session = DryRunSession(world: world, setup: setup,
                                     performance: Self.performance(of: world, settings: settings()))
         session.resolveAerodrome = { Self.aerodrome($0, airports: airports) }
-        if setup.isGuided {
+        // The first flight is not the story: Today's card for the whole dry run stays. (6.8.0)
+        if setup.isGuided, setup.guided?.isFirstFlight != true {
             session.onGuidedFinished = { UserDefaults.standard.set(true, forKey: Self.guidedFlownKey) }
         }
         prepared = session

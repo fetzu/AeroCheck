@@ -63,6 +63,8 @@ struct AeroCheckApp: App {
     init() {
         // B612 in the UIKit chrome SwiftUI draws: bar titles, segmented pickers, tab labels. (v6.0)
         AeroAppearance.apply()
+        // The one-time tips, reset first when Settings › About asked. (6.8.0)
+        AeroTips.configure()
         // What a dry run left when the app stopped during it: before anything could start one. (6.4.0)
         DryRunWorld.sweepLeftovers()
         // Initialize subscription manager first, then aircraft data service

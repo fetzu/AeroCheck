@@ -12,6 +12,7 @@ struct AboutSettingsView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var showDeveloperOptions: Bool = false
+    @AppStorage(AeroTips.resetPendingKey) private var tipsReset = false
     @State private var versionTapCount: Int = 0
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
@@ -102,6 +103,14 @@ struct AboutSettingsView: View {
                 DryRunCenter.shared.requestStart()
             }
             .disabled(appState.isFlightActive)
+            // The one-time tips, shown again from the next launch: TipKit resets its store before it starts. (6.8.0)
+            SettingsButtonRow(icon: "lightbulb", title: L10n.Tips.showAgain,
+                              subtitle: tipsReset ? L10n.Tips.showAgainPending : L10n.Tips.showAgainSubtitle,
+                              tint: .aviationGold, showsChevron: false) {
+                UserDefaults.standard.set(true, forKey: AeroTips.resetPendingKey)
+                tipsReset = true
+            }
+            .disabled(tipsReset)
         }
     }
 

@@ -41,13 +41,10 @@ enum CountryNeighbors {
     ]
 }
 
-/// First-run onboarding (v4.1.0 revamp). Ten steps: welcome → location priming → maps & data
-/// downloads → checklists → flights → home aerodrome → your map → in flight & features → premium
-/// (AéroCheck Pro upsell) → ready.
-/// The three middle "config" steps fold a one-line intro into a header and let the pilot tune the
-/// default-off/on features up front; the toggles bind straight to `AppSettings` and persist when
-/// onboarding completes. Cockpit language: tinted page icons, gold primary actions, custom gold page
-/// dots. (onboarding revamp)
+/// First-run onboarding. Since 6.8.0 five screens, set up in about a minute and a half: welcome → location → about
+/// you (base, aircraft, language) → offline data → a circuit on the ground, about three minutes, or Today. What is
+/// left goes on Today's Getting started card (the author's answers on the onboarding page R4u3kJ…, 31 Oct 2026).
+/// Cockpit language: gold primary actions, custom gold page dots.
 ///
 /// The location step is App Review's (guideline 5.1.1(iv), which rejected 6.2.0): a screen shown before
 /// a permission prompt has ONE way on, a button worded "Continue", and that way always leads to the
@@ -60,60 +57,55 @@ struct OnboardingView: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     // The other OpenAIP layers download alongside airspace; observed so the card reflects all of them.
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @ObservedObject private var pilotMap = PilotMapDownloads.shared
     @ObservedObject private var countryDownloads = OfflineCountryDownloads.shared
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var currentPage = 0
     /// The edge the next page slides in from: trailing going forward, leading going back.
     @State private var pageEdge: Edge = .trailing
     @State private var showSkipConfirm = false
     @State private var showNoDownloadWarning = false
-    @State private var showSubscription = false
     /// True while the location step is waiting for the user to answer the system permission prompt, so
     /// we advance to the next step only AFTER they've responded. (device-test feedback)
     @State private var awaitingLocationResponse = false
 
     /// GPS-reverse-geocoded home country (ISO-2); nil until/unless a fix resolves. (onboarding revamp)
     @State private var detectedCountry: String?
-    /// Countries selected for the OpenAIP download — seeded with the home country, neighbours opt-in.
-    @State private var selectedCountries: Set<String> = []
+    /// The aerodrome nearest the pilot, from OpenAIP's online search, for "Based at". (6.8.0)
+    @State private var nearest: NearestAerodrome.Found?
+    /// The offline step's rows ticked: the country, the airports and the Atlas overview by default, the Swiss charts
+    /// not (the author's answers 3 A and p3 B, 31 Oct 2026: the airports can be unticked). (6.8.0)
+    @State private var offlineChoice: Set<OfflineItem> = [.country, .airports, .overview]
 
-    private let totalPages = 10
+    /// The offline step's rows. (6.8.0)
+    enum OfflineItem: Hashable { case country, airports, overview, swissCharts }
 
-    /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
-    private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
+    /// Five screens since 6.8.0: welcome, location, about you, offline, a circuit on the ground (the author's answers
+    /// of 31 Oct 2026 on the onboarding page R4u3kJ…: B's shape with A's download step).
+    private let totalPages = 5
 
-    /// One full-width column on iPhone (compact), two on iPad — a 2-up grid is unreadable at phone width.
-    private var toggleColumns: [GridItem] {
-        horizontalSizeClass == .compact
-            ? [GridItem(.flexible(), spacing: 11)]
-            : [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)]
+    /// The home country: the home aerodrome's, else the GPS-detected one, else the device region.
+    private var effectiveHome: String {
+        ICAOCountry.country(of: appState.settings.homeAerodromeIdent) ?? detectedCountry
+            ?? (Locale.current.region?.identifier ?? "CH")
     }
 
-    /// The countries the step offers: home, then its neighbours, each a whole country with its Atlas (the author's
-    /// answer 15 A, 30 Oct 2026). (6.8.0)
-    private var offeredCountries: [OfflineCountry] {
-        let catalog = OfflineCountryCatalog.countries(atlasRegions: pilotMap.regions,
-                                                      vfrCountries: Set(OFMDataService.shared.supportedCountries))
-        return ([effectiveHome] + CountryNeighbors.neighbors(of: effectiveHome)).compactMap { code in
-            catalog.first { $0.id == code }
-        }
+    /// The home country, whole: its Atlas and its aeronautical data. No neighbours here: Settings and the route's
+    /// banner offer them (the author's answer 4 B, 31 Oct 2026). (6.8.0)
+    private var homeCountry: OfflineCountry? {
+        OfflineCountryCatalog.countries(atlasRegions: pilotMap.regions,
+                                        vfrCountries: Set(OFMDataService.shared.supportedCountries))
+            .first { $0.id == effectiveHome }
     }
 
-    /// Home, always, and the neighbours ticked.
-    private var wantedCountries: [OfflineCountry] {
-        offeredCountries.filter { $0.id == effectiveHome || selectedCountries.contains($0.id) }
-    }
+    private var wantedCountries: [OfflineCountry] { homeCountry.map { [$0] } ?? [] }
 
-    /// A country whose aeronautical data and every Atlas region are on the device.
     private func isOnDevice(_ country: OfflineCountry) -> Bool {
-        let here = Set(pilotMap.downloaded.map(\.id))
-        return (!country.hasAeronauticalData || openAIPDataService.downloadedCountries.contains(country.id))
-            && country.atlasRegions.allSatisfy { here.contains($0.id) }
+        OfflineCountryCatalog.isOnDevice(country, pilotMap: pilotMap, aeronauticalKept: openAIPDataService.downloadedCountries)
     }
 
     /// What a country still needs, for its chip and the total.
@@ -126,24 +118,8 @@ struct OnboardingView: View {
     /// aeronautical data (about 5 MB a country) once it is on the device. A bar, as Settings has (the author's device
     /// check fix2-10, 31 Oct 2026). (6.8.0)
     private var countriesProgress: Double {
-        let here = Set(pilotMap.downloaded.map(\.id))
-        var total = 0.0, done = 0.0
-        for country in wantedCountries {
-            for region in country.atlasRegions {
-                let bytes = Double(max(region.downloadBytes, 1))
-                total += bytes
-                switch pilotMap.state(of: region.id) {
-                case let .downloading(fraction): done += bytes * fraction
-                case .downloaded, .updateAvailable: done += bytes
-                default: if here.contains(region.id) { done += bytes }
-                }
-            }
-            if country.hasAeronauticalData {
-                total += 5_000_000
-                if openAIPDataService.downloadedCountries.contains(country.id) { done += 5_000_000 }
-            }
-        }
-        return total > 0 ? min(1, done / total) : 0
+        OfflineCountryCatalog.progress(wantedCountries, pilotMap: pilotMap,
+                                       aeronauticalKept: openAIPDataService.downloadedCountries)
     }
 
     private var countriesDone: Bool { !wantedCountries.isEmpty && wantedCountries.allSatisfy(isOnDevice) }
@@ -190,24 +166,17 @@ struct OnboardingView: View {
             Button(String(localized: "Skip anyway"), role: .destructive) { completeOnboarding() }
             Button(String(localized: "Keep setting up"), role: .cancel) {}
         } message: {
-            Text(String(localized: "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data."))
+            Text(L10n.Onboarding.noDataBody)
         }
-        .alert(String(localized: "No airspace data downloaded"), isPresented: $showNoDownloadWarning) {
-            Button(String(localized: "Select countries"), role: .cancel) {}
-            Button(String(localized: "Continue anyway")) { go(to: 3) }
-        } message: {
-            Text(String(localized: "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first."))
-        }
-        .sheet(isPresented: $showSubscription) { SubscriptionView() }
-        // When a purchase completes from the onboarding paywall sheet, close it and jump straight to the
-        // "You're ready" page instead of dropping the pilot back on the Premium page to tap Continue.
-        // Gated on showSubscription so a pre-existing subscription (replaying onboarding) doesn't skip the
-        // page. (v4.1.1 device-test feedback)
-        .onChange(of: subscriptionManager.subscriptionStatus) { _, status in
-            if showSubscription && status.isSubscribed {
-                showSubscription = false
-                go(to: 9)
+        // The offline step's own words since 6.8.0: its rows are ticked already, so the way on downloads them.
+        .alert(L10n.Onboarding.noDataTitle, isPresented: $showNoDownloadWarning) {
+            Button(L10n.Onboarding.noDataDownload) {
+                downloadChosen()
+                go(to: 4)
             }
+            Button(String(localized: "Continue anyway"), role: .cancel) { go(to: 4) }
+        } message: {
+            Text(L10n.Onboarding.noDataBody)
         }
         // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
         .onChange(of: locationManager.authorizationStatus) { _, status in
@@ -223,17 +192,9 @@ struct OnboardingView: View {
         switch index {
         case 0: welcomePage
         case 1: locationPage
-        case 2: mapsDataPage
-        case 3: checklistsPage
-        // The four chapters, introduced right after the checklist that is chapter three. Without this
-        // page the app's spine is something a pilot has to discover. (v5.0.0)
-        case 4: flightsPage
-        // Where the pilot is based, right after what a flight is: skippable, like the pages around it. (v6.1)
-        case 5: homeAerodromePage
-        case 6: yourMapPage
-        case 7: inFlightFeaturesPage
-        case 8: premiumPage
-        default: readyPage
+        case 2: aboutYouPage
+        case 3: offlinePage
+        default: firstFlightPage
         }
     }
 
@@ -289,55 +250,30 @@ struct OnboardingView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 6) {
-                Text(L10n.Onboarding.welcomeTitle)
+                Text(L10n.Onboarding.welcomeHeadline)
                     .font(.aero(.title).weight(.bold))
                     .foregroundColor(.primaryText)
                     .multilineTextAlignment(.center)
-                Text(L10n.Onboarding.welcomeSubtitle)
-                    .font(.aero(.callout))
-                    .foregroundColor(.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             }
+            // A readable width on the iPad: the headline ran from edge to edge. (6.8.0)
+            .frame(maxWidth: 560)
+            .padding(.horizontal, 24)
 
-            // The flight told as a story: PLAN · FLY · NAVIGATE · LOG.
-            VStack(alignment: .leading, spacing: 13) {
-                welcomePhase("point.3.connected.trianglepath.dotted",
-                             String(localized: "Plan|Build your route on the map, with airspace and terrain in view."))
-                welcomePhase("checklist",
-                             String(localized: "Fly|Work the checklists through all 16 phases, pre-flight to shutdown."))
-                welcomePhase("location.north.line",
-                             String(localized: "Navigate|A moving map with airspace, frequencies and your live track."))
-                welcomePhase("book.closed",
-                             String(localized: "Log|Every flight is recorded automatically: times, track and landings."))
-            }
-            .padding(.horizontal, 36)
-            .padding(.top, 4)
+            // One line on what the app does for a flight; the circuit on the ground at the end shows it. (6.8.0)
+            Text(L10n.Onboarding.welcomeBody)
+                .font(.aero(.callout))
+                .foregroundColor(.secondaryText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 560)
+                .padding(.horizontal, 40)
+                .padding(.top, 4)
 
             Spacer()
 
             pageDots
             primaryButton(L10n.Onboarding.getStarted, icon: "arrow.right") { go(to: 1) }
                 .padding(.bottom, 40)
-        }
-    }
-
-    /// One PLAN/FLY/NAVIGATE/LOG line on the Welcome screen. `combined` is "PHASE|one-liner"; the phase
-    /// word renders gold-bold, the rest in secondary. One key per phase keeps the FR translation tidy.
-    private func welcomePhase(_ icon: String, _ combined: String) -> some View {
-        let parts = combined.split(separator: "|", maxSplits: 1).map(String.init)
-        let phase = (parts.first ?? "").uppercased()
-        let text = parts.count > 1 ? parts[1] : ""
-        return HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .scaledFont(size: 17, relativeTo: .body)
-                .foregroundColor(.aviationGold)
-                .frame(width: 24, height: 20)
-                .accessibilityHidden(true)
-            (Text(phase + "  ").font(.aero(.footnote).weight(.bold)).foregroundColor(.aviationGold)
-                + Text(text).font(.aero(.footnote)).foregroundColor(.secondaryText))
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
         }
     }
 
@@ -351,10 +287,12 @@ struct OnboardingView: View {
             pageTitle(String(localized: "Use your location"))
 
             VStack(alignment: .leading, spacing: 11) {
-                locationBullet("location.fill", String(localized: "Record your GPS flight track"))
-                locationBullet("antenna.radiowaves.left.and.right", String(localized: "Show nearby airspace & frequencies"))
-                locationBullet("square.and.arrow.down", String(localized: "Suggest the right maps to download next"))
+                locationBullet("location.fill", L10n.Onboarding.locationTrack)
+                locationBullet("antenna.radiowaves.left.and.right", L10n.Onboarding.locationFrequency)
+                locationBullet("house", L10n.Onboarding.locationHome)
             }
+            // The list under the title on the iPad, not at the screen's edge.
+            .frame(maxWidth: 440, alignment: .leading)
             .padding(.horizontal, 50)
 
             // Says what comes next, and that the answer isn't final. Only while there is a question to
@@ -390,9 +328,147 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - 3: Maps & data
+    // MARK: - 3: About you (6.8.0)
 
-    private var mapsDataPage: some View {
+    /// Three answers, each already filled in: the nearest aerodrome as the base, the aircraft (the WT9 Dynamic until
+    /// another is picked; a Pro one can be, marked so, and nothing asks for money here), the checklists' language.
+    private var aboutYouPage: some View {
+        configContainer(
+            icon: "person.crop.circle", tint: .aviationGold,
+            title: L10n.Onboarding.aboutYouTitle,
+            subtitle: L10n.Onboarding.aboutYouSubtitle,
+            page: 2
+        ) {
+            VStack(alignment: .leading, spacing: 11) {
+                fieldLabel(L10n.Onboarding.basedAt)
+                AerodromeIdentField(ident: Bindable(appState).settings.homeAerodromeIdent,
+                                    suggestion: HomeAerodrome.suggestion(from: appState.flights))
+                if let nearest {
+                    Text(L10n.Onboarding.nearestToYou("\(nearest.ident) \(nearest.name)",
+                                                      Int(nearest.distanceNM.rounded())))
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                fieldLabel(L10n.Onboarding.youFly).padding(.top, 6)
+                aircraftMenu
+                Text(L10n.Onboarding.aircraftNote)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                languageRow.padding(.top, 6)
+            }
+        }
+        .task { await aircraftDataService.fetchAvailableAircraft() }
+        // A fix for the nearest aerodrome and the home country, as Today warms the GPS: nothing has started it yet.
+        .onAppear {
+            if locationManager.authorizationStatus == .authorizedWhenInUse
+                || locationManager.authorizationStatus == .authorizedAlways {
+                locationManager.startLocationUpdates()
+            }
+        }
+        // Again once the first fix comes: the system's question was answered a moment ago, on the page before.
+        .task(id: locationManager.currentLocation != nil) { await suggestHomeAerodrome() }
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.aero(.caption).weight(.semibold))
+            .tracking(1.2)
+            .foregroundColor(.aviationGold)
+    }
+
+    /// The nearest aerodrome, asked of OpenAIP once the location is known, written in as the base when none is set:
+    /// the pilot sees it filled in and changes it if it's wrong.
+    private func suggestHomeAerodrome() async {
+        guard let location = locationManager.currentLocation, nearest == nil else { return }
+        // The country, for OpenAIP's list when its search around a position is refused.
+        if detectedCountry == nil { await detectRegion() }
+        guard let found = await NearestAerodrome.find(near: location.coordinate,
+                                                      country: detectedCountry ?? Locale.current.region?.identifier)
+        else { return }
+        nearest = found
+        if (appState.settings.homeAerodromeIdent ?? "").isEmpty {
+            appState.settings.homeAerodromeIdent = found.ident
+            appState.saveSettings()
+        }
+    }
+
+    /// The aircraft picked: the remote one selected, else the bundled one.
+    private var selectedAircraft: AircraftOption {
+        if let id = appState.settings.selectedRemoteAircraftId,
+           let metadata = aircraftDataService.availableAircraft.first(where: { $0.id == id }) {
+            return .remote(metadata)
+        }
+        return .bundled(appState.settings.selectedAircraft)
+    }
+
+    /// The Pro aircraft the pilot chose without Pro: flown as the WT9 on the ground, and named in the Pro offer at
+    /// the end (the author's answer p1 B, 31 Oct 2026).
+    private var proAircraft: String? {
+        let option = selectedAircraft
+        return isPro(option) ? option.registration : nil
+    }
+
+    private func isPro(_ option: AircraftOption) -> Bool {
+        if case let .remote(metadata) = option { return !metadata.isFree && !metadata.hasAccess }
+        return false
+    }
+
+    /// Every aircraft, the free ones first, then each club's fleet, a Pro one marked so.
+    private var aircraftMenu: some View {
+        let remote = aircraftDataService.availableAircraft.filter { !$0.isBundled }
+        let clubs = Dictionary(grouping: remote) { $0.aeroclub ?? "" }
+        return Menu {
+            ForEach(AircraftType.allCases, id: \.self) { type in
+                Button("\(type.registration) · \(type.shortModelName)") {
+                    _ = appState.selectAircraft(id: type.rawValue, available: aircraftDataService.availableAircraft)
+                }
+            }
+            ForEach(clubs.keys.sorted(), id: \.self) { club in
+                Section(club) {
+                    ForEach(clubs[club, default: []].sorted { $0.registration < $1.registration }) { metadata in
+                        Button(metadata.isFree || metadata.hasAccess
+                               ? "\(metadata.registration) · \(metadata.shortModelName)"
+                               : "\(metadata.registration) · \(metadata.shortModelName) · Pro") {
+                            _ = appState.selectAircraft(id: metadata.id, available: aircraftDataService.availableAircraft)
+                        }
+                    }
+                }
+            }
+        } label: {
+            let option = selectedAircraft
+            HStack(spacing: 10) {
+                Text(option.registration)
+                    .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                Text(option.modelName)
+                    .font(.aero(.subheadline))
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(isPro(option) ? "Pro" : L10n.Onboarding.free)
+                    .font(.aero(.caption).weight(.semibold))
+                    .foregroundColor(isPro(option) ? .aviationGold : .aviationGreen)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.aero(.caption))
+                    .foregroundColor(.dimText)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(L10n.Onboarding.youFly)
+        .accessibilityValue("\(selectedAircraft.registration) \(selectedAircraft.modelName)")
+    }
+
+    // MARK: - 4: Offline (6.8.0)
+
+    /// A's rows, each saying what it gives in flight and its size, each with its own progress; one Download for what
+    /// is ticked. Continue never waits: the downloads run on (the author's answers 1 C, 3 A and p3 B, 31 Oct 2026).
+    private var offlinePage: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 13) {
                 Image(systemName: "map.fill")
@@ -402,63 +478,50 @@ struct OnboardingView: View {
                     .background(RoundedRectangle(cornerRadius: 15).fill(Color.aviationGreen.opacity(0.14)))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(String(localized: "Maps & Data"))
+                    Text(L10n.Onboarding.offlineTitle)
                         .font(.aero(.title3).weight(.semibold))
                         .foregroundColor(.primaryText)
-                    Text(String(localized: "Download what you'll fly over so it works offline."))
+                    Text(L10n.Onboarding.offlineSubtitle)
                         .font(.aero(.footnote))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                regionPill
             }
             .padding(.bottom, 16)
 
-            openAIPDownloadCard
-                .padding(.bottom, 11)
-
-            downloadButton(
-                title: String(localized: "Airports & frequencies"),
-                icon: "building.2",
-                isDownloading: airportDataService.isDownloading,
-                progress: airportDataService.downloadProgress,
-                isCompleted: airportDataService.isOurAirportsDownloaded,   // not a country's OpenAIP aerodromes
-                detail: String(localized: "Worldwide · ≈ 12 MB"),
-                action: { Task { await airportDataService.downloadData() } }
-            )
-
-            // Every country zoomed out, offline: offered here (the author's note to question 10, 30 Oct 2026). (6.8.0)
-            if let overview = pilotMap.overview {
-                let state = pilotMap.state(of: overview.id)
-                downloadButton(
-                    title: L10n.Onboarding.atlasOverview,
-                    icon: "globe.europe.africa",
-                    isDownloading: { if case .downloading = state { return true }; return false }(),
-                    progress: { if case let .downloading(fraction) = state { return fraction }; return 0 }(),
-                    isCompleted: state == .downloaded || state == .updateAvailable,
-                    detail: L10n.Onboarding.atlasOverviewDetail(OfflineDataView.bytes(Int64(overview.downloadBytes))),
-                    action: { pilotMap.download(overview) }
-                )
-                .padding(.top, 11)
+            VStack(spacing: 0) {
+                ForEach(offlineItems, id: \.self) { item in
+                    if item != offlineItems.first { Divider().background(Color.white.opacity(0.08)) }
+                    offlineRow(item)
+                }
             }
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
 
-            if effectiveHome == "CH" {
-                downloadButton(
-                    title: String(localized: "Swiss charts"),
-                    icon: "map",
-                    isDownloading: offlineMapManager.isDownloading,
-                    progress: offlineMapManager.downloadProgress,
-                    isCompleted: offlineMapManager.isCacheAvailable,
-                    detail: String(localized: "ICAO + glider · up to ≈ 250 MB"),
-                    action: { Task { await offlineMapManager.downloadCharts(option: .icaoAndSegelflug) } }
-                )
-                .padding(.top, 11)
+            HStack {
+                Text(L10n.Onboarding.offlineTotal(OfflineDataView.bytes(chosenBytes)))
+                    .font(.aero(.caption))
+                    .foregroundColor(.dimText)
+                Spacer()
+                Button(action: downloadChosen) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.circle").scaledFont(size: 14, relativeTo: .subheadline)
+                        Text(String(localized: "Download")).font(.aero(.subheadline).weight(.medium))
+                    }
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGold))
+                }
+                .disabled(!hasSomethingToDownload)
+                .opacity(hasSomethingToDownload ? 1 : 0.4)
             }
+            .padding(.top, 12)
 
-            Text(String(localized: "Add more countries anytime in Settings → Data."))
+            Text(L10n.Onboarding.moreCountries)
                 .font(.aero(.caption2))
                 .foregroundColor(.dimText)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)
 
             Spacer(minLength: 16)
@@ -467,8 +530,8 @@ struct OnboardingView: View {
                 pageDots
                 Spacer()
                 inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
-                    if openAIPDataService.isDataAvailable {
-                        go(to: 3)
+                    if openAIPDataService.isDataAvailable || countriesDownloading || !offlineChoice.contains(.country) {
+                        go(to: 4)
                     } else {
                         showNoDownloadWarning = true
                     }
@@ -479,147 +542,191 @@ struct OnboardingView: View {
         .padding(.top, 24)
         .padding(.bottom, 40)
         .task {
-            if selectedCountries.isEmpty { selectedCountries = [effectiveHome] }
             await pilotMap.refreshIndex()
             await detectRegion()
         }
     }
 
-    private var regionPill: some View {
-        let name = Locale.current.localizedString(forRegionCode: effectiveHome) ?? effectiveHome
-        return HStack(spacing: 6) {
-            Image(systemName: "location.fill").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
-            Text(name).font(.aero(.caption).weight(.medium)).lineLimit(1)
-        }
-        .foregroundColor(.aviationGreen)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.aviationGreen.opacity(0.16)))
-        .accessibilityLabel(Text(String(localized: "Detected region")) + Text(": \(name)"))
+    /// The rows offered: the Swiss charts only for a Swiss base.
+    private var offlineItems: [OfflineItem] {
+        var items: [OfflineItem] = [.country, .airports, .overview]
+        if effectiveHome == "CH" { items.append(.swissCharts) }
+        return items
     }
 
-    /// The home country and its neighbours, each whole: its Atlas, airspace, aerodromes, navaids, obstacles, reporting
-    /// points and VFR procedures, as Settings › Offline data downloads them (the author's answers 8 A and 15 A, 30 Oct
-    /// 2026). Home is always in; a neighbour is one tap. (onboarding revamp, 6.8.0)
-    private var openAIPDownloadCard: some View {
-        let done = countriesDone
-        let downloading = countriesDownloading
-        let total = wantedCountries.reduce(Int64(0)) { $0 + bytesToFetch($1) }
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                Image(systemName: done ? "checkmark.circle.fill" : "shield.lefthalf.filled")
-                    .scaledFont(size: 19, relativeTo: .title3)
-                    .foregroundColor(done ? .aviationGreen : .aviationGold)
-                    .accessibilityHidden(true)
-                Text(L10n.OfflineData.yourCountries)
-                    .font(.aero(.subheadline).weight(.medium))
-                    .foregroundColor(.primaryText)
-                Spacer()
-                Text(String(localized: "Recommended"))
-                    .font(.aero(.caption2).weight(.medium))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.aviationGold))
+    private enum RowState: Equatable { case idle, waiting, downloading(Double), done }
+
+    private func rowState(_ item: OfflineItem) -> RowState {
+        switch item {
+        case .country:
+            if countriesDone { return .done }
+            return countriesDownloading ? .downloading(countriesProgress) : .idle
+        case .airports:
+            if airportDataService.isOurAirportsDownloaded { return .done }
+            return airportDataService.isDownloading ? .downloading(airportDataService.downloadProgress) : .idle
+        case .overview:
+            guard let overview = pilotMap.overview else { return .idle }
+            switch pilotMap.state(of: overview.id) {
+            case let .downloading(fraction): return .downloading(fraction)
+            case .downloaded, .updateAvailable: return .done
+            default: return .idle
             }
-            countryChipRow
-            Text(L10n.Onboarding.countriesDetail)
-                .font(.aero(.caption2))
-                .foregroundColor(.dimText)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                if downloading {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L10n.PilotMap.downloading(countriesProgress))
+        case .swissCharts:
+            if offlineMapManager.isCacheAvailable { return .done }
+            return offlineMapManager.isDownloading ? .downloading(offlineMapManager.downloadProgress) : .idle
+        }
+    }
+
+    private func rowBytes(_ item: OfflineItem) -> Int64 {
+        switch item {
+        case .country: return homeCountry.map(bytesToFetch) ?? 0
+        case .airports: return 38_000_000
+        case .overview: return Int64(pilotMap.overview?.downloadBytes ?? 43_000_000)
+        case .swissCharts: return 250_000_000
+        }
+    }
+
+    private func rowTitle(_ item: OfflineItem) -> String {
+        switch item {
+        case .country: return homeCountry?.name ?? OpenAIPConfig.countryName(for: effectiveHome)
+        case .airports: return L10n.OfflineData.airports
+        case .overview: return L10n.Onboarding.atlasOverview
+        case .swissCharts: return String(localized: "Swiss charts")
+        }
+    }
+
+    private func rowDetail(_ item: OfflineItem) -> String {
+        switch item {
+        case .country: return L10n.Onboarding.countryDetail
+        case .airports: return L10n.Onboarding.airportsDetail
+        case .overview: return L10n.Onboarding.overviewDetail
+        case .swissCharts: return L10n.Onboarding.swissChartsDetail
+        }
+    }
+
+    private func offlineRow(_ item: OfflineItem) -> some View {
+        let state = rowState(item)
+        let chosen = offlineChoice.contains(item)
+        return Button {
+            guard state == .idle else { return }
+            if chosen { offlineChoice.remove(item) } else { offlineChoice.insert(item) }
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: state == .done ? "checkmark.circle.fill" : (chosen ? "checkmark.square.fill" : "square"))
+                    .scaledFont(size: 20, relativeTo: .title3)
+                    .foregroundColor(state == .done ? .aviationGreen : (chosen ? .aviationGold : .dimText))
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(rowTitle(item))
+                        .font(.aero(.subheadline).weight(.medium))
+                        .foregroundColor(.primaryText)
+                    switch state {
+                    case .done:
+                        Text(L10n.Onboarding.downloaded).font(.aero(.caption)).foregroundColor(.aviationGreen)
+                    case let .downloading(fraction):
+                        Text(L10n.PilotMap.downloading(fraction)).font(.aero(.caption)).foregroundColor(.secondaryText)
+                        ProgressView(value: fraction).tint(.aviationGold)
+                    case .waiting, .idle:
+                        Text(rowDetail(item))
                             .font(.aero(.caption2))
                             .foregroundColor(.dimText)
-                        ProgressView(value: countriesProgress)
-                            .tint(.aviationGold)
-                            .frame(maxWidth: 220)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .accessibilityElement(children: .combine)
-                } else if !done {
-                    Text("\(L10n.Onboarding.countryCount(wantedCountries.count)) · \(OfflineDataView.bytes(total))")
-                        .font(.aero(.caption2))
+                }
+                Spacer(minLength: 8)
+                if state == .idle {
+                    Text(OfflineDataView.bytes(rowBytes(item)))
+                        .font(.aero(.caption).monospacedDigit())
                         .foregroundColor(.dimText)
                 }
-                Spacer()
-                // Green "Downloaded" only when every chosen country is whole on the device; ticking another flips it
-                // back to a gold "Download". (Maps & Data UX fix)
-                Button(action: downloadCountries) {
-                    HStack(spacing: 6) {
-                        Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").scaledFont(size: 14, relativeTo: .subheadline)
-                        Text(done ? L10n.Onboarding.downloaded : String(localized: "Download"))
-                            .font(.aero(.subheadline).weight(.medium))
-                    }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(done ? Color.aviationGreen : Color.aviationGold))
-                }
-                .disabled(downloading || done)
-                .opacity(downloading ? 0.5 : 1)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(chosen ? .isSelected : [])
+    }
+
+    private var chosenBytes: Int64 {
+        offlineItems.filter { offlineChoice.contains($0) && rowState($0) == .idle }.reduce(0) { $0 + rowBytes($1) }
+    }
+
+    private var hasSomethingToDownload: Bool {
+        offlineItems.contains { offlineChoice.contains($0) && rowState($0) == .idle }
+    }
+
+    /// Every ticked row not on the device and not downloading: each on its own, all at once.
+    private func downloadChosen() {
+        for item in offlineItems where offlineChoice.contains(item) && rowState(item) == .idle {
+            switch item {
+            case .country: downloadCountries()
+            case .airports: Task { await airportDataService.downloadData() }
+            case .overview: if let overview = pilotMap.overview { pilotMap.download(overview) }
+            case .swissCharts: Task { await offlineMapManager.downloadCharts(option: .icaoAndSegelflug) }
             }
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 12)
-                    .stroke((done ? Color.aviationGreen : Color.aviationGold).opacity(0.35), lineWidth: 1))
-        )
     }
 
-    private var countryChipRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(offeredCountries) { country in
-                    if country.id == effectiveHome {
-                        countryChip(country, isHome: true)
-                    } else {
-                        Button { toggleCountry(country.id) } label: { countryChip(country, isHome: false) }
-                            .buttonStyle(.plain)
-                    }
-                }
+    /// The ticked rows' progress together, for the last screen.
+    private var offlineProgress: Double? {
+        let states = offlineItems.filter { offlineChoice.contains($0) }.map(rowState)
+        guard states.contains(where: { if case .downloading = $0 { return true }; return false }) else { return nil }
+        let fractions = states.map { state -> Double in
+            switch state {
+            case .done: return 1
+            case let .downloading(fraction): return fraction
+            default: return 0
             }
-            .padding(.vertical, 1)
+        }
+        return fractions.reduce(0, +) / Double(max(fractions.count, 1))
+    }
+
+    // MARK: - 5: A circuit on the ground (6.8.0)
+
+    /// The last screen: about three minutes, one circuit at the home aerodrome, three moments (a checklist, NOW and
+    /// NEXT, the landing and the logbook line); or Today straight away (the author's answer p2 A, 31 Oct 2026).
+    private var firstFlightPage: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
+            pageTitle(L10n.Onboarding.circuitTitle)
+            pageBody(L10n.Onboarding.circuitBody(appState.settings.homeAerodromeIdent ?? "LSZQ"))
+            if let progress = offlineProgress {
+                VStack(spacing: 6) {
+                    Text(L10n.Onboarding.offlineProgress(progress.formatted(.percent.precision(.fractionLength(0)))))
+                        .font(.aero(.caption))
+                        .foregroundColor(.dimText)
+                    ProgressView(value: progress).tint(.aviationGold).frame(maxWidth: 260)
+                }
+                .accessibilityElement(children: .combine)
+            }
+            Spacer()
+            pageDots
+            VStack(spacing: 10) {
+                primaryButton(L10n.Onboarding.circuitFly, icon: "airplane") {
+                    completeOnboarding()
+                    DryRunCenter.shared.requestFirstFlight(pro: proAircraft.map { registration in
+                        (registration, { [appState] in
+                            appState.pendingSettingsSection = .aircraft
+                            appState.groundTab = .settings
+                        })
+                    })
+                }
+                secondaryButton(L10n.Onboarding.goToToday, icon: "arrow.right") { completeOnboarding() }
+            }
+            Text(L10n.Onboarding.circuitNote)
+                .font(.aero(.caption2))
+                .foregroundColor(.dimText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 40)
+                .padding(.bottom, 30)
         }
     }
 
-    /// "CH ✓ 90 MB", "+ AT 127 MB": the code, ticked or not, and what it would fetch.
-    private func countryChip(_ country: OfflineCountry, isHome: Bool) -> some View {
-        let code = country.id
-        let selected = isHome || selectedCountries.contains(code)
-        let bytes = bytesToFetch(country)
-        let label = selected ? "\(code) ✓" : "+ \(code)"
-        return Text(bytes > 0 ? "\(label) \(OfflineDataView.bytes(bytes))" : label)
-            .font(.aero(.caption).weight(.medium))
-            .foregroundColor(selected ? .black : .secondaryText)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(selected ? Color.aviationGold : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 7)
-                            .strokeBorder(selected ? Color.clear : Color.white.opacity(0.22),
-                                          style: StrokeStyle(lineWidth: 1, dash: isHome ? [] : [3]))
-                    )
-            )
-            .accessibilityLabel(country.name)
-            .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
-    private func toggleCountry(_ code: String) {
-        if selectedCountries.contains(code) {
-            selectedCountries.remove(code)
-        } else {
-            selectedCountries.insert(code)
-        }
-    }
-
-    /// The chosen countries, whole: their aeronautical data in one sync, and every Atlas region not on the device.
-    /// The aerodromes come with them as OpenAIP has them (6.4.2), and open flightmaps' circuits and routes (6.2.0).
+    /// The home country, whole, in one sync of its aeronautical data, and every Atlas region not on the device.
     private func downloadCountries() {
         let wanted = wantedCountries
         countryDownloads.add(wanted.filter { $0.hasAeronauticalData || $0.hasVFRProcedures }.map(\.id),
@@ -630,6 +737,7 @@ struct OnboardingView: View {
         }
     }
 
+
     /// Best-effort GPS → ISO country (reverse geocode). Falls back silently to the device region when
     /// there's no fix or the lookup fails. (onboarding revamp)
     private func detectRegion() async {
@@ -637,213 +745,7 @@ struct OnboardingView: View {
         let geocoder = CLGeocoder()
         guard let placemarks = try? await geocoder.reverseGeocodeLocation(location),
               let code = placemarks.first?.isoCountryCode?.uppercased() else { return }
-        if code != detectedCountry {
-            detectedCountry = code
-            selectedCountries = [code]
-        }
-    }
-
-    // MARK: - 4: Checklists
-
-    private var checklistsPage: some View {
-        configContainer(
-            icon: "checklist", tint: .altimeterBlue,
-            title: String(localized: "Checklists"),
-            subtitle: String(localized: "Interactive checklists for all 16 flight phases. Choose how you run them."),
-            page: 3
-        ) {
-            VStack(spacing: 11) {
-                LazyVGrid(columns: toggleColumns, spacing: 11) {
-                    toggleRow("brain.head.profile", .altimeterBlue,
-                              L10n.Settings.memoryTest,
-                              L10n.Settings.memoryTestOnboarding,
-                              Binding(get: { !appState.settings.learningMode },
-                                      set: { appState.settings.learningMode = !$0 }))
-                }
-                languageRow
-            }
-        }
-    }
-
-    // MARK: - 5: Flights (v5.0.0)
-
-    /// The one page that explains the app's shape. Everything else in onboarding configures a
-    /// setting; this names what AeroCheck is for.
-    private var flightsPage: some View {
-        configContainer(
-            icon: "airplane.departure", tint: .aviationGold,
-            title: String(localized: "Flights"),
-            subtitle: String(localized: "AeroCheck follows a flight end to end: plan it, prepare it, fly it, close it out."),
-            page: 4
-        ) {
-            VStack(spacing: 11) {
-                chapterRow("map", String(localized: "Plan"),
-                           String(localized: "Route, fuel, mass & balance, the aircraft booked"))
-                chapterRow("cloud.sun", String(localized: "Prepare"),
-                           String(localized: "Weather, NOTAM, customs, the flight plan filed"))
-                chapterRow("airplane", String(localized: "Fly"),
-                           String(localized: "The 16-phase checklist you already know"))
-                chapterRow("checkmark.shield", String(localized: "Close"),
-                           String(localized: "Close the flight plan, fees, the logbook line"))
-                Text(String(localized: "Plan a flight from Today. You can always start flying without one."))
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    /// One chapter. Numbered, because the four genuinely are a sequence — a flight passes through
-    /// them in order, and that order is the thing being taught.
-    private func chapterRow(_ icon: String, _ title: String, _ detail: String) -> some View {
-        HStack(spacing: 11) {
-            Image(systemName: icon)
-                .scaledFont(size: 15, relativeTo: .subheadline)
-                .foregroundColor(.aviationGold)
-                .frame(width: 30)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundColor(.primaryText)
-                Text(detail)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(11)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 11).fill(Color.cardBackground))
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: - 6: Home aerodrome (v6.1)
-
-    /// Where the pilot is based. Nothing to decide yet for a pilot who'd rather not: Continue leaves it
-    /// unset, and Settings › Flight Planning has it later. A pilot replaying onboarding with flights
-    /// already logged is offered the logbook's guess.
-    private var homeAerodromePage: some View {
-        configContainer(
-            icon: "house.fill", tint: .aviationGold,
-            title: L10n.HomeAerodrome.title,
-            subtitle: L10n.HomeAerodrome.onboardingSubtitle,
-            page: 5
-        ) {
-            VStack(alignment: .leading, spacing: 11) {
-                AerodromeIdentField(ident: Bindable(appState).settings.homeAerodromeIdent,
-                                    suggestion: HomeAerodrome.suggestion(from: appState.flights))
-                Text(L10n.HomeAerodrome.optionalNote)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    // MARK: - 7: Your map
-
-    private var yourMapPage: some View {
-        configContainer(
-            icon: "map.fill", tint: .aviationGreen,
-            title: String(localized: "Your map"),
-            subtitle: String(localized: "Choose the Swiss and worldwide layers shown on the moving map."),
-            page: 6
-        ) {
-            LazyVGrid(columns: toggleColumns, spacing: 11) {
-                toggleRow("shield.lefthalf.filled", .aviationGreen,
-                          String(localized: "Airspace overlay"),
-                          String(localized: "CTRs & zones from OpenAIP"),
-                          Bindable(appState).settings.showOpenAIPOverlay)
-                toggleRow("location.north.line", .aviationGreen,
-                          String(localized: "Track vector"),
-                          String(localized: "Trend line ahead of the aircraft"),
-                          Bindable(appState).settings.showTrackVector)
-                toggleRow("exclamationmark.triangle", .aviationGreen,
-                          String(localized: "Obstacles"),
-                          String(localized: "Masts, towers & wires"),
-                          Bindable(appState).settings.showObstaclesOnMap)
-                toggleRow("map", .aviationGreen,
-                          String(localized: "Force ICAO chart"),
-                          String(localized: "Keep the chart at all zoom levels"),
-                          Bindable(appState).settings.forceICAOChartLayer)
-            }
-        }
-    }
-
-    // MARK: - 8: In flight & features
-
-    private var inFlightFeaturesPage: some View {
-        configContainer(
-            icon: "airplane", tint: .aviationGold,
-            title: String(localized: "In flight & features"),
-            subtitle: String(localized: "How the app behaves in the air, plus the bigger features and your data."),
-            page: 7
-        ) {
-            // Flight planning is no longer a toggle: it is the app's spine, introduced two pages
-            // earlier as the first chapter of a flight. Offering to switch it off here would have
-            // contradicted the page that just explained it. (v5.0.0)
-            LazyVGrid(columns: toggleColumns, spacing: 11) {
-                toggleRow("gauge.with.needle", .aviationGold,
-                          String(localized: "Log engine hours"),
-                          String(localized: "Prompt for the hour meter"),
-                          Bindable(appState).settings.logEngineHours)
-                toggleRow("icloud", .altimeterBlue,
-                          String(localized: "Sync to iCloud"),
-                          String(localized: "Flights & settings across devices"),
-                          Bindable(appState).settings.iCloudSyncEnabled)
-            }
-        }
-    }
-
-    // MARK: - 9: Premium
-
-    private var premiumPage: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
-            pageTitle(String(localized: "One aircraft free: unlock the rest"))
-            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft: the full fleet of the partner flying clubs, listed on aerocheck.app."))
-            // A line, not a button: the form waits until the pilot is in the app. (6.3.0)
-            Text(L10n.AircraftRequests.onboardingLine)
-                .font(.aero(.footnote))
-                .foregroundColor(.dimText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer()
-            pageDots
-            VStack(spacing: 10) {
-                primaryButton(String(localized: "See AéroCheck Pro"), icon: "sparkles") { showSubscription = true }
-                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { go(to: 9) }
-            }
-            .padding(.bottom, 40)
-        }
-    }
-
-    // MARK: - 10: Ready
-
-    private var readyPage: some View {
-        VStack(spacing: 22) {
-            Spacer()
-            pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
-            Text(L10n.Onboarding.readyTitle)
-                .font(.aero(.largeTitle).weight(.bold))
-                .foregroundColor(.primaryText)
-                .multilineTextAlignment(.center)
-            pageBody(L10n.Onboarding.readyBody)
-            Spacer()
-            pageDots
-            primaryButton(L10n.Onboarding.readyButton, icon: "airplane") { completeOnboarding() }
-            // Or the guided flight first, on the ground: onboarding done, then the dry run. (6.4.0)
-            secondaryButton(L10n.DryRunCoach.onboardingFly, icon: "airplane.circle") {
-                completeOnboarding()
-                DryRunCenter.shared.requestGuided()
-            }
-            .padding(.bottom, 44)
-        }
+        if code != detectedCountry { detectedCountry = code }
     }
 
     // MARK: - Config page scaffold
@@ -932,42 +834,6 @@ struct OnboardingView: View {
                 .foregroundColor(.primaryText)
             Spacer(minLength: 0)
         }
-    }
-
-    /// A feature toggle card (icon + title + subtitle + switch) bound straight to an `AppSettings` flag.
-    private func toggleRow(_ icon: String, _ iconTint: Color, _ title: String, _ subtitle: String,
-                           _ isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 11) {
-            Image(systemName: icon)
-                .scaledFont(size: 19, relativeTo: .title3)
-                .foregroundColor(iconTint)
-                .frame(width: 26)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.aero(.subheadline).weight(.medium))
-                    .foregroundColor(.primaryText)
-                    .lineLimit(2)
-                Text(subtitle)
-                    .font(.aero(.caption2))
-                    .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            // Claim the remaining width instead of an expanding Spacer, which squeezes the text to a
-            // single character per line on a narrow (iPhone) row. (iPhone layout fix)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Toggle("", isOn: isOn)
-                .labelsHidden()
-                .tint(.aviationGold)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
-        )
-        .accessibilityElement(children: .combine)
     }
 
     /// Full-width checklist-language row with a compact Auto / EN / FR segmented control.
@@ -1168,6 +1034,8 @@ struct OnboardingView: View {
     // MARK: - Actions
 
     private func completeOnboarding() {
+        // What is left goes on Today's Getting started card, the Pro aircraft chosen without Pro with it. (6.8.0)
+        GettingStarted.begin(proAircraft: proAircraft)
         appState.completeOnboarding()
     }
 }

@@ -2868,6 +2868,8 @@ struct TripDataBanner: View {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(tint.opacity(0.35), lineWidth: 1)
             )
+            // Offline data country by country, the first route across a border without it. (6.8.0)
+            .aeroTip(OfflineBorderTip(), shown: routeCountriesCache.count > 1 && !tripPrefetchFailed, arrowEdge: .top)
             .padding(.horizontal, 12)
             .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))

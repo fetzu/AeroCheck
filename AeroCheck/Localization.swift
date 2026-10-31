@@ -1530,7 +1530,6 @@ enum L10n {
         static let checklist = String(localized: "settings.checklist")
         /// On = memorisable checks hidden (`AppSettings.learningMode` off). (v6.0 · A7)
         static let memoryTest = String(localized: "settings.checklist.memoryTest")
-        static let memoryTestOnboarding = String(localized: "settings.checklist.memoryTestOnboarding")
         static let memoryTestFooter = String(localized: "settings.checklist.memoryTestFooter")
 
         // Flight Logging
@@ -1607,27 +1606,90 @@ enum L10n {
     }
 
     // MARK: - Onboarding
-    enum Onboarding {
-        /// Maps & Data: whole countries with their Atlas, and the Atlas overview (6.8.0).
-        static let countriesDetail = String(localized: "onboarding.maps.countriesDetail")
-        static func countryCount(_ count: Int) -> String { String(localized: "onboarding.maps.countryCount \(count)") }
-        static let atlasOverview = String(localized: "onboarding.maps.atlasOverview")
-        static func atlasOverviewDetail(_ size: String) -> String {
-            String(format: String(localized: "onboarding.maps.atlasOverviewDetail"), size)
+    /// The one-time tips (`AeroTips`, 6.8.0).
+    enum Tips {
+        static let mapSheetTitle = String(localized: "tips.mapSheetTitle")
+        static let mapSheetBody = String(localized: "tips.mapSheetBody")
+        static let trackVectorTitle = String(localized: "tips.trackVectorTitle")
+        static let trackVectorBody = String(localized: "tips.trackVectorBody")
+        static let nowNextTitle = String(localized: "tips.nowNextTitle")
+        static let nowNextBody = String(localized: "tips.nowNextBody")
+        static let logbookLineTitle = String(localized: "tips.logbookLineTitle")
+        static let logbookLineBody = String(localized: "tips.logbookLineBody")
+        static let offlineBorderTitle = String(localized: "tips.offlineBorderTitle")
+        static let offlineBorderBody = String(localized: "tips.offlineBorderBody")
+        static let showAgain = String(localized: "tips.showAgain")
+        static let showAgainSubtitle = String(localized: "tips.showAgainSubtitle")
+        static let showAgainPending = String(localized: "tips.showAgainPending")
+    }
+
+    /// Today's Getting started card (6.8.0).
+    enum GettingStarted {
+        static let title = String(localized: "gettingStarted.title")
+        static let hide = String(localized: "gettingStarted.hide")
+        static let done = String(localized: "gettingStarted.done")
+        static let base = String(localized: "gettingStarted.base")
+        static let yourCountry = String(localized: "gettingStarted.yourCountry")
+        static let firstFlight = String(localized: "gettingStarted.firstFlight")
+        static let firstFlightDetail = String(localized: "gettingStarted.firstFlightDetail")
+        static let proDetail = String(localized: "gettingStarted.proDetail")
+        static let route = String(localized: "gettingStarted.route")
+        static let dryRunDetail = String(localized: "gettingStarted.dryRunDetail")
+        static func progress(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "gettingStarted.progress"), done, total)
         }
-        static let welcomeTitle = String(localized: "onboarding.welcome.title")
-        static let welcomeSubtitle = String(localized: "onboarding.welcome.subtitle")
-        static let navigationTitle = String(localized: "onboarding.navigation.title")
-        static let downloadAirports = String(localized: "onboarding.navigation.downloadAirports")
-        static let downloadCharts = String(localized: "onboarding.navigation.downloadCharts")
-        static let downloading = String(localized: "onboarding.navigation.downloading")
+        static func offline(_ country: String) -> String {
+            String(format: String(localized: "gettingStarted.offline"), country)
+        }
+        static func pro(_ registration: String) -> String {
+            String(format: String(localized: "gettingStarted.pro"), registration)
+        }
+    }
+
+    enum Onboarding {
+        // The five screens of 6.8.0 (the author's answers of 31 Oct 2026).
+        static let welcomeHeadline = String(localized: "onboarding.v2.headline")
+        static let welcomeBody = String(localized: "onboarding.v2.welcomeBody")
+        static let locationTrack = String(localized: "onboarding.v2.locationTrack")
+        static let locationFrequency = String(localized: "onboarding.v2.locationFrequency")
+        static let locationHome = String(localized: "onboarding.v2.locationHome")
+        static let aboutYouTitle = String(localized: "onboarding.v2.aboutYouTitle")
+        static let aboutYouSubtitle = String(localized: "onboarding.v2.aboutYouSubtitle")
+        static let basedAt = String(localized: "onboarding.v2.basedAt")
+        /// "Nearest to you: LSZQ Bressaucourt, 2 NM".
+        static func nearestToYou(_ aerodrome: String, _ nm: Int) -> String {
+            String(format: String(localized: "onboarding.v2.nearest"), aerodrome, nm)
+        }
+        static let youFly = String(localized: "onboarding.v2.youFly")
+        static let free = String(localized: "onboarding.v2.free")
+        static let aircraftNote = String(localized: "onboarding.v2.aircraftNote")
+        static let offlineTitle = String(localized: "onboarding.v2.offlineTitle")
+        static let offlineSubtitle = String(localized: "onboarding.v2.offlineSubtitle")
+        static let countryDetail = String(localized: "onboarding.v2.countryDetail")
+        static let airportsDetail = String(localized: "onboarding.v2.airportsDetail")
+        static let overviewDetail = String(localized: "onboarding.v2.overviewDetail")
+        static let swissChartsDetail = String(localized: "onboarding.v2.swissChartsDetail")
+        static func offlineTotal(_ size: String) -> String {
+            String(format: String(localized: "onboarding.v2.offlineTotal"), size)
+        }
+        static let moreCountries = String(localized: "onboarding.v2.moreCountries")
+        static let circuitTitle = String(localized: "onboarding.v2.circuitTitle")
+        static let noDataTitle = String(localized: "onboarding.v2.noDataTitle")
+        static let noDataBody = String(localized: "onboarding.v2.noDataBody")
+        static let noDataDownload = String(localized: "onboarding.v2.noDataDownload")
+        static func circuitBody(_ aerodrome: String) -> String {
+            String(format: String(localized: "onboarding.v2.circuitBody"), aerodrome)
+        }
+        static let circuitFly = String(localized: "onboarding.v2.circuitFly")
+        static let goToToday = String(localized: "onboarding.v2.goToToday")
+        static let circuitNote = String(localized: "onboarding.v2.circuitNote")
+        static func offlineProgress(_ percent: String) -> String {
+            String(format: String(localized: "onboarding.v2.offlineProgress"), percent)
+        }
+        static let atlasOverview = String(localized: "onboarding.maps.atlasOverview")
         static let downloaded = String(localized: "onboarding.navigation.downloaded")
-        static let readyTitle = String(localized: "onboarding.ready.title")
-        static let readyBody = String(localized: "onboarding.ready.body")
-        static let readyButton = String(localized: "onboarding.ready.button")
         static let skip = String(localized: "onboarding.skip")
         static let getStarted = String(localized: "onboarding.getStarted")
-        static let next = String(localized: "onboarding.next")
         /// Under the location step's reasons, while iOS has yet to ask. (6.3.2)
         static let locationNext = String(localized: "onboarding.location.next")
     }
@@ -2474,8 +2536,6 @@ enum L10n {
         static let title = String(localized: "homeAerodrome.title")
         static let basedAt = String(localized: "homeAerodrome.basedAt")
         static let rowSubtitle = String(localized: "homeAerodrome.rowSubtitle")
-        static let onboardingSubtitle = String(localized: "homeAerodrome.onboardingSubtitle")
-        static let optionalNote = String(localized: "homeAerodrome.optionalNote")
         static func use(_ ident: String) -> String {
             String(format: String(localized: "homeAerodrome.use"), ident)
         }
@@ -4136,7 +4196,6 @@ enum L10n {
         static let entrySubtitle = String(localized: "aircraftRequest.entrySubtitle")
         static let menuItem = String(localized: "aircraftRequest.menuItem")
         static let proLine = String(localized: "aircraftRequest.proLine")
-        static let onboardingLine = String(localized: "aircraftRequest.onboardingLine")
         static let requestsSection = String(localized: "aircraftRequest.requestsSection")
         static let requestsFooter = String(localized: "aircraftRequest.requestsFooter")
         static let removeFromList = String(localized: "aircraftRequest.removeFromList")
@@ -4259,8 +4318,39 @@ enum L10n {
         static let todayBody = String(localized: "dryRunCoach.todayBody")
         static let todayStart = String(localized: "dryRunCoach.todayStart")
         static let todayNotNow = String(localized: "dryRunCoach.todayNotNow")
-        static let onboardingFly = String(localized: "dryRunCoach.onboardingFly")
         static let chaptersFooter = String(localized: "dryRunCoach.chaptersFooter")
+
+        /// Onboarding's circuit on the ground (`DryRunFirstFlight`). (6.8.0)
+        enum FirstFlight {
+            static let welcomeTitle = String(localized: "dryRunCoach.ff.welcomeTitle")
+            static let welcomeBody = String(localized: "dryRunCoach.ff.welcomeBody")
+            static let checkTitle = String(localized: "dryRunCoach.ff.checkTitle")
+            static let checkFold = String(localized: "dryRunCoach.ff.checkFold")
+            static let doneForYouTitle = String(localized: "dryRunCoach.ff.doneForYouTitle")
+            static let doneForYouBody = String(localized: "dryRunCoach.ff.doneForYouBody")
+            static let radioTitle = String(localized: "dryRunCoach.ff.radioTitle")
+            static let radioBody = String(localized: "dryRunCoach.ff.radioBody")
+            static let landingTitle = String(localized: "dryRunCoach.ff.landingTitle")
+            static let landingBody = String(localized: "dryRunCoach.ff.landingBody")
+            static let landingMemoryBody = String(localized: "dryRunCoach.ff.landingMemoryBody")
+            static let landingFold = String(localized: "dryRunCoach.ff.landingFold")
+            static let endTitle = String(localized: "dryRunCoach.ff.endTitle")
+            static let endBody = String(localized: "dryRunCoach.ff.endBody")
+            static let fullDryRun = String(localized: "dryRunCoach.ff.fullDryRun")
+            static let mapTakeoffBody = String(localized: "dryRunCoach.ff.mapTakeoffBody")
+            static let freePractice = String(localized: "dryRunCoach.ff.freePractice")
+            /// The before engine start check, by its name.
+            static var checkBody: String {
+                String(format: String(localized: "dryRunCoach.ff.checkBody"), ChecklistPhase.beforeEngineStart.title)
+            }
+            static func momentOf(_ moment: Int, _ total: Int) -> String {
+                String(format: String(localized: "dryRunCoach.ff.momentOf"), moment, total)
+            }
+            static func landings(_ count: Int) -> String { String(localized: "dryRunCoach.ff.landings \(count)") }
+            static func tryPro(_ registration: String) -> String {
+                String(format: String(localized: "dryRunCoach.ff.tryPro"), registration)
+            }
+        }
 
         /// The steps' words, by the step's id (`DryRunChapters.steps`).
         enum Step {

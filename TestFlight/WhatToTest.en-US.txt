@@ -10,5 +10,6 @@ What to try:
 - A flight in the logbook: its track map, and the share card on Atlas and on Aerial imagery.
 - Plan a flight crossing a border: the banner offers the Atlas regions along the route.
 - The Swiss ICAO, glider and national charts: past their edge, the Atlas now shows under them.
+- A new introduction: Settings › About › Replay introduction. Five short screens (your base is suggested from where you are), then a circuit on the ground in about three minutes. Afterwards Today shows a Getting started card, and a few tips show once where a feature lives.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

@@ -38,8 +38,12 @@ struct DryRunStart: Equatable {
     var part: DryRunPart
     /// Fly's chapter, 1 to 7.
     var chapter = 1
+    /// Onboarding's circuit on the ground: one circuit at home, three moments for the pilot, the rest done for them
+    /// (`DryRunFirstFlight`). (6.8.0)
+    var isFirstFlight = false
 
     static let story = DryRunStart(part: .plan)
+    static let firstFlight = DryRunStart(part: .fly, chapter: 1, isFirstFlight: true)
 }
 
 /// One step of the guided flight: a card that says what to look at (a look step, Next goes on) or what to do
@@ -245,7 +249,7 @@ struct DryRunCoachStep: Equatable {
     let done: Done
     var requires: Requires = .always
     let title: String
-    let body: String
+    var body: String
     /// What the folded card says comes next for the pilot while this step is the next one to do ("the climb
     /// check, at 500 ft"); nil where nothing waits for them.
     var upcoming: String? = nil
@@ -259,6 +263,9 @@ struct DryRunCoachStep: Equatable {
     var memoryCheck: ChecklistPhase? = nil
     var memoryBody: String? = nil
     var memoryFold: String? = nil
+    /// Done for the pilot when its moment comes, with no card: the first flight's steps between its three moments
+    /// (`DryRunFirstFlight`). (6.8.0)
+    var auto = false
 
     /// The card's words as the flight stands.
     @MainActor
@@ -672,7 +679,8 @@ final class DryRunCoach: ObservableObject {
     /// The next step for the pilot to do, while none shows: what the folded card names after "Next for you".
     var upcoming: DryRunCoachStep? {
         guard step == nil else { return nil }
-        return steps[min(index, steps.count)...].first { $0.kind == .act && $0.upcoming != nil }
+        // Not one done for the pilot (the first flight's): its words would send them to it.
+        return steps[min(index, steps.count)...].first { $0.kind == .act && !$0.auto && $0.upcoming != nil }
     }
 
     /// Next, on a look step or a part's end.
@@ -809,6 +817,12 @@ final class DryRunCoach: ObservableObject {
                     continue
                 }
                 isFastForwarding = false
+            }
+            // The first flight's steps between its moments: done for the pilot as their moment comes, no card. (6.8.0)
+            if candidate.auto {
+                actAsPilot(candidate, session, onTheWay: true)
+                index += 1
+                continue
             }
             // A do step already done when its moment comes (the slot showed ENGINE SHUTDOWN before the card
             // could ask for the checks to it) has nothing to ask.
@@ -1163,5 +1177,71 @@ final class DryRunCoach: ObservableObject {
         } else {
             appState.advanceHighlightedItem(learningMode: learning)
         }
+    }
+}
+
+// MARK: - The first flight (6.8.0)
+
+/// Onboarding's circuit on the ground, about three minutes: one circuit at the home aerodrome and three moments where
+/// the pilot acts (a check, the map and its radio, the landing check and END FLIGHT); the steps between them are the
+/// story's, done for the pilot as their moment comes (the author's answers p2 A, 31 Oct 2026). The chapters are the
+/// story's, so the coach's rules for them hold.
+enum DryRunFirstFlight {
+    /// The moments, for the card's header: "1 of 3".
+    static let moments = 3
+
+    static func moment(ofChapter chapter: Int) -> Int {
+        switch chapter {
+        case ..<3: return 1
+        case 3...5: return 2
+        default: return 3
+        }
+    }
+
+    /// The story's step `id`, done for the pilot when `auto`; `body`, its words where the story's speak of what the
+    /// first flight does for the pilot.
+    static func story(_ id: String, auto: Bool = true, body: String? = nil) -> DryRunCoachStep {
+        guard var step = DryRunChapters.steps.first(where: { $0.id == id }) else {
+            preconditionFailure("No story step \(id)")
+        }
+        step.auto = auto
+        if let body { step.body = body }
+        return step
+    }
+
+    static var steps: [DryRunCoachStep] {
+        typealias S = DryRunCoachStep
+        typealias T = L10n.DryRunCoach.FirstFlight
+        return [
+            // START FLIGHT, behind the cover; the Cockpit then.
+            story("startFlight", auto: false),
+            // 1 · A check: the preflight done for the pilot, the before engine start check theirs.
+            S(id: "ffWelcome", chapter: 1, kind: .look, target: nil, veils: false, holds: true, moment: .now,
+              done: .next, title: T.welcomeTitle, body: T.welcomeBody),
+            S(id: "ffToCheck", chapter: 1, kind: .act, target: nil, veils: false, holds: false, moment: .now,
+              done: .reached(.beforeEngineStart), title: "", body: "", auto: true),
+            S(id: "ffCheck", chapter: 1, kind: .act, target: .check, veils: false, holds: true, moment: .now,
+              done: .checkDone(.beforeEngineStart), title: T.checkTitle, body: T.checkBody, fold: T.checkFold),
+            S(id: "ffDoneForYou", chapter: 2, kind: .look, target: nil, veils: false, holds: true, moment: .now,
+              done: .next, title: T.doneForYouTitle, body: T.doneForYouBody),
+            story("toEngineStart"), story("engineStartCheck"), story("engineStart"), story("toAfterStart"),
+            story("afterStart"), story("toBeforeDeparture"), story("readyForLineUp"), story("lineUpCheck"),
+            // 2 · The map and its radio, the take-off and the circuit.
+            // The story's card sends the pilot to the climb check next, done for them here.
+            story("mapTakeoff", auto: false, body: T.mapTakeoffBody),
+            story("airborne", auto: false),
+            S(id: "ffRadio", chapter: 4, kind: .look, target: .radioLine, veils: false, holds: true, moment: .now,
+              done: .next, title: T.radioTitle, body: T.radioBody),
+            story("climbCheck"), story("approachCheck"),
+            // 3 · The landing, END FLIGHT, the logbook's line.
+            S(id: "ffLanding", chapter: 6, kind: .act, target: .first, veils: false, holds: true, moment: .final(1),
+              done: .checkDone(.landing), title: T.landingTitle, body: T.landingBody, fold: T.landingFold,
+              memoryCheck: .landing, memoryBody: T.landingMemoryBody, memoryFold: T.landingFold),
+            story("toShutdown"), story("shutdownCheck"), story("engineShutdown"), story("toEndFlight"),
+            story("endFlight", auto: false),
+            // On Today once the flight has ended, as the story's Fly ends: the logbook's line, then what next.
+            S(id: "ffEnd", chapter: 0, kind: .partEnd, target: nil, veils: false, holds: true, moment: .onTheGround,
+              done: .partEnd, title: T.endTitle, body: T.endBody, screen: .today),
+        ]
     }
 }

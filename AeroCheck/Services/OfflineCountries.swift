@@ -84,6 +84,38 @@ enum OfflineCountryCatalog {
         return Int64(atlas) + data
     }
 
+    /// How far `countries`' download has got, by bytes: each Atlas region as far as it has come, the aeronautical data
+    /// (about 5 MB a country) once it is kept. Onboarding's bar and the Getting started card's line. (6.8.0)
+    @MainActor
+    static func progress(_ countries: [OfflineCountry], pilotMap: PilotMapDownloads, aeronauticalKept: [String]) -> Double {
+        let here = Set(pilotMap.downloaded.map(\.id))
+        var total = 0.0, done = 0.0
+        for country in countries {
+            for region in country.atlasRegions {
+                let bytes = Double(max(region.downloadBytes, 1))
+                total += bytes
+                switch pilotMap.state(of: region.id) {
+                case let .downloading(fraction): done += bytes * fraction
+                case .downloaded, .updateAvailable: done += bytes
+                default: if here.contains(region.id) { done += bytes }
+                }
+            }
+            if country.hasAeronauticalData {
+                total += 5_000_000
+                if aeronauticalKept.contains(country.id) { done += 5_000_000 }
+            }
+        }
+        return total > 0 ? min(1, done / total) : 0
+    }
+
+    /// A country whose aeronautical data and every Atlas region are on the device.
+    @MainActor
+    static func isOnDevice(_ country: OfflineCountry, pilotMap: PilotMapDownloads, aeronauticalKept: [String]) -> Bool {
+        let here = Set(pilotMap.downloaded.map(\.id))
+        return (!country.hasAeronauticalData || aeronauticalKept.contains(country.id))
+            && country.atlasRegions.allSatisfy { here.contains($0.id) }
+    }
+
     /// The flag, from the two regional-indicator letters.
     static func flag(_ code: String) -> String {
         code.uppercased().unicodeScalars.compactMap { UnicodeScalar(127397 + $0.value).map(String.init) }.joined()

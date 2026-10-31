@@ -16,6 +16,9 @@
 		C5D773F7F1A4886C69DF85E6 /* DryRunWorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21489269191337369FD50558 /* DryRunWorldTests.swift */; };
 		72480D61FC866781EA1173C0 /* DryRunPracticeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1259C7E3E785F59238FFEED /* DryRunPracticeTests.swift */; };
 		5C309DCFE70A92A0922FA236 /* DryRunGuidedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D5FCC259B6F9F7E947213D /* DryRunGuidedTests.swift */; };
+		OC00680000070C00680007AA /* DryRunFirstFlightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000080C00680008AA /* DryRunFirstFlightTests.swift */; };
+		OC006800000B0C0068000BAA /* GettingStartedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC006800000C0C0068000CAA /* GettingStartedTests.swift */; };
+		OC006800000F0C0068000FAA /* NearestAerodromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000100C00680010AA /* NearestAerodromeTests.swift */; };
 		A49AF57ED809E0A0A95997E0 /* DryRunGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5317F83F9FE25B563CED139 /* DryRunGeneratorTests.swift */; };
 		C7A00009211111110000002 /* Scenarios in Resources */ = {isa = PBXBuildFile; fileRef = C7A00009111111110000001 /* Scenarios */; };
 		C7A00008211111110000001 /* CockpitPilot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A00008111111110000001 /* CockpitPilot.swift */; };
@@ -189,6 +192,7 @@
 		291CEF4705DA3D959130E685 /* DryRunCockpitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F1DACC1C30D620FBB9877C /* DryRunCockpitView.swift */; };
 		CDF28164F83F7C89C1B02B93 /* DryRunStartSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F843E229401EEE5FA93C4B /* DryRunStartSheet.swift */; };
 		C133CF58808722BC4D64CB20 /* DryRunGuidedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51131E7ABE6E8E78D1CBED6 /* DryRunGuidedViews.swift */; };
+		OC00680000090C00680009AA /* GettingStartedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC006800000A0C0068000AAA /* GettingStartedCard.swift */; };
 		46A20D62B2D8C94D52381ADC /* DryRunCoachViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30A393CA04A1F426AC7E88ED /* DryRunCoachViews.swift */; };
 		A1000001211111110000005 /* FlightLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000005 /* FlightLogView.swift */; };
 		A1000001211111110000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000006 /* SettingsView.swift */; };
@@ -265,6 +269,8 @@
 		A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */; };
 		A1000001211111110000C62 /* OFMDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C62 /* OFMDataService.swift */; };
 		OC00680000010C00680001AA /* OfflineCountries.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000020C00680002AA /* OfflineCountries.swift */; };
+		OC00680000050C00680005AA /* NearestAerodrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC00680000060C00680006AA /* NearestAerodrome.swift */; };
+		OC006800000D0C0068000DAA /* AeroTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = OC006800000E0C0068000EAA /* AeroTips.swift */; };
 		A1000001211111110000C80 /* OfficialChartService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000C80 /* OfficialChartService.swift */; };
 		A1000001211111110000B01 /* BriefingRegistryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B01 /* BriefingRegistryService.swift */; };
 		A1000001211111110000B02 /* PrepareWeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000B02 /* PrepareWeatherService.swift */; };
@@ -500,6 +506,9 @@
 		21489269191337369FD50558 /* DryRunWorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunWorldTests.swift; sourceTree = "<group>"; };
 		E1259C7E3E785F59238FFEED /* DryRunPracticeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunPracticeTests.swift; sourceTree = "<group>"; };
 		18D5FCC259B6F9F7E947213D /* DryRunGuidedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunGuidedTests.swift; sourceTree = "<group>"; };
+		OC00680000080C00680008AA /* DryRunFirstFlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunFirstFlightTests.swift; sourceTree = "<group>"; };
+		OC006800000C0C0068000CAA /* GettingStartedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GettingStartedTests.swift; sourceTree = "<group>"; };
+		OC00680000100C00680010AA /* NearestAerodromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearestAerodromeTests.swift; sourceTree = "<group>"; };
 		F5317F83F9FE25B563CED139 /* DryRunGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunGeneratorTests.swift; sourceTree = "<group>"; };
 		C7A00001111111110000000 /* AeroCheckUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AeroCheckUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7A00008111111110000001 /* CockpitPilot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitPilot.swift; sourceTree = "<group>"; };
@@ -673,6 +682,7 @@
 		05F1DACC1C30D620FBB9877C /* DryRunCockpitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunCockpitView.swift; sourceTree = "<group>"; };
 		00F843E229401EEE5FA93C4B /* DryRunStartSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunStartSheet.swift; sourceTree = "<group>"; };
 		D51131E7ABE6E8E78D1CBED6 /* DryRunGuidedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunGuidedViews.swift; sourceTree = "<group>"; };
+		OC006800000A0C0068000AAA /* GettingStartedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GettingStartedCard.swift; sourceTree = "<group>"; };
 		30A393CA04A1F426AC7E88ED /* DryRunCoachViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunCoachViews.swift; sourceTree = "<group>"; };
 		A1000001111111110000005 /* FlightLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLogView.swift; sourceTree = "<group>"; };
 		A1000001111111110000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -754,6 +764,8 @@
 		A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunwayDesignatorOverrides.swift; sourceTree = "<group>"; };
 		A1000001111111110000C62 /* OFMDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OFMDataService.swift; sourceTree = "<group>"; };
 		OC00680000020C00680002AA /* OfflineCountries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCountries.swift; sourceTree = "<group>"; };
+		OC00680000060C00680006AA /* NearestAerodrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearestAerodrome.swift; sourceTree = "<group>"; };
+		OC006800000E0C0068000EAA /* AeroTips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroTips.swift; sourceTree = "<group>"; };
 		A1000001111111110000C80 /* OfficialChartService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficialChartService.swift; sourceTree = "<group>"; };
 		A1000001111111110000B01 /* BriefingRegistryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistryService.swift; sourceTree = "<group>"; };
 		A1000001111111110000B02 /* PrepareWeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrepareWeatherService.swift; sourceTree = "<group>"; };
@@ -1129,6 +1141,9 @@
 				21489269191337369FD50558 /* DryRunWorldTests.swift */,
 				E1259C7E3E785F59238FFEED /* DryRunPracticeTests.swift */,
 				18D5FCC259B6F9F7E947213D /* DryRunGuidedTests.swift */,
+				OC00680000080C00680008AA /* DryRunFirstFlightTests.swift */,
+				OC006800000C0C0068000CAA /* GettingStartedTests.swift */,
+				OC00680000100C00680010AA /* NearestAerodromeTests.swift */,
 				F5317F83F9FE25B563CED139 /* DryRunGeneratorTests.swift */,
 			);
 			path = AeroCheckTests;
@@ -1224,6 +1239,7 @@
 				05F1DACC1C30D620FBB9877C /* DryRunCockpitView.swift */,
 				00F843E229401EEE5FA93C4B /* DryRunStartSheet.swift */,
 				D51131E7ABE6E8E78D1CBED6 /* DryRunGuidedViews.swift */,
+				OC006800000A0C0068000AAA /* GettingStartedCard.swift */,
 				30A393CA04A1F426AC7E88ED /* DryRunCoachViews.swift */,
 				D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */,
 				E4FA2F1A98E04367ABB300EF /* CompanionPairingView.swift */,
@@ -1400,6 +1416,8 @@
 				A1000001111111110000B71 /* RunwayDesignatorOverrides.swift */,
 				A1000001111111110000C62 /* OFMDataService.swift */,
 				OC00680000020C00680002AA /* OfflineCountries.swift */,
+				OC00680000060C00680006AA /* NearestAerodrome.swift */,
+				OC006800000E0C0068000EAA /* AeroTips.swift */,
 				A1000001111111110000C80 /* OfficialChartService.swift */,
 				A1000001111111110000B01 /* BriefingRegistryService.swift */,
 				A1000001111111110000B02 /* PrepareWeatherService.swift */,
@@ -1769,6 +1787,9 @@
 				C5D773F7F1A4886C69DF85E6 /* DryRunWorldTests.swift in Sources */,
 				72480D61FC866781EA1173C0 /* DryRunPracticeTests.swift in Sources */,
 				5C309DCFE70A92A0922FA236 /* DryRunGuidedTests.swift in Sources */,
+				OC00680000070C00680007AA /* DryRunFirstFlightTests.swift in Sources */,
+				OC006800000B0C0068000BAA /* GettingStartedTests.swift in Sources */,
+				OC006800000F0C0068000FAA /* NearestAerodromeTests.swift in Sources */,
 				A49AF57ED809E0A0A95997E0 /* DryRunGeneratorTests.swift in Sources */,
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
 				A5000008111111110000906 /* SafeNumericTests.swift in Sources */,
@@ -1940,6 +1961,7 @@
 				291CEF4705DA3D959130E685 /* DryRunCockpitView.swift in Sources */,
 				CDF28164F83F7C89C1B02B93 /* DryRunStartSheet.swift in Sources */,
 				C133CF58808722BC4D64CB20 /* DryRunGuidedViews.swift in Sources */,
+				OC00680000090C00680009AA /* GettingStartedCard.swift in Sources */,
 				46A20D62B2D8C94D52381ADC /* DryRunCoachViews.swift in Sources */,
 				A1000001211111110000005 /* FlightLogView.swift in Sources */,
 				A1000001211111110000006 /* SettingsView.swift in Sources */,
@@ -2011,6 +2033,8 @@
 				A1000001211111110000B71 /* RunwayDesignatorOverrides.swift in Sources */,
 				A1000001211111110000C62 /* OFMDataService.swift in Sources */,
 				OC00680000010C00680001AA /* OfflineCountries.swift in Sources */,
+				OC00680000050C00680005AA /* NearestAerodrome.swift in Sources */,
+				OC006800000D0C0068000DAA /* AeroTips.swift in Sources */,
 				A1000001211111110000C80 /* OfficialChartService.swift in Sources */,
 				A1000001211111110000B01 /* BriefingRegistryService.swift in Sources */,
 				A1000001211111110000B02 /* PrepareWeatherService.swift in Sources */,

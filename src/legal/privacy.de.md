@@ -4,7 +4,7 @@ Oktober 2026
 
 AéroCheck ist eine Open-Source-App für Piloten, für Flugchecklisten und das Situationsbewusstsein, entwickelt und herausgegeben von Julien Bono in der Schweiz. Diese Seite sagt, was die App auf Ihrem Gerät speichert, was sie sendet, an wen und wie genau, und was unsere eigenen Server aufbewahren.
 
-Kurz gesagt: Es gibt kein Konto, keine Werbung, keine Nutzungsanalyse und kein Tracking. Ihre Flüge werden auf Ihrem Gerät gespeichert und, wenn Sie synchronisieren, in Ihrer eigenen iCloud. Einige Abfragen enthalten eine Position, eine Route oder einige Punkte eines Flugwegs, die meisten davon gerundet, damit die App Wetter, Gelände und Lufträume anzeigen kann (Abschnitt 3.0 führt sie alle auf). Unser API-Server bewahrt einen Datensatz zu einem Kauf auf, nie einen Standort. Wenn Sie uns die Checkliste eines Flugzeugs senden, über diese Website oder aus der App, bewahren wir auf, was Sie senden, so lange die Anfrage es erfordert (Abschnitt 4.3).
+Kurz gesagt: Es gibt kein Konto, keine Werbung, keine Nutzungsanalyse und kein Tracking. Ihre Flüge werden auf Ihrem Gerät gespeichert und, wenn Sie synchronisieren, in Ihrer eigenen iCloud. Einige Abfragen enthalten eine Position, eine Route oder einige Punkte eines Flugwegs, die meisten davon gerundet, damit die App Wetter, Gelände und Lufträume anzeigen kann (Abschnitt 3.0 führt sie alle auf). Unser API-Server bewahrt einen Datensatz zu einem Kauf und einen zufälligen Schlüssel pro Installation auf, um zu prüfen, dass Abfragen von der echten App kommen, nie einen Standort. Wenn Sie uns die Checkliste eines Flugzeugs senden, über diese Website oder aus der App, bewahren wir auf, was Sie senden, so lange die Anfrage es erfordert (Abschnitt 4.3).
 
 
 ## 1.0 Was auf Ihrem Gerät bleibt
@@ -58,6 +58,7 @@ Gelände ausserhalb der Schweiz, direkt von der App gesendet: Punkte entlang ein
 ### 3.5 Apple
 - Bei der ersten Einrichtung einmal Ihre aktuelle Position, um Ihr Land zu bestimmen und vorzuschlagen, was heruntergeladen werden soll.
 - Käufe laufen über den App Store; die App sieht weder Ihre Zahlungsdaten noch Ihre Apple-ID.
+- Einmal pro Installation lässt die App einen Schlüssel, den sie erzeugt, von Apple beglaubigen, damit unsere Server die echte App von einer Kopie unterscheiden können (App Attest). Apple erfährt, dass AéroCheck das auf diesem Gerät getan hat, gemäss der [Datenschutzrichtlinie von Apple](https://www.apple.com/legal/privacy/); sonst wird nichts gesendet.
 
 ### 3.6 OurAirports
 Die Flugplatzdatenbank wird vollständig heruntergeladen, ohne jede Position.
@@ -81,11 +82,11 @@ Nur wenn Sie uns aus der App die Checkliste eines Flugzeugs senden (Flugzeuge �
 
 Ist eine Anfrage gesendet, behält die App ihre Nummer und ihren Link auf dem Gerät (den Link im Schlüsselbund des Geräts) und führt sie unter «Ihre Anfragen» auf. Wenn die App in den Vordergrund kommt, höchstens alle drei Stunden, fragt sie den Anfrageserver, wo jede offene Anfrage steht, und sendet dabei den Code dieses Links und sonst nichts. Eine Anfrage, die seit 30 Tagen abgeschlossen ist, verschwindet aus der Liste.
 
-### 3.10 Der Atlas (tiles.aerocheck.app)
-Die Karte, die die App selbst zeichnet, auch unter den Vorschaubildern der Routen und auf Bildern zum Teilen (ausser Sie wählen eine Schweizer Ebene); [wie sie entsteht](/de/map). Keine Position, kein Sitzungstoken, nichts über Sie:
-- Eine Region, die Sie herunterladen: Die Abfrage nennt die Datei der Region.
-- Ausserhalb der Regionen auf dem Gerät wird die Karte online gelesen: Jede Abfrage nennt die Datei einer Region und den Teil davon, der die Kacheln auf dem Bildschirm enthält, sie zeigt also den Bereich, den Sie ansehen, wie jede Abfrage von Kartenkacheln.
+### 3.10 Der Atlas (tiles.aerocheck.app und der Speicher von Cloudflare)
+Die Karte, die die App selbst zeichnet, auch unter den Vorschaubildern der Routen und auf Bildern zum Teilen (ausser Sie wählen eine Schweizer Ebene); [wie sie entsteht](/de/map). Keine Position, nichts über Sie. Damit nur die echte App sie liest, erzeugt das Gerät einmal einen Schlüssel und lässt ihn von Apple beglaubigen (Abschnitt 3.5).
 - Höchstens alle sechs Stunden, während die App offen ist, die Liste der Regionen und die der Luftbildquellen (Abschnitt 3.11), ohne jede Position.
+- Ausserhalb der Regionen auf dem Gerät wird die Karte online gelesen: Jede Abfrage nennt die Datei einer Region und den Teil davon, der die Kacheln auf dem Bildschirm enthält, sie zeigt also den Bereich, den Sie ansehen, wie jede Abfrage von Kartenkacheln. Sie trägt auch den Wert des Tages, an diesem Tag für alle Geräte derselbe. Einmal pro Tag fragt die App unseren API-Server nach diesem Wert, mit einer Abfrage, die mit dem Schlüssel signiert ist und sonst nichts enthält.
+- Eine Region, die Sie herunterladen: Die App fragt unseren API-Server nach Links zu den Dateien der Region, eine Stunde gültig. Diese Abfrage nennt die Regionen, ist mit dem Schlüssel signiert und enthält mit AéroCheck Pro das Sitzungstoken, für das grössere Monatskontingent (Abschnitt 4.1). Die Dateien kommen dann direkt aus dem Speicher von Cloudflare.
 
 ### 3.11 Luftbilder (behördliche Dienste)
 Mit **Luftbilder** als Grundkarte, auf der Karte oder auf einem Bild zum Teilen, lädt das Gerät die Bilder vom behördlichen Dienst, der sie veröffentlicht ([die Liste](/de/map#70-luftbilder)): Die angeforderten Kacheln zeigen den Bereich auf dem Bildschirm. Jeder Dienst sieht die IP-Adresse des Geräts, wie jede Website, nach seinen eigenen Regeln: Digitaal Vlaanderen, für Flandern, bewahrt sie bis zu 90 Tage auf. Nichts geht über unsere Server, und die App sendet nichts anderes.
@@ -100,8 +101,9 @@ Unsere drei Server (die API, der Wetter-Proxy und der, der die Flugzeuganfragen 
 - Zu welchem Datensatz ein Kauf gehört, und eine Markierung, falls Apple eine Rückerstattung meldet, während 400 Tagen.
 - Die Sitzungstoken, mit denen sich die App authentifiziert, nur als SHA-256-Hashes (nie die Token selbst), während 180 Tagen, mit einer Liste dieser Hashes pro Kauf, damit höchstens fünf gleichzeitig gültig sind.
 - Ihre IP-Adresse, als Teil eines Zugriffszählers, der begrenzt, wie oft eine Adresse den Server aufrufen darf, während einer Minute.
+- Pro Installation, für die Karte (Abschnitt 3.10): der öffentliche Teil des Schlüssels und sein Signaturzähler, wann er registriert und zuletzt verwendet wurde, und wie viele Download-Links er in diesem Monat erhalten hat. Nie die Regionen, eine IP-Adresse oder ein Kauf: Das Sitzungstoken, das mit einem Download gesendet wird, bestimmt nur das Monatskontingent. Gelöscht 90 Tage nach der letzten Verwendung.
 
-Apple benachrichtigt den Server über Abläufe, Rückerstattungen und Widerrufe; diese Mitteilungen aktualisieren nur den Datensatz des Kaufs (und setzen die Markierung der Rückerstattung). Der Server erfährt nie Ihren Namen, Ihre E-Mail-Adresse oder Ihre Apple-ID und erhält nie eine Position. Seine Protokolle halten die Art des Ereignisses fest und Kennungen, die auf ihre letzten vier Zeichen gekürzt sind. Weil der Datensatz des Kaufs unter einer Kennung abgelegt ist, deklarieren die Datenschutzangaben im App Store den Kaufverlauf und eine Benutzer-ID als mit Ihnen verknüpft, verwendet für die Funktionalität der App und nie für Tracking.
+Apple benachrichtigt den Server über Abläufe, Rückerstattungen und Widerrufe; diese Mitteilungen aktualisieren nur den Datensatz des Kaufs (und setzen die Markierung der Rückerstattung). Der Server erfährt nie Ihren Namen, Ihre E-Mail-Adresse oder Ihre Apple-ID und erhält nie eine Position. Seine Protokolle halten die Art des Ereignisses fest und Kennungen, die auf ihre letzten vier Zeichen gekürzt sind. Weil der Datensatz des Kaufs unter einer Kennung abgelegt ist, deklarieren die Datenschutzangaben im App Store den Kaufverlauf und eine Benutzer-ID als mit Ihnen verknüpft und eine Gerätekennung (den Schlüssel) als nicht mit Ihnen verknüpft, alle verwendet für die Funktionalität der App und nie für Tracking.
 
 ### 4.2 Wetter-Proxy
 Keine Datenbank und keine eigenen Protokolle: nur der in Abschnitt 3.1 beschriebene Cache.
@@ -123,8 +125,8 @@ Die E-Mails zu Ihrer Anfrage (Eingang, eine Rückfrage, in der App) und der Link
 
 Wie lange: Alles wird aufbewahrt, solange die Anfrage offen ist. 90 Tage, nachdem sie abgeschlossen wurde (in der App, abgelehnt oder ein Duplikat), werden die Dateien gelöscht, ebenso jede E-Mail-Adresse, Ihr Name, Ihre Notizen, Name und Funktion der Person, die für den Club geantwortet hat, und die Nachrichten; auf dem Anfrageserver bleibt der Datensatz der Anfrage (ihre Nummer, die Kennzeichen, der Typ, der Club, ihre Status mit Datum). Das GitHub-Issue bleibt, wie es ist (es enthielt nie eine E-Mail-Adresse oder Ihren Namen), damit wir wissen, woher eine Checkliste stammt. Eine Anfrage, deren Dateien nie fertig hochgeladen wurden, wird nach 24 Stunden gelöscht. Um eine Anfrage früher löschen zu lassen oder um zu erfahren, was wir darüber aufbewahren, schreiben Sie an support@aerocheck.app oder antworten Sie auf eine unserer E-Mails.
 
-### 4.4 Kartendateien (tiles.aerocheck.app)
-Für diese Abfragen läuft kein Code von uns, und wir führen kein Protokoll darüber: Cloudflare liefert die Dateien aus seinem Speicher und seinem Cache. Um Missbrauch zu verhindern, zählt Cloudflare die Abfragen jeder IP-Adresse über eine kurze Zeit (eine Ratenbegrenzung); wir sehen davon nichts.
+### 4.4 Kartendateien (tiles.aerocheck.app und der Speicher von Cloudflare)
+Wenn die Karte gelesen oder eine Region heruntergeladen wird, läuft kein Code von uns, und wir führen kein Protokoll über diese Abfragen: Cloudflare liefert die Dateien aus seinem Speicher und seinem Cache. Eine Firewall-Regel prüft, dass jede Abfrage den Wert der App und den des Tages trägt; um Missbrauch zu verhindern, zählt Cloudflare zudem die Abfragen jeder IP-Adresse über eine kurze Zeit (eine Ratenbegrenzung); wir sehen davon nichts.
 
 
 ## 5.0 Export und Teilen

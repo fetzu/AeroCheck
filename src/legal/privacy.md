@@ -4,7 +4,7 @@ October 2026
 
 AéroCheck is an open-source flight checklist and situational-awareness app for pilots, developed and published by Julien Bono in Switzerland. This page says what the app keeps on your device, what it sends, to whom and how precisely, and what our own servers keep.
 
-The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase, never a location. If you send us an aircraft's checklist, from this website or from the app, we keep what you send for as long as the request needs it (section 4.3).
+The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase and a random key per install, to check that requests come from the genuine app, never a location. If you send us an aircraft's checklist, from this website or from the app, we keep what you send for as long as the request needs it (section 4.3).
 
 
 ## 1.0 What stays on your device
@@ -58,6 +58,7 @@ Terrain outside Switzerland, sent directly from the app: points along a route yo
 ### 3.5 Apple
 - During the first setup, your current position once, to find your country and suggest what to download.
 - Purchases go through the App Store; the app never sees your payment details or your Apple ID.
+- Once per install, the app has Apple vouch for a key it creates, so that our servers can tell the genuine app from a copy (App Attest). Apple learns that AéroCheck did so on this device, under [Apple's privacy policy](https://www.apple.com/legal/privacy/); nothing else is sent.
 
 ### 3.6 OurAirports
 The airport database is downloaded whole, without any position.
@@ -82,11 +83,11 @@ Only if you send us an aircraft's checklist from the app (Aircraft › “Send u
 Once a request is sent, the app keeps its number and its link on the device (the link in the device's keychain) and lists it under “Your requests”. When the app comes to the foreground, at most every three hours, it asks the request server where each open request stands, sending that link's code and nothing else. A request closed for 30 days leaves the list.
 
 
-### 3.10 The Atlas (tiles.aerocheck.app)
-The map the app draws itself, also under the route thumbnails and on share cards (unless you pick a Swiss layer); [how it is made](/map). No position, no session token, nothing about you:
-- A region you download: the request names the region's file.
-- Outside the regions on the device, the map is read online: each request names a region's file and the part of it that holds the tiles on screen, so it shows the area you look at, as a map tile request does.
+### 3.10 The Atlas (tiles.aerocheck.app and Cloudflare's storage)
+The map the app draws itself, also under the route thumbnails and on share cards (unless you pick a Swiss layer); [how it is made](/map). No position and nothing about you. So that only the genuine app reads it, the device creates a key once and has Apple vouch for it (section 3.5).
 - At most every six hours, while the app is open, the list of regions and the list of imagery sources (section 3.11), without any position.
+- Outside the regions on the device, the map is read online: each request names a region's file and the part of it that holds the tiles on screen, so it shows the area you look at, as a map tile request does. It also carries the day's value, the same for every device that day. Once a day, the app asks our API server for that value, in a request signed with the key and carrying nothing else.
+- A region you download: the app asks our API server for links to the region's files, valid for an hour. That request names the regions, is signed with the key and, with AéroCheck Pro, carries the session token, for the larger monthly allowance (section 4.1). The files then come straight from Cloudflare's storage.
 
 ### 3.11 Aerial imagery (government services)
 With **Aerial imagery** chosen as the base chart, on the map or on a share card, the device fetches the imagery from the government service that publishes it ([the list](/map#70-aerial-imagery)): the tiles requested show the area on screen. Each service sees the device's IP address, as any website does, under its own rules: Digitaal Vlaanderen, for Flanders, keeps it up to 90 days. Nothing passes through our servers, and the app sends nothing else.
@@ -101,8 +102,9 @@ Our three servers (the API, the weather proxy and the one that receives aircraft
 - Which record a purchase belongs to, and a marker if Apple reports a refund, for 400 days.
 - The session tokens the app authenticates with, as SHA-256 hashes only (never the tokens themselves), for 180 days, with a list of those hashes per purchase so that at most five are valid at a time.
 - Your IP address, as part of a request counter that limits how often one address may call the server, for one minute.
+- Per install, for the map (section 3.10): the key's public part and its signature counter, when it was registered and last used, and how many download links it received this month. Never the regions, an IP address or a purchase: the session token sent with a download only sets the monthly allowance. Deleted 90 days after its last use.
 
-Apple notifies the server of expiries, refunds and revocations; those notices only update the purchase record (and add the refund marker). The server never learns your name, your e-mail address or your Apple ID, and never receives a position. Its logs record the kind of event and identifiers shortened to their last four characters. Because the purchase record is filed under an identifier, the App Store privacy label declares the purchase history and a user ID as linked to you, used for the app's functionality and never for tracking.
+Apple notifies the server of expiries, refunds and revocations; those notices only update the purchase record (and add the refund marker). The server never learns your name, your e-mail address or your Apple ID, and never receives a position. Its logs record the kind of event and identifiers shortened to their last four characters. Because the purchase record is filed under an identifier, the App Store privacy label declares the purchase history and a user ID as linked to you, and a device ID (the key) as not linked to you, all used for the app's functionality and never for tracking.
 
 ### 4.2 Weather proxy
 No database and no logs of its own: only the cache described in section 3.1.
@@ -124,8 +126,8 @@ The e-mails about your request (received, a question, live) and the club's link 
 
 How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files are deleted, and so are every e-mail address, your name, your notes, the name and role of whoever answered for the club, and the messages; what stays on the request server is the request's record (its number, the registrations, the type, the club, its statuses and their dates). The GitHub issue stays as it is (it never held an e-mail address or your name), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
 
-### 4.4 Map files (tiles.aerocheck.app)
-No code of ours runs for these requests and we keep no log of them: Cloudflare serves the files from its storage and its cache. To stop abuse, Cloudflare counts the requests from each IP address over a short window (a rate limit); we see none of it.
+### 4.4 Map files (tiles.aerocheck.app and Cloudflare's storage)
+No code of ours runs when the map is read or a region downloaded, and we keep no log of these requests: Cloudflare serves the files from its storage and its cache. A firewall rule checks that each request carries the app's value and the day's value; to stop abuse, Cloudflare also counts the requests from each IP address over a short window (a rate limit); we see none of it.
 
 
 ## 5.0 Exports and sharing

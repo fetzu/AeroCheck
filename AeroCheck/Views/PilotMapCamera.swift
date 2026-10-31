@@ -177,6 +177,13 @@ final class PilotRouteEditing: NSObject, UIGestureRecognizerDelegate {
 
     var isDragging: Bool { mode != nil }
 
+    /// The waypoint being moved: its marker hides while the lifted copy follows the finger (the author's device check
+    /// fix2-11, 31 Oct 2026). nil while adding a point or idle.
+    var movingIndex: Int? {
+        if case let .move(index) = mode { return index }
+        return nil
+    }
+
     /// The dragged pin's label: the number the waypoint has, or will have once inserted; "+" while a point added on
     /// empty map is still finding its place in the route.
     var draggedLabel: String {

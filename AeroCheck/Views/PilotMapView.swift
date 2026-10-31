@@ -144,6 +144,7 @@ struct PilotMapView: UIViewRepresentable {
                 editing.onPreview = { [weak self, weak mapView] in
                     guard let self, let mapView else { return }
                     self.applyShapes(on: mapView)
+                    PilotMapMarkers.hideWaypointMarker(index: self.editing.movingIndex, on: mapView)
                 }
                 return editing.isDragging
             }

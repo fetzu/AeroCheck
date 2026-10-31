@@ -2264,7 +2264,6 @@ enum L10n {
         static let landeskarte = String(localized: "mapLayer.landeskarte")
         /// The Map sheet's switch under the ICAO row, from Navigation & Maps (the author's answer 14 A). (6.8.0)
         static let icaoEveryZoom = String(localized: "mapLayer.icaoEveryZoom")
-        static let icaoEveryZoomDetail = String(localized: "mapLayer.icaoEveryZoomDetail")
         static let swissimage = String(localized: "mapLayer.swissimage")
         /// The pilot's map and the aerial imagery, in place of Apple's two layers since 6.8.0.
         static var satellite: String { String(localized: "pilotMap.aerialImagery") }

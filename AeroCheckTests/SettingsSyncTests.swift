@@ -173,6 +173,25 @@ final class SettingsSyncTests: XCTestCase {
         XCTAssertFalse(manager.settingsOwed)
     }
 
+    /// The countries a device downloads are its own: another device's list made a fresh install fetch every country
+    /// that device had (the author's device check, 31 Oct 2026). (6.8.0)
+    func testTheCountriesDownloadedStayThisDevicesOwn() async throws {
+        let defaults = makeTestDefaults()
+        defaults.set(true, forKey: DataPersistenceManager.syncPreferenceKey)
+        let manager = SyncManager(defaults: defaults, backend: StubSyncBackend())
+        await manager.engineStartTask?.value
+        let appState = makeTestAppState(syncManager: manager)
+        appState.settings.openAIPOfflineCountries = ["CH"]
+
+        var remote = local()
+        remote.openAIPOfflineCountries = ["BE", "CH", "DE", "FR", "GB", "US"]
+        remote.homeAerodromeIdent = "LSGN"
+        await manager.onSettingsUpdated?(try record(remote))
+
+        XCTAssertEqual(appState.settings.openAIPOfflineCountries, ["CH"])
+        XCTAssertEqual(appState.settings.homeAerodromeIdent, "LSGN", "the rest is taken as usual")
+    }
+
     // MARK: - A newer record
 
     /// A record from a newer schema, carrying every key we know, is still taken at its word, a cleared

@@ -423,7 +423,7 @@ struct OnboardingView: View {
                 icon: "building.2",
                 isDownloading: airportDataService.isDownloading,
                 progress: airportDataService.downloadProgress,
-                isCompleted: airportDataService.isDataAvailable,
+                isCompleted: airportDataService.isOurAirportsDownloaded,   // not a country's OpenAIP aerodromes
                 detail: String(localized: "Worldwide · ≈ 12 MB"),
                 action: { Task { await airportDataService.downloadData() } }
             )

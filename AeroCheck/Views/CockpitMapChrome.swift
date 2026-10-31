@@ -486,6 +486,8 @@ struct MapChromeControlButton: View {
             .accessibilityLabel(MapChromeControlButton.label(control, model: model, language: language))
             .accessibilityValue(MapChromeControlButton.value(control, model: model, language: language))
             .accessibilityIdentifier(MapChromeControlButton.identifier(control))
+            // The track vector, the first time on the Cockpit's MAP: where to switch it lives here. (6.8.0)
+            .aeroTip(TrackVectorTip(), shown: control == .layers, arrowEdge: .trailing)
     }
 
     private var prominent: Bool { control == .centre && !model.isFollowingAircraft }

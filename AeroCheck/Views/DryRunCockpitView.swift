@@ -79,7 +79,7 @@ struct DryRunCockpitView: View {
                     .environment(\.isDryRun, true)
                     .environment(\.dryRunSession, session)
                     .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: metrics.extraTop) }
-                if session.isOnFinal {
+                if session.showsFinalCard {
                     DryRunFinalCard(session: session, compact: !metrics.isWide)
                         .coachTarget(.finalCard)
                         .frame(maxWidth: metrics.finalCardWidth)
@@ -90,7 +90,7 @@ struct DryRunCockpitView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.easeOut(duration: 0.2), value: session.isOnFinal)
+            .animation(.easeOut(duration: 0.2), value: session.showsFinalCard)
             // The guided flight's coach: its card above the act band, the veil and the ring over the control.
             .overlayPreferenceValue(CoachTargetKey.self) { anchors in
                 if let coach = session.coach {
@@ -267,7 +267,9 @@ private struct DryRunPartPlate: View {
     @ObservedObject var coach: DryRunCoach
 
     var body: some View {
-        DryRunPlate(text: "\(L10n.DryRun.band) · \(coach.part.title)")
+        // The first flight is no part of the story: its own name. (6.8.0)
+        let name = coach.start.isFirstFlight ? L10n.Onboarding.circuitTitle : coach.part.title
+        DryRunPlate(text: "\(L10n.DryRun.band) · \(name)")
     }
 }
 
@@ -283,9 +285,9 @@ struct DryRunCoachLayer: View {
         GeometryReader { proxy in
             // On final, above the card on final as it is drawn (its height varies with the device, the layout and the
             // language), so the coach's card never covers its buttons (the author's eighth round, r8-7).
-            let finalTop = session.isOnFinal ? anchors[.finalCard].map { proxy[$0].minY } : nil
+            let finalTop = session.showsFinalCard ? anchors[.finalCard].map { proxy[$0].minY } : nil
             let bottom = finalTop.map { max(metrics.finalCardBottom, proxy.size.height - $0 + 8) }
-                ?? metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 128 : 112) : 0)
+                ?? metrics.finalCardBottom + (session.showsFinalCard ? (metrics.isWide ? 128 : 112) : 0)
             let alignment: Alignment = metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom
             // The Cockpit's own steps: a step for the Menu (a sheet over it) shows there, not here as well.
             if let step = coach.step, step.screen == .cockpit {

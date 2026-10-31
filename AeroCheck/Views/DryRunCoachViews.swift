@@ -108,7 +108,9 @@ private struct DryRunGroundCoachLayer: View {
 
     var body: some View {
         GeometryReader { proxy in
-            if let step = coach.step, step.screen == screen, step.kind == .partEnd {
+            if let step = coach.step, step.screen == screen, step.kind == .partEnd, coach.start.isFirstFlight {
+                DryRunFirstFlightEndPage(session: session, step: step)
+            } else if let step = coach.step, step.screen == screen, step.kind == .partEnd {
                 DryRunPartEndPage(coach: coach, session: session, step: step)
             } else if let step = coach.step, step.screen == screen {
                 if Self.isSystemBarItem(coach.resolvedTarget(of: step)) {
@@ -216,6 +218,81 @@ enum SystemTabItemLocator {
     }
 }
 
+/// The first flight's end, on Today: the logbook's line just written, then the full dry run, free practice, or Done;
+/// and the Pro offer for a pilot who chose a Pro aircraft and flew the WT9 (the author's answers p1 B and p2 A,
+/// 31 Oct 2026). (6.8.0)
+struct DryRunFirstFlightEndPage: View {
+    @ObservedObject var session: DryRunSession
+    let step: DryRunCoachStep
+
+    private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
+    private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
+
+    /// "LSZQ → LSZQ · 1 landing · 0:14".
+    private var logbookLine: String? {
+        guard let flight = session.world.appState.flights.max(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) else { return nil }
+        let from = flight.departureAirportIdent ?? "—"
+        let to = flight.arrivalAirportIdent ?? from
+        var parts = ["\(from) → \(to)", L10n.DryRunCoach.FirstFlight.landings(flight.totalLandings)]
+        if let block = flight.blockTime {
+            let minutes = Int((block / 60).rounded())
+            parts.append(String(format: "%d:%02d", minutes / 60, minutes % 60))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 14) {
+                Text(step.title).font(.aero(size: 24, weight: .bold))
+                if let logbookLine {
+                    Text(logbookLine)
+                        .font(.aero(size: 17, weight: .semibold, design: .monospaced))
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 10).stroke(ink.opacity(0.4), lineWidth: 1))
+                }
+                Text(step.body).font(.aero(size: 17)).fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 10) {
+                    if let pro = DryRunCenter.shared.firstFlightPro {
+                        button(L10n.DryRunCoach.FirstFlight.tryPro(pro.registration), filled: true) {
+                            DryRunCenter.shared.endFirstFlight(then: .pro)
+                        }
+                    }
+                    button(L10n.DryRunCoach.FirstFlight.fullDryRun,
+                           filled: DryRunCenter.shared.firstFlightPro == nil) {
+                        DryRunCenter.shared.endFirstFlight(then: .story)
+                    }
+                    button(L10n.DryRunCoach.FirstFlight.freePractice, filled: false) {
+                        DryRunCenter.shared.endFirstFlight(then: .practice)
+                    }
+                    button(L10n.Button.done, filled: false) { DryRunCenter.shared.endFirstFlight(then: .done) }
+                }
+                .padding(.top, 4)
+            }
+            .foregroundColor(ink)
+            .padding(22)
+            .frame(maxWidth: 520)
+            .background(RoundedRectangle(cornerRadius: 18).fill(paper))
+            .padding(24)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func button(_ title: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.aero(size: 17, weight: .bold))
+                .foregroundColor(filled ? paper : ink)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(RoundedRectangle(cornerRadius: 11).fill(filled ? ink : Color.clear))
+                .overlay(RoundedRectangle(cornerRadius: 11).stroke(ink, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// The page between two parts of the story: what was done, what comes next, on to it or stop there (the rest
 /// waits in Settings). (6.4.0, "Plan to Logbook")
 struct DryRunPartEndPage: View {
@@ -287,8 +364,10 @@ struct DryRunCoachCard: View {
     private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
     private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
 
-    /// "Fly it · chapter 2 of 7 · Engine and taxi", "Plan a flight"; shorter on a phone.
+    /// "Fly it · chapter 2 of 7 · Engine and taxi", "Plan a flight"; shorter on a phone. The first flight: "A circuit
+    /// on the ground", its moment where the story's part goes (`partLine`).
     private var header: String {
+        if coach.start.isFirstFlight { return L10n.Onboarding.circuitTitle }
         guard step.part == .fly, step.chapter > 0 else { return step.part.title }
         let chapter = L10n.DryRunCoach.chapterOf(step.chapter, DryRunChapters.count)
         return compact ? chapter : "\(chapter) · \(DryRunChapters.title(step.chapter))"
@@ -318,9 +397,13 @@ struct DryRunCoachCard: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// "PART 1 OF 4": which of the story's four parts this is, in words.
+    /// "PART 1 OF 4": which of the story's four parts this is, in words; the first flight's moment, "1 OF 3", since it
+    /// is no part of the story.
     private var partLine: some View {
-        Text(L10n.DryRunCoach.partOf(step.part.rawValue, DryRunPart.allCases.count))
+        Text(coach.start.isFirstFlight
+             ? L10n.DryRunCoach.FirstFlight.momentOf(DryRunFirstFlight.moment(ofChapter: step.chapter),
+                                                     DryRunFirstFlight.moments)
+             : L10n.DryRunCoach.partOf(step.part.rawValue, DryRunPart.allCases.count))
             .font(.aero(size: 11, weight: .semibold, design: .monospaced))
             .tracking(1.2)
             .textCase(.uppercase)
@@ -473,12 +556,14 @@ struct DryRunFastForwardCover: View {
     var body: some View {
         VStack(spacing: 18) {
             Spacer()
-            Text(start.part == .fly ? L10n.DryRunCoach.coverTitle(start.chapter) : L10n.DryRunCoach.coverTitlePart)
+            Text(start.isFirstFlight ? L10n.DryRun.band
+                 : start.part == .fly ? L10n.DryRunCoach.coverTitle(start.chapter) : L10n.DryRunCoach.coverTitlePart)
                 .font(.aero(size: 15, weight: .semibold, design: .monospaced))
                 .tracking(1.4)
                 .textCase(.uppercase)
                 .foregroundColor(theme.textSecondary)
-            Text(start.part == .fly ? DryRunChapters.title(start.chapter) : start.part.title)
+            Text(start.isFirstFlight ? L10n.Onboarding.circuitTitle
+                 : start.part == .fly ? DryRunChapters.title(start.chapter) : start.part.title)
                 .font(.aero(size: 30, weight: .bold))
                 .foregroundColor(theme.textPrimary)
                 .multilineTextAlignment(.center)

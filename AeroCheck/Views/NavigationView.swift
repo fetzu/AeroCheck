@@ -1134,7 +1134,7 @@ struct NavigationMapView: View {
         mapState.objectWillChange.send()   // neither is @Published; nudge updateUIView
     }
 
-    /// Map, with the stale-airspace cue on it.
+    /// Map, with the stale-airspace cue on it, and the Map sheet's one-time tip at the foot of Plan › Map. (6.8.0)
     private func mapSheetButton(labelled: Bool) -> some View {
         Group {
             if labelled {
@@ -1143,6 +1143,7 @@ struct NavigationMapView: View {
                 chromeIconButton(icon: "square.stack.3d.up", label: L10n.Nav.mapSheet) { showMapSheet = true }
             }
         }
+        .aeroTip(MapSheetTip(), arrowEdge: .bottom)
         .overlay(alignment: .topTrailing) {
             if airspaceDataNeedsAttention {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -2295,6 +2296,8 @@ struct NavigationMapView: View {
         HStack(spacing: CockpitType.size(kneeboard: 10, phone: 8)) {
             aerodromeSearchButton
             chromeButton(icon: "square.stack.3d.up", title: L10n.Nav.mapSheet) { showMapSheet = true }
+                // The Map sheet, the first time on Plan › Map: its one-time tip, under the button. (6.8.0)
+                .aeroTip(MapSheetTip(), arrowEdge: .top)
                 .overlay(alignment: .topTrailing) {
                     // Airspace data aging or stale: the cue sits on the button that leads to it.
                     if airspaceDataNeedsAttention {

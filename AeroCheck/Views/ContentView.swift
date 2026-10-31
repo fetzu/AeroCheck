@@ -27,6 +27,11 @@ struct ContentView: View {
     /// A dry run's Cockpit covers the app while one runs. (6.4.0)
     @ObservedObject private var dryRuns = DryRunCenter.shared
 
+    private var tipsQuiet: Bool {
+        AeroTips.isQuiet(flightActive: appState.isFlightActive, phase: appState.currentPhase,
+                         dryRunRunning: dryRuns.isRunning)
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let isCompactDevice = horizontalSizeClass == .compact
@@ -202,6 +207,10 @@ struct ContentView: View {
         }
         .onChange(of: keepsScreenAwake) { _, awake in
             UIApplication.shared.isIdleTimerDisabled = awake
+        }
+        // The one-time tips keep quiet in flight past the line-up and in a dry run. (6.8.0)
+        .onChange(of: tipsQuiet, initial: true) { _, quiet in
+            AeroTips.quiet = quiet
         }
         // Once — and only once BOTH sides have loaded. Deliberately not hung off a plan change:
         // `FlightCreator` adds the plan before it creates the flight, so a sweep triggered by the

@@ -757,6 +757,11 @@ struct FlightLogView: View {
         )
     }
 
+    /// The newest flight, whose line carries the logbook's one-time tip. (6.8.0)
+    private var newestFlightID: UUID? {
+        appState.flights.max { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }?.id
+    }
+
     @ViewBuilder
     private func flightRow(_ flight: Flight, twoColumn: Bool) -> some View {
         if twoColumn {
@@ -770,6 +775,7 @@ struct FlightLogView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("logbook.flight")
+            .aeroTip(LogbookLineTip(), shown: flight.id == newestFlightID, arrowEdge: .top)
             .listRowBackground(effectiveSelectionID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 favoriteSwipeButton(flight)
@@ -784,6 +790,7 @@ struct FlightLogView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("logbook.flight")
+            .aeroTip(LogbookLineTip(), shown: flight.id == newestFlightID, arrowEdge: .top)
             .listRowBackground(Color.cardBackground)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 favoriteSwipeButton(flight)

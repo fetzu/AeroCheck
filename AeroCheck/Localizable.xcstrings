@@ -14751,42 +14751,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ICAO-Karte in jeder Zoomstufe"
+            "value": "Auf ICAO-Karte fixieren"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ICAO chart at every zoom"
+            "value": "Lock to ICAO chart"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte OACI à tous les zooms"
-          }
-        }
-      }
-    },
-    "mapLayer.icaoEveryZoomDetail": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aus: beim Hineinzoomen die Segelflugkarte, dann die Landeskarte"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off: the glider map, then the national map, as you zoom in"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Désactivé : la carte vol à voile, puis la carte nationale, en zoomant"
+            "value": "Verrouiller sur la carte OACI"
           }
         }
       }

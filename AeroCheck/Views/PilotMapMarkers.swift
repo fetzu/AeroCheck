@@ -154,6 +154,7 @@ final class PilotMapMarkers {
         view.annotation = marker
         view.accessibilityLabel = Self.accessibilityLabel(for: marker.base)
         view.layer.zPosition = 0   // a reused view may have been a route pin's (raised below)
+        view.isHidden = false      // or the moved waypoint's (`hideWaypointMarker`)
         switch marker.base {
         case let airport as AirportAnnotation:
             view.show(AeroMarkerImages.airport(airport.airport))
@@ -199,6 +200,21 @@ final class PilotMapMarkers {
     /// The route builder's numbered pin: a disc centred on the waypoint, the route's line through its middle, in
     /// navigation magenta, amber where the leg from it has a conflict (the author's pick, marker C, 30 Oct 2026; the
     /// balloon before it left an empty lens between its circle and its tip, device check pm-13).
+    /// Hides the marker of the waypoint at `index` while its lifted copy is dragged, and shows every other; nil shows
+    /// them all. (6.8.0, the author's device check fix2-11)
+    static func hideWaypointMarker(index: Int?, on mapView: MLNMapView) {
+        for annotation in mapView.annotations ?? [] {
+            guard let marker = annotation as? PilotMarker, let view = mapView.view(for: marker) else { continue }
+            let waypointIndex: Int
+            switch marker.base {
+            case let pin as RouteWaypointAnnotation: waypointIndex = pin.index
+            case let waypoint as FlightPlanWaypointAnnotation: waypointIndex = waypoint.waypointIndex
+            default: continue
+            }
+            view.isHidden = waypointIndex == index
+        }
+    }
+
     static func pinImage(number: Int, conflict: Bool) -> UIImage {
         let size = CGSize(width: 38, height: 38)
         return UIGraphicsImageRenderer(size: size).image { _ in

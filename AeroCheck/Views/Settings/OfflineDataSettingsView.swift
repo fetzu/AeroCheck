@@ -244,7 +244,7 @@ struct OfflineDataSettingsView: View {
             Spacer(minLength: 8)
             if airportDataService.isDownloading {
                 ProgressView().scaleEffect(0.8).frame(width: 44, height: 44)
-            } else if airportDataService.isDataAvailable {
+            } else if airportDataService.isOurAirportsDownloaded {
                 Menu {
                     Button { Task { await airportDataService.downloadData() } } label: {
                         Label(L10n.PilotMap.update, systemImage: "arrow.triangle.2.circlepath")
@@ -272,7 +272,9 @@ struct OfflineDataSettingsView: View {
     }
 
     private var airportsDetail: String {
-        guard airportDataService.isDataAvailable else {
+        // OurAirports' own file, not `isDataAvailable`, which a country's OpenAIP aerodromes make true on their own: the
+        // row said Downloaded after Switzerland alone (the author's device check fix2-10, 31 Oct 2026).
+        guard airportDataService.isOurAirportsDownloaded else {
             return "\(L10n.OfflineData.airportsSource) · \(L10n.DataStorage.statusMissing)"
         }
         var parts = [L10n.OfflineData.airportsCount(airportDataService.airportCount)]

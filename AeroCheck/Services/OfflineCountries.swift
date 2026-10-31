@@ -206,9 +206,11 @@ final class OfflineCountryDownloads: ObservableObject {
     private var airspace: OpenAIPDataService?
     private var navaids: OpenAIPNavaidDataService?
 
-    /// The countries whose aeronautical data is kept: the selection, and any a trip or an older version fetched.
-    static func kept(selection: [String], airspace: OpenAIPDataService, vfr: OFMDataService) -> Set<String> {
-        Set(selection).union(airspace.downloadedCountries).union(vfr.downloadedCountries)
+    /// The countries whose aeronautical data is on this device, however it came (a country added, a trip): what a
+    /// sync keeps. Not the saved selection: until 6.8.0 it came through iCloud from the pilot's other devices, and a
+    /// fresh install fetched every country they had (the author's device check, 31 Oct 2026).
+    static func kept(airspace: OpenAIPDataService, vfr: OFMDataService) -> Set<String> {
+        Set(airspace.downloadedCountries).union(vfr.downloadedCountries)
     }
 
     /// One more country: its aeronautical data with the others kept.
@@ -219,8 +221,7 @@ final class OfflineCountryDownloads: ObservableObject {
     /// Several countries in one sync: onboarding's chosen ones.
     func add(_ codes: [String], appState: AppState, airspace: OpenAIPDataService, navaids: OpenAIPNavaidDataService) {
         guard !codes.isEmpty else { return }
-        let countries = Self.kept(selection: appState.settings.openAIPOfflineCountries, airspace: airspace,
-                                  vfr: .shared).union(codes).sorted()
+        let countries = Self.kept(airspace: airspace, vfr: .shared).union(adding).union(codes).sorted()
         adding.formUnion(codes)
         save(countries, appState: appState)
         sync(countries, airspace: airspace, navaids: navaids)
@@ -229,8 +230,7 @@ final class OfflineCountryDownloads: ObservableObject {
     /// One country less: its aeronautical data and VFR procedures dropped, the others kept. The last one deletes the
     /// layers outright, as a layer asked for no country does nothing rather than remove everything.
     func remove(_ code: String, appState: AppState, airspace: OpenAIPDataService, navaids: OpenAIPNavaidDataService) {
-        let countries = Self.kept(selection: appState.settings.openAIPOfflineCountries, airspace: airspace,
-                                  vfr: .shared).subtracting([code]).sorted()
+        let countries = Self.kept(airspace: airspace, vfr: .shared).union(adding).subtracting([code]).sorted()
         adding.remove(code)
         save(countries, appState: appState)
         if countries.isEmpty {

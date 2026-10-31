@@ -283,7 +283,8 @@ enum MapOrientationMode {
 /// session state, but for the layer, which the device keeps (`AppState.selectMapLayer`). (Phase 4 —
 /// AppState decomposition: state extraction)
 struct NavigationMapState: Equatable {
-    var selectedLayer: MapLayerType = .icao
+    /// The Atlas until the pilot picks another chart (the author's device check fix1-5, 31 Oct 2026). (6.8.0)
+    var selectedLayer: MapLayerType = .standard
     var orientationMode: MapOrientationMode = .northUp
     /// The zoom the map was left at, so reopening it (or switching the Cockpit back to MAP) doesn't
     /// throw away the scale the pilot chose. nil until the map has been shown once. (v6.0 · P2)
@@ -293,9 +294,9 @@ struct NavigationMapState: Equatable {
     /// Where the device keeps the layer. (6.2)
     static let layerKey = "map.selectedLayer"
 
-    /// The layer last picked on this device; the ICAO chart the first time.
+    /// The layer last picked on this device; the Atlas the first time.
     static func savedLayer(in defaults: UserDefaults) -> MapLayerType {
-        defaults.string(forKey: layerKey).flatMap(MapLayerType.init(rawValue:)) ?? .icao
+        defaults.string(forKey: layerKey).flatMap(MapLayerType.init(rawValue:)) ?? .standard
     }
 }
 
@@ -3533,15 +3534,10 @@ struct MapSheet: View {
             appState.saveSettings()
         } label: {
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.MapLayer.icaoEveryZoom)
-                        .font(.aero(size: CockpitType.label, weight: .medium))
-                        .foregroundColor(theme.textPrimary)
-                    Text(L10n.MapLayer.icaoEveryZoomDetail)
-                        .font(.aero(size: 14))
-                        .foregroundColor(theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                // One line: "Lock to ICAO chart" (the author's device check fix2-8, 31 Oct 2026).
+                Text(L10n.MapLayer.icaoEveryZoom)
+                    .font(.aero(size: CockpitType.label, weight: .medium))
+                    .foregroundColor(theme.textPrimary)
                 Spacer()
                 Image(systemName: isOn ? "checkmark.square.fill" : "square")
                     .font(.aero(size: 24))

@@ -122,6 +122,30 @@ struct OnboardingView: View {
                                            aeronauticalKept: openAIPDataService.downloadedCountries.contains(country.id))
     }
 
+    /// How far the chosen countries' download has got, by bytes: each Atlas region as far as it has come, the
+    /// aeronautical data (about 5 MB a country) once it is on the device. A bar, as Settings has (the author's device
+    /// check fix2-10, 31 Oct 2026). (6.8.0)
+    private var countriesProgress: Double {
+        let here = Set(pilotMap.downloaded.map(\.id))
+        var total = 0.0, done = 0.0
+        for country in wantedCountries {
+            for region in country.atlasRegions {
+                let bytes = Double(max(region.downloadBytes, 1))
+                total += bytes
+                switch pilotMap.state(of: region.id) {
+                case let .downloading(fraction): done += bytes * fraction
+                case .downloaded, .updateAvailable: done += bytes
+                default: if here.contains(region.id) { done += bytes }
+                }
+            }
+            if country.hasAeronauticalData {
+                total += 5_000_000
+                if openAIPDataService.downloadedCountries.contains(country.id) { done += 5_000_000 }
+            }
+        }
+        return total > 0 ? min(1, done / total) : 0
+    }
+
     private var countriesDone: Bool { !wantedCountries.isEmpty && wantedCountries.allSatisfy(isOnDevice) }
 
     private var countriesDownloading: Bool {
@@ -399,7 +423,7 @@ struct OnboardingView: View {
                 icon: "building.2",
                 isDownloading: airportDataService.isDownloading,
                 progress: airportDataService.downloadProgress,
-                isCompleted: airportDataService.isDataAvailable,
+                isCompleted: airportDataService.isOurAirportsDownloaded,   // not a country's OpenAIP aerodromes
                 detail: String(localized: "Worldwide · ≈ 12 MB"),
                 action: { Task { await airportDataService.downloadData() } }
             )
@@ -505,12 +529,15 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 if downloading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.aviationGold)
-                    Text(L10n.OfflineData.downloading)
-                        .font(.aero(.caption2))
-                        .foregroundColor(.dimText)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.PilotMap.downloading(countriesProgress))
+                            .font(.aero(.caption2))
+                            .foregroundColor(.dimText)
+                        ProgressView(value: countriesProgress)
+                            .tint(.aviationGold)
+                            .frame(maxWidth: 220)
+                    }
+                    .accessibilityElement(children: .combine)
                 } else if !done {
                     Text("\(L10n.Onboarding.countryCount(wantedCountries.count)) · \(OfflineDataView.bytes(total))")
                         .font(.aero(.caption2))

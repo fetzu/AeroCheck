@@ -1379,6 +1379,9 @@ class AppState {
             merged.developerMode = self.settings.developerMode
             // Where this device keeps its data is its own choice, never another device's.
             merged.iCloudSyncEnabled = self.settings.iCloudSyncEnabled
+            // So are the countries it downloads: another device's list made a fresh install fetch every country that
+            // device had (the author's device check, 31 Oct 2026). (6.8.0)
+            merged.openAIPOfflineCountries = self.settings.openAIPOfflineCountries
             self.settings = merged
             // Save synced settings to file for future loads
             self.persistence.saveSettings(merged)

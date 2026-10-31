@@ -7,16 +7,21 @@ AéroCheck est un compagnon de vol, pas un instrument certifié. Tout ce qu'il a
 
 ### Premier lancement
 
-Le tout premier écran est un **avis de sécurité** à accepter avant toute chose ; il revient lorsque son texte change de façon substantielle, et vous pouvez le relire à tout moment sous **Réglages › À propos › Avertissement de sécurité**. Une courte introduction vous guide ensuite dans la configuration :
+Le tout premier écran est un **avis de sécurité** à accepter avant toute chose ; il revient lorsque son texte change de façon substantielle, et vous pouvez le relire à tout moment sous **Réglages › À propos › Avertissement de sécurité**. Cinq courts écrans configurent ensuite l'app, en une minute et demie environ ; **Passer**, en haut (sur chaque écran sauf celui de la position), quitte l'introduction, et ce qui reste attend sur l'encart **Pour commencer** d'Aujourd'hui :
 
-- **Utiliser votre position** : nécessaire à la trace GPS, à la vitesse sol et à la carte. Accordez « Lorsque l'app est active » ou « Toujours ». « Toujours » permet à la trace de continuer à s'enregistrer quand l'écran se verrouille ou que vous changez d'app en vol ; si vous n'accordez que « Lorsque l'app est active », AéroCheck demande de **passer à « Toujours »** au démarrage d'un vol.
-- **Cartes et données** : les données aéronautiques de votre pays (détecté d'après la région de l'appareil ou, si disponible, une position GPS) et de ses voisins, la base mondiale des aérodromes et, au choix, les cartes suisses. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
-- **Checklists** : **Masquer les éléments mémoire** et la langue des checklists.
-- **Vols** : les quatre chapitres par lesquels AéroCheck suit un vol : Planifier, Préparer, Voler, Clôturer. Voir [Suivre un vol](#suivre-un-vol).
-- **Aérodrome de base** (facultatif) : là où vous êtes basé. Planifier un vol part de lui, et les atterrissages que vous y faites comptent comme atterrissages à la base sur le log de nav. À définir ou modifier plus tard sous **Réglages › Vols**.
-- **Votre carte** et **En vol et fonctionnalités** : ce que la carte dessine (espaces aériens, vecteur de trajectoire, obstacles, carte OACI à tous les zooms), le relevé des heures moteur et la synchronisation iCloud.
+1. **Bienvenue** : ce qu'AéroCheck fait pour un vol.
+2. **Utiliser votre position** : nécessaire à la trace GPS, à la fréquence de l'endroit où vous êtes et à la suggestion de l'aérodrome d'attache. Accordez « Lorsque l'app est active » ou « Toujours ». « Toujours » permet à la trace de continuer à s'enregistrer quand l'écran se verrouille ou que vous changez d'app en vol ; si vous n'accordez que « Lorsque l'app est active », AéroCheck demande de **passer à « Toujours »** au démarrage d'un vol.
+3. **À propos de vous** : **Basé à**, rempli avec l'aérodrome le plus proche (« Le plus proche : LSZQ Bressaucourt, à 6 NM » ; changez-le s'il ne convient pas), **Vous volez sur** (le WT9 Dynamic gratuit, puis les avions de chaque club, ceux d'AéroCheck Pro signalés) et la langue des checklists. L'aérodrome d'attache est le point de départ de Planifier un vol, et les atterrissages que vous y faites comptent comme atterrissages à la base sur le log de nav ; à modifier plus tard sous **Réglages › Vols**.
+4. **Fonctionne sans réseau** : une ligne pour votre pays (son Atlas et ses données aéronautiques), **Aéroports et fréquences** et la **Vue d'ensemble de l'Atlas**, cochés, et pour une base suisse les **Cartes suisses**, non cochées. Chaque ligne indique sa taille ; **Télécharger** récupère ce qui est coché, chaque ligne avec sa progression, et **Continuer** ne l'attend jamais. Les autres pays sont dans **Réglages › Données hors ligne**, et une route qui passe une frontière propose les siens. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
+5. **Un tour de piste au sol** : **C'est parti** (voir [Un tour de piste au sol](#un-tour-de-piste-au-sol)), ou **Aller à Aujourd'hui**.
 
-La dernière page, **Vous êtes prêt**, propose **Commencer à utiliser AéroCheck**, ou **Faire mon premier vol au sol**, le vol à blanc guidé (voir [Vol à blanc](#vol-à-blanc)). Vous pouvez rejouer tout le parcours à tout moment depuis **Réglages › À propos › Revoir l'introduction**.
+Vous pouvez la rejouer à tout moment depuis **Réglages › À propos › Revoir l'introduction**.
+
+### Pour commencer et astuces
+
+Après l'introduction, Aujourd'hui montre un encart **Pour commencer** sous les boutons de départ : **Votre base et votre avion**, **Données hors ligne** pour votre pays (avec sa progression pendant le téléchargement), **Votre premier vol**, **Volez avec la checklist** de votre avion (seulement si vous avez choisi un avion qui demande AéroCheck Pro sans l'avoir : **Essayez Pro gratuitement**), **Préparez votre première route** et **Le vol à blanc complet**. Chaque ligne se coche d'elle-même une fois faite, et toucher une ligne ouverte mène là où elle se fait. **La pratique libre** et **Masquer** sont au pied de l'encart ; il s'en va pour de bon une fois tout coché, ou masqué.
+
+Quelques **astuces** s'affichent une fois chacune, là où se trouve une fonction : le bouton **Carte** de Planifier › Carte, le vecteur de route sur la carte du cockpit, **ACT et SUIV**, la ligne de votre premier vol dans le carnet, et les données hors ligne quand une route entre dans un pays absent de l'appareil. Elles ne s'affichent jamais en vol après l'alignement, ni pendant un vol à blanc. **Réglages › À propos › Revoir les astuces** les ramène dès la prochaine ouverture.
 
 ### AéroCheck Pro
 
@@ -47,7 +52,7 @@ Aujourd'hui garde les mêmes emplacements aux mêmes endroits chaque jour, rempl
 - **PROCHAIN VOL** : le vol dont parle le bouton de démarrage, dans un encart avec son heure, son avion, son nom, un anneau qui compte ses blocs, et la ligne que sa page porte sous le titre (« 2 à faire : NOTAM et espaces aériens, le log de nav », ou « Tout est coché, prêt à voler »). C'est le vol du jour, un vol que vous avez laissé en l'air, ou l'étape suivante d'un voyage une fois posé à une escale. Un voyage tient dans un seul encart : son nombre d'étapes (**3 ÉTAPES**), toute la route (« LSZQ → LSGE → LSZQ »), et une puce par étape avec son heure (✓ une fois volée). Touchez l'encart pour ouvrir le vol. Sans un tel vol, l'emplacement montre un vol que vous suivez ou qu'il reste à clôturer, ou **Planifier un vol**.
 - Le bouton vert de démarrage, toujours au même endroit : **DÉMARRER CE VOL** quand un vol est prévu aujourd'hui (**REPRENDRE CE VOL** une fois en l'air), **DÉMARRER LE VOL** sinon. Pour une étape d'un voyage, il indique **DÉMARRER LE VOL** et nomme l'étape en dessous (« ÉTAPE 1 · LSZQ → LSGE »).
 - En dessous, **TOURS DE PISTE**, toujours proposé, à côté de **VOLER SANS PLAN** quand un vol est prévu aujourd'hui, ou de **PLANIFIER UN VOL** sinon.
-- Tant que votre carnet de vol est vide, un encart sous ces boutons propose **Faites votre premier vol au sol**, le vol à blanc guidé (voir [Vol à blanc](#vol-à-blanc)).
+- Après l'introduction, l'encart **Pour commencer** (voir [Pour commencer et astuces](#pour-commencer-et-astuces)). Avant l'introduction de la 6.8.0, tant que votre carnet de vol est vide, un encart propose **Faites votre premier vol au sol**, le vol à blanc guidé (voir [Vol à blanc](#vol-à-blanc)).
 - **AVION ET DERNIER VOL** : l'avion que vous pilotez (touchez-le pour en changer, voir ci-dessous) et votre dernier vol (touchez-le pour ses détails). Quand rien n'est prévu, une route que vous avez mise sur la carte s'affiche aussi ici ; touchez-la pour ouvrir **Planifier › Routes**.
 
 ### Choisir son avion
@@ -101,10 +106,16 @@ Un vol à blanc est un vol fait au sol, dans le vrai cockpit : l'avion est pilot
 
 ### Lancer un vol à blanc
 
-- **La dernière page de l'introduction** : **Faire mon premier vol au sol** lance le vol à blanc guidé.
-- **Aujourd'hui** : tant que votre carnet de vol est vide, un encart propose **Faites votre premier vol au sol**, avec **Commencer le vol à blanc** et **Pas maintenant** (qui range l'encart pour de bon sur cet appareil). Il s'en va aussi une fois le vol à blanc guidé effectué, ou un vrai vol.
+- **Le dernier écran de l'introduction** : **C'est parti** vole [Un tour de piste au sol](#un-tour-de-piste-au-sol).
+- **Aujourd'hui** : dans l'encart **Pour commencer**, **Votre premier vol**, **Le vol à blanc complet** et **La pratique libre**. Configuré avant la 6.8.0, carnet vide : un encart propose **Faites votre premier vol au sol**, avec **Commencer le vol à blanc** et **Pas maintenant** (qui range l'encart pour de bon sur cet appareil) ; il s'en va aussi une fois le vol à blanc guidé effectué, ou un vrai vol.
 - **Réglages › À propos**, sous **APPRENDRE ET S'EXERCER** (entre À PROPOS et MENTIONS LÉGALES) : **Revoir l'introduction**, **Votre premier vol, du plan au carnet** (le vol à blanc guidé, environ 15 minutes), **Une partie à la fois**, et **Faire un vol à blanc** (la pratique libre).
 - **Une route** : **Faire un vol à blanc**, dans le menu **…** de l'éditeur de route ou en balayant la route vers la droite dans **Planifier › Routes**, fait voler cette route en pratique libre.
+
+### Un tour de piste au sol
+
+Le court vol de l'introduction : un tour de piste à votre aérodrome d'attache, environ trois minutes de votre temps, avec l'avion choisi si vous avez AéroCheck Pro pour lui, sinon avec le WT9. Trois moments sont à vous : la **vérification avant mise en route**, en touchant **COCHER** pour chaque élément ; **CARTE** au décollage, avec **ACT et SUIV** ; et la **vérification d'atterrissage** en courte finale. Le reste (les autres vérifications, le roulage, le tour de piste, l'arrêt du moteur) défile vite et seul, fait comme vous le feriez. L'en-tête de la carte compte les moments (**1 SUR 3**) ; **FIN** l'arrête à tout moment.
+
+Après **TERMINER LE VOL**, il se termine sur Aujourd'hui avec **Posé et inscrit au carnet** et la ligne qu'il a faite (« LSZQ → LSZQ · 1 atterrissage · 0:10 »), puis **Le vol à blanc complet** (environ 15 minutes, de la préparation au carnet de vol), **La pratique libre** (la route ou les tours de piste que vous choisissez, à votre rythme) et **Terminé**. Avec un avion Pro volé comme le WT9, **Volez avec la checklist de HB-KFD : essayez Pro gratuitement** vient en premier. Comme pour tout vol à blanc, rien n'en est gardé.
 
 ### Le vol à blanc guidé
 
@@ -1062,7 +1073,7 @@ AéroCheck s'appuie sur plusieurs jeux de données externes pour que la navigati
 
 ### Télécharger des données
 
-Tout se télécharge **par pays**, dans **Réglages › Données hors ligne**. Un pays, c'est son Atlas, ses espaces aériens, aérodromes, balises, obstacles et points de report, et ses procédures VFR là où open flightmaps le couvre. **Ajouter un pays** liste d'abord votre pays et ses voisins, puis l'Europe, puis ailleurs, avec une recherche sur les pays et les régions : un pays d'une seule région de l'Atlas se télécharge d'une pression ; un plus grand (la France, l'Allemagne, l'Italie, les États-Unis…) ouvre sa page, avec **Tout télécharger** d'une pression, ou ses régions une par une. Les données aéronautiques couvrent toujours tout le pays : elles sont légères. L'accueil propose votre pays et ses voisins de la même façon, entiers, avec leurs tailles.
+Tout se télécharge **par pays**, dans **Réglages › Données hors ligne**. Un pays, c'est son Atlas, ses espaces aériens, aérodromes, balises, obstacles et points de report, et ses procédures VFR là où open flightmaps le couvre. **Ajouter un pays** liste d'abord votre pays et ses voisins, puis l'Europe, puis ailleurs, avec une recherche sur les pays et les régions : un pays d'une seule région de l'Atlas se télécharge d'une pression ; un plus grand (la France, l'Allemagne, l'Italie, les États-Unis…) ouvre sa page, avec **Tout télécharger** d'une pression, ou ses régions une par une. Les données aéronautiques couvrent toujours tout le pays : elles sont légères. L'introduction propose votre pays de la même façon, entier, avec sa taille ; les voisins sont ici et dans l'offre d'une route.
 
 La page d'un pays liste ses parties avec leurs dates et leurs tailles : les données aéronautiques (OpenAIP), les procédures VFR avec leur cycle AIRAC, les régions de l'Atlas et, sur la page de la Suisse, les cartes suisses (la carte OACI, la carte vol à voile ; la Carte nationale et SWISSIMAGE sont en ligne seulement). **Supprimer ce pays** retire le pays entier. Quand vous planifiez un vol, le bandeau qui propose les données manquantes y ajoute les régions de l'Atlas le long de la route (« Atlas : Suisse »).
 

@@ -7,16 +7,21 @@ AéroCheck ist ein Hilfsmittel für den Flug, kein zertifiziertes Instrument. Al
 
 ### Beim ersten Öffnen
 
-Der allererste Bildschirm ist ein **Sicherheitshinweis**, den Sie vor allem anderen bestätigen müssen; er erscheint wieder, sobald sich sein Wortlaut wesentlich ändert, und Sie können ihn jederzeit unter **Einstellungen › Info › Sicherheitshinweis** erneut lesen. Eine kurze Einführung führt Sie dann durch die Einrichtung:
+Der allererste Bildschirm ist ein **Sicherheitshinweis**, den Sie vor allem anderen bestätigen müssen; er erscheint wieder, sobald sich sein Wortlaut wesentlich ändert, und Sie können ihn jederzeit unter **Einstellungen › Info › Sicherheitshinweis** erneut lesen. Fünf kurze Bildschirme richten die App dann ein, in etwa anderthalb Minuten; **Überspringen** oben (auf jedem Bildschirm ausser dem zum Standort) verlässt die Einführung, und was übrig bleibt, wartet auf der Kachel **Erste Schritte** unter Heute:
 
-- **Ihren Standort verwenden**: nötig für den GPS-Flugweg, die Geschwindigkeit über Grund und die Karte. Erlauben Sie «Beim Verwenden der App» oder «Immer». «Immer» sorgt dafür, dass der Flugweg weiter aufgezeichnet wird, wenn sich der Bildschirm sperrt oder Sie im Flug die App wechseln; erlauben Sie nur «Beim Verwenden der App», schlägt AéroCheck beim Beginn eines Flugs vor: **auf «Immer» wechseln**.
-- **Karten & Daten**: die Luftfahrtdaten Ihres Landes (erkannt anhand der Region des Geräts oder, falls verfügbar, einer GPS-Position) und seiner Nachbarländer, die weltweite Flugplatzdatenbank und, wahlweise, die Schweizer Karten. Siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher).
-- **Checklisten**: **Memory Items ausblenden** und die Sprache der Checkliste.
-- **Flüge**: die vier Kapitel, in denen AéroCheck einen Flug verfolgt: Planen, Vorbereiten, Fliegen, Abschliessen. Siehe [Einen Flug verfolgen](#einen-flug-verfolgen).
-- **Heimatflugplatz** (optional): wo Sie stationiert sind. Neuen Flug planen geht von ihm aus, und die Landungen, die Sie dort machen, zählen im Nav-Log als Landungen am Heimatflugplatz. Festlegen oder ändern lässt er sich später unter **Einstellungen › Flüge**.
-- **Ihre Karte** und **Im Flug & Funktionen**: was die Karte zeichnet (Lufträume, Kursvektor, Hindernisse, die ICAO-Karte in jeder Zoomstufe), die Erfassung der Motorstunden und die iCloud-Synchronisierung.
+1. **Willkommen**: was AéroCheck für einen Flug tut.
+2. **Ihren Standort verwenden**: nötig für den GPS-Flugweg, die Frequenz für Ihren Standort und den Vorschlag für den Heimatflugplatz. Erlauben Sie «Beim Verwenden der App» oder «Immer». «Immer» sorgt dafür, dass der Flugweg weiter aufgezeichnet wird, wenn sich der Bildschirm sperrt oder Sie im Flug die App wechseln; erlauben Sie nur «Beim Verwenden der App», schlägt AéroCheck beim Beginn eines Flugs vor: **auf «Immer» wechseln**.
+3. **Über Sie**: **Stationiert in**, mit dem nächstgelegenen Flugplatz ausgefüllt («Am nächsten: LSZQ Bressaucourt, 6 NM»; ändern Sie ihn, wenn er nicht stimmt), **Sie fliegen** (der kostenlose WT9 Dynamic, dann die Flugzeuge jedes Clubs, die mit AéroCheck Pro markiert) und die Sprache der Checkliste. Vom Heimatflugplatz geht Neuen Flug planen aus, und die Landungen, die Sie dort machen, zählen im Nav-Log als Landungen am Heimatflugplatz; ändern lässt er sich später unter **Einstellungen › Flüge**.
+4. **Funktioniert ohne Netz**: eine Zeile für Ihr Land (sein Atlas und seine Luftfahrtdaten), **Flugplätze und Frequenzen** und die **Atlas-Übersicht**, angehakt, und bei einer Basis in der Schweiz die **Schweizer Karten**, nicht angehakt. Jede Zeile zeigt ihre Grösse; **Herunterladen** lädt, was angehakt ist, jede Zeile mit ihrem eigenen Fortschritt, und **Weiter** wartet nie darauf. Weitere Länder finden Sie unter **Einstellungen › Offline-Daten**, und eine Route über eine Grenze bietet ihre an. Siehe [Luftfahrtdaten und Speicher](#luftfahrtdaten-und-speicher).
+5. **Eine Platzrunde am Boden**: **Los geht's** (siehe [Eine Platzrunde am Boden](#eine-platzrunde-am-boden)), oder **Zu Heute**.
 
-Die letzte Seite, **Sie sind bereit**, bietet **Mit AéroCheck beginnen** oder **Meinen ersten Flug am Boden fliegen** an, die geführte Trockenübung (siehe [Trockenübung](#trockenübung)). Sie können die ganze Einführung jederzeit unter **Einstellungen › Info › Einführung wiederholen** erneut durchgehen.
+Sie können sie jederzeit unter **Einstellungen › Info › Einführung wiederholen** erneut durchgehen.
+
+### Erste Schritte und Tipps
+
+Nach der Einführung zeigt Heute unter den Startknöpfen eine Kachel **Erste Schritte**: **Ihre Basis und Ihr Flugzeug**, **Offline-Daten** für Ihr Land (mit seinem Fortschritt während des Ladens), **Ihr erster Flug**, **Mit der Checkliste** Ihres Flugzeugs **fliegen** (nur wenn Sie ein Flugzeug gewählt haben, das AéroCheck Pro braucht, und Pro nicht haben: **Pro gratis testen**), **Planen Sie Ihre erste Route** und **Die ganze Trockenübung**. Jede Zeile hakt sich selbst ab, sobald sie erledigt ist, und ein Tippen auf eine offene Zeile führt dorthin, wo sie erledigt wird. **Freies Üben** und **Ausblenden** stehen unten; die Kachel verschwindet endgültig, sobald alles abgehakt ist oder Sie sie ausblenden.
+
+Einige **Tipps** erscheinen je einmal, dort, wo eine Funktion ist: die Schaltfläche **Karte** unter Planen › Karte, der Kursvektor auf der Karte im Cockpit, **AKT. und NÄCHSTE**, die Zeile Ihres ersten Flugs im Flugbuch, und die Offline-Daten, wenn eine Route in ein Land führt, das nicht auf dem Gerät ist. Im Flug nach dem Aufstellen erscheinen sie nie, auch nicht in einer Trockenübung. **Einstellungen › Info › Tipps wieder anzeigen** bringt sie ab dem nächsten Öffnen zurück.
 
 ### AéroCheck Pro
 
@@ -47,7 +52,7 @@ Heute behält jeden Tag dieselben Felder an denselben Stellen, ob gefüllt oder 
 - **NÄCHSTER FLUG**: der Flug, den die Taste für den Flugbeginn meint, als Kachel mit Zeit, Flugzeug, Name, einem Ring, der seine Blöcke zählt, und der Zeile, die seine Seite unter dem Titel hat («Noch 2 offen: NOTAM und Luftraum, das Nav-Log» oder «Alles abgehakt, bereit zum Fliegen»). Das ist der heutige Flug, ein Flug, den Sie in der Luft offen gelassen haben, oder die nächste Etappe einer Reise, sobald Sie bei einem Zwischenhalt gelandet sind. Eine Reise erscheint als eine Kachel: die Zahl ihrer Etappen (**3 ETAPPEN**), die ganze Route («LSZQ → LSGE → LSZQ») und eine Anzeige pro Etappe mit ihrer Zeit (✓, sobald geflogen). Tippen Sie auf die Kachel, um den Flug zu öffnen. Gibt es keinen solchen Flug, zeigt das Feld einen Flug, den Sie verfolgen oder noch abschliessen müssen, oder **Neuen Flug planen**.
 - Die grüne Taste für den Flugbeginn, immer an derselben Stelle: **DIESEN FLUG BEGINNEN**, wenn es einen Flug für heute gibt (**DIESEN FLUG FORTSETZEN**, sobald er in der Luft ist), sonst **FLUG BEGINNEN**. Für eine Etappe einer Reise lautet sie **FLUG BEGINNEN** und nennt darunter die Etappe («ETAPPE 1 · LSZQ → LSGE»).
 - Darunter **PLATZRUNDEN**, immer angeboten, neben **OHNE PLAN FLIEGEN**, wenn es einen Flug für heute gibt, oder **NEUEN FLUG PLANEN**, wenn nicht.
-- Solange Ihr Flugbuch leer ist, bietet eine Kachel darunter **Fliegen Sie Ihren ersten Flug am Boden** an, die geführte Trockenübung (siehe [Trockenübung](#trockenübung)).
+- Nach der Einführung die Kachel **Erste Schritte** (siehe [Erste Schritte und Tipps](#erste-schritte-und-tipps)). Vor der Einführung von 6.8.0 bietet, solange Ihr Flugbuch leer ist, eine Kachel **Fliegen Sie Ihren ersten Flug am Boden** an, die geführte Trockenübung (siehe [Trockenübung](#trockenübung)).
 - **FLUGZEUG UND LETZTER FLUG**: das Flugzeug, das Sie fliegen (tippen Sie darauf, um zu wechseln, siehe unten), und Ihr letzter Flug (tippen Sie darauf für die Details). Ist nichts geplant, erscheint hier auch eine Route, die Sie auf die Karte gelegt haben; tippen Sie darauf, um **Planen › Routen** zu öffnen.
 
 ### Ihr Flugzeug wählen
@@ -101,10 +106,16 @@ Eine Trockenübung ist ein Flug, der am Boden geflogen wird, im echten Cockpit: 
 
 ### Eine Trockenübung beginnen
 
-- **Die letzte Seite der Einführung**: **Meinen ersten Flug am Boden fliegen** beginnt die geführte Trockenübung.
-- **Heute**: Solange Ihr Flugbuch leer ist, bietet eine Kachel **Fliegen Sie Ihren ersten Flug am Boden** an, mit **Trockenübung beginnen** und **Nicht jetzt** (das die Kachel auf diesem Gerät endgültig wegräumt). Sie verschwindet auch, sobald Sie die geführte Trockenübung oder einen echten Flug geflogen sind.
+- **Der letzte Bildschirm der Einführung**: **Los geht's** fliegt [Eine Platzrunde am Boden](#eine-platzrunde-am-boden).
+- **Heute**: in der Kachel **Erste Schritte** **Ihr erster Flug**, **Die ganze Trockenübung** und **Freies Üben**. Vor 6.8.0 eingerichtet, mit leerem Flugbuch: Eine Kachel bietet **Fliegen Sie Ihren ersten Flug am Boden** an, mit **Trockenübung beginnen** und **Nicht jetzt** (das die Kachel auf diesem Gerät endgültig wegräumt); sie verschwindet auch, sobald Sie die geführte Trockenübung oder einen echten Flug geflogen sind.
 - **Einstellungen › Info**, unter **LERNEN UND ÜBEN** (zwischen INFO und RECHTLICHES): **Einführung wiederholen**, **Ihr erster Flug, von der Planung bis zum Flugbuch** (die geführte Trockenübung, etwa 15 Minuten), **Teil für Teil** und **Trockenübung am Boden fliegen** (freies Üben).
 - **Eine Route**: **Trockenübung fliegen**, im Menü **…** des Routeneditors oder beim Streichen der Route nach rechts in **Planen › Routen**, fliegt diese Route im freien Üben.
+
+### Eine Platzrunde am Boden
+
+Der kurze Flug der Einführung: eine Platzrunde an Ihrem Heimatflugplatz, etwa drei Minuten Ihrer Zeit, mit dem gewählten Flugzeug, wenn Sie AéroCheck Pro dafür haben, sonst mit dem WT9. Drei Momente gehören Ihnen: die **Kontrolle vor dem Anlassen**, mit einem Tippen auf **ABHAKEN** für jeden Punkt; **KARTE** beim Start, mit **AKT. und NÄCHSTE**; und die **Landekontrolle** im kurzen Endanflug. Der Rest (die übrigen Kontrollen, das Rollen, die Platzrunde, das Abstellen) läuft schnell von selbst ab, so erledigt, wie Sie es täten. Der Kopf der Karte zählt die Momente (**1 VON 3**); **ENDE** beendet sie jederzeit.
+
+Nach **FLUG BEENDEN** endet sie unter Heute mit **Gelandet und eingetragen** und der Zeile, die sie geschrieben hat («LSZQ → LSZQ · 1 Landung · 0:10»), dann **Die ganze Trockenübung** (etwa 15 Minuten, von der Planung bis zum Flugbuch), **Freies Üben** (eine Route oder Platzrunden Ihrer Wahl, in Ihrem Tempo) und **Fertig**. Mit einem Pro-Flugzeug, als WT9 geflogen, steht **Mit der Checkliste von HB-KFD fliegen: Pro gratis testen** zuoberst. Wie bei jeder Trockenübung wird nichts davon behalten.
 
 ### Die geführte Trockenübung
 
@@ -1062,7 +1073,7 @@ AéroCheck stützt sich auf mehrere externe Datensätze, damit die Navigation ü
 
 ### Daten herunterladen
 
-Alles wird **nach Land** heruntergeladen, unter **Einstellungen › Offline-Daten**. Ein Land umfasst seinen Atlas, seine Lufträume, Flugplätze, Navigationshilfen, Hindernisse und Meldepunkte sowie seine VFR-Verfahren, wo open flightmaps es abdeckt. **Land hinzufügen** listet zuerst Ihr Land und seine Nachbarn auf, dann Europa, dann den Rest der Welt, mit einer Suche nach Ländern und Regionen: Ein Land aus einer einzigen Region des Atlas lädt mit einem Tippen; ein grösseres (Frankreich, Deutschland, Italien, die USA…) öffnet seine Seite, mit **Alles herunterladen** mit einem Tippen oder seinen Regionen einzeln. Die Luftfahrtdaten gelten immer für das ganze Land: Sie sind klein. Die Einführung bietet Ihr Land und seine Nachbarn auf dieselbe Weise an, ganz, mit ihren Grössen.
+Alles wird **nach Land** heruntergeladen, unter **Einstellungen › Offline-Daten**. Ein Land umfasst seinen Atlas, seine Lufträume, Flugplätze, Navigationshilfen, Hindernisse und Meldepunkte sowie seine VFR-Verfahren, wo open flightmaps es abdeckt. **Land hinzufügen** listet zuerst Ihr Land und seine Nachbarn auf, dann Europa, dann den Rest der Welt, mit einer Suche nach Ländern und Regionen: Ein Land aus einer einzigen Region des Atlas lädt mit einem Tippen; ein grösseres (Frankreich, Deutschland, Italien, die USA…) öffnet seine Seite, mit **Alles herunterladen** mit einem Tippen oder seinen Regionen einzeln. Die Luftfahrtdaten gelten immer für das ganze Land: Sie sind klein. Die Einführung bietet Ihr Land auf dieselbe Weise an, ganz, mit seiner Grösse; die Nachbarn finden Sie hier und im Angebot einer Route.
 
 Die Seite eines Landes listet seine Teile mit Datum und Grösse auf: die Luftfahrtdaten (OpenAIP), die VFR-Verfahren mit ihrem AIRAC-Zyklus, die Regionen des Atlas und auf der Seite der Schweiz die Schweizer Karten (die ICAO-Karte, die Segelflugkarte; die Landeskarte und SWISSIMAGE gibt es nur online). **Dieses Land löschen** entfernt das ganze Land. Wenn Sie einen Flug planen, fügt das Banner, das die fehlenden Daten anbietet, die Regionen des Atlas entlang der Route hinzu («Atlas: Schweiz»).
 

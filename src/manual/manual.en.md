@@ -7,16 +7,21 @@ AéroCheck is a flight companion, not a certified instrument. Everything it show
 
 ### First Launch
 
-The very first screen is a **safety notice** you must acknowledge before anything else; it comes back whenever its wording changes materially, and you can read it again at any time under **Settings › About › Safety notice**. A short introduction then walks you through setup:
+The very first screen is a **safety notice** you must acknowledge before anything else; it comes back whenever its wording changes materially, and you can read it again at any time under **Settings › About › Safety notice**. Five short screens then set the app up, in about a minute and a half; **Skip** at the top (on every screen but the location one) leaves the introduction, and whatever is left waits on Today's **Getting started** card:
 
-- **Use your location**: needed for the GPS track, ground speed and the map. Grant "While Using the App" or "Always". "Always" is what keeps the track recording when the screen locks or you switch apps in flight; if you grant only "While Using the App", AéroCheck asks to **upgrade to "Always"** when you start a flight.
-- **Maps & Data**: the aeronautical data for your country (detected from the device region or, if available, a GPS fix) and its neighbours, the worldwide airport database and, optionally, the Swiss charts. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
-- **Checklists**: **Hide memory items** and the checklist language.
-- **Flights**: the four chapters AéroCheck follows a flight through: Plan, Prepare, Fly, Close. See [Following a Flight](#following-a-flight).
-- **Home aerodrome** (optional): where you are based. Plan new flight starts from it, and the landings you make there count as landings at base on the nav log. Set or change it later under **Settings › Flights**.
-- **Your map** and **In flight & features**: what the map draws (airspace, track vector, obstacles, the ICAO chart at every zoom), engine-hour logging and iCloud sync.
+1. **Welcome**: what AéroCheck does for a flight.
+2. **Use your location**: needed for the GPS track, the frequency for where you are, and the home aerodrome suggestion. Grant "While Using the App" or "Always". "Always" is what keeps the track recording when the screen locks or you switch apps in flight; if you grant only "While Using the App", AéroCheck asks to **upgrade to "Always"** when you start a flight.
+3. **About you**: **Based at**, filled in with the aerodrome nearest to you ("Nearest to you: LSZQ Bressaucourt, 6 NM"; change it if it is wrong), **You fly** (the free WT9 Dynamic, then each club's aircraft, those with AéroCheck Pro marked) and the checklist language. The home aerodrome is where Plan new flight starts from, and the landings you make there count as landings at base on the nav log; change it later under **Settings › Flights**.
+4. **Works with no signal**: one row for your country (its Atlas and its aeronautical data), **Airports and frequencies** and the **Atlas overview**, ticked, and for a Swiss base the **Swiss charts**, not ticked. Each row shows its size; **Download** fetches what is ticked, each row with its own progress, and **Continue** never waits for it. Other countries are in **Settings › Offline data**, and a route across a border offers its own. See [Aeronautical Data and Storage](#aeronautical-data-and-storage).
+5. **A circuit on the ground**: **Fly it** (see [A Circuit on the Ground](#a-circuit-on-the-ground)), or **Go to Today**.
 
-The last page, **You're Ready**, offers **Start using AéroCheck**, or **Fly my first flight on the ground**, the guided dry run (see [Dry Run](#dry-run)). You can replay the whole tour at any time from **Settings › About › Replay introduction**.
+You can replay it at any time from **Settings › About › Replay introduction**.
+
+### Getting Started and Tips
+
+After the introduction, Today shows a **Getting started** card under the start buttons: **Your base and aircraft**, **Offline data** for your country (with its progress while it downloads), **Your first flight**, **Fly** your aircraft's **own checklist** (only if you chose an aircraft that needs AéroCheck Pro and have no Pro: **Try Pro free**), **Plan your first route** and **The full dry run**. Each row ticks itself off once done, and a tap on an open row goes where it is done. **Free practice** and **Hide** sit at its foot; the card goes for good once everything is ticked or you hide it.
+
+A few **tips** show once each, where a feature lives: the **Map** button on Plan › Map, the track vector on the Cockpit's map, **NOW and NEXT**, your first flight's line in the logbook, and the offline data when a route crosses into a country not on the device. They never show in flight past the line-up, nor in a dry run. **Settings › About › Show the tips again** brings them back from the next launch.
 
 ### AéroCheck Pro
 
@@ -47,7 +52,7 @@ Today keeps the same slots in the same places every day, filled or not.
 - **NEXT FLIGHT**: the flight the start button is about, as a card with its time, aircraft, name, a ring counting its blocks, and the line its page has under the title ("2 left: NOTAMs and airspace, the nav log", or "Everything ticked, ready to fly"). That is today's flight, a flight you left in the air, or the next leg of a trip once you have landed at a stop. A trip shows as one card: its number of legs (**3 LEGS**), the whole route ("LSZQ → LSGE → LSZQ"), and a chip per leg with its time (✓ once flown). Tap the card to open the flight. With no such flight, the slot shows a flight you are following or still have to close, or **Plan new flight**.
 - The green start button, always in the same place: **START THIS FLIGHT** when there is a flight for today (**RESUME THIS FLIGHT** once it is in the air), **START FLIGHT** otherwise. For a leg of a trip it reads **START FLIGHT** and names the leg under it ("LEG 1 · LSZQ → LSGE").
 - Under it, **CIRCUITS**, always offered, beside **FLY WITHOUT A PLAN** when there is a flight for today, or **PLAN NEW FLIGHT** when there is not.
-- While your logbook is empty, a card under them offers **Fly your first flight on the ground**, the guided dry run (see [Dry Run](#dry-run)).
+- After the introduction, the **Getting started** card (see [Getting Started and Tips](#getting-started-and-tips)). Before 6.8.0's introduction, while your logbook is empty, a card offers **Fly your first flight on the ground**, the guided dry run (see [Dry Run](#dry-run)).
 - **AIRCRAFT AND LAST FLIGHT**: the aircraft you fly (tap it to switch, see below) and your last flight (tap it for its details). With nothing planned, a route you have put on the map shows here as well; tap it to open **Plan › Routes**.
 
 ### Choosing Your Aircraft
@@ -101,10 +106,16 @@ A dry run is a flight flown on the ground, in the real Cockpit: the aircraft is 
 
 ### Starting a Dry Run
 
-- **The introduction's last page**: **Fly my first flight on the ground** starts the guided dry run.
-- **Today**: while your logbook is empty, a card offers **Fly your first flight on the ground**, with **Start the dry run** and **Not now** (which puts the card away for good on this device). It also goes once you have flown the guided dry run, or a real flight.
+- **The introduction's last screen**: **Fly it** flies [A Circuit on the Ground](#a-circuit-on-the-ground).
+- **Today**: the **Getting started** card's **Your first flight**, **The full dry run** and **Free practice**. Set up before 6.8.0, with an empty logbook: a card offers **Fly your first flight on the ground**, with **Start the dry run** and **Not now** (which puts the card away for good on this device); it also goes once you have flown the guided dry run, or a real flight.
 - **Settings › About**, under **LEARN AND PRACTISE** (between ABOUT and LEGAL): **Replay introduction**, **Your first flight, from plan to logbook** (the guided dry run, about 15 minutes), **One part at a time**, and **Fly a dry run on the ground** (free practice).
 - **A route**: **Fly a dry run**, in the route editor's **…** menu or in the route's swipe to the right in **Plan › Routes**, flies that route in free practice.
+
+### A Circuit on the Ground
+
+The introduction's short flight: one circuit at your home aerodrome, about three minutes of your time, in the aircraft you chose when you have AéroCheck Pro for it, else in the WT9. Three moments are yours: the **before engine start check**, tapping **CHECK** for each item; **MAP** at the take-off, with **NOW and NEXT**; and the **landing check** on short final. The rest (the other checks, the taxi, the circuit, the shutdown) goes by quickly on its own, done as you would. The card's header counts the moments (**1 OF 3**); **END** stops it at any time.
+
+After **END FLIGHT** it ends on Today with **Landed and logged** and the logbook line it made ("LSZQ → LSZQ · 1 landing · 0:10"), then **The full dry run** (about 15 minutes, from the plan to the logbook), **Free practice** (the route or circuits you choose, at your pace) and **Done**. With a Pro aircraft flown as the WT9, **Fly HB-KFD's own checklist: try Pro free** comes first. As in any dry run, nothing of it is kept.
 
 ### The Guided Dry Run
 
@@ -1062,7 +1073,7 @@ AéroCheck draws on several external datasets so navigation works wherever you f
 
 ### Downloading Data
 
-Everything downloads **by country**, in **Settings › Offline data**. A country is its Atlas, its airspace, aerodromes, navaids, obstacles and reporting points, and its VFR procedures where open flightmaps covers it. **Add a country** lists your country and its neighbours first, then Europe, then elsewhere, with a search on countries and regions: a country in one Atlas region downloads at one press; a larger one (France, Germany, Italy, the US…) opens its page, with **Download all of** it at one press, or its regions one by one. The aeronautical data is always for the whole country: it is small. Onboarding offers your country and its neighbours the same way, whole, with their sizes.
+Everything downloads **by country**, in **Settings › Offline data**. A country is its Atlas, its airspace, aerodromes, navaids, obstacles and reporting points, and its VFR procedures where open flightmaps covers it. **Add a country** lists your country and its neighbours first, then Europe, then elsewhere, with a search on countries and regions: a country in one Atlas region downloads at one press; a larger one (France, Germany, Italy, the US…) opens its page, with **Download all of** it at one press, or its regions one by one. The aeronautical data is always for the whole country: it is small. Onboarding offers your country the same way, whole, with its size; the neighbours are here and in a route's offer.
 
 A country's page lists its parts with their dates and sizes: the aeronautical data (OpenAIP), the VFR procedures with their AIRAC cycle, the Atlas regions, and on Switzerland's page the Swiss charts (the ICAO chart, the glider map; the National Map and SWISSIMAGE are online only). **Delete** removes the whole country. When you plan a flight, the banner that offers its missing data adds the Atlas regions along the route ("Atlas: Switzerland").
 

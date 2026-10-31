@@ -242,19 +242,20 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual(L10n.MapLayer.switzerlandOnlyShort, "Switzerland only")
     }
 
-    /// The Swiss charts are offered to a pilot based in Switzerland, or while the map shows part of it, and the chart
-    /// in use always stays (the author's answer to question 13, 30 Oct 2026).
+    /// The Swiss charts are offered while the map shows part of Switzerland, whoever the pilot, and the chart in use
+    /// always stays (the author's answers of 30 Oct, question 13, and 31 Oct, question 10).
     func testTheSwissChartsAreOfferedWhereTheyApply() {
         let paris = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 48.85, longitude: 2.35),
                                        span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1))
         let basel = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47.56, longitude: 7.59),
                                        span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1))
-        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: "LFPN", mapRegion: paris, selected: .standard), [.standard, .satellite])
-        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: "LSZQ", mapRegion: paris, selected: .standard), MapSheet.baseCharts,
-                       "based in Switzerland")
-        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: nil, mapRegion: basel, selected: .standard), MapSheet.baseCharts,
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: paris, selected: .standard), [.standard, .satellite],
+                       "over Paris, even for a pilot based in Switzerland")
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: basel, selected: .standard), MapSheet.baseCharts,
                        "the map shows Switzerland")
-        XCTAssertEqual(MapSheet.offeredCharts(homeIdent: "LFPN", mapRegion: paris, selected: .icao), [.standard, .satellite, .icao],
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: paris, selected: .icao), [.standard, .satellite, .icao],
                        "the chart in use stays")
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: nil, selected: .standard), MapSheet.baseCharts,
+                       "before the map knows where it is")
     }
 }

@@ -47,6 +47,11 @@ struct ChecklistFlightSettingsView: View {
             SettingsGroup(title: L10n.Settings.display, tint: tint) {
                 SettingsToggleRow(icon: "globe", title: L10n.Settings.alwaysUseUTC,
                                   subtitle: L10n.Settings.alwaysUseUTCFooter, tint: tint, isOn: $alwaysUseUTC)
+                // Also in the Cockpit's Map sheet, to switch in flight (the author's answer 9, 31 Oct 2026). (6.8.0)
+                SettingsToggleRow(icon: "location.north.line", title: L10n.Nav.trackVector,
+                                  subtitle: L10n.Nav.trackVectorDesc, tint: tint,
+                                  isOn: Binding(get: { appState.settings.showTrackVector },
+                                                set: { appState.settings.showTrackVector = $0; appState.saveSettings() }))
                 themeRow
             }
         }

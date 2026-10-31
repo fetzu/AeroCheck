@@ -1059,7 +1059,7 @@ struct NavigationMapView: View {
 
     private var mapSheet: some View {
         MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center,
-                     mapRegion: mapState.region)
+                     mapRegion: mapState.region, inCockpit: chrome != .plan)
             .environment(appState)
             .environment(\.cockpitTheme, theme)
             .environmentObject(openAIPDataService)
@@ -2281,7 +2281,7 @@ struct NavigationMapView: View {
         }
         .sheet(isPresented: $showMapSheet) {
             MapSheet(selectedLayer: $selectedLayer, shownLayer: shownLayer, isOfflineMode: isOfflineMode, mapCenter: mapState.region.center,
-                     mapRegion: mapState.region)
+                     mapRegion: mapState.region, inCockpit: chrome != .plan)
                 .environment(appState)
                 .environment(\.cockpitTheme, theme)
                 .environmentObject(openAIPDataService)
@@ -3405,18 +3405,21 @@ struct MapSheet: View {
     var mapCenter: CLLocationCoordinate2D? = nil
     /// What the map shows as the sheet opens, for whether the Swiss charts are offered. (6.8.0)
     var mapRegion: MKCoordinateRegion? = nil
+    /// The Cockpit's map (in flight and in the dry run): only there does the sheet show its Flight section, the track
+    /// vector (the author's answer 9, 31 Oct 2026: on the ground it draws nothing). (6.8.0)
+    var inCockpit = false
     @State private var showCacheInfo = false
 
     /// The maps for everywhere first, then Switzerland's, each marked so (the author's device check pm-6, 6.8.0):
     /// the Atlas, the aerial imagery, the ICAO chart (with the charts it gives way to), the National Map, SWISSIMAGE.
     static let baseCharts: [MapLayerType] = [.standard, .satellite, .icao, .landeskarten, .swissimage]
 
-    /// The list as offered: the Swiss charts only for a pilot based in Switzerland (an LS… home aerodrome) or while the
-    /// map shows part of it, and always the chart in use, so it can be switched away from (the author's answer to
-    /// question 13, 30 Oct 2026).
-    static func offeredCharts(homeIdent: String?, mapRegion: MKCoordinateRegion?, selected: MapLayerType) -> [MapLayerType] {
-        let swiss = (homeIdent?.uppercased().hasPrefix("LS") ?? false)
-            || (mapRegion.map(SwissChartCoverage.reaches) ?? true)
+    /// The list as offered: what can draw where the map is. The Swiss charts while the map shows part of Switzerland,
+    /// whatever the home aerodrome, and always the chart in use, so it can be switched away from (the author's answers
+    /// to question 13, 30 Oct, and to question 10 of the onboarding page, 31 Oct 2026: a Swiss pilot over France saw
+    /// them listed where they can't draw).
+    static func offeredCharts(mapRegion: MKCoordinateRegion?, selected: MapLayerType) -> [MapLayerType] {
+        let swiss = mapRegion.map(SwissChartCoverage.reaches) ?? true
         return baseCharts.filter { !$0.isSwissLayer || swiss || $0 == selected }
     }
 
@@ -3426,7 +3429,7 @@ struct MapSheet: View {
                 VStack(spacing: 20) {
                     baseChartSection
                     presetsSection
-                    OverlaysSections(mapCenter: mapCenter)
+                    OverlaysSections(mapCenter: mapCenter, showsFlight: inCockpit)
                     MapDataCredits()
                 }
                 .padding(.vertical, 16)
@@ -3469,7 +3472,7 @@ struct MapSheet: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                ForEach(Array(Self.offeredCharts(homeIdent: appState.settings.homeAerodromeIdent, mapRegion: mapRegion,
+                ForEach(Array(Self.offeredCharts(mapRegion: mapRegion,
                                                  selected: selectedLayer).enumerated()), id: \.element) { index, layer in
                     if index > 0 { Divider().padding(.leading, 60) }
                     baseChartRow(layer)
@@ -3695,6 +3698,8 @@ struct OverlaysSections: View {
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
     /// Where the map is: the aerodrome procedures' hint names the country there when its data is missing.
     var mapCenter: CLLocationCoordinate2D? = nil
+    /// The Flight section (the track vector): the Cockpit's sheet only. (6.8.0)
+    var showsFlight = true
     /// The download hints' destination: the page of the country under the map in Offline data, or Offline data itself
     /// when the map is over no country (the author's mockup 6, 30 Oct 2026). (v4.2, 6.2.0, 6.8.0)
     @State private var dataRoute: OfflineDataRoute?
@@ -3804,9 +3809,11 @@ struct OverlaysSections: View {
 
             aerodromeProceduresCard
 
-            groupCard(L10n.Nav.flightSection) {
-                toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
-                    appState.settings.showTrackVector.toggle(); appState.saveSettings()
+            if showsFlight {
+                groupCard(L10n.Nav.flightSection) {
+                    toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
+                        appState.settings.showTrackVector.toggle(); appState.saveSettings()
+                    }
                 }
             }
         }

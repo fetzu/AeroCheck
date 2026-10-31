@@ -10,5 +10,6 @@ Zum Ausprobieren:
 - Ein Flug im Flugbuch: die Karte seines Flugwegs und das Bild zum Teilen auf «Atlas» und auf «Luftbilder».
 - Planen Sie einen Flug über eine Grenze: Das Banner bietet die Regionen des Atlas entlang der Route an.
 - Die Schweizer ICAO-, Segelflug- und Landeskarten: Jenseits ihres Rands liegt nun der Atlas darunter.
+- Eine neue Einführung: Einstellungen › Info › Einführung wiederholen. Fünf kurze Bildschirme (Ihre Basis wird anhand Ihres Standorts vorgeschlagen), dann eine Platzrunde am Boden in etwa drei Minuten. Danach zeigt Heute eine Kachel Erste Schritte, und einige Tipps erscheinen je einmal dort, wo eine Funktion ist.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

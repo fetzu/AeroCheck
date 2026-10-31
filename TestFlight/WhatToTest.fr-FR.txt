@@ -10,5 +10,6 @@
 - Un vol du carnet : la carte de sa trace, et la carte de partage sur Atlas et sur Images aériennes.
 - Planifiez un vol qui passe une frontière : le bandeau propose les régions de l'Atlas le long de la route.
 - Les cartes suisses OACI, vol à voile et nationale : au-delà de leur bord, l'Atlas s'affiche maintenant dessous.
+- Une nouvelle introduction : Réglages › À propos › Revoir l'introduction. Cinq courts écrans (votre base est suggérée d'après l'endroit où vous êtes), puis un tour de piste au sol en trois minutes environ. Ensuite, Aujourd'hui montre un encart Pour commencer, et quelques astuces s'affichent une fois là où se trouve une fonction.
 
 Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

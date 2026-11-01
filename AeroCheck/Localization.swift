@@ -1672,6 +1672,12 @@ enum L10n {
         static func nearestToYou(_ aerodrome: String, _ nm: Int) -> String {
             String(format: String(localized: "onboarding.v2.nearest"), aerodrome, nm)
         }
+        /// The nearest aerodrome offered when the base is another one (r4-34). (6.8.0)
+        static func useNearest(_ aerodrome: String, _ nm: Int) -> String {
+            String(format: String(localized: "onboarding.v2.useNearest"), aerodrome, nm)
+        }
+        /// Under a base that came from the pilot's other devices (r4-34). (6.8.0)
+        static let fromOtherDevices = String(localized: "onboarding.v2.fromOtherDevices")
         static let youFly = String(localized: "onboarding.v2.youFly")
         static let free = String(localized: "onboarding.v2.free")
         static let aircraftNote = String(localized: "onboarding.v2.aircraftNote")
@@ -3807,6 +3813,8 @@ enum L10n {
         /// read as "you are flying to these countries", which is why it looked wrong on a Swiss
         /// domestic flight. (device pass)
         static let tripDataMissing = String(localized: "Airspace data missing near your route")
+        /// Plan › Map without a route, resting over a country not downloaded (r4-33). (6.8.0)
+        static let dataMissingHere = String(localized: "nav.dataMissingHere")
         static func tripDataProgress(_ done: Int, _ total: Int) -> String {
             String(localized: "\(done)/\(total) layers")
         }

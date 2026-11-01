@@ -947,6 +947,9 @@ extension FlightView {
         // The page, for a dry run's coach ("Open MAP"); nothing reads it in a real flight. (6.4.0)
         .preference(key: CockpitPageKey.self, value: cockpitCurrentPage)
         .onChange(of: cockpitDefaultPage) { _, _ in pageChoice.suggestionChanged() }
+        // A dry run's coach asks for a page: MAP after the first flight's approach check, CHECKLIST for END
+        // FLIGHT (r4-38). Nothing in a real flight.
+        .dryRunCoachPage(dryRunSession) { cockpitPageBinding.wrappedValue = $0 }
         // ROUTE opens on LEGS, from the picker too, unless the NOW line asked for RADIO. (6.2.0)
         .onChange(of: cockpitCurrentPage) { _, page in if page != .route { navState.routeList = .legs } }
         // NOW and NEXT on every page, CHECKLIST included, and the Watch's list. (6.2, ROUTE)

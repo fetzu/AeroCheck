@@ -269,6 +269,10 @@ struct DryRunCoachStep: Equatable {
     /// Done for the pilot when its moment comes, with no card: the first flight's steps between its three moments
     /// (`DryRunFirstFlight`). (6.8.0)
     var auto = false
+    /// The Cockpit's page asked for as the step shows (END FLIGHT is on CHECKLIST's band only), and once it is
+    /// done (the first flight's MAP after its approach check): the author's device check r4-38, 1 Nov 2026.
+    var page: CockpitPage? = nil
+    var pageAfter: CockpitPage? = nil
 
     /// The card's words as the flight stands.
     @MainActor
@@ -461,7 +465,8 @@ enum DryRunChapters {
             S(id: "toEndFlight", chapter: 7, kind: .act, target: .check, veils: false, holds: false, moment: .now,
               done: .shows(.endFlight), title: T.toEndFlightTitle, body: T.toEndFlightBody, fold: T.toEndFlightFold),
             S(id: "endFlight", chapter: 7, kind: .act, target: .primary, veils: true, holds: true,
-              moment: .shows(.endFlight), done: .flightEnded, title: T.endFlightTitle, body: T.endFlightBody),
+              moment: .shows(.endFlight), done: .flightEnded, title: T.endFlightTitle, body: T.endFlightBody,
+              page: .checklist),
         ]
     }
 
@@ -646,6 +651,13 @@ final class DryRunCoach: ObservableObject {
     @Published private(set) var screens: Set<DryRunCoachStep.Screen> = []
     /// The Cockpit's page, from `FlightView`.
     var page: CockpitPage = .checklist
+    /// A page asked of the Cockpit (`DryRunCoachStep.page`, `.pageAfter`), picked as a tap on the page bar picks
+    /// it. Each ask is new, so the same page asked again shows again after the pilot left it.
+    struct PageRequest: Equatable {
+        let page: CockpitPage
+        let serial: Int
+    }
+    @Published private(set) var pageRequest: PageRequest?
     /// NEXT tapped for the pilot (the tests, the DEBUG autopilot), where only the Cockpit can tap it. (6.4.3)
     private var radioTapped = false
     /// The card folded to one line, so it covers nothing the pilot reads (the author's second dry run checks):
@@ -841,6 +853,7 @@ final class DryRunCoach: ObservableObject {
             if isFolded { isFolded = false }
             // START FLIGHT's card: the rest of the preparation done for the pilot, as it shows.
             if candidate.done == .flightStarted { session.settleStoryPreflight() }
+            if let page = candidate.page { ask(page) }
             step = candidate
         }
         return step?.holds ?? false
@@ -853,7 +866,12 @@ final class DryRunCoach: ObservableObject {
         return page == .checklist ? .primary : .first
     }
 
+    private func ask(_ page: CockpitPage) {
+        pageRequest = PageRequest(page: page, serial: (pageRequest?.serial ?? 0) + 1)
+    }
+
     private func complete(_ done: DryRunCoachStep) {
+        if let page = done.pageAfter { ask(page) }
         step = nil
         index += 1
         guard done.kind != .partEnd else { return }
@@ -1242,11 +1260,12 @@ enum DryRunFirstFlight {
             story("climbCheck"),
             // 3 · The approach check a fifth of the way down the downwind, where it is said: a memory item on most
             // aircraft, so the card says where they are hidden (the author's device check r4-20, 1 Nov 2026; the
-            // landing check it replaced is one too). The landing done for the pilot, END FLIGHT, the logbook's line.
+            // landing check it replaced is one too). MAP once it is done, to watch the circuit end (r4-38); the
+            // landing done for the pilot, END FLIGHT on CHECKLIST, the logbook's line.
             S(id: "ffApproach", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
               moment: .downwind(0.2, .check(.approach)), done: .checkDone(.approach), title: T.approachTitle,
               body: T.approachBody, fold: T.approachFold,
-              memoryCheck: .approach, memoryBody: T.approachMemoryBody, memoryFold: T.approachFold),
+              memoryCheck: .approach, memoryBody: T.approachMemoryBody, memoryFold: T.approachFold, pageAfter: .map),
             S(id: "ffLanding", chapter: 6, kind: .act, target: nil, veils: false, holds: false, moment: .final(1),
               done: .checkDone(.landing), title: "", body: "", auto: true),
             story("toShutdown"), story("shutdownCheck"), story("engineShutdown"), story("toEndFlight"),

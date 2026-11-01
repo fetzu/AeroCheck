@@ -368,6 +368,9 @@ struct NavigationMapView: View {
     /// Where "Routes" goes instead of opening the routes as a cover: Plan › Map switches to its own
     /// Routes section, rather than stacking a second copy of it over the tab. (on-device review #4)
     var onShowRoutes: (() -> Void)? = nil
+    /// Where the map rests once the pilot stops moving it: Plan › Map's offer of the country there when it isn't
+    /// downloaded (the author's device check r4-33, 1 Nov 2026). (6.8.0)
+    var onCenterSettled: ((CLLocationCoordinate2D) -> Void)? = nil
     /// "Divert here" in an airport's callout, in flight: the Cockpit's Divert sheet, on the field. TELL FIS
     /// in the status slot opens it too.
     var onDivert: ((String?) -> Void)? = nil
@@ -569,6 +572,9 @@ struct NavigationMapView: View {
         // Only as its own cover. Embedded in a ground tab, a preferred scheme would darken the whole
         // window, and the root could no longer read the device's light/dark for Auto. (v6.0 · P1)
         .preferredColorScheme(showsCloseButton ? .dark : nil)
+        .onReceive(mapState.$region.debounce(for: .seconds(1), scheduler: RunLoop.main)) { region in
+            onCenterSettled?(region.center)
+        }
         // Immersive full-screen map: hide the system status bar so the top chrome (airspace / layer)
         // never collides with the time / battery / network indicators. (v4 UI/UX Revamp fix)
         // Not in the Plan tab, where the tab bar sits above the map. (v6.0 · P1)

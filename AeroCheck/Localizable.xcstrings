@@ -16427,19 +16427,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nahe Kontrollzonen, online geladen, wo nichts heruntergeladen ist"
+            "value": "Kontrollzonen im Umkreis von 20 NM um Ihre Position, online geladen, wo nichts heruntergeladen ist"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nearby control zones fetched online where nothing is downloaded"
+            "value": "Control zones within 20 NM of your position, fetched online where nothing is downloaded"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les zones de contrôle proches, chargées en ligne là où rien n'est téléchargé"
+            "value": "Les zones de contrôle à moins de 20 NM de votre position, chargées en ligne là où rien n'est téléchargé"
           }
         }
       }
@@ -17311,6 +17311,29 @@
         }
       }
     },
+    "onboarding.v2.fromOtherDevices": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Von Ihren anderen Geräten synchronisiert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced from your other devices."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronisé depuis vos autres appareils."
+          }
+        }
+      }
+    },
     "onboarding.v2.fromLogbook %@": {
       "extractionState": "manual",
       "localizations": {
@@ -17629,6 +17652,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le plus proche : %1$@, à %2$lld NM"
+          }
+        }
+      }
+    },
+    "onboarding.v2.useNearest": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den nächsten nehmen: %1$@, %2$lld NM"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the nearest: %1$@, %2$lld NM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prendre le plus proche : %1$@, à %2$lld NM"
           }
         }
       }
@@ -54429,6 +54475,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Horamètre fin"
+          }
+        }
+      }
+    },
+    "nav.dataMissingHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier nicht heruntergeladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not downloaded here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas téléchargé ici"
           }
         }
       }

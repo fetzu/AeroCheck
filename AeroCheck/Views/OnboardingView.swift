@@ -79,6 +79,10 @@ struct OnboardingView: View {
     @State private var nearest: NearestAerodrome.Found?
     /// The lookup for `nearest` came back, with or without one.
     @State private var nearestLookedUp = false
+    /// The base as this screen last set it (the field, the nearest, the logbook's); any other value came from the
+    /// pilot's other devices, `syncedBase` (the author's device check r4-34 and answer, 1 Nov 2026). (6.8.0)
+    @State private var baseSetHere: String?
+    @State private var syncedBase: String?
     /// The offline step's rows ticked: the country, the airports and the Atlas overview by default, the Swiss charts
     /// not (the author's answers 3 A and p3 B, 31 Oct 2026: the airports can be unticked). (6.8.0)
     @State private var offlineChoice: Set<OfflineItem> = [.country, .airports, .overview]
@@ -345,14 +349,30 @@ struct OnboardingView: View {
                 fieldLabel(L10n.Onboarding.basedAt)
                 // Empty until the nearest aerodrome is found, never a guess in its place; the logbook's usual
                 // aerodrome offered under it (the author's device check r4-18 and answer, 1 Nov 2026).
-                AerodromeIdentField(ident: Bindable(appState).settings.homeAerodromeIdent,
+                // A base from the pilot's other devices is kept, and said so; the nearest is then one tap away
+                // (the author's device check r4-34 and answer A, 1 Nov 2026).
+                AerodromeIdentField(ident: Binding(get: { appState.settings.homeAerodromeIdent },
+                                                   set: { setBase($0) }),
                                     onlineSearch: { await NearestAerodrome.search($0) })
-                if let nearest {
-                    Text(L10n.Onboarding.nearestToYou("\(nearest.ident) \(nearest.name)",
-                                                      Int(nearest.distanceNM.rounded())))
+                if let base = appState.settings.homeAerodromeIdent, base == syncedBase, base != baseSetHere {
+                    Text(L10n.Onboarding.fromOtherDevices)
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.dimText)
-                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let nearest {
+                    let line = L10n.Onboarding.nearestToYou("\(nearest.ident) \(nearest.name)",
+                                                            Int(nearest.distanceNM.rounded()))
+                    if nearest.ident == appState.settings.homeAerodromeIdent {
+                        Text(line)
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        offerButton(icon: "location", L10n.Onboarding.useNearest("\(nearest.ident) \(nearest.name)",
+                                                                                 Int(nearest.distanceNM.rounded()))) {
+                            setBase(nearest.ident)
+                        }
+                    }
                 } else if isFindingNearest {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
@@ -364,20 +384,7 @@ struct OnboardingView: View {
                 }
                 if let logbook = HomeAerodrome.suggestion(from: appState.flights),
                    logbook != appState.settings.homeAerodromeIdent {
-                    Button {
-                        appState.settings.homeAerodromeIdent = logbook
-                        appState.saveSettings()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "book.closed").accessibilityHidden(true)
-                            Text(L10n.Onboarding.fromLogbook(logbook))
-                        }
-                        .scaledFont(size: 13, weight: .medium, relativeTo: .footnote)
-                        .foregroundColor(.aviationGold)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    offerButton(icon: "book.closed", L10n.Onboarding.fromLogbook(logbook)) { setBase(logbook) }
                 }
                 fieldLabel(L10n.Onboarding.youFly).padding(.top, 6)
                 aircraftMenu
@@ -395,7 +402,10 @@ struct OnboardingView: View {
                 || locationManager.authorizationStatus == .authorizedAlways {
                 locationManager.startLocationUpdates()
             }
+            noteSyncedBase(appState.settings.homeAerodromeIdent)
         }
+        // A base arriving from iCloud while the screen shows.
+        .onChange(of: appState.settings.homeAerodromeIdent) { _, base in noteSyncedBase(base) }
         // Again once the first fix comes: the system's question was answered a moment ago, on the page before.
         .task(id: locationManager.currentLocation != nil) { await suggestHomeAerodrome() }
     }
@@ -405,6 +415,34 @@ struct OnboardingView: View {
             .font(.aero(.caption).weight(.semibold))
             .tracking(1.2)
             .foregroundColor(.aviationGold)
+    }
+
+    /// A base offered under the field (the nearest, the logbook's): one tap takes it.
+    private func offerButton(icon: String, _ title: String, take: @escaping () -> Void) -> some View {
+        Button(action: take) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).accessibilityHidden(true)
+                Text(title)
+            }
+            .scaledFont(size: 13, weight: .medium, relativeTo: .footnote)
+            .foregroundColor(.aviationGold)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The base, set on this screen.
+    private func setBase(_ ident: String?) {
+        baseSetHere = ident
+        appState.settings.homeAerodromeIdent = ident
+        appState.saveSettings()
+    }
+
+    /// The base as it stands when About you shows, or as it changes without this screen: the pilot's other devices.
+    private func noteSyncedBase(_ base: String?) {
+        guard base != baseSetHere else { return }
+        syncedBase = base
     }
 
     /// Looking for the nearest aerodrome: allowed the location, and the lookup not back yet.
@@ -425,10 +463,7 @@ struct OnboardingView: View {
                                                       country: detectedCountry ?? Locale.current.region?.identifier)
         else { return }
         nearest = found
-        if (appState.settings.homeAerodromeIdent ?? "").isEmpty {
-            appState.settings.homeAerodromeIdent = found.ident
-            appState.saveSettings()
-        }
+        if (appState.settings.homeAerodromeIdent ?? "").isEmpty { setBase(found.ident) }
     }
 
     /// The aircraft picked: the remote one selected, else the bundled one.

@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 // MARK: - Ground (v6.0 · P1)
 //
@@ -250,6 +251,8 @@ struct PlanTabView: View {
     @State private var section: Section = .flights
     /// The embedded map has no close button; this only satisfies its binding.
     @State private var mapPresented = true
+    /// Where Plan › Map rests, for the offer of a country not downloaded there (r4-33). (6.8.0)
+    @State private var planMapCenter: CLLocationCoordinate2D?
 
     private var picker: some View {
         Picker(L10n.Ground.plan, selection: $section) {
@@ -287,9 +290,23 @@ struct PlanTabView: View {
                         // The route on the map without its countries' data: the route builder's offer to download
                         // it, here too, above the chart rather than over its chrome (the author's v65-14,
                         // 23 Oct 2026). (6.5.0)
-                        TripDataBanner(route: flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? [])
+                        // Without a route, the country where the map rests, when it isn't downloaded: the airspace
+                        // and the frequencies there come from it (the author's device check r4-33, 1 Nov 2026).
+                        // On the ground only; the Cockpit shows no banner. (6.8.0)
+                        if let route = flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate), route.count >= 2 {
+                            TripDataBanner(route: route)
+                        } else if let planMapCenter {
+                            TripDataBanner(route: [planMapCenter, planMapCenter], isMapView: true)
+                        }
                         NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, chrome: .plan,
-                                          onShowRoutes: { section = .routes })
+                                          onShowRoutes: { section = .routes },
+                                          onCenterSettled: { center in
+                                              // A new banner only for another country: not on every pan.
+                                              if CountryBoundaries.shared.countries(near: center, bufferNm: 0)
+                                                    != planMapCenter.map({ CountryBoundaries.shared.countries(near: $0, bufferNm: 0) }) {
+                                                  planMapCenter = center
+                                              }
+                                          })
                             // The chart starts under the picker, as the other sections do. Drawn on under
                             // the iPhone's bar, it was blurred there by the bar's scroll edge effect.
                             // (round 6, I-10)

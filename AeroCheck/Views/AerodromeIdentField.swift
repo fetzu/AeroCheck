@@ -76,9 +76,14 @@ struct AerodromeIdentField: View {
             }
         }
         .onAppear { text = ident ?? "" }
-        // Set from elsewhere (the suggestion, a synced change) while the pilot isn't typing
+        // Set from elsewhere (the suggestion, a synced change, a button beside the field): shown, and while the
+        // pilot is typing the typing ends there, or leaving the field would put the typed text back over it
+        // (the author's device check r4-34, 1 Nov 2026: the logbook's aerodrome, tapped with the keyboard up).
+        // The field's own writes name what is typed.
         .onChange(of: ident) { _, updated in
-            if !isFocused { text = updated ?? "" }
+            guard updated != HomeAerodrome.normalized(text.trimmingCharacters(in: .whitespaces)) else { return }
+            text = updated ?? ""
+            if isFocused { isFocused = false }
         }
         .onChange(of: text) { _, typed in
             search()

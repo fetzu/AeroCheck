@@ -27,6 +27,90 @@ final class DryRunFirstFlightTests: XCTestCase {
         XCTAssertEqual(DryRunFirstFlight.moment(ofChapter: 6), 3)
     }
 
+    func testTheCircuitEndsWithMemoryItemsHidden() throws {
+        // The author's device check r4-38 (1 Nov 2026): learning mode off, as a pilot who knows the WT9's memory
+        // items flies it; the approach and the landing check then ask for one confirmation each.
+        let setup = DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.fullStop], guided: .firstFlight)
+        let flight = try DryRunHeadless(self, setup: setup, seed: 11)
+        flight.appState.settings.learningMode = false
+        let session = flight.session
+        let coach = try XCTUnwrap(session.coach)
+        flight.fastForward()
+        var shown: [String] = []
+        var stuck = ""
+        for _ in 0..<(2 * 3600) {
+            if case .over = session.state { break }
+            if let step = coach.step {
+                if shown.last != step.id { shown.append(step.id) }
+                if step.id == "ffEnd" { break }
+                switch step.done {
+                case .next, .partEnd: coach.next()
+                default: coach.actAsPilot(step, session)
+                }
+                flight.wait(1)
+                continue
+            }
+            flight.wait(1)
+        }
+        stuck = "\(coach.step?.id ?? "none") at \(flight.appState.currentPhase), index \(coach.index)"
+        XCTAssertEqual(shown, ["ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio", "ffApproach",
+                               "endFlight", "ffEnd"], stuck)
+        XCTAssertFalse(flight.appState.isFlightActive, "the flight ended: \(stuck)")
+    }
+
+    func testTheCockpitShowsMapAfterTheApproachCheckAndChecklistForEndFlight() throws {
+        // The author's device check r4-38 (1 Nov 2026): MAP once the approach check is done, to watch the circuit
+        // end; CHECKLIST when END FLIGHT's card comes, the only band with END FLIGHT.
+        let setup = DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.fullStop], guided: .firstFlight)
+        let flight = try DryRunHeadless(self, setup: setup, seed: 11)
+        let session = flight.session
+        let coach = try XCTUnwrap(session.coach)
+        flight.fastForward()
+        var asked: [CockpitPage] = []
+        var lastSerial = 0
+        for _ in 0..<(2 * 3600) {
+            if let request = coach.pageRequest, request.serial != lastSerial {
+                asked.append(request.page)
+                lastSerial = request.serial
+            }
+            guard let step = coach.step else { flight.wait(1); continue }
+            if step.id == "endFlight" { break }
+            switch step.done {
+            case .next, .partEnd: coach.next()
+            default: coach.actAsPilot(step, session)
+            }
+            flight.wait(1)
+        }
+        XCTAssertEqual(coach.step?.id, "endFlight")
+        XCTAssertEqual(asked, [.map, .checklist], "MAP after the approach check, CHECKLIST for END FLIGHT")
+    }
+
+    func testENDAtEndFlightEndsTheCircuitAsEndFlightDoes() throws {
+        // The author's device check r4-38: END (the dry run's own) with only END FLIGHT left ended the circuit
+        // unticked; it now ends it as END FLIGHT does, logged, with the last card to come.
+        let setup = DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.fullStop], guided: .firstFlight)
+        let flight = try DryRunHeadless(self, setup: setup, seed: 11)
+        let session = flight.session
+        let coach = try XCTUnwrap(session.coach)
+        flight.fastForward()
+        for _ in 0..<(2 * 3600) {
+            guard let step = coach.step else { flight.wait(1); continue }
+            if step.id == "endFlight" { break }
+            switch step.done {
+            case .next, .partEnd: coach.next()
+            default: coach.actAsPilot(step, session)
+            }
+            flight.wait(1)
+        }
+        XCTAssertEqual(coach.step?.id, "endFlight")
+        session.stop()
+        flight.wait(1)
+        XCTAssertFalse(flight.appState.isFlightActive, "the flight ended")
+        let logged = try XCTUnwrap(flight.appState.flights.max { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) })
+        XCTAssertEqual(logged.totalLandings, 1, "logged as END FLIGHT logs it")
+        XCTAssertEqual(coach.step?.id, "ffEnd", "the last card follows")
+    }
+
     func testOneCircuitInAboutThreeMinutesOfThePilotsTime() throws {
         let setup = DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.fullStop], guided: .firstFlight)
         let flight = try DryRunHeadless(self, setup: setup, seed: 11)

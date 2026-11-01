@@ -509,6 +509,13 @@ final class DryRunSession: ObservableObject, Identifiable {
     /// the dry run's page.
     func stop() {
         guard state == .flying else { return }
+        // The first flight with only END FLIGHT left: ended as END FLIGHT ends it, so the circuit counts and its
+        // last card follows (the author's device check r4-38, 1 Nov 2026: END there ended it unticked).
+        if setup.guided?.isFirstFlight == true, coach?.step?.done == .flightEnded, world.appState.isFlightActive {
+            endFlight()
+            observe()
+            return
+        }
         stopRequested = true
         if world.appState.isFlightActive {
             world.location.stopTracking()

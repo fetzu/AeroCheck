@@ -2664,6 +2664,8 @@ private struct RouteProfileView: View {
 /// airspace service), avoiding the fragile env-injection of DataStatusManager through the builder's full-screen cover.
 struct TripDataBanner: View {
     let route: [CLLocationCoordinate2D]
+    /// Not a route: where Plan › Map rests (the author's device check r4-33, 1 Nov 2026). Said "here". (6.8.0)
+    var isMapView = false
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     /// The pilot's map's regions along the route join the trip's data (6.8.0).
     @ObservedObject private var pilotMap = PilotMapDownloads.shared
@@ -2817,6 +2819,7 @@ struct TripDataBanner: View {
                     .foregroundColor(tint)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed
+                         : isMapView ? L10n.Nav.dataMissingHere
                          : needed.isEmpty ? L10n.PilotMap.tripMissing : L10n.Nav.tripDataMissing)
                         .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.primaryText)

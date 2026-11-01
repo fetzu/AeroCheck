@@ -604,6 +604,17 @@ private struct DryRunCoachOverCover: View {
 }
 
 extension View {
+    /// The page the coach asks the Cockpit for (`DryRunCoach.pageRequest`), handed to `pick`. Nothing in a real
+    /// flight (`session` nil). (6.8.0, r4-38)
+    @ViewBuilder
+    func dryRunCoachPage(_ session: DryRunSession?, pick: @escaping (CockpitPage) -> Void) -> some View {
+        if let coach = session?.coach {
+            modifier(DryRunCoachPageFollower(coach: coach, pick: pick))
+        } else {
+            self
+        }
+    }
+
     /// The guided flight's card over this screen, when a dry run's coach has one for it. Nothing in a real
     /// flight (`session` nil). (6.4.0)
     func dryRunCoachCard(_ session: DryRunSession?) -> some View {
@@ -656,5 +667,16 @@ struct DryRunCoachVeil: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { flash = false }
         }
         .accessibilityHidden(true)
+    }
+}
+
+private struct DryRunCoachPageFollower: ViewModifier {
+    @ObservedObject var coach: DryRunCoach
+    let pick: (CockpitPage) -> Void
+
+    func body(content: Content) -> some View {
+        content.onChange(of: coach.pageRequest) { _, request in
+            if let request { pick(request.page) }
+        }
     }
 }

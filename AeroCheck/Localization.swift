@@ -1661,6 +1661,13 @@ enum L10n {
         static let aboutYouTitle = String(localized: "onboarding.v2.aboutYouTitle")
         static let aboutYouSubtitle = String(localized: "onboarding.v2.aboutYouSubtitle")
         static let basedAt = String(localized: "onboarding.v2.basedAt")
+        /// While the nearest aerodrome is looked up: the field stays empty rather than showing a guess (the
+        /// author's device check r4-18, 1 Nov 2026).
+        static let findingNearest = String(localized: "onboarding.v2.findingNearest")
+        /// "From your logbook: LSZQ", one tap to take it.
+        static func fromLogbook(_ ident: String) -> String { String(localized: "onboarding.v2.fromLogbook \(ident)") }
+        /// A row whose download failed.
+        static let downloadFailed = String(localized: "onboarding.v2.downloadFailed")
         /// "Nearest to you: LSZQ Bressaucourt, 2 NM".
         static func nearestToYou(_ aerodrome: String, _ nm: Int) -> String {
             String(format: String(localized: "onboarding.v2.nearest"), aerodrome, nm)
@@ -4335,10 +4342,10 @@ enum L10n {
             static let doneForYouBody = String(localized: "dryRunCoach.ff.doneForYouBody")
             static let radioTitle = String(localized: "dryRunCoach.ff.radioTitle")
             static let radioBody = String(localized: "dryRunCoach.ff.radioBody")
-            static let landingTitle = String(localized: "dryRunCoach.ff.landingTitle")
-            static let landingBody = String(localized: "dryRunCoach.ff.landingBody")
-            static let landingMemoryBody = String(localized: "dryRunCoach.ff.landingMemoryBody")
-            static let landingFold = String(localized: "dryRunCoach.ff.landingFold")
+            static let approachTitle = String(localized: "dryRunCoach.ff.approachTitle")
+            static let approachBody = String(localized: "dryRunCoach.ff.approachBody")
+            static let approachMemoryBody = String(localized: "dryRunCoach.ff.approachMemoryBody")
+            static let approachFold = String(localized: "dryRunCoach.ff.approachFold")
             static let endTitle = String(localized: "dryRunCoach.ff.endTitle")
             static let endBody = String(localized: "dryRunCoach.ff.endBody")
             static let fullDryRun = String(localized: "dryRunCoach.ff.fullDryRun")

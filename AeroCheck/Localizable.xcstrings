@@ -8184,6 +8184,98 @@
         }
       }
     },
+    "dryRunCoach.ff.approachFold": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Gegenanflug die Kontrolle im Anflug."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the downwind, the approach check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En vent arrière, la vérification d'approche."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.approachMemoryBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Gegenanflug: die Kontrolle im Anflug, aus dem Gedächtnis, da ihre Punkte ausgeblendet sind. Sagen Sie sie, dann tippen Sie einmal auf die Kontrolle. Einstellungen › Checkliste & Flug › Memory Items ausblenden zeigt sie wieder."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the downwind: the approach check, from memory, since its items are hidden. Say them, then tap the check once. Settings › Checklist & Flight › Hide memory items shows them again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En vent arrière : la vérification d'approche, de mémoire, puisque ses éléments sont masqués. Dites-les, puis touchez la vérification une fois. Réglages › Checklist & Vol › Masquer les éléments mémoire les affiche à nouveau."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.approachBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Gegenanflug: Tippen Sie auf die Kontrolle im Anflug und führen Sie ihre Punkte durch. Bei den meisten Flugzeugen sind es Memory Items, die man ohne Lesen sagt: Einstellungen › Checkliste & Flug › Memory Items ausblenden blendet sie aus, sobald Sie sie kennen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the downwind: tap the approach check and work through its items. On most aircraft they are memory items, said without reading: Settings › Checklist & Flight › Hide memory items hides them once you know them."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En vent arrière : touchez la vérification d'approche et faites ses éléments. Sur la plupart des avions, ce sont des éléments mémoire, dits sans lire : Réglages › Checklist & Vol › Masquer les éléments mémoire les masque quand vous les connaissez."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.approachTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kontrolle im Anflug"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The approach check"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification d'approche"
+          }
+        }
+      }
+    },
     "dryRunCoach.ff.checkTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -8341,98 +8433,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le vol à blanc complet"
-          }
-        }
-      }
-    },
-    "dryRunCoach.ff.landingBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im kurzen Endanflug: Tippen Sie auf die Landekontrolle und führen Sie ihre Punkte durch. Die Landung wird für Sie erkannt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On short final: tap the landing check and work through its items. The landing is detected for you."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En courte finale : touchez la vérification d'atterrissage et faites ses éléments. L'atterrissage est détecté pour vous."
-          }
-        }
-      }
-    },
-    "dryRunCoach.ff.landingFold": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im kurzen Endanflug die Landekontrolle."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On short final, the landing check."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En courte finale, la vérification d'atterrissage."
-          }
-        }
-      }
-    },
-    "dryRunCoach.ff.landingMemoryBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im kurzen Endanflug: die Landekontrolle, aus dem Gedächtnis. Tippen Sie darauf, um sie zu bestätigen. Die Landung wird für Sie erkannt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On short final: the landing check, from memory. Tap it to confirm it. The landing is detected for you."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En courte finale : la vérification d'atterrissage, de mémoire. Touchez-la pour la confirmer. L'atterrissage est détecté pour vous."
-          }
-        }
-      }
-    },
-    "dryRunCoach.ff.landingTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Landekontrolle"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The landing check"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La vérification d'atterrissage"
           }
         }
       }
@@ -8617,19 +8617,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drei Momente gehören Ihnen: eine Kontrolle, die Karte mit ihrem Funk, die Landung. Der Rest läuft von selbst. ENDE beendet sie jederzeit."
+            "value": "Drei Momente gehören Ihnen: eine Kontrolle, die Karte mit ihrem Funk, die Kontrolle im Anflug. Der Rest läuft von selbst. ENDE beendet sie jederzeit."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Three moments are yours: a check, the map and its radio, the landing. The rest goes by on its own. END stops it at any time."
+            "value": "Three moments are yours: a check, the map and its radio, the approach check. The rest goes by on its own. END stops it at any time."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trois moments sont à vous : une vérification, la carte et sa radio, l'atterrissage. Le reste défile seul. FIN l'arrête à tout moment."
+            "value": "Trois moments sont à vous : une vérification, la carte et sa radio, la vérification d'approche. Le reste défile seul. FIN l'arrête à tout moment."
           }
         }
       }
@@ -17261,6 +17261,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "Basé à"
+          }
+        }
+      }
+    },
+    "onboarding.v2.downloadFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht heruntergeladen. Tippen Sie auf Herunterladen, um es erneut zu versuchen, oder später unter Einstellungen › Offline-Daten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't download. Tap Download to try again, or later in Settings › Offline data."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas téléchargé. Touchez Télécharger pour réessayer, ou plus tard dans Réglages › Données hors ligne."
+          }
+        }
+      }
+    },
+    "onboarding.v2.findingNearest": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächster Flugplatz wird gesucht…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding the nearest aerodrome…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche de l'aérodrome le plus proche…"
+          }
+        }
+      }
+    },
+    "onboarding.v2.fromLogbook %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Ihrem Flugbuch: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From your logbook: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selon votre carnet de vol : %@"
           }
         }
       }

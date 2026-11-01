@@ -77,6 +77,8 @@ struct OnboardingView: View {
     @State private var detectedCountry: String?
     /// The aerodrome nearest the pilot, from OpenAIP's online search, for "Based at". (6.8.0)
     @State private var nearest: NearestAerodrome.Found?
+    /// The lookup for `nearest` came back, with or without one.
+    @State private var nearestLookedUp = false
     /// The offline step's rows ticked: the country, the airports and the Atlas overview by default, the Swiss charts
     /// not (the author's answers 3 A and p3 B, 31 Oct 2026: the airports can be unticked). (6.8.0)
     @State private var offlineChoice: Set<OfflineItem> = [.country, .airports, .overview]
@@ -341,14 +343,41 @@ struct OnboardingView: View {
         ) {
             VStack(alignment: .leading, spacing: 11) {
                 fieldLabel(L10n.Onboarding.basedAt)
+                // Empty until the nearest aerodrome is found, never a guess in its place; the logbook's usual
+                // aerodrome offered under it (the author's device check r4-18 and answer, 1 Nov 2026).
                 AerodromeIdentField(ident: Bindable(appState).settings.homeAerodromeIdent,
-                                    suggestion: HomeAerodrome.suggestion(from: appState.flights))
+                                    onlineSearch: { await NearestAerodrome.search($0) })
                 if let nearest {
                     Text(L10n.Onboarding.nearestToYou("\(nearest.ident) \(nearest.name)",
                                                       Int(nearest.distanceNM.rounded())))
                         .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.dimText)
                         .fixedSize(horizontal: false, vertical: true)
+                } else if isFindingNearest {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.Onboarding.findingNearest)
+                            .scaledFont(size: 12, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                if let logbook = HomeAerodrome.suggestion(from: appState.flights),
+                   logbook != appState.settings.homeAerodromeIdent {
+                    Button {
+                        appState.settings.homeAerodromeIdent = logbook
+                        appState.saveSettings()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "book.closed").accessibilityHidden(true)
+                            Text(L10n.Onboarding.fromLogbook(logbook))
+                        }
+                        .scaledFont(size: 13, weight: .medium, relativeTo: .footnote)
+                        .foregroundColor(.aviationGold)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
                 fieldLabel(L10n.Onboarding.youFly).padding(.top, 6)
                 aircraftMenu
@@ -378,10 +407,18 @@ struct OnboardingView: View {
             .foregroundColor(.aviationGold)
     }
 
+    /// Looking for the nearest aerodrome: allowed the location, and the lookup not back yet.
+    private var isFindingNearest: Bool {
+        guard nearest == nil, !nearestLookedUp else { return false }
+        return locationManager.authorizationStatus == .authorizedWhenInUse
+            || locationManager.authorizationStatus == .authorizedAlways
+    }
+
     /// The nearest aerodrome, asked of OpenAIP once the location is known, written in as the base when none is set:
     /// the pilot sees it filled in and changes it if it's wrong.
     private func suggestHomeAerodrome() async {
         guard let location = locationManager.currentLocation, nearest == nil else { return }
+        defer { nearestLookedUp = true }
         // The country, for OpenAIP's list when its search around a position is refused.
         if detectedCountry == nil { await detectRegion() }
         guard let found = await NearestAerodrome.find(near: location.coordinate,
@@ -554,26 +591,32 @@ struct OnboardingView: View {
         return items
     }
 
-    private enum RowState: Equatable { case idle, waiting, downloading(Double), done }
+    /// `failed`: tried and not on the device; Download tries it again (the author's device check r4-19, 1 Nov 2026).
+    private enum RowState: Equatable { case idle, waiting, downloading(Double), done, failed }
 
     private func rowState(_ item: OfflineItem) -> RowState {
         switch item {
         case .country:
             if countriesDone { return .done }
-            return countriesDownloading ? .downloading(countriesProgress) : .idle
+            if countriesDownloading { return .downloading(countriesProgress) }
+            let failed = wantedCountries.contains { $0.atlasRegions.contains { pilotMap.state(of: $0.id) == .failed } }
+            return failed ? .failed : .idle
         case .airports:
             if airportDataService.isOurAirportsDownloaded { return .done }
-            return airportDataService.isDownloading ? .downloading(airportDataService.downloadProgress) : .idle
+            if airportDataService.isDownloading { return .downloading(airportDataService.downloadProgress) }
+            return airportDataService.downloadError == nil ? .idle : .failed
         case .overview:
             guard let overview = pilotMap.overview else { return .idle }
             switch pilotMap.state(of: overview.id) {
             case let .downloading(fraction): return .downloading(fraction)
             case .downloaded, .updateAvailable: return .done
-            default: return .idle
+            case .failed: return .failed
+            case .notDownloaded: return .idle
             }
         case .swissCharts:
             if offlineMapManager.isCacheAvailable { return .done }
-            return offlineMapManager.isDownloading ? .downloading(offlineMapManager.downloadProgress) : .idle
+            if offlineMapManager.isDownloading { return .downloading(offlineMapManager.downloadProgress) }
+            return offlineMapManager.downloadError == nil ? .idle : .failed
         }
     }
 
@@ -608,7 +651,7 @@ struct OnboardingView: View {
         let state = rowState(item)
         let chosen = offlineChoice.contains(item)
         return Button {
-            guard state == .idle else { return }
+            guard state == .idle || state == .failed else { return }
             if chosen { offlineChoice.remove(item) } else { offlineChoice.insert(item) }
         } label: {
             HStack(alignment: .top, spacing: 12) {
@@ -627,6 +670,12 @@ struct OnboardingView: View {
                     case let .downloading(fraction):
                         Text(L10n.PilotMap.downloading(fraction)).font(.aero(.caption)).foregroundColor(.secondaryText)
                         ProgressView(value: fraction).tint(.aviationGold)
+                    case .failed:
+                        // The month's ceiling says so in its own words; anything else, try again.
+                        Text(pilotMap.ceilingMessage ?? L10n.Onboarding.downloadFailed)
+                            .font(.aero(.caption2))
+                            .foregroundColor(.aviationRed)
+                            .fixedSize(horizontal: false, vertical: true)
                     case .waiting, .idle:
                         Text(rowDetail(item))
                             .font(.aero(.caption2))
@@ -635,7 +684,7 @@ struct OnboardingView: View {
                     }
                 }
                 Spacer(minLength: 8)
-                if state == .idle {
+                if state == .idle || state == .failed {
                     Text(OfflineDataView.bytes(rowBytes(item)))
                         .font(.aero(.caption).monospacedDigit())
                         .foregroundColor(.dimText)
@@ -650,16 +699,22 @@ struct OnboardingView: View {
     }
 
     private var chosenBytes: Int64 {
-        offlineItems.filter { offlineChoice.contains($0) && rowState($0) == .idle }.reduce(0) { $0 + rowBytes($1) }
+        offlineItems.filter { offlineChoice.contains($0) && isToDownload($0) }.reduce(0) { $0 + rowBytes($1) }
     }
 
     private var hasSomethingToDownload: Bool {
-        offlineItems.contains { offlineChoice.contains($0) && rowState($0) == .idle }
+        offlineItems.contains { offlineChoice.contains($0) && isToDownload($0) }
+    }
+
+    /// Not on the device and not downloading: never tried, or tried and failed.
+    private func isToDownload(_ item: OfflineItem) -> Bool {
+        let state = rowState(item)
+        return state == .idle || state == .failed
     }
 
     /// Every ticked row not on the device and not downloading: each on its own, all at once.
     private func downloadChosen() {
-        for item in offlineItems where offlineChoice.contains(item) && rowState(item) == .idle {
+        for item in offlineItems where offlineChoice.contains(item) && isToDownload(item) {
             switch item {
             case .country: downloadCountries()
             case .airports: Task { await airportDataService.downloadData() }

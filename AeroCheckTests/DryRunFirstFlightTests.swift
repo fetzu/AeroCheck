@@ -15,7 +15,11 @@ final class DryRunFirstFlightTests: XCTestCase {
         // What the pilot meets: the three moments, END FLIGHT, the end.
         let shown = steps.filter { !$0.auto }.map(\.id)
         XCTAssertEqual(shown, ["startFlight", "ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio",
-                               "ffLanding", "endFlight", "ffEnd"])
+                               "ffApproach", "endFlight", "ffEnd"])
+        // The third moment is the approach check, said on the downwind; the landing check, a memory item, is done
+        // for the pilot (the author's device check r4-20, 1 Nov 2026).
+        XCTAssertEqual(steps.first { $0.id == "ffApproach" }?.moment, .downwind(0.2, .check(.approach)))
+        XCTAssertEqual(steps.first { $0.id == "ffLanding" }?.auto, true)
         XCTAssertFalse(DryRunStory.steps.contains { $0.id.hasPrefix("ff") }, "the story keeps its own steps")
         XCTAssertEqual(DryRunCoach(start: .firstFlight, steps: steps).startIndex, 1, "START FLIGHT behind the cover")
         XCTAssertEqual(DryRunFirstFlight.moment(ofChapter: 1), 1)
@@ -33,10 +37,14 @@ final class DryRunFirstFlightTests: XCTestCase {
         flight.fastForward()
         var shown: [String] = []
         var pilotSeconds = 0.0
+        var approachShownAt: (activity: DryRunGenerator.Activity, fraction: Double?)?
         for _ in 0..<(2 * 3600) {
             if case .over = session.state { break }
             if let step = coach.step {
                 if shown.last != step.id { shown.append(step.id) }
+                if step.id == "ffApproach", approachShownAt == nil {
+                    approachShownAt = (session.generator.activity, session.generator.downwindFraction)
+                }
                 if step.id == "ffEnd" { break }
                 switch step.done {
                 case .next, .partEnd: coach.next()
@@ -49,8 +57,13 @@ final class DryRunFirstFlightTests: XCTestCase {
             flight.wait(1)
             if session.pace > 0 { pilotSeconds += 1 / session.pace }
         }
-        XCTAssertEqual(shown, ["ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio", "ffLanding",
+        XCTAssertEqual(shown, ["ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio", "ffApproach",
                                "endFlight", "ffEnd"])
+        let approach = try XCTUnwrap(approachShownAt)
+        XCTAssertEqual(approach.activity, .downwind, "the approach check's card on the downwind")
+        let fraction = try XCTUnwrap(approach.fraction)
+        XCTAssertGreaterThanOrEqual(fraction, 0.2)
+        XCTAssertLessThan(fraction, 0.35, "a fifth of the way down, not at its end: \(fraction)")
         XCTAssertFalse(appState.isFlightActive, "the flight ended")
         // The newest: the dry run's made-up logbook flights are older.
         let logged = try XCTUnwrap(appState.flights.max { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) })

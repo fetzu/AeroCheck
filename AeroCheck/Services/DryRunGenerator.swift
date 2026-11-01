@@ -122,6 +122,9 @@ final class DryRunGenerator {
     private(set) var activitySince = 0
     /// How fast it turned in its last second, degrees: a turn under way.
     private(set) var turnDegreesPerSecond = 0.0
+    /// How far down the circuit's downwind it is, 0 to 1, while it flies it; nil elsewhere. (6.8.0: the first
+    /// flight's approach check, a fifth of the way down it, the author's device check r4-20)
+    private(set) var downwindFraction: Double?
 
     /// Feet above the aerodrome flown at (or to).
     var heightAboveFieldFt: Double { altitudeFt - aerodrome.elevationFt }
@@ -612,6 +615,7 @@ final class DryRunGenerator {
             actions.insert(contentsOf: [.mark("final"), .onFinal], at: 0)
             return nil
         }
+        downwindFraction = leg == .downwind && line.kind == .circuit ? Self.downwindFraction(of: position, on: line) : nil
         if line.noted != .some(leg) {
             line.noted = .some(leg)
             switch leg {
@@ -658,6 +662,24 @@ final class DryRunGenerator {
                     turnRate: turnRate)
     }
 
+    /// How far down the line's downwind `position` is, by distance over its segments: 0 at its start, 1 at its end.
+    private static func downwindFraction(of position: CLLocationCoordinate2D, on line: Line) -> Double {
+        let segments = line.legs.indices.filter { line.legs[$0] == .downwind && $0 + 1 < line.points.count }
+        let lengths = segments.map { DryRunGeo.distance(line.points[$0], line.points[$0 + 1]) }
+        let total = lengths.reduce(0, +)
+        guard total > 0 else { return 0 }
+        var flown = 0.0
+        for (segment, length) in zip(segments, lengths) {
+            if segment < line.index - 1 {
+                flown += length
+            } else if segment == line.index - 1 {
+                let along = fraction(of: position, along: line.points[segment], line.points[segment + 1])
+                flown += length * min(max(along, 0), 1)
+            }
+        }
+        return flown / total
+    }
+
     /// How far along `a`→`b` `point` is abeam: 0 at `a`, 1 at `b` (a local flat projection, plenty within a
     /// circuit).
     private static func fraction(of point: CLLocationCoordinate2D, along a: CLLocationCoordinate2D,
@@ -689,6 +711,7 @@ final class DryRunGenerator {
 
     private func set(_ doing: Activity) {
         guard doing != activity else { return }
+        if doing != .downwind { downwindFraction = nil }
         activity = doing
         activitySince = t
     }

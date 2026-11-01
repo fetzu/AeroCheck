@@ -47,4 +47,19 @@ final class NearestAerodromeTests: XCTestCase {
         XCTAssertEqual(NearestAerodrome.displayName("Lugano-Agno"), "Lugano-Agno")
         XCTAssertNil(NearestAerodrome.displayName(""))
     }
+
+    /// Typing in onboarding's "Based at" before the airports file is on the device: OpenAIP's text search, which
+    /// still answers (the author's device check r4-18, 1 Nov 2026).
+    func testATextSearchKeepsTheAerodromesWithACode() {
+        let answer = """
+        {"items":[{"icaoCode":"LSZS","name":"SAMEDAN","type":3},{"name":"SAMEDAN HELIPORT","type":7},
+        {"icaoCode":"LSXS","name":"SAMEDAN H","type":7},{"icaoCode":"lszs","name":"SAMEDAN","type":3},
+        {"icaoCode":"LSZQ","name":"Bressaucourt","type":2}]}
+        """
+        let found = NearestAerodrome.named(in: Data(answer.utf8), limit: 6)
+        XCTAssertEqual(found, [.init(ident: "LSZS", name: "Samedan"), .init(ident: "LSZQ", name: "Bressaucourt")],
+                       "codes only, no heliport, no repeat, names in title case")
+        XCTAssertEqual(NearestAerodrome.named(in: Data(answer.utf8), limit: 1).count, 1)
+        XCTAssertEqual(NearestAerodrome.named(in: Data("<html>403</html>".utf8), limit: 6), [])
+    }
 }

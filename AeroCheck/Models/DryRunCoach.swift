@@ -162,6 +162,9 @@ struct DryRunCoachStep: Equatable {
         /// The band shows it, and the aircraft is about to join the circuit or in it (the published arrival
         /// begun): the approach check's card comes before the downwind, not 5 NM out (st-14).
         case nearCircuit(Slot)
+        /// The band shows it, `fraction` of the way down the circuit's downwind or further (0.2: a fifth), where a
+        /// pilot says the approach check. (6.8.0, the first flight)
+        case downwind(Double, Slot)
         /// A go-around taken: the detector saw it, and the dry run took it as CONFIRM would (no card in a dry
         /// run, the author's fifth round).
         case goneAround
@@ -962,6 +965,10 @@ final class DryRunCoach: ObservableObject {
         case .nearCircuit(let slot):
             let circuit: [DryRunGenerator.Activity] = [.joining, .upwind, .crosswind, .downwind, .base, .final]
             return circuit.contains(generator.activity) && Self.shows(slot, appState)
+        case let .downwind(fraction, slot):
+            let later: [DryRunGenerator.Activity] = [.base, .final]
+            let down = generator.activity == .downwind && (generator.downwindFraction ?? 0) >= fraction
+            return (down || later.contains(generator.activity)) && Self.shows(slot, appState)
         case .goneAround: return !(appState.currentFlight?.goAroundTimes.isEmpty ?? true)
         // On the way to where it starts, no screen shows: the ground's moments come as the steps are done.
         case .screen(let screen): return isFastForwarding || screens.contains(screen)
@@ -1232,11 +1239,16 @@ enum DryRunFirstFlight {
             story("airborne", auto: false),
             S(id: "ffRadio", chapter: 4, kind: .look, target: .radioLine, veils: false, holds: true, moment: .now,
               done: .next, title: T.radioTitle, body: T.radioBody),
-            story("climbCheck"), story("approachCheck"),
-            // 3 · The landing, END FLIGHT, the logbook's line.
-            S(id: "ffLanding", chapter: 6, kind: .act, target: .first, veils: false, holds: true, moment: .final(1),
-              done: .checkDone(.landing), title: T.landingTitle, body: T.landingBody, fold: T.landingFold,
-              memoryCheck: .landing, memoryBody: T.landingMemoryBody, memoryFold: T.landingFold),
+            story("climbCheck"),
+            // 3 · The approach check a fifth of the way down the downwind, where it is said: a memory item on most
+            // aircraft, so the card says where they are hidden (the author's device check r4-20, 1 Nov 2026; the
+            // landing check it replaced is one too). The landing done for the pilot, END FLIGHT, the logbook's line.
+            S(id: "ffApproach", chapter: 6, kind: .act, target: .check, veils: false, holds: true,
+              moment: .downwind(0.2, .check(.approach)), done: .checkDone(.approach), title: T.approachTitle,
+              body: T.approachBody, fold: T.approachFold,
+              memoryCheck: .approach, memoryBody: T.approachMemoryBody, memoryFold: T.approachFold),
+            S(id: "ffLanding", chapter: 6, kind: .act, target: nil, veils: false, holds: false, moment: .final(1),
+              done: .checkDone(.landing), title: "", body: "", auto: true),
             story("toShutdown"), story("shutdownCheck"), story("engineShutdown"), story("toEndFlight"),
             story("endFlight", auto: false),
             // On Today once the flight has ended, as the story's Fly ends: the logbook's line, then what next.

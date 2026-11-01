@@ -91,6 +91,43 @@ enum NearestAerodrome {
         return best.flatMap { $0.distanceNM <= 50 ? $0 : nil }
     }
 
+    /// An aerodrome found by name or code.
+    struct Named: Equatable, Hashable {
+        let ident: String
+        let name: String
+    }
+
+    /// Aerodromes whose name or code matches `query`, from OpenAIP's text search, which still answers (its position
+    /// search is refused): onboarding's "Based at" offers them while the airports file isn't on the device yet (the
+    /// author's answer on 1 Nov 2026 to device check r4-18). Empty offline or on any failure.
+    static func search(_ query: String, limit: Int = 6) async -> [Named] {
+        let typed = query.trimmingCharacters(in: .whitespaces)
+        guard typed.count >= 2,
+              let encoded = typed.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+              let request = request("airports?search=\(encoded)&limit=\(limit * 2)&fields=icaoCode,name,type"),
+              let data = await fetch(request) else { return [] }
+        return named(in: data, limit: limit)
+    }
+
+    /// The aerodromes with an ICAO code in a text search's answer, at most `limit`.
+    static func named(in data: Data, limit: Int) -> [Named] {
+        struct Response: Decodable { let items: [Item] }
+        struct Item: Decodable {
+            let name: String?
+            let icaoCode: String?
+            let type: Int?
+        }
+        guard let response = try? JSONDecoder().decode(Response.self, from: data) else { return [] }
+        var seen = Set<String>()
+        return response.items.compactMap { item -> Named? in
+            guard let ident = item.icaoCode?.trimmingCharacters(in: .whitespaces).uppercased(), ident.count == 4,
+                  !excludedTypes.contains(item.type ?? 0), seen.insert(ident).inserted else { return nil }
+            return Named(ident: ident, name: displayName(item.name) ?? ident)
+        }
+        .prefix(limit)
+        .map { $0 }
+    }
+
     /// OpenAIP writes most names in capitals: "BRESSAUCOURT" reads "Bressaucourt"; a name in mixed case stays.
     static func displayName(_ name: String?) -> String? {
         guard let name, !name.isEmpty else { return nil }

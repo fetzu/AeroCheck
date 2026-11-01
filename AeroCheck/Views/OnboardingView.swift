@@ -740,14 +740,21 @@ struct OnboardingView: View {
 
     // MARK: - 5: A circuit on the ground (6.8.0)
 
-    /// The last screen: about three minutes, one circuit at the home aerodrome, three moments (a checklist, NOW and
-    /// NEXT, the landing and the logbook line); or Today straight away (the author's answer p2 A, 31 Oct 2026).
+    /// The last screen: about three minutes, one circuit at the home aerodrome, three moments (a checklist, the map
+    /// and its radio, the approach check); or Today straight away (the author's answer p2 A, 31 Oct 2026).
+    /// Where the circuit will fly, as the dry run picks it: the home aerodrome once the app has its runway, else
+    /// the bundled LSZQ (before the airports are downloaded, the base is only a code).
+    private var circuitAerodrome: String {
+        appState.settings.homeAerodromeIdent
+            .flatMap { DryRunCenter.aerodrome($0, airports: airportDataService)?.ident } ?? DryRunAerodrome.lszq.ident
+    }
+
     private var firstFlightPage: some View {
         VStack(spacing: 20) {
             Spacer()
             pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
             pageTitle(L10n.Onboarding.circuitTitle)
-            pageBody(L10n.Onboarding.circuitBody(appState.settings.homeAerodromeIdent ?? "LSZQ"))
+            pageBody(L10n.Onboarding.circuitBody(circuitAerodrome))
             if let progress = offlineProgress {
                 VStack(spacing: 6) {
                     Text(L10n.Onboarding.offlineProgress(progress.formatted(.percent.precision(.fractionLength(0)))))

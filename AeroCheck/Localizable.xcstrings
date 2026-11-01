@@ -8144,19 +8144,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: Tippen Sie für jeden Punkt auf ABHAKEN, während Sie ihn ausführen, dann weiter zur nächsten Kontrolle. Jede kommt zu ihrer Zeit."
+            "value": "%@: Tippen Sie für jeden Punkt auf ABHAKEN, sobald Sie ihn ausgeführt haben. Die nächste Kontrolle erscheint, wenn ihre Phase kommt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: tap CHECK for each item as you do it, then go on to the next check. Each check comes when its moment comes."
+            "value": "%@: tap CHECK for each item as you do it. The next check appears when its phase comes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : touchez COCHER pour chaque élément, à mesure, puis passez à la vérification suivante. Chacune vient en son temps."
+            "value": "%@ : touchez COCHER pour chaque élément à mesure que vous le faites. La vérification suivante apparaît quand sa phase arrive."
           }
         }
       }
@@ -8213,19 +8213,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Im Gegenanflug: die Kontrolle im Anflug, aus dem Gedächtnis, da ihre Punkte ausgeblendet sind. Sagen Sie sie, dann tippen Sie einmal auf die Kontrolle. Einstellungen › Checkliste & Flug › Memory Items ausblenden zeigt sie wieder."
+            "value": "Im Gegenanflug: die Kontrolle im Anflug aus dem Gedächtnis, weil ihre Punkte ausgeblendet sind. Sagen Sie sie, dann tippen Sie einmal auf die Kontrolle. Einstellungen › Checkliste & Flug › Memory Items ausblenden zeigt sie wieder."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On the downwind: the approach check, from memory, since its items are hidden. Say them, then tap the check once. Settings › Checklist & Flight › Hide memory items shows them again."
+            "value": "On the downwind: the approach check from memory, because its items are hidden. Say them, then tap the check once. Settings › Checklist & Flight › Hide memory items shows them again."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En vent arrière : la vérification d'approche, de mémoire, puisque ses éléments sont masqués. Dites-les, puis touchez la vérification une fois. Réglages › Checklist & Vol › Masquer les éléments mémoire les affiche à nouveau."
+            "value": "En vent arrière : la vérification d'approche de mémoire, parce que ses éléments sont masqués. Dites-les, puis touchez la vérification une fois. Réglages › Checklist & Vol › Masquer les éléments mémoire les affiche à nouveau."
           }
         }
       }
@@ -8236,19 +8236,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Im Gegenanflug: Tippen Sie auf die Kontrolle im Anflug und führen Sie ihre Punkte durch. Bei den meisten Flugzeugen sind es Memory Items, die man ohne Lesen sagt: Einstellungen › Checkliste & Flug › Memory Items ausblenden blendet sie aus, sobald Sie sie kennen."
+            "value": "Im Gegenanflug: Tippen Sie auf die Kontrolle im Anflug und führen Sie ihre Punkte durch. Bei den meisten Flugzeugen sind es Memory Items, die man ohne Lesen sagt. Sobald Sie sie kennen, blenden Sie sie unter Einstellungen › Checkliste & Flug › Memory Items ausblenden aus."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On the downwind: tap the approach check and work through its items. On most aircraft they are memory items, said without reading: Settings › Checklist & Flight › Hide memory items hides them once you know them."
+            "value": "On the downwind: tap the approach check and do its items. On most aircraft these are memory items, said without reading. Once you know them, hide them in Settings › Checklist & Flight › Hide memory items."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En vent arrière : touchez la vérification d'approche et faites ses éléments. Sur la plupart des avions, ce sont des éléments mémoire, dits sans lire : Réglages › Checklist & Vol › Masquer les éléments mémoire les masque quand vous les connaissez."
+            "value": "En vent arrière : touchez la vérification d'approche et faites ses éléments. Sur la plupart des avions, ce sont des éléments mémoire, dits sans lire. Quand vous les connaissez, masquez-les dans Réglages › Checklist & Vol › Masquer les éléments mémoire."
           }
         }
       }
@@ -8305,19 +8305,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anlassen, Rollen und Aufstellen laufen schnell ab, ihre Kontrollen so erledigt, wie Sie es täten. Sehen Sie, wie die Checkliste dem Flug folgt."
+            "value": "Anlassen, Rollen und Aufstellen laufen jetzt schnell ab, ihre Kontrollen werden für Sie erledigt. Sehen Sie, wie die Checkliste dem Flug folgt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The engine start, the taxi and the line-up go by quickly, their checks done as you would. Watch the checklist follow the flight."
+            "value": "The engine start, taxi and line-up now go quickly, their checks done for you. Watch the checklist follow the flight."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La mise en route, le roulage et l'alignement passent vite, leurs vérifications faites comme vous le feriez. Regardez la checklist suivre le vol."
+            "value": "La mise en route, le roulage et l'alignement passent maintenant vite, leurs vérifications faites pour vous. Regardez la checklist suivre le vol."
           }
         }
       }
@@ -8351,19 +8351,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die ganze Trockenübung plant eine Route, fliegt sie und schliesst sie ab, in etwa 15 Minuten. Beim freien Üben fliegen Sie eine Route oder Platzrunden Ihrer Wahl, im Tempo Ihrer Wahl. Von diesem Flug wird nichts behalten."
+            "value": "Die ganze Trockenübung plant eine Route, fliegt sie und trägt sie ins Flugbuch ein, in etwa 15 Minuten. Beim freien Üben fliegen Sie die Route oder Platzrunden Ihrer Wahl, in Ihrem Tempo. Dieser Flug wird nicht gespeichert."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The full dry run plans a route, flies it and closes it out, in about 15 minutes. Free practice flies the route or circuits you choose, at the pace you choose. Nothing of this flight is kept."
+            "value": "The full dry run plans a route, flies it and logs it, in about 15 minutes. Free practice flies the route or circuits you choose, at your pace. This flight isn't saved."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le vol à blanc complet planifie une route, la vole et la clôt, en environ 15 minutes. La pratique libre vole la route ou les tours de piste que vous choisissez, au rythme que vous choisissez. Rien de ce vol n'est gardé."
+            "value": "Le vol à blanc complet planifie une route, la vole et l'inscrit au carnet de vol, en environ 15 minutes. La pratique libre vole la route ou les tours de piste que vous choisissez, à votre rythme. Ce vol n'est pas enregistré."
           }
         }
       }
@@ -8502,19 +8502,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie KARTE. In einer Trockenübung rollt das Flugzeug automatisch auf und startet; die Karte folgt ihm durch die ganze Platzrunde."
+            "value": "Öffnen Sie KARTE. Das Flugzeug rollt von selbst auf die Piste und startet, und die Karte folgt ihm durch die Platzrunde."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open MAP. In a dry run, the aircraft lines up and takes off automatically; the map follows it round the circuit."
+            "value": "Open MAP. The aircraft lines up and takes off by itself, and the map follows it around the circuit."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez CARTE. En vol à blanc, l'avion s'aligne et décolle automatiquement ; la carte le suit tout au long du tour de piste."
+            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul, et la carte le suit tout au long du tour de piste."
           }
         }
       }
@@ -8548,19 +8548,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "AKT. ist die Frequenz für Ihren Standort. Auf einer Route zeigt NÄCHSTE die nächste und wann zu wechseln ist; in der Platzrunde gibt es keine."
+            "value": "AKT. ist die Frequenz, die Sie hier rufen. Auf einer Route zeigt NÄCHSTE die nächste und wann Sie wechseln; in der Platzrunde gibt es kein NÄCHSTE."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOW is the frequency for where you are. On a route, NEXT shows the next one and when to switch; in the circuit there is none."
+            "value": "NOW is the frequency to call here. On a route, NEXT shows the next one and when to change; in the circuit there's no NEXT."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ACT est la fréquence de l'endroit où vous êtes. Sur une route, SUIV montre la suivante et quand passer ; dans le tour de piste, il n'y en a pas."
+            "value": "ACT est la fréquence à appeler ici. Sur une route, SUIV montre la suivante et quand changer ; dans le tour de piste, il n'y a pas de SUIV."
           }
         }
       }
@@ -8617,19 +8617,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drei Momente gehören Ihnen: eine Kontrolle, die Karte mit ihrem Funk, die Kontrolle im Anflug. Der Rest läuft von selbst. ENDE beendet sie jederzeit."
+            "value": "Sie machen drei Dinge: eine Checkliste, einen Blick auf die Karte und ihren Funk und die Kontrolle im Anflug. Den Rest erledigt die App. ENDE bricht jederzeit ab."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Three moments are yours: a check, the map and its radio, the approach check. The rest goes by on its own. END stops it at any time."
+            "value": "You do three things: a checklist, a look at the map and its radio, and the approach check. The app does the rest. END stops it at any time."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trois moments sont à vous : une vérification, la carte et sa radio, la vérification d'approche. Le reste défile seul. FIN l'arrête à tout moment."
+            "value": "Vous faites trois choses : une checklist, un coup d'œil à la carte et à sa radio, et la vérification d'approche. L'app fait le reste. FIN l'arrête à tout moment."
           }
         }
       }
@@ -15149,19 +15149,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr erster Flug"
+            "value": "Ihre erste Platzrunde"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your first flight"
+            "value": "Your first circuit"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre premier vol"
+            "value": "Votre premier tour de piste"
           }
         }
       }
@@ -17156,19 +17156,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus Ihrem Standort geschätzt. Ändern Sie, was Sie möchten."
+            "value": "Aus Ihrem aktuellen Standort ausgefüllt. Wählen Sie gerne einen anderen Flugplatz."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We guessed from where you are. Change anything."
+            "value": "Filled in from your current location. Feel free to pick any other airfield."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deviné d'après l'endroit où vous êtes. Changez ce que vous voulez."
+            "value": "Rempli d'après votre position actuelle. Choisissez un autre aérodrome si vous le souhaitez."
           }
         }
       }
@@ -17202,19 +17202,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Flugzeuge aller Clubs sind aufgeführt; der WT9 Dynamic ist gratis. Die anderen gehören zu AéroCheck Pro, das Sie später testen können."
+            "value": "Alle Clubflugzeuge sind aufgeführt. Der WT9 Dynamic ist gratis; die anderen brauchen AéroCheck Pro, das Sie später gratis testen können."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every club's aircraft are listed; the WT9 Dynamic is free. The others come with AéroCheck Pro, which you can try later."
+            "value": "Every club aircraft is listed. The WT9 Dynamic is free; the others need AéroCheck Pro, which you can try for free later."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les avions de chaque club sont listés ; le WT9 Dynamic est gratuit. Les autres viennent avec AéroCheck Pro, que vous pourrez essayer plus tard."
+            "value": "Tous les avions des clubs sont listés. Le WT9 Dynamic est gratuit ; les autres nécessitent AéroCheck Pro, que vous pourrez essayer gratuitement plus tard."
           }
         }
       }
@@ -17225,19 +17225,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die aller Länder: Funk und Suche"
+            "value": "Frequenzen und Flugplatzsuche, weltweit"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every country's: the radio and the search"
+            "value": "Frequencies and aerodrome search, worldwide"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceux de tous les pays : la radio et la recherche"
+            "value": "Fréquences et recherche d'aérodromes, dans le monde entier"
           }
         }
       }
@@ -17271,19 +17271,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nicht heruntergeladen. Tippen Sie auf Herunterladen, um es erneut zu versuchen, oder später unter Einstellungen › Offline-Daten."
+            "value": "Download fehlgeschlagen. Tippen Sie auf Herunterladen, um es erneut zu versuchen, oder holen Sie es später unter Einstellungen › Offline-Daten nach."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't download. Tap Download to try again, or later in Settings › Offline data."
+            "value": "Download failed. Tap Download to try again, or do it later in Settings › Offline data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pas téléchargé. Touchez Télécharger pour réessayer, ou plus tard dans Réglages › Données hors ligne."
+            "value": "Échec du téléchargement. Touchez Télécharger pour réessayer, ou faites-le plus tard dans Réglages › Données hors ligne."
           }
         }
       }
@@ -17340,19 +17340,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drei Minuten, eine Platzrunde in %@: eine Checkliste, die Karte und das Flugbuch. Nichts wird gespeichert."
+            "value": "Etwa drei Minuten: eine Platzrunde in %@, mit einer Checkliste, der Karte und ihrem Funk und der Kontrolle im Anflug. Nichts wird gespeichert."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Three minutes, one circuit at %@: a checklist, the map and the logbook. Nothing is recorded."
+            "value": "About three minutes: one circuit at %@, with a checklist, the map and its radio, and the approach check. Nothing is saved."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trois minutes, un tour de piste à %@ : une checklist, la carte et le carnet. Rien n'est enregistré."
+            "value": "Environ trois minutes : un tour de piste à %@, avec une checklist, la carte et sa radio, et la vérification d'approche. Rien n'est enregistré."
           }
         }
       }
@@ -17593,19 +17593,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weitere Länder: Einstellungen › Offline-Daten, oder wenn eine Route eine Grenze überquert."
+            "value": "Weitere Länder fügen Sie später unter Einstellungen › Offline-Daten hinzu. Eine Route in ein anderes Land bietet dessen Download automatisch an."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "More countries: Settings › Offline data, or when a route crosses a border."
+            "value": "Add more countries later in Settings › Offline data. A route into another country offers its download automatically."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "D'autres pays : Réglages › Données hors ligne, ou quand une route passe une frontière."
+            "value": "Ajoutez d'autres pays plus tard dans Réglages › Données hors ligne. Une route vers un autre pays propose automatiquement son téléchargement."
           }
         }
       }
@@ -17639,19 +17639,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ohne Offline-Daten zeigt die Karte ohne Empfang weder Lufträume noch Frequenzen. Unter Einstellungen › Offline-Daten können Sie sie später laden."
+            "value": "Ohne Offline-Daten zeigt die Karte ohne Empfang weder Lufträume noch Frequenzen. Sie können sie später unter Einstellungen › Offline-Daten herunterladen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Without offline data, the map shows neither airspace nor frequencies once there is no signal. Settings › Offline data has it later."
+            "value": "Without offline data, the map shows no airspace and no frequencies when there's no signal. You can download it later in Settings › Offline data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sans données hors ligne, la carte n'affiche ni espaces aériens ni fréquences dès qu'il n'y a plus de réseau. Réglages › Données hors ligne les propose plus tard."
+            "value": "Sans données hors ligne, la carte n'affiche ni espaces aériens ni fréquences quand il n'y a pas de réseau. Vous pourrez les télécharger plus tard dans Réglages › Données hors ligne."
           }
         }
       }
@@ -17708,19 +17708,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Offline: %@"
+            "value": "Download läuft: %@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Offline: %@"
+            "value": "Downloading: %@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hors ligne : %@"
+            "value": "Téléchargement : %@"
           }
         }
       }
@@ -17731,19 +17731,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jedes lädt für sich. Machen Sie weiter: Sie laufen weiter."
+            "value": "Jeder Download läuft im Hintergrund. Sie können weitermachen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Each downloads on its own. Carry on: they run on."
+            "value": "Each download runs in the background. You can move on."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chacun se télécharge seul. Continuez : ils se poursuivent."
+            "value": "Chaque téléchargement se fait en arrière-plan. Vous pouvez continuer."
           }
         }
       }
@@ -17800,19 +17800,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jedes Land herausgezoomt, ohne Netz"
+            "value": "Alle Länder, weit herausgezoomt, offline"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every country zoomed out, with no signal"
+            "value": "Every country at low zoom, offline"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tous les pays en vue éloignée, sans réseau"
+            "value": "Tous les pays en vue éloignée, hors ligne"
           }
         }
       }
@@ -17846,19 +17846,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "AéroCheck begleitet jeden Flug: Sie planen ihn, die App führt die Checklisten Phase für Phase, zeigt AKT. und NÄCHSTE am Funk und schreibt die Zeile im Flugbuch."
+            "value": "Sie planen den Flug. AéroCheck zeigt jede Checkliste, wenn ihre Phase kommt, die Frequenz für jetzt und danach, und füllt Ihr Flugbuch aus."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AéroCheck follows each flight: you plan it, the app runs the checklists phase by phase, shows NOW and NEXT on the radio and writes the logbook line."
+            "value": "You plan the flight. AéroCheck shows each checklist when its phase comes, the frequency to call now and next, and fills in your logbook."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "AéroCheck suit chaque vol : vous le planifiez, l'app déroule les checklists phase par phase, affiche ACT et SUIV à la radio et écrit la ligne du carnet."
+            "value": "Vous planifiez le vol. AéroCheck affiche chaque checklist quand sa phase arrive, la fréquence à appeler maintenant et ensuite, et remplit votre carnet de vol."
           }
         }
       }
@@ -20619,19 +20619,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeiten und Landungen aus der GPS-Spur. Tippen Sie für die Details; wischen Sie nach rechts, um ihn erneut zu planen oder als Favorit zu behalten."
+            "value": "Zeiten und Landungen stammen aus der GPS-Spur. Tippen Sie für die Details. Wischen Sie nach rechts, um ihn erneut zu planen oder als Favorit zu speichern."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Times and landings from the GPS track. Tap for the details; swipe right to plan it again or keep it as a favourite."
+            "value": "Times and landings come from the GPS track. Tap for the details. Swipe right to plan it again or save it as a favourite."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les heures et les atterrissages tirés de la trace GPS. Touchez pour le détail ; glissez vers la droite pour le planifier à nouveau ou le garder en favori."
+            "value": "Les heures et les atterrissages viennent de la trace GPS. Touchez pour le détail. Glissez vers la droite pour le planifier à nouveau ou l'enregistrer en favori."
           }
         }
       }
@@ -20665,19 +20665,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unter Karte finden Sie die Grundkarte, die Lufträume, die Flugplätze und die übrigen Ebenen, alles an einem Ort."
+            "value": "Unter Karte wählen Sie die Grundkarte und blenden die Lufträume, die Flugplätze und die übrigen Ebenen ein oder aus."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Map holds the chart, the airspace, the aerodromes and the other layers, all in one place."
+            "value": "Map is where you choose the base chart and switch the airspace, the aerodromes and the other layers on or off."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte réunit la carte de fond, les espaces aériens, les aérodromes et les autres couches, au même endroit."
+            "value": "Dans Carte, vous choisissez la carte de fond et affichez ou masquez les espaces aériens, les aérodromes et les autres couches."
           }
         }
       }
@@ -20688,19 +20688,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alles auf der Karte"
+            "value": "Die Ebenen der Karte"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Everything on the map"
+            "value": "The map's layers"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tout ce qui est sur la carte"
+            "value": "Les couches de la carte"
           }
         }
       }
@@ -20711,19 +20711,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Frequenz für jetzt und die nächste auf Ihrem Weg. Tippen Sie für die ganze Liste."
+            "value": "Die Frequenz, die Sie jetzt rufen, und die nächste auf Ihrer Route. Tippen Sie darauf für die ganze Liste."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The frequency for now and the next one on your way. Tap for the whole list."
+            "value": "The frequency to call now, and the next one on your route. Tap it for the full list."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La fréquence du moment et la suivante sur votre route. Touchez pour la liste complète."
+            "value": "La fréquence à appeler maintenant, et la suivante sur votre route. Touchez-la pour la liste complète."
           }
         }
       }
@@ -20757,19 +20757,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Route führt in ein Land, das nicht auf dem Gerät ist. Laden Sie es hier, oder verwalten Sie die Länder unter Einstellungen › Offline-Daten."
+            "value": "Diese Route führt in ein Land, das Sie nicht heruntergeladen haben. Laden Sie es hier herunter, oder verwalten Sie Ihre Länder unter Einstellungen › Offline-Daten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This route enters a country that is not on your device. Download it here, or manage the countries in Settings › Offline data."
+            "value": "This route enters a country you haven't downloaded. Download it here, or manage your countries in Settings › Offline data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette route entre dans un pays absent de l'appareil. Téléchargez-le ici, ou gérez les pays dans Réglages › Données hors ligne."
+            "value": "Cette route entre dans un pays que vous n'avez pas téléchargé. Téléchargez-le ici, ou gérez vos pays dans Réglages › Données hors ligne."
           }
         }
       }
@@ -20849,19 +20849,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die kurzen Tipps, die einmal bei einer Funktion erscheinen."
+            "value": "Die kurzen Tipps, die jede Funktion einmal zeigt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The short tips shown once where a feature lives."
+            "value": "The short tips each feature shows once."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les courtes astuces montrées une fois là où se trouve une fonction."
+            "value": "Les courtes astuces que chaque fonction montre une fois."
           }
         }
       }
@@ -20872,19 +20872,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sobald Sie sich bewegen, zeigt sie, wohin Ihr Kurs über Grund in 1, 2 und 5 Minuten führt. Unter Karte › Kursvektor schalten Sie sie ein oder aus."
+            "value": "Sobald Sie sich bewegen, zeigt sie, wo Sie in 1, 2 und 5 Minuten sein werden. Unter Karte › Kursvektor schalten Sie sie ein oder aus."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When you move, it shows where your track takes you in 1, 2 and 5 minutes. Map › Track vector switches it."
+            "value": "When you're moving, it shows where you'll be in 1, 2 and 5 minutes. Turn it on or off in Map › Track vector."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quand vous bougez, elle montre où mène votre route sol dans 1, 2 et 5 minutes. Carte › Vecteur de route l'active ou la masque."
+            "value": "Quand vous vous déplacez, elle montre où vous serez dans 1, 2 et 5 minutes. Activez-la ou masquez-la dans Carte › Vecteur de route."
           }
         }
       }

@@ -8478,7 +8478,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Découvrez votre nouveau cockpit kneeboard"
+            "value": "Découvrez votre nouvelle planchette-cockpit"
           }
         }
       }
@@ -8593,7 +8593,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La suite, faite pour vous"
+            "value": "La suite, faite à votre place"
           }
         }
       }
@@ -8604,19 +8604,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die ganze Trockenübung plant eine Route, fliegt sie und trägt sie ins Flugbuch ein, in etwa 15 Minuten. Beim freien Üben fliegen Sie die Route oder Platzrunden Ihrer Wahl, in Ihrem Tempo. Dieser Flug wird nicht gespeichert."
+            "value": "Die ganze Trockenübung begleitet Sie durch alle Schritte eines Flugs, von der Planung bis zum Eintrag im Flugbuch. So entdecken Sie alle Funktionen der App bequem vom Sofa aus. Beim freien Üben entdecken Sie die App in Ihrem Tempo, mit einem Flug Ihrer Wahl."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The full dry run plans a route, flies it and logs it, in about 15 minutes. Free practice flies the route or circuits you choose, at your pace. This flight isn't saved."
+            "value": "The full dry run walks you through every step of a flight, from planning to the logbook entry, so you can discover all of the app's features from your sofa. Free practice lets you discover the app at your own pace, with a flight you choose."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le vol à blanc complet planifie une route, la vole et l'inscrit au carnet de vol, en environ 15 minutes. La pratique libre vole la route ou les tours de piste que vous choisissez, à votre rythme. Ce vol n'est pas enregistré."
+            "value": "Le vol à blanc vous accompagne dans toutes les étapes d'un vol : de la planification à l'inscription dans le carnet. Vous pouvez ainsi découvrir toutes les fonctionnalités de l'application depuis votre canapé. La pratique libre vous permet de découvrir l'application à votre rythme, avec un vol que vous choisissez."
           }
         }
       }
@@ -9618,7 +9618,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "AéroCheck a remarqué le décollage et noté son heure pour le carnet de vol. Il fait de même pour les remises de gaz, les posés-décollés et les atterrissages complets : vous pouvez vous concentrer sur le pilotage."
+            "value": "AéroCheck a détecté le décollage et noté son heure pour le carnet de vol. Il fait de même pour les remises de gaz, les posés-décollés et les atterrissages complets : vous pouvez vous concentrer sur le pilotage."
           }
         }
       }
@@ -10584,7 +10584,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il clôt le vol et crée son entrée de carnet, avec les heures de la trace GPS. C'est un vol à blanc : rien n'en est gardé."
+            "value": "Clôt le vol et crée son entrée de carnet, avec les heures de la trace GPS. C'est un vol à blanc : rien n'en est gardé."
           }
         }
       }
@@ -13344,7 +13344,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Montrer encore"
+            "value": "Montrer à nouveau"
           }
         }
       }

@@ -1267,7 +1267,8 @@ enum DryRunFirstFlight {
               done: .reached(.beforeEngineStart), title: "", body: "", auto: true),
             S(id: "ffCheck", chapter: 1, kind: .act, target: .check, veils: false, holds: true, moment: .now,
               done: .checkDone(.beforeEngineStart), title: T.checkTitle, body: T.checkBody, fold: T.checkFold),
-            S(id: "ffDoneForYou", chapter: 2, kind: .look, target: nil, veils: false, holds: true, moment: .now,
+            // Veiled whole: NEXT pulses under it once the check is done, and is not the card's Next (r4-49).
+            S(id: "ffDoneForYou", chapter: 2, kind: .look, target: nil, veils: true, holds: true, moment: .now,
               done: .next, title: T.doneForYouTitle, body: T.doneForYouBody),
             story("toEngineStart"), story("engineStartCheck"), story("engineStart"), story("toAfterStart"),
             story("afterStart"),

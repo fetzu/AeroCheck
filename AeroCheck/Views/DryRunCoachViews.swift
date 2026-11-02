@@ -643,7 +643,9 @@ extension View {
 }
 
 /// The veil and the ring: a do step that is one tap veils the rest of the screen, its control rung and live;
-/// any other step with a control only rings it. Nothing when the control isn't on screen (another page).
+/// any other step with a control only rings it. Nothing when the control isn't on screen (another page). A veiled step
+/// with no control veils the whole Cockpit: only the card's own buttons answer (the first flight's "The rest, done for
+/// you", whose NEXT pulsed under it and started the engine start check: the author's device check r4-49, 2 Nov 2026).
 struct DryRunCoachVeil: View {
     let step: DryRunCoachStep
     let target: CGRect?
@@ -654,7 +656,12 @@ struct DryRunCoachVeil: View {
 
     var body: some View {
         GeometryReader { geo in
-            if let target {
+            if target == nil, step.veils {
+                Color.black.opacity(0.62)
+                    .frame(width: geo.size.width + 800, height: geo.size.height + 800)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .contentShape(Rectangle())
+            } else if let target {
                 let hole = target.insetBy(dx: -6, dy: -6)
                 ZStack {
                     if step.veils {

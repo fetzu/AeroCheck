@@ -6,6 +6,21 @@ import XCTest
 @MainActor
 final class DryRunFirstFlightTests: XCTestCase {
 
+    func testTheFirstFlightsMapShowsTheCircuitsTheRoutesAndTheTrackVector() {
+        // The author's device check r4-41 (2 Nov 2026): on, whatever the pilot's own; the full dry run keeps theirs.
+        var pilot = AppSettings()
+        pilot.showVFRCircuitsOnMap = false
+        pilot.showVFRRoutesOnMap = false
+        pilot.showTrackVector = false
+        let first = DryRunCenter.worldSettings(pilot, guided: true, firstFlight: true)
+        XCTAssertTrue(first.showVFRCircuitsOnMap)
+        XCTAssertTrue(first.showVFRRoutesOnMap)
+        XCTAssertTrue(first.showTrackVector)
+        let story = DryRunCenter.worldSettings(pilot, guided: true)
+        XCTAssertFalse(story.showVFRCircuitsOnMap)
+        XCTAssertFalse(story.showTrackVector)
+    }
+
     func testItsStepsAreTheStorysWhereTheyCanBe() {
         let steps = DryRunFirstFlight.steps
         XCTAssertEqual(steps.count, Set(steps.map(\.id)).count, "unique ids")
@@ -14,8 +29,8 @@ final class DryRunFirstFlightTests: XCTestCase {
         XCTAssertEqual(steps.last?.kind, .partEnd)
         // What the pilot meets: the three moments, END FLIGHT, the end.
         let shown = steps.filter { !$0.auto }.map(\.id)
-        XCTAssertEqual(shown, ["startFlight", "ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio",
-                               "ffApproach", "endFlight", "ffEnd"])
+        XCTAssertEqual(shown, ["startFlight", "ffMeet", "ffList", "ffButtons", "ffCheck", "ffDoneForYou", "ffStrip",
+                               "mapTakeoff", "airborne", "ffRadio", "ffApproach", "ffCircuits", "endFlight", "ffEnd"])
         // The third moment is the approach check, said on the downwind; the landing check, a memory item, is done
         // for the pilot (the author's device check r4-20, 1 Nov 2026).
         XCTAssertEqual(steps.first { $0.id == "ffApproach" }?.moment, .downwind(0.2, .check(.approach)))
@@ -53,9 +68,41 @@ final class DryRunFirstFlightTests: XCTestCase {
             flight.wait(1)
         }
         stuck = "\(coach.step?.id ?? "none") at \(flight.appState.currentPhase), index \(coach.index)"
-        XCTAssertEqual(shown, ["ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio", "ffApproach",
-                               "endFlight", "ffEnd"], stuck)
+        XCTAssertEqual(shown, ["ffMeet", "ffList", "ffButtons", "ffCheck", "ffDoneForYou", "ffStrip", "mapTakeoff",
+                               "airborne", "ffRadio", "ffApproach", "ffCircuits", "endFlight", "ffEnd"], stuck)
         XCTAssertFalse(flight.appState.isFlightActive, "the flight ended: \(stuck)")
+    }
+
+    func testTheFlightDataCardComesOnTheTaxiAndTheCircuitsCardOnceStopped() throws {
+        // The author's rework of 2 Nov 2026 (r4-41): the strip explained as the aircraft taxis out, moving under the
+        // card; circuits once stopped after the landing, before AT THE HANGAR.
+        let setup = DryRunSetup(mission: .circuits(.lszq), rate: 0, landings: [.fullStop], guided: .firstFlight)
+        let flight = try DryRunHeadless(self, setup: setup, seed: 11)
+        let session = flight.session
+        let coach = try XCTUnwrap(session.coach)
+        flight.fastForward()
+        var seen: [String: DryRunGenerator.Activity] = [:]
+        var stripSeconds = 0
+        for _ in 0..<(2 * 3600) {
+            guard let step = coach.step else { flight.wait(1); continue }
+            if seen[step.id] == nil { seen[step.id] = session.generator.activity }
+            if step.id == "ffEnd" { break }
+            if step.id == "ffStrip", stripSeconds < 10 {
+                // Read for ten seconds: the aircraft keeps taxiing.
+                stripSeconds += 1
+                flight.wait(1)
+                continue
+            }
+            switch step.done {
+            case .next, .partEnd: coach.next()
+            default: coach.actAsPilot(step, session)
+            }
+            flight.wait(1)
+        }
+        XCTAssertEqual(seen["ffStrip"], .taxiing)
+        XCTAssertEqual(session.generator.mark("liftoff") != nil, true)
+        XCTAssertTrue([.stopped, .taxiingIn, .parkedEnd].contains(seen["ffCircuits"]),
+                      "\(String(describing: seen["ffCircuits"]))")
     }
 
     func testTheCockpitShowsMapAfterTheApproachCheckAndChecklistForEndFlight() throws {
@@ -82,7 +129,8 @@ final class DryRunFirstFlightTests: XCTestCase {
             flight.wait(1)
         }
         XCTAssertEqual(coach.step?.id, "endFlight")
-        XCTAssertEqual(asked, [.map, .checklist], "MAP after the approach check, CHECKLIST for END FLIGHT")
+        XCTAssertEqual(asked, [.checklist, .checklist, .checklist, .map, .checklist],
+                       "CHECKLIST for the cockpit's cards, MAP after the approach check, CHECKLIST for END FLIGHT")
     }
 
     func testENDAtEndFlightEndsTheCircuitAsEndFlightDoes() throws {
@@ -141,8 +189,8 @@ final class DryRunFirstFlightTests: XCTestCase {
             flight.wait(1)
             if session.pace > 0 { pilotSeconds += 1 / session.pace }
         }
-        XCTAssertEqual(shown, ["ffWelcome", "ffCheck", "ffDoneForYou", "mapTakeoff", "airborne", "ffRadio", "ffApproach",
-                               "endFlight", "ffEnd"])
+        XCTAssertEqual(shown, ["ffMeet", "ffList", "ffButtons", "ffCheck", "ffDoneForYou", "ffStrip", "mapTakeoff",
+                               "airborne", "ffRadio", "ffApproach", "ffCircuits", "endFlight", "ffEnd"])
         let approach = try XCTUnwrap(approachShownAt)
         XCTAssertEqual(approach.activity, .downwind, "the approach check's card on the downwind")
         let fraction = try XCTUnwrap(approach.fraction)

@@ -70,6 +70,12 @@ struct DryRunCoachStep: Equatable {
         case first
         /// CHECK, then NEXT, READY FOR LINE UP, END FLIGHT.
         case primary
+        /// The first flight's cockpit cards (the author's rework of 2 Nov 2026, r4-41): the header with the phase bar,
+        /// the checklist's list, the act band's first two slots (the union of `first` and `primary`), the strip.
+        case cockpitHeader
+        case checklistList
+        case firstTwoSlots
+        case flightData
         /// Where a check goes on from: the first slot on MAP and ROUTE (it names the check), CHECK or NEXT on
         /// CHECKLIST. Resolved by the coach; no control says it of itself.
         case check
@@ -159,6 +165,9 @@ struct DryRunCoachStep: Equatable {
         case final(Int)
         /// Taxiing out, a few seconds in.
         case taxiing
+        /// Landed and stopped on the runway, or later: taxiing in, parked. (6.8.0, the first flight's card on circuits;
+        /// in a circuit the aircraft waits there for the checks to say whether it goes again or vacates)
+        case stoppedAfterLanding
         /// The band shows it, and the aircraft is about to join the circuit or in it (the published arrival
         /// begun): the approach check's card comes before the downwind, not 5 NM out (st-14).
         case nearCircuit(Slot)
@@ -980,6 +989,7 @@ final class DryRunCoach: ObservableObject {
         case .taxiing:
             return generator.activity == .taxiing && generator.mark("liftoff") == nil
                 && generator.t - generator.activitySince >= 4
+        case .stoppedAfterLanding: return [.stopped, .taxiingIn, .parkedEnd].contains(generator.activity)
         case .nearCircuit(let slot):
             let circuit: [DryRunGenerator.Activity] = [.joining, .upwind, .crosswind, .downwind, .base, .final]
             return circuit.contains(generator.activity) && Self.shows(slot, appState)
@@ -1208,7 +1218,8 @@ final class DryRunCoach: ObservableObject {
 // MARK: - The first flight (6.8.0)
 
 /// Onboarding's circuit on the ground, about three minutes: one circuit at the home aerodrome and three moments where
-/// the pilot acts (a check, the map and its radio, the landing check and END FLIGHT); the steps between them are the
+/// the pilot acts (the cockpit and a check, the flight data, the map and its radio, the approach check and END
+/// FLIGHT); the steps between them are the
 /// story's, done for the pilot as their moment comes (the author's answers p2 A, 31 Oct 2026). The chapters are the
 /// story's, so the coach's rules for them hold.
 enum DryRunFirstFlight {
@@ -1240,9 +1251,14 @@ enum DryRunFirstFlight {
         return [
             // START FLIGHT, behind the cover; the Cockpit then.
             story("startFlight", auto: false),
-            // 1 · A check: the preflight done for the pilot, the before engine start check theirs.
-            S(id: "ffWelcome", chapter: 1, kind: .look, target: nil, veils: false, holds: true, moment: .now,
-              done: .next, title: T.welcomeTitle, body: T.welcomeBody),
+            // 1 · The cockpit in three cards (the header, the checklist, the buttons), then a check: the preflight done
+            // for the pilot, the before engine start check theirs (the author's rework of 2 Nov 2026, r4-41).
+            S(id: "ffMeet", chapter: 1, kind: .look, target: .cockpitHeader, veils: false, holds: true, moment: .now,
+              done: .next, title: T.meetTitle, body: T.meetBody, page: .checklist),
+            S(id: "ffList", chapter: 1, kind: .look, target: .checklistList, veils: false, holds: true, moment: .now,
+              done: .next, title: T.listTitle, body: T.listBody, page: .checklist),
+            S(id: "ffButtons", chapter: 1, kind: .look, target: .firstTwoSlots, veils: false, holds: true,
+              moment: .now, done: .next, title: T.buttonsTitle, body: T.buttonsBody, page: .checklist),
             S(id: "ffToCheck", chapter: 1, kind: .act, target: nil, veils: false, holds: false, moment: .now,
               done: .reached(.beforeEngineStart), title: "", body: "", auto: true),
             S(id: "ffCheck", chapter: 1, kind: .act, target: .check, veils: false, holds: true, moment: .now,
@@ -1250,7 +1266,11 @@ enum DryRunFirstFlight {
             S(id: "ffDoneForYou", chapter: 2, kind: .look, target: nil, veils: false, holds: true, moment: .now,
               done: .next, title: T.doneForYouTitle, body: T.doneForYouBody),
             story("toEngineStart"), story("engineStartCheck"), story("engineStart"), story("toAfterStart"),
-            story("afterStart"), story("toBeforeDeparture"), story("readyForLineUp"), story("lineUpCheck"),
+            story("afterStart"),
+            // 2 · The flight data as the taxi starts, the aircraft moving under the card; the map and its radio.
+            S(id: "ffStrip", chapter: 3, kind: .look, target: .flightData, veils: false, holds: false,
+              moment: .taxiing, done: .next, title: T.stripTitle, body: T.stripBody),
+            story("toBeforeDeparture"), story("readyForLineUp"), story("lineUpCheck"),
             // 2 · The map and its radio, the take-off and the circuit.
             // The story's card sends the pilot to the climb check next, done for them here.
             story("mapTakeoff", auto: false, body: T.mapTakeoffBody),
@@ -1268,6 +1288,10 @@ enum DryRunFirstFlight {
               memoryCheck: .approach, memoryBody: T.approachMemoryBody, memoryFold: T.approachFold, pageAfter: .map),
             S(id: "ffLanding", chapter: 6, kind: .act, target: nil, veils: false, holds: false, moment: .final(1),
               done: .checkDone(.landing), title: "", body: "", auto: true),
+            // Landed and stopped, before AT THE HANGAR: what changes for circuits.
+            S(id: "ffCircuits", chapter: 7, kind: .look, target: nil, veils: false, holds: true,
+              moment: .stoppedAfterLanding,
+              done: .next, title: T.circuitsTitle, body: T.circuitsBody),
             story("toShutdown"), story("shutdownCheck"), story("engineShutdown"), story("toEndFlight"),
             story("endFlight", auto: false),
             // On Today once the flight has ended, as the story's Fly ends: the logbook's line, then what next.

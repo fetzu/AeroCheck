@@ -4342,8 +4342,18 @@ enum L10n {
 
         /// Onboarding's circuit on the ground (`DryRunFirstFlight`). (6.8.0)
         enum FirstFlight {
-            static let welcomeTitle = String(localized: "dryRunCoach.ff.welcomeTitle")
-            static let welcomeBody = String(localized: "dryRunCoach.ff.welcomeBody")
+            // The cockpit in three cards, the flight data, circuits, the line on final (r4-41, 2 Nov 2026).
+            static let meetTitle = String(localized: "dryRunCoach.ff.meetTitle")
+            static let meetBody = String(localized: "dryRunCoach.ff.meetBody")
+            static let listTitle = String(localized: "dryRunCoach.ff.listTitle")
+            static let listBody = String(localized: "dryRunCoach.ff.listBody")
+            static let buttonsTitle = String(localized: "dryRunCoach.ff.buttonsTitle")
+            static let buttonsBody = String(localized: "dryRunCoach.ff.buttonsBody")
+            static let stripTitle = String(localized: "dryRunCoach.ff.stripTitle")
+            static let stripBody = String(localized: "dryRunCoach.ff.stripBody")
+            static let circuitsTitle = String(localized: "dryRunCoach.ff.circuitsTitle")
+            static let circuitsBody = String(localized: "dryRunCoach.ff.circuitsBody")
+            static let finalLine = String(localized: "dryRunCoach.ff.finalLine")
             static let checkTitle = String(localized: "dryRunCoach.ff.checkTitle")
             static let checkFold = String(localized: "dryRunCoach.ff.checkFold")
             static let doneForYouTitle = String(localized: "dryRunCoach.ff.doneForYouTitle")

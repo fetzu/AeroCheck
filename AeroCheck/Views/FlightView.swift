@@ -976,25 +976,29 @@ extension FlightView {
             // The header and the checklist are views of their own (`SeparateView`): inline, the
             // Cockpit's value was 23 KB and its first render took 824 KB of the device's 1 MB
             // main-thread stack in a Debug build.
-            SeparateView { cockpitHeader(style: narrow ? .narrow : .wide) }
-                .padding(.horizontal, narrow ? 16 : 20)
-                .padding(.top, narrow ? 4 : 8)
-                .padding(.bottom, narrow ? 6 : 0)
-                .background(theme.panel)
+            // The header and the iPad's phase bar, one target for the first flight's card on them (r4-41).
+            VStack(spacing: 0) {
+                SeparateView { cockpitHeader(style: narrow ? .narrow : .wide) }
+                    .padding(.horizontal, narrow ? 16 : 20)
+                    .padding(.top, narrow ? 4 : 8)
+                    .padding(.bottom, narrow ? 6 : 0)
+                    .background(theme.panel)
 
-            // The iPad's phase bar, its segments a control tall to the touch. The phone draws it in the
-            // phase button, as on its side, whose tap opens the phase list, where a phase is picked by
-            // its name: its own row took 50 pt of a chart that has 220 (an iPhone 17e) since the read
-            // band. (6.2, PR 4)
-            // The panel's colour stops `blockGap` above the segments' foot: the gap over the strip is the one
-            // between every block, and the segments keep their full height to the touch (6.4.3, option B).
-            if !narrow {
-                phaseProgressBarView
-                    .padding(.horizontal, 20)
-                    .background(alignment: .top) {
-                        theme.panel.padding(.bottom, ReadBandMetrics.blockGap)
-                    }
+                // The iPad's phase bar, its segments a control tall to the touch. The phone draws it in the
+                // phase button, as on its side, whose tap opens the phase list, where a phase is picked by
+                // its name: its own row took 50 pt of a chart that has 220 (an iPhone 17e) since the read
+                // band. (6.2, PR 4)
+                // The panel's colour stops `blockGap` above the segments' foot: the gap over the strip is the one
+                // between every block, and the segments keep their full height to the touch (6.4.3, option B).
+                if !narrow {
+                    phaseProgressBarView
+                        .padding(.horizontal, 20)
+                        .background(alignment: .top) {
+                            theme.panel.padding(.bottom, ReadBandMetrics.blockGap)
+                        }
+                }
             }
+            .coachTarget(.cockpitHeader)
 
             // The read band's live rows, over every page: GS · ALT · TRK · NEXT whenever the aircraft
             // moves (Taxi to After landing), NEXT with its figures, then NOW | NEXT; on the phone, the
@@ -1028,6 +1032,7 @@ extension FlightView {
                 // kept: the picker row has no room left for them. (6.2)
                 cockpitChecklistChips(narrow: narrow)
                 SeparateView { cockpitChecklistPage(narrow: narrow) }
+                    .coachTarget(.checklistList)
             }
         case .map:
             // The chart alone since 6.2 (PR 4): the aircraft, the route, the airspace, and the chrome over

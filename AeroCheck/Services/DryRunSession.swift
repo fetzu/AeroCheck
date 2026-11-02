@@ -408,7 +408,9 @@ final class DryRunSession: ObservableObject, Identifiable {
         case .crosswind: doing = L10n.DryRunCoach.Doing.crosswind
         case .downwind: doing = L10n.DryRunCoach.Doing.downwind
         case .base: doing = L10n.DryRunCoach.Doing.base
-        case .final: doing = L10n.DryRunCoach.Doing.final
+        // On the first flight's final, where the landing check is due, done for the pilot (r4-41).
+        case .final: doing = setup.guided?.isFirstFlight == true ? L10n.DryRunCoach.FirstFlight.finalLine
+            : L10n.DryRunCoach.Doing.final
         case .goingAround: doing = L10n.DryRunCoach.Doing.goingAround
         case .landing: doing = L10n.DryRunCoach.Doing.landing
         case .stopped: doing = L10n.DryRunCoach.Doing.stopped
@@ -784,8 +786,14 @@ final class DryRunCenter: ObservableObject {
     static func worldSettings(_ settings: AppSettings, guided: Bool, firstFlight: Bool = false) -> AppSettings {
         var settings = settings
         if guided { settings.learningMode = true }
-        // No engine hours to type in three minutes. (6.8.0)
-        if firstFlight { settings.logEngineHours = false }
+        // No engine hours to type in three minutes. (6.8.0) On its map, the traffic circuits, the arrival and
+        // departure routes and the track vector, whatever the pilot's own (the author's device check r4-41).
+        if firstFlight {
+            settings.logEngineHours = false
+            settings.showVFRCircuitsOnMap = true
+            settings.showVFRRoutesOnMap = true
+            settings.showTrackVector = true
+        }
         return settings
     }
 

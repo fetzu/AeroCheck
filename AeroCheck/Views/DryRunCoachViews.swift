@@ -6,6 +6,17 @@ import Combine
 
 /// Where the Cockpit's controls are, for the coach's ring: each control the guided flight points at says so
 /// with `.coachTarget(_:)`. Read only by a dry run's Cockpit; nothing changes for a real flight's.
+extension Dictionary where Key == DryRunCoachStep.Target, Value == Anchor<CGRect> {
+    /// What `target` rings, where it is: the act band's first two slots together for `.firstTwoSlots`.
+    func frame(of target: DryRunCoachStep.Target?, in proxy: GeometryProxy) -> CGRect? {
+        guard let target else { return nil }
+        if target == .firstTwoSlots, let first = self[.first], let primary = self[.primary] {
+            return proxy[first].union(proxy[primary])
+        }
+        return self[target].map { proxy[$0] }
+    }
+}
+
 struct CoachTargetKey: PreferenceKey {
     static var defaultValue: [DryRunCoachStep.Target: Anchor<CGRect>] { [:] }
 
@@ -120,8 +131,7 @@ private struct DryRunGroundCoachLayer: View {
                         content(step, target: Self.systemFrame(of: coach.resolvedTarget(of: step), in: proxy), proxy: proxy)
                     }
                 } else {
-                    content(step, target: coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] },
-                            proxy: proxy)
+                    content(step, target: anchors.frame(of: coach.resolvedTarget(of: step), in: proxy), proxy: proxy)
                 }
             }
         }

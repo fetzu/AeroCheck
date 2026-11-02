@@ -73,6 +73,7 @@ struct CockpitReadRows: View {
                     onSpeedTap: onSpeedTap, language: language, compact: layout == .columns,
                     tight: layout == .narrow)
                     .readBandPart(.strip)
+                    .coachTarget(.flightData)
             }
             Group {
                 switch layout {

@@ -993,8 +993,11 @@ struct OnboardingView: View {
     private func primaryButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
+                // One line, the icon right after the words ("Fly it (about 3 minutes)", r4-41).
                 Text(title)
                     .font(.aero(.body).weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Image(systemName: icon)
                     .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .accessibilityHidden(true)

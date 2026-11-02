@@ -8144,19 +8144,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: Tippen Sie für jeden Punkt auf ABHAKEN, sobald Sie ihn ausgeführt haben. Die nächste Kontrolle erscheint, wenn ihre Phase kommt."
+            "value": "%@: Tippen Sie für jeden Punkt auf ABHAKEN, sobald Sie ihn erledigt haben."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: tap CHECK for each item as you do it. The next check appears when its phase comes."
+            "value": "%@: tap CHECK for each item as you complete it."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : touchez COCHER pour chaque élément à mesure que vous le faites. La vérification suivante apparaît quand sa phase arrive."
+            "value": "%@ : touchez COCHER pour chaque élément une fois fait."
           }
         }
       }
@@ -8236,19 +8236,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Im Gegenanflug: Tippen Sie auf die Kontrolle im Anflug und führen Sie ihre Punkte durch. Bei den meisten Flugzeugen sind es Memory Items, die man ohne Lesen sagt. Sobald Sie sie kennen, blenden Sie sie unter Einstellungen › Checkliste & Flug › Memory Items ausblenden aus."
+            "value": "Im Gegenanflug: Tippen Sie auf die Kontrolle im Anflug und führen Sie ihre Punkte durch. Bei den meisten Flugzeugen sind es Memory Items: Sie erledigen sie selbst und bestätigen in der App nur die Kontrolle. Unter «Einstellungen › Checkliste & Flug › Memory Items ausblenden» blenden Sie Memory Items aus oder ein."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On the downwind: tap the approach check and do its items. On most aircraft these are memory items, said without reading. Once you know them, hide them in Settings › Checklist & Flight › Hide memory items."
+            "value": "On the downwind: tap the approach check and do its items. On most aircraft these are memory items: you do them by yourself and just validate the check in the app. You can choose to hide or show memory items in \"Settings › Checklist & Flight › Hide memory items\"."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En vent arrière : touchez la vérification d'approche et faites ses éléments. Sur la plupart des avions, ce sont des éléments mémoire, dits sans lire. Quand vous les connaissez, masquez-les dans Réglages › Checklist & Vol › Masquer les éléments mémoire."
+            "value": "En vent arrière : touchez la vérification d'approche et faites ses éléments. Sur la plupart des avions, ce sont des éléments mémoire : vous les faites de vous-même et validez simplement la vérification dans l'app. Vous pouvez masquer ou afficher les éléments mémoire dans « Réglages › Checklist & Vol › Masquer les éléments mémoire »."
           }
         }
       }
@@ -8272,6 +8272,259 @@
           "stringUnit": {
             "state": "translated",
             "value": "La vérification d'approche"
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.buttonsBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Tasten unten bewegen sich während eines Flugs nie; nur ihre Beschriftung ändert sich, damit Ihr Daumen sie ohne Hinsehen findet. Die erste nennt die laufende Kontrolle; die zweite tut den nächsten Schritt: hier ABHAKEN, für den aktuellen Punkt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The buttons at the bottom never move during a flight; only their words change, so your thumb finds them without looking. The first names the check under way; the second does the next thing: here CHECK, for the item you're on."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les boutons du bas ne bougent jamais pendant un vol ; seuls leurs mots changent, pour que votre pouce les trouve sans regarder. Le premier nomme la vérification en cours ; le second fait la suite : ici COCHER, pour l'élément où vous en êtes."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.buttonsTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Tasten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The buttons"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les boutons"
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.circuitsBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie fliegen Platzrunden? Beginnen Sie mit PLATZRUNDEN unter Heute. Die Kontrollen für Reiseflug und Sinkflug entfallen, jedes Touch-and-go und jeder Full Stop wird gezählt, und nach einem Full Stop bringt Sie NEUE RUNDE zurück zur Kontrolle vor dem Start."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flying circuits? Start with CIRCUITS on Today. The cruise and descent checks are left out, each touch-and-go and full stop is counted, and after a full stop NEW CIRCUIT takes you back to the before-departure check."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous faites des tours de piste ? Commencez par TOURS DE PISTE sur Aujourd'hui. Les vérifications de croisière et de descente sont omises, chaque posé-décollé et atterrissage complet est compté, et après un atterrissage complet, NOUVEAU TOUR vous ramène à la vérification avant départ."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.circuitsTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auch Platzrunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circuits, too"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les tours de piste aussi"
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.finalLine": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endanflug: Hier ist die Landekontrolle fällig. Bei dieser Demo wird sie für Sie erledigt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Final: the landing check is due here. For this demo, it's done for you."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finale : la vérification d'atterrissage se fait ici. Pour cette démo, elle est faite pour vous."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.listBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die laufende Kontrolle, Punkt für Punkt. Die grosse Zeile ist der Punkt, der jetzt dran ist; erledigte Punkte stehen abgehakt darüber."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check under way, item by item. The large line is the item to do now; the items done are ticked above it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification en cours, élément par élément. La grande ligne est l'élément à faire maintenant ; les éléments faits sont cochés au-dessus."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.listTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Checkliste"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The checklist"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist"
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.meetBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oben: das Flugzeug, die laufende Kontrolle, die Flugzeit und der GPS-Status. Der Balken darunter zeigt die Phasen des Flugs und ihren Stand (die aktuelle ist blau). Über Menü erreichen Sie weitere Optionen und Aktionen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the top: the aircraft, the check currently under way, the flight time and the GPS status. The bar under it shows the flight's phases and their status (the current one is shown in blue). Menu gives you access to more options and actions."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En haut : l'avion, la vérification en cours, le temps de vol et l'état du GPS. La barre en dessous montre les phases du vol et leur état (la phase en cours est en bleu). Menu donne accès à d'autres options et actions."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.meetTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr neues Kniebrett-Cockpit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meet your new kneeboard cockpit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découvrez votre nouveau cockpit kneeboard"
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.stripBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GS ist Ihre Geschwindigkeit über Grund in Knoten, ALT Ihre Höhe in Fuss, TRK Ihr Kurs über Grund. Auf einer Route zeigt NÄCHSTE den nächsten Wegpunkt, wie weit und wie lange. Sehen Sie zu, wie sie sich beim Rollen ändern."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GS is your ground speed in knots, ALT your altitude in feet, TRK your track. On a route, NEXT shows the next waypoint, how far and how long. Watch them change as the aircraft taxis."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GS est votre vitesse sol en nœuds, ALT votre altitude en pieds, TRK votre route. Sur une route, SUIVANT montre le prochain point, à quelle distance et dans combien de temps. Regardez-les changer pendant le roulage."
+          }
+        }
+      }
+    },
+    "dryRunCoach.ff.stripTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Flugdaten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your flight data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données de vol"
           }
         }
       }
@@ -8305,19 +8558,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anlassen, Rollen und Aufstellen laufen jetzt schnell ab, ihre Kontrollen werden für Sie erledigt. Sehen Sie, wie die Checkliste dem Flug folgt."
+            "value": "Bei diesem Demoflug erledigt die App die Kontrollen für Anlassen, Rollen und Aufstellen für Sie. Bei einem echten Flug gehen Sie jede davon selbst durch."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The engine start, taxi and line-up now go quickly, their checks done for you. Watch the checklist follow the flight."
+            "value": "For this demo flight, the app does the engine start, the taxi and the line-up checks for you. In a real flight you have to go through each of them."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La mise en route, le roulage et l'alignement passent maintenant vite, leurs vérifications faites pour vous. Regardez la checklist suivre le vol."
+            "value": "Pour ce vol de démonstration, l'app fait pour vous les vérifications de la mise en route, du roulage et de l'alignement. En vol réel, vous devez faire chacune d'elles."
           }
         }
       }
@@ -8548,19 +8801,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "AKT. ist die Frequenz, die Sie hier rufen. Auf einer Route zeigt NÄCHSTE die nächste und wann Sie wechseln; in der Platzrunde gibt es kein NÄCHSTE."
+            "value": "AKT. ist die Frequenz, die Sie hier rufen. Auf einer Route zeigt NÄCHSTE die nächste und wann Sie wechseln (in der Platzrunde gibt es kein NÄCHSTE)."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOW is the frequency to call here. On a route, NEXT shows the next one and when to change; in the circuit there's no NEXT."
+            "value": "NOW is the frequency to call here. On a route, NEXT shows the next one and when to change (in the circuit there's no NEXT)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ACT est la fréquence à appeler ici. Sur une route, SUIV montre la suivante et quand changer ; dans le tour de piste, il n'y a pas de SUIV."
+            "value": "ACT est la fréquence à appeler ici. Sur une route, SUIV montre la suivante et quand changer (dans le tour de piste, il n'y a pas de SUIV)."
           }
         }
       }
@@ -8607,52 +8860,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Volez avec la checklist de %@ : essayez Pro gratuitement"
-          }
-        }
-      }
-    },
-    "dryRunCoach.ff.welcomeBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sie machen drei Dinge: eine Checkliste, einen Blick auf die Karte und ihren Funk und die Kontrolle im Anflug. Den Rest erledigt die App. ENDE bricht jederzeit ab."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You do three things: a checklist, a look at the map and its radio, and the approach check. The app does the rest. END stops it at any time."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous faites trois choses : une checklist, un coup d'œil à la carte et à sa radio, et la vérification d'approche. L'app fait le reste. FIN l'arrête à tout moment."
-          }
-        }
-      }
-    },
-    "dryRunCoach.ff.welcomeTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Das Cockpit, wie im Flug"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The Cockpit, as in flight"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le cockpit, comme en vol"
           }
         }
       }
@@ -9399,19 +9606,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App hat den Start erkannt und seine Zeit aufgezeichnet. Im Flug läuft sie mit: Sie tippen nur, wenn sie Sie darum bittet."
+            "value": "AéroCheck hat den Start bemerkt und seine Zeit fürs Flugbuch notiert. Dasselbe tut es bei Durchstarts, Touch-and-gos und Full Stops, damit Sie sich aufs Fliegen konzentrieren können."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The app detected the take-off and recorded its time. In flight it follows along: you only tap when it asks you to."
+            "value": "AéroCheck noticed the take-off and noted its time for the logbook. It does the same for go-arounds, touch-and-goes and full-stop landings, so you can focus on flying the plane."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app a détecté le décollage et enregistré son heure. En vol, elle suit : vous ne touchez que lorsqu'elle vous le demande."
+            "value": "AéroCheck a remarqué le décollage et noté son heure pour le carnet de vol. Il fait de même pour les remises de gaz, les posés-décollés et les atterrissages complets : vous pouvez vous concentrer sur le pilotage."
           }
         }
       }
@@ -17363,19 +17570,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etwa drei Minuten: eine Platzrunde in %@, mit einer Checkliste, der Karte und ihrem Funk und der Kontrolle im Anflug. Nichts wird gespeichert."
+            "value": "Eine Platzrunde in %@, mit einer Checkliste, der Karte und ihrem Funk und der Kontrolle im Anflug. Nichts wird gespeichert."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "About three minutes: one circuit at %@, with a checklist, the map and its radio, and the approach check. Nothing is saved."
+            "value": "One circuit at %@, with a checklist, the map and its radio, and the approach check. Nothing is saved."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Environ trois minutes : un tour de piste à %@, avec une checklist, la carte et sa radio, et la vérification d'approche. Rien n'est enregistré."
+            "value": "Un tour de piste à %@, avec une checklist, la carte et sa radio, et la vérification d'approche. Rien n'est enregistré."
           }
         }
       }
@@ -17386,19 +17593,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los geht's"
+            "value": "Los geht's (etwa 3 Minuten)"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fly it"
+            "value": "Fly it (about 3 minutes)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "C'est parti"
+            "value": "C'est parti (environ 3 minutes)"
           }
         }
       }

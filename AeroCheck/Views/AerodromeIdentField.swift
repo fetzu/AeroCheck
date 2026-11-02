@@ -6,7 +6,8 @@ import SwiftUI
 // flight completes its stops: five fixed-wing suggestions from the second character, the aerodrome's
 // name beside the code once it resolves. Used for the home aerodrome, in Settings › Flight Planning
 // and in onboarding. Without the airport data on the device (onboarding, before its download), an
-// `onlineSearch` offers OpenAIP's matches instead (6.8.0, the author's device check r4-18).
+// `onlineSearch` offers the bundled index's matches instead (`BundledAerodromes`, 6.8.0, the author's device
+// checks r4-18 and r4-40).
 
 struct AerodromeIdentField: View {
     /// The aerodrome's ident, nil when the field is empty. Only a code the airport data knows gets here

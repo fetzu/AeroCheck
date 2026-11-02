@@ -1,9 +1,9 @@
 import CoreLocation
 import Foundation
 
-/// The aerodrome nearest the pilot, for onboarding's "Based at": asked of OpenAIP's online search, since on a fresh
-/// install no aerodrome database is on the device yet (the author's answer 2 A on the onboarding page, 31 Oct 2026).
-/// The position goes rounded to about a kilometre, as the online airspace's does. (6.8.0)
+/// The aerodrome nearest the pilot, for onboarding's "Based at" (the author's answer 2 A on the onboarding page,
+/// 31 Oct 2026): from the bundled index (`BundledAerodromes`), offline, since 2 Nov 2026; OpenAIP's online search only
+/// if it were missing. The position goes to OpenAIP rounded to about a kilometre, as the online airspace's does. (6.8.0)
 enum NearestAerodrome {
 
     struct Found: Equatable {
@@ -75,6 +75,12 @@ enum NearestAerodrome {
     /// Asks OpenAIP around the pilot, else the country's list (`country`, ISO-2) for the nearest; nil offline, on any
     /// failure, or with nothing within reach.
     static func find(near coordinate: CLLocationCoordinate2D, country: String?) async -> Found? {
+        // The bundled index first: on the device, so no signal and no OpenAIP needed (the author's go, 2 Nov 2026).
+        let bundled = await Task.detached(priority: .userInitiated) {
+            BundledAerodromes.all.isEmpty ? nil : BundledAerodromes.nearest(to: coordinate)
+        }.value
+        if let bundled { return bundled }
+        guard BundledAerodromes.all.isEmpty else { return nil }
         if let request = request(near: coordinate), let data = await fetch(request),
            let found = nearest(in: data, to: coordinate) {
             return found
@@ -101,6 +107,10 @@ enum NearestAerodrome {
     /// search is refused): onboarding's "Based at" offers them while the airports file isn't on the device yet (the
     /// author's answer on 1 Nov 2026 to device check r4-18). Empty offline or on any failure.
     static func search(_ query: String, limit: Int = 6) async -> [Named] {
+        let local = await Task.detached(priority: .userInitiated) {
+            BundledAerodromes.all.isEmpty ? nil : BundledAerodromes.search(query, limit: limit)
+        }.value
+        if let local { return local }
         let typed = query.trimmingCharacters(in: .whitespaces)
         guard typed.count >= 2,
               let encoded = typed.addingPercentEncoding(withAllowedCharacters: .alphanumerics),

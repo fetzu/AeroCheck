@@ -2733,6 +2733,14 @@ struct TripDataBanner: View {
 
     private var tripNeedsSomething: Bool { !tripNeededCountries.isEmpty || !tripNeededRegions.isEmpty }
 
+    /// How far the download is: the layers and regions done, plus the regions' bytes so far (a region is the
+    /// big part, a hundred megabytes or more, so a count alone would sit still on it).
+    private var prefetchFraction: Double {
+        guard prefetchTotal > 0 else { return 0 }
+        let regionsUnderWay = pilotMap.progress.values.reduce(0, +)
+        return min(1, (Double(prefetchStep) + regionsUnderWay) / Double(prefetchTotal))
+    }
+
     /// Download the per-country layers for the route's missing countries (merged with what's cached).
     ///
     /// If coverage is still incomplete afterwards the banner says the download failed rather than
@@ -2834,6 +2842,12 @@ struct TripDataBanner: View {
                         .foregroundColor(.secondaryText)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                    // The download's progress in the banner itself (the author's device check r4-42, 2 Nov 2026).
+                    if isPrefetchingTrip {
+                        ProgressView(value: prefetchFraction)
+                            .tint(tint)
+                            .padding(.top, 4)
+                    }
                 }
                 Spacer(minLength: 8)
                 if isPrefetchingTrip {

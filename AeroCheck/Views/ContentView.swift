@@ -246,7 +246,7 @@ struct ContentView: View {
             // A dry run instead (`AEROCHECK_DRYRUN=lszq`, at `AEROCHECK_DRYRUN_SPEED`, 4 by default): its
             // circuits at LSZQ from launch, for a check or a capture without a tap. `AEROCHECK_DRYRUN_AUTO=1`
             // flies it as a pilot would, `AEROCHECK_DRYRUN_STOP=final|cruise|over` stops it there
-            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet; `guided`: the guided dry run, the
+            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet; `first`: onboarding's circuit; `guided`: the guided dry run, the
             // whole story, from `AEROCHECK_DRYRUN_PART` (1 to 4) or Fly's `AEROCHECK_DRYRUN_CHAPTER`. (6.4.0)
             let environment = ProcessInfo.processInfo.environment
             if let dryRun = environment["AEROCHECK_DRYRUN"]?.lowercased() {
@@ -254,6 +254,14 @@ struct ContentView: View {
                 if !appState.hasSeenOnboarding { appState.completeOnboarding() }
                 if dryRun == "sheet" {
                     DryRunCenter.shared.requestStart()
+                    return
+                }
+                if dryRun == "first" {
+                    // The first flight, onboarding's circuit (6.8.0), flown and stopped as the guided one is.
+                    DryRunCenter.shared.requestFirstFlight()
+                    if environment["AEROCHECK_DRYRUN_AUTO"] == "1" {
+                        DryRunAutopilot(stop: environment["AEROCHECK_DRYRUN_STOP"].flatMap(DryRunAutopilot.Stop.init)).fly()
+                    }
                     return
                 }
                 if dryRun == "guided" {

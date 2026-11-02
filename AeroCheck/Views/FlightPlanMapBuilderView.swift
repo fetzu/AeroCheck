@@ -2664,8 +2664,10 @@ private struct RouteProfileView: View {
 /// airspace service), avoiding the fragile env-injection of DataStatusManager through the builder's full-screen cover.
 struct TripDataBanner: View {
     let route: [CLLocationCoordinate2D]
-    /// Not a route: where Plan › Map rests (the author's device check r4-33, 1 Nov 2026). Said "here". (6.8.0)
-    var isMapView = false
+    /// Where Plan › Map rests, beside the route if there is one (the author's device checks r4-33 and r4-43, 1-2 Nov
+    /// 2026: with a route active, panning over another country offered nothing). Said "here" when the route itself
+    /// needs nothing. (6.8.0)
+    var here: CLLocationCoordinate2D? = nil
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     /// The pilot's map's regions along the route join the trip's data (6.8.0).
     @ObservedObject private var pilotMap = PilotMapDownloads.shared
@@ -2682,10 +2684,13 @@ struct TripDataBanner: View {
     /// Cached route→countries (the expensive resample+bbox scan) — recomputed only on route change, not
     /// every render. The cheap coverage diff stays in `tripNeededCountries`. (review #12)
     @State private var routeCountriesCache: [String] = []
+    /// The route's own countries, without `here`'s: whether the route needs anything, for the banner's title.
+    @State private var routeOnlyCountries: [String] = []
 
     /// The route, to the metre: its countries are worked out again when it changes.
     private var routeKey: String {
-        route.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: ";")
+        (route + [here].compactMap { $0 }).map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }
+            .joined(separator: ";")
     }
 
     var body: some View {
@@ -2703,7 +2708,9 @@ struct TripDataBanner: View {
 
     /// Recompute the cached route→countries set (the expensive part), on appear and when the route changes.
     private func updateRouteCountriesCache() {
-        routeCountriesCache = route.count >= 2 ? RouteDataCalculator.countries(crossing: route) : []
+        routeOnlyCountries = route.count >= 2 ? RouteDataCalculator.countries(crossing: route) : []
+        let hereCountries = here.map { RouteDataCalculator.countries(crossing: [$0, $0]) } ?? []
+        routeCountriesCache = Array(Set(routeOnlyCountries + hereCountries)).sorted()
     }
 
     /// The per-country layers of the trip top-up: the same providers, in the same order, as
@@ -2720,7 +2727,7 @@ struct TripDataBanner: View {
     /// download, so the estimate needs the split even though the banner shows the union. A country a
     /// layer's source doesn't publish (open flightmaps outside its 22 countries) is no gap. (review #7)
     private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
-        guard route.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
+        guard !routeCountriesCache.isEmpty else { return [:] }
         return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)
     }
 
@@ -2729,7 +2736,23 @@ struct TripDataBanner: View {
     }
 
     /// The route's pilot's map regions not downloaded yet: a planned flight takes its map with its other data. (6.8.0)
-    private var tripNeededRegions: [PilotMapRegion] { pilotMap.missingRegions(along: route) }
+    private var tripNeededRegions: [PilotMapRegion] {
+        var regions = pilotMap.missingRegions(along: route)
+        if let here {
+            for region in pilotMap.missingRegions(along: [here, here]) where !regions.contains(region) {
+                regions.append(region)
+            }
+        }
+        return regions
+    }
+
+    /// The route alone needs nothing: what is missing is where the map rests, "Not downloaded here".
+    private var onlyHereNeedsSomething: Bool {
+        guard here != nil else { return false }
+        let routeGaps = routeOnlyCountries.isEmpty ? [:]
+            : DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeOnlyCountries)
+        return routeGaps.values.allSatisfy(\.isEmpty) && pilotMap.missingRegions(along: route).isEmpty
+    }
 
     private var tripNeedsSomething: Bool { !tripNeededCountries.isEmpty || !tripNeededRegions.isEmpty }
 
@@ -2827,7 +2850,7 @@ struct TripDataBanner: View {
                     .foregroundColor(tint)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed
-                         : isMapView ? L10n.Nav.dataMissingHere
+                         : onlyHereNeedsSomething ? L10n.Nav.dataMissingHere
                          : needed.isEmpty ? L10n.PilotMap.tripMissing : L10n.Nav.tripDataMissing)
                         .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.primaryText)

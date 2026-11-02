@@ -8328,19 +8328,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sie fliegen Platzrunden? Beginnen Sie mit PLATZRUNDEN unter Heute. Die Kontrollen für Reiseflug und Sinkflug entfallen, jedes Touch-and-go und jeder Full Stop wird gezählt, und nach einem Full Stop bringt Sie NEUE RUNDE zurück zur Kontrolle vor dem Start."
+            "value": "Sie fliegen Platzrunden? Beginnen Sie mit PLATZRUNDEN unter Heute. Die Kontrollen für Reiseflug und Sinkflug entfallen, und die zwei Schleifen am Phasenbalken zählen Ihre Landungen: Touch-and-gos darüber, Full Stops darunter. Nach einem Full Stop bringt Sie NEUE RUNDE zurück zur Kontrolle vor dem Start."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flying circuits? Start with CIRCUITS on Today. The cruise and descent checks are left out, each touch-and-go and full stop is counted, and after a full stop NEW CIRCUIT takes you back to the before-departure check."
+            "value": "Flying circuits? Start with CIRCUITS on Today. The cruise and descent checks are left out, and the two loops on the phase bar count your landings: touch-and-goes above it, full stops below. After a full stop, NEW CIRCUIT takes you back to the before-departure check."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous faites des tours de piste ? Commencez par TOURS DE PISTE sur Aujourd'hui. Les vérifications de croisière et de descente sont omises, chaque posé-décollé et atterrissage complet est compté, et après un atterrissage complet, NOUVEAU TOUR vous ramène à la vérification avant départ."
+            "value": "Vous faites des tours de piste ? Commencez par TOURS DE PISTE sur Aujourd'hui. Les vérifications de croisière et de descente sont omises, et les deux boucles de la barre des phases comptent vos atterrissages : les posés-décollés au-dessus, les atterrissages complets en dessous. Après un atterrissage complet, NOUVEAU TOUR vous ramène à la vérification avant départ."
           }
         }
       }
@@ -8351,19 +8351,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auch Platzrunden"
+            "value": "Platzrunden funktionieren auch"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Circuits, too"
+            "value": "Circuits work too"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les tours de piste aussi"
+            "value": "Les tours de piste fonctionnent aussi"
           }
         }
       }

@@ -13,6 +13,12 @@ extension Dictionary where Key == DryRunCoachStep.Target, Value == Anchor<CGRect
         if target == .firstTwoSlots, let first = self[.first], let primary = self[.primary] {
             return proxy[first].union(proxy[primary])
         }
+        if target == .circuitLoops {
+            let ends: [DryRunCoachStep.Target] = [.circuitLoopStart, .circuitLoopEnd, .circuitLoopUnderStart,
+                                                  .circuitLoopUnderEnd]
+            let frames = ends.compactMap { self[$0] }.map { proxy[$0] }
+            return frames.dropFirst().reduce(frames.first) { $0?.union($1) }
+        }
         return self[target].map { proxy[$0] }
     }
 }

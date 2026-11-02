@@ -290,14 +290,11 @@ struct PlanTabView: View {
                         // The route on the map without its countries' data: the route builder's offer to download
                         // it, here too, above the chart rather than over its chrome (the author's v65-14,
                         // 23 Oct 2026). (6.5.0)
-                        // Without a route, the country where the map rests, when it isn't downloaded: the airspace
-                        // and the frequencies there come from it (the author's device check r4-33, 1 Nov 2026).
-                        // On the ground only; the Cockpit shows no banner. (6.8.0)
-                        if let route = flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate), route.count >= 2 {
-                            TripDataBanner(route: route)
-                        } else if let planMapCenter {
-                            TripDataBanner(route: [planMapCenter, planMapCenter], isMapView: true)
-                        }
+                        // The route's countries and, route or not, the one where the map rests, when not downloaded:
+                        // the airspace and the frequencies there come from it (the author's device checks r4-33 and
+                        // r4-43, 1-2 Nov 2026). On the ground only; the Cockpit shows no banner. (6.8.0)
+                        TripDataBanner(route: flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? [],
+                                       here: planMapCenter)
                         NavigationMapView(isPresented: $mapPresented, showsCloseButton: false, chrome: .plan,
                                           onShowRoutes: { section = .routes },
                                           onCenterSettled: { center in

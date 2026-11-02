@@ -76,6 +76,10 @@ struct DryRunCoachStep: Equatable {
         case checklistList
         case firstTwoSlots
         case flightData
+        /// The phase bar's two circuit loops (touch-and-goes over it, full stops under it), drawn as one box from the
+        /// ends of their spans (the author's device check r4-46, 2 Nov 2026).
+        case circuitLoops
+        case circuitLoopStart, circuitLoopEnd, circuitLoopUnderStart, circuitLoopUnderEnd
         /// Where a check goes on from: the first slot on MAP and ROUTE (it names the check), CHECK or NEXT on
         /// CHECKLIST. Resolved by the coach; no control says it of itself.
         case check
@@ -1289,7 +1293,7 @@ enum DryRunFirstFlight {
             S(id: "ffLanding", chapter: 6, kind: .act, target: nil, veils: false, holds: false, moment: .final(1),
               done: .checkDone(.landing), title: "", body: "", auto: true),
             // Landed and stopped, before AT THE HANGAR: what changes for circuits.
-            S(id: "ffCircuits", chapter: 7, kind: .look, target: nil, veils: false, holds: true,
+            S(id: "ffCircuits", chapter: 7, kind: .look, target: .circuitLoops, veils: false, holds: true,
               moment: .stoppedAfterLanding,
               done: .next, title: T.circuitsTitle, body: T.circuitsBody),
             story("toShutdown"), story("shutdownCheck"), story("engineShutdown"), story("toEndFlight"),

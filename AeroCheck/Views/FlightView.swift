@@ -1820,11 +1820,13 @@ struct PhaseProgressBar: View {
                 .overlay(alignment: .leading) {
                     if phase == span.first {
                         Rectangle().fill(theme.info).frame(width: 2, height: 7)
+                            .coachTarget(loop == .touchAndGo ? .circuitLoopStart : .circuitLoopUnderStart)
                     }
                 }
                 .overlay(alignment: .trailing) {
                     if phase == span.last {
                         Rectangle().fill(theme.info).frame(width: 2, height: 7)
+                            .coachTarget(loop == .touchAndGo ? .circuitLoopEnd : .circuitLoopUnderEnd)
                     }
                 }
                 .overlay {

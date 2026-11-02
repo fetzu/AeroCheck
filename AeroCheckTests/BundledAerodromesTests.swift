@@ -30,6 +30,22 @@ final class BundledAerodromesTests: XCTestCase {
         XCTAssertLessThanOrEqual(BundledAerodromes.search("LS").count, 6)
     }
 
+    @MainActor
+    func testTheDownloadedAirportDataAnswersBeforeTheBundle() async {
+        // The author's question of 2 Nov 2026: the bundle is a snapshot from the last tag; once the airport data is on
+        // the device, it answers. A made-up aerodrome the bundle doesn't have proves which one did.
+        let store = makeTestAirportStore(openAIPAirports: makeTestOpenAIPAirportLayer { _ in [] })
+        store.injectForReplay([Airport(id: 1, ident: "LSXX", type: .smallAirport, name: "Fresher Field",
+                                       latitude: 47.39, longitude: 7.03, elevation: 1_500, continent: "EU",
+                                       isoCountry: "CH", isoRegion: "CH", municipality: nil, scheduledService: false,
+                                       gpsCode: "LSXX", iataCode: nil, localCode: nil)])
+        let here = CLLocationCoordinate2D(latitude: 47.39, longitude: 7.03)
+        let found = await NearestAerodrome.find(near: here, country: "CH", store: store)
+        XCTAssertEqual(found?.ident, "LSXX", "the downloaded data, not the bundle")
+        let bundled = await NearestAerodrome.find(near: here, country: "CH")
+        XCTAssertEqual(bundled?.ident, "LSZQ", "the bundle without it")
+    }
+
     func testALineIsCodeNameLatitudeLongitude() {
         let parsed = BundledAerodromes.parse("# a comment\nLSZQ\tBressaucourt Airfield\t47.392\t7.029\nbroken line\n")
         XCTAssertEqual(parsed.map(\.ident), ["LSZQ"])

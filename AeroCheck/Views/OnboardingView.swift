@@ -452,7 +452,8 @@ struct OnboardingView: View {
             || locationManager.authorizationStatus == .authorizedAlways
     }
 
-    /// The nearest aerodrome, asked of OpenAIP once the location is known, written in as the base when none is set:
+    /// The nearest aerodrome, from the airport data when downloaded, else the bundled index, once the location is known,
+    /// written in as the base when none is set:
     /// the pilot sees it filled in and changes it if it's wrong.
     private func suggestHomeAerodrome() async {
         guard let location = locationManager.currentLocation, nearest == nil else { return }
@@ -460,7 +461,8 @@ struct OnboardingView: View {
         // The country, for OpenAIP's list when its search around a position is refused.
         if detectedCountry == nil { await detectRegion() }
         guard let found = await NearestAerodrome.find(near: location.coordinate,
-                                                      country: detectedCountry ?? Locale.current.region?.identifier)
+                                                      country: detectedCountry ?? Locale.current.region?.identifier,
+                                                      store: airportDataService)
         else { return }
         nearest = found
         if (appState.settings.homeAerodromeIdent ?? "").isEmpty { setBase(found.ident) }

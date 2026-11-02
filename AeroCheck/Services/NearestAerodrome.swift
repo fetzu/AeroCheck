@@ -74,8 +74,21 @@ enum NearestAerodrome {
 
     /// Asks OpenAIP around the pilot, else the country's list (`country`, ISO-2) for the nearest; nil offline, on any
     /// failure, or with nothing within reach.
-    static func find(near coordinate: CLLocationCoordinate2D, country: String?) async -> Found? {
-        // The bundled index first: on the device, so no signal and no OpenAIP needed (the author's go, 2 Nov 2026).
+    /// `store`: the app's airport data. Once downloaded (OurAirports, with each downloaded country's OpenAIP aerodromes
+    /// merged in) it is fresher than the bundled index, which is a snapshot from the last tag, and it answers instead
+    /// (the author's question of 2 Nov 2026: the bundle never supersedes fresher data).
+    @MainActor
+    static func find(near coordinate: CLLocationCoordinate2D, country: String?,
+                     store: AirportDataService? = nil) async -> Found? {
+        if let store, store.isDataAvailable {
+            await store.ensureLoaded()
+            if let airport = store.nearestAirport(to: coordinate, maxDistanceNm: 50, types: AirportType.fixedWing) {
+                let metres = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                    .distance(from: CLLocation(latitude: airport.latitude, longitude: airport.longitude))
+                return Found(ident: airport.ident, name: airport.name, distanceNM: metres / 1852)
+            }
+        }
+        // Else the bundled index: on the device, so no signal and no OpenAIP needed (the author's go, 2 Nov 2026).
         let bundled = await Task.detached(priority: .userInitiated) {
             BundledAerodromes.all.isEmpty ? nil : BundledAerodromes.nearest(to: coordinate)
         }.value

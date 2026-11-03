@@ -22,9 +22,9 @@ so it is a review of what changed rather than an evening of tapping.
 The manifest is the one list of the screenshots, for both sets: each shot's key and label (the website's `shot(key)`
 reads them in `src/lib/shots.ts`), its scene, its launch settings, the gesture that follows the scene, its devices, its
 App Store slot, whether the site shows it, how long to let it settle, and the areas the comparison blanks (a running
-timer). Its `about` explains the fields. The three simulators cover both sets: the App Store's 13-inch iPad, the
-website's iPad Air 11-inch, and an iPhone 17 for both (1206 × 2622 is the App Store's required medium display; the
-website takes it at 800 px wide). The App Store's Apple Watch set (since 6.6.0 in the run again; the 6.1 set before)
+timer). Its `about` explains the fields. Two simulators cover both sets: the 13-inch iPad, the App Store's at full size
+and the website's at 1600 px tall (since 6.8.0; an iPad Air 11-inch before, a third simulator in every round), and an
+iPhone 17 (1206 × 2622 is the App Store's required medium display; the website takes it at 800 px wide). The App Store's Apple Watch set (since 6.6.0 in the run again; the 6.1 set before)
 comes from a Watch Ultra 3 paired with an iPhone 17. English, French and German, each with its own set.
 
 The app side is DEBUG only, compiled out of Release builds:
@@ -183,9 +183,8 @@ on 18 Oct 2026:
 
 | Purpose | Device | Output |
 |---|---|---|
-| Website | iPad Air 11-inch (M4) | 1640 × 2360 portrait, not an App Store size |
 | Website and App Store, required | iPhone 17 (Dynamic Island, medium display) | 1206 × 2622 (1179 × 2556 also accepted) |
-| App Store, required | iPad Pro 13-inch (M4, as the 6.5.0 set; any 13-inch) | 2064 × 2752 portrait |
+| Website and App Store, required | iPad Pro 13-inch (M4, as the 6.5.0 set; any 13-inch) | 2064 × 2752 portrait (the website's 1200 × 1600) |
 | App Store, optional | iPhone 17 Pro Max (Dynamic Island, large display, "6.9-inch") | 1320 × 2868 |
 | App Store, for the Watch app | Apple Watch Ultra 3 (49 mm) | 422 × 514 |
 

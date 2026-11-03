@@ -23,12 +23,6 @@
       "pixels": [2064, 2752],
       "scale": 2
     },
-    "ipad11": {
-      "kind": "ipad",
-      "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-11-inch-M4",
-      "pixels": [1640, 2360],
-      "scale": 2
-    },
     "iphone17": {
       "kind": "iphone",
       "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
@@ -57,7 +51,7 @@
       "about": "Full size, PNG without alpha; JPEG 95 (4:4:4) for an image over maxBytes, as App Store Connect refuses about 5 MB."
     },
     "website": {
-      "devices": {"ipad11": "ipad", "iphone17": "iphone"},
+      "devices": {"ipad13": "ipad", "iphone17": "iphone"},
       "format": "jpeg",
       "quality": 86,
       "ipadLongSide": 1600,
@@ -75,7 +69,7 @@
       "scene": "cruiseroute",
       "steps": {"iphone": ["cardAtFoot"]},
       "what": "The Cockpit in cruise with a route (LSGC NEXT), Fuel quantity framed (4/5), the strip lit. iPhone: the list dragged until the current card ends at its foot.",
-      "mask": {"ipad13": [[672, 46, 148, 44]], "ipad11": [[462, 46, 140, 44]]},
+      "mask": {"ipad13": [[672, 46, 148, 44]]},
       "maskWhy": "the flight timer"
     },
     {
@@ -86,7 +80,7 @@
       "scene": "cruiseroute",
       "steps": {"ipad": ["tap:cockpit.vspeeds"], "iphone": ["tap:strip.speed"]},
       "what": "V-SPEEDS open over the Cockpit: the table on the iPad (its chip), the list on the iPhone (a tap on GS).",
-      "mask": {"ipad13": [[672, 46, 148, 44]], "ipad11": [[462, 46, 140, 44]]},
+      "mask": {"ipad13": [[672, 46, 148, 44]]},
       "maskWhy": "the flight timer"
     },
     {
@@ -99,8 +93,7 @@
       "settle": 2,
       "what": "The Cockpit on its map: LSGC next, the aircraft on the LSZQ to LSGC leg.",
       "mask": {
-        "ipad13": [[672, 46, 148, 44], [500, 1294, 120, 38]],
-        "ipad11": [[462, 46, 140, 44], [330, 1096, 100, 46]]
+        "ipad13": [[672, 46, 148, 44], [500, 1294, 120, 38]]
       },
       "maskWhy": "the flight timer, the leg timer"
     },
@@ -190,7 +183,6 @@
       "what": "The guided dry run held on its first final at LSZQ: the coach's Try a go-around card over the card that chooses the landing. About three minutes after launch the autopilot holds there.",
       "mask": {
         "ipad13": [[672, 60, 148, 44], [0, 176, 1032, 126]],
-        "ipad11": [[462, 60, 140, 44], [0, 170, 820, 130]],
         "iphone17": [[0, 95, 402, 135]]
       },
       "maskWhy": "the timer, and the strip's figures at the moment the autopilot holds"

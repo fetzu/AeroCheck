@@ -6,8 +6,8 @@ import { appVersion } from './version';
 
 export interface Shot { ipad: string; iphone: string; label: string; }
 
-// Every image is a full screen, the iPad in PORTRAIT (1112×1600) as the Cockpit is flown on a
-// kneeboard, the iPhone in portrait (800×1739) — except `landscape`, the iPhone on its side
+// Every image is a full screen, the iPad in PORTRAIT (1200×1600, the 13-inch since 6.8.0; the /flight story's
+// frames stay 1112×1600, an 11-inch) as the Cockpit is flown on a kneeboard, the iPhone in portrait (800×1739) — except `landscape`, the iPhone on its side
 // (1600×736). All captured deterministically via the DEBUG scene injector; see SCREENSHOTS.md.
 // Each language shows its own (6.5.0): English under v6/<device>/, French and German under v6/<lang>/<device>/.
 // A shot a language doesn't have falls back to the English one.

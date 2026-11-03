@@ -54,3 +54,15 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      # Cloudflare keeps the pages a day (a cache rule on aerocheck.app, 3 Nov 2026), so every deploy empties that
+      # cache. By hostname only: "Purge Everything" would also empty the Atlas tiles on tiles.aerocheck.app. The pause
+      # lets GitHub Pages serve the new files before Cloudflare asks for them again. The token may only purge this zone.
+      - name: Purge aerocheck.app at Cloudflare
+        env:
+          CLOUDFLARE_PURGE_TOKEN: ${{ secrets.CLOUDFLARE_PURGE_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          sleep 30
+          curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
+            -H "Authorization: Bearer $CLOUDFLARE_PURGE_TOKEN" -H "Content-Type: application/json" \
+            --data '{"hosts":["aerocheck.app"]}' | tee /dev/stderr | grep -q '"success":true'

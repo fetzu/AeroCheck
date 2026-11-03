@@ -105,7 +105,8 @@ enum MarketingScene {
     /// Plan › Map close in on LSZQ: its traffic circuit, its arrival sectors and runway, on the national map with the
     /// airspace off. (6.3.0)
     case planMapCircuits
-    /// Plan › Map on the Atlas over Basel, where Switzerland, France and Germany meet. (6.8.0)
+    /// Plan › Map on the Atlas over the Three Lakes, centred on La Neuveville on Lake Biel. (6.8.0; over Basel until
+    /// 3 Nov 2026)
     case planMapAtlas
 }
 
@@ -239,7 +240,7 @@ enum MarketingSceneInjector {
     // MARK: - Plan › Map on the Atlas, the atlas shot (6.8.0)
 
     /// No flight, Plan › Map, the Atlas, the airspace and the procedures off, the aerodromes on: the map itself, on
-    /// three countries' regions joined at their borders. The map frames Basel as it appears
+    /// the lakes of Biel, Neuchâtel and Murten whole. The map frames La Neuveville as it appears
     /// (`NavigationMapView.frameForCaptureIfAsked`).
     private static func injectPlanMapAtlas(appState: AppState) {
         if appState.isFlightActive { appState.cancelFlight() }

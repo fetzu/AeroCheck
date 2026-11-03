@@ -27,6 +27,12 @@ and the website's at 1600 px tall (since 6.8.0; an iPad Air 11-inch before, a th
 iPhone 17 (1206 × 2622 is the App Store's required medium display; the website takes it at 800 px wide). The App Store's Apple Watch set (since 6.6.0 in the run again; the 6.1 set before)
 comes from a Watch Ultra 3 paired with an iPhone 17. English, French and German, each with its own set.
 
+One shot is two captures in one image: the Atlas (3 Nov 2026), the bare map at the top left and the same frame with
+every layer on at the bottom right. Its `split` names the other half's shot (`atlaslayers`, whose `input` points back),
+which the run takes with it on the same devices and never publishes alone; the convert step cuts the two along the
+diagonal of the map, the line passing under the aircraft and the names. Both scenes hold the aircraft over La
+Neuveville at 120°, across the cut.
+
 The app side is DEBUG only, compiled out of Release builds:
 
 - **The scenes** (`AeroCheck/Services/MarketingLocationProvider.swift`, `MarketingScene` + `MarketingSceneInjector`):

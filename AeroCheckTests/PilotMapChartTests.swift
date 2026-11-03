@@ -15,14 +15,36 @@ final class PilotMapChartTests: XCTestCase {
     func testICAOLayerGoesFromICAOToGliderToNationalMap() {
         let rasters = PilotMapCharts.rasters(for: .icao, policy: ChartPolicy())
         XCTAssertEqual(rasters.map(\.id), ["chart-icao", "chart-glider", "chart-national"])
-        XCTAssertEqual(rasters[0].maxZoom, 10, "the glider chart from MapKit zoom 11, MapLibre's 10")
-        XCTAssertEqual(rasters[1].minZoom, 10)
-        XCTAssertEqual(rasters[1].maxZoom, 12, "the National Map from MapKit zoom 13")
-        XCTAssertEqual(rasters[2].minZoom, 12)
+        XCTAssertEqual(rasters[0].maxZoom, 9.5, "the glider chart from its z11 tiles, asked from MapKit zoom 10.5")
+        XCTAssertEqual(rasters[1].minZoom, 9.5)
+        XCTAssertEqual(rasters[1].maxZoom, 11.5, "the National Map from its z13 tiles, asked from MapKit zoom 12.5")
+        XCTAssertEqual(rasters[2].minZoom, 11.5)
         XCTAssertEqual(rasters[0].maxTileZoom, 10)
         XCTAssertEqual(rasters[1].minTileZoom, 11)
         XCTAssertEqual(rasters[1].maxTileZoom, 12)
         XCTAssertTrue(rasters[0].template.contains("/local/chart/ch.bazl.luftfahrtkarten-icao/{z}/{x}/{y}?offline=0"))
+    }
+
+    /// MapLibre asks a raster for its tiles at the nearest whole MapKit zoom. Handed over on the whole zoom (6.8.0), each
+    /// chart showed its last tiles enlarged up to twice for the half level before the next took over: the Cockpit's
+    /// 10 km camera on the iPhone on its side is MapLibre's 11.96, the glider chart's z12 at 1.95 times where the
+    /// National Map's z13 belonged. At every zoom from the ICAO chart's first tiles to past the camera's closest
+    /// (`ChartPolicy.nationalMapClosestDistance`, MapLibre's 14.8 on an iPhone), one chart shows and its own tiles
+    /// cover it. (6.8.1)
+    func testEachChartShowsOnlyWhereItsOwnTilesAreAsked() {
+        let rasters = PilotMapCharts.rasters(for: .icao, policy: ChartPolicy())
+        XCTAssertEqual(MapZoom.tileZoom(atMapLibre: 11.96), 13)
+        for step in 0...1_000 {
+            let zoom = 6.5 + Double(step) / 100
+            let shown = rasters.filter { zoom >= ($0.minZoom ?? -.infinity) && zoom < ($0.maxZoom ?? .infinity) }
+            XCTAssertEqual(shown.count, 1, "one chart at MapLibre zoom \(zoom)")
+            guard let raster = shown.first else { continue }
+            let asked = MapZoom.tileZoom(atMapLibre: zoom)
+            XCTAssertTrue(raster.minTileZoom...raster.maxTileZoom ~= asked,
+                          "\(raster.id) at MapLibre zoom \(zoom) asks z\(asked), has z\(raster.minTileZoom)–\(raster.maxTileZoom)")
+        }
+        let landscape = rasters.filter { 11.96 >= ($0.minZoom ?? -.infinity) && 11.96 < ($0.maxZoom ?? .infinity) }
+        XCTAssertEqual(landscape.map(\.id), ["chart-national"], "the iPhone on its side at the Cockpit's 10 km")
     }
 
     func testForcedICAOChartIsAloneAndEnlarged() {

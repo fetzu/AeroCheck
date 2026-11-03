@@ -1109,7 +1109,7 @@ struct NavigationMapView: View {
         if scene == "atlas" || scene == "atlaslayers" {
             isFollowingAircraft = false
             mapState.pendingCallout = nil
-            mapState.pendingCameraMove = PendingCameraMove(center: CLLocationCoordinate2D(latitude: 47.0656, longitude: 7.0972),
+            mapState.pendingCameraMove = PendingCameraMove(center: MarketingSceneInjector.laNeuveville,
                                                            spanNM: 46)
             mapState.objectWillChange.send()
             return

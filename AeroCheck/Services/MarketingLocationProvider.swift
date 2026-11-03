@@ -105,6 +105,8 @@ enum MarketingScene {
     /// Plan › Map close in on LSZQ: its traffic circuit, its arrival sectors and runway, on the national map with the
     /// airspace off. (6.3.0)
     case planMapCircuits
+    /// Plan › Map on the Atlas over Basel, where Switzerland, France and Germany meet. (6.8.0)
+    case planMapAtlas
 }
 
 /// Fixed airport coordinates used to build marketing routes without depending on airport data being
@@ -211,6 +213,8 @@ enum MarketingSceneInjector {
             injectFlightLog(appState: appState)
         case .planMapCircuits:
             injectPlanMapCircuits(appState: appState)
+        case .planMapAtlas:
+            injectPlanMapAtlas(appState: appState)
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
             break // dispatched above — they need the thread manager
         }
@@ -227,6 +231,24 @@ enum MarketingSceneInjector {
         appState.settings.showOpenAIPOverlay = false
         appState.settings.showVFRCircuitsOnMap = true
         appState.settings.showVFRRoutesOnMap = true
+        appState.settings.showAirportsOnMap = true
+        appState.groundTab = .plan
+        appState.pendingPlanSection = .map
+    }
+
+    // MARK: - Plan › Map on the Atlas, the atlas shot (6.8.0)
+
+    /// No flight, Plan › Map, the Atlas, the airspace and the procedures off, the aerodromes on: the map itself, on
+    /// three countries' regions joined at their borders. The map frames Basel as it appears
+    /// (`NavigationMapView.frameForCaptureIfAsked`).
+    private static func injectPlanMapAtlas(appState: AppState) {
+        if appState.isFlightActive { appState.cancelFlight() }
+        appState.selectMapLayer(.standard)
+        appState.settings.showOpenAIPOverlay = false
+        appState.settings.showVFRCircuitsOnMap = false
+        appState.settings.showVFRRoutesOnMap = false
+        appState.settings.showReportingPointsOnMap = false
+        appState.settings.showObstaclesOnMap = false
         appState.settings.showAirportsOnMap = true
         appState.groundTab = .plan
         appState.pendingPlanSection = .map

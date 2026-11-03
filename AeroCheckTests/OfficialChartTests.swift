@@ -1,5 +1,6 @@
 import XCTest
 import MapKit
+import MapLibre
 import SwiftUI
 @testable import AeroCheck
 
@@ -485,6 +486,20 @@ final class OfficialChartTests: XCTestCase {
         button.sendActions(for: .primaryActionTriggered)
     }
 
+    /// The markers whose cards are open: a card's "+ Route" goes through them, held weakly.
+    private var openMarkers: [PilotMapMarkers] = []
+
+    /// The aerodrome's card as `view`'s map opens it on MapLibre (`PilotMapMarkers.callout`). (6.8.0)
+    private func aerodromeCard(on view: AeroMapView, for airport: Airport) throws -> AerodromeCardView {
+        let markers = PilotMapMarkers()
+        openMarkers.append(markers)
+        markers.plannedRoute.route = view.shownPlannedRoute
+        let mapView = MLNMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
+        let callout = markers.callout(for: PilotMarker(base: AirportAnnotation(airport: airport), key: airport.ident),
+                                      map: view, on: mapView, close: {})
+        return try XCTUnwrap(callout.content as? AerodromeCardView)
+    }
+
     /// The chart, then Divert in flight, each tap to its own: before 6.2.0 any control of the callout meant Divert.
     func testTheAerodromeCardSendsEachTapToItsButton() throws {
         var plan = FlightPlan(name: "Test")
@@ -505,12 +520,7 @@ final class OfficialChartTests: XCTestCase {
         for (name, view) in maps {
             diverts = []
             charts = []
-            let coordinator = view.makeCoordinator()
-            let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
-            let annotation = AirportAnnotation(airport: airport("LSZQ"))
-            XCTAssertFalse(try XCTUnwrap(coordinator.mapView(map, viewFor: annotation), name).canShowCallout,
-                           "\(name): the card, not MapKit's callout")
-            let card = coordinator.aerodromeCard(for: annotation, on: map)
+            let card = try aerodromeCard(on: view, for: airport("LSZQ"))
             card.layoutIfNeeded()
             XCTAssertEqual(card.buttons.map(\.accessibilityIdentifier), ["aerodromeCard.chart", "aerodromeCard.divert"], name)
             let chart = try button(card, "aerodromeCard.chart", name)
@@ -536,9 +546,8 @@ final class OfficialChartTests: XCTestCase {
         var charts: [URL] = []
         let ground = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
                                  isFollowingAircraft: .constant(true), forceICAOLayer: false,
-                                 onOpenOfficialChart: { charts.append($0) }).makeCoordinator()
-        let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
-        let card = ground.aerodromeCard(for: AirportAnnotation(airport: airport("EDNY", country: "DE")), on: map)
+                                 onOpenOfficialChart: { charts.append($0) })
+        let card = try aerodromeCard(on: ground, for: airport("EDNY", country: "DE"))
         card.layoutIfNeeded()
         XCTAssertEqual(card.buttons.map(\.accessibilityIdentifier), ["aerodromeCard.chart"], "no Divert on the ground")
         let chart = try button(card, "aerodromeCard.chart")
@@ -546,12 +555,12 @@ final class OfficialChartTests: XCTestCase {
         tap(chart)
         XCTAssertEqual(charts.map(\.lastPathComponent), ["C019CA.html"])
 
-        let italian = ground.aerodromeCard(for: AirportAnnotation(airport: airport("LIMJ", .mediumAirport, country: "IT")), on: map)
+        let italian = try aerodromeCard(on: ground, for: airport("LIMJ", .mediumAirport, country: "IT"))
         XCTAssertTrue(italian.buttons.isEmpty)
 
         let noOpener = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                   isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator()
-        XCTAssertTrue(noOpener.aerodromeCard(for: AirportAnnotation(airport: airport("LSZQ")), on: map).buttons.isEmpty)
+                                   isFollowingAircraft: .constant(true), forceICAOLayer: false)
+        XCTAssertTrue(try aerodromeCard(on: noOpener, for: airport("LSZQ")).buttons.isEmpty)
     }
 
     /// The route builder: the chart, then "+ Route"; the chart adds nothing.
@@ -561,9 +570,8 @@ final class OfficialChartTests: XCTestCase {
         let builder = AeroMapView(layerType: .icao, mapState: SharedMapState(), currentLocation: nil, gpsTrack: [],
                                   isFollowingAircraft: .constant(false), forceICAOLayer: false,
                                   onOpenOfficialChart: { charts.append($0) }, features: .builder,
-                                  plannedRoute: PlannedRoute(onPointAdd: { added.append($0) })).makeCoordinator()
-        let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
-        let card = builder.aerodromeCard(for: AirportAnnotation(airport: airport("LSZQ")), on: map)
+                                  plannedRoute: PlannedRoute(onPointAdd: { added.append($0) }))
+        let card = try aerodromeCard(on: builder, for: airport("LSZQ"))
         XCTAssertEqual(card.buttons.map(\.accessibilityIdentifier), ["aerodromeCard.chart", "aerodromeCard.addToRoute"])
         tap(try button(card, "aerodromeCard.chart"))
         XCTAssertEqual(charts.count, 1)
@@ -571,67 +579,6 @@ final class OfficialChartTests: XCTestCase {
         tap(try button(card, "aerodromeCard.addToRoute"))
         XCTAssertEqual(added.count, 1)
         XCTAssertEqual(charts.count, 1)
-    }
-
-    // MARK: - Callouts and the chrome over the chart
-
-    private func waitUntil(_ condition: () -> Bool, timeout: TimeInterval = 3) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() && Date() < deadline {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        }
-        return condition()
-    }
-
-    /// While a callout is open, the scale bar and the off-screen route pill step aside (they covered the
-    /// callout's title and its first button on the phone's Cockpit MAP), and come back when it closes.
-    /// The coordinators keep the flag from MapKit's selection, on both navigation maps.
-    func testAnOpenCalloutIsTrackedForTheChrome() throws {
-        let lszq = AirportAnnotation(airport: airport("LSZQ", lat: 47.40, lon: 7.03))
-        let withCallout = MKAnnotationView(annotation: lszq, reuseIdentifier: nil)
-        withCallout.canShowCallout = true
-        let waypoint = FlightPlanWaypointAnnotation(coordinate: lszq.coordinate, name: "LSZQ", index: 0, currentIndex: 0)
-        let withoutCallout = MKAnnotationView(annotation: waypoint, reuseIdentifier: nil)
-        XCTAssertTrue(MapCallout.isOpen(selected: [lszq], view: { _ in withCallout }))
-        XCTAssertFalse(MapCallout.isOpen(selected: [waypoint], view: { _ in withoutCallout }), "a marker without a callout")
-        XCTAssertFalse(MapCallout.isOpen(selected: [lszq], view: { _ in nil }), "no view on the map, nothing open")
-        XCTAssertFalse(MapCallout.isOpen(selected: [], view: { _ in withCallout }))
-
-        let makers: [(String, (SharedMapState) -> MKMapViewDelegate)] = [
-            ("AeroMapView on Apple's map", { AeroMapView(layerType: .standard, mapState: $0, currentLocation: nil, gpsTrack: [],
-                                                        isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
-            ("AeroMapView", { AeroMapView(layerType: .icao, mapState: $0, currentLocation: nil, gpsTrack: [],
-                                            isFollowingAircraft: .constant(true), forceICAOLayer: false).makeCoordinator() }),
-        ]
-        for (name, make) in makers {
-            let state = SharedMapState()
-            let coordinator = make(state)
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1_180))
-            window.isHidden = false
-            defer { window.isHidden = true }
-            let map = MKMapView(frame: window.bounds)
-            map.delegate = coordinator
-            window.addSubview(map)
-            map.setRegion(MKCoordinateRegion(center: lszq.coordinate,
-                                             span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)), animated: false)
-            map.addAnnotation(lszq)
-            XCTAssertTrue(waitUntil { map.view(for: lszq) != nil }, "\(name): the marker is on the map")
-            XCTAssertFalse(state.isCalloutOpen, name)
-
-            map.selectAnnotation(lszq, animated: false)
-            XCTAssertTrue(waitUntil { state.isCalloutOpen }, "\(name): the aerodrome's callout is open")
-            map.deselectAnnotation(lszq, animated: false)
-            XCTAssertTrue(waitUntil { !state.isCalloutOpen }, "\(name): closed, the chrome comes back")
-
-            // Taken off the map while open (the region moved past it): MapKit says nothing, the next
-            // region change reads the selection again.
-            map.selectAnnotation(lszq, animated: false)
-            XCTAssertTrue(waitUntil { state.isCalloutOpen }, name)
-            map.removeAnnotation(lszq)
-            coordinator.mapView?(map, regionDidChangeAnimated: false)
-            XCTAssertTrue(waitUntil { !state.isCalloutOpen }, "\(name): nothing selected any more")
-            map.removeFromSuperview()
-        }
     }
 
     // MARK: - The VFR procedure callout

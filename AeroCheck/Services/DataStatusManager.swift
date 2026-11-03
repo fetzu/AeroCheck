@@ -184,6 +184,10 @@ final class DataStatusManager: ObservableObject {
     /// When true, ContentView shows a one-line, snoozable "your data is out of date" nudge. Set only
     /// when a primary dataset is STALE (not merely aging) and the nudge isn't snoozed. (v4.1.0)
     @Published private(set) var showStaleNudge = false
+    /// When the downloaded data was last checked for updates, by the app or by Update now: Offline data's status.
+    /// (6.8.0)
+    @Published private(set) var lastCheck: Date?
+    static let lastCheckKey = "offlineDataLastCheck"
 
     /// Developer toggle (About → Developer Options): forces every downloaded primary dataset to read
     /// STALE so the Home dot, nudge, and on-map cue can be exercised on device without waiting months. (v4.1.0)
@@ -209,6 +213,7 @@ final class DataStatusManager: ObservableObject {
         self.networkMonitor = networkMonitor
         self.now = now
         self.userDefaults = userDefaults
+        lastCheck = userDefaults.object(forKey: Self.lastCheckKey) as? Date
         recompute()
     }
 
@@ -330,6 +335,24 @@ final class DataStatusManager: ObservableObject {
         recompute()
     }
 
+    /// Every downloaded small dataset refreshed, whatever its age: Offline data's Update now. Not gated: the pilot
+    /// asked. (6.8.0)
+    func updateAllDownloaded() async {
+        let stamp = now()
+        for provider in providers {
+            let set = provider.makeDataSet(now: stamp)
+            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded else { continue }
+            await provider.refresh()
+        }
+        markChecked(now())
+        recompute()
+    }
+
+    private func markChecked(_ date: Date) {
+        lastCheck = date
+        userDefaults.set(date, forKey: Self.lastCheckKey)
+    }
+
     /// Delete every dataset's cache ("Remove all downloads"), then recompute.
     func removeAll() {
         providers.forEach { $0.delete() }
@@ -344,6 +367,7 @@ final class DataStatusManager: ObservableObject {
     func autoRefreshIfNeeded(cellularUpdatesEnabled: Bool) async {
         guard DataRefreshGate.allowsSilentSmallRefresh(networkMonitor.conditions, cellularUpdatesEnabled: cellularUpdatesEnabled) else { return }
         let stamp = now()
+        markChecked(stamp)
         for provider in providers {
             let set = provider.makeDataSet(now: stamp)
             guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded else { continue }
@@ -474,40 +498,6 @@ struct SwissChartsProvider: DataSetProvider {
     }
 
     func refresh() async { await manager.downloadICAOChart() }
-    func delete() { manager.deleteCache() }
-}
-
-/// OpenAIP raster map TILES — cartographic IMAGERY, optional and cosmetic (the app draws its own
-/// airspace from the vector DATA above; tiles only add labels/navaid symbols). No TTL, so it's fresh
-/// when present, and it never drives the Home dot. Surfaced separately per the data-first/tiles-optional
-/// stance. (v4.1.0)
-@MainActor
-struct OpenAIPTilesProvider: DataSetProvider {
-    let manager: OpenAIPCacheManager
-    var id: String { "openaip.tiles" }
-
-    func makeDataSet(now: Date) -> DataSet {
-        DataSet(
-            id: id,
-            displayName: L10n.DataStorage.openAIPTilesName,
-            detail: L10n.DataStorage.openAIPTilesDetail,
-            urgency: .imagery,
-            provenance: .community,
-            refreshPolicy: .largeTilesConfirmCellular,
-            lastUpdated: manager.cacheDate,
-            freshness: manager.isCacheAvailable ? .fresh : .missing,
-            sizeOnDisk: manager.cacheSizeBytes > 0 ? manager.cacheSizeBytes : nil,
-            coverage: manager.cachedCountries,
-            isDownloaded: manager.isCacheAvailable
-        )
-    }
-
-    func refresh() async {
-        let countries = manager.cachedCountries
-        guard !countries.isEmpty else { return }
-        await manager.downloadTiles(for: countries)
-    }
-
     func delete() { manager.deleteCache() }
 }
 

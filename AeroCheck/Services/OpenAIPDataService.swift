@@ -79,6 +79,10 @@ class OpenAIPDataService: ObservableObject {
     private var streamingCache: StreamingCTRCache?
     private var lastStreamingFetchAttempt: Date?
     private var consecutiveStreamingErrors: Int = 0
+    /// OpenAIP refused the position search (403) this session: the country lists answer from then on.
+    private var positionSearchRefused = false
+    /// Each country's CTRs, fetched once a session: a CTR doesn't move during a flight.
+    private var countryCTRs: [String: [Airspace]] = [:]
 
     private let fileManager = FileManager.default
     private var dataDirectory: URL {
@@ -688,12 +692,71 @@ class OpenAIPDataService: ObservableObject {
         return request
     }
 
+    /// A country's CTRs, one page: since 31 Oct 2026 OpenAIP's firewall refuses position searches (403) and answers
+    /// country ones. France, the largest near home, is 92 CTRs in 540 KB.
+    nonisolated static func streamingCTRRequest(country: String) -> URLRequest? {
+        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?country=\(country)&type=4&limit=1000"
+        guard let url = URL(string: urlString) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: OpenAIPConfig.apiKeyHeader)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = OpenAIPConfig.streamingRequestTimeout
+        return request
+    }
+
+    /// From countries' CTRs, the ones the position search would have answered: the nearest
+    /// `OpenAIPConfig.streamingFetchLimit` whose centre is within the search radius plus 10 NM, a CTR's own size.
+    nonisolated static func nearbyCTRs(_ airspaces: [Airspace], to coordinate: CLLocationCoordinate2D) -> [Airspace] {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let reach = Double(OpenAIPConfig.streamingFetchRadiusMeters) + 10 * 1852
+        var seen = Set<String>()
+        return airspaces
+            .filter { seen.insert($0.id).inserted }
+            .compactMap { airspace -> (Airspace, Double)? in
+                guard let centroid = airspace.centroid else { return nil }
+                let distance = location.distance(from: CLLocation(latitude: centroid.latitude, longitude: centroid.longitude))
+                return distance <= reach ? (airspace, distance) : nil
+            }
+            .sorted { $0.1 < $1.1 }
+            .prefix(OpenAIPConfig.streamingFetchLimit)
+            .map(\.0)
+    }
+
+    /// The CTRs near `coordinate` from the country lists: the countries within the search radius, each fetched once.
+    /// Nil when one of them can't be had.
+    private func fetchCTRsByCountry(near coordinate: CLLocationCoordinate2D) async -> [Airspace]? {
+        let radiusNM = Double(OpenAIPConfig.streamingFetchRadiusMeters) / 1852
+        let countries = CountryBoundaries.shared.countries(near: coordinate, bufferNm: radiusNM).sorted()
+        for country in countries where countryCTRs[country] == nil {
+            guard let request = Self.streamingCTRRequest(country: country) else { return nil }
+            do {
+                let (data, response) = try await ExternalRequest.data(
+                    for: request, maxRetries: 0, maxResponseBytes: OpenAIPConfig.streamingMaxResponseBytes)
+                guard response.statusCode == 200 else {
+                    AppLog.openAIP.debugLine("CTRs for \(country): HTTP \(response.statusCode)")
+                    return nil
+                }
+                countryCTRs[country] = try JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: data).items
+            } catch {
+                AppLog.openAIP.debugLine("CTRs for \(country) failed: \(error.localizedDescription)")
+                return nil
+            }
+        }
+        return Self.nearbyCTRs(countries.flatMap { countryCTRs[$0] ?? [] }, to: coordinate)
+    }
+
     /// Perform the actual API call to fetch nearby CTRs
     private func performStreamingFetch(from coordinate: CLLocationCoordinate2D) async {
         guard let request = Self.streamingCTRRequest(near: coordinate) else { return }
 
         isStreamingFetchInProgress = true
         lastStreamingFetchAttempt = Date()
+
+        if positionSearchRefused {
+            await performCountryFetch(from: coordinate)
+            return
+        }
 
         do {
             // S9-26: through ExternalRequest, like every other request carrying the OpenAIP key, for
@@ -708,6 +771,13 @@ class OpenAIPDataService: ObservableObject {
                 consecutiveStreamingErrors = max(consecutiveStreamingErrors, 3)
                 AppLog.openAIP.debugLine("Rate limited (429), backing off")
                 isStreamingFetchInProgress = false
+                return
+            }
+
+            if httpResponse.statusCode == 403 {
+                AppLog.openAIP.debugLine("Position search refused (403); asking by country")
+                positionSearchRefused = true
+                await performCountryFetch(from: coordinate)
                 return
             }
 
@@ -739,6 +809,19 @@ class OpenAIPDataService: ObservableObject {
             AppLog.openAIP.debugLine("Fetch failed: \(error.localizedDescription)")
         }
 
+        isStreamingFetchInProgress = false
+    }
+
+    /// The streaming fetch through the country lists, cached and backed off as the position search is.
+    private func performCountryFetch(from coordinate: CLLocationCoordinate2D) async {
+        if let nearby = await fetchCTRsByCountry(near: coordinate) {
+            streamingCache = StreamingCTRCache(airspaces: nearby, fetchCoordinate: coordinate, fetchTime: Date())
+            consecutiveStreamingErrors = 0
+            updateStreamingDistances(from: coordinate)
+            AppLog.openAIP.debugLine("Found \(nearby.count) CTRs near current position by country")
+        } else {
+            consecutiveStreamingErrors += 1
+        }
         isStreamingFetchInProgress = false
     }
 

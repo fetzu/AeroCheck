@@ -27,6 +27,11 @@ struct ContentView: View {
     /// A dry run's Cockpit covers the app while one runs. (6.4.0)
     @ObservedObject private var dryRuns = DryRunCenter.shared
 
+    private var tipsQuiet: Bool {
+        AeroTips.isQuiet(flightActive: appState.isFlightActive, phase: appState.currentPhase,
+                         dryRunRunning: dryRuns.isRunning)
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let isCompactDevice = horizontalSizeClass == .compact
@@ -203,6 +208,10 @@ struct ContentView: View {
         .onChange(of: keepsScreenAwake) { _, awake in
             UIApplication.shared.isIdleTimerDisabled = awake
         }
+        // The one-time tips keep quiet in flight past the line-up and in a dry run. (6.8.0)
+        .onChange(of: tipsQuiet, initial: true) { _, quiet in
+            AeroTips.quiet = quiet
+        }
         // Once — and only once BOTH sides have loaded. Deliberately not hung off a plan change:
         // `FlightCreator` adds the plan before it creates the flight, so a sweep triggered by the
         // insertion would strip the date it had just set, a beat before anything followed it. (v5.x)
@@ -237,7 +246,7 @@ struct ContentView: View {
             // A dry run instead (`AEROCHECK_DRYRUN=lszq`, at `AEROCHECK_DRYRUN_SPEED`, 4 by default): its
             // circuits at LSZQ from launch, for a check or a capture without a tap. `AEROCHECK_DRYRUN_AUTO=1`
             // flies it as a pilot would, `AEROCHECK_DRYRUN_STOP=final|cruise|over` stops it there
-            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet; `guided`: the guided dry run, the
+            // (`DryRunAutopilot`). `AEROCHECK_DRYRUN=sheet`: the start sheet; `first`: onboarding's circuit; `guided`: the guided dry run, the
             // whole story, from `AEROCHECK_DRYRUN_PART` (1 to 4) or Fly's `AEROCHECK_DRYRUN_CHAPTER`. (6.4.0)
             let environment = ProcessInfo.processInfo.environment
             if let dryRun = environment["AEROCHECK_DRYRUN"]?.lowercased() {
@@ -245,6 +254,14 @@ struct ContentView: View {
                 if !appState.hasSeenOnboarding { appState.completeOnboarding() }
                 if dryRun == "sheet" {
                     DryRunCenter.shared.requestStart()
+                    return
+                }
+                if dryRun == "first" {
+                    // The first flight, onboarding's circuit (6.8.0), flown and stopped as the guided one is.
+                    DryRunCenter.shared.requestFirstFlight()
+                    if environment["AEROCHECK_DRYRUN_AUTO"] == "1" {
+                        DryRunAutopilot(stop: environment["AEROCHECK_DRYRUN_STOP"].flatMap(DryRunAutopilot.Stop.init)).fly()
+                    }
                     return
                 }
                 if dryRun == "guided" {
@@ -296,6 +313,7 @@ struct ContentView: View {
             case "closeout", "flightcloseout":  scene = .flightCloseOut
             case "homeflight", "homeflighttoday": scene = .homeFlightToday
             case "circuits", "planmapcircuits": scene = .planMapCircuits
+            case "atlas", "planmapatlas":       scene = .planMapAtlas
             default:                            scene = nil
             }
             guard let scene else { return }

@@ -79,7 +79,7 @@ struct DryRunCockpitView: View {
                     .environment(\.isDryRun, true)
                     .environment(\.dryRunSession, session)
                     .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: metrics.extraTop) }
-                if session.isOnFinal {
+                if session.showsFinalCard {
                     DryRunFinalCard(session: session, compact: !metrics.isWide)
                         .coachTarget(.finalCard)
                         .frame(maxWidth: metrics.finalCardWidth)
@@ -90,7 +90,7 @@ struct DryRunCockpitView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.easeOut(duration: 0.2), value: session.isOnFinal)
+            .animation(.easeOut(duration: 0.2), value: session.showsFinalCard)
             // The guided flight's coach: its card above the act band, the veil and the ring over the control.
             .overlayPreferenceValue(CoachTargetKey.self) { anchors in
                 if let coach = session.coach {
@@ -267,7 +267,9 @@ private struct DryRunPartPlate: View {
     @ObservedObject var coach: DryRunCoach
 
     var body: some View {
-        DryRunPlate(text: "\(L10n.DryRun.band) · \(coach.part.title)")
+        // The first flight is no part of the story: its own name. (6.8.0)
+        let name = coach.start.isFirstFlight ? L10n.Onboarding.circuitTitle : coach.part.title
+        DryRunPlate(text: "\(L10n.DryRun.band) · \(name)")
     }
 }
 
@@ -283,23 +285,26 @@ struct DryRunCoachLayer: View {
         GeometryReader { proxy in
             // On final, above the card on final as it is drawn (its height varies with the device, the layout and the
             // language), so the coach's card never covers its buttons (the author's eighth round, r8-7).
-            let finalTop = session.isOnFinal ? anchors[.finalCard].map { proxy[$0].minY } : nil
+            let finalTop = session.showsFinalCard ? anchors[.finalCard].map { proxy[$0].minY } : nil
             let bottom = finalTop.map { max(metrics.finalCardBottom, proxy.size.height - $0 + 8) }
-                ?? metrics.finalCardBottom + (session.isOnFinal ? (metrics.isWide ? 128 : 112) : 0)
+                ?? metrics.finalCardBottom + (session.showsFinalCard ? (metrics.isWide ? 128 : 112) : 0)
             let alignment: Alignment = metrics.isWide || metrics.layout == .columns ? .bottomLeading : .bottom
             // The Cockpit's own steps: a step for the Menu (a sheet over it) shows there, not here as well.
             if let step = coach.step, step.screen == .cockpit {
                 // The prompt over the Cockpit has the card (`dryRunCoachCard`): nothing here meanwhile.
                 if coach.hourMeter == nil {
-                    let target = coach.resolvedTarget(of: step).flatMap { anchors[$0] }.map { proxy[$0] }
+                    let target = anchors.frame(of: coach.resolvedTarget(of: step), in: proxy)
                     // What it rings where the card would stand, above the act band (the undo toast at the foot of
                     // CHECKLIST and ROUTE): the card at the top, under the read band, not over it (st-3, r3-12).
                     // Folded, it is one line at the foot, and stays there unless that line is over it (i-5: folded
                     // at the top, it floated mid-screen). Beside it, nothing to move for.
                     let cardTop = proxy.size.height - bottom - (coach.isFolded ? 52 : 200)
                     let cardRight = alignment == .bottomLeading ? 12 + metrics.coachCardWidth : .infinity
+                    // A target taller than the card's room (the checklist's list, r4-41) keeps the card at the foot:
+                    // at the top it would cover the list's head, the item to do.
                     let atTop = target.map {
                         $0.maxY > cardTop && $0.minY < proxy.size.height - bottom - 4 && $0.minX < cardRight
+                            && $0.height < proxy.size.height * 0.4
                     } ?? false
                     // On a phone on its side the read band is in the column: the top of the page instead.
                     let top = metrics.layout == .columns ? metrics.extraTop + 8

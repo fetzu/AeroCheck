@@ -58,6 +58,7 @@ struct AircraftSettingsView: View {
                 aircraftSection
                 AircraftRequestsGroup(tint: tint)
                 aircraftVisibilitySection
+                CachedChecklistsGroup(tint: tint)
             }
         }
         .navigationTitle(showsSpeeds ? L10n.Ground.aircraft : L10n.Settings.aircraftAndSubscription)
@@ -758,5 +759,136 @@ private struct CruiseSpeedSettingRow: View {
         guard let key, appState.settings.cruiseSpeedKIAS[key] != nil else { return }
         appState.settings.cruiseSpeedKIAS[key] = nil
         appState.saveSettings()
+    }
+}
+
+// MARK: - Checklists on this device
+
+/// The checklists cached on this device, by club, with the update check: beside the aircraft they belong to since
+/// Offline data took Data & Storage's place (the author's answer 7 A, 30 Oct 2026). (6.8.0)
+private struct CachedChecklistsGroup: View {
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var aircraftDataService: AircraftDataService
+    let tint: Color
+
+    @State private var isSyncingChecklists = false
+    /// Snapshotted on appear and after a sync. `getAllCachedAircraft()` reads and decodes cached
+    /// checklists, so calling it from `body` re-ran that disk work on every render.
+    @State private var checklists: [CachedAircraftInfo] = []
+
+    var body: some View {
+        group.onAppear { checklists = aircraftDataService.getAllCachedAircraft() }
+    }
+
+    private var group: some View {
+        SettingsGroup(title: L10n.DataStorage.checklistsSection, tint: tint, footer: L10n.DataStorage.checklistsDetail) {
+            let cached = checklists
+            if cached.isEmpty {
+                Text(L10n.DataStorage.noChecklists)
+                    .font(.aero(.caption))
+                    .foregroundColor(.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+            } else {
+                ForEach(groupCachedByAeroclub(cached), id: \.aeroclub) { group in
+                    checklistGroup(group)
+                }
+            }
+            if isSyncingChecklists {
+                HStack(spacing: 13) {
+                    SettingsRowLabel(icon: "arrow.triangle.2.circlepath", title: L10n.DataStorage.syncChecklists, tint: tint)
+                    Spacer(minLength: 0)
+                    ProgressView().scaleEffect(0.8)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+            } else {
+                SettingsButtonRow(icon: "arrow.triangle.2.circlepath", title: L10n.DataStorage.syncChecklists,
+                                  tint: tint, showsChevron: false) {
+                    Task { await syncChecklists() }
+                }
+                // Only when something is actually absent — "check for updates" cannot fetch a first
+                // copy, so without this row there was no way to get one short of selecting each
+                // aircraft in turn. Separate from the update check so the label stays truthful.
+                let missing = checklists.filter { !$0.isDownloaded }.count
+                if missing > 0 {
+                    SettingsButtonRow(icon: "arrow.down.circle", title: L10n.DataStorage.downloadMissingChecklists(missing),
+                                      tint: tint, showsChevron: false) {
+                        Task { await syncChecklists() }
+                    }
+                }
+            }
+        }
+    }
+
+    private func checklistGroup(_ group: (aeroclub: String?, aircraft: [CachedAircraftInfo])) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let aeroclub = group.aeroclub {
+                HStack(spacing: 6) {
+                    Image(systemName: "building.2").font(.aero(.caption))
+                    Text(aeroclub).font(.aero(.caption).weight(.semibold))
+                }
+                .foregroundColor(.aviationGold)
+            }
+            ForEach(group.aircraft) { aircraft in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(aircraft.registration)
+                            .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                            .foregroundColor(aircraft.isDownloaded ? .primaryText : .secondaryText)
+                        if aircraft.isPremium {
+                            Image(systemName: "star.fill").scaledFont(size: 9, relativeTo: .caption2).foregroundColor(.aviationGold)
+                        }
+                        Text(aircraft.modelName).font(.aero(.caption)).foregroundColor(.secondaryText).lineLimit(1)
+                        Spacer(minLength: 6)
+                        HStack(spacing: 5) {
+                            ForEach(aircraft.checklistLanguages, id: \.self) { LanguageFlagView(languageCode: $0) }
+                        }
+                    }
+                    // An owned-but-absent checklist says so plainly instead of being left off the list.
+                    Text(aircraft.isDownloaded
+                         ? "\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)"
+                         : L10n.DataStorage.statusMissing)
+                        .font(.aero(.caption2))
+                        .foregroundColor(aircraft.isDownloaded ? .dimText : .aviationAmber)
+                }
+                .opacity(aircraft.isDownloaded ? 1 : 0.75)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func groupCachedByAeroclub(_ aircraft: [CachedAircraftInfo]) -> [(aeroclub: String?, aircraft: [CachedAircraftInfo])] {
+        Dictionary(grouping: aircraft) { $0.aeroclub }
+            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
+            .sorted { lhs, rhs in
+                switch (lhs.aeroclub, rhs.aeroclub) {
+                case (nil, nil): return false
+                case (nil, _): return true
+                case (_, nil): return false
+                case (let a?, let b?): return a < b
+                }
+            }
+    }
+
+    private func syncChecklists() async {
+        isSyncingChecklists = true
+        await aircraftDataService.fetchAvailableAircraft()
+        await aircraftDataService.syncBundledAircraft()
+        // Premium checklists were never synced here at all — this button only ever refreshed the
+        // BUNDLED aircraft, so on a fleet where one aircraft is bundled and thirteen are not it
+        // appeared to do nothing. The language must be passed: checklists cache per language and
+        // the key omitting it is not the one any reader looks up. (device-test feedback)
+        let language = appState.settings.checklistLanguage.resolvedLanguage
+        await aircraftDataService.syncAllChecklists(language: language)
+        // …and fetch the ones this device has never had. `syncAllChecklists` only refreshes what is
+        // already stored, so on a device that had opened seven of fifteen owned aircraft it refreshed
+        // seven and reported success — the other eight stayed absent, and offline. (v4.4.0)
+        await aircraftDataService.downloadMissingChecklists(language: language)
+        checklists = aircraftDataService.getAllCachedAircraft()
+        isSyncingChecklists = false
     }
 }

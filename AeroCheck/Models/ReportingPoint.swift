@@ -344,31 +344,10 @@ final class ReportingPointAnnotation: NSObject, MKAnnotation {
     var subtitle: String? { label.subtitle }
 
     /// Changes whenever a label could: new points (a refresh that added their aerodromes, a new
-    /// open flightmaps cycle) or new aerodromes. Every counter only grows, so their sum does too.
+    /// open flightmaps cycle) or new aerodromes. Every counter only grows, so their sum does too. The map
+    /// rebuilds every marker when it changed, so a label never outlives its data (`PilotMapMarkers.sync`).
     @MainActor
     static var labelRevision: Int { ReportingPointCatalog.shared.labelRevision }
-
-    /// Brings a map's reporting-point markers to `points`: the markers of points no longer shown go,
-    /// new ones come. Nothing moves while the visible set and `labelRevision` stay the same (PERF-27);
-    /// every marker is rebuilt when the revision changed, so a label never outlives its data. The
-    /// three maps (the two nav maps and the builder) keep `revision` in their coordinator. (6.0.1)
-    @MainActor
-    static func sync(_ points: [ReportingPoint], on mapView: MKMapView, revision: inout Int) {
-        var existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
-        let current = labelRevision
-        if revision != current {
-            mapView.removeAnnotations(existing)
-            existing = []
-            revision = current
-        }
-        let existingIds = Set(existing.map { $0.point.id })
-        let newIds = Set(points.map { $0.id })
-        guard existingIds != newIds else { return }
-        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
-        for point in points where !existingIds.contains(point.id) {
-            mapView.addAnnotation(ReportingPointAnnotation(point: point))
-        }
-    }
 
     /// A callout shows one subtitle line, so a note ("MAX 3500") or an open flightmaps point's
     /// source ("open flightmaps · AIRAC 2610") needs the detail view, which then carries the

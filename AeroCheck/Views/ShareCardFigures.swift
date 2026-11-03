@@ -303,7 +303,11 @@ struct ShareCardFigures {
         case .chart?: parts.append(L10n.ShareCard.creditChart)
         case .imagery?: parts.append(L10n.ShareCard.creditImagery)
         case .nationalMap?: parts.append(L10n.ShareCard.creditNationalMap)
-        case .appleMaps?: parts.append(L10n.ShareCard.creditAppleMaps)
+        case .pilotMap?: parts.append(L10n.ShareCard.creditPilotMap)
+        case .aerialImagery(let lines)?:
+            // The pilot's map is drawn under the imagery, and shows wherever no source covers the card.
+            parts.append(L10n.ShareCard.creditPilotMap)
+            if !lines.isEmpty { parts.append(L10n.ShareCard.creditAerialImagery(lines.joined(separator: ", "))) }
         case nil: break
         }
         if terrains.contains(.swisstopo) { parts.append(L10n.ShareCard.creditTerrainSwisstopo) }
@@ -330,6 +334,9 @@ enum ShareCardMapPlaceholder: Equatable {
 /// (85 MB for the Full map band). Sizes are in the image's points: half of it on the card. (6.1)
 struct ShareCardMapStyle: Equatable {
     static let renderScale: CGFloat = 1
+    /// The Atlas is drawn at a third of the map image's points, three times their scale, so its names read on the
+    /// card as they do on a phone. (6.8.0)
+    static let mapLabelScale: CGFloat = 3
     /// The map image's points per point of its frame on the card.
     static let imagePointsPerCardPoint: CGFloat = 2
 
@@ -752,8 +759,10 @@ enum ShareCardMapCredit: Equatable {
     case imagery
     /// The national map: "National map © swisstopo".
     case nationalMap
-    /// MapKit: "Map: Apple Maps".
-    case appleMaps
+    /// The pilot's map: "Map © OpenStreetMap contributors". (6.8.0: Apple's map before)
+    case pilotMap
+    /// Aerial imagery from open government sources: each one in the picture, in its own words. (6.8.0)
+    case aerialImagery([String])
 }
 
 /// A swisstopo WMTS layer the card's map is made of (EPSG:3857 tiles from wmts.geo.admin.ch).

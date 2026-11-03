@@ -272,53 +272,6 @@ final class LegsPanelMapTests: XCTestCase {
         XCTAssertEqual(point.y, viewSize.height / 2, accuracy: 0.01)
     }
 
-    // MARK: - The device turned (6.3.0, the author's device check fix1-4)
-
-    /// Portrait and landscape are different views: the device turned with the legs open makes a new map
-    /// view, with no size at its first update and never at the pilot's chart. Its band frames at the
-    /// pilot's zoom as the last map measured it. It used to stay where the map was made, on the device's
-    /// position, and a tapped leg did nothing until the panel closed.
-    @MainActor
-    func testABandOnAMapMadeWithThePanelOpenStillFrames() {
-        let desk = CLLocationCoordinate2D(latitude: 46.5455, longitude: 6.6175)
-        let start = CLLocationCoordinate2D(latitude: 47.3920, longitude: 7.0300)
-        let end = CLLocationCoordinate2D(latitude: 47.0839, longitude: 6.7928)
-        let region = MKCoordinateRegion(center: desk, latitudinalMeters: 5_000, longitudinalMeters: 5_000)
-        let mapState = SharedMapState()
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1_180, height: 1_180))
-        window.isHidden = false
-        addTeardownBlock { @MainActor in window.isHidden = true }
-
-        // The pilot's map, the panel closed, at rest.
-        let pilots = MKMapView(frame: CGRect(x: 0, y: 0, width: 820, height: 1_000))
-        window.addSubview(pilots)
-        pilots.setRegion(region, animated: false)
-        pilots.layoutIfNeeded()
-        let before = LegsBandDriver()
-        XCTAssertFalse(before.update(pilots, band: nil, mapState: mapState))
-        before.mapCameToRest(pilots, mapState: mapState)
-        XCTAssertNotNil(mapState.bandPilotZoom, "the pilot's zoom outlives the map view")
-        pilots.removeFromSuperview()
-
-        // Turned: a new map at the shared state's camera, laid out only after its first update.
-        let turned = MKMapView(frame: .zero)
-        turned.setRegion(region, animated: false)
-        let viewSize = CGSize(width: 1_180, height: 500)
-        let band = LegsPanelMap.Band(rect: CGRect(origin: .zero, size: viewSize), viewSize: viewSize,
-                                     aircraft: desk, waypoint: end, heading: 0, legStart: start)
-        let driver = LegsBandDriver()
-        XCTAssertTrue(driver.update(turned, band: band, mapState: mapState), "the band has the camera")
-        turned.frame = CGRect(origin: .zero, size: viewSize)
-        window.addSubview(turned)
-        turned.layoutIfNeeded()
-        XCTAssertTrue(driver.update(turned, band: band, mapState: mapState))
-
-        let middle = MKMapPoint(x: (MKMapPoint(start).x + MKMapPoint(end).x) / 2,
-                                y: (MKMapPoint(start).y + MKMapPoint(end).y) / 2)
-        XCTAssertLessThan(MKMapPoint(turned.camera.centerCoordinate).distance(to: middle), 500,
-                          "on the leg, not on the desk")
-    }
-
     // MARK: - Closing
 
     private let saved = LegsPanelMap.SavedCamera(

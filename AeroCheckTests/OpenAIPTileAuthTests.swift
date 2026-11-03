@@ -235,4 +235,35 @@ final class OpenAIPRequestGuardTests: XCTestCase {
         XCTAssertFalse(items.contains { $0.name.lowercased().contains("key") })
         XCTAssertEqual(request.timeoutInterval, OpenAIPConfig.streamingRequestTimeout)
     }
+
+    /// Since 31 Oct 2026 OpenAIP refuses the position search: the country's CTRs, no position sent at all.
+    func testTheCountryCTRRequestCarriesTheKeyInAHeaderAndNoPosition() throws {
+        let request = try XCTUnwrap(OpenAIPDataService.streamingCTRRequest(country: "FR"))
+        let items = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems)
+
+        XCTAssertEqual(request.value(forHTTPHeaderField: OpenAIPConfig.apiKeyHeader), OpenAIPConfig.apiKey)
+        XCTAssertEqual(items.first { $0.name == "country" }?.value, "FR")
+        XCTAssertEqual(items.first { $0.name == "type" }?.value, "4", "CTRs only")
+        XCTAssertFalse(items.contains { $0.name == "pos" })
+        XCTAssertFalse(items.contains { $0.name.lowercased().contains("key") })
+    }
+
+    /// From a country's list, what the position search would have answered: the nearest first, none far off, none twice.
+    func testFromACountrysCTRsTheNearestAreKept() {
+        func ctr(_ id: String, _ lat: Double, _ lon: Double) -> Airspace {
+            let ring = [[lon - 0.05, lat - 0.05], [lon - 0.05, lat + 0.05], [lon + 0.05, lat + 0.05],
+                        [lon + 0.05, lat - 0.05], [lon - 0.05, lat - 0.05]]
+            return Airspace(id: id, name: id, type: 4, icaoClass: 3, country: "FR",
+                            upperCeiling: AltitudeLimit(value: 45, unit: 6, referenceDatum: 2),
+                            lowerCeiling: AltitudeLimit(value: 0, unit: 1, referenceDatum: 0),
+                            geometry: AirspaceGeometry(type: "Polygon", coordinates: [ring]), activity: nil,
+                            frequencies: nil)
+        }
+        let porrentruy = CLLocationCoordinate2D(latitude: 47.40, longitude: 7.08)
+        let basel = ctr("BASEL", 47.60, 7.53)     // 22 NM
+        let belfort = ctr("BELFORT", 47.62, 6.86) // 16 NM
+        let paris = ctr("PARIS", 48.86, 2.35)     // far off
+        let kept = OpenAIPDataService.nearbyCTRs([paris, basel, belfort, basel], to: porrentruy)
+        XCTAssertEqual(kept.map(\.id), ["BELFORT", "BASEL"])
+    }
 }

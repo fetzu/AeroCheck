@@ -22,6 +22,8 @@ final class CockpitMapPageTests: XCTestCase {
         let services = makeServices()
         services.offlineMapManager.isCacheAvailable = true
         services.offlineMapManager.isSegelflugCacheAvailable = true
+        // The cached ICAO chart picked: the Atlas is the first launch's chart since 6.8.0, and it has no CACHED badge.
+        services.appState.selectMapLayer(.icao)
         armRoute(services.flightPlanManager)
         let seen = accessibility(NavigationMapView(isPresented: .constant(true), showsCloseButton: false, chrome: .plan,
                                                    onShowRoutes: {}),

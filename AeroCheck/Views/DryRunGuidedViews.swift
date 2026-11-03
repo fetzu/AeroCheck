@@ -9,14 +9,17 @@ struct DryRunTodayCard: View {
     @Environment(AppState.self) private var appState
     @AppStorage(DryRunCenter.todayCardDismissedKey) private var dismissed = false
     @AppStorage(DryRunCenter.guidedFlownKey) private var guidedFlown = false
+    @AppStorage(GettingStarted.offeredKey) private var gettingStarted = false
 
-    /// Shown: nothing in the logbook, the guided flight never flown here, the card never put away.
-    static func isOffered(logbookEmpty: Bool, dismissed: Bool, guidedFlown: Bool) -> Bool {
-        logbookEmpty && !dismissed && !guidedFlown
+    /// Shown: nothing in the logbook, the guided flight never flown here, the card never put away. Never after the
+    /// 6.8.0 onboarding: its Getting started card offers the dry run, and hiding that card hides this one too.
+    static func isOffered(logbookEmpty: Bool, dismissed: Bool, guidedFlown: Bool, gettingStarted: Bool = false) -> Bool {
+        logbookEmpty && !dismissed && !guidedFlown && !gettingStarted
     }
 
     var body: some View {
-        if Self.isOffered(logbookEmpty: appState.flights.isEmpty, dismissed: dismissed, guidedFlown: guidedFlown),
+        if Self.isOffered(logbookEmpty: appState.flights.isEmpty, dismissed: dismissed, guidedFlown: guidedFlown,
+                          gettingStarted: gettingStarted),
            !appState.isFlightActive {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {

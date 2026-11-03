@@ -164,7 +164,7 @@ final class SwissChartLayerTests: XCTestCase {
         func planned(_ features: MapFeatures) -> PlannedRoute {
             AeroMapView(layerType: .icao, mapState: state, currentLocation: nil, gpsTrack: [],
                         isFollowingAircraft: .constant(false), forceICAOLayer: false, features: features,
-                        plannedRoute: route).makeCoordinator().plannedRoute.route
+                        plannedRoute: route).shownPlannedRoute
         }
         let builder = planned(.builder)
         XCTAssertEqual(builder.waypoints.count, 1)
@@ -231,5 +231,31 @@ final class SwissChartLayerTests: XCTestCase {
         XCTAssertEqual(MapLayerType.satellite.shown(over: bern), .satellite, "Apple's maps are everywhere")
         XCTAssertEqual(WaypointPickerMapLayer(MapLayerType.icao.shown(over: paloAlto)), .apple)
         XCTAssertFalse(L10n.MapLayer.switzerlandOnly("ICAO chart", "Apple Maps").isEmpty)
+    }
+
+    // MARK: - The Base chart list (6.8.0)
+
+    /// The maps for everywhere first, then the three Swiss ones, each marked "Switzerland only" (device check pm-6).
+    func testTheBaseChartListPutsTheMapsForEverywhereFirst() {
+        XCTAssertEqual(MapSheet.baseCharts, [.standard, .satellite, .icao, .landeskarten, .swissimage])
+        XCTAssertEqual(MapSheet.baseCharts.filter(\.isSwissLayer), [.icao, .landeskarten, .swissimage])
+        XCTAssertEqual(L10n.MapLayer.switzerlandOnlyShort, "Switzerland only")
+    }
+
+    /// The Swiss charts are offered while the map shows part of Switzerland, whoever the pilot, and the chart in use
+    /// always stays (the author's answers of 30 Oct, question 13, and 31 Oct, question 10).
+    func testTheSwissChartsAreOfferedWhereTheyApply() {
+        let paris = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 48.85, longitude: 2.35),
+                                       span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1))
+        let basel = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47.56, longitude: 7.59),
+                                       span: MKCoordinateSpan(latitudeDelta: 1, longitudeDelta: 1))
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: paris, selected: .standard), [.standard, .satellite],
+                       "over Paris, even for a pilot based in Switzerland")
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: basel, selected: .standard), MapSheet.baseCharts,
+                       "the map shows Switzerland")
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: paris, selected: .icao), [.standard, .satellite, .icao],
+                       "the chart in use stays")
+        XCTAssertEqual(MapSheet.offeredCharts(mapRegion: nil, selected: .standard), MapSheet.baseCharts,
+                       "before the map knows where it is")
     }
 }

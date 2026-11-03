@@ -2664,7 +2664,13 @@ private struct RouteProfileView: View {
 /// airspace service), avoiding the fragile env-injection of DataStatusManager through the builder's full-screen cover.
 struct TripDataBanner: View {
     let route: [CLLocationCoordinate2D]
+    /// Where Plan › Map rests, beside the route if there is one (the author's device checks r4-33 and r4-43, 1-2 Nov
+    /// 2026: with a route active, panning over another country offered nothing). Said "here" when the route itself
+    /// needs nothing. (6.8.0)
+    var here: CLLocationCoordinate2D? = nil
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    /// The pilot's map's regions along the route join the trip's data (6.8.0).
+    @ObservedObject private var pilotMap = PilotMapDownloads.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var dismissed = false
@@ -2678,10 +2684,13 @@ struct TripDataBanner: View {
     /// Cached route→countries (the expensive resample+bbox scan) — recomputed only on route change, not
     /// every render. The cheap coverage diff stays in `tripNeededCountries`. (review #12)
     @State private var routeCountriesCache: [String] = []
+    /// The route's own countries, without `here`'s: whether the route needs anything, for the banner's title.
+    @State private var routeOnlyCountries: [String] = []
 
     /// The route, to the metre: its countries are worked out again when it changes.
     private var routeKey: String {
-        route.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: ";")
+        (route + [here].compactMap { $0 }).map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }
+            .joined(separator: ";")
     }
 
     var body: some View {
@@ -2694,12 +2703,14 @@ struct TripDataBanner: View {
                 }
             banner
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty) // (UX-18)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeedsSomething) // (UX-18)
     }
 
     /// Recompute the cached route→countries set (the expensive part), on appear and when the route changes.
     private func updateRouteCountriesCache() {
-        routeCountriesCache = route.count >= 2 ? RouteDataCalculator.countries(crossing: route) : []
+        routeOnlyCountries = route.count >= 2 ? RouteDataCalculator.countries(crossing: route) : []
+        let hereCountries = here.map { RouteDataCalculator.countries(crossing: [$0, $0]) } ?? []
+        routeCountriesCache = Array(Set(routeOnlyCountries + hereCountries)).sorted()
     }
 
     /// The per-country layers of the trip top-up: the same providers, in the same order, as
@@ -2716,12 +2727,41 @@ struct TripDataBanner: View {
     /// download, so the estimate needs the split even though the banner shows the union. A country a
     /// layer's source doesn't publish (open flightmaps outside its 22 countries) is no gap. (review #7)
     private var tripMissingByLayer: [TripDataSizeEstimator.Layer: [String]] {
-        guard route.count >= 2, !routeCountriesCache.isEmpty else { return [:] }
+        guard !routeCountriesCache.isEmpty else { return [:] }
         return DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeCountriesCache)
     }
 
     private var tripNeededCountries: [String] {
         Set(tripMissingByLayer.values.flatMap { $0 }).sorted()
+    }
+
+    /// The route's pilot's map regions not downloaded yet: a planned flight takes its map with its other data. (6.8.0)
+    private var tripNeededRegions: [PilotMapRegion] {
+        var regions = pilotMap.missingRegions(along: route)
+        if let here {
+            for region in pilotMap.missingRegions(along: [here, here]) where !regions.contains(region) {
+                regions.append(region)
+            }
+        }
+        return regions
+    }
+
+    /// The route alone needs nothing: what is missing is where the map rests, "Not downloaded here".
+    private var onlyHereNeedsSomething: Bool {
+        guard here != nil else { return false }
+        let routeGaps = routeOnlyCountries.isEmpty ? [:]
+            : DataStatusManager.tripGaps(providers: tripProviders, routeCountries: routeOnlyCountries)
+        return routeGaps.values.allSatisfy(\.isEmpty) && pilotMap.missingRegions(along: route).isEmpty
+    }
+
+    private var tripNeedsSomething: Bool { !tripNeededCountries.isEmpty || !tripNeededRegions.isEmpty }
+
+    /// How far the download is: the layers and regions done, plus the regions' bytes so far (a region is the
+    /// big part, a hundred megabytes or more, so a count alone would sit still on it).
+    private var prefetchFraction: Double {
+        guard prefetchTotal > 0 else { return 0 }
+        let regionsUnderWay = pilotMap.progress.values.reduce(0, +)
+        return min(1, (Double(prefetchStep) + regionsUnderWay) / Double(prefetchTotal))
     }
 
     /// Download the per-country layers for the route's missing countries (merged with what's cached).
@@ -2732,7 +2772,8 @@ struct TripDataBanner: View {
     /// data. (device-test feedback, v4.4.0)
     private func prefetchTripData() async {
         let needed = tripNeededCountries
-        guard !needed.isEmpty else { return }
+        let regions = tripNeededRegions
+        guard !needed.isEmpty || !regions.isEmpty else { return }
         isPrefetchingTrip = true
         tripPrefetchFailed = false
 
@@ -2743,25 +2784,40 @@ struct TripDataBanner: View {
         // OpenAIP's airports with them, for the frequencies' names: no gap of its own (`OpenAIPAirportProvider`). (6.4.2)
         // Side by side, each its own service: one after the other, the US's airspace held "0/6" for over a minute
         // before the rest came in seconds (the author's v65-36, 23 Oct 2026). The count moves as each lands. (6.5.0)
-        let providers = tripProviders + [OpenAIPAirportProvider(service: .shared)]
+        let providers = needed.isEmpty ? [] : tripProviders + [OpenAIPAirportProvider(service: .shared)]
         prefetchStep = 0
-        prefetchTotal = providers.count
+        prefetchTotal = providers.count + regions.count
         await withTaskGroup(of: Void.self) { group in
             for provider in providers {
                 group.addTask { @MainActor in await provider.prefetch(countries: needed) }
             }
+            // Each region beside the layers: the big one, at a hundred megabytes or more. (6.8.0)
+            for region in regions {
+                group.addTask { @MainActor in await pilotMap.downloadNow(region) }
+            }
             for await _ in group { prefetchStep += 1 }
         }
         isPrefetchingTrip = false
-        tripPrefetchFailed = !tripNeededCountries.isEmpty
+        tripPrefetchFailed = tripNeedsSomething
     }
 
     /// `"France, Germany · ≈ 12 MB"`, dropping the size until the estimate lands (a few small
     /// requests) so the banner never blocks on the network to say what it already knows.
     private func tripDetailLine(_ needed: [String]) -> String {
-        let names = needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")
-        guard let size = tripSizeEstimate.flatMap(TripDataSizeEstimator.displayString) else { return names }
-        return "\(names) · \(size)"
+        var parts: [String] = []
+        if !needed.isEmpty { parts.append(needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")) }
+        let regions = tripNeededRegions
+        if !regions.isEmpty { parts.append(L10n.PilotMap.tripRegions(regions.map(\.displayName).joined(separator: ", "))) }
+        // The regions' size is exact (the index says it); the layers' is estimated, or still coming.
+        let regionBytes = Int64(regions.reduce(0) { $0 + $1.downloadBytes })
+        let layers = needed.isEmpty ? nil : tripSizeEstimate
+        if needed.isEmpty || layers != nil,
+           let size = TripDataSizeEstimator.displayString(.init(bytes: (layers?.bytes ?? 0) + regionBytes,
+                                                               recordsByLayer: layers?.recordsByLayer ?? [:],
+                                                               isPartial: layers?.isPartial ?? false)) {
+            parts.append(size)
+        }
+        return parts.joined(separator: " · ")
     }
 
     /// Fetch the size estimate for whatever is currently missing. Keyed on the missing set so a route
@@ -2786,14 +2842,16 @@ struct TripDataBanner: View {
     @ViewBuilder
     private var banner: some View {
         let needed = tripNeededCountries
-        if !dismissed, !needed.isEmpty {
+        if !dismissed, tripNeedsSomething {
             let tint: Color = tripPrefetchFailed ? .aviationAmber : .aviationGold
             HStack(spacing: 10) {
                 Image(systemName: tripPrefetchFailed ? "exclamationmark.triangle" : "square.and.arrow.down")
                     .font(.aero(size: 15, weight: .semibold))
                     .foregroundColor(tint)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed : L10n.Nav.tripDataMissing)
+                    Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed
+                         : onlyHereNeedsSomething ? L10n.Nav.dataMissingHere
+                         : needed.isEmpty ? L10n.PilotMap.tripMissing : L10n.Nav.tripDataMissing)
                         .font(.aero(size: 13, weight: .semibold))
                         .foregroundColor(.primaryText)
                     // Countries AND size. The offer used to name the countries and stop there, which
@@ -2807,6 +2865,12 @@ struct TripDataBanner: View {
                         .foregroundColor(.secondaryText)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                    // The download's progress in the banner itself (the author's device check r4-42, 2 Nov 2026).
+                    if isPrefetchingTrip {
+                        ProgressView(value: prefetchFraction)
+                            .tint(tint)
+                            .padding(.top, 4)
+                    }
                 }
                 Spacer(minLength: 8)
                 if isPrefetchingTrip {
@@ -2844,6 +2908,8 @@ struct TripDataBanner: View {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(tint.opacity(0.35), lineWidth: 1)
             )
+            // Offline data country by country, the first route across a border without it. (6.8.0)
+            .aeroTip(OfflineBorderTip(), shown: routeCountriesCache.count > 1 && !tripPrefetchFailed, arrowEdge: .top)
             .padding(.horizontal, 12)
             .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))

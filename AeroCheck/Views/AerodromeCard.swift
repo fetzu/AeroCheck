@@ -7,7 +7,8 @@ import UIKit
 // line). An aerodrome's marker opens the app's own card instead: the code large, the name, the frequencies, the
 // pilot's note, and one row of buttons of equal width. The card knows nothing of the map it sits on: what it holds is
 // `AerodromeCardContent`, how it looks is `AerodromeCardView`, and the map's own anchor places it over the marker
-// (`AerodromeMarkerView` on MapKit), so the move to MapLibre (6.8.0) keeps the card and changes only the anchor.
+// (`PilotMarkerCallout`, by `CalloutPlacement`), so the move to MapLibre (6.8.0) kept the card and changed only the
+// anchor.
 
 /// What an aerodrome's card holds, decided from the field, the pilot's note and what the map surface offers.
 struct AerodromeCardContent: Equatable {

@@ -1,12 +1,16 @@
-6.7.0 brings your own notes on each aerodrome, and one map drawing everywhere.
+6.8.0 draws its own map, the Atlas, from OpenStreetMap, on every map of the app.
 
 What to try:
-- Plan › Map, tap an aerodrome: its card has the frequencies, Chart and Note. Note opens your note in two parts, Arrival and On the ground. Write one, then tap the aerodrome again.
-- Search aerodromes finds a field by what your note says, and shows the line that matched. Everything is listed nearest first.
-- A flight's Route block has a line per aerodrome with your note. After landing, CLOSE asks "Anything to remember about …?".
-- In flight the note reads only, Arrival part only: in the card, the approach briefing and Divert.
-- Settings › iCloud & Log › Aerodrome notes: every note, Share all notes (text file), delete one or all. With Sync to iCloud on, the notes follow you to your other devices.
-- The maps: past the Swiss charts' edge, Apple's map shows instead of black. Zoom in on Plan › Map or the Cockpit's MAP: the ICAO chart, then the glider chart, then the National Map.
-- The route builder's card: + Route adds the aerodrome to the route.
+- Settings › Offline data replaces Data & Storage and Navigation & Maps: one status at the top, your countries, the worldwide airports and the Atlas overview.
+- Offline data › Add a country: a country downloads at one press, its Atlas with its airspace, aerodromes and VFR procedures (Switzerland is about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws there.
+- A large country (France, Germany) opens its page: all of it at one press, or the regions you fly. Download a neighbour too: at the border both sides draw, with no gap and nothing twice.
+- Map sheet › Base chart: Atlas and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map. Slovenia and Denmark are new.
+- Zoom out to Europe: every country drawn in detail, with its cities, roads and relief.
+- Plan › Map, the Cockpit's MAP and the route editor: tap an aerodrome, a circuit's altitude, a navaid; drag a route point; the legs band; Search aerodromes. Tell us anything that moves differently from 6.7.
+- A flight in the logbook: its track map, and the share card on Atlas and on Aerial imagery.
+- Plan a flight crossing a border: the banner offers the Atlas regions along the route.
+- The Swiss ICAO, glider and national charts: past their edge, the Atlas now shows under them.
+- A new introduction: Settings › About › Replay introduction. Five short screens (your base is suggested from where you are, offline too: try it in airplane mode), then a circuit on the ground in about three minutes. Afterwards Today shows a Getting started card, and a few tips show once, next to what they explain.
+- Atlas downloads now have a monthly limit per device: 40 files, or 120 with AéroCheck Pro (a region is one or two files). If you meet it, the region's row says when it starts again: tell us.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

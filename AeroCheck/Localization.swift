@@ -103,12 +103,156 @@ enum L10n {
         }
     }
 
+    // MARK: - The pilot's map (6.8.0)
+    enum PilotMap {
+        static let section = String(localized: "pilotMap.section")
+        /// The overview downloaded, its map only: every country zoomed out, offline. (6.8.0)
+        static let overview = String(localized: "pilotMap.overview")
+        static let footer = String(localized: "pilotMap.footer")
+        /// "Online this month: 312 of 1,500 map tiles."
+        static func allowance(used: Int, limit: Int) -> String {
+            String(format: String(localized: "pilotMap.allowance"), used.formatted(), limit.formatted())
+        }
+        static let allowanceNear = String(localized: "pilotMap.allowanceNear")
+        static let allowanceExhausted = String(localized: "pilotMap.allowanceExhausted")
+        /// The Atlas gate refused a download: "This month's downloads are used up (40 files). They start again on 1 Nov."
+        static func ceiling(limit: Int, resetsAt: Date) -> String {
+            String(format: String(localized: "pilotMap.ceiling"), limit.formatted(),
+                   resetsAt.formatted(.dateTime.day().month(.abbreviated)))
+        }
+        /// Under Plan › Map's chart, short: "80 % of this month's online map used". (6.8.0)
+        static let lineNear = String(localized: "pilotMap.line.near")
+        static let lineExhausted = String(localized: "pilotMap.line.exhausted")
+        /// "Download Switzerland"
+        static func lineDownload(_ region: String) -> String {
+            String(format: String(localized: "pilotMap.line.download"), region)
+        }
+        static let downloaded = String(localized: "pilotMap.downloaded")
+        static let updateAvailable = String(localized: "pilotMap.updateAvailable")
+        static let failed = String(localized: "pilotMap.failed")
+        static func downloading(_ fraction: Double) -> String {
+            String(format: String(localized: "pilotMap.downloading"), fraction.formatted(.percent.precision(.fractionLength(0))))
+        }
+        static let stop = String(localized: "pilotMap.stop")
+        static let download = String(localized: "Download")
+        static let update = String(localized: "Update")
+        static let noRegions = String(localized: "pilotMap.noRegions")
+        /// Settings: every region by country, on a page of its own. (6.8.0, the worldwide regions)
+        static let allRegions = String(localized: "pilotMap.allRegions")
+        /// "236 regions, by country".
+        static func allRegionsDetail(_ count: Int) -> String {
+            String(format: String(localized: "pilotMap.allRegions.detail"), count)
+        }
+        static let searchRegions = String(localized: "pilotMap.searchRegions")
+        static let tripMissing = String(localized: "pilotMap.tripMissing")
+        static func tripRegions(_ names: String) -> String {
+            String(format: String(localized: "pilotMap.tripRegions"), names)
+        }
+        static let sourceOSM = String(localized: "pilotMap.source.osm")
+        static let sourceMapterhorn = String(localized: "pilotMap.source.mapterhorn")
+        static let sourceMapLibre = String(localized: "pilotMap.source.maplibre")
+        /// About › Data sources › Aerial imagery. (6.8.0)
+        static let imageryTitle = String(localized: "pilotMap.imagery.title")
+        static let imageryDetail = String(localized: "pilotMap.imagery.detail")
+        static let imageryFooter = String(localized: "pilotMap.imagery.footer")
+        static let clippedAtBorder = String(localized: "pilotMap.imagery.clipped")
+    }
+
+    // MARK: - Offline data (6.8.0)
+    /// Settings › Offline data and its pages: the device's data by country (the author's answers of 30 Oct 2026).
+    enum OfflineData {
+        static let title = String(localized: "offlineData.title")
+        static let subtitle = String(localized: "offlineData.subtitle")
+        static let nothingYet = String(localized: "offlineData.nothingYet")
+        static let upToDate = String(localized: "offlineData.upToDate")
+        static let updateNow = String(localized: "offlineData.updateNow")
+        static let updating = String(localized: "offlineData.updating")
+        static let autoUpdate = String(localized: "offlineData.autoUpdate")
+        static let autoUpdateDetail = String(localized: "offlineData.autoUpdateDetail")
+        static let connection = String(localized: "offlineData.connection")
+        static let offlineMode = String(localized: "offlineData.offlineMode")
+        static let offlineModeDetail = String(localized: "offlineData.offlineModeDetail")
+        static let onlineAirspace = String(localized: "offlineData.onlineAirspace")
+        static let onlineAirspaceDetail = String(localized: "offlineData.onlineAirspaceDetail")
+        static let yourCountries = String(localized: "offlineData.yourCountries")
+        static let yourCountriesFooter = String(localized: "offlineData.yourCountriesFooter")
+        static let noCountries = String(localized: "offlineData.noCountries")
+        static let addCountry = String(localized: "offlineData.addCountry")
+        static let partAtlas = String(localized: "offlineData.partAtlas")
+        static let partAeronautical = String(localized: "offlineData.partAeronautical")
+        static let partVFR = String(localized: "offlineData.partVFR")
+        static let partSwissCharts = String(localized: "offlineData.partSwissCharts")
+        static let downloading = String(localized: "offlineData.downloading")
+        static let worldwide = String(localized: "offlineData.worldwide")
+        static let airports = String(localized: "offlineData.airports")
+        static let atlasOnline = String(localized: "offlineData.atlasOnline")
+        static let atlasOnlineFooter = String(localized: "offlineData.atlasOnlineFooter")
+        static let onThisDevice = String(localized: "offlineData.onThisDevice")
+        static let credits = String(localized: "offlineData.credits")
+        static let yourCountry = String(localized: "offlineData.yourCountry")
+        static let europe = String(localized: "offlineData.europe")
+        static let elsewhere = String(localized: "offlineData.elsewhere")
+        static let aeronauticalOnly = String(localized: "offlineData.aeronauticalOnly")
+        static let addFooter = String(localized: "offlineData.addFooter")
+        static let noMatch = String(localized: "offlineData.noMatch")
+        static let searchPrompt = String(localized: "offlineData.searchPrompt")
+        static let notOnDevice = String(localized: "offlineData.notOnDevice")
+        static let aeronauticalTitle = String(localized: "offlineData.aeronauticalTitle")
+        static let aeronauticalDetail = String(localized: "offlineData.aeronauticalDetail")
+        static let vfrTitle = String(localized: "offlineData.vfrTitle")
+        static let vfrDetail = String(localized: "offlineData.vfrDetail")
+        static let withAeronautical = String(localized: "offlineData.withAeronautical")
+        static let swissCharts = String(localized: "offlineData.swissCharts")
+        static let icaoChart = String(localized: "offlineData.icaoChart")
+        static let gliderChart = String(localized: "offlineData.gliderChart")
+        static let gliderChartDetail = String(localized: "offlineData.gliderChartDetail")
+        static let onlineCharts = String(localized: "offlineData.onlineCharts")
+        static let onlineChartsDetail = String(localized: "offlineData.onlineChartsDetail")
+        static let nudge = String(localized: "offlineData.nudge")
+        static let airportsSource = "OurAirports"
+        /// "Ready offline in 2 countries".
+        static func readyIn(_ count: Int) -> String { String(localized: "offlineData.readyIn \(count)") }
+        /// "France in 3 of its 13 regions".
+        static func inRegions(_ country: String, _ downloaded: Int, _ total: Int) -> String {
+            String(format: String(localized: "offlineData.inRegions"), country, downloaded, total)
+        }
+        /// "Checked 2 hours ago".
+        static func checked(_ when: String) -> String { String(format: String(localized: "offlineData.checked"), when) }
+        static func updates(_ count: Int) -> String { String(localized: "offlineData.updates \(count)") }
+        /// "Atlas, 3 of 13 regions".
+        static func partAtlasSome(_ downloaded: Int, _ total: Int) -> String {
+            String(format: String(localized: "offlineData.partAtlasSome"), downloaded, total)
+        }
+        /// "Atlas in 13 regions".
+        static func partAtlasIn(_ count: Int) -> String { String(localized: "offlineData.partAtlasIn \(count)") }
+        static func airportsCount(_ count: Int) -> String {
+            String(format: String(localized: "offlineData.airportsCount"), count.formatted())
+        }
+        static func nextTo(_ country: String) -> String { String(format: String(localized: "offlineData.nextTo"), country) }
+        static func bytesOnDevice(_ size: String) -> String { String(format: String(localized: "offlineData.bytesOnDevice"), size) }
+        static func downloadAllOf(_ country: String) -> String {
+            String(format: String(localized: "offlineData.downloadAllOf"), country)
+        }
+        static func wholeCountryFooter(_ country: String) -> String {
+            String(format: String(localized: "offlineData.wholeCountryFooter"), country)
+        }
+        static func atlasRegions(_ count: Int) -> String { String(localized: "offlineData.atlasRegions \(count)") }
+        static func edition(_ edition: String) -> String { String(format: String(localized: "offlineData.edition"), edition) }
+        static func deleteCountry(_ country: String) -> String {
+            String(format: String(localized: "offlineData.deleteCountry"), country)
+        }
+        static func deleteCountryTitle(_ country: String) -> String {
+            String(format: String(localized: "offlineData.deleteCountryTitle"), country)
+        }
+    }
+
     // MARK: - Data & Storage (v4.1.0 Data Freshness)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like other newly-introduced UI strings.
     enum DataStorage {
-        static let title = String(localized: "Data & Storage")
-        static let subtitle = String(localized: "Updates & offline storage")
+        // Settings › Offline data since 6.8.0.
+        static let title = OfflineData.title
+        static let subtitle = OfflineData.subtitle
         static let aeronauticalSection = String(localized: "Aeronautical data")
         static let chartsSection = String(localized: "Offline charts")
         static let storageSection = String(localized: "Storage")
@@ -128,7 +272,7 @@ enum L10n {
         static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
         static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
-        static let nudgeMessage = String(localized: "Some aeronautical data is out of date. Open Data & Storage to update.")
+        static let nudgeMessage = OfflineData.nudge
         static let homeLabel = String(localized: "Data")
         static let statusNoData = String(localized: "No data")
         // Per-dataset name + source/description — source named first (device-test feedback).
@@ -1391,7 +1535,6 @@ enum L10n {
         static let checklist = String(localized: "settings.checklist")
         /// On = memorisable checks hidden (`AppSettings.learningMode` off). (v6.0 · A7)
         static let memoryTest = String(localized: "settings.checklist.memoryTest")
-        static let memoryTestOnboarding = String(localized: "settings.checklist.memoryTestOnboarding")
         static let memoryTestFooter = String(localized: "settings.checklist.memoryTestFooter")
 
         // Flight Logging
@@ -1468,20 +1611,103 @@ enum L10n {
     }
 
     // MARK: - Onboarding
+    /// The one-time tips (`AeroTips`, 6.8.0).
+    enum Tips {
+        static let mapSheetTitle = String(localized: "tips.mapSheetTitle")
+        static let mapSheetBody = String(localized: "tips.mapSheetBody")
+        static let trackVectorTitle = String(localized: "tips.trackVectorTitle")
+        static let trackVectorBody = String(localized: "tips.trackVectorBody")
+        static let nowNextTitle = String(localized: "tips.nowNextTitle")
+        static let nowNextBody = String(localized: "tips.nowNextBody")
+        static let logbookLineTitle = String(localized: "tips.logbookLineTitle")
+        static let logbookLineBody = String(localized: "tips.logbookLineBody")
+        static let offlineBorderTitle = String(localized: "tips.offlineBorderTitle")
+        static let offlineBorderBody = String(localized: "tips.offlineBorderBody")
+        static let showAgain = String(localized: "tips.showAgain")
+        static let showAgainSubtitle = String(localized: "tips.showAgainSubtitle")
+        static let showAgainPending = String(localized: "tips.showAgainPending")
+    }
+
+    /// Today's Getting started card (6.8.0).
+    enum GettingStarted {
+        static let title = String(localized: "gettingStarted.title")
+        static let hide = String(localized: "gettingStarted.hide")
+        static let done = String(localized: "gettingStarted.done")
+        static let base = String(localized: "gettingStarted.base")
+        static let yourCountry = String(localized: "gettingStarted.yourCountry")
+        static let firstFlight = String(localized: "gettingStarted.firstFlight")
+        static let firstFlightDetail = String(localized: "gettingStarted.firstFlightDetail")
+        static let proDetail = String(localized: "gettingStarted.proDetail")
+        static let route = String(localized: "gettingStarted.route")
+        static let dryRunDetail = String(localized: "gettingStarted.dryRunDetail")
+        static func progress(_ done: Int, _ total: Int) -> String {
+            String(format: String(localized: "gettingStarted.progress"), done, total)
+        }
+        static func offline(_ country: String) -> String {
+            String(format: String(localized: "gettingStarted.offline"), country)
+        }
+        static func pro(_ registration: String) -> String {
+            String(format: String(localized: "gettingStarted.pro"), registration)
+        }
+    }
+
     enum Onboarding {
-        static let welcomeTitle = String(localized: "onboarding.welcome.title")
-        static let welcomeSubtitle = String(localized: "onboarding.welcome.subtitle")
-        static let navigationTitle = String(localized: "onboarding.navigation.title")
-        static let downloadAirports = String(localized: "onboarding.navigation.downloadAirports")
-        static let downloadCharts = String(localized: "onboarding.navigation.downloadCharts")
-        static let downloading = String(localized: "onboarding.navigation.downloading")
+        // The five screens of 6.8.0 (the author's answers of 31 Oct 2026).
+        static let welcomeHeadline = String(localized: "onboarding.v2.headline")
+        static let welcomeBody = String(localized: "onboarding.v2.welcomeBody")
+        static let locationTrack = String(localized: "onboarding.v2.locationTrack")
+        static let locationFrequency = String(localized: "onboarding.v2.locationFrequency")
+        static let locationHome = String(localized: "onboarding.v2.locationHome")
+        static let aboutYouTitle = String(localized: "onboarding.v2.aboutYouTitle")
+        static let aboutYouSubtitle = String(localized: "onboarding.v2.aboutYouSubtitle")
+        static let basedAt = String(localized: "onboarding.v2.basedAt")
+        /// While the nearest aerodrome is looked up: the field stays empty rather than showing a guess (the
+        /// author's device check r4-18, 1 Nov 2026).
+        static let findingNearest = String(localized: "onboarding.v2.findingNearest")
+        /// "From your logbook: LSZQ", one tap to take it.
+        static func fromLogbook(_ ident: String) -> String { String(localized: "onboarding.v2.fromLogbook \(ident)") }
+        /// A row whose download failed.
+        static let downloadFailed = String(localized: "onboarding.v2.downloadFailed")
+        /// "Nearest to you: LSZQ Bressaucourt, 2 NM".
+        static func nearestToYou(_ aerodrome: String, _ nm: Int) -> String {
+            String(format: String(localized: "onboarding.v2.nearest"), aerodrome, nm)
+        }
+        /// The nearest aerodrome offered when the base is another one (r4-34). (6.8.0)
+        static func useNearest(_ aerodrome: String, _ nm: Int) -> String {
+            String(format: String(localized: "onboarding.v2.useNearest"), aerodrome, nm)
+        }
+        /// Under a base that came from the pilot's other devices (r4-34). (6.8.0)
+        static let fromOtherDevices = String(localized: "onboarding.v2.fromOtherDevices")
+        static let youFly = String(localized: "onboarding.v2.youFly")
+        static let free = String(localized: "onboarding.v2.free")
+        static let aircraftNote = String(localized: "onboarding.v2.aircraftNote")
+        static let offlineTitle = String(localized: "onboarding.v2.offlineTitle")
+        static let offlineSubtitle = String(localized: "onboarding.v2.offlineSubtitle")
+        static let countryDetail = String(localized: "onboarding.v2.countryDetail")
+        static let airportsDetail = String(localized: "onboarding.v2.airportsDetail")
+        static let overviewDetail = String(localized: "onboarding.v2.overviewDetail")
+        static let swissChartsDetail = String(localized: "onboarding.v2.swissChartsDetail")
+        static func offlineTotal(_ size: String) -> String {
+            String(format: String(localized: "onboarding.v2.offlineTotal"), size)
+        }
+        static let moreCountries = String(localized: "onboarding.v2.moreCountries")
+        static let circuitTitle = String(localized: "onboarding.v2.circuitTitle")
+        static let noDataTitle = String(localized: "onboarding.v2.noDataTitle")
+        static let noDataBody = String(localized: "onboarding.v2.noDataBody")
+        static let noDataDownload = String(localized: "onboarding.v2.noDataDownload")
+        static func circuitBody(_ aerodrome: String) -> String {
+            String(format: String(localized: "onboarding.v2.circuitBody"), aerodrome)
+        }
+        static let circuitFly = String(localized: "onboarding.v2.circuitFly")
+        static let goToToday = String(localized: "onboarding.v2.goToToday")
+        static let circuitNote = String(localized: "onboarding.v2.circuitNote")
+        static func offlineProgress(_ percent: String) -> String {
+            String(format: String(localized: "onboarding.v2.offlineProgress"), percent)
+        }
+        static let atlasOverview = String(localized: "onboarding.maps.atlasOverview")
         static let downloaded = String(localized: "onboarding.navigation.downloaded")
-        static let readyTitle = String(localized: "onboarding.ready.title")
-        static let readyBody = String(localized: "onboarding.ready.body")
-        static let readyButton = String(localized: "onboarding.ready.button")
         static let skip = String(localized: "onboarding.skip")
         static let getStarted = String(localized: "onboarding.getStarted")
-        static let next = String(localized: "onboarding.next")
         /// Under the location step's reasons, while iOS has yet to ask. (6.3.2)
         static let locationNext = String(localized: "onboarding.location.next")
     }
@@ -1959,7 +2185,12 @@ enum L10n {
         static let mapUnavailable = String(localized: "Map unavailable (offline?)")
         static let creditChart = String(localized: "Chart © swisstopo / BAZL")
         static let creditImagery = String(localized: "Imagery © swisstopo")
-        static let creditAppleMaps = String(localized: "Map: Apple Maps")
+        /// The pilot's map on the card. (6.8.0)
+        static let creditPilotMap = String(localized: "shareCard.credit.pilotMap")
+        /// "Imagery: <the providers' own credits>". (6.8.0)
+        static func creditAerialImagery(_ sources: String) -> String {
+            String(format: String(localized: "shareCard.credit.aerialImagery"), sources)
+        }
         static let creditTerrainSwisstopo = String(localized: "Terrain © swisstopo")
         static let creditTerrainOpenMeteo = String(localized: "Elevation: Open-Meteo")
         /// A circuit or a short local flight, drawn on the national map instead of an aviation chart.
@@ -2111,9 +2342,14 @@ enum L10n {
         /// (6.4.2)
         static let icaoGliderNational = String(localized: "mapLayer.icaoGliderNational")
         static let landeskarte = String(localized: "mapLayer.landeskarte")
+        /// The Map sheet's switch under the ICAO row, from Navigation & Maps (the author's answer 14 A). (6.8.0)
+        static let icaoEveryZoom = String(localized: "mapLayer.icaoEveryZoom")
         static let swissimage = String(localized: "mapLayer.swissimage")
-        static let satellite = String(localized: "mapLayer.satellite")
-        static let standard = String(localized: "mapLayer.standard")
+        /// The pilot's map and the aerial imagery, in place of Apple's two layers since 6.8.0.
+        static var satellite: String { String(localized: "pilotMap.aerialImagery") }
+        static var standard: String { PilotMap.section }
+        /// Under each Swiss chart in the Base chart list. (6.8.0)
+        static let switzerlandOnlyShort = String(localized: "mapLayer.switzerlandOnlyShort")
         /// Under the Map sheet's charts, outside Switzerland: "ICAO chart: Switzerland only. Here, Apple Maps." (6.5.0)
         static func switzerlandOnly(_ chart: String, _ shown: String) -> String {
             String(format: String(localized: "mapLayer.switzerlandOnly"), chart, shown)
@@ -2318,8 +2554,6 @@ enum L10n {
         static let title = String(localized: "homeAerodrome.title")
         static let basedAt = String(localized: "homeAerodrome.basedAt")
         static let rowSubtitle = String(localized: "homeAerodrome.rowSubtitle")
-        static let onboardingSubtitle = String(localized: "homeAerodrome.onboardingSubtitle")
-        static let optionalNote = String(localized: "homeAerodrome.optionalNote")
         static func use(_ ident: String) -> String {
             String(format: String(localized: "homeAerodrome.use"), ident)
         }
@@ -3579,6 +3813,8 @@ enum L10n {
         /// read as "you are flying to these countries", which is why it looked wrong on a Swiss
         /// domestic flight. (device pass)
         static let tripDataMissing = String(localized: "Airspace data missing near your route")
+        /// Plan › Map without a route, resting over a country not downloaded (r4-33). (6.8.0)
+        static let dataMissingHere = String(localized: "nav.dataMissingHere")
         static func tripDataProgress(_ done: Int, _ total: Int) -> String {
             String(localized: "\(done)/\(total) layers")
         }
@@ -3588,7 +3824,9 @@ enum L10n {
         static let tripDataFailedDetail = String(localized: "The provider is not serving these layers right now. Try again later.")
         static let layers = String(localized: "Layers")   // v4.1.0 ② (literal-keyed; FR in pass)
         static let airspaceCharts = String(localized: "Airspace & charts")
-        static let mapTiles = String(localized: "Map tiles")
+        /// OpenAIP's own raster chart, online only since 6.8.0 (the author's answer to question 17). (v4.1.0, 6.8.0)
+        static let openAIPChart = String(localized: "nav.openAIPChart")
+        static let openAIPChartDetail = String(localized: "nav.openAIPChartDetail")
         static let mapMarkers = String(localized: "Map markers")
         static let flightSection = String(localized: "Flight")
         static let showAll = String(localized: "Show all")
@@ -3978,7 +4216,6 @@ enum L10n {
         static let entrySubtitle = String(localized: "aircraftRequest.entrySubtitle")
         static let menuItem = String(localized: "aircraftRequest.menuItem")
         static let proLine = String(localized: "aircraftRequest.proLine")
-        static let onboardingLine = String(localized: "aircraftRequest.onboardingLine")
         static let requestsSection = String(localized: "aircraftRequest.requestsSection")
         static let requestsFooter = String(localized: "aircraftRequest.requestsFooter")
         static let removeFromList = String(localized: "aircraftRequest.removeFromList")
@@ -4101,8 +4338,49 @@ enum L10n {
         static let todayBody = String(localized: "dryRunCoach.todayBody")
         static let todayStart = String(localized: "dryRunCoach.todayStart")
         static let todayNotNow = String(localized: "dryRunCoach.todayNotNow")
-        static let onboardingFly = String(localized: "dryRunCoach.onboardingFly")
         static let chaptersFooter = String(localized: "dryRunCoach.chaptersFooter")
+
+        /// Onboarding's circuit on the ground (`DryRunFirstFlight`). (6.8.0)
+        enum FirstFlight {
+            // The cockpit in three cards, the flight data, circuits, the line on final (r4-41, 2 Nov 2026).
+            static let meetTitle = String(localized: "dryRunCoach.ff.meetTitle")
+            static let meetBody = String(localized: "dryRunCoach.ff.meetBody")
+            static let listTitle = String(localized: "dryRunCoach.ff.listTitle")
+            static let listBody = String(localized: "dryRunCoach.ff.listBody")
+            static let buttonsTitle = String(localized: "dryRunCoach.ff.buttonsTitle")
+            static let buttonsBody = String(localized: "dryRunCoach.ff.buttonsBody")
+            static let stripTitle = String(localized: "dryRunCoach.ff.stripTitle")
+            static let stripBody = String(localized: "dryRunCoach.ff.stripBody")
+            static let circuitsTitle = String(localized: "dryRunCoach.ff.circuitsTitle")
+            static let circuitsBody = String(localized: "dryRunCoach.ff.circuitsBody")
+            static let finalLine = String(localized: "dryRunCoach.ff.finalLine")
+            static let checkTitle = String(localized: "dryRunCoach.ff.checkTitle")
+            static let checkFold = String(localized: "dryRunCoach.ff.checkFold")
+            static let doneForYouTitle = String(localized: "dryRunCoach.ff.doneForYouTitle")
+            static let doneForYouBody = String(localized: "dryRunCoach.ff.doneForYouBody")
+            static let radioTitle = String(localized: "dryRunCoach.ff.radioTitle")
+            static let radioBody = String(localized: "dryRunCoach.ff.radioBody")
+            static let approachTitle = String(localized: "dryRunCoach.ff.approachTitle")
+            static let approachBody = String(localized: "dryRunCoach.ff.approachBody")
+            static let approachMemoryBody = String(localized: "dryRunCoach.ff.approachMemoryBody")
+            static let approachFold = String(localized: "dryRunCoach.ff.approachFold")
+            static let endTitle = String(localized: "dryRunCoach.ff.endTitle")
+            static let endBody = String(localized: "dryRunCoach.ff.endBody")
+            static let fullDryRun = String(localized: "dryRunCoach.ff.fullDryRun")
+            static let mapTakeoffBody = String(localized: "dryRunCoach.ff.mapTakeoffBody")
+            static let freePractice = String(localized: "dryRunCoach.ff.freePractice")
+            /// The before engine start check, by its name.
+            static var checkBody: String {
+                String(format: String(localized: "dryRunCoach.ff.checkBody"), ChecklistPhase.beforeEngineStart.title)
+            }
+            static func momentOf(_ moment: Int, _ total: Int) -> String {
+                String(format: String(localized: "dryRunCoach.ff.momentOf"), moment, total)
+            }
+            static func landings(_ count: Int) -> String { String(localized: "dryRunCoach.ff.landings \(count)") }
+            static func tryPro(_ registration: String) -> String {
+                String(format: String(localized: "dryRunCoach.ff.tryPro"), registration)
+            }
+        }
 
         /// The steps' words, by the step's id (`DryRunChapters.steps`).
         enum Step {

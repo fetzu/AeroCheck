@@ -10,12 +10,12 @@ final class MapPresetTests: XCTestCase {
     // MARK: - The chart picked
 
     /// The layer survives a relaunch, on this device: after one the map came back on the ICAO chart
-    /// (6.2 device check). The ICAO chart the first time.
+    /// (6.2 device check). The Atlas the first time (6.8.0).
     @MainActor
     func testTheChartPickedIsKeptAcrossLaunches() {
         let defaults = makeTestDefaults()
         let first = makeTestAppState(defaults: defaults)
-        XCTAssertEqual(first.navigationMapState.selectedLayer, .icao, "the first launch")
+        XCTAssertEqual(first.navigationMapState.selectedLayer, .standard, "the first launch: the Atlas")
         first.selectMapLayer(.landeskarten)
         XCTAssertEqual(first.navigationMapState.selectedLayer, .landeskarten)
 
@@ -24,7 +24,7 @@ final class MapPresetTests: XCTestCase {
         XCTAssertEqual(NavigationMapState.savedLayer(in: defaults), .landeskarten, "what the map's first frame reads")
 
         defaults.set("Topo 1:25k", forKey: NavigationMapState.layerKey)
-        XCTAssertEqual(NavigationMapState.savedLayer(in: defaults), .icao, "an unknown layer: the ICAO chart")
+        XCTAssertEqual(NavigationMapState.savedLayer(in: defaults), .standard, "an unknown layer: the Atlas")
     }
 
     /// The map opens inside its chart's zoom range: MapKit leaves a camera set before the map is on screen

@@ -5,7 +5,9 @@ import SwiftUI
 // One aerodrome, typed by code or by name and completed from the airport data the way Plan new
 // flight completes its stops: five fixed-wing suggestions from the second character, the aerodrome's
 // name beside the code once it resolves. Used for the home aerodrome, in Settings › Flight Planning
-// and in onboarding.
+// and in onboarding. Without the airport data on the device (onboarding, before its download), an
+// `onlineSearch` offers the bundled index's matches instead (`BundledAerodromes`, 6.8.0, the author's device
+// checks r4-18 and r4-40).
 
 struct AerodromeIdentField: View {
     /// The aerodrome's ident, nil when the field is empty. Only a code the airport data knows gets here
@@ -14,10 +16,15 @@ struct AerodromeIdentField: View {
     /// Offered under the empty field, one tap to take it: the logbook's best guess
     /// (`HomeAerodrome.suggestion(from:)`), nil for none.
     var suggestion: String? = nil
+    /// Matches for what is typed when the airport data isn't on the device (`NearestAerodrome.search`).
+    var onlineSearch: ((String) async -> [NearestAerodrome.Named])? = nil
 
     @EnvironmentObject private var airports: AirportDataService
     @State private var text = ""
-    @State private var suggestions: [Airport] = []
+    @State private var suggestions: [NearestAerodrome.Named] = []
+    /// The names the online search gave, by code, for the name beside a code it found.
+    @State private var onlineNames: [String: String] = [:]
+    @State private var onlineQuery: Task<Void, Never>?
     @State private var isLoading = false
     @FocusState private var isFocused: Bool
 
@@ -62,7 +69,7 @@ struct AerodromeIdentField: View {
                 suggestionButton(suggestion)
             }
 
-            if !isLoading, !airports.isDataAvailable {
+            if !isLoading, !airports.isDataAvailable, onlineSearch == nil {
                 Text(L10n.HomeAerodrome.noAirportData)
                     .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.dimText)
@@ -70,9 +77,14 @@ struct AerodromeIdentField: View {
             }
         }
         .onAppear { text = ident ?? "" }
-        // Set from elsewhere (the suggestion, a synced change) while the pilot isn't typing
+        // Set from elsewhere (the suggestion, a synced change, a button beside the field): shown, and while the
+        // pilot is typing the typing ends there, or leaving the field would put the typed text back over it
+        // (the author's device check r4-34, 1 Nov 2026: the logbook's aerodrome, tapped with the keyboard up).
+        // The field's own writes name what is typed.
         .onChange(of: ident) { _, updated in
-            if !isFocused { text = updated ?? "" }
+            guard updated != HomeAerodrome.normalized(text.trimmingCharacters(in: .whitespaces)) else { return }
+            text = updated ?? ""
+            if isFocused { isFocused = false }
         }
         .onChange(of: text) { _, typed in
             search()
@@ -102,8 +114,9 @@ struct AerodromeIdentField: View {
     /// The aerodrome the code names (the check that LSZQ is Bressaucourt), or that the list is loading.
     @ViewBuilder
     private var resolvedName: some View {
-        if let code = HomeAerodrome.normalized(text), let airport = airports.findAirport(byIdent: code) {
-            Text(airport.name)
+        if let code = HomeAerodrome.normalized(text),
+           let name = airports.findAirport(byIdent: code)?.name ?? onlineNames[code] {
+            Text(name)
                 .scaledFont(size: 14, relativeTo: .subheadline)
                 .foregroundColor(.secondaryText)
                 .lineLimit(1)
@@ -189,10 +202,25 @@ struct AerodromeIdentField: View {
             suggestions = []
             return
         }
-        suggestions = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
+        if airports.isDataAvailable || onlineSearch == nil {
+            suggestions = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
+                .map { NearestAerodrome.Named(ident: $0.ident, name: $0.name) }
+            return
+        }
+        // Online: once the typing pauses, and only if the text is still what was asked about.
+        onlineQuery?.cancel()
+        guard let onlineSearch else { return }
+        onlineQuery = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            let found = await onlineSearch(typed)
+            guard !Task.isCancelled, text.trimmingCharacters(in: .whitespaces) == typed, isFocused else { return }
+            for hit in found { onlineNames[hit.ident] = hit.name }
+            suggestions = Array(found.prefix(5))
+        }
     }
 
-    private func accept(_ airport: Airport) {
+    private func accept(_ airport: NearestAerodrome.Named) {
         take(airport.ident)
         isFocused = false
     }
@@ -220,6 +248,12 @@ struct AerodromeIdentField: View {
             return
         }
         // A name: only when it names one aerodrome, or one exactly
+        if !airports.isDataAvailable, let hit = onlineNames.first(where: {
+            $0.value.compare(typed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) {
+            take(hit.key)
+            return
+        }
         let hits = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
         if let hit = AirportDataService.aerodrome(named: typed, among: hits) {
             take(hit.ident)

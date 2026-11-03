@@ -542,8 +542,11 @@ struct HomeView: View {
                 }
             }
             // The guided flight on the ground, while the logbook is empty (6.4.0, D7); never in a dry run's own
-            // Today.
-            if dryRunSession == nil { DryRunTodayCard(isCompact: isCompact) }
+            // Today. After the 6.8.0 onboarding, the Getting started card instead, the dry run among its rows.
+            if dryRunSession == nil {
+                GettingStartedCard(isCompact: isCompact)
+                DryRunTodayCard(isCompact: isCompact)
+            }
             sectionLabel(L10n.Ground.recent, isCompact: isCompact)
                 .padding(.top, isCompact ? 4 : 8)
             aircraftStrip(fillsHeight: false)

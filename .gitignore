@@ -81,3 +81,12 @@ ExportOptions.plist
 # Large opaque reference blobs (Safari webarchives etc.) belong in the out-of-repo BUFFER/ area,
 # not in a public repo. (SA-19)
 *.webarchive
+
+# Swift packages (6.8.0, MapLibre): Xcode Cloud resolves only from a committed Package.resolved.
+!AeroCheck.xcodeproj/project.xcworkspace/
+AeroCheck.xcodeproj/project.xcworkspace/*
+!AeroCheck.xcodeproj/project.xcworkspace/xcshareddata/
+AeroCheck.xcodeproj/project.xcworkspace/xcshareddata/*
+!AeroCheck.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+AeroCheck.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!AeroCheck.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved

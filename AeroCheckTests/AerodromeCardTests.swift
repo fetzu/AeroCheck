@@ -119,83 +119,27 @@ final class AerodromeCardTests: XCTestCase {
         XCTAssertEqual(done, [.divert])
     }
 
-    // MARK: MapKit's anchor
+    // MARK: The anchor
 
     /// Over the marker, the tail on it; moved sideways to stay inside the map; the map moves down for a card that
     /// would leave it at the top, never for a marker off the map.
     func testTheAnchorKeepsTheCardOverItsMarkerAndInsideTheMap() {
         let area = CGRect(x: 12, y: 12, width: 796, height: 976)
         let size = CGSize(width: 380, height: 200)
-        let middle = AerodromeMarkerView.frame(for: size, over: CGPoint(x: 410, y: 600), in: area)
+        let middle = CalloutPlacement.frame(for: size, over: CGPoint(x: 410, y: 600), in: area)
         XCTAssertEqual(middle.midX, 410, accuracy: 0.5)
-        XCTAssertEqual(middle.maxY, 600 - AerodromeMarkerView.gap, accuracy: 0.5)
-        XCTAssertEqual(AerodromeMarkerView.shortfall(of: middle, anchor: CGPoint(x: 410, y: 600), in: area), 0)
+        XCTAssertEqual(middle.maxY, 600 - CalloutPlacement.gap, accuracy: 0.5)
+        XCTAssertEqual(CalloutPlacement.shortfall(of: middle, anchor: CGPoint(x: 410, y: 600), in: area), 0)
 
-        let atTheLeft = AerodromeMarkerView.frame(for: size, over: CGPoint(x: 40, y: 600), in: area)
+        let atTheLeft = CalloutPlacement.frame(for: size, over: CGPoint(x: 40, y: 600), in: area)
         XCTAssertEqual(atTheLeft.minX, area.minX, "kept inside the map")
 
         let nearTheTop = CGPoint(x: 410, y: 100)
-        let high = AerodromeMarkerView.frame(for: size, over: nearTheTop, in: area)
-        XCTAssertEqual(AerodromeMarkerView.shortfall(of: high, anchor: nearTheTop, in: area), area.minY - high.minY,
+        let high = CalloutPlacement.frame(for: size, over: nearTheTop, in: area)
+        XCTAssertEqual(CalloutPlacement.shortfall(of: high, anchor: nearTheTop, in: area), area.minY - high.minY,
                        accuracy: 0.5)
-        XCTAssertEqual(AerodromeMarkerView.shortfall(of: high, anchor: CGPoint(x: 410, y: -500), in: area), 0,
+        XCTAssertEqual(CalloutPlacement.shortfall(of: high, anchor: CGPoint(x: 410, y: -500), in: area), 0,
                        "a marker not placed yet moves nothing")
-    }
-
-    private func waitUntil(_ condition: () -> Bool, timeout: TimeInterval = 3) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() && Date() < deadline {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        }
-        return condition()
-    }
-
-    /// Selected, the marker shows its card; a tap on the card's body (MapKit deselects for it) keeps it; a tap
-    /// elsewhere, or a button, closes it.
-    func testTheCardOpensWithItsMarkerAndStaysWhileTouched() throws {
-        let state = SharedMapState()
-        let coordinator = AeroMapView(layerType: .standard, mapState: state, currentLocation: nil, gpsTrack: [],
-                                      isFollowingAircraft: .constant(false), forceICAOLayer: false,
-                                      onOpenAerodromeNote: { _ in }).makeCoordinator()
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1_180))
-        window.isHidden = false
-        defer { window.isHidden = true }
-        let map = MKMapView(frame: window.bounds)
-        map.delegate = coordinator
-        window.addSubview(map)
-        let lszq = AirportAnnotation(airport: airport("LSZQ"))
-        map.setRegion(MKCoordinateRegion(center: lszq.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)),
-                      animated: false)
-        map.addAnnotation(lszq)
-        XCTAssertTrue(waitUntil { map.view(for: lszq) != nil })
-        let marker = try XCTUnwrap(map.view(for: lszq) as? AerodromeMarkerView)
-
-        map.selectAnnotation(lszq, animated: false)
-        XCTAssertTrue(waitUntil { marker.card != nil }, "selected, the card")
-        XCTAssertTrue(waitUntil { state.isCalloutOpen }, "the chrome steps aside")
-        let card = try XCTUnwrap(marker.card)
-        XCTAssertTrue(AerodromeMarkerView.area(of: map).contains(card.convert(card.bounds, to: map)), "inside the map")
-
-        // A touch on its body, then MapKit's deselect for it: the card stays.
-        let body = CGPoint(x: card.frame.midX, y: card.frame.minY + 10)
-        XCTAssertTrue(marker.point(inside: body, with: nil))
-        _ = marker.hitTest(body, with: nil)
-        map.deselectAnnotation(lszq, animated: false)
-        XCTAssertNotNil(marker.card)
-        XCTAssertTrue(waitUntil { map.selectedAnnotations.contains { $0 === lszq } }, "selected again")
-
-        // Its note button closes it, the pilot's deselect.
-        try XCTUnwrap(marker.card?.buttons.first { $0.accessibilityIdentifier == "aerodromeCard.note" })
-            .sendActions(for: .primaryActionTriggered)
-        XCTAssertTrue(waitUntil { marker.card == nil }, "closed by its button")
-        XCTAssertTrue(waitUntil { !state.isCalloutOpen }, "the chrome comes back")
-
-        // Elsewhere on the map: closed.
-        map.selectAnnotation(lszq, animated: false)
-        XCTAssertTrue(waitUntil { marker.card != nil })
-        map.deselectAnnotation(lszq, animated: false)
-        XCTAssertNil(marker.card)
-        map.removeFromSuperview()
     }
 }
 

@@ -13,3 +13,6 @@ node_modules/
 
 # Claude dev tooling
 .claude/
+
+# WebP copies of the screenshots, made before dev and build (scripts/shot-variants.mjs)
+public/_shots/

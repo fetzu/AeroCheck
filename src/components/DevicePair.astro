@@ -13,14 +13,17 @@ interface Props {
   eager?: boolean;
   class?: string;
 }
+import { srcset } from '../lib/shots';
 const { ipad, iphone, alts, labels, eager = false, class: cls = '' } = Astro.props;
+// The width each screen shows at, for `sizes`: 80% and 33% of the pair, at most 460 px wide, less the bezels.
+const SIZES = { ipad: '(max-width: 508px) calc(80vw - 59px), 348px', iphone: '(max-width: 508px) calc(33vw - 30px), 138px' };
 const cycles = ipad.length > 1;
 ---
 <div class:list={['pair', cls]}>
   <div class="dev dev--ipad">
     <div class:list={['screen', { cycle: cycles }]}>
       {ipad.map((src, i) => (
-        <img src={src} alt={`${alts[i]}, ${labels.ipad}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
+        <img src={src} srcset={srcset(src)} sizes={SIZES.ipad} alt={`${alts[i]}, ${labels.ipad}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
           width="1200" height="1600" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
       ))}
     </div>
@@ -28,7 +31,7 @@ const cycles = ipad.length > 1;
   <div class="dev dev--iphone">
     <div class:list={['screen', { cycle: cycles }]}>
       {iphone.map((src, i) => (
-        <img src={src} alt={`${alts[i]}, ${labels.iphone}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
+        <img src={src} srcset={srcset(src)} sizes={SIZES.iphone} alt={`${alts[i]}, ${labels.iphone}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
           width="800" height="1739" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
       ))}
     </div>

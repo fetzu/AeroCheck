@@ -6,7 +6,7 @@
 import { langBase } from '../lib/langs';
 import type { SiteData } from '../lib/site';
 import { appStoreHref } from '../lib/site';
-import { STORY } from '../lib/shots';
+import { STORY, srcset } from '../lib/shots';
 import StoreBadge from './StoreBadge.astro';
 import DryRunBand from './DryRunBand.astro';
 interface Props { site: SiteData; }
@@ -28,7 +28,7 @@ const prologue = { ...st.prologue, link: { ...st.prologue.link, href: local(st.p
       </div>
     </div>
     <div class="s-hero-dev">
-      <div class="screen"><img src={STORY.alps} alt={st.moments.find((m) => m.shot === 'alps')?.alt ?? ''} width="1112" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
+      <div class="screen"><img src={STORY.alps} srcset={srcset(STORY.alps)} sizes="(max-width: 408px) calc(100vw - 68px), 340px" alt={st.moments.find((m) => m.shot === 'alps')?.alt ?? ''} width="1112" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
     </div>
   </div>
 </section>
@@ -48,7 +48,7 @@ const prologue = { ...st.prologue, link: { ...st.prologue.link, href: local(st.p
             <p class="m-text">{m.text}</p>
           </div>
           <figure class="m-shot">
-            <div class="screen"><img src={STORY[m.shot]} alt={m.alt} width="1112" height="1600" loading="lazy" decoding="async" /></div>
+            <div class="screen"><img src={STORY[m.shot]} srcset={srcset(STORY[m.shot])} sizes="(max-width: 500px) calc(100vw - 80px), (max-width: 960px) 420px, 360px" alt={m.alt} width="1112" height="1600" loading="lazy" decoding="async" /></div>
           </figure>
         </li>
       ))}

@@ -27,11 +27,11 @@ hero:
   shot: "cockpit"
   shot_alt: "Le cockpit en croisière sur un iPad"
   callouts:
-    - { side: "left", x: 2.5, y: 5.7,  where: "En haut",        title: "Où vous en êtes",      text: "La vérification en cours, le temps de vol et le GPS." }
-    - { side: "right", x: 97, y: 15, where: "Juste dessous",  title: "Ce que vous pilotez",  text: "Vitesse sol, altitude, route, et le chemin jusqu'au prochain point." }
-    - { side: "left", x: 2.5, y: 27.3, where: "Sous les chiffres", title: "Qui appeler",      text: "La fréquence à utiliser maintenant, et la suivante." }
-    - { side: "right", x: 97, y: 67, where: "Au milieu",      title: "L'élément en cours",   text: "Encadré là où il se trouve, le reste de la vérification autour." }
-    - { side: "left", x: 2.5, y: 94.3, where: "En bas",         title: "Quatre boutons",       text: "Sous le pouce, à la même place dans chaque phase." }
+    - { side: "left", x: 2.5, y: 5.0,  where: "En haut",        title: "Où vous en êtes",      text: "La vérification en cours, le temps de vol et le GPS." }
+    - { side: "right", x: 97, y: 13.4, where: "Juste dessous",  title: "Ce que vous pilotez",  text: "Vitesse sol, altitude, route, et le chemin jusqu'au prochain point." }
+    - { side: "left", x: 2.5, y: 23.6, where: "Sous les chiffres", title: "Qui appeler",      text: "La fréquence à utiliser maintenant, et la suivante." }
+    - { side: "right", x: 97, y: 56.6, where: "Au milieu",      title: "L'élément en cours",   text: "Encadré là où il se trouve, le reste de la vérification autour." }
+    - { side: "left", x: 2.5, y: 93.8, where: "En bas",         title: "Quatre boutons",       text: "Sous le pouce, à la même place dans chaque phase." }
 
 dryrun:
   band: "VOL À BLANC · 4×"

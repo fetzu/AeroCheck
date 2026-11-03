@@ -28,11 +28,11 @@ hero:
   shot_alt: "Das Cockpit im Reiseflug auf einem iPad"
   # Positionen in Prozent des iPad-Screenshots (cockpit.jpg). Eine Beschriftung steht neben dem Bild; nur ihre Linie reicht hinein.
   callouts:
-    - { side: "left", x: 2.5, y: 5.7,  where: "Oben",          title: "Wo Sie stehen",        text: "Die laufende Kontrolle, die Flugzeit und das GPS." }
-    - { side: "right", x: 97, y: 15, where: "Darunter",      title: "Was Sie fliegen",      text: "Geschwindigkeit über Grund, Höhe, Kurs über Grund und der Weg zum nächsten Wegpunkt." }
-    - { side: "left", x: 2.5, y: 27.3, where: "Unter den Werten", title: "Wen Sie rufen",     text: "Die Frequenz für jetzt und die nächste." }
-    - { side: "right", x: 97, y: 67, where: "In der Mitte",  title: "Der laufende Punkt",   text: "Eingerahmt an seinem Platz, der Rest der Kontrolle darum herum." }
-    - { side: "left", x: 2.5, y: 94.3, where: "Ganz unten",    title: "Vier Tasten",          text: "Unter dem Daumen, in jeder Phase am selben Platz." }
+    - { side: "left", x: 2.5, y: 5.0,  where: "Oben",          title: "Wo Sie stehen",        text: "Die laufende Kontrolle, die Flugzeit und das GPS." }
+    - { side: "right", x: 97, y: 13.4, where: "Darunter",      title: "Was Sie fliegen",      text: "Geschwindigkeit über Grund, Höhe, Kurs über Grund und der Weg zum nächsten Wegpunkt." }
+    - { side: "left", x: 2.5, y: 23.6, where: "Unter den Werten", title: "Wen Sie rufen",     text: "Die Frequenz für jetzt und die nächste." }
+    - { side: "right", x: 97, y: 56.6, where: "In der Mitte",  title: "Der laufende Punkt",   text: "Eingerahmt an seinem Platz, der Rest der Kontrolle darum herum." }
+    - { side: "left", x: 2.5, y: 93.8, where: "Ganz unten",    title: "Vier Tasten",          text: "Unter dem Daumen, in jeder Phase am selben Platz." }
 
 dryrun:
   band: "TROCKENÜBUNG · 4×"

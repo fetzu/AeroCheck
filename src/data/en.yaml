@@ -28,11 +28,11 @@ hero:
   shot_alt: "The Cockpit in cruise on an iPad"
   # Positions in percent of the iPad screenshot (cockpit.jpg). A label sits beside the picture; only its line crosses it.
   callouts:
-    - { side: "left", x: 2.5, y: 5.7,  where: "At the top",    title: "Where you are",        text: "The check you are on, the flight time and the GPS." }
-    - { side: "right", x: 97, y: 15, where: "Below it",      title: "What you are flying",  text: "Ground speed, altitude, track, and the way to the next waypoint." }
-    - { side: "left", x: 2.5, y: 27.3, where: "Under the figures", title: "Who to call",    text: "The frequency to use now, and the next one." }
-    - { side: "right", x: 97, y: 67, where: "In the middle", title: "The item you are on",  text: "Framed where it stands, the rest of the check around it." }
-    - { side: "left", x: 2.5, y: 94.3, where: "At the foot",   title: "Four buttons",         text: "Under your thumb, in the same place in every phase." }
+    - { side: "left", x: 2.5, y: 5.0,  where: "At the top",    title: "Where you are",        text: "The check you are on, the flight time and the GPS." }
+    - { side: "right", x: 97, y: 13.4, where: "Below it",      title: "What you are flying",  text: "Ground speed, altitude, track, and the way to the next waypoint." }
+    - { side: "left", x: 2.5, y: 23.6, where: "Under the figures", title: "Who to call",    text: "The frequency to use now, and the next one." }
+    - { side: "right", x: 97, y: 56.6, where: "In the middle", title: "The item you are on",  text: "Framed where it stands, the rest of the check around it." }
+    - { side: "left", x: 2.5, y: 93.8, where: "At the foot",   title: "Four buttons",         text: "Under your thumb, in the same place in every phase." }
 
 dryrun:
   band: "DRY RUN · 4×"

@@ -9,7 +9,7 @@ const { src, alt, callouts } = Astro.props;
 ---
 <figure class="callouts">
   <div class="frame">
-    <div class="screen"><img src={src} alt={alt} width="1112" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
+    <div class="screen"><img src={src} alt={alt} width="1200" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
     {callouts.map((c) => (
       <div class:list={['co', `co--${c.side}`]} style={`--x:${c.x}; --y:${c.y}`} aria-hidden="true">
         <span class="co-line"></span>

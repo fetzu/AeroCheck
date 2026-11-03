@@ -21,7 +21,7 @@ const cycles = ipad.length > 1;
     <div class:list={['screen', { cycle: cycles }]}>
       {ipad.map((src, i) => (
         <img src={src} alt={`${alts[i]}, ${labels.ipad}`} class={i === 0 ? 'is-active' : undefined} data-i={i}
-          width="1112" height="1600" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
+          width="1200" height="1600" loading={eager && i === 0 ? 'eager' : 'lazy'} decoding="async" />
       ))}
     </div>
   </div>

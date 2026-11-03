@@ -14,19 +14,14 @@
     "bar there. appstore: the slot number; website: published on the site. devices: a shot without it is for the",
     "iPads and the iPhone; the Watch takes only the shots that name it, without the tour: its app opened on the page",
     "of AEROCHECK_WATCH_PAGE beside its phone (devices.watch.phone) in the shot's scene, on the wall clock, as watchOS",
-    "has no status bar override."
+    "has no status bar override. launch: launch arguments for that shot alone, after the language's (a setting read",
+    "from the argument domain and never saved: [\"-map.selectedLayer\", \"ICAO Chart\"] puts it on the Swiss charts)."
   ],
   "devices": {
     "ipad13": {
       "kind": "ipad",
       "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
       "pixels": [2064, 2752],
-      "scale": 2
-    },
-    "ipad11": {
-      "kind": "ipad",
-      "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-11-inch-M4",
-      "pixels": [1640, 2360],
       "scale": 2
     },
     "iphone17": {
@@ -57,7 +52,7 @@
       "about": "Full size, PNG without alpha; JPEG 95 (4:4:4) for an image over maxBytes, as App Store Connect refuses about 5 MB."
     },
     "website": {
-      "devices": {"ipad11": "ipad", "iphone17": "iphone"},
+      "devices": {"ipad13": "ipad", "iphone17": "iphone"},
       "format": "jpeg",
       "quality": 86,
       "ipadLongSide": 1600,
@@ -75,7 +70,7 @@
       "scene": "cruiseroute",
       "steps": {"iphone": ["cardAtFoot"]},
       "what": "The Cockpit in cruise with a route (LSGC NEXT), Fuel quantity framed (4/5), the strip lit. iPhone: the list dragged until the current card ends at its foot.",
-      "mask": {"ipad13": [[672, 46, 148, 44]], "ipad11": [[462, 46, 140, 44]]},
+      "mask": {"ipad13": [[672, 46, 148, 44]]},
       "maskWhy": "the flight timer"
     },
     {
@@ -86,7 +81,7 @@
       "scene": "cruiseroute",
       "steps": {"ipad": ["tap:cockpit.vspeeds"], "iphone": ["tap:strip.speed"]},
       "what": "V-SPEEDS open over the Cockpit: the table on the iPad (its chip), the list on the iPhone (a tap on GS).",
-      "mask": {"ipad13": [[672, 46, 148, 44]], "ipad11": [[462, 46, 140, 44]]},
+      "mask": {"ipad13": [[672, 46, 148, 44]]},
       "maskWhy": "the flight timer"
     },
     {
@@ -99,8 +94,7 @@
       "settle": 2,
       "what": "The Cockpit on its map: LSGC next, the aircraft on the LSZQ to LSGC leg.",
       "mask": {
-        "ipad13": [[672, 46, 148, 44], [500, 1294, 120, 38]],
-        "ipad11": [[462, 46, 140, 44], [330, 1096, 100, 46]]
+        "ipad13": [[672, 46, 148, 44], [500, 1294, 120, 38]]
       },
       "maskWhy": "the flight timer, the leg timer"
     },
@@ -111,9 +105,10 @@
       "devices": ["iphone17"],
       "scene": "cruisemap",
       "orientation": "landscapeLeft",
-      "steps": {"all": ["mapSettled"]},
+      "steps": {"all": ["pinchMap:0.25", "tap:map.centre", "mapSettled"]},
+      "launch": ["-map.selectedLayer", "ICAO Chart"],
       "settle": 2,
-      "what": "The iPhone on its side: the Cockpit's column, the map at full height."
+      "what": "The iPhone on its side: the Cockpit's column, the map at full height, on the Swiss charts, pinched out until the whole track vector shows, then centred on the aircraft again (the author, 3 Nov 2026)."
     },
     {
       "key": "today",
@@ -147,13 +142,9 @@
       "appstore": "06",
       "website": true,
       "scene": "conflicts",
-      "steps": {
-        "ipad": ["tap:today.route", "tapLabel:Samedan", "mapSettled"],
-        "iphone": ["tap:today.route", "tapLabel:Samedan", "pinchMap:0.8", "mapSettled"]
-      },
-      "what": "The route editor: Geneva to Samedan over the ICAO chart, the profile, the leg table, the conflicts count. iPhone: a gentle pinch so LSGG and LSZS fit.",
-      "mask": {"iphone17": [[0, 205, 402, 315]]},
-      "maskWhy": "the iPhone's map: MapKit shows another set of icons after the pinch; the iPad's route editor checks the map"
+      "steps": {"all": ["tap:today.route", "tapLabel:Samedan", "mapSettled"]},
+      "launch": ["-map.selectedLayer", "ICAO Chart"],
+      "what": "The route editor: Geneva to Samedan over the ICAO chart (chosen by its launch setting since 6.8.0, the Atlas being the default), the profile, the leg table, the conflicts count. No pinch on the iPhone since 6.8.0: MapLibre's map is not the tour's `maps` element, and the editor frames the route itself."
     },
     {
       "key": "log",
@@ -190,7 +181,6 @@
       "what": "The guided dry run held on its first final at LSZQ: the coach's Try a go-around card over the card that chooses the landing. About three minutes after launch the autopilot holds there.",
       "mask": {
         "ipad13": [[672, 60, 148, 44], [0, 176, 1032, 126]],
-        "ipad11": [[462, 60, 140, 44], [0, 170, 820, 130]],
         "iphone17": [[0, 95, 402, 135]]
       },
       "maskWhy": "the timer, and the strip's figures at the moment the autopilot holds"

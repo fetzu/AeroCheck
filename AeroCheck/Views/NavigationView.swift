@@ -1098,11 +1098,11 @@ struct NavigationMapView: View {
     /// DEV-ONLY (`AEROCHECK_SCENE=circuits`, the website's `circuits` shot): Plan › Map framed on LSZQ as the
     /// search frames an aerodrome, about 8 NM across, without the callout the shot had to close. (6.3.0)
     /// `AEROCHECK_SCENE=atlas`: La Neuveville, 46 NM across, the lakes of Biel, Neuchâtel and Murten whole (Yverdon is
-    /// 19 NM west). Basel, 45 NM across, until the author's change of 3 Nov 2026. (6.8.0)
+    /// 19 NM west). Basel, 45 NM across, until the author's change of 3 Nov 2026. (6.8.0) `atlaslayers`: the same.
     private func frameForCaptureIfAsked() {
         guard chrome == .plan else { return }
         let scene = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased()
-        if scene == "atlas" {
+        if scene == "atlas" || scene == "atlaslayers" {
             isFollowingAircraft = false
             mapState.pendingCallout = nil
             mapState.pendingCameraMove = PendingCameraMove(center: CLLocationCoordinate2D(latitude: 47.0656, longitude: 7.0972),

@@ -105,9 +105,11 @@ enum MarketingScene {
     /// Plan › Map close in on LSZQ: its traffic circuit, its arrival sectors and runway, on the national map with the
     /// airspace off. (6.3.0)
     case planMapCircuits
-    /// Plan › Map on the Atlas over the Three Lakes, centred on La Neuveville on Lake Biel. (6.8.0; over Basel until
-    /// 3 Nov 2026)
+    /// Plan › Map on the Atlas over the Three Lakes, centred on La Neuveville on Lake Biel, every layer off. (6.8.0; over
+    /// Basel until 3 Nov 2026)
     case planMapAtlas
+    /// The same map with every layer on: the website's Atlas shot is the two cut along the diagonal. (3 Nov 2026)
+    case planMapAtlasLayers
 }
 
 /// Fixed airport coordinates used to build marketing routes without depending on airport data being
@@ -215,7 +217,9 @@ enum MarketingSceneInjector {
         case .planMapCircuits:
             injectPlanMapCircuits(appState: appState)
         case .planMapAtlas:
-            injectPlanMapAtlas(appState: appState)
+            injectPlanMapAtlas(appState: appState, layers: false)
+        case .planMapAtlasLayers:
+            injectPlanMapAtlas(appState: appState, layers: true)
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
             break // dispatched above — they need the thread manager
         }
@@ -239,18 +243,20 @@ enum MarketingSceneInjector {
 
     // MARK: - Plan › Map on the Atlas, the atlas shot (6.8.0)
 
-    /// No flight, Plan › Map, the Atlas, the airspace and the procedures off, the aerodromes on: the map itself, on
-    /// the lakes of Biel, Neuchâtel and Murten whole. The map frames La Neuveville as it appears
-    /// (`NavigationMapView.frameForCaptureIfAsked`).
-    private static func injectPlanMapAtlas(appState: AppState) {
+    /// No flight, Plan › Map, the Atlas over the lakes of Biel, Neuchâtel and Murten, with every layer off (the map
+    /// itself) or every layer on (`layers`): the website's shot cuts the two along the diagonal, so they differ in
+    /// nothing else. The map frames La Neuveville as it appears (`NavigationMapView.frameForCaptureIfAsked`).
+    private static func injectPlanMapAtlas(appState: AppState, layers: Bool) {
         if appState.isFlightActive { appState.cancelFlight() }
         appState.selectMapLayer(.standard)
-        appState.settings.showOpenAIPOverlay = false
-        appState.settings.showVFRCircuitsOnMap = false
-        appState.settings.showVFRRoutesOnMap = false
-        appState.settings.showReportingPointsOnMap = false
-        appState.settings.showObstaclesOnMap = false
-        appState.settings.showAirportsOnMap = true
+        appState.settings.showOpenAIPOverlay = layers
+        appState.settings.showVFRCircuitsOnMap = layers
+        appState.settings.showNonPoweredCircuitsOnMap = layers
+        appState.settings.showVFRRoutesOnMap = layers
+        appState.settings.showReportingPointsOnMap = layers
+        appState.settings.showObstaclesOnMap = layers
+        appState.settings.showNavaidsOnMap = layers
+        appState.settings.showAirportsOnMap = layers
         appState.groundTab = .plan
         appState.pendingPlanSection = .map
     }

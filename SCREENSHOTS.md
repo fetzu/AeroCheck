@@ -154,6 +154,12 @@ Cloudflare let browsers keep an image for 4 hours: the day the 6.2.0 set went li
 morning still saw the 6.0 iPhone. Keep the file names; the hash does the rest. An unchanged slot keeps its file, so its
 URL doesn't change either.
 
+The JPEGs are the source; browsers get WebP copies at the width they show (since 3 Nov 2026). Before every
+`npm run dev` and `npm run build`, `scripts/shot-variants.mjs` makes 360, 720 and 1080 px copies of each JPEG, plus
+one at its full width, in `public/_shots/` (not committed), and `srcset()` in `src/lib/shots.ts` lists them with the
+JPEG's hash. Each `<img>` says how wide it shows in `sizes`: a component whose layout changes needs its `sizes`
+checked too. The home page went from 5 MB of images to about 0.8 MB.
+
 ## The story page (/flight)
 
 The eight iPad images under `public/assets/screenshot/v6/story/` (`route`, `prepare`, `lineup`, `automark`, `alps`,

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { DEFAULT_LANG, type Lang } from './langs';
 import { appVersion } from './version';
 
@@ -36,6 +36,35 @@ function v6(device: 'ipad' | 'iphone', key: string, lang: Lang): string {
   return versioned(`/assets/screenshot/v6/${device}/${key}.jpg`);
 }
 
+// The smaller WebP copies of an image, for its `srcset`: made before every dev and build run by
+// scripts/shot-variants.mjs (3 Nov 2026), never committed. v6/ipad/route.jpg has /_shots/v6/ipad/route-360.webp,
+// -720 and -1200; each copy is asked for with the hash of its JPEG. Without copies (the script didn't run), an image
+// is the JPEG alone and the build says so once.
+const variantDirs = new Map<string, string[]>();
+let warnedNoVariants = false;
+export function srcset(src: string): string | undefined {
+  const [path, query] = src.split('?');
+  const rel = path.match(/^\/assets\/screenshot\/(.+)\.jpg$/)?.[1];
+  if (!rel) return undefined;
+  const dir = dirname(rel);
+  let files = variantDirs.get(dir);
+  if (!files) {
+    try { files = readdirSync(join(PUBLIC, '_shots', dir)); } catch { files = []; }
+    variantDirs.set(dir, files);
+  }
+  const stem = `${basename(rel)}-`;
+  const widths = files.filter((f) => f.startsWith(stem) && f.endsWith('.webp'))
+    .map((f) => Number(f.slice(stem.length, -'.webp'.length))).filter((w) => w > 0).sort((a, b) => a - b);
+  if (widths.length === 0) {
+    if (!warnedNoVariants) {
+      warnedNoVariants = true;
+      console.warn('[shots] No WebP copies in public/_shots/: run `node scripts/shot-variants.mjs` (npm run dev and build do).');
+    }
+    return undefined;
+  }
+  return widths.map((w) => `/_shots/${dir}/${stem}${w}.webp${query ? `?${query}` : ''} ${w}w`).join(', ');
+}
+
 // Each shot's key and label, from the one list of the screenshots (scripts/shots.json, SCREENSHOTS.md): the shots
 // published on the site, in its order. One taken only on the iPhone (the iPhone on its side) has no iPad image.
 interface ManifestShot { key: string; label: string; website?: boolean; devices?: string[]; }
@@ -43,7 +72,7 @@ const MANIFEST: { shots: ManifestShot[] } =
   JSON.parse(readFileSync(join(process.cwd(), 'scripts', 'shots.json'), 'utf8'));
 const KEYS: Record<string, { label: string; ipad?: false }> = Object.fromEntries(
   MANIFEST.shots.filter((s) => s.website).map((s) =>
-    [s.key, s.devices && !s.devices.includes('ipad11') ? { label: s.label, ipad: false as const } : { label: s.label }]),
+    [s.key, s.devices && !s.devices.some((d) => d.startsWith('ipad')) ? { label: s.label, ipad: false as const } : { label: s.label }]),
 );
 
 const byLang = new Map<Lang, Record<string, Shot>>();

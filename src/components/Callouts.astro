@@ -4,12 +4,13 @@
 // over the screenshot but that line (6.4.0 site, Q3). Below 1000 px the labels can't sit beside the frame, so
 // they go under it as a list, each with its `where` ("At the top"), and the lines are not drawn.
 import type { Callout } from '../lib/site';
+import { srcset } from '../lib/shots';
 interface Props { src: string; alt: string; callouts: Callout[]; }
 const { src, alt, callouts } = Astro.props;
 ---
 <figure class="callouts">
   <div class="frame">
-    <div class="screen"><img src={src} alt={alt} width="1200" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
+    <div class="screen"><img src={src} srcset={srcset(src)} sizes="(max-width: 548px) calc(100vw - 72px), 476px" alt={alt} width="1200" height="1600" loading="eager" fetchpriority="high" decoding="async" /></div>
     {callouts.map((c) => (
       <div class:list={['co', `co--${c.side}`]} style={`--x:${c.x}; --y:${c.y}`} aria-hidden="true">
         <span class="co-line"></span>

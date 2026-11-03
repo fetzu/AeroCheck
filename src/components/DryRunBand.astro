@@ -2,7 +2,7 @@
 // The way in for a newcomer, right under the first screen (6.4.0 site, Q4): fly a whole flight on the ground
 // before taking the app into the air. The hatched ground is the dry run's own band in the app.
 import type { Lang } from '../lib/site';
-import { shot } from '../lib/shots';
+import { shot, srcset } from '../lib/shots';
 interface Props {
   dry: { band: string; title: string; text: string; link: { label: string; href: string }; shot: string; alt: string };
   device?: 'iphone' | 'ipad';
@@ -23,7 +23,7 @@ const src = device === 'ipad' ? s.ipad : s.iphone;
         <a class="dry-link" href={dry.link.href}>{dry.link.label} <span aria-hidden="true">→</span></a>
       </div>
       <div class:list={['dry-dev', `dry-dev--${device}`]}>
-        <div class="screen"><img src={src} alt={dry.alt} width={device === 'ipad' ? 1200 : 800} height={device === 'ipad' ? 1600 : 1739} loading="lazy" decoding="async" /></div>
+        <div class="screen"><img src={src} srcset={srcset(src)} sizes={device === 'ipad' ? '284px' : '178px'} alt={dry.alt} width={device === 'ipad' ? 1200 : 800} height={device === 'ipad' ? 1600 : 1739} loading="lazy" decoding="async" /></div>
       </div>
     </div>
   </div>

@@ -5,8 +5,10 @@
   "private": true,
   "description": "Marketing website for AéroCheck (aerocheck.app) — Astro, static, GitHub Pages.",
   "scripts": {
+    "predev": "node scripts/shot-variants.mjs",
     "dev": "astro dev",
-    "start": "astro dev",
+    "start": "npm run dev",
+    "prebuild": "node scripts/shot-variants.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
@@ -17,6 +19,7 @@
     "astro": "^7.4.2"
   },
   "devDependencies": {
-    "js-yaml": "^5.5.0"
+    "js-yaml": "^5.5.0",
+    "sharp": "^0.35.5"
   }
 }

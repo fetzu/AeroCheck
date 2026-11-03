@@ -15,7 +15,10 @@
     "iPads and the iPhone; the Watch takes only the shots that name it, without the tour: its app opened on the page",
     "of AEROCHECK_WATCH_PAGE beside its phone (devices.watch.phone) in the shot's scene, on the wall clock, as watchOS",
     "has no status bar override. launch: launch arguments for that shot alone, after the language's (a setting read",
-    "from the argument domain and never saved: [\"-map.selectedLayer\", \"ICAO Chart\"] puts it on the Swiss charts)."
+    "from the argument domain and never saved: [\"-map.selectedLayer\", \"ICAO Chart\"] puts it on the Swiss charts).",
+    "split: another shot's key, taken on the same frame; the published image is this shot at the top left and that one at",
+    "the bottom right, cut along the diagonal of the rows where they differ. input: the shot this one is taken for, and",
+    "only with it (a split's other half); never published alone."
   ],
   "devices": {
     "ipad13": {
@@ -197,12 +200,22 @@
     },
     {
       "key": "atlas",
-      "label": "The Atlas over Basel",
+      "label": "The Atlas over the Three Lakes",
       "website": true,
       "scene": "atlas",
       "steps": {"all": ["mapSettled"]},
       "settle": 2,
-      "what": "Plan › Map on the Atlas over Basel, 45 NM across: Switzerland, France and Germany joined at their borders, Mulhouse, Freiburg, the Rhine and the Black Forest's relief; the airspace off, the aerodromes on."
+      "split": "atlaslayers",
+      "what": "Plan › Map on the Atlas centred on La Neuveville, 46 NM across: the lakes of Biel, Neuchâtel and Murten whole. Cut along the diagonal (the author, 3 Nov 2026): every layer off at the top left, every layer on (atlaslayers) at the bottom right."
+    },
+    {
+      "key": "atlaslayers",
+      "label": "The Atlas over the Three Lakes, every layer on",
+      "input": "atlas",
+      "scene": "atlaslayers",
+      "steps": {"all": ["mapSettled"]},
+      "settle": 3,
+      "what": "The atlas shot's frame with every layer on: airspace, circuits, VFR routes, reporting points, obstacles, navaids, aerodromes. Never published alone."
     },
     {
       "key": "watch-navigation",

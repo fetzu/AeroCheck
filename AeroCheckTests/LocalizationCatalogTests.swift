@@ -145,6 +145,31 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(twice, [], "each key once in Localizable.xcstrings")
     }
 
+    /// The empty logbook read "recording.\nYour flights" in all three languages up to 6.8.0: its values held a
+    /// backslash and an n, which the catalog keeps as two characters, never a line break. Reads both source
+    /// catalogs, every key and every value, plurals and substitutions included. (6.8.1)
+    func testNoCatalogTextHoldsALiteralBackslashN() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        for path in ["AeroCheck/Localizable.xcstrings", "AeroCheckWatch/Localizable.xcstrings"] {
+            let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent(path))) as? [String: Any]
+            let strings = try XCTUnwrap(catalog?["strings"] as? [String: Any], path)
+            XCTAssertGreaterThan(strings.count, 10, "read the real \(path)")
+            var found = strings.keys.filter { $0.contains(#"\n"#) }.map { "key \($0)" }
+            func walk(_ node: Any, _ trail: String) {
+                if let entries = node as? [String: Any] {
+                    for (name, child) in entries {
+                        if name == "value", let text = child as? String, text.contains(#"\n"#) { found.append("\(trail): \(text)") }
+                        walk(child, "\(trail)/\(name)")
+                    }
+                } else if let items = node as? [Any] {
+                    items.forEach { walk($0, trail) }
+                }
+            }
+            walk(strings, "")
+            XCTAssertEqual(found.sorted(), [], "\(path): write a real line break, never backslash-n")
+        }
+    }
+
     func testNoCatalogKeyUsesPositionalSpecifiers() throws {
         let url = try frenchBundle().bundleURL.appendingPathComponent("Localizable.strings")
         let table = try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String], "fr.lproj has a compiled Localizable.strings")

@@ -40,7 +40,8 @@ export interface CountryView {
   cc: string; name: string; phrase: string; lead: string; prohibited?: string;
   groups: Group[]; near: Neighbour[]; checked?: string; tell: string; onMap: boolean;
 }
-export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; start: boolean }[]; }
+/** A cell; `hint` says what an "in part" cell has, in its card's words (the author, 31 Oct 2026). */
+export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; start: boolean; hint?: string }[]; }
 export interface TableColumn { id: FeatureId; head: string; hint: string; start: boolean; }
 /** A group of the table's header: its name over its columns, or, for a group of one, just that column. */
 export interface TableGroup { name?: string; columns: TableColumn[]; }
@@ -50,6 +51,11 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const fill = (template: string, vars: Record<string, string | number>) =>
   template.replace(/\{(\w+)\}/g, (whole, key) => (key in vars ? String(vars[key]) : whole));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** A row's words as plain text: its access chips in parentheses, its tags gone. */
+const plain = (html: string) => html
+  .replace(/<span class="acc">(.*?)<\/span>/g, ' ($1)')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
 export function countryNamer(lang: Lang): (cc: string) => string {
   let names: Intl.DisplayNames | undefined;
@@ -179,11 +185,12 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
     return {
       cc, name: name(cc),
       cells: TABLE.map((id) => {
-        const { level } = row(id, c, cc);
+        const { level, html } = row(id, c, cc);
         const n = level === 'off' ? undefined
           : id === 'circuits' ? c.circuits?.count : id === 'routes' ? c.routes?.count
           : id === 'charts' ? c.charts?.count : id === 'fees' ? c.fees?.count : undefined;
-        return { id, level, n, start: GROUP_START.has(id) };
+        const hint = level === 'part' ? `${t.labels[id]}: ${plain(html)}` : undefined;
+        return { id, level, n, start: GROUP_START.has(id), hint };
       }),
     };
   });

@@ -60,7 +60,7 @@ export interface SiteData {
     safety: string;
     made_by: string; author: string; author_url: string;
     with: string; in: string; city: string;
-    privacy: string; terms: string; support: string; license: string; license_url: string;
+    privacy: string; map: string; terms: string; support: string; license: string; license_url: string;
   };
 }
 

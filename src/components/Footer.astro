@@ -11,6 +11,7 @@ const version = await appVersion();
 const base = langBase(site.lang);
 const changelogHref = `${base}/changelog`;
 const privacyHref = `${base}/privacy`;
+const mapHref = `${base}/map`;
 const termsHref = `${base}/terms`;
 const supportHref = `${base}/support`;
 ---
@@ -18,7 +19,7 @@ const supportHref = `${base}/support`;
   <div class="container footer-safety"><p>{f.safety}</p></div>
   <div class="container footer-inner">
     <span>{f.made_by} <a href={f.author_url} class="footer-link" target="_blank" rel="noopener">{f.author}</a> {f.with} <Icon name="heart" size={12} class="heart" /> {f.in} {f.city}</span>
-    <span class="footer-meta"><a href={changelogHref} class="footer-link">v{version}</a> · <a href={supportHref} class="footer-link">{f.support}</a> · <a href={termsHref} class="footer-link">{f.terms}</a> · <a href={privacyHref} class="footer-link">{f.privacy}</a> · <a href={f.license_url} class="footer-link" target="_blank" rel="noopener">{f.license}</a></span>
+    <span class="footer-meta"><a href={changelogHref} class="footer-link">v{version}</a> · <a href={supportHref} class="footer-link">{f.support}</a> · <a href={termsHref} class="footer-link">{f.terms}</a> · <a href={privacyHref} class="footer-link">{f.privacy}</a> · <a href={mapHref} class="footer-link">{f.map}</a> · <a href={f.license_url} class="footer-link" target="_blank" rel="noopener">{f.license}</a></span>
   </div>
 </footer>
 

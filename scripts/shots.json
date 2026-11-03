@@ -206,6 +206,15 @@
       "what": "Plan › Map close in on LSZQ: its traffic circuit at 2900 ft, the W and E arrival sectors, runway 07/25."
     },
     {
+      "key": "atlas",
+      "label": "The Atlas over Basel",
+      "website": true,
+      "scene": "atlas",
+      "steps": {"all": ["mapSettled"]},
+      "settle": 2,
+      "what": "Plan › Map on the Atlas over Basel, 45 NM across: Switzerland, France and Germany joined at their borders, Mulhouse, Freiburg, the Rhine and the Black Forest's relief; the airspace off, the aerodromes on."
+    },
+    {
       "key": "watch-navigation",
       "label": "The Watch: the leg",
       "appstore": "01",

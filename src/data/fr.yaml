@@ -339,7 +339,7 @@ countries:
   near: { heading: "De l'autre côté de la frontière", briefing: "pages de briefing", circuits: "tours de piste sur {n}", charts: "cartes pour {n}", chart_links: "liens vers les cartes", cockpit: "le cockpit et OpenAIP", closed: "fermé aux vols" }
   not_on_map: "Hors de cette carte"
   map_label: "Carte de l'Europe"
-  table: { summary: "Chaque pays, chaque fonction", country: "Pays", key: "● oui · ◐ en partie · – pas encore. Chiffres : aérodromes (aéroports aux États-Unis). Touchez un pays pour l'ouvrir plus haut." }
+  table: { summary: "Chaque pays, chaque fonction", country: "Pays", key: "● oui · ◐ en partie (touchez-le pour voir ce qui manque) · – pas encore. Chiffres : aérodromes (aéroports aux États-Unis). Touchez un pays pour l'ouvrir plus haut." }
   home_line: { lead: "Le cockpit fonctionne partout.", briefing: "des pages de briefing pour {n} pays", circuits: "des tours de piste dans {n}", charts: "des liens vers les cartes officielles dans {n}", link: "Ce qui marche où" }
   where: "Où ça marche"
   in:

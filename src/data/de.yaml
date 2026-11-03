@@ -340,7 +340,7 @@ countries:
   near: { heading: "Jenseits der Grenze", briefing: "Briefingseiten", circuits: "Platzrunden auf {n}", charts: "Karten für {n}", chart_links: "Kartenlinks", cockpit: "Cockpit und OpenAIP", closed: "für Flüge gesperrt" }
   not_on_map: "Nicht auf dieser Karte"
   map_label: "Karte Europas"
-  table: { summary: "Jedes Land, jede Funktion", country: "Land", key: "● ja · ◐ teilweise · – noch nicht. Zahlen: Flugplätze (Flughäfen in den Vereinigten Staaten). Tippen Sie auf ein Land, um es oben zu öffnen." }
+  table: { summary: "Jedes Land, jede Funktion", country: "Land", key: "● ja · ◐ teilweise (tippen Sie darauf, um zu sehen, was fehlt) · – noch nicht. Zahlen: Flugplätze (Flughäfen in den Vereinigten Staaten). Tippen Sie auf ein Land, um es oben zu öffnen." }
   home_line: { lead: "Das Cockpit funktioniert überall.", briefing: "Briefingseiten für {n} Länder", circuits: "Platzrunden in {n}", charts: "Links zu offiziellen Karten in {n}", link: "Was wo funktioniert" }
   where: "Wo es funktioniert"
   in:

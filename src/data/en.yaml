@@ -340,7 +340,7 @@ countries:
   near: { heading: "Across the border", briefing: "briefing pages", circuits: "circuits at {n}", charts: "charts for {n}", chart_links: "chart links", cockpit: "the cockpit and OpenAIP", closed: "closed to flights" }
   not_on_map: "Not on this map"
   map_label: "Map of Europe"
-  table: { summary: "Every country, every feature", country: "Country", key: "● yes · ◐ in part · – not yet. Figures: aerodromes (airports in the United States). Tap a country to open it above." }
+  table: { summary: "Every country, every feature", country: "Country", key: "● yes · ◐ in part (tap it for what is missing) · – not yet. Figures: aerodromes (airports in the United States). Tap a country to open it above." }
   home_line: { lead: "The cockpit works everywhere.", briefing: "briefing pages for {n} countries", circuits: "traffic circuits in {n}", charts: "official chart links in {n}", link: "What works where" }
   where: "Where it works"
   in:

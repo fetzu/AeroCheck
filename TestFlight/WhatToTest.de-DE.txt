@@ -1,16 +1,8 @@
-6.8.0 zeichnet seine eigene Karte, den Atlas, aus OpenStreetMap, auf jeder Karte der App.
+6.8.1 behebt drei Kleinigkeiten, die bei der Veröffentlichung von 6.8.0 aufgefallen sind.
 
 Zum Ausprobieren:
-- «Einstellungen» › «Offline-Daten» ersetzt «Daten & Speicher» und «Navigation & Karten»: ein Status oben, Ihre Länder, die Flugplätze weltweit und die Atlas-Übersicht.
-- «Offline-Daten» › «Land hinzufügen»: Ein Land lädt mit einem Tippen, sein Atlas mit seinen Lufträumen, Flugplätzen und VFR-Verfahren (die Schweiz etwa 90 MB, WLAN empfohlen). Schalten Sie dann den Flugmodus ein: Die Karte zeichnet dort weiter.
-- Ein grosses Land (Frankreich, Deutschland) öffnet seine Seite: alles mit einem Tippen oder die Regionen, in denen Sie fliegen. Laden Sie auch einen Nachbarn herunter: An der Grenze zeichnen sich beide Seiten, ohne Lücke und ohne Doppeltes.
-- Fenster «Karte» › «Grundkarte»: «Atlas» und «Luftbilder» ersetzen die beiden Ebenen von Apple. Schieben Sie auf «Luftbilder» von der Schweiz nach Frankreich oder Deutschland: Jede Quelle wird am Fuss der Karte genannt. Slowenien und Dänemark sind neu.
-- Zoomen Sie bis Europa hinaus: jedes Land im Detail, mit seinen Städten, Strassen und seinem Relief.
-- «Planen» › «Karte», die KARTE des Cockpits und der Routeneditor: Tippen Sie auf einen Flugplatz, die Höhe einer Platzrunde, eine Navigationshilfe; ziehen Sie einen Routenpunkt; das Teilstreckenband; «Flugplätze suchen». Sagen Sie uns alles, was sich anders bewegt als in 6.7.
-- Ein Flug im Flugbuch: die Karte seines Flugwegs und das Bild zum Teilen auf «Atlas» und auf «Luftbilder».
-- Planen Sie einen Flug über eine Grenze: Das Banner bietet die Regionen des Atlas entlang der Route an.
-- Die Schweizer ICAO-, Segelflug- und Landeskarten: Jenseits ihres Rands liegt nun der Atlas darunter.
-- Eine neue Einführung: Einstellungen › Info › Einführung wiederholen. Fünf kurze Bildschirme (Ihre Basis wird anhand Ihres Standorts vorgeschlagen, auch offline: Probieren Sie es im Flugmodus), dann eine Platzrunde am Boden in etwa drei Minuten. Danach zeigt Heute eine Kachel Erste Schritte, und einige Tipps erscheinen je einmal neben dem, was sie erklären.
-- Downloads des Atlas haben nun ein Monatslimit pro Gerät: 40 Dateien, oder 120 mit AéroCheck Pro (eine Region sind eine oder zwei Dateien). Wenn Sie es erreichen, sagt die Zeile der Region, ab wann es wieder geht: Melden Sie es uns.
+- Das Flugbuch ohne Flug (eine neue Installation): zwei Sätze auf zwei Zeilen, ohne «\n».
+- Die Karte auf der ICAO-Karte: Zoomen Sie langsam von der ganzen Schweiz bis zu einem Dorf. Die ICAO-Karte, dann die Segelflugkarte, dann die Landeskarte, jede scharf, bis die nächste übernimmt. Versuchen Sie es auch auf einem quer gehaltenen iPhone, in der KARTE des Cockpits.
+- Die Einführung schlägt Ihre Basis weiterhin anhand Ihres Standorts vor, auch offline.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

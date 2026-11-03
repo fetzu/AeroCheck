@@ -105,10 +105,10 @@
       "devices": ["iphone17"],
       "scene": "cruisemap",
       "orientation": "landscapeLeft",
-      "steps": {"all": ["mapSettled"]},
+      "steps": {"all": ["pinchMap:0.25", "tap:map.centre", "mapSettled"]},
       "launch": ["-map.selectedLayer", "ICAO Chart"],
       "settle": 2,
-      "what": "The iPhone on its side: the Cockpit's column, the map at full height, on the Swiss charts (the author, 3 Nov 2026)."
+      "what": "The iPhone on its side: the Cockpit's column, the map at full height, on the Swiss charts, pinched out until the whole track vector shows, then centred on the aircraft again (the author, 3 Nov 2026)."
     },
     {
       "key": "today",

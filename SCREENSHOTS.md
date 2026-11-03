@@ -158,7 +158,7 @@ The JPEGs are the source; browsers get WebP copies at the width they show (since
 `npm run dev` and `npm run build`, `scripts/shot-variants.mjs` makes 360, 720 and 1080 px copies of each JPEG, plus
 one at its full width, in `public/_shots/` (not committed), and `srcset()` in `src/lib/shots.ts` lists them with the
 JPEG's hash. Each `<img>` says how wide it shows in `sizes`: a component whose layout changes needs its `sizes`
-checked too. The home page went from 4.3 MB of images to about 0.8 MB.
+checked too. The home page went from 5 MB of images to about 0.8 MB.
 
 ## The story page (/flight)
 

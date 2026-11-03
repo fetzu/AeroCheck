@@ -935,6 +935,8 @@ struct CockpitRadioFollower: ViewModifier {
         let airports: Bool
         let airspace: Bool
         let airspaceCount: Int
+        /// The airspace decoded: its count is read from the metadata at launch, so it doesn't change when it lands.
+        let airspaceLoaded: Bool
         /// The route's points and typed frequencies: a route edited in flight keeps its id and count.
         let route: [String]
         /// The level-off came: the departure field gives way on the radio timeline. (6.4.2)
@@ -962,7 +964,7 @@ struct CockpitRadioFollower: ViewModifier {
     /// What the timeline is built from: the route, and whether the airport and airspace data are in.
     private var timelineKey: [String] {
         (CockpitRadio.timelineKey(flightPlanManager.activeFlightPlan) ?? [])
-            + ["\(airportDataService.isDataAvailable)", "\(openAIPDataService.airspaceCount)"]
+            + ["\(airportDataService.isDataAvailable)", "\(openAIPDataService.airspaceCount)", "\(openAIPDataService.isLoaded)"]
     }
 
     /// The radio timeline of the route flown, from the nav log's walk (`RouteRadioPlanner.plan`). (6.4.2)
@@ -998,7 +1000,7 @@ struct CockpitRadioFollower: ViewModifier {
         return Key(phase: appState.currentPhase, circuits: appState.isCircuitMode, planId: plan?.id, waypointCount: plan?.waypoints.count ?? 0,
                    nextIndex: plan?.currentWaypointIndex, diversion: plan?.diversion?.ident,
                    airports: airportDataService.isDataAvailable, airspace: openAIPDataService.isDataAvailable,
-                   airspaceCount: openAIPDataService.airspaceCount,
+                   airspaceCount: openAIPDataService.airspaceCount, airspaceLoaded: openAIPDataService.isLoaded,
                    route: plan?.waypoints.map { "\($0.latitude),\($0.longitude),\($0.frequency ?? "")" } ?? [],
                    departureOver: departureOver, fieldsOnTheWay: appState.settings.showFieldsOnTheWay)
     }

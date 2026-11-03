@@ -666,6 +666,10 @@ struct NavigationMapView: View {
         // leaving the enabled overlay blank until a real pan/zoom. Recomputing when the loaded
         // COUNTS land closes the race for all four layers.
         .onChange(of: openAIPDataService.airspaceCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        // Not for the airspace: launch reads its count from the same metadata, so the decode lands on the same number
+        // and the map stayed without airspace until the first pan (the Atlas shot, 3 Nov 2026). The load finishing is
+        // the signal that always changes.
+        .onChange(of: openAIPDataService.isLoaded) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }

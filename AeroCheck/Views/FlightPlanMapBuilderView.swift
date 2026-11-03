@@ -330,6 +330,8 @@ struct FlightPlanMapBuilderView: View {
         // async feature decode landing must retrigger via the count — same first-open race as the
         // nav map. (v4.2 fix)
         .onChange(of: openAIPDataService.airspaceCount) { _, _ in scheduleAirspaceUpdate() }
+        // The count alone missed it: launch reads it from the same metadata the decode lands on (3 Nov 2026).
+        .onChange(of: openAIPDataService.isLoaded) { _, _ in scheduleAirspaceUpdate() }
     }
 
     /// Full-geometry signature (every waypoint's coordinate AND planned altitude) so the airspace scan

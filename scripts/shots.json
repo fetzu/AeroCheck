@@ -140,13 +140,8 @@
       "appstore": "06",
       "website": true,
       "scene": "conflicts",
-      "steps": {
-        "ipad": ["tap:today.route", "tapLabel:Samedan", "mapSettled"],
-        "iphone": ["tap:today.route", "tapLabel:Samedan", "pinchMap:0.8", "mapSettled"]
-      },
-      "what": "The route editor: Geneva to Samedan over the ICAO chart, the profile, the leg table, the conflicts count. iPhone: a gentle pinch so LSGG and LSZS fit.",
-      "mask": {"iphone17": [[0, 205, 402, 315]]},
-      "maskWhy": "the iPhone's map: MapKit shows another set of icons after the pinch; the iPad's route editor checks the map"
+      "steps": {"all": ["tap:today.route", "tapLabel:Samedan", "mapSettled"]},
+      "what": "The route editor: Geneva to Samedan over the ICAO chart, the profile, the leg table, the conflicts count. No pinch on the iPhone since 6.8.0: MapLibre's map is not the tour's `maps` element, and the editor frames the route itself."
     },
     {
       "key": "log",

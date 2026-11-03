@@ -1,4 +1,4 @@
-# OurAirports (public domain), built 2026-11-02: code, name, latitude, longitude
+# OurAirports (public domain), built 2026-11-03: code, name, latitude, longitude
 AAXX	Aeródromo de Punto Rothera	-67.567	-68.127
 AGAF	Afutara Aerodrome	-9.191	160.949
 AGAR	Ulawa Airport	-9.861	161.980
@@ -527,7 +527,7 @@ BGAA	Aasiaat Airport	68.722	-52.785
 BGCO	Neerlerit Inaat Airport	70.743	-22.650
 BGDH	Danmarkshavn Landing Strip	76.767	-18.667
 BGGH	Nuuk International Airport	64.191	-51.679
-BGJN	Ilulissat Airport	69.243	-51.057
+BGJN	Ilulissat Airport	69.246	-51.052
 BGKK	Kulusuk Airport	65.574	-37.124
 BGMI	Station Nord Landing Strip	81.601	-16.679
 BGMQ	Maniitsoq Airport	65.412	-52.939
@@ -2663,11 +2663,10 @@ FAAB	Alexander Bay Airport	-28.575	16.533
 FAAE	Aberdeen Airport	-32.466	24.064
 FAAF	Andrew's Field	-34.763	20.036
 FAAG	Aggeneys Airport	-29.282	18.814
-FAAK	Askham Airport	-26.987	20.777
+FAAK	Askham Airport	-26.985	20.787
 FAAL	Alldays Airport	-22.679	29.055
 FAAM	Amsterdam Airport	-26.634	30.606
 FAAN	Aliwal North Airport	-30.681	26.730
-FAAP	Aviators Paradise Field	-25.693	27.783
 FAAR	Arathusa Safari Lodge Airport	-24.741	31.518
 FAAS	Ashton Airport	-33.838	20.050
 FABA	Microland Flight Park	-25.976	28.389
@@ -2684,187 +2683,169 @@ FABO	Hendrik Potgieter Airport	-27.367	26.629
 FABP	Black Rock Airport	-27.130	22.846
 FABR	Barberton Airport	-25.717	30.975
 FABS	Brits Airport	-25.532	27.776
-FABT	Bethesda Road Airport	-31.873	24.797
 FABU	Bultfontein Airport	-28.273	26.136
 FABV	Brandviei Airfield	-30.468	20.469
-FABW	Beaufort West Airport	-32.300	22.670
+FABW	Karoo Gateway Airport	-32.306	22.667
 FABX	Beatrix Airport	-28.245	26.772
 FABZ	Bizana Airport	-30.860	29.864
 FACA	Monte Carlo Airport	-28.800	27.417
 FACB	Colesberg Airport	-30.734	25.065
+FACC	Gowrie Airport	-24.737	31.561
 FACD	Cradock Airport	-32.157	25.646
 FACE	Ceres Airport	-33.317	19.427
 FACF	St Francis Airfield	-34.187	24.835
 FACG	Caledon Airfield	-34.260	19.416
-FACH	Cookhouse Airport	-32.745	25.796
 FACI	Citrusdal Airport	-32.620	19.004
 FACK	Christiana Airport	-27.877	25.204
 FACL	Carolina Airport	-26.078	30.093
 FACN	Carnarvon Airport	-30.989	22.132
 FACO	Alkantpan Test Range Airport	-29.933	22.266
-FACR	Carltonville Airport	-26.367	27.347
+FACR	Carltonville Airport	-26.369	27.350
 FACT	Cape Town International Airport	-33.974	18.604
 FACV	Calvinia Airport	-31.500	19.726
 FACW	Clanwilliam Airport	-32.177	18.882
-FACX	Cathcart Airport	-32.287	27.139
 FACY	Stilbaai Airport	-34.352	21.425
 FADA	De Aar Airport	-30.692	24.021
 FADB	Dwaalboom Airport	-24.807	26.830
 FADC	Douglas Cape Airport	-29.075	23.801
-FADD	Dundee Airport	-28.183	30.222
-FADG	Dordrecht Airport	-31.383	27.033
+FADD	Dundee Airport	-28.183	30.223
+FADF	Driefontein Fochville Airport	-26.580	27.443
 FADH	Durnacol Airport	-28.046	30.006
-FADK	Mubatuba Airport	-28.368	32.248
+FADK	Mubatuba Airport	-28.367	32.247
 FADL	Delareyville Airport	-26.679	25.475
-FADM	Kokstad Airport	-30.556	29.408
-FADO	Dendron Airport	-23.381	29.321
-FADP	Darlington Dam Lodge Airport	-33.183	25.193
+FADO	Dendron Airport	-23.379	29.326
+FADP	Darlington Dam Lodge Airport	-33.097	25.257
 FADQ	Zulu Inyala Airport	-27.849	32.310
 FADS	De Doorns Airport	-33.456	19.684
 FADU	Walkersons Field	-25.363	30.188
-FADV	Devon Airport	-26.359	28.790
 FADX	Delta 200 Airstrip	-33.649	18.472
 FADY	De Aar Military Airport	-30.637	23.920
-FADZ	Drakensberg Gardens Airport	-29.750	29.250
+FADZ	Drakensberg Gardens Airport	-29.743	29.267
 FAEC	Estcourt Airport	-29.047	29.911
-FAED	Edenburg Airport	-29.750	25.900
-FAEG	Egnep Airport	-24.567	30.317
+FAED	Edenburg Airport	-29.746	25.920
+FAEG	Elgin Airstrip	-34.172	19.053
 FAEL	King Phalo Airport	-33.036	27.826
-FAEM	Empangeni Airport	-28.720	31.890
+FAEM	Empangeni Airport	-28.720	31.893
 FAEN	Entabeni Airstrip	-24.193	28.735
 FAEO	Ermelo Airport	-26.496	29.980
 FAER	Ellisras Matimba Airport	-23.727	27.688
-FAES	Eshowe Airport	-28.880	31.455
+FAES	Eshowe Airport	-28.881	31.456
 FAET	Elliot Airport	-31.307	27.850
+FAEW	Seaview Airport	-34.001	25.352
 FAFB	Ficksburg Sentraoes Airport	-28.823	27.909
 FAFF	Frankfort Airport	-27.287	28.515
-FAFG	Flamingo Vlei Airport	-30.491	21.122
-FAFO	Fort Beaufort Airport	-32.791	26.578
+FAFO	KwaMaqoma Airport	-32.791	26.578
 FAFR	Fraserburg Airport	-31.934	21.503
-FAFU	Fraaiuitzicht Airport	-27.317	27.250
 FAFW	Freeway Airport	-25.477	28.290
-FAGA	The Grange Airport	-30.267	29.967
+FAGA	Big Water Airport	-30.562	25.529
 FAGC	Grand Central Airport	-25.986	28.140
+FAGF	Grootfontein Airstrip	-33.770	18.703
 FAGG	George Airport	-34.006	22.379
-FAGH	Glen Grey Airport	-28.833	29.467
 FAGI	Giyani Airport	-23.283	30.650
-FAGJ	Gifvlei Airport	-30.383	20.033
+FAGJ	Gifvlei Airport	-30.368	20.016
 FAGL	Groblersdal Kob Airport	-25.187	29.403
 FAGM	Rand Airport	-26.242	28.151
-FAGO	Gowrie Airport	-24.737	31.560
 FAGR	Graaff Reinet Airport	-32.194	24.541
 FAGT	Grahamstown Airport	-33.285	26.498
 FAGV	Gravelotte Airport	-23.911	30.696
 FAGW	Magwa Airport	-31.394	29.693
 FAGY	Greytown Airport	-29.122	30.587
 FAHA	Harmony Airport	-28.079	26.861
-FAHB	Hartebeespoortdam Airport	-24.502	28.079
 FAHC	Howick Airport	-29.553	30.211
-FAHD	Humansdorp Airport	-34.037	24.789
+FAHD	Hippo Pools Airport	-24.200	30.812
 FAHE	Pullenshope Hendrina Airport	-25.978	29.619
-FAHF	Henrys Flats Airport	-33.046	25.717
+FAHF	Henry's Flats Airport	-33.046	25.715
 FAHG	Heidelburg Airport	-26.510	28.390
-FAHH	Hibberdene Airport	-30.584	30.559
 FAHI	Halfweg Airport	-30.013	20.139
-FAHJ	Harding Airport	-30.575	29.906
-FAHK	Haakdoornboom Airport	-25.587	28.116
+FAHJ	Harding Airport	-30.575	29.907
 FAHL	Hluhluwe Airport	-28.017	32.275
 FAHO	Heilbron Airport	-27.279	27.996
 FAHP	Hoopstad Airport	-27.822	25.917
 FAHR	Harrismith Airport	-28.235	29.106
-FAHT	Eastgate Airport / Air Force Base Hoedspruit	-24.362	31.053
-FAHU	H M S Bastard Memorial Airport	-30.542	29.499
-FAHV	Gariep Dam Airport	-30.562	25.529
-FAIA	Itala Airport	-27.487	31.171
-FAID	Idutywa Airport	-32.100	28.317
+FAHS	Eastgate Airport / Air Force Base Hoedspruit	-24.362	31.053
+FAHT	Hoedspruit Civil Airfield	-24.348	30.946
+FAHU	H M S Bastard Memorial Airport	-30.543	29.499
+FAIA	Itala Airport	-27.532	31.300
 FAIS	Isithebe Airport	-29.106	31.407
 FAIV	Ingwavuma Airport	-27.117	32.009
-FAIW	Indwe Airport	-31.483	27.350
+FAIW	Indwe Airport	-31.486	27.350
 FAJC	Jackalberry Airstrip	-24.509	31.142
-FAJF	Jagersfontain Airport	-29.763	25.433
+FAJK	Ganspan Airport	-27.942	24.820
 FAJP	Joubertina Airport	-33.831	23.828
-FAJV	Jansenville Airport	-32.939	24.671
+FAJV	Jansenville Airport	-32.952	24.647
+FAKA	Kagga Kamma Airport	-32.732	19.540
 FAKB	Kosibaai Airport	-27.018	32.750
 FAKD	P C Pelser Airport	-26.871	26.718
 FAKE	Keimouth Airport	-32.697	28.356
-FAKF	Koffee Bay Airport	-31.957	29.175
 FAKG	Komati Power Station Airport	-26.093	29.456
 FAKH	Kenhardt Aerodrome	-29.329	21.192
 FAKI	Kobb Inn Airport	-32.434	28.683
+FAKJ	Kalahari Dunes Private Game Reserve airstrip	-27.044	21.097
 FAKK	Kakamas Airport	-28.809	20.645
 FAKL	Kriel Airport	-26.251	29.195
 FAKM	Kimberley Airport	-28.805	24.765
 FAKN	Kruger Mpumalanga International Airport	-25.383	31.105
-FAKO	Komga Airport	-32.593	27.876
 FAKP	Komatipoort Airport	-25.440	31.930
 FAKR	Krugersdorp Airport	-26.081	27.726
 FAKS	Kroonstad Airport	-27.661	27.316
 FAKT	Kitty Hawk Airport	-25.860	28.450
 FAKU	Johan Pienaar Airport	-27.457	23.412
-FAKV	Koffyfontein Min Airport	-29.439	24.989
-FAKW	Kareedouw Airport	-33.967	24.300
+FAKV	Koffiefontein Mine Airport	-29.439	24.989
 FAKX	Kenton-on-Sea Airport	-33.670	26.631
 FAKZ	Kleinsee Airport	-29.688	17.094
 FALA	Lanseria International Airport	-25.939	27.927
 FALB	Ladybrand Airfield	-29.181	27.454
 FALC	Lime Acres Finsch Mine Airport	-28.360	23.439
 FALD	Londolozi Airport	-24.748	31.474
-FALE	King Shaka International Airport	-29.614	31.120
+FALE	King Shaka International Airport	-29.613	31.118
 FALF	Loeriesfontein Airport	-30.906	19.425
 FALH	Lohathla Military Airport	-28.037	23.099
 FALI	Lichtenburg Airport	-26.176	26.185
 FALL	Lydenburg Airport	-25.103	30.414
 FALM	Makhado Air Force Base Airport	-23.160	29.697
 FALO	Louis Trichardt Airport	-23.062	29.865
-FALQ	El Mirador Airport	-28.986	29.480
+FALQ	El Mirador Airport	-28.986	29.477
 FALR	Steytlerville Airport	-33.337	24.321
 FALS	Somersveld Airport	-33.246	18.480
-FALW	Langebaanweg Airport	-32.969	18.160
+FALW	Langebaanweg Air Force Base	-32.969	18.160
 FALY	Ladysmith Airport	-28.582	29.750
 FAMA	Matatiele Airport	-30.322	28.794
 FAMB	Middelburg Airport	-25.685	29.440
 FAMC	Middelburg 2 Airport	-31.547	25.029
 FAMD	Malamala Airport	-24.817	31.544
-FAMF	Malabar Airport	-29.011	23.849
+FAMF	Maclear Airport	-31.072	28.376
 FAMG	Margate Airport	-30.857	30.343
 FAMH	Musina(Messina) Airport	-22.356	29.986
 FAMI	Marble Hall Airport	-24.989	29.283
 FAMJ	Majuba Power Station Airport	-27.079	29.779
-FAML	Manyani Game Lodge Airport	-25.817	25.717
-FAMM	Mmabatho International Airport	-25.798	25.548
+FAMM	George Dick Montshioa Airport	-25.798	25.548
 FAMN	Malelane Airport	-25.474	31.566
 FAMO	Mossel Bay Airport	-34.159	22.056
 FAMP	Madimbo Airport	-22.375	30.882
-FAMQ	Maclear Airport	-31.072	28.376
 FAMS	Morningside Farm Airport	-25.705	26.909
 FAMT	Molteno Airport	-31.390	26.348
 FAMU	Mkuze Airport	-27.626	32.044
-FAMV	Mountain View Estate Airfield	-25.866	27.877
 FAMX	Mbazwana Airport	-27.481	32.594
 FAMY	Malmesbury Airport	-33.486	18.710
-FAMZ	Msauli Airport	-26.050	31.017
-FANA	Nongoma Airport	-27.914	31.656
 FANC	Newcastle Airport	-27.771	29.977
+FAND	Sappi / Ngodwana	-25.589	30.622
 FANG	Ngala Airport	-24.389	31.326
-FANH	New Hanover Airport	-29.356	30.518
-FANL	New Largo Airport	-25.979	28.984
+FANI	N’tsiri Airstrip	-24.164	31.346
 FANS	Nelspruit Airport	-25.500	30.914
-FANV	Nieuwoudtville Airfield	-31.391	19.106
+FANV	Nieuwoudtville Airfield	-31.367	19.122
 FANX	Diepkloof Airfield	-33.348	18.697
 FANY	Nylstroom Airfield	-24.686	28.435
 FAOB	Overberg Airport	-34.563	20.252
-FAOD	Odendaalsrus Airport	-27.871	26.693
-FAOF	Jack Duvenhage Airport	-27.962	22.717
 FAOH	Oudtshoorn Airport	-33.607	22.189
 FAOI	Orient Glider Airport	-26.039	27.596
-FAOL	Othawa Airport	-24.733	31.400
+FAOL	Othawa Airport	-24.758	31.405
 FAON	Ornate Lake - St Lucia Airport	-28.045	32.425
 FAOR	O.R. Tambo International Airport	-26.140	28.247
 FAOT	Ottosdal Airport	-26.798	26.000
 FAOY	Orkney Airport	-26.984	26.651
 FAPA	Port Alfred Airport	-33.555	26.882
-FAPC	Prince Albert Airport	-33.202	22.032
-FAPD	Pofadder Airport	-29.142	19.413
+FAPC	Prince Albert Airport	-33.190	22.019
+FAPD	Pofadder Airport	-29.137	19.406
 FAPE	Chief Dawid Stuurman International Airport	-33.990	25.617
 FAPF	Piet Retief Airport	-26.997	30.841
 FAPG	Plettenberg Bay Airport	-34.088	23.329
@@ -2879,7 +2860,7 @@ FAPO	Pilgrims Rest Airport	-24.785	30.792
 FAPP	Polokwane International Airport	-23.845	29.459
 FAPQ	Punda Maria(Malia) Airport	-22.770	31.011
 FAPS	Potchefstroom Airport	-26.671	27.082
-FAPT	Posmasburg Soil Airport	-28.339	23.080
+FAPT	Postmasburg Airport	-28.339	23.080
 FAPU	Paarl East Airport	-33.711	19.024
 FAPV	Petrusville Airport	-30.082	24.680
 FAPW	Pietersrus Airport	-26.606	29.329
@@ -2896,7 +2877,7 @@ FARI	Reivilo Airport	-27.547	24.173
 FARM	Richmond Airport	-31.424	23.978
 FARO	Rooiberg Airport	-24.778	27.752
 FARS	Robertson Airport	-33.812	19.903
-FARZ	Reitz Airport	-22.784	28.430
+FARZ	Reitz Airport	-27.784	28.430
 FASB	Springbok Airport	-29.689	17.940
 FASC	Secunda Airport	-26.524	29.170
 FASD	Saldanha/Vredenburg Airport	-32.964	17.969
@@ -2911,32 +2892,30 @@ FASM	Siteka Airport	-29.324	30.150
 FASN	Senekal Airport	-28.312	27.646
 FASP	Singita Safari Lodge Airport	-24.802	31.422
 FASS	Sishen Airport	-27.649	22.999
-FAST	Somerset East Airport	-32.750	25.595
-FASU	Sace Airport	-25.957	29.212
+FAST	Somerset East Airport	-32.758	25.591
+FASU	SACE Airport	-25.957	29.212
 FASW	Slurry Airport	-25.816	25.886
 FASX	Hendrik Swellengrebel Airport	-34.048	20.475
 FASY	Baragwanath Airfield	-26.349	27.780
 FASZ	Skukuza Airport	-24.961	31.589
 FATA	Tedderfield Air Park	-26.352	27.968
 FATB	Thorny Bush Game Lodge Airport	-24.416	31.164
-FATD	Tanda Tula Airport	-24.526	31.290
 FATF	Tommys Field Airport	-28.260	22.993
 FATG	Thaba Tholo Airport	-24.281	27.229
 FATH	Thohoyandou Airport	-23.077	30.384
 FATI	Thabazimbi Airport	-24.576	27.420
 FATM	Stutterheim Airport	-32.563	27.375
 FATN	Thaba Nchu Tar Airport	-29.318	26.823
-FATR	Trennery's Airport	-32.640	28.423
+FATR	Twee Rivieren Airport	-32.640	28.423
 FATT	Tutuka Power Station Airport	-26.775	29.338
 FATW	Witberg Tswalu Airport	-27.205	22.482
-FATZ	Tzaneen Airport	-23.824	30.329
-FAUB	Underberg Airport	-29.788	29.498
-FAUC	Ulco Airport	-28.354	24.229
-FAUG	Ugie Airport	-31.220	28.210
+FATZ	Tzaneen Airport	-23.822	30.327
+FAUC	Ulco Airport	-28.355	24.229
+FAUG	Ugie Airport	-31.221	28.209
 FAUH	Uitenhage Airport	-33.785	25.383
 FAUL	Prince Mangosuthu Buthelezi Airport	-28.321	31.417
 FAUP	Upington Airport	-28.400	21.264
-FAUR	Utrecht Airport	-27.681	30.317
+FAUR	Utrecht Airport	-27.674	30.322
 FAUS	Ulusaba Airport	-24.785	31.355
 FAUT	K. D. Matanzima Airport	-31.546	28.673
 FAVA	Vaalputs Airport	-30.134	18.527
@@ -2945,19 +2924,17 @@ FAVD	Vrede Airport	-27.440	29.153
 FAVE	Ventersdorp Airport	-26.301	26.814
 FAVF	Verborgenfontei Airport	-31.166	23.809
 FAVG	Virginia Airport	-29.771	31.058
-FAVI	Von Abo's Villa Airport	-27.611	26.684
 FAVM	Venetia Mine Airport	-22.448	29.338
-FAVP	Vanderbijlpark Airport	-26.690	27.777
 FAVR	Vredendal Airport	-31.641	18.545
 FAVS	Vastrap Airport	-27.835	21.630
 FAVU	Volksrust Airport	-27.377	29.860
 FAVV	Vereeniging Airport	-26.566	27.961
 FAVW	Victoria West Airport	-31.399	23.156
 FAVY	Vryheid Airport	-27.787	30.796
-FAWA	Warmbaths Airport	-24.910	28.300
+FAWA	Warmbaths Airport	-24.909	28.310
 FAWB	Wonderboom Airport	-25.654	28.224
 FAWC	Worcester Glider Airport	-33.663	19.415
-FAWE	Welgevonden Reserve	-24.205	27.900
+FAWE	Welgevonden Reserve	-24.204	27.900
 FAWG	Watts Landing Airport	-32.902	28.049
 FAWI	Witbank Airport	-25.832	29.192
 FAWK	Waterkloof Air Force Base	-25.830	28.222
@@ -2966,14 +2943,12 @@ FAWM	Welkom Airport	-27.997	26.663
 FAWN	Cape Winelands Airport	-33.770	18.740
 FAWO	Willowmore Airport	-33.263	23.491
 FAWR	Wavecrest Airport	-32.589	28.519
-FAWS	Wesselbronn Airport	-27.847	26.351
+FAWS	Wesselbronn Airport	-27.847	26.350
 FAWT	Winterveldt Mine Airport	-24.660	30.180
 FAWV	White River Mercy Air	-25.320	30.971
-FAWW	Sodwana Airstrip	-27.568	32.653
-FAYP	Ysterplaat Air Force Base	-33.900	18.498
+FAYP	Ysterplaat Air Force Base	-33.902	18.498
 FAZC	Zululand Anthracite Colliery Airstrip	-28.217	31.658
 FAZG	Swartberg Airport	-30.234	29.337
-FAZP	Mazeppa Bay Airport	-32.472	28.651
 FAZQ	Star Airport	-26.894	27.687
 FAZR	Zeerust Airport	-25.599	26.042
 FBAB	Abu Airport	-19.416	22.553
@@ -4632,6 +4607,7 @@ HTWK	West Kilimanjaro Airport	-3.050	37.000
 HTXX	Sanzale Airport	-6.472	38.880
 HTZA	Abeid Amani Karume International Airport	-6.222	39.225
 HTZW	Siwandu Airport	-7.685	38.137
+HUAD	Amudat Airstrip	1.942	34.933
 HUAJ	Adjumani Airport	3.339	31.764
 HUAR	Arua Airport	3.049	30.912
 HUBU	Bundibugyo Airport	0.673	30.025
@@ -4640,7 +4616,7 @@ HUFP	Fort Portal Airport	0.706	30.249
 HUGG	Bugungu Airport	2.203	31.554
 HUGU	Gulu Airport	2.806	32.272
 HUJI	Jinja Airport	0.453	33.194
-HUKB	Kabale Airport	-1.226	29.960
+HUKB	Kabale Airport	-1.222	29.957
 HUKD	Kidepo Airport	3.718	33.749
 HUKI	Kisoro Airport	-1.284	29.720
 HUKJ	Kajjansi Airfield	0.197	32.553
@@ -4648,7 +4624,7 @@ HUKK	Kakira Airport	0.493	33.281
 HUKO	Kotido Airport	2.953	34.123
 HUKS	Kasese Airport	0.183	30.100
 HUKT	Kitgum Airport	3.282	32.888
-HULI	Lira Airport	2.250	32.917
+HULI	Lira Airport	2.248	32.910
 HUMA	Mbarara Airport	-0.555	30.599
 HUMI	Masindi Airport	1.758	31.737
 HUMO	Moroto Airport	2.505	34.595
@@ -5264,7 +5240,7 @@ KEDU	University Airport	38.532	-121.786
 KEDW	Edwards Air Force Base	34.911	-117.886
 KEED	Needles Airport	34.766	-114.623
 KEEN	Dillant Hopkins Airport	42.898	-72.271
-KEEO	Meeker Airport	40.049	-107.886
+KEEO	Meeker Coulter Field	40.049	-107.886
 KEET	Shelby County Airport	33.177	-86.783
 KEFC	Belle Fourche Municipal Airport	44.734	-103.862
 KEFD	Ellington Airport	29.607	-95.159
@@ -7628,11 +7604,11 @@ LGIO	Ioannina King Pyrrhus National Airport	39.696	20.823
 LGIR	Heraklion International Nikos Kazantzakis Airport	35.340	25.180
 LGKA	Kastoria National Airport Aristotle	40.446	21.282
 LGKC	Kithira Airport	36.274	23.017
-LGKF	Kefalonia International Airport Anna Pollatou	38.120	20.500
+LGKF	Kefalonia International Airport "Anna Pollatou"	38.120	20.500
 LGKJ	Kastelorizo Airport	36.142	29.576
 LGKL	Kalamata Airport	37.068	22.025
 LGKM	Kavala Amygdaleon Lydia Airfield	40.973	24.341
-LGKO	Kos International Airport Ippokratis	36.795	27.091
+LGKO	Kos International Airport "Ippokratis"	36.795	27.091
 LGKP	Karpathos Airport	35.421	27.146
 LGKR	Corfu Ioannis Kapodistrias International Airport	39.601	19.912
 LGKS	Kasos Airport	35.421	26.910
@@ -7653,7 +7629,7 @@ LGPA	Paros National Airport	37.020	25.113
 LGPL	Astypalaia Airport	36.580	26.376
 LGPZ	Aktion National Airport	38.925	20.765
 LGRD	Maritsa Air Base	36.383	28.109
-LGRP	Rhodes International Airport Diagoras	36.405	28.086
+LGRP	Rhodes International Airport "Diagoras"	36.405	28.086
 LGRS	Logan Reserve Airport	-27.706	153.110
 LGRX	Patras Araxos Agamemnon Airport	38.151	21.426
 LGSA	Chania International Airport	35.531	24.151
@@ -7670,7 +7646,7 @@ LGTP	Tripolis Air Base	37.531	22.404
 LGTS	Thessaloniki Macedonia International Airport	40.519	22.970
 LGTT	Tatoi Airport	38.109	23.784
 LGTY	Tympaki Air Base	35.064	24.767
-LGZA	Zakynthos International Airport Dionysios Solomos	37.751	20.884
+LGZA	Zakynthos International Airport "Dionysios Solomos"	37.751	20.884
 LHAK	Atkár Airfield	47.721	19.905
 LHBC	Békéscsaba Airfield	46.677	21.161
 LHBD	Börgönd Airfield	47.130	18.500
@@ -7751,7 +7727,7 @@ LHUH	Úrhida	47.128	18.313
 LHVE	Veresegyház Airfield	47.638	19.255
 LHZA	Zalaegerszeg Andráshida Airfield	46.885	16.789
 LHZK	Zalakaros Airfield	46.554	17.151
-LIAA	Aviosuperficie Alvaro Leonardi	42.573	12.584
+LIAA	Aviosuperficie "Alvaro Leonardi"	42.573	12.584
 LIAF	Foligno Airfield	42.933	12.712
 LIAL	Sant'Illuminato Airfield	43.355	12.218
 LIAP	L'Aquila–Preturo Airport	42.380	13.309
@@ -8759,7 +8735,7 @@ MPAC	Achutupu Airport	9.188	-77.994
 MPAG	El Aguila Airstrip	8.372	-80.352
 MPAI	Ailigandí Airport	9.223	-78.024
 MPAR	Arenas Airport	7.371	-80.846
-MPBO	Bocas del Toro Isla Colón International Airport	9.341	-82.251
+MPBO	Bocas del Toro "Isla Colón" International Airport	9.341	-82.251
 MPCA	Caledonia Airport	8.902	-77.693
 MPCB	La Cabezona Airport	8.346	-82.504
 MPCE	Alonso Valderrama Airport	7.988	-80.410
@@ -9807,7 +9783,7 @@ PAAK	Atka Airport	52.220	-174.206
 PAAL	Port Moller Airport	56.006	-160.561
 PAAM	Driftwood Bay Air Force Station Airport	53.973	-166.858
 PAAN	Gold King Creek Airport	64.198	-147.929
-PAAQ	Warren Bud Woods Palmer Municipal Airport	61.595	-149.089
+PAAQ	Warren "Bud" Woods Palmer Municipal Airport	61.595	-149.089
 PAAT	Casco Cove Coast Guard Station	52.830	173.174
 PABA	Barter Island Long Range Radar Station Airport	70.134	-143.582
 PABE	Bethel Airport	60.780	-161.838
@@ -10255,7 +10231,7 @@ RKTL	Uljin Airport	36.777	129.462
 RKTN	Daegu International Airport	35.894	128.657
 RKTP	Seosan Air Base	36.704	126.486
 RKTS	Sangju Airfield	36.407	128.177
-RKTU	Cheongju International Airport/Cheongju Air Base (K-59/G-513)	36.716	127.500
+RKTU	Cheongju International Airport	36.716	127.500
 RKTY	Yecheon Airbase	36.630	128.350
 RKUC	Jochiwon (G-505) Airfield	36.572	127.296
 RKUL	G 536 Airport	36.267	127.109
@@ -12260,7 +12236,6 @@ SJAZ	Fazenda Querubim Airport	-12.770	-46.023
 SJBA	Fazenda Beatriz Airport	-21.488	-53.617
 SJBB	Fazenda Bacaba Airport	-9.525	-49.889
 SJBC	Fazenda União Airport	-8.989	-51.215
-SJBF	Fazed Santa Bárbara Airport	-14.618	-44.188
 SJBH	Fazenda Canaã Airport	-12.801	-52.527
 SJBK	Iriri Airport	-5.679	-54.245
 SJBN	Nossa Senhora Aparecida Airstrip	-7.352	-50.376
@@ -12430,7 +12405,7 @@ SJLD	Fazenda Porto do Campo Airport	-15.716	-57.711
 SJLE	Halikato-u Airport	3.224	-63.202
 SJLH	Jacamim Airport	2.176	-59.784
 SJLI	Fazenda Lilliani Airport	-4.214	-46.975
-SJLJ	Jatapuzinho Airport	0.597	-59.222
+SJLJ	Jatapuzinho Airport	0.600	-59.223
 SJLK	Lago Grande I Airport	3.443	-60.353
 SJLL	Maturucá Airport	4.461	-60.100
 SJLM	Leão de Ouro Airport	4.152	-61.428
@@ -12703,7 +12678,7 @@ SKCA	Capurganá Airport	8.632	-77.350
 SKCB	Carmen De Bolivar Airport	9.684	-75.126
 SKCC	Camilo Daza International Airport	7.928	-72.511
 SKCD	Mandinga Airport	5.072	-76.676
-SKCE	Cruz Verde Airport	4.410	-75.140
+SKCE	Cruz Verde Airport	4.390	-75.131
 SKCG	Rafael Nuñez International Airport	10.442	-75.513
 SKCH	El Pacífico Airport	1.350	-74.840
 SKCI	Carimagua Airport	4.564	-71.336
@@ -15817,6 +15792,7 @@ URRM	Morozovsk Air Base	48.313	41.791
 URRN	Potapov	47.466	41.925
 URRP	Platov International Airport	47.494	39.925
 URRW	Veshenskaya Airfield	49.657	41.701
+URRX	Olginskaya Airport	47.199	39.956
 URSS	Sochi International Airport	43.450	39.957
 URWA	Astrakhan Narimanovo Boris M. Kustodiev International Airport	46.283	48.011
 URWI	Elista Airport	46.374	44.331

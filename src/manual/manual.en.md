@@ -711,7 +711,7 @@ A downloaded region updates itself every three months, on Wi-Fi, never in flight
 
 ### Aerial Imagery
 
-**Aerial imagery** shows open government orthophotos: swisstopo's in Switzerland, and those of Austria, France, the Netherlands, Luxembourg, Belgium, the Czech Republic, Poland, South Tyrol, twelve German states and the United States. Each source is cut at the border of the area it covers and credited at the foot of the map while it shows. Where no government publishes imagery the app may use, the Atlas shows instead. The imagery comes from each government's own service while it is on screen, so it needs a connection: offline, only what the device has already shown. The sources and their licences are listed in **Settings › About › Aerial imagery** and on [the map page](/map#70-aerial-imagery).
+**Aerial imagery** shows open government orthophotos: swisstopo's in Switzerland, and those of Austria, France, the Netherlands, Luxembourg, Belgium, the Czech Republic, Poland, Slovenia, South Tyrol, twelve German states and the United States. Each source is cut at the border of the area it covers and credited at the foot of the map while it shows. Where no government publishes imagery the app may use, the Atlas shows instead. The imagery comes from each government's own service while it is on screen, so it needs a connection: offline, only what the device has already shown. The sources and their licences are listed in **Settings › About › Aerial imagery** and on [the map page](/map#70-aerial-imagery).
 
 When the downloaded airspace is aging, an amber mark sits on the **Map** button (or the layers button), and the sheet explains it ("Airspace data is out of date") with **Update**, so you know that what is drawn may not reflect recent changes.
 

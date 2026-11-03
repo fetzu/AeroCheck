@@ -80,6 +80,7 @@ Die Ebene «Luftbilder» zeigt offene Orthofotos öffentlicher Stellen (und sons
 | Belgien, Brüssel | Ortho © UrbIS – paradigm.brussels | [CC0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Tschechien | Ortofoto: ČÚZK | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Polen | Ortofotomapa © GUGiK (geoportal.gov.pl) | [Bedingungen des GUGiK](https://www.geoportal.gov.pl/pl/o-geoportalu/regulamin/) |
+| Slowenien | Geodetska uprava Republike Slovenije, Ortofoto DOF025 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Italien, Südtirol | © Autonome Provinz Bozen – Südtirol | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Deutschland, 12 Länder | Die Vermessungsverwaltung jedes Landes: Bayern, Baden-Württemberg, Nordrhein-Westfalen, Berlin, Brandenburg, Sachsen, Thüringen, Rheinland-Pfalz, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Bremen | CC BY 4.0, [dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0) oder [dl-de/zero-2-0](https://www.govdata.de/dl-de/zero-2-0), wie es jedes Land veröffentlicht |
 | USA, ohne Alaska | USDA, USGS The National Map: Orthoimagery | Gemeinfrei |

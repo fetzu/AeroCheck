@@ -80,6 +80,7 @@ Le fond « Images aériennes » montre des orthophotos publiques ouvertes (et ri
 | Belgique, Bruxelles | Ortho © UrbIS – paradigm.brussels | [CC0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Tchéquie | Ortofoto: ČÚZK | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Pologne | Ortofotomapa © GUGiK (geoportal.gov.pl) | [Conditions du GUGiK](https://www.geoportal.gov.pl/pl/o-geoportalu/regulamin/) |
+| Slovénie | Geodetska uprava Republike Slovenije, Ortofoto DOF025 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Italie, Tyrol du Sud | © Autonome Provinz Bozen – Südtirol | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Allemagne, 12 Länder | L'office du cadastre de chaque Land : Bavière, Bade-Wurtemberg, Rhénanie-du-Nord-Westphalie, Berlin, Brandebourg, Saxe, Thuringe, Rhénanie-Palatinat, Hesse, Schleswig-Holstein, Mecklembourg-Poméranie-Occidentale, Brême | CC BY 4.0, [dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0) ou [dl-de/zero-2-0](https://www.govdata.de/dl-de/zero-2-0), selon ce que publie chaque Land |
 | États-Unis, sauf l'Alaska | USDA, USGS The National Map: Orthoimagery | Domaine public |

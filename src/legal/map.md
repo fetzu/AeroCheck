@@ -80,6 +80,7 @@ The "Aerial imagery" layer shows open government orthophotos (and nothing else).
 | Belgium, Brussels | Ortho © UrbIS – paradigm.brussels | [CC0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Czech Republic | Ortofoto: ČÚZK | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Poland | Ortofotomapa © GUGiK (geoportal.gov.pl) | [GUGiK terms](https://www.geoportal.gov.pl/pl/o-geoportalu/regulamin/) |
+| Slovenia | Geodetska uprava Republike Slovenije, Ortofoto DOF025 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Italy, South Tyrol | © Autonome Provinz Bozen – Südtirol | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Germany, 12 states | Each state's survey office: Bavaria, Baden-Württemberg, North Rhine-Westphalia, Berlin, Brandenburg, Saxony, Thuringia, Rhineland-Palatinate, Hesse, Schleswig-Holstein, Mecklenburg-Western Pomerania, Bremen | CC BY 4.0, [dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0) or [dl-de/zero-2-0](https://www.govdata.de/dl-de/zero-2-0), as each state publishes |
 | United States, except Alaska | USDA, USGS The National Map: Orthoimagery | Public domain |

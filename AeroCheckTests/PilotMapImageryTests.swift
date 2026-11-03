@@ -200,8 +200,9 @@ final class PilotMapImageryTests: XCTestCase {
         XCTAssertEqual(ImageryTiles.credited(in: view, zoom: 10, store: off).map(\.id), ["west"], "a source off is never credited")
     }
 
-    /// The copy the app ships: every source decodes, has an https address and an area, and none is Denmark's
-    /// third-party address.
+    /// The copy the app ships: every source decodes, has an https address and an area, and none carries a login in its
+    /// address (Denmark's capabilities list a REST template on services.datafordeler.dk with someone else's in it; the
+    /// gateway's KVP address and our own token are the ones to use).
     func testBundledSourcesAreUsable() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "imagery", withExtension: "json", subdirectory: "PilotMapImagery"))
         let index = try ImageryIndex.decode(Data(contentsOf: url))
@@ -210,7 +211,8 @@ final class PilotMapImageryTests: XCTestCase {
             XCTAssertNotNil(source.url(z: 12, x: 2134, y: 1442), source.id)
             XCTAssertFalse(source.area.polygons.isEmpty, source.id)
             XCTAssertGreaterThanOrEqual(source.minZoom, ImageryTiles.minimumZoom, source.id)
-            XCTAssertFalse(source.template.contains("_DAF"), source.id)
+            XCTAssertFalse(source.template.contains("services.datafordeler.dk"), source.id)
+            XCTAssertFalse(source.template.lowercased().contains("password="), source.id)
         }
         XCTAssertEqual(Set(index.sources.map(\.id)).count, index.sources.count)
     }

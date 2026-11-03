@@ -1,8 +1,9 @@
-6.8.1 corrige trois petites choses trouvées pendant la sortie de 6.8.0.
+6.8.2 corrige quatre petites choses trouvées pendant la sortie de 6.8.0.
 
 À essayer :
 - Le carnet de vol sans aucun vol (une nouvelle installation) : deux phrases sur deux lignes, sans « \n ».
 - La carte sur la carte OACI : zoomez lentement de toute la Suisse jusqu'à un village. La carte OACI, puis la carte vol à voile, puis la carte nationale, chacune nette jusqu'à ce que la suivante prenne le relais. Essayez aussi sur un iPhone couché, dans la CARTE du cockpit.
 - L'introduction suggère toujours votre base d'après l'endroit où vous êtes, hors ligne aussi.
+- Activez la couche des espaces aériens, fermez l'app depuis le sélecteur d'apps et rouvrez-la : la carte montre les espaces aériens sans qu'il faille la déplacer.
 
 Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.

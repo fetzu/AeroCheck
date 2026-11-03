@@ -1,8 +1,9 @@
-6.8.1 fixes three small things found while 6.8.0 was released.
+6.8.2 fixes four small things found while 6.8.0 was released.
 
 What to try:
 - The Logbook with no flight in it (a fresh install): two sentences on two lines, no "\n".
 - The map on the ICAO chart: zoom in slowly from the whole of Switzerland to a village. The ICAO chart, then the glider chart, then the National Map, each sharp until the next takes over. Try it on an iPhone on its side too, in the Cockpit's MAP.
 - The introduction still suggests your base from where you are, offline too.
+- Turn the airspace layer on, close the app from the app switcher and open it again: the map shows the airspace without a pan.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

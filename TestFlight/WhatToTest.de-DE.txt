@@ -1,8 +1,9 @@
-6.8.1 behebt drei Kleinigkeiten, die bei der Veröffentlichung von 6.8.0 aufgefallen sind.
+6.8.2 behebt vier Kleinigkeiten, die bei der Veröffentlichung von 6.8.0 aufgefallen sind.
 
 Zum Ausprobieren:
 - Das Flugbuch ohne Flug (eine neue Installation): zwei Sätze auf zwei Zeilen, ohne «\n».
 - Die Karte auf der ICAO-Karte: Zoomen Sie langsam von der ganzen Schweiz bis zu einem Dorf. Die ICAO-Karte, dann die Segelflugkarte, dann die Landeskarte, jede scharf, bis die nächste übernimmt. Versuchen Sie es auch auf einem quer gehaltenen iPhone, in der KARTE des Cockpits.
 - Die Einführung schlägt Ihre Basis weiterhin anhand Ihres Standorts vor, auch offline.
+- Schalten Sie die Luftraum-Ebene ein, schliessen Sie die App im App-Umschalter und öffnen Sie sie wieder: Die Karte zeigt die Lufträume, ohne dass Sie sie verschieben.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.

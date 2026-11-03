@@ -52249,19 +52249,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beginnen Sie einen Flug, um ihn aufzuzeichnen.\\nIhre Flüge erscheinen hier."
+            "value": "Beginnen Sie einen Flug, um ihn aufzuzeichnen.\nIhre Flüge erscheinen hier."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start a flight to begin recording.\\nYour flights will appear here."
+            "value": "Start a flight to begin recording.\nYour flights will appear here."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Démarrez un vol pour commencer l'enregistrement.\\nVos vols apparaîtront ici."
+            "value": "Démarrez un vol pour commencer l'enregistrement.\nVos vols apparaîtront ici."
           }
         }
       }

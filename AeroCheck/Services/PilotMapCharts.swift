@@ -43,13 +43,13 @@ enum PilotMapCharts {
     }
 
     /// The chart rasters for a layer choice, bottom first, as `ChartPolicy.overlay(for:)` draws it on MapKit: the ICAO
-    /// chart, the glider chart from MapKit zoom 11, then the National Map from 13 (not when forced or offline); the
-    /// forced ICAO chart alone; offline, the downloaded charts only.
+    /// chart, the glider chart from its tiles of zoom 11, then the National Map from its tiles of zoom 13 (not when
+    /// forced or offline); the forced ICAO chart alone; offline, the downloaded charts only.
     static func rasters(for layer: MapLayerType, policy: ChartPolicy) -> [Raster] {
         let offline = policy.strictOffline
         let icao = "ch.bazl.luftfahrtkarten-icao", glider = "ch.bazl.segelflugkarte"
         let national = ICAOSegelflugkarteTileOverlay.nationalMapLayerIdentifier
-        func z(_ mapKit: Int) -> Double { MapZoom.mapLibre(fromMapKit: Double(mapKit)) }
+        func z(_ tileZoom: Int) -> Double { MapZoom.firstAsking(tileZoom: tileZoom) }
         switch policy.layer(for: layer) {
         case .icao:
             if policy.forceICAO || (offline && !policy.segelflugCache) {
@@ -174,4 +174,13 @@ enum LocalTile: Equatable {
 enum MapZoom {
     static func mapLibre(fromMapKit zoom: Double) -> Double { zoom - 1 }
     static func mapKit(fromMapLibre zoom: Double) -> Double { zoom + 1 }
+
+    /// The tiles of 256 pixels a raster asks for at MapLibre's `zoom`: the nearest whole MapKit zoom, as MapLibre
+    /// rounds a raster's (and `ChartTileRenderer.zoom(for:)` did on MapKit).
+    static func tileZoom(atMapLibre zoom: Double) -> Int { Int(mapKit(fromMapLibre: zoom).rounded()) }
+
+    /// The MapLibre zoom from which a raster asks for its tiles of `tileZoom`: half a level before it. A chart handed
+    /// over on the whole zoom showed its last tiles enlarged up to twice for half a level, the glider chart's z12 at
+    /// the Cockpit's 10 km on the iPhone on its side (6.8.0's screenshot run); on MapKit the next one took over. (6.8.1)
+    static func firstAsking(tileZoom: Int) -> Double { mapLibre(fromMapKit: Double(tileZoom) - 0.5) }
 }

@@ -3,7 +3,7 @@ import Foundation
 
 /// The aerodrome nearest the pilot, for onboarding's "Based at" (the author's answer 2 A on the onboarding page,
 /// 31 Oct 2026): from the bundled index (`BundledAerodromes`), offline, since 2 Nov 2026; OpenAIP's online search only
-/// if it were missing. The position goes to OpenAIP rounded to about a kilometre, as the online airspace's does. (6.8.0)
+/// if it were missing, by the country's list (a country code, never the position: the privacy policy, 3.4). (6.8.0)
 enum NearestAerodrome {
 
     struct Found: Equatable {
@@ -19,14 +19,9 @@ enum NearestAerodrome {
     /// The fields read: OpenAIP's full records are ten times the size.
     static let fields = "fields=icaoCode,name,type,geometry"
 
-    static func request(near coordinate: CLLocationCoordinate2D, radiusMeters: Int = 40_000) -> URLRequest? {
-        let position = String(format: "%.2f,%.2f", coordinate.latitude, coordinate.longitude)
-        return request("airports?pos=\(position)&dist=\(radiusMeters)&limit=30&\(fields)")
-    }
-
-    /// A country's aerodromes, a page of a thousand: since late October 2026 OpenAIP's firewall refuses position and
-    /// box searches (403) and answers country ones, so the nearest is picked on the device from these. France is two
-    /// pages of about 150 KB.
+    /// A country's aerodromes, a page of a thousand, the nearest picked on the device from these: the position never
+    /// goes to OpenAIP (6.8.1; its firewall refused position and box searches since late October 2026 anyway). France
+    /// is two pages of about 150 KB.
     static func request(country: String, page: Int) -> URLRequest? {
         request("airports?country=\(country)&limit=1000&page=\(page)&\(fields)")
     }
@@ -40,12 +35,7 @@ enum NearestAerodrome {
         return request
     }
 
-    /// The nearest aerodrome with an ICAO code in OpenAIP's answer, nil when none or the answer doesn't read.
-    static func nearest(in data: Data, to coordinate: CLLocationCoordinate2D) -> Found? {
-        page(data, near: coordinate)?.nearest
-    }
-
-    /// A page's nearest aerodrome and whether more pages follow.
+    /// A page's nearest aerodrome with an ICAO code and whether more pages follow; nil when the answer doesn't read.
     static func page(_ data: Data, near coordinate: CLLocationCoordinate2D) -> (nearest: Found?, hasMore: Bool)? {
         struct Response: Decodable {
             let items: [Item]
@@ -72,8 +62,8 @@ enum NearestAerodrome {
         return (nearest, (response.page ?? 1) < (response.totalPages ?? 1))
     }
 
-    /// Asks OpenAIP around the pilot, else the country's list (`country`, ISO-2) for the nearest; nil offline, on any
-    /// failure, or with nothing within reach.
+    /// The nearest from the airport data, else the bundled index, else OpenAIP's list of the country (`country`,
+    /// ISO-2); nil offline, on any failure, or with nothing within reach.
     /// `store`: the app's airport data. Once downloaded (OurAirports, with each downloaded country's OpenAIP aerodromes
     /// merged in) it is fresher than the bundled index, which is a snapshot from the last tag, and it answers instead
     /// (the author's question of 2 Nov 2026: the bundle never supersedes fresher data).
@@ -93,12 +83,7 @@ enum NearestAerodrome {
             BundledAerodromes.all.isEmpty ? nil : BundledAerodromes.nearest(to: coordinate)
         }.value
         if let bundled { return bundled }
-        guard BundledAerodromes.all.isEmpty else { return nil }
-        if let request = request(near: coordinate), let data = await fetch(request),
-           let found = nearest(in: data, to: coordinate) {
-            return found
-        }
-        guard let country else { return nil }
+        guard BundledAerodromes.all.isEmpty, let country else { return nil }
         var best: Found?
         for number in 1...3 {
             guard let request = request(country: country, page: number), let data = await fetch(request),

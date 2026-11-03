@@ -217,9 +217,9 @@ enum MarketingSceneInjector {
         case .planMapCircuits:
             injectPlanMapCircuits(appState: appState)
         case .planMapAtlas:
-            injectPlanMapAtlas(appState: appState, layers: false)
+            injectPlanMapAtlas(appState: appState, locationManager: locationManager, layers: false)
         case .planMapAtlasLayers:
-            injectPlanMapAtlas(appState: appState, layers: true)
+            injectPlanMapAtlas(appState: appState, locationManager: locationManager, layers: true)
         case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
             break // dispatched above — they need the thread manager
         }
@@ -245,8 +245,9 @@ enum MarketingSceneInjector {
 
     /// No flight, Plan › Map, the Atlas over the lakes of Biel, Neuchâtel and Murten, with every layer off (the map
     /// itself) or every layer on (`layers`): the website's shot cuts the two along the diagonal, so they differ in
-    /// nothing else. The map frames La Neuveville as it appears (`NavigationMapView.frameForCaptureIfAsked`).
-    private static func injectPlanMapAtlas(appState: AppState, layers: Bool) {
+    /// nothing else. The map frames La Neuveville as it appears (`NavigationMapView.frameForCaptureIfAsked`), and the
+    /// aircraft flies over it at 120°, across the cut (the author, 3 Nov 2026), so it sits on the line in both halves.
+    private static func injectPlanMapAtlas(appState: AppState, locationManager: LocationManager, layers: Bool) {
         if appState.isFlightActive { appState.cancelFlight() }
         appState.selectMapLayer(.standard)
         appState.settings.showOpenAIPOverlay = layers
@@ -259,7 +260,14 @@ enum MarketingSceneInjector {
         appState.settings.showAirportsOnMap = layers
         appState.groundTab = .plan
         appState.pendingPlanSection = .map
+        let provider = MarketingLocationProvider.shared
+        provider.holdStaticFix(latitude: laNeuveville.latitude, longitude: laNeuveville.longitude,
+                               altitudeMeters: 4500 / 3.28084, speedKnots: 105, headingDegrees: 120)
+        if let location = provider.currentLocation { locationManager.injectMarketingStaticFix(location) }
     }
+
+    /// The centre of the Atlas shot, on Lake Biel's shore (`NavigationMapView.frameForCaptureIfAsked`).
+    static let laNeuveville = CLLocationCoordinate2D(latitude: 47.0656, longitude: 7.0972)
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
 

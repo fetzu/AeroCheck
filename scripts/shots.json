@@ -14,7 +14,8 @@
     "bar there. appstore: the slot number; website: published on the site. devices: a shot without it is for the",
     "iPads and the iPhone; the Watch takes only the shots that name it, without the tour: its app opened on the page",
     "of AEROCHECK_WATCH_PAGE beside its phone (devices.watch.phone) in the shot's scene, on the wall clock, as watchOS",
-    "has no status bar override."
+    "has no status bar override. launch: launch arguments for that shot alone, after the language's (a setting read",
+    "from the argument domain and never saved: [\"-map.selectedLayer\", \"ICAO Chart\"] puts it on the Swiss charts)."
   ],
   "devices": {
     "ipad13": {
@@ -105,8 +106,9 @@
       "scene": "cruisemap",
       "orientation": "landscapeLeft",
       "steps": {"all": ["mapSettled"]},
+      "launch": ["-map.selectedLayer", "ICAO Chart"],
       "settle": 2,
-      "what": "The iPhone on its side: the Cockpit's column, the map at full height."
+      "what": "The iPhone on its side: the Cockpit's column, the map at full height, on the Swiss charts (the author, 3 Nov 2026)."
     },
     {
       "key": "today",
@@ -141,7 +143,8 @@
       "website": true,
       "scene": "conflicts",
       "steps": {"all": ["tap:today.route", "tapLabel:Samedan", "mapSettled"]},
-      "what": "The route editor: Geneva to Samedan over the ICAO chart, the profile, the leg table, the conflicts count. No pinch on the iPhone since 6.8.0: MapLibre's map is not the tour's `maps` element, and the editor frames the route itself."
+      "launch": ["-map.selectedLayer", "ICAO Chart"],
+      "what": "The route editor: Geneva to Samedan over the ICAO chart (chosen by its launch setting since 6.8.0, the Atlas being the default), the profile, the leg table, the conflicts count. No pinch on the iPhone since 6.8.0: MapLibre's map is not the tour's `maps` element, and the editor frames the route itself."
     },
     {
       "key": "log",

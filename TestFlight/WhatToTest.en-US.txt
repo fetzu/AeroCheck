@@ -4,13 +4,13 @@ What to try:
 - Settings › Offline data replaces Data & Storage and Navigation & Maps: one status at the top, your countries, the worldwide airports and the Atlas overview.
 - Offline data › Add a country: a country downloads at one press, its Atlas with its airspace, aerodromes and VFR procedures (Switzerland is about 90 MB, Wi-Fi recommended). Then turn on airplane mode: the map still draws there.
 - A large country (France, Germany) opens its page: all of it at one press, or the regions you fly. Download a neighbour too: at the border both sides draw, with no gap and nothing twice.
-- Map sheet › Base chart: Atlas and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map.
+- Map sheet › Base chart: Atlas and Aerial imagery replace Apple's two layers. On Aerial imagery, pan from Switzerland into France or Germany: each source is credited at the foot of the map. Slovenia and Denmark are new.
 - Zoom out to Europe: every country drawn in detail, with its cities, roads and relief.
 - Plan › Map, the Cockpit's MAP and the route editor: tap an aerodrome, a circuit's altitude, a navaid; drag a route point; the legs band; Search aerodromes. Tell us anything that moves differently from 6.7.
 - A flight in the logbook: its track map, and the share card on Atlas and on Aerial imagery.
 - Plan a flight crossing a border: the banner offers the Atlas regions along the route.
 - The Swiss ICAO, glider and national charts: past their edge, the Atlas now shows under them.
-- A new introduction: Settings › About › Replay introduction. Five short screens (your base is suggested from where you are), then a circuit on the ground in about three minutes. Afterwards Today shows a Getting started card, and a few tips show once where a feature lives.
+- A new introduction: Settings › About › Replay introduction. Five short screens (your base is suggested from where you are, offline too: try it in airplane mode), then a circuit on the ground in about three minutes. Afterwards Today shows a Getting started card, and a few tips show once, next to what they explain.
 - Atlas downloads now have a monthly limit per device: 40 files, or 120 with AéroCheck Pro (a region is one or two files). If you meet it, the region's row says when it starts again: tell us.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

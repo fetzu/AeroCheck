@@ -3,7 +3,7 @@ import XCTest
 @testable import AeroCheck
 
 /// Onboarding's "Based at" suggestion (6.8.0, the author's answer 2 A): the nearest aerodrome with an ICAO code from
-/// OpenAIP's answer, heliports and closed fields left out; a country's list read page by page.
+/// OpenAIP's answer, heliports and closed fields left out; a country's list read page by page, the position never sent.
 final class NearestAerodromeTests: XCTestCase {
 
     private let porrentruy = CLLocationCoordinate2D(latitude: 47.488, longitude: 7.042)
@@ -20,7 +20,7 @@ final class NearestAerodromeTests: XCTestCase {
             {"icaoCode":"LSHX","name":"A heliport","type":7,"geometry":{"coordinates":[7.04,47.49]}},
             {"icaoCode":"LSXX","name":"Closed","type":8,"geometry":{"coordinates":[7.04,47.49]}}
             """)
-        let found = try XCTUnwrap(NearestAerodrome.nearest(in: data, to: porrentruy))
+        let found = try XCTUnwrap(NearestAerodrome.page(data, near: porrentruy)?.nearest)
         XCTAssertEqual(found.ident, "LSZQ")
         XCTAssertEqual(found.distanceNM, 4.8, accuracy: 0.3)
     }
@@ -33,12 +33,10 @@ final class NearestAerodromeTests: XCTestCase {
     }
 
     func testTheRequestsAskOnlyForTheFieldsRead() throws {
-        let around = try XCTUnwrap(NearestAerodrome.request(near: porrentruy)?.url?.absoluteString)
-        XCTAssertTrue(around.contains("pos=47.49,7.04"), around)
-        XCTAssertTrue(around.contains("fields=icaoCode,name,type,geometry"), around)
         let country = try XCTUnwrap(NearestAerodrome.request(country: "FR", page: 2)?.url?.absoluteString)
         XCTAssertTrue(country.contains("country=FR&limit=1000&page=2"), country)
-        XCTAssertTrue(country.contains("fields="), country)
+        XCTAssertTrue(country.contains("fields=icaoCode,name,type,geometry"), country)
+        XCTAssertFalse(country.contains("pos="), country)
     }
 
     func testANameInCapitalsReadsInTitleCase() {

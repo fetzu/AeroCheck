@@ -4612,8 +4612,8 @@ class AirspacePolygon: MKPolygon {
     var airspaceClassCategory: AirspaceClassCategory?
     var upperCeilingDisplay: String = ""
     var lowerCeilingDisplay: String = ""
-    var overlayColor: (red: Double, green: Double, blue: Double) = (0.5, 0.5, 0.5)
-    var isDashed: Bool = false
+    var mapKind: AirspaceMapKind = .neutral
+    var tier: AirspaceMapTier = .atLevel
 
     convenience init(airspace: Airspace, coordinates: inout [CLLocationCoordinate2D], count: Int) {
         self.init(coordinates: &coordinates, count: count)
@@ -4623,17 +4623,7 @@ class AirspacePolygon: MKPolygon {
         self.airspaceClassCategory = airspace.airspaceClass
         self.upperCeilingDisplay = airspace.upperCeiling.displayString
         self.lowerCeilingDisplay = airspace.lowerCeiling.displayString
-        self.overlayColor = airspace.mapColor
-
-        // Dashed border for certain types
-        switch airspace.airspaceType {
-        case .tmz, .rmz, .fir, .uir:
-            self.isDashed = true
-        default:
-            if airspace.airspaceClass == .classE || airspace.airspaceClass == .classG {
-                self.isDashed = true
-            }
-        }
+        self.mapKind = airspace.mapKind
     }
 }
 

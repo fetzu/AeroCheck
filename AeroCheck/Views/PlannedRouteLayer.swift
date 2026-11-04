@@ -185,13 +185,32 @@ final class RouteWaypointAnnotation: NSObject, MKAnnotation {
 // MARK: - A crossed airspace's look
 
 extension AirspacePolygon {
-    /// Translucent fill and coloured stroke, brighter and thicker when selected (a conflict tapped in the route
-    /// builder's list). One look on every map since 6.7.0. (#4)
+    /// The polygon's edge and wash, stronger when selected (a conflict tapped in the route builder's list). One look on
+    /// every map since 6.7.0 (#4), its palette since 6.9.0 (`AirspaceMapKind`). A CTR's wash is the stronger one.
     func style(_ renderer: MKPolygonRenderer, selected: Bool) {
-        let c = overlayColor
-        renderer.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: selected ? 0.36 : 0.15)
-        renderer.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: selected ? 1.0 : 0.8)
-        renderer.lineWidth = selected ? 3 : 1.5
-        renderer.lineDashPattern = isDashed ? [8, 4] : nil
+        let c = mapKind.color
+        let color = { (alpha: Double) in UIColor(red: c.red, green: c.green, blue: c.blue, alpha: alpha) }
+        let wash = airspaceTypeCategory == .ctr || airspaceTypeCategory == .mctr ? 0.16 : 0.08
+        renderer.fillColor = mapKind.isHatched ? nil
+            : selected ? color(0.3) : mapKind.isWashed && tier.washes ? color(wash) : nil
+        renderer.strokeColor = color(selected ? 1 : tier.edgeAlpha)
+        renderer.lineWidth = selected ? 3.5 : edgeWidth
+        renderer.lineDashPattern = mapKind.dash.isEmpty ? nil : mapKind.dash.map { NSNumber(value: $0) }
+    }
+
+    private var edgeWidth: CGFloat {
+        switch tier {
+        case .far: return 1
+        case .near: return 1.6
+        case .atLevel:
+            if !mapKind.dash.isEmpty { return 2.2 }
+            return mapKind.isHatched || airspaceTypeCategory == .ctr || airspaceTypeCategory == .mctr ? 3 : 2.4
+        }
+    }
+
+    /// How strong the polygon's hatch is; zero when it has none.
+    func hatchAlpha(selected: Bool) -> Double {
+        guard mapKind.isHatched else { return 0 }
+        return selected ? 0.9 : tier.hatchAlpha
     }
 }

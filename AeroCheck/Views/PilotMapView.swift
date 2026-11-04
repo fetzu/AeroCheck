@@ -46,6 +46,24 @@ enum PilotMapStyle {
     }
 
     /// The peaks' mark: a small brown triangle, as the style's `peak` image.
+    /// The hatch of an R, D or P area: charcoal diagonals that tile across the pattern's edges (a1 A).
+    static let hatchImageName = "airspace.hatch"
+    static let hatchImage: UIImage = {
+        let side: CGFloat = 12
+        let c = AirspaceMapKind.restrictive.color
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
+            let cg = context.cgContext
+            cg.setStrokeColor(UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 1).cgColor)
+            cg.setLineWidth(1.5)
+            cg.setLineCap(.square)
+            for offset in [-side, 0, side] {
+                cg.move(to: CGPoint(x: offset, y: side))
+                cg.addLine(to: CGPoint(x: offset + side, y: 0))
+            }
+            cg.strokePath()
+        }
+    }()
+
     static let peakImage: UIImage = {
         let size = CGSize(width: 11, height: 9)
         return UIGraphicsImageRenderer(size: size).image { context in
@@ -180,6 +198,7 @@ struct PilotMapView: UIViewRepresentable {
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             self.style = style
             style.setImage(PilotMapStyle.peakImage, forName: "peak")
+            style.setImage(PilotMapStyle.hatchImage, forName: PilotMapStyle.hatchImageName)
             drawnRasters = []
             MainActor.assumeIsolated { shapes.reset() }
             applyLayers(on: mapView)

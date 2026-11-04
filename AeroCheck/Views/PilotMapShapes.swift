@@ -27,11 +27,13 @@ final class PilotMapShapes {
         var sourceID: String { "aero.\(self)" }
     }
 
-    /// One shape: its overlay, the renderer MapKit would draw it with, its tier within the group (higher on top).
+    /// One shape: its overlay, the renderer MapKit would draw it with, its tier within the group (higher on top), and
+    /// how strong its hatch is (an R, D or P area's, `PilotMapStyle.hatchImage`), which a renderer can't say.
     struct Shape {
         let overlay: MKOverlay
         let renderer: MKOverlayRenderer?
         let tier: Int
+        var hatch: Double = 0
     }
 
     /// A shape's paint as its MapKit renderer has it: colours with the renderer's alpha in them, the width and the
@@ -83,6 +85,7 @@ final class PilotMapShapes {
     struct LayerKey: Hashable, Comparable {
         enum Kind: Hashable {
             case fill
+            case hatch
             case line(cap: CGLineCap, dash: [Double])
         }
 
@@ -93,6 +96,7 @@ final class PilotMapShapes {
         var id: String {
             switch kind {
             case .fill: return "\(group.sourceID).\(tier).fill"
+            case .hatch: return "\(group.sourceID).\(tier).hatch"
             case let .line(cap, dash):
                 let pattern = dash.map { String(format: "%.2f", $0) }.joined(separator: "-")
                 return "\(group.sourceID).\(tier).line.\(cap.rawValue)" + (dash.isEmpty ? "" : ".\(pattern)")
@@ -102,7 +106,8 @@ final class PilotMapShapes {
         private var kindOrder: Int {
             switch kind {
             case .fill: return 0
-            case .line: return 1
+            case .hatch: return 1
+            case .line: return 2
             }
         }
 
@@ -119,9 +124,15 @@ final class PilotMapShapes {
         var features: [MLNShape & MLNFeature] = []
         var keys = Set<LayerKey>()
         for shape in shapes {
-            guard let paint = Paint(shape.renderer), paint.strokes || paint.fills,
+            guard let paint = Paint(shape.renderer), paint.strokes || paint.fills || shape.hatch > 0,
                   let feature = feature(for: shape.overlay) else { continue }
             var attributes: [String: Any] = [:]
+            if shape.hatch > 0 {
+                let key = LayerKey(group: group, tier: shape.tier, kind: .hatch)
+                keys.insert(key)
+                attributes["hk"] = key.id
+                attributes["hatch"] = shape.hatch
+            }
             if paint.fills, let fill = paint.fill {
                 let key = LayerKey(group: group, tier: shape.tier, kind: .fill)
                 keys.insert(key)
@@ -238,6 +249,12 @@ final class PilotMapShapes {
             layer.predicate = NSPredicate(format: "fk == %@", key.id)
             layer.fillColor = NSExpression(mglJSONObject: ["to-color", ["get", "fill"]])
             return layer
+        case .hatch:
+            let layer = MLNFillStyleLayer(identifier: key.id, source: source)
+            layer.predicate = NSPredicate(format: "hk == %@", key.id)
+            layer.fillPattern = NSExpression(forConstantValue: PilotMapStyle.hatchImageName)
+            layer.fillOpacity = NSExpression(mglJSONObject: ["get", "hatch"])
+            return layer
         case let .line(cap, dash):
             let layer = MLNLineStyleLayer(identifier: key.id, source: source)
             layer.predicate = NSPredicate(format: "lk == %@", key.id)
@@ -261,11 +278,14 @@ extension PilotMapShapes {
         // The airspace: each polygon as `AirspacePolygon.style` paints it, the selected one on top.
         let airspace = map.shownAirspace
         let selected = map.shownAirspaceSelection
-        sync(.airspace, signature: Self.hash(airspace.map(\.airspaceId), selected), on: style, traits: traits) {
+        sync(.airspace, signature: Self.hash(airspace.map { "\($0.airspaceId).\($0.tier.rawValue)" }, selected), on: style,
+             traits: traits) {
             airspace.map { polygon in
                 let renderer = MKPolygonRenderer(polygon: polygon)
-                polygon.style(renderer, selected: polygon.airspaceId == selected)
-                return Shape(overlay: polygon, renderer: renderer, tier: polygon.airspaceId == selected ? 1 : 0)
+                let isSelected = polygon.airspaceId == selected
+                polygon.style(renderer, selected: isSelected)
+                return Shape(overlay: polygon, renderer: renderer, tier: isSelected ? 1 : 0,
+                             hatch: polygon.hatchAlpha(selected: isSelected))
             }
         }
 

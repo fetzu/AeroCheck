@@ -110,50 +110,30 @@ struct Airspace: Codable, Identifiable {
         return AirspaceClassCategory(rawValue: icaoClass)
     }
 
-    /// Color for map rendering based on type and class
-    var mapColor: (red: Double, green: Double, blue: Double) {
-        // Prioritize type for restricted/prohibited/danger
+    /// How the airspace is drawn. The palette keeps to the hues the in-flight colour contract leaves free: an airspace is
+    /// never red, amber, magenta or cyan, which mean a warning, a caution, the route and a control (a1 A, 3 Nov 2026).
+    var mapKind: AirspaceMapKind {
         switch airspaceType {
-        case .prohibited:
-            return (0.85, 0.1, 0.1)    // Red
-        case .restricted:
-            return (0.85, 0.2, 0.2)    // Red
-        case .danger:
-            return (0.9, 0.5, 0.1)     // Orange
-        case .ctr, .mctr:
-            return (0.2, 0.4, 0.9)     // Blue
-        case .tma, .cta:
-            // Color by class
-            switch airspaceClass {
-            case .classA: return (0.2, 0.2, 0.9)   // Blue
-            case .classB: return (0.2, 0.4, 0.9)   // Blue
-            case .classC: return (0.0, 0.7, 0.7)   // Cyan
-            case .classD: return (0.7, 0.2, 0.7)   // Magenta
-            case .classE: return (0.2, 0.7, 0.3)   // Green
-            default: return (0.5, 0.5, 0.5)        // Gray
-            }
-        case .tmz:
-            return (0.5, 0.5, 0.5)     // Gray
-        case .rmz:
-            return (0.3, 0.3, 0.8)     // Light blue
-        case .fir, .uir:
-            return (0.4, 0.4, 0.4)     // Dark gray
-        case .gliderSector:
-            return (0.2, 0.8, 0.2)     // Bright green
+        case .prohibited, .restricted, .danger: return .restrictive
+        case .gliderSector, .aerial: return .glider
+        case .tmz, .rmz, .trp: return .zone
+        case .fir, .uir: return .neutral
+        default: break
+        }
+        switch airspaceClass {
+        case .classE: return .classE
+        case .classF, .classG: return .neutral
+        case .classA, .classB, .classC, .classD: return .controlled
         default:
-            // Fall back to class-based coloring
-            switch airspaceClass {
-            case .classA: return (0.2, 0.2, 0.9)
-            case .classB: return (0.2, 0.4, 0.9)
-            case .classC: return (0.0, 0.7, 0.7)
-            case .classD: return (0.7, 0.2, 0.7)
-            case .classE: return (0.2, 0.7, 0.3)
-            case .classF: return (0.5, 0.5, 0.3)
-            case .classG: return (0.5, 0.5, 0.5)
-            default: return (0.5, 0.5, 0.5)
+            switch airspaceType {
+            case .ctr, .mctr, .tma, .cta: return .controlled
+            default: return .neutral
             }
         }
     }
+
+    /// Color for map rendering based on type and class
+    var mapColor: (red: Double, green: Double, blue: Double) { mapKind.color }
 
     /// Display string for the airspace type and class
     var typeDisplayString: String {
@@ -493,6 +473,46 @@ struct AltitudeLimit: Codable {
 /// sectors (33) came out as green "Wave" areas over all of France, and Switzerland's two (added
 /// 2026-10-04) would have covered the country; its lower traffic areas (34) were taken for prohibited
 /// areas a route had to check.
+/// An airspace's look on every map: blue for controlled, dashed blue for class E, charcoal hatched for R, D and P, olive
+/// dashed for glider areas, slate dash-dot for TMZ and RMZ (a1 A, 3 Nov 2026).
+enum AirspaceMapKind: CaseIterable {
+    case controlled, classE, restrictive, glider, zone, neutral
+
+    var color: (red: Double, green: Double, blue: Double) {
+        switch self {
+        case .controlled: return (0.122, 0.310, 0.659)   // #1F4FA8
+        case .classE: return (0.231, 0.435, 0.769)       // #3B6FC4
+        case .restrictive: return (0.227, 0.247, 0.290)  // #3A3F4A
+        case .glider: return (0.373, 0.420, 0.180)       // #5F6B2E
+        case .zone: return (0.290, 0.333, 0.388)         // #4A5563
+        case .neutral: return (0.4, 0.4, 0.4)
+        }
+    }
+
+    /// The edge's dashes in points; empty for a solid line.
+    var dash: [Double] {
+        switch self {
+        case .controlled, .restrictive: return []
+        case .classE, .glider, .neutral: return [8, 4]
+        case .zone: return [8, 4, 2, 4]
+        }
+    }
+
+    var isHatched: Bool { self == .restrictive }
+    /// Only solid airspace gets a wash: a dashed one stays an edge, and a hatch is its own fill.
+    var isWashed: Bool { self == .controlled }
+}
+
+/// How much of an airspace the map draws, by how it stands to the aircraft: at its level in full, near it lighter, the
+/// rest faint. Never hidden (a3 A, a11 A; human-factors principle 11). A map with no aircraft draws them all in full.
+enum AirspaceMapTier: Int, CaseIterable {
+    case far, near, atLevel
+
+    var edgeAlpha: Double { [0.28, 0.7, 0.95][rawValue] }
+    var hatchAlpha: Double { [0, 0.35, 0.9][rawValue] }
+    var washes: Bool { self == .atLevel }
+}
+
 enum AirspaceTypeCategory: Int, Codable {
     case other = 0
     case restricted = 1

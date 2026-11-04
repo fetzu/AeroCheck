@@ -144,6 +144,82 @@ final class AirspaceRelevanceTests: XCTestCase {
         XCTAssertNil(taxiing.distanceNM(to: airspace(.restricted, north: -1, east: 20)), "past the next 10 minutes")
     }
 
+    // MARK: Airspace ahead
+
+    private func ahead(_ airspaces: [Airspace], speed: Double = 120, track: Double = 0, alt: Double = 3500) -> AirspaceAheadFinding? {
+        AirspaceAheadFinding.first(in: airspaces, from: here, trackDeg: track, groundSpeedKt: speed, altitudeFt: alt)
+    }
+
+    /// 120 kt: 2 NM a minute.
+    func testInformationFiveMinutesOut() throws {
+        let finding = try XCTUnwrap(ahead([airspace(.restricted, north: 9)]))
+        XCTAssertEqual(finding.minutes, 5)
+        XCTAssertFalse(finding.isCaution)
+    }
+
+    func testAmberWithinTwoMinutesForRestrictedAirspace() throws {
+        XCTAssertTrue(try XCTUnwrap(ahead([airspace(.restricted, north: 3)])).isCaution)
+        XCTAssertTrue(try XCTUnwrap(ahead([airspace(.tma, cls: 3, north: 3)])).isCaution)
+        XCTAssertTrue(try XCTUnwrap(ahead([airspace(.tma, cls: 2, north: 3)])).isCaution)
+    }
+
+    func testNoAmberForAZoneOrAGliderArea() throws {
+        XCTAssertFalse(try XCTUnwrap(ahead([airspace(.tmz, north: 3)])).isCaution)
+        XCTAssertFalse(try XCTUnwrap(ahead([airspace(.gliderSector, north: 3)])).isCaution)
+    }
+
+    func testClassEAndClassGSayNothing() {
+        XCTAssertNil(ahead([airspace(.tma, cls: 4, north: 3)]))
+        XCTAssertNil(ahead([airspace(.other, cls: 6, north: 3)]))
+    }
+
+    func testNotAtTheAircraftsLevelSaysNothing() {
+        XCTAssertNil(ahead([airspace(.restricted, lower: limit(5000), upper: limit(9000), north: 3)]))
+    }
+
+    func testPastFiveMinutesSaysNothing() {
+        XCTAssertNil(ahead([airspace(.restricted, north: 11)]))
+    }
+
+    func testAlreadyInsideIsNotAhead() {
+        XCTAssertNil(ahead([airspace(.restricted)]))
+    }
+
+    func testOffTheTrackIsNotAhead() {
+        XCTAssertNil(ahead([airspace(.restricted, north: 3)], track: 180))
+    }
+
+    func testBelowThirtyKnotsNothingIsAhead() {
+        XCTAssertNil(ahead([airspace(.restricted, north: 1)], speed: 25))
+    }
+
+    func testTheSeriousOneComesFirstWhenTwoAreEnteredTogether() throws {
+        let finding = try XCTUnwrap(ahead([airspace(.tmz, name: "A zone", north: 3), airspace(.restricted, name: "Z area", north: 3)]))
+        XCTAssertEqual(finding.name, "Z area")
+    }
+
+    func testTheSlotHoldsThroughAFlickerOnTheBoundary() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let finding = AirspaceAheadFinding(airspaceId: "a", name: "A", minutes: 2, isCaution: true, entry: here)
+        var watch = AirspaceAheadWatch()
+        XCTAssertEqual(watch.update(finding, at: start), finding)
+        XCTAssertEqual(watch.update(nil, at: start.addingTimeInterval(5)), finding, "held")
+        XCTAssertEqual(watch.update(finding, at: start.addingTimeInterval(10)), finding)
+        XCTAssertEqual(watch.update(nil, at: start.addingTimeInterval(15)), finding, "the hold starts over")
+        XCTAssertNil(watch.update(nil, at: start.addingTimeInterval(31)), "clear for 15 seconds")
+    }
+
+    func testAmberDoesNotStepBackAtOnce() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let amber = AirspaceAheadFinding(airspaceId: "a", name: "A", minutes: 2, isCaution: true, entry: here)
+        let info = AirspaceAheadFinding(airspaceId: "a", name: "A", minutes: 3, isCaution: false, entry: here)
+        var watch = AirspaceAheadWatch()
+        _ = watch.update(amber, at: start)
+        XCTAssertEqual(watch.update(info, at: start.addingTimeInterval(5)), amber)
+        _ = watch.update(info, at: start.addingTimeInterval(10))
+        XCTAssertEqual(watch.update(info, at: start.addingTimeInterval(21)), info)
+    }
+
     // MARK: Ranking
 
     func testFiveAtMostRankedByWhatTheyAsk() {

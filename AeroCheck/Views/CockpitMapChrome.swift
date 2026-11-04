@@ -863,6 +863,7 @@ enum MapStatusText {
         case .chartOffline: return L10n.MapChrome.chartOffline(language: language)
         case .tellFIS: return L10n.MapChrome.tellFIS(language: language)
         case .sigmet: return "SIGMET"
+        case .airspaceAhead: return L10n.MapChrome.airspaceAhead(language: language)
         // As the chip said it, in English in French too.
         case .briefing: return "BRIEFING"
         }
@@ -873,6 +874,7 @@ enum MapStatusText {
         switch status {
         case .tellFIS(let field): return L10n.MapChrome.divertingTo(field, language: language)
         case .sigmet(let summary): return summary.isEmpty ? nil : summary
+        case .airspaceAhead(let finding): return L10n.MapChrome.airspaceIn(finding.name, finding.minutes, language: language)
         default: return nil
         }
     }
@@ -895,6 +897,7 @@ enum MapStatusText {
         case .chartOffline: return L10n.MapChrome.chartOfflineHint(language: language)
         case .tellFIS: return L10n.MapChrome.tellFISHint(language: language)
         case .sigmet: return L10n.MapChrome.sigmetHint(language: language)
+        case .airspaceAhead: return L10n.MapChrome.airspaceAheadHint(language: language)
         case .briefing: return L10n.MapChrome.briefingHint(language: language)
         }
     }
@@ -909,6 +912,7 @@ enum MapStatusText {
         case .chartOffline: return "wifi.slash"
         case .tellFIS: return "antenna.radiowaves.left.and.right"
         case .sigmet: return "exclamationmark.triangle.fill"
+        case .airspaceAhead: return "square.stack.3d.up"
         case .briefing(let type): return type == .departure ? "airplane.departure" : "airplane.arrival"
         }
     }
@@ -1073,6 +1077,15 @@ final class CockpitMapState {
     /// ALL LIMITS, from MENU: on until turned off, and this state lives with the Cockpit, so the next flight is back
     /// to tags (a10 A). (6.9.0)
     var allLimits = false
+
+    /// AIRSPACE AHEAD as the slot shows it, held through a boundary (`AirspaceAheadWatch`). (6.9.0)
+    private(set) var airspaceAhead: AirspaceAheadFinding?
+    @ObservationIgnored private var airspaceWatch = AirspaceAheadWatch()
+
+    func note(airspaceAhead finding: AirspaceAheadFinding?, at now: Date) {
+        let shown = airspaceWatch.update(finding, at: now)
+        if shown != airspaceAhead { airspaceAhead = shown }
+    }
 
     func showWholeRoute() { wholeRouteRequest &+= 1 }
     func showHazards() { hazardsRequest &+= 1 }
@@ -1239,7 +1252,8 @@ struct CockpitChartChrome: View {
             chartOffline: ChartAvailability.isChartOffline(chartInput),
             tellFISField: CockpitStatusRule.tellFIS(diversionIdent: plan?.diversion?.ident, hasOpenATCFlightPlan: filed),
             sigmetOnPath: CockpitStatusRule.sigmetOnPath(sigmets).map(Self.sigmetSummary),
-            briefing: briefingInBar ? nil : appState.currentPhase.briefingType)
+            briefing: briefingInBar ? nil : appState.currentPhase.briefingType,
+            airspaceAhead: cockpitMap?.airspaceAhead)
     }
 
     /// CHART OFFLINE's inputs: the chart picked, the network, the caches, the zoom and the region.

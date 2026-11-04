@@ -3197,6 +3197,16 @@ enum L10n {
         static func chartOffline(language: String? = nil) -> String {
             text("mapChrome.status.chartOffline", "CHART OFFLINE", language)
         }
+        static func airspaceAhead(language: String? = nil) -> String {
+            text("mapChrome.status.airspaceAhead", "AIRSPACE AHEAD", language)
+        }
+        /// "LSR7 HONGRIN in 3 min"
+        static func airspaceIn(_ name: String, _ minutes: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.status.airspaceIn", "%@ in %@ min", language), name, String(minutes))
+        }
+        static func airspaceAheadHint(language: String? = nil) -> String {
+            text("mapChrome.hint.airspaceAhead", "Shows the airspace at that point", language)
+        }
         /// Over "Diverting to LSGC" (`divertingTo`).
         static func tellFIS(language: String? = nil) -> String {
             text("mapChrome.status.tellFIS", "TELL FIS", language)

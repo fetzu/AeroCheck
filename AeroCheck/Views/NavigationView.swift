@@ -846,9 +846,13 @@ struct NavigationMapView: View {
         guard chrome != .plan else { return }
         let altitude = location.altitude * Self.feetPerMetre
         airspaceTrend.add(altitudeFt: altitude, at: location.timestamp.timeIntervalSinceReferenceDate)
-        guard appState.settings.showOpenAIPOverlay, appState.settings.showAirspaceLimits,
-              location.timestamp.timeIntervalSince(airspaceTagsAt) >= Self.tagInterval else { return }
+        guard location.timestamp.timeIntervalSince(airspaceTagsAt) >= Self.tagInterval else { return }
         airspaceTagsAt = location.timestamp
+        guard appState.settings.showOpenAIPOverlay else {
+            airspaceTags = []
+            cockpitMap?.note(airspaceAhead: nil, at: location.timestamp)
+            return
+        }
         let plan = flightPlanManager.activeFlightPlan
         let route = plan.map { Array($0.waypoints.dropFirst(max($0.currentWaypointIndex, 0)).map(\.coordinate)) } ?? []
         let area = AirspaceAheadArea.make(at: location.coordinate, trackDeg: locationManager.currentCourseDegrees,
@@ -857,8 +861,20 @@ struct NavigationMapView: View {
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: (box.minLat + box.maxLat) / 2, longitude: (box.minLon + box.maxLon) / 2),
             span: MKCoordinateSpan(latitudeDelta: box.maxLat - box.minLat, longitudeDelta: box.maxLon - box.minLon))
-        airspaceTags = AirspaceRelevance.tags(in: openAIPDataService.airspacesInBounds(region), area: area,
-                                              altitudeFt: altitude, verticalSpeedFpm: airspaceTrend.verticalSpeedFpm)
+        let airspaces = openAIPDataService.airspacesInBounds(region)
+        let speed = max(location.speed, 0) * 1.94384
+        // In the air only: on the ground a taxi at 30 kt is no entry into the CTR around the field.
+        let airborne = OffRouteRule.isAirborne(lineUpTime: appState.lineUpTime, landingTime: appState.landingTime)
+        let ahead = airborne ? AirspaceAheadFinding.first(in: airspaces, from: location.coordinate,
+                                                                     trackDeg: locationManager.currentCourseDegrees,
+                                                                     groundSpeedKt: speed, altitudeFt: altitude) : nil
+        cockpitMap?.note(airspaceAhead: ahead, at: location.timestamp)
+        guard appState.settings.showAirspaceLimits else {
+            airspaceTags = []
+            return
+        }
+        airspaceTags = AirspaceRelevance.tags(in: airspaces, area: area, altitudeFt: altitude,
+                                              verticalSpeedFpm: airspaceTrend.verticalSpeedFpm)
     }
 
     private func handleLayerChange(to newLayer: MapLayerType) {
@@ -2993,6 +3009,7 @@ struct NavigationMapView: View {
         case .chartOffline: showCacheInfoModal = true
         case .tellFIS: onDivert?(nil)
         case .sigmet: showSigmets = true
+        case .airspaceAhead(let finding): openAirspaceStack(at: finding.entry)
         case .briefing(let type): onOpenReference?(type == .departure ? .departureBriefing : .approachBriefing)
         }
     }

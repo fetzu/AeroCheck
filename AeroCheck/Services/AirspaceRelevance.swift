@@ -79,7 +79,7 @@ struct AirspaceAheadArea: Equatable {
         return out
     }
 
-    private static func offset(_ origin: CLLocationCoordinate2D, trackDeg: Double, nm: Double) -> CLLocationCoordinate2D {
+    static func offset(_ origin: CLLocationCoordinate2D, trackDeg: Double, nm: Double) -> CLLocationCoordinate2D {
         let angle = trackDeg * .pi / 180
         let latitude = origin.latitude + nm * cos(angle) / 60
         let scale = max(cos(origin.latitude * .pi / 180), 0.01)
@@ -148,6 +148,95 @@ private struct PlaneNM {
         }
         if side(p, q, a) * side(p, q, b) < 0, side(a, b, p) * side(a, b, q) < 0 { return 0 }
         return min(distance(p, a, b), distance(q, a, b), distance(a, p, q), distance(b, p, q))
+    }
+}
+
+/// What the status slot says of the air ahead: the first airspace the track enters at the aircraft's altitude within five
+/// minutes, amber only for R, D, P or class C and D within two (a6 A). Nothing about class E, which asks nothing, or
+/// about an airspace the aircraft is already in.
+struct AirspaceAheadFinding: Equatable {
+    let airspaceId: String
+    let name: String
+    let minutes: Int
+    let isCaution: Bool
+    let entry: CLLocationCoordinate2D
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.airspaceId == rhs.airspaceId && lhs.minutes == rhs.minutes && lhs.isCaution == rhs.isCaution
+    }
+
+    static let lookAheadMinutes = 5.0
+    static let cautionMinutes = 2.0
+    /// Fifteen seconds of track at a time: about a quarter of a mile at 100 kt.
+    static let stepSeconds = 15.0
+
+    private static func asks(_ airspace: Airspace) -> Bool {
+        guard !airspace.isInformationArea else { return false }
+        switch airspace.mapKind {
+        case .restrictive, .controlled, .glider, .zone: return true
+        case .classE, .neutral: return false
+        }
+    }
+
+    /// Whether this airspace turns amber: a clearance or a keep-out, not a transponder or a glider zone.
+    private static func isSerious(_ airspace: Airspace) -> Bool {
+        if airspace.mapKind == .restrictive { return true }
+        return airspace.airspaceClass == .classC || airspace.airspaceClass == .classD
+    }
+
+    static func first(in airspaces: [Airspace], from position: CLLocationCoordinate2D, trackDeg: Double?,
+                      groundSpeedKt: Double, altitudeFt: Double, terrainFt: ClosedRange<Double>? = nil) -> AirspaceAheadFinding? {
+        guard groundSpeedKt >= AirspaceAheadArea.minimumTrackSpeedKt, let trackDeg else { return nil }
+        let margin = AirspaceRelevance.levelMarginFt
+        let atLevel = airspaces.filter { airspace in
+            guard asks(airspace), !airspace.containsPoint(position) else { return false }
+            let (lower, upper) = AirspaceRelevance.band(airspace, terrainFt: terrainFt)
+            return lower <= altitudeFt + margin && upper >= altitudeFt - margin
+        }
+        guard !atLevel.isEmpty else { return nil }
+        var seconds = stepSeconds
+        while seconds <= lookAheadMinutes * 60 {
+            let nm = groundSpeedKt * seconds / 3600
+            let point = AirspaceAheadArea.offset(position, trackDeg: trackDeg, nm: nm)
+            let entered = atLevel.filter { $0.containsPoint(point) }
+            // Serious first, then the name: two entered at once give the same answer every time
+            if let airspace = entered.min(by: { a, b in
+                isSerious(a) != isSerious(b) ? isSerious(a) : a.name < b.name
+            }) {
+                let minutes = seconds / 60
+                return AirspaceAheadFinding(airspaceId: airspace.id, name: AirspaceTagContent.name(airspace),
+                                            minutes: max(1, Int(minutes.rounded(.up))),
+                                            isCaution: isSerious(airspace) && minutes <= cautionMinutes, entry: point)
+            }
+            seconds += stepSeconds
+        }
+        return nil
+    }
+}
+
+/// Keeps the slot from flickering on a boundary (human-factors principle 15): a state stays 15 seconds after the air
+/// clears, and amber doesn't step back to information until then. A value: the Cockpit keeps one.
+struct AirspaceAheadWatch {
+    static let holdSeconds: TimeInterval = 15
+
+    private(set) var shown: AirspaceAheadFinding?
+    private var heldSince: Date?
+
+    mutating func update(_ finding: AirspaceAheadFinding?, at now: Date) -> AirspaceAheadFinding? {
+        let steppedDown = shown?.isCaution == true && shown?.airspaceId == finding?.airspaceId && finding?.isCaution == false
+        if let finding, !steppedDown {
+            shown = finding
+            heldSince = nil
+            return shown
+        }
+        guard shown != nil else { return nil }
+        let since = heldSince ?? now
+        heldSince = since
+        if now.timeIntervalSince(since) >= Self.holdSeconds {
+            shown = finding
+            heldSince = nil
+        }
+        return shown
     }
 }
 

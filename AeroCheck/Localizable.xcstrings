@@ -15672,6 +15672,75 @@
         }
       }
     },
+    "mapChrome.hint.airspaceAhead": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt den Luftraum an dieser Stelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the airspace at that point"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montre l'espace aérien à cet endroit"
+          }
+        }
+      }
+    },
+    "mapChrome.status.airspaceAhead": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LUFTRAUM VORAUS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AIRSPACE AHEAD"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESPACE AÉRIEN DEVANT"
+          }
+        }
+      }
+    },
+    "mapChrome.status.airspaceIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ in %@ Min."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ in %@ min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ dans %@ min"
+          }
+        }
+      }
+    },
     "mapLayer.icaoEveryZoom": {
       "extractionState": "manual",
       "localizations": {

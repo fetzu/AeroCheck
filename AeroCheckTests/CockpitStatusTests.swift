@@ -40,6 +40,20 @@ final class CockpitStatusTests: XCTestCase {
         XCTAssertNil(CockpitStatusRule.current(inputs), "a dark slot")
     }
 
+    /// AIRSPACE AHEAD's two places: amber under NO GPS, information under the SIGMET (a6 A).
+    func testAirspaceAheadTakesItsTwoPlaces() {
+        var amber = AirspaceAheadFinding(airspaceId: "a", name: "LSR7", minutes: 2, isCaution: true, entry: .init())
+        var inputs = everything
+        inputs.airspaceAhead = amber
+        XCTAssertEqual(CockpitStatusRule.pending(inputs).prefix(3), [.undo, .gps(.lost), .airspaceAhead(amber)])
+        amber = AirspaceAheadFinding(airspaceId: "a", name: "LSR7", minutes: 5, isCaution: false, entry: .init())
+        inputs.airspaceAhead = amber
+        XCTAssertEqual(CockpitStatusRule.pending(inputs).suffix(2), [.airspaceAhead(amber), .briefing(.approach)])
+        XCTAssertEqual(CockpitStatus.airspaceAhead(amber).tone, .neutral)
+        XCTAssertEqual(CockpitStatus.airspaceAhead(
+            AirspaceAheadFinding(airspaceId: "a", name: "LSR7", minutes: 2, isCaution: true, entry: .init())).tone, .caution)
+    }
+
     /// GPS DEGRADED waits behind everything else (on the ground it held the slot over CHART OFFLINE and
     /// BRIEFING; the header and the strip show it); NO GPS keeps its place under UNDO. (5 Oct, device check)
     func testGPSDegradedComesLastAndNoGPSStaysHigh() {

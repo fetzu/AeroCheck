@@ -23,6 +23,8 @@ enum CockpitStatus: Equatable {
     case sigmet(summary: String)
     /// BRIEFING (cyan, touchable): before departure and in the descent.
     case briefing(BriefingType)
+    /// AIRSPACE AHEAD: information five minutes out, amber for R, D, P or class C and D within two (a6 A). (6.9.0)
+    case airspaceAhead(AirspaceAheadFinding)
 
     enum GPSAlarm: Equatable {
         case degraded
@@ -41,6 +43,7 @@ enum CockpitStatus: Equatable {
     var tone: Tone {
         switch self {
         case .undo: return .neutral
+        case .airspaceAhead(let finding): return finding.isCaution ? .caution : .neutral
         case .gps(.lost): return .warning
         case .gps(.degraded), .offRoute, .chartOffline, .tellFIS, .sigmet: return .caution
         case .briefing: return .action
@@ -63,14 +66,15 @@ enum CockpitStatus: Equatable {
         case .tellFIS: return "status.tellFIS"
         case .sigmet: return "status.sigmet"
         case .briefing: return "status.briefing"
+        case .airspaceAhead: return "status.airspaceAhead"
         }
     }
 }
 
 /// Which state the slot shows. Pure: the view gathers the inputs and draws the answer. (6.2.0)
 ///
-/// Priority, highest first: UNDO > NO GPS > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET on path >
-/// BRIEFING > GPS DEGRADED. UNDO comes first because it answers the pilot's own tap and is useless once
+/// Priority, highest first: UNDO > NO GPS > AIRSPACE AHEAD amber > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET on
+/// path > AIRSPACE AHEAD information > BRIEFING > GPS DEGRADED. UNDO comes first because it answers the pilot's own tap and is useless once
 /// its six seconds are over; the GPS state stays in the header and the strip's flags meanwhile. GPS
 /// DEGRADED comes last: common on the ground and in a hangar, it held the slot over CHART OFFLINE and
 /// BRIEFING, and the header and the strip already show it (author, 5 Oct, device check).
@@ -90,6 +94,8 @@ enum CockpitStatusRule {
         var sigmetOnPath: String?
         /// `appState.currentPhase.briefingType`.
         var briefing: BriefingType?
+        /// `CockpitMapState.airspaceAhead`.
+        var airspaceAhead: AirspaceAheadFinding?
     }
 
     /// The state the slot shows, or nil for a dark slot.
@@ -110,10 +116,12 @@ enum CockpitStatusRule {
         var states: [CockpitStatus] = []
         if inputs.undoOffered { states.append(.undo) }
         if inputs.gps == .lost { states.append(.gps(.lost)) }
+        if let ahead = inputs.airspaceAhead, ahead.isCaution { states.append(.airspaceAhead(ahead)) }
         if let nm = inputs.offRouteNM { states.append(.offRoute(crossTrackNM: nm)) }
         if inputs.chartOffline { states.append(.chartOffline) }
         if let field = inputs.tellFISField { states.append(.tellFIS(field: field)) }
         if let summary = inputs.sigmetOnPath { states.append(.sigmet(summary: summary)) }
+        if let ahead = inputs.airspaceAhead, !ahead.isCaution { states.append(.airspaceAhead(ahead)) }
         if let briefing = inputs.briefing { states.append(.briefing(briefing)) }
         if inputs.gps == .degraded { states.append(.gps(.degraded)) }
         return states

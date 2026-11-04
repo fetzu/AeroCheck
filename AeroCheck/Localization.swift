@@ -3832,6 +3832,8 @@ enum L10n {
         /// The Map sheet's row for the limits on the map. (6.9.0)
         static let airspaceLimits = String(localized: "nav.airspaceLimits")
         static let airspaceLimitsDetail = String(localized: "nav.airspaceLimitsDetail")
+        /// The tap card's title. (6.9.0)
+        static let airspaceHere = String(localized: "nav.airspaceHere")
         static let mapMarkers = String(localized: "Map markers")
         static let flightSection = String(localized: "Flight")
         static let showAll = String(localized: "Show all")

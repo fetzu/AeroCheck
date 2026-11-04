@@ -15741,6 +15741,29 @@
         }
       }
     },
+    "nav.airspaceHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luftraum hier"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace here"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espaces aériens ici"
+          }
+        }
+      }
+    },
     "nav.airspaceLimits": {
       "extractionState": "manual",
       "localizations": {

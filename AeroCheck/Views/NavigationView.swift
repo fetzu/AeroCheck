@@ -794,6 +794,38 @@ struct NavigationMapView: View {
         }
     }
 
+    // MARK: - The airspace over a point (6.9.0)
+
+    /// The card for a tap on the chart: nothing when the airspace is off or there is none at that point.
+    private func openAirspaceStack(at coordinate: CLLocationCoordinate2D) {
+        guard appState.settings.showOpenAIPOverlay else { return }
+        let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        let airspaces = openAIPDataService.airspacesInBounds(MKCoordinateRegion(center: coordinate, span: span))
+        let altitude = appState.isFlightActive ? locationManager.currentLocation.map { $0.altitude * Self.feetPerMetre } : nil
+        selectedStackAirspace = nil
+        airspaceStack = AirspaceStack.make(at: coordinate, from: airspaces, altitudeFt: altitude)
+    }
+
+    /// The card over the chart: on the iPad in its left half, on the phone over its lower half (a12 A).
+    @ViewBuilder private var airspaceStackOverlay: some View {
+        if let stack = airspaceStack {
+            let phone = CockpitScale.current == .phone
+            AirspaceStackCard(stack: stack, selected: $selectedStackAirspace) {
+                airspaceStack = nil
+                selectedStackAirspace = nil
+            }
+            .frame(width: phone ? nil : 384)
+            .padding(.horizontal, phone ? 12 : 16)
+            .padding(.top, phone ? 0 : stackCardTop)
+            .padding(.bottom, phone ? 12 : 0)
+        }
+    }
+
+    /// Under the status slot in the Cockpit, under the controls on Plan › Map.
+    private var stackCardTop: CGFloat {
+        chrome == .plan ? 80 : cockpitChromeGeometry.statusSlot.maxY + 12
+    }
+
     // MARK: - The airspace's tags (6.9.0)
 
     private static let feetPerMetre = 3.28084
@@ -1308,6 +1340,9 @@ struct NavigationMapView: View {
                 })
             }
             .overlay(alignment: .bottom) { bottom }
+            .overlay(alignment: CockpitScale.current == .phone ? .bottom : .topLeading) {
+                if chrome == .plan { airspaceStackOverlay }
+            }
             .clipped()
             .background {
                 mapContent.ignoresSafeArea()
@@ -1490,6 +1525,8 @@ struct NavigationMapView: View {
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
     @State private var airspaceTags: [AirspaceRelevantTag] = []
+    @State private var airspaceStack: AirspaceStack?
+    @State private var selectedStackAirspace: String?
     @State private var airspaceTagsAt = Date.distantPast
     @State private var airspaceTrend = AirspaceVerticalTrend()
     /// The traffic circuits, VFR routes and sectors drawn for the region. (6.2.0)
@@ -1755,6 +1792,7 @@ struct NavigationMapView: View {
             airspacePolygons: visibleAirspacePolygons,
             airspaceTags: airspaceTags,
             airspaceTagKeepOut: chrome == .plan ? [] : cockpitChromeGeometry.tagKeepOut,
+            onAirspaceTap: { openAirspaceStack(at: $0) },
             trackVectorOverlays: trackVectorOverlays,
             trackVectorEnabled: appState.settings.showTrackVector,
             currentWaypointIndex: currentWaypointIndex,
@@ -1774,7 +1812,8 @@ struct NavigationMapView: View {
             onOpenOfficialChart: { openURL($0) },
             onOpenAerodromeNote: { aerodromeNote = $0 },
             isInFlight: appState.isFlightActive,
-            features: mapFeatures
+            features: mapFeatures,
+            selectedAirspaceId: selectedStackAirspace
         )
     }
 
@@ -2900,7 +2939,8 @@ struct NavigationMapView: View {
     private var cockpitMapArea: some View {
         cockpitChartPresentations(
             chartWithChrome(top: EmptyView(), bottom: cockpitLegBar)
-                .overlay { SeparateView { cockpitChartChrome } })
+                .overlay { SeparateView { cockpitChartChrome } }
+                .overlay(alignment: CockpitScale.current == .phone ? .bottom : .topLeading) { airspaceStackOverlay })
     }
 
     /// The chrome, wired to this map.
@@ -4119,6 +4159,8 @@ struct AeroMapView: View {
     /// The airspace that gets a tag, ranked, and what the tags keep clear of (the chrome's frames). (6.9.0)
     var airspaceTags: [AirspaceRelevantTag] = []
     var airspaceTagKeepOut: [CGRect] = []
+    /// A tap on the chart with no marker under it. (6.9.0)
+    var onAirspaceTap: ((CLLocationCoordinate2D) -> Void)?
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates
@@ -4165,6 +4207,7 @@ struct AeroMapView: View {
     var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
     var shownAirspaceTags: [AirspaceRelevantTag] { features.contains(.airspaceTags) ? airspaceTags : [] }
     var shownAirspaceLabels: Bool { features.contains(.airspaceLabels) }
+    var airspaceTapHandler: ((CLLocationCoordinate2D) -> Void)? { features.contains(.airspaceCard) ? onAirspaceTap : nil }
     var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
     var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }
     var shownAircraft: CLLocation? { features.contains(.aircraft) ? currentLocation : nil }

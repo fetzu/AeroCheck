@@ -13,6 +13,8 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let airspaceTags = MapFeatures(rawValue: 1 << 2)
     /// The limits along the airspace's boundaries: Plan › Map, the route builder, ALL LIMITS. (6.9.0)
     static let airspaceLabels = MapFeatures(rawValue: 1 << 19)
+    /// A tap with no marker under it: every airspace over the point (`AirspaceStackCard`). (6.9.0)
+    static let airspaceCard = MapFeatures(rawValue: 1 << 20)
     static let navaids = MapFeatures(rawValue: 1 << 3)
     static let obstacles = MapFeatures(rawValue: 1 << 4)
     static let reportingPoints = MapFeatures(rawValue: 1 << 5)
@@ -46,8 +48,8 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let markers: MapFeatures = [.airports, .navaids, .obstacles, .reportingPoints]
 
     /// Plan › Map: everything, the limits along the boundaries.
-    static let navigation: MapFeatures = [.markers, .airspace, .airspaceLabels, .procedures, .route, .aircraft, .track,
-                                          .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
+    static let navigation: MapFeatures = [.markers, .airspace, .airspaceLabels, .airspaceCard, .procedures, .route, .aircraft,
+                                          .track, .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
     /// The Cockpit's MAP: the same with tags. One style per screen, and it never changes in the air (a9 A).
     static let cockpit: MapFeatures = navigation.subtracting(.airspaceLabels).union(.airspaceTags)
     /// The dry run: the Cockpit's map without the pilot's notes, which a dry run neither shows nor writes (n7 B).

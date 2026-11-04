@@ -215,7 +215,11 @@ struct PilotMapView: UIViewRepresentable {
                 if view is PilotMarkerView || view is PilotMarkerCallout { return }
                 hit = view.superview
             }
+            // The first tap beside an open callout closes it, as it always did. Only a tap with nothing to close asks
+            // what is over the point (6.9.0).
+            let closedCallout = !mapView.selectedAnnotations.isEmpty
             for annotation in mapView.selectedAnnotations { mapView.deselectAnnotation(annotation, animated: true) }
+            if !closedCallout, let tap = map.airspaceTapHandler { tap(mapView.convert(point, toCoordinateFrom: mapView)) }
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,

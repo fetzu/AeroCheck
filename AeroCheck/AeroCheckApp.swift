@@ -372,6 +372,7 @@ struct AeroCheckApp: App {
                     Task { await BriefingRegistryService.shared.refreshIfNeeded() }
                     // 6.4.2: where another FIS works low-level traffic (Bâle Information over AZ4), weekly.
                     Task { await FISAreaService.shared.refreshIfNeeded() }
+                    Task { await ActivationService.shared.refreshIfNeeded() }
                     // The aircraft requests sent from this device: where they stand. (6.3.0)
                     if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
                         Task { await AircraftRequestStore.shared.refreshIfDue() }
@@ -414,6 +415,7 @@ struct AeroCheckApp: App {
                     Task { await BriefingRegistryService.shared.refreshIfNeeded() }
                     // The FIS areas when a week old. (6.4.2)
                     Task { await FISAreaService.shared.refreshIfNeeded() }
+                    Task { await ActivationService.shared.refreshIfNeeded() }
                     // The aerodrome notes another device may have changed through iCloud Drive. (6.7.0)
                     Task { await AerodromeNoteStore.shared.reload() }
                     // The pilot's map: its index, the allowance's plan, and the month's new builds of the downloaded

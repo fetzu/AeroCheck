@@ -17,6 +17,10 @@ struct AirspaceStack: Equatable {
         let kind: AirspaceMapKind
         /// The aircraft is in this band, as the map's tiers read it (a8 A).
         let holdsAircraft: Bool
+        /// What the DABS says of it. (6.9.0, a14 A)
+        var note: String? = nil
+        /// A Swiss area the DABS has off for now: faded here as on the map.
+        var isFaded = false
     }
 
     static let maxRows = 6
@@ -26,6 +30,8 @@ struct AirspaceStack: Equatable {
     let coordinate: CLLocationCoordinate2D
     let altitudeFt: Double?
     let rows: [Row]
+    /// A bulletin stands behind a row: the card says it doesn't replace the NOTAMs.
+    var mentionsBulletin: Bool { rows.contains { $0.note != nil } }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.rows == rhs.rows && lhs.altitudeFt == rhs.altitudeFt && lhs.coordinate.latitude == rhs.coordinate.latitude
@@ -35,7 +41,7 @@ struct AirspaceStack: Equatable {
     /// The stack at `coordinate`, or nil with nothing there. More than six: those closest to the aircraft's altitude,
     /// or the lowest with no aircraft, still drawn top down.
     static func make(at coordinate: CLLocationCoordinate2D, from airspaces: [Airspace], altitudeFt: Double?,
-                     terrainFt: ClosedRange<Double>? = nil) -> AirspaceStack? {
+                     terrainFt: ClosedRange<Double>? = nil, board: ActivationBoard? = nil) -> AirspaceStack? {
         let over = airspaces.filter { airspace in
             !airspace.isInformationArea && airspace.airspaceType != .fir && airspace.airspaceType != .uir
                 && airspace.containsPoint(coordinate)
@@ -47,7 +53,8 @@ struct AirspaceStack: Equatable {
             return Row(id: airspace.id, badge: AirspaceTagContent.badge(airspace), name: AirspaceTagContent.name(airspace),
                        limits: "\(AirspaceTagContent.limit(airspace.upperCeiling)) / \(AirspaceTagContent.limit(airspace.lowerCeiling))",
                        frequency: airspace.primaryFrequency?.value, lowerFt: lower, upperFt: upper.isFinite ? upper : columnCeilingFt,
-                       kind: airspace.mapKind, holdsAircraft: holds)
+                       kind: airspace.mapKind, holdsAircraft: holds, note: board?.note(for: airspace),
+                       isFaded: board.map { !$0.isActive(airspace) } ?? false)
         }
         guard !rows.isEmpty else { return nil }
         if rows.count > maxRows {
@@ -92,6 +99,12 @@ struct AirspaceStackCard: View {
                     ForEach(stack.rows) { row in rowView(row) }
                 }
             }
+            if stack.mentionsBulletin {
+                Text(L10n.Nav.dabsNoNotam)
+                    .font(.aero(size: 15 * k))
+                    .foregroundColor(Color(white: 0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(12 * k)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.118, green: 0.122, blue: 0.145).opacity(0.97)))
@@ -132,7 +145,14 @@ struct AirspaceStackCard: View {
                         .foregroundColor(.white)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                    if let note = row.note {
+                        Text(note)
+                            .font(.aero(size: 15 * k))
+                            .foregroundColor(Color(white: 0.8))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .opacity(row.isFaded ? 0.7 : 1)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8 * k)

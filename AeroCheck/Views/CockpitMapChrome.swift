@@ -57,13 +57,14 @@ struct MapChromeModel {
 /// A chip at the chart's foot. ALL LIMITS is touchable and turns itself off; the others are traces of what the map
 /// isn't showing (a10 A; human-factors principle 12).
 enum MapFootChip: Hashable {
-    case allLimits, airspaceOff, noAirspaceData
+    case allLimits, airspaceOff, noAirspaceData, dabsNotLoaded
 
     var title: String {
         switch self {
         case .allLimits: return L10n.Cockpit.allLimitsChip
         case .airspaceOff: return L10n.Cockpit.airspaceOffChip
         case .noAirspaceData: return L10n.Cockpit.noAirspaceDataChip
+        case .dabsNotLoaded: return L10n.Cockpit.dabsNotLoadedChip
         }
     }
 
@@ -73,6 +74,7 @@ enum MapFootChip: Hashable {
         case .allLimits: return "map.chip.allLimits"
         case .airspaceOff: return "map.chip.airspaceOff"
         case .noAirspaceData: return "map.chip.noAirspaceData"
+        case .dabsNotLoaded: return "map.chip.dabsNotLoaded"
         }
     }
 }

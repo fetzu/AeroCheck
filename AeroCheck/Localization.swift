@@ -2925,6 +2925,7 @@ enum L10n {
         static let allLimitsChip = String(localized: "cockpit.allLimitsChip")
         static let airspaceOffChip = String(localized: "cockpit.airspaceOffChip")
         static let noAirspaceDataChip = String(localized: "cockpit.noAirspaceDataChip")
+        static let dabsNotLoadedChip = String(localized: "cockpit.dabsNotLoadedChip")
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
         static let endFlightHint = String(localized: "cockpit.endFlightHint")
@@ -3844,6 +3845,15 @@ enum L10n {
         static let airspaceLimitsDetail = String(localized: "nav.airspaceLimitsDetail")
         /// The tap card's title. (6.9.0)
         static let airspaceHere = String(localized: "nav.airspaceHere")
+        /// "Not active today (DABS v3, 12:45)". (6.9.0, a14 A)
+        static func dabsNotActive(_ source: String) -> String {
+            String(format: String(localized: "nav.dabsNotActive"), source)
+        }
+        /// "Active 06:30–21:00 UTC (DABS v3, 12:45)"
+        static func dabsActive(_ windows: String, _ source: String) -> String {
+            String(format: String(localized: "nav.dabsActive"), windows, source)
+        }
+        static let dabsNoNotam = String(localized: "nav.dabsNoNotam")
         static let mapMarkers = String(localized: "Map markers")
         static let flightSection = String(localized: "Flight")
         static let showAll = String(localized: "Show all")

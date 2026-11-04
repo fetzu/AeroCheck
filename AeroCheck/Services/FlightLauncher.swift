@@ -223,6 +223,8 @@ struct FlightLauncher {
             flightPlanManager: flightPlanManager,
             activeChecklist: appState.activeChecklist
         )
+        // The day's bulletin before the wheels turn, kept for the flight (6.9.0).
+        Task { await ActivationService.shared.refreshIfNeeded(force: true) }
         return .started
     }
 

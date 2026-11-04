@@ -5999,6 +5999,29 @@
         }
       }
     },
+    "cockpit.dabsNotLoadedChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DABS NICHT GELADEN"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DABS NOT LOADED"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DABS NON CHARGÉ"
+          }
+        }
+      }
+    },
     "cockpit.eventTaken.fullStop": {
       "extractionState": "manual",
       "localizations": {
@@ -15875,6 +15898,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "Étiquettes dans le Cockpit, le long des limites dans Plan › Carte"
+          }
+        }
+      }
+    },
+    "nav.dabsActive": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktiv %@ UTC (%@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active %@ UTC (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active %@ UTC (%@)"
+          }
+        }
+      }
+    },
+    "nav.dabsNoNotam": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das DABS ersetzt die NOTAM nicht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The DABS doesn't replace the NOTAMs."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le DABS ne remplace pas les NOTAM."
+          }
+        }
+      }
+    },
+    "nav.dabsNotActive": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute nicht aktiv (%@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not active today (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas active aujourd'hui (%@)"
           }
         }
       }

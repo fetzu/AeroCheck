@@ -673,6 +673,7 @@ struct NavigationMapView: View {
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onReceive(ActivationService.shared.$files) { _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
         .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
         // One choice for every map: picked in the route builder, or on the other map of a split screen, it shows here
@@ -803,7 +804,9 @@ struct NavigationMapView: View {
         let airspaces = openAIPDataService.airspacesInBounds(MKCoordinateRegion(center: coordinate, span: span))
         let altitude = appState.isFlightActive ? locationManager.currentLocation.map { $0.altitude * Self.feetPerMetre } : nil
         selectedStackAirspace = nil
-        airspaceStack = AirspaceStack.make(at: coordinate, from: airspaces, altitudeFt: altitude)
+        let board = ActivationService.shared.board
+        airspaceStack = AirspaceStack.make(at: coordinate, from: airspaces + board.tempAirspaces, altitudeFt: altitude,
+                                           board: board)
     }
 
     /// The card over the chart: on the iPad in its left half, on the phone over its lower half (a12 A).
@@ -861,7 +864,7 @@ struct NavigationMapView: View {
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: (box.minLat + box.maxLat) / 2, longitude: (box.minLon + box.maxLon) / 2),
             span: MKCoordinateSpan(latitudeDelta: box.maxLat - box.minLat, longitudeDelta: box.maxLon - box.minLon))
-        let airspaces = openAIPDataService.airspacesInBounds(region)
+        let airspaces = ActivationService.shared.board.applied(openAIPDataService.airspacesInBounds(region))
         let speed = max(location.speed, 0) * 1.94384
         // In the air only: on the ground a taxi at 30 kt is no entry into the CTR around the field.
         let airborne = OffRouteRule.isAirborne(lineUpTime: appState.lineUpTime, landingTime: appState.landingTime)
@@ -1660,12 +1663,18 @@ struct NavigationMapView: View {
                 return a.airspaceType.rawValue < b.airspaceType.rawValue
             }
             let altitude = chrome == .plan ? nil : locationManager.currentLocation.map { $0.altitude * Self.feetPerMetre }
-            visibleAirspacePolygons = Array(sorted.prefix(100)).compactMap { airspace in
+            let board = ActivationService.shared.board
+            visibleAirspacePolygons = (Array(sorted.prefix(100)) + board.tempAirspaces).compactMap { airspace in
                 let coords = airspace.polygonCoordinates
                 guard coords.count >= 3 else { return nil }
                 var mutableCoords = coords
                 let polygon = AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
-                if let altitude { polygon.tier = AirspaceRelevance.tier(airspace, altitudeFt: altitude) }
+                // An area the DABS has off is faded, never hidden (a14 A). (6.9.0)
+                if !board.isActive(airspace) {
+                    polygon.tier = .far
+                } else if let altitude {
+                    polygon.tier = AirspaceRelevance.tier(airspace, altitudeFt: altitude)
+                }
                 return polygon
             }
         } else {
@@ -2986,6 +2995,12 @@ struct NavigationMapView: View {
         } else if let here = locationManager.currentLocation?.coordinate, let country = CountryBoundaries.shared
             .countries(near: here, bufferNm: 0).sorted().first, !openAIPDataService.downloadedCountries.contains(country) {
             chips.append(.noAirspaceData)
+        }
+        // In Switzerland, without today's bulletin, every area counts as active: the map says so.
+        if appState.settings.showOpenAIPOverlay, !ActivationService.shared.board.isLoaded,
+           let here = locationManager.currentLocation?.coordinate,
+           CountryBoundaries.shared.countries(near: here, bufferNm: 0).contains("CH") {
+            chips.append(.dabsNotLoaded)
         }
         return chips
     }

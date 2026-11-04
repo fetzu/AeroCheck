@@ -284,6 +284,8 @@ struct FlightView: View {
             })
             // A dry run's coach over the Menu: its switch for the memory items rung (r3-7). (6.4.0)
             .environment(\.dryRunSession, dryRunSession)
+            // ALL LIMITS is the Cockpit's: a sheet doesn't get what `cockpitBody` gives its pages.
+            .environment(chartState)
             .dryRunCoachScreen(.menu)
         }
         #if DEBUG

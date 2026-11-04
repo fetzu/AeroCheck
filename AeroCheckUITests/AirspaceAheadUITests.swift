@@ -61,6 +61,30 @@ final class AirspaceAheadUITests: XCTestCase {
         let spans = SlotEntry.spans(of: grenchen, in: log)
         pilot.check("ah-4", spans <= 1, "no flicker: \(spans) stretch(es) of the CTR's state")
     }
+
+    /// ah-5: ALL LIMITS from Menu: the row, the chip at the map's foot, and the chip's tap turns it off.
+    func testAllLimitsFromTheMenu() throws {
+        let pilot = try CockpitPilot.onDeviceData(self, scenario: "ahead-grenchen", page: "690")
+        defer { pilot.attachResults(testName: name) }
+        pilot.launch()
+        guard pilot.departToClimb() else { return XCTFail("never reached the climb check") }
+        pilot.showPane("map")
+        pilot.waitForTrack(pilot.scenario.mark("levelOff"))
+        pilot.shot("ah-5", "tags")
+        pilot.tap("cockpit.menu")
+        let row = pilot.waitFor("menu.allLimits", timeout: 5)
+        pilot.check("ah-5", row != nil, "the row in Menu")
+        guard let row else { return }
+        pilot.app.switches.matching(NSPredicate(format: "identifier == 'menu.allLimits' OR label CONTAINS 'limits'")).firstMatch.tap()
+        pilot.app.buttons["Close"].firstMatch.tap()
+        pilot.check("ah-5", row.waitForNonExistence(timeout: 4), "Menu closed")
+        let chip = pilot.waitFor("map.chip.allLimits", timeout: 6)
+        pilot.shot("ah-5", "all-limits")
+        pilot.check("ah-5", chip != nil, "the chip at the map's foot")
+        guard chip != nil else { return }
+        pilot.tap("map.chip.allLimits")
+        pilot.check("ah-5", pilot.waitUntil(timeout: 4) { !pilot.element("map.chip.allLimits").exists }, "its tap turns it off")
+    }
 }
 
 /// One change of MAP's status slot, as a replay reads it. Shared with the departure reminder's replays.

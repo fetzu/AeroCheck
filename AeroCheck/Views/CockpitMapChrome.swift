@@ -50,6 +50,31 @@ struct MapChromeModel {
     /// An aerodrome's or a procedure's callout is open: the stack at the right edge steps aside, as Plan › Map's
     /// controls do, so the callout reads whole, its Divert button included. (6.7.0)
     var calloutOpen = false
+    /// What the map says at its foot, bottom up. (6.9.0)
+    var footChips: [MapFootChip] = []
+}
+
+/// A chip at the chart's foot. ALL LIMITS is touchable and turns itself off; the others are traces of what the map
+/// isn't showing (a10 A; human-factors principle 12).
+enum MapFootChip: Hashable {
+    case allLimits, airspaceOff, noAirspaceData
+
+    var title: String {
+        switch self {
+        case .allLimits: return L10n.Cockpit.allLimitsChip
+        case .airspaceOff: return L10n.Cockpit.airspaceOffChip
+        case .noAirspaceData: return L10n.Cockpit.noAirspaceDataChip
+        }
+    }
+
+    var isControl: Bool { self == .allLimits }
+    var accessibilityIdentifier: String {
+        switch self {
+        case .allLimits: return "map.chip.allLimits"
+        case .airspaceOff: return "map.chip.airspaceOff"
+        case .noAirspaceData: return "map.chip.noAirspaceData"
+        }
+    }
 }
 
 /// What the chrome's taps do. The map owns them.
@@ -66,6 +91,8 @@ struct MapChromeActions {
     var openStatus: (CockpitStatus) -> Void = { _ in }
     /// A tap on a state that tucks away (`CockpitStatus.tucksAway`) in the slot.
     var tuckStatus: (CockpitStatus) -> Void = { _ in }
+    /// ALL LIMITS' chip tapped.
+    var endAllLimits: () -> Void = {}
 }
 
 // MARK: - Geometry
@@ -109,9 +136,12 @@ struct MapChromeGeometry: Equatable {
         let arrowSize: CGFloat
         /// `SwissScaleBar`'s card: at most 150 pt of bar, 50 pt tall.
         let scaleSize: CGSize
+        /// A chip at the foot: ALL LIMITS is a control, so a control's height on the kneeboard's in-flight floor.
+        let chipHeight: CGFloat
 
         init(_ scale: CockpitScale) {
             let kneeboard = scale == .kneeboard
+            chipHeight = kneeboard ? 78 : 56
             button = kneeboard ? 78 : 72
             gap = kneeboard ? 10 : 6
             margin = kneeboard ? 16 : 12
@@ -253,6 +283,19 @@ struct MapChromeGeometry: Equatable {
     /// What a leg's bar takes of the foot: its height and the stack's margin under it.
     let footRoom: CGFloat
 
+    /// What an airspace's tag never covers: the controls, a tucked state's square, the status slot, the scale, and the
+    /// foot's chips (a11 A).
+    var tagKeepOut: [CGRect] {
+        [stack, tuckedStatus, statusSlot, scale, footChips].filter { !$0.isEmpty }
+    }
+
+    /// The foot's chips: at the left, over the scale, as wide as the stack leaves.
+    var footChips: CGRect {
+        let height = 2 * metrics.chipHeight + metrics.gap
+        return CGRect(x: metrics.margin, y: scale.minY - metrics.gap - height,
+                      width: max(0, stack.minX - metrics.gap - metrics.margin), height: height)
+    }
+
     /// A leg's bar from ROUTE (`FramedLegBar`) along the chart's foot: from the left margin to the stack
     /// (a gap short of it), or to the right margin without one, on the stack's margin. `height`: the bar's.
     func legBarFrame(height: CGFloat) -> CGRect {
@@ -384,6 +427,18 @@ struct CockpitMapChrome: View {
                 .modifier(MapChromePlacement(element: .tuckedStatus, frame: geometry.tuckedStatus, onPlace: onPlace))
                 .modifier(StepsAsideForCallout(isHidden: model.calloutOpen, reduceMotion: reduceMotion))
                 .transition(.opacity)
+            }
+            if !model.footChips.isEmpty {
+                VStack(alignment: .leading, spacing: geometry.metrics.gap) {
+                    Spacer(minLength: 0)
+                    ForEach(model.footChips.reversed(), id: \.self) { chip in
+                        MapFootChipView(chip: chip, metrics: geometry.metrics, language: language) {
+                            actions.endAllLimits()
+                        }
+                    }
+                }
+                .frame(width: geometry.footChips.width, height: geometry.footChips.height, alignment: .bottomLeading)
+                .offset(x: geometry.footChips.minX, y: geometry.footChips.minY)
             }
             if let arrow = edgeArrow(geometry) {
                 MapChromeEdgeArrow(degrees: arrow.degrees, size: geometry.metrics.arrowSize, language: language)
@@ -622,6 +677,39 @@ struct MapChromeEdgeArrow: View {
 
 /// The slot at the top left: the state `CockpitStatusRule` picks, at one size whatever it is. UNDO is
 /// the message and its button; the others are one button each, a tap away from what they are about.
+/// A chip at the chart's foot. ALL LIMITS in cyan, touchable; a trace in grey, as the read band's secondary text.
+struct MapFootChipView: View {
+    let chip: MapFootChip
+    let metrics: MapChromeGeometry.Metrics
+    var language: String? = nil
+    let action: () -> Void
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        if chip.isControl {
+            Button(action: action) { label(color: theme.action, icon: "xmark") }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(chip.accessibilityIdentifier)
+        } else {
+            label(color: theme.textSecondary, icon: nil)
+                .accessibilityIdentifier(chip.accessibilityIdentifier)
+        }
+    }
+
+    private func label(color: Color, icon: String?) -> some View {
+        HStack(spacing: 10) {
+            Text(chip.title).font(.aero(size: metrics.textSize, weight: .bold))
+            if let icon { Image(systemName: icon).font(.aero(size: metrics.textSize, weight: .bold)) }
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, metrics.slotPadding)
+        .frame(minHeight: chip.isControl ? metrics.chipHeight : metrics.chipHeight * 0.6)
+        .floatingChromeBackground(cornerRadius: metrics.slotCornerRadius)
+        .contentShape(Rectangle())
+    }
+}
+
 struct MapStatusSlot: View {
     let status: CockpitStatus
     let undoOffer: NavUndoOffer?
@@ -982,6 +1070,10 @@ final class CockpitMapState {
         if shown != offRouteNM { offRouteNM = shown }
     }
 
+    /// ALL LIMITS, from MENU: on until turned off, and this state lives with the Cockpit, so the next flight is back
+    /// to tags (a10 A). (6.9.0)
+    var allLimits = false
+
     func showWholeRoute() { wholeRouteRequest &+= 1 }
     func showHazards() { hazardsRequest &+= 1 }
 
@@ -1088,6 +1180,7 @@ struct CockpitChartChrome: View {
     let sigmets: [SigmetHazardItem]
     var showsStack = true
     var footRoom: CGFloat = 0
+    var footChips: [MapFootChip] = []
     /// Every tap but UNDO's dismissal, which is this view's.
     let actions: MapChromeActions
 
@@ -1115,7 +1208,7 @@ struct CockpitChartChrome: View {
                                   aircraft: locationManager.currentLocation?.coordinate,
                                   zoom: mapState.cameraDistance,
                                   nauticalMiles: appState.settings.distanceInNauticalMiles,
-                                  calloutOpen: mapState.isCalloutOpen),
+                                  calloutOpen: mapState.isCalloutOpen, footChips: footChips),
             actions: wiredActions, showsStack: showsStack, footRoom: footRoom)
             // A waypoint the flight marked, or a check just confirmed, withdraws the band's older offer.
             .modifier(UndoOfferFollower(cockpitNav: cockpitNav))
@@ -1179,6 +1272,7 @@ struct CockpitChartChrome: View {
         }
         let cockpitMap = cockpitMap
         wired.tuckStatus = { status in cockpitMap?.tuck(status) }
+        wired.endAllLimits = { cockpitMap?.allLimits = false }
         return wired
     }
 

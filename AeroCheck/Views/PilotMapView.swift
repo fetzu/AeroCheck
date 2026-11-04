@@ -304,14 +304,11 @@ struct PilotMapView: UIViewRepresentable {
             MainActor.assumeIsolated { shapes.apply(map, on: mapView, style: style, routePreview: editing.preview) }
         }
 
-        /// The chart's rasters, then OpenAIP's, above the pilot's map (a chart covers the map where it has tiles) and
+        /// The chart's rasters, above the pilot's map (a chart covers the map where it has tiles) and
         /// under the lines and areas (`PilotMapShapes`).
         func applyLayers(on mapView: MLNMapView) {
             guard let style else { return }
-            var wanted = PilotMapCharts.rasters(for: map.layerType, policy: policy)
-            if map.features.contains(.openAIPTiles) && map.showOpenAIPTiles {
-                wanted.append(PilotMapCharts.openAIPRaster(offline: map.isStrictOfflineMode))
-            }
+            let wanted = PilotMapCharts.rasters(for: map.layerType, policy: policy)
             guard wanted != drawnRasters else { return }
             for raster in drawnRasters {
                 if let layer = style.layer(withIdentifier: raster.id) { style.removeLayer(layer) }

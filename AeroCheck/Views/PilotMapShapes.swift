@@ -190,6 +190,8 @@ final class PilotMapShapes {
     private var signatures: [Group: Int] = [:]
     /// The layers on the style, by group.
     private var layers: [Group: Set<LayerKey>] = [:]
+    private var labelSignature: Int?
+    private static let labelSourceID = "aero.airspace.labels"
 
     nonisolated init() {}
 
@@ -197,6 +199,7 @@ final class PilotMapShapes {
     func reset() {
         signatures = [:]
         layers = [:]
+        labelSignature = nil
     }
 
     /// The lowest of these layers: what the charts go under.
@@ -289,6 +292,8 @@ extension PilotMapShapes {
             }
         }
 
+        syncLabels(map.shownAirspaceLabels ? airspace : [], on: style)
+
         // The aerodrome procedures: `VFRMapLayer`'s overlays for the map's zoom (dashes, ticks and arrowheads are cut
         // for it), in its tiers. Their labels are markers (PR 7).
         let content = map.shownProcedures
@@ -368,6 +373,44 @@ extension PilotMapShapes {
             }
         }
 
+    }
+
+    /// The limits along the airspace's boundaries: one text layer over one source of closed lines. (6.9.0)
+    private func syncLabels(_ airspace: [AirspacePolygon], on style: MLNStyle) {
+        let signature = Self.hash(airspace.map(\.airspaceId), airspace.map(\.boundaryText))
+        guard labelSignature != signature else { return }
+        labelSignature = signature
+        var features: [MLNPolylineFeature] = []
+        for polygon in airspace {
+            var coords = [CLLocationCoordinate2D](repeating: CLLocationCoordinate2D(), count: polygon.pointCount)
+            polygon.getCoordinates(&coords, range: NSRange(location: 0, length: polygon.pointCount))
+            guard let first = coords.first else { continue }
+            coords.append(first)
+            let line = MLNPolylineFeature(coordinates: coords, count: UInt(coords.count))
+            let c = polygon.mapKind.color
+            line.attributes = ["text": polygon.boundaryText,
+                               "color": Self.css(UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 1), traits: .current)]
+            features.append(line)
+        }
+        let source: MLNShapeSource
+        if let existing = style.source(withIdentifier: Self.labelSourceID) as? MLNShapeSource {
+            source = existing
+        } else {
+            source = MLNShapeSource(identifier: Self.labelSourceID, shape: nil, options: nil)
+            style.addSource(source)
+        }
+        source.shape = MLNShapeCollectionFeature(shapes: features)
+        guard style.layer(withIdentifier: Self.labelSourceID) == nil else { return }
+        let layer = MLNSymbolStyleLayer(identifier: Self.labelSourceID, source: source)
+        layer.text = NSExpression(mglJSONObject: ["get", "text"])
+        layer.textFontNames = NSExpression(forConstantValue: ["B612 Bold"])
+        layer.textFontSize = NSExpression(forConstantValue: 15)
+        layer.textColor = NSExpression(mglJSONObject: ["to-color", ["get", "color"]])
+        layer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+        layer.textHaloWidth = NSExpression(forConstantValue: 2.4)
+        layer.symbolPlacement = NSExpression(forConstantValue: "line")
+        layer.symbolSpacing = NSExpression(forConstantValue: 260)
+        style.addLayer(layer)
     }
 
     /// The map's zoom as `VFRMapLayer` sizes its arrowheads and dashes: metres per point at the map's middle.

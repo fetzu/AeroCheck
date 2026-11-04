@@ -2177,6 +2177,7 @@ struct HoldToConfirmButton: View {
 /// FLIGHT at any phase. It was an unlabelled grey gear called "HUD Settings". (v6.0 · B7)
 struct FlightInfoSheet: View {
     @Environment(\.cockpitTheme) private var theme
+    @Environment(CockpitMapState.self) private var cockpitMap: CockpitMapState?
     @Environment(AppState.self) private var appState
     @ObservedObject var locationManager: LocationManager
     /// Ends the flight now, whatever the phase. The sheet asks first.
@@ -2278,6 +2279,7 @@ struct FlightInfoSheet: View {
 
                     // The most useful settings without leaving the flight.
                     settingsCard(title: L10n.Cockpit.options) {
+                        allLimitsRow
                         circuitsRow
                         rowDivider
                         toggleRow(L10n.Settings.memoryTest, Binding(
@@ -2475,6 +2477,15 @@ struct FlightInfoSheet: View {
 
     /// Circuits, both ways, for this flight: off for the pattern left behind, on for circuits at the end of
     /// a cross-country (in cruise or descent, on to the approach check). (6.3.0, the author's Q6)
+    /// Every limit on the map, for this flight (a10 A).
+    @ViewBuilder private var allLimitsRow: some View {
+        if let cockpitMap {
+            toggleRow(L10n.Cockpit.allLimits, Binding(get: { cockpitMap.allLimits }, set: { cockpitMap.allLimits = $0 }))
+                .accessibilityIdentifier("menu.allLimits")
+            rowDivider
+        }
+    }
+
     private var circuitsRow: some View {
         toggleRow(L10n.Cockpit.circuits, Binding(
             get: { appState.isCircuitMode },

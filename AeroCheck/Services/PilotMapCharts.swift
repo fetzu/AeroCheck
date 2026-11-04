@@ -88,11 +88,6 @@ enum PilotMapCharts {
         }
     }
 
-    static func openAIPRaster(offline: Bool) -> Raster {
-        Raster(id: "openaip", template: openAIPTemplate(offline: offline), minTileZoom: OpenAIPConfig.tileMinZoom,
-               maxTileZoom: OpenAIPConfig.tileMaxZoom, minZoom: nil, maxZoom: nil)
-    }
-
     // MARK: - Answering a tile
 
     /// A chart tile as `ChartTileSpec`: the downloaded copy of the ICAO and glider charts, swisstopo's host, the

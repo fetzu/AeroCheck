@@ -760,6 +760,7 @@ struct NavigationMapView: View {
         // Increment counter to force map view updates (ensures aircraft annotation moves)
         locationUpdateCounter += 1
         updateTrackVectorEMA()
+        if let newLocation { noteAirspaceTags(at: newLocation) }
 
         // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
         // state as the pilot had it for the panel to put back. (6.1, option C)
@@ -791,6 +792,41 @@ struct NavigationMapView: View {
                 await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
             }
         }
+    }
+
+    // MARK: - The airspace's tags (6.9.0)
+
+    private static let feetPerMetre = 3.28084
+    /// How often the tags are worked out: one air's worth of change, and a full Germany stays cheap.
+    private static let tagInterval: TimeInterval = 5
+
+    /// What this map draws: one style per screen, and ALL LIMITS or the Map sheet's row can take it away.
+    private var mapFeatures: MapFeatures {
+        var features: MapFeatures = dryRunSession != nil ? .dryRun : chrome == .plan ? .navigation : .cockpit
+        if cockpitMap?.allLimits == true, chrome != .plan { features = features.showingAllLimits() }
+        if !appState.settings.showAirspaceLimits { features.subtract([.airspaceTags, .airspaceLabels]) }
+        return features
+    }
+
+    /// One fix: the climb or descent noted, then every few seconds the tags and the shapes' tiers worked out from the
+    /// data itself, since the map's set is capped at 100 polygons.
+    private func noteAirspaceTags(at location: CLLocation) {
+        guard chrome != .plan else { return }
+        let altitude = location.altitude * Self.feetPerMetre
+        airspaceTrend.add(altitudeFt: altitude, at: location.timestamp.timeIntervalSinceReferenceDate)
+        guard appState.settings.showOpenAIPOverlay, appState.settings.showAirspaceLimits,
+              location.timestamp.timeIntervalSince(airspaceTagsAt) >= Self.tagInterval else { return }
+        airspaceTagsAt = location.timestamp
+        let plan = flightPlanManager.activeFlightPlan
+        let route = plan.map { Array($0.waypoints.dropFirst(max($0.currentWaypointIndex, 0)).map(\.coordinate)) } ?? []
+        let area = AirspaceAheadArea.make(at: location.coordinate, trackDeg: locationManager.currentCourseDegrees,
+                                          groundSpeedKt: max(location.speed, 0) * 1.94384, route: route)
+        guard let box = area.bounds else { return }
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: (box.minLat + box.maxLat) / 2, longitude: (box.minLon + box.maxLon) / 2),
+            span: MKCoordinateSpan(latitudeDelta: box.maxLat - box.minLat, longitudeDelta: box.maxLon - box.minLon))
+        airspaceTags = AirspaceRelevance.tags(in: openAIPDataService.airspacesInBounds(region), area: area,
+                                              altitudeFt: altitude, verticalSpeedFpm: airspaceTrend.verticalSpeedFpm)
     }
 
     private func handleLayerChange(to newLayer: MapLayerType) {
@@ -1453,6 +1489,9 @@ struct NavigationMapView: View {
     @State private var visibleReportingPoints: [ReportingPoint] = []
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
+    @State private var airspaceTags: [AirspaceRelevantTag] = []
+    @State private var airspaceTagsAt = Date.distantPast
+    @State private var airspaceTrend = AirspaceVerticalTrend()
     /// The traffic circuits, VFR routes and sectors drawn for the region. (6.2.0)
     @State private var vfrContent: VFRMapContent = .empty()
     @State private var lastSpatialRegion: MKCoordinateRegion?
@@ -1567,11 +1606,14 @@ struct NavigationMapView: View {
                 if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
                 return a.airspaceType.rawValue < b.airspaceType.rawValue
             }
+            let altitude = chrome == .plan ? nil : locationManager.currentLocation.map { $0.altitude * Self.feetPerMetre }
             visibleAirspacePolygons = Array(sorted.prefix(100)).compactMap { airspace in
                 let coords = airspace.polygonCoordinates
                 guard coords.count >= 3 else { return nil }
                 var mutableCoords = coords
-                return AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
+                let polygon = AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
+                if let altitude { polygon.tier = AirspaceRelevance.tier(airspace, altitudeFt: altitude) }
+                return polygon
             }
         } else {
             visibleAirspacePolygons = []
@@ -1709,9 +1751,10 @@ struct NavigationMapView: View {
             hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
             activeFlightPlan: flightPlanManager.activeFlightPlan,
             showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
-            showOpenAIPTiles: appState.settings.showOpenAIPTiles,
             openAIPCacheManager: openAIPCacheManager,
             airspacePolygons: visibleAirspacePolygons,
+            airspaceTags: airspaceTags,
+            airspaceTagKeepOut: chrome == .plan ? [] : cockpitChromeGeometry.tagKeepOut,
             trackVectorOverlays: trackVectorOverlays,
             trackVectorEnabled: appState.settings.showTrackVector,
             currentWaypointIndex: currentWaypointIndex,
@@ -1731,7 +1774,7 @@ struct NavigationMapView: View {
             onOpenOfficialChart: { openURL($0) },
             onOpenAerodromeNote: { aerodromeNote = $0 },
             isInFlight: appState.isFlightActive,
-            features: dryRunSession == nil ? .navigation : .dryRun
+            features: mapFeatures
         )
     }
 
@@ -2867,6 +2910,7 @@ struct NavigationMapView: View {
                            airspaceNeedsAttention: airspaceDataNeedsAttention,
                            selectedLayer: isOfflineMode ? .icao : shownLayer, sigmets: rankedSigmets,
                            showsStack: cockpitShowsStack, footRoom: cockpitLegFootRoom,
+                           footChips: cockpitFootChips,
                            actions: MapChromeActions(
                                toggleOrientation: { toggleOrientation() },
                                showLayers: { showMapSheet = true },
@@ -2875,6 +2919,19 @@ struct NavigationMapView: View {
                                zoomOut: { zoom(by: 2.0) },
                                openStatus: { openStatus($0) }))
             .onPreferenceChange(MapStatusShownKey.self) { mapStatusShown = $0 }
+    }
+
+    /// What the map says at its foot: ALL LIMITS is on, or what it isn't showing (human-factors principle 12).
+    private var cockpitFootChips: [MapFootChip] {
+        var chips: [MapFootChip] = []
+        if cockpitMap?.allLimits == true { chips.append(.allLimits) }
+        if !appState.settings.showOpenAIPOverlay {
+            chips.append(.airspaceOff)
+        } else if let here = locationManager.currentLocation?.coordinate, let country = CountryBoundaries.shared
+            .countries(near: here, bufferNm: 0).sorted().first, !openAIPDataService.downloadedCountries.contains(country) {
+            chips.append(.noAirspaceData)
+        }
+        return chips
     }
 
     /// The Cockpit chart's sheets (the layers, where the chart comes from) and More's requests (the whole
@@ -3779,10 +3836,10 @@ struct OverlaysSections: View {
                     .padding(.vertical, 10)
                 }
                 Divider().padding(.leading, 56)
-                // OpenAIP's own chart, online only since 6.8.0 (the author's answer to question 17, 30 Oct 2026).
-                toggleRow(icon: "square.grid.3x3", title: L10n.Nav.openAIPChart, subtitle: L10n.Nav.openAIPChartDetail,
-                          isOn: appState.settings.showOpenAIPTiles) {
-                    appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
+                // Off keeps the shapes and takes the tags or boundary labels away. No preset touches it. (6.9.0)
+                toggleRow(icon: "textformat.123", title: L10n.Nav.airspaceLimits, subtitle: L10n.Nav.airspaceLimitsDetail,
+                          isOn: appState.settings.showAirspaceLimits) {
+                    appState.settings.showAirspaceLimits.toggle(); appState.saveSettings()
                 }
             }
 
@@ -4057,9 +4114,11 @@ struct AeroMapView: View {
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
     var showOpenAIPOverlay: Bool = false
-    var showOpenAIPTiles: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []
+    /// The airspace that gets a tag, ranked, and what the tags keep clear of (the chrome's frames). (6.9.0)
+    var airspaceTags: [AirspaceRelevantTag] = []
+    var airspaceTagKeepOut: [CGRect] = []
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates
@@ -4104,7 +4163,8 @@ struct AeroMapView: View {
     var shownObstacles: [Obstacle] { features.contains(.obstacles) ? visibleObstacles : [] }
     var shownReportingPoints: [ReportingPoint] { features.contains(.reportingPoints) ? visibleReportingPoints : [] }
     var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
-    private var shownOpenAIPTiles: Bool { features.contains(.openAIPTiles) && showOpenAIPTiles }
+    var shownAirspaceTags: [AirspaceRelevantTag] { features.contains(.airspaceTags) ? airspaceTags : [] }
+    var shownAirspaceLabels: Bool { features.contains(.airspaceLabels) }
     var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
     var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }
     var shownAircraft: CLLocation? { features.contains(.aircraft) ? currentLocation : nil }
@@ -4614,6 +4674,7 @@ class AirspacePolygon: MKPolygon {
     var lowerCeilingDisplay: String = ""
     var mapKind: AirspaceMapKind = .neutral
     var tier: AirspaceMapTier = .atLevel
+    var boundaryText = ""
 
     convenience init(airspace: Airspace, coordinates: inout [CLLocationCoordinate2D], count: Int) {
         self.init(coordinates: &coordinates, count: count)
@@ -4624,6 +4685,7 @@ class AirspacePolygon: MKPolygon {
         self.upperCeilingDisplay = airspace.upperCeiling.displayString
         self.lowerCeilingDisplay = airspace.lowerCeiling.displayString
         self.mapKind = airspace.mapKind
+        self.boundaryText = AirspaceTagContent.boundaryText(airspace)
     }
 }
 

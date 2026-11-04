@@ -5907,6 +5907,75 @@
         }
       }
     },
+    "cockpit.airspaceOffChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LUFTRAUM AUS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AIRSPACE OFF"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ESPACE AÉRIEN MASQUÉ"
+          }
+        }
+      }
+    },
+    "cockpit.allLimits": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Grenzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All limits"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les limites"
+          }
+        }
+      }
+    },
+    "cockpit.allLimitsChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALLE GRENZEN"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALL LIMITS"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TOUTES LES LIMITES"
+          }
+        }
+      }
+    },
     "cockpit.climbCheckOnceAirborne": {
       "extractionState": "manual",
       "localizations": {
@@ -6064,6 +6133,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Démarre le tour suivant à la vérification avant départ, et compte l'atterrissage complet s'il ne l'est pas encore."
+          }
+        }
+      }
+    },
+    "cockpit.noAirspaceDataChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KEINE LUFTRAUMDATEN"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NO AIRSPACE DATA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAS DE DONNÉES D'ESPACE AÉRIEN"
           }
         }
       }
@@ -15649,48 +15741,48 @@
         }
       }
     },
-    "nav.openAIPChart": {
+    "nav.airspaceLimits": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "OpenAIP-Karte"
+            "value": "Luftraumgrenzen auf der Karte"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "OpenAIP chart"
+            "value": "Limits on the map"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Carte OpenAIP"
+            "value": "Limites sur la carte"
           }
         }
       }
     },
-    "nav.openAIPChartDetail": {
+    "nav.airspaceLimitsDetail": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nur online"
+            "value": "Etiketten im Cockpit, entlang der Grenzen in Plan › Karte"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Online only"
+            "value": "Tags in the Cockpit, along the boundaries on Plan › Map"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En ligne seulement"
+            "value": "Étiquettes dans le Cockpit, le long des limites dans Plan › Carte"
           }
         }
       }

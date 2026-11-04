@@ -3843,6 +3843,12 @@ enum L10n {
         /// The Map sheet's row for the limits on the map. (6.9.0)
         static let airspaceLimits = String(localized: "nav.airspaceLimits")
         static let airspaceLimitsDetail = String(localized: "nav.airspaceLimitsDetail")
+        /// The aerodrome card's rows and links. (6.9.0)
+        static func cardCircuit(_ feet: Int) -> String {
+            String(format: String(localized: "nav.cardCircuit"), String(feet))
+        }
+        static let cardFees = String(localized: "nav.cardFees")
+        static let cardBriefing = String(localized: "nav.cardBriefing")
         /// The tap card's title. (6.9.0)
         static let airspaceHere = String(localized: "nav.airspaceHere")
         /// "Not active today (DABS v3, 12:45)". (6.9.0, a14 A)

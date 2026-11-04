@@ -39,13 +39,91 @@ final class AerodromeCardTests: XCTestCase {
         XCTAssertEqual(AerodromeName.display(""), "")
     }
 
+    // MARK: The rows (6.9.0, c1 A, c2 A, c3 A, c5 A)
+
+    func testTheFrequenciesFollowTheCallingOrder() {
+        let card = AerodromeCardContent.frequencies(from: "GND 121.900\nTWR 118.700\nATIS 135.800\nAPP 119.700")
+        XCTAssertEqual(card.map(\.label), ["ATIS", "APP", "TWR", "GND"])
+        XCTAssertEqual(card.filter(\.isFieldContact).map(\.label), ["TWR"])
+    }
+
+    func testTwoNamesForOneFrequencyAreOneChipTheEightThirtyThreeName() {
+        let card = AerodromeCardContent.frequencies(from: "TWR 119.250\nINFO 119.255")
+        XCTAssertEqual(card, [.init(label: "INFO", value: "119.255")])
+    }
+
+    func testAFieldWithNothingShowsDashes() {
+        let card = AerodromeCardContent.make(airport: airport("LSZQ"), frequencyLines: nil, note: nil, inFlight: false, chart: nil,
+                                             canOpenNote: false, canDivert: false, canAddToRoute: false)
+        XCTAssertEqual(card.runwayRow, "—")
+        XCTAssertEqual(card.weatherRow, "—")
+        XCTAssertEqual(card.elevationRow, "1400 ft")
+    }
+
+    func testTheElevationRowSaysPPR() {
+        var facts = AerodromeFacts()
+        facts.isPPR = true
+        let card = AerodromeCardContent.make(airport: airport("LSZQ"), frequencyLines: nil, note: nil, inFlight: true, chart: nil,
+                                             canOpenNote: false, canDivert: false, canAddToRoute: false, facts: facts)
+        XCTAssertEqual(card.elevationRow, "1400 ft · PPR")
+    }
+
+    private func runway(_ le: String, _ he: String, feet: Int, surface: String, closed: Bool = false) -> Runway {
+        Runway(id: feet, airportRef: 1, airportIdent: "LSZB", lengthFt: feet, widthFt: nil, surface: surface, lighted: false,
+               closed: closed, leIdent: le, leLatitude: nil, leLongitude: nil, leElevationFt: nil, leHeadingDegT: nil,
+               leDisplacedThresholdFt: nil, heIdent: he, heLatitude: nil, heLongitude: nil, heElevationFt: nil,
+               heHeadingDegT: nil, heDisplacedThresholdFt: nil, pcn: nil, leToraFt: nil, leLdaFt: nil, heToraFt: nil,
+               heLdaFt: nil)
+    }
+
+    func testTheCardKeepsTheThreeLongestRunways() {
+        let lines = AerodromeFacts.runwayLines([
+            runway("16L", "34R", feet: 500, surface: "GRS"), runway("14", "32", feet: 5675, surface: "ASPHALT"),
+            runway("16", "34", feet: 1700, surface: "GRASS"), runway("14R", "32L", feet: 2130, surface: "GRASS"),
+            runway("01", "19", feet: 9000, surface: "ASPHALT", closed: true)])
+        XCTAssertEqual(lines, ["14/32 · 1730 m · ASPHALT", "14R/32L · 649 m · GRASS", "16/34 · 518 m · GRASS"])
+    }
+
+    func testTheSourcesWriteASurfaceOneWay() {
+        XCTAssertEqual(AerodromeFacts.runwayLine(runway("16L", "34R", feet: 500, surface: "GRS")), "16L/34R · 152 m · GRASS")
+    }
+
+    func testTheLinksStayOnTheGround() {
+        var facts = AerodromeFacts()
+        facts.feeLink = URL(string: "https://example.org/fees")
+        let ground = AerodromeCardContent.make(airport: airport("LSZQ"), frequencyLines: nil, note: nil, inFlight: false, chart: nil,
+                                               canOpenNote: false, canDivert: false, canAddToRoute: false, facts: facts)
+        let flight = AerodromeCardContent.make(airport: airport("LSZQ"), frequencyLines: nil, note: nil, inFlight: true, chart: nil,
+                                               canOpenNote: false, canDivert: false, canAddToRoute: false, facts: facts)
+        XCTAssertEqual(ground.actions.count, 1)
+        XCTAssertTrue(flight.actions.isEmpty)
+    }
+
+    private func metar(minutesAgo: Double, now: Date) -> AviationWeatherService.Metar {
+        AviationWeatherService.Metar(icao: "LSZQ", name: nil, lat: 47, lon: 7, elevationM: nil, distanceNm: 0, windDirectionDeg: 240,
+                                     windVariable: false, windSpeedKt: 8, windGustKt: nil, temperatureC: nil, dewpointC: nil,
+                                     altimeterHpa: 1018, flightCategory: nil, observedAt: now.addingTimeInterval(-minutesAgo * 60),
+                                     raw: nil)
+    }
+
+    func testAMetarUnderAnHourOldIsOneLine() throws {
+        let now = Date(timeIntervalSince1970: 1_793_793_600)
+        XCTAssertEqual(AerodromeFacts.weatherLine(metar(minutesAgo: 10, now: now), now: now), "11:50Z · 240/08 kt · Q1018")
+    }
+
+    func testAnOldMetarIsADash() {
+        let now = Date(timeIntervalSince1970: 1_793_793_600)
+        XCTAssertNil(AerodromeFacts.weatherLine(metar(minutesAgo: 61, now: now), now: now))
+    }
+
     // MARK: What it holds
 
     func testTheCardHoldsTheCodeTheNameAndEachFrequency() {
         let card = content(airport("LSZQ"))
         XCTAssertEqual(card.ident, "LSZQ")
         XCTAssertEqual(card.name, "Bressaucourt")
-        XCTAssertEqual(card.frequencies, [.init(label: "AD", value: "122.055"), .init(label: "APP", value: "119.350")])
+        XCTAssertEqual(card.frequencies, [.init(label: "APP", value: "119.350"),
+                                          .init(label: "AD", value: "122.055", isFieldContact: true)])
         XCTAssertEqual(content(airport("LSZQ"), frequencies: nil).frequencies, [])
         XCTAssertEqual(AerodromeCardContent.frequencies(from: "122.500"), [.init(label: "", value: "122.500")])
     }

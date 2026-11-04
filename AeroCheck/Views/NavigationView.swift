@@ -674,6 +674,10 @@ struct NavigationMapView: View {
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
         .onReceive(ActivationService.shared.$files) { _ in recomputeMapSpatialContent(force: true) }
+        // One card at a time: an aerodrome's takes the airspace's place. (6.9.0)
+        .onChange(of: mapState.isCalloutOpen) { _, open in
+            if open { airspaceStack = nil; selectedStackAirspace = nil }
+        }
         .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
         .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
         // One choice for every map: picked in the route builder, or on the other map of a split screen, it shows here
@@ -793,6 +797,26 @@ struct NavigationMapView: View {
                 await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
             }
         }
+    }
+
+    // MARK: - An aerodrome's rows (6.9.0)
+
+    /// What the card says of a field, from what the app already holds: nothing here fetches.
+    private func aerodromeFacts(for airport: Airport) -> AerodromeFacts {
+        var facts = AerodromeFacts()
+        facts.isPPR = OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident)
+        facts.runways = AerodromeFacts.runwayLines(airportDataService.getRunways(for: airport.ident))
+        facts.circuit = OFMDataService.shared.procedures(forAerodrome: airport.ident)
+            .first { $0.kind == .circuit && $0.categories.contains(.powered) && $0.altitudeFt != nil }?
+            .altitudeFt.map(L10n.Nav.cardCircuit)
+        facts.weather = aviationWeatherService.observations.first { $0.icao == airport.ident }
+            .flatMap { AerodromeFacts.weatherLine($0, now: FlightClock.now) }
+        // Plan › Map only, after the note (c5 A).
+        if chrome == .plan {
+            facts.feeLink = AirfieldTariffService.shared.tariff(for: airport.ident).flatMap { URL(string: $0.url) }
+            facts.briefingLink = BriefingRegistryService.shared.registry?.country(airport.isoCountry)?.notam.first?.url
+        }
+        return facts
     }
 
     // MARK: - The airspace over a point (6.9.0)
@@ -1818,6 +1842,7 @@ struct NavigationMapView: View {
             airspaceTags: airspaceTags,
             airspaceTagKeepOut: chrome == .plan ? [] : cockpitChromeGeometry.tagKeepOut,
             onAirspaceTap: { openAirspaceStack(at: $0) },
+            aerodromeFacts: { aerodromeFacts(for: $0) },
             trackVectorOverlays: trackVectorOverlays,
             trackVectorEnabled: appState.settings.showTrackVector,
             currentWaypointIndex: currentWaypointIndex,
@@ -4193,6 +4218,8 @@ struct AeroMapView: View {
     var airspaceTagKeepOut: [CGRect] = []
     /// A tap on the chart with no marker under it. (6.9.0)
     var onAirspaceTap: ((CLLocationCoordinate2D) -> Void)?
+    /// A field's rows for its card. (6.9.0, c1 A)
+    var aerodromeFacts: ((Airport) -> AerodromeFacts)?
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates

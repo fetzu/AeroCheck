@@ -239,6 +239,9 @@ final class PilotMapShapes {
             if let above = all.first(where: { $0 > key && style.layer(withIdentifier: $0.id) != nil }),
                let sibling = style.layer(withIdentifier: above.id) {
                 style.insertLayer(layer, below: sibling)
+            } else if let labels = style.layer(withIdentifier: Self.labelSourceID) {
+                // The boundary labels stay on top, or the lines they mask run through them.
+                style.insertLayer(layer, below: labels)
             } else {
                 style.addLayer(layer)
             }

@@ -402,7 +402,9 @@ final class PilotMapMarkers {
                 chart: map.chartOpener == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
                 canOpenNote: map.noteOpener != nil,
                 canDivert: map.activeFlightPlan != nil && map.divertHandler != nil,
-                canAddToRoute: plannedRoute.canAdd(airport))
+                canAddToRoute: plannedRoute.canAdd(airport),
+                facts: map.aerodromeFacts?(airport.airport) ?? AerodromeFacts(),
+                isDiverting: map.activeFlightPlan?.diversion != nil)
             let area = PilotMarkerCallout.area(of: mapView)
             let width = min(AerodromeCardView.maxWidth(metrics: metrics), max(area.width, 240))
             content = AerodromeCardView(content: card, metrics: metrics, tint: palette.action, width: width) {
@@ -413,6 +415,7 @@ final class PilotMapMarkers {
                 case .note: map.noteOpener?(ref)
                 case .divert: map.divertHandler?(airport.airport.ident)
                 case .addToRoute: self?.plannedRoute.add(airport)
+                case .fees(let url), .briefing(let url): map.chartOpener?(url)
                 }
             }
         case let label as VFRProcedureAnnotation:

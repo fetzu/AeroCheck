@@ -69,16 +69,23 @@ final class AirspaceAheadUITests: XCTestCase {
         pilot.launch()
         guard pilot.departToClimb() else { return XCTFail("never reached the climb check") }
         pilot.showPane("map")
-        pilot.waitForTrack(pilot.scenario.mark("levelOff"))
+        // Close to the CTR, so its boundary and its label are on the chart.
+        pilot.waitForTrack(pilot.scenario.mark("wp2") - 90)
         pilot.shot("ah-5", "tags")
         pilot.tap("cockpit.menu")
         let row = pilot.waitFor("menu.allLimits", timeout: 5)
         pilot.check("ah-5", row != nil, "the row in Menu")
         guard let row else { return }
-        pilot.app.switches.matching(NSPredicate(format: "identifier == 'menu.allLimits' OR label CONTAINS 'limits'")).firstMatch.tap()
+        let toggle = pilot.app.switches.matching(identifier: "menu.allLimits").firstMatch
+        let before = toggle.value as? String
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        _ = pilot.waitUntil(timeout: 2) { (toggle.value as? String) != before }
+        pilot.shot("ah-5", "menu")
+        pilot.check("ah-5", (toggle.value as? String) == "1", "the switch: \(before ?? "?") → \(toggle.value ?? "?")")
         pilot.app.buttons["Close"].firstMatch.tap()
         pilot.check("ah-5", row.waitForNonExistence(timeout: 4), "Menu closed")
         let chip = pilot.waitFor("map.chip.allLimits", timeout: 6)
+        _ = pilot.waitUntil(timeout: 3) { false } // the labels draw, the chip has faded in
         pilot.shot("ah-5", "all-limits")
         pilot.check("ah-5", chip != nil, "the chip at the map's foot")
         guard chip != nil else { return }

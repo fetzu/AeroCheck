@@ -99,9 +99,14 @@ final class ReportDepartureUITests: XCTestCase {
         // The rules come from the sandbox at launch, after the page may have opened: a minute at most.
         let word = "crosses a border"
         pilot.scrollTo("ATC flight plan")
+        // On the phone the blocks are rows: the words are behind the row.
+        let row = pilot.element("flightPage.block.flightPlan")
+        let onThePhone = !pilot.app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Copy the ATC flight plan'")).firstMatch.exists && row.exists
+        if onThePhone { pilot.tapNow(row) }
         let read = pilot.waitUntil(timeout: 20) { !pilot.texts(containing: word).isEmpty }
         pilot.shot("rd-1", "flight-page")
         pilot.check("rd-1", read, "the flight page says why: \(pilot.texts(containing: word))")
+        if onThePhone { pilot.app.buttons["Close"].firstMatch.tap() }
         let tick = pilot.app.buttons["ATC flight plan"].firstMatch
         guard tick.waitForExistence(timeout: 5), pilot.tapNow(tick) else {
             pilot.dumpTree("no-tick")

@@ -1289,7 +1289,7 @@ struct CockpitChartChrome: View {
     /// Every state that would show, highest first: UNDO first, then what the flight says (plan §5.1).
     private func pendingStates(undoOffered: Bool) -> [CockpitStatus] {
         #if DEBUG
-        // The captures' (6.2): `AEROCHECK_STATUS=gps|nogps|offroute|chartoffline|tellfis|sigmet|briefing`
+        // The captures' (6.2): `AEROCHECK_STATUS=gps|nogps|offroute|chartoffline|tellfis|sigmet|briefing|ahead|aheadamber|report`
         // holds the slot on that state, under UNDO.
         if !undoOffered, let held = Self.capturedStatus { return [held] }
         #endif
@@ -1359,6 +1359,12 @@ struct CockpitChartChrome: View {
         case "tellfis": return .tellFIS(field: "LSGC")
         case "sigmet": return .sigmet(summary: "SEV TURB · " + L10n.Nav.sigmetOnRoute)
         case "briefing": return .briefing(.approach)
+        case "ahead", "aheadamber":
+            let amber = ProcessInfo.processInfo.environment["AEROCHECK_STATUS"]?.lowercased() == "aheadamber"
+            return .airspaceAhead(AirspaceAheadFinding(airspaceId: "capture", name: "CTR GRENCHEN", minutes: amber ? 2 : 4, isCaution: amber,
+                                                       entry: CLLocationCoordinate2D(latitude: 47.16, longitude: 7.33)))
+        case "report":
+            return .reportDeparture(ReportDepartureReminder(station: "Zürich Info 124.700", why: .timesFollow))
         default: return nil
         }
     }()

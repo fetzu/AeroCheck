@@ -599,7 +599,18 @@ final class MapChromeLayoutTests: XCTestCase {
                ("off-route-150", .offRoute(crossTrackNM: 150), nil),
                ("tell-fis-long", .tellFIS(field: "SAIGNELÉGIER"), nil),
                ("sigmet-long", .sigmet(summary: "OBSC TSGR · " + overhead), nil),
-               ("briefing-departure", .briefing(.departure), nil)]
+               ("briefing-departure", .briefing(.departure), nil),
+               ("ahead-long", .airspaceAhead(aheadSample("LSR38 GLAUBENBERG-WASSERFALLEN", caution: false)), nil),
+               ("ahead-amber", .airspaceAhead(aheadSample("TMA ZUERICH S3 HX", caution: true)), nil),
+               ("report-starts", .reportDeparture(.init(station: "Zürich Information 124.700", why: .startsOnReport)), nil),
+               ("report-follow", .reportDeparture(.init(station: "Zürich Information 124.700", why: .timesFollow)), nil),
+               ("report-cancelled", .reportDeparture(.init(station: "Zürich Information 124.700", why: .cancelled(minutes: 30))), nil),
+               ("report-none", .reportDeparture(.init(station: nil, why: nil)), nil)]
+    }
+
+    private func aheadSample(_ name: String, caution: Bool) -> AirspaceAheadFinding {
+        AirspaceAheadFinding(airspaceId: name, name: name, minutes: 5, isCaution: caution,
+                             entry: CLLocationCoordinate2D(latitude: 47, longitude: 7))
     }
 
     private func chrome(_ model: MapChromeModel, _ chart: Chart, language: String = "en", scaleShown: Bool = false,

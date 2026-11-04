@@ -25,6 +25,8 @@ enum CockpitStatus: Equatable {
     case briefing(BriefingType)
     /// AIRSPACE AHEAD: information five minutes out, amber for R, D, P or class C and D within two (a6 A). (6.9.0)
     case airspaceAhead(AirspaceAheadFinding)
+    /// REPORT YOUR DEPARTURE (cyan, touchable): no sound, no banner; a tap is Done. (6.9.0, f7 A, f8 A)
+    case reportDeparture(ReportDepartureReminder)
 
     enum GPSAlarm: Equatable {
         case degraded
@@ -46,7 +48,7 @@ enum CockpitStatus: Equatable {
         case .airspaceAhead(let finding): return finding.isCaution ? .caution : .neutral
         case .gps(.lost): return .warning
         case .gps(.degraded), .offRoute, .chartOffline, .tellFIS, .sigmet: return .caution
-        case .briefing: return .action
+        case .briefing, .reportDeparture: return .action
         }
     }
 
@@ -67,6 +69,7 @@ enum CockpitStatus: Equatable {
         case .sigmet: return "status.sigmet"
         case .briefing: return "status.briefing"
         case .airspaceAhead: return "status.airspaceAhead"
+        case .reportDeparture: return "status.reportDeparture"
         }
     }
 }
@@ -74,7 +77,7 @@ enum CockpitStatus: Equatable {
 /// Which state the slot shows. Pure: the view gathers the inputs and draws the answer. (6.2.0)
 ///
 /// Priority, highest first: UNDO > NO GPS > AIRSPACE AHEAD amber > OFF ROUTE > CHART OFFLINE > TELL FIS > SIGMET on
-/// path > AIRSPACE AHEAD information > BRIEFING > GPS DEGRADED. UNDO comes first because it answers the pilot's own tap and is useless once
+/// path > REPORT DEPARTURE > AIRSPACE AHEAD information > BRIEFING > GPS DEGRADED. UNDO comes first because it answers the pilot's own tap and is useless once
 /// its six seconds are over; the GPS state stays in the header and the strip's flags meanwhile. GPS
 /// DEGRADED comes last: common on the ground and in a hangar, it held the slot over CHART OFFLINE and
 /// BRIEFING, and the header and the strip already show it (author, 5 Oct, device check).
@@ -96,6 +99,8 @@ enum CockpitStatusRule {
         var briefing: BriefingType?
         /// `CockpitMapState.airspaceAhead`.
         var airspaceAhead: AirspaceAheadFinding?
+        /// `CockpitMapState.reportDeparture`.
+        var reportDeparture: ReportDepartureReminder?
     }
 
     /// The state the slot shows, or nil for a dark slot.
@@ -121,6 +126,7 @@ enum CockpitStatusRule {
         if inputs.chartOffline { states.append(.chartOffline) }
         if let field = inputs.tellFISField { states.append(.tellFIS(field: field)) }
         if let summary = inputs.sigmetOnPath { states.append(.sigmet(summary: summary)) }
+        if let report = inputs.reportDeparture { states.append(.reportDeparture(report)) }
         if let ahead = inputs.airspaceAhead, !ahead.isCaution { states.append(.airspaceAhead(ahead)) }
         if let briefing = inputs.briefing { states.append(.briefing(briefing)) }
         if inputs.gps == .degraded { states.append(.gps(.degraded)) }
@@ -152,6 +158,62 @@ enum CockpitStatusRule {
     /// across the route). The others go to More: dark cockpit.
     static func sigmetOnPath(_ ranked: [SigmetHazardItem]) -> SigmetHazardItem? {
         ranked.first(where: \.isOnPath)
+    }
+}
+
+// MARK: - REPORT YOUR DEPARTURE
+
+/// What the reminder after take-off says: whom to tell, and why, where the departure state's rule was read.
+struct ReportDepartureReminder: Equatable {
+    enum Why: Equatable {
+        case startsOnReport
+        case timesFollow
+        case cancelled(minutes: Int)
+    }
+
+    /// "Zurich Information 124.700"; nil where the radio has no station.
+    var station: String?
+    /// Nil where the rule couldn't be read: the reminder still shows, without the second line (f8 A).
+    var why: Why?
+
+    static func why(_ rule: FlightPlanRules.Rule?) -> Why? {
+        if let minutes = rule?.cancelAfterMinutes { return .cancelled(minutes: minutes) }
+        switch rule?.alertingWithoutDep {
+        case false?: return .startsOnReport
+        case true?: return .timesFollow
+        case nil: return nil
+        }
+    }
+}
+
+/// When the reminder shows. Only when the plan had to be filed, the pilot ticked it, and the departure has no tower in
+/// service, where ATC would report the departure (the author, 3 Nov 2026). It comes once the climb check is done or three
+/// minutes after take-off, and goes on Done, after 15 minutes, or at landing. A value: the Cockpit keeps one.
+struct ReportDepartureRule {
+    static let comesAfter: TimeInterval = 3 * 60
+    static let staysFor: TimeInterval = 15 * 60
+
+    struct Input: Equatable {
+        var planWasNeeded = false
+        var filed = false
+        var hasTower = false
+        var takeOff: Date?
+        var climbCheckDone = false
+        var landed = false
+    }
+
+    private var shownAt: Date?
+    private var isDone = false
+
+    mutating func done() { isDone = true }
+
+    mutating func isShown(_ input: Input, at now: Date) -> Bool {
+        guard input.planWasNeeded, input.filed, !input.hasTower, !input.landed, !isDone, let takeOff = input.takeOff,
+              // A relaunch long after take-off starts no new quarter of an hour
+              now.timeIntervalSince(takeOff) < Self.comesAfter + Self.staysFor else { return false }
+        if shownAt == nil, input.climbCheckDone || now.timeIntervalSince(takeOff) >= Self.comesAfter { shownAt = now }
+        guard let shownAt else { return false }
+        return now.timeIntervalSince(shownAt) < Self.staysFor
     }
 }
 

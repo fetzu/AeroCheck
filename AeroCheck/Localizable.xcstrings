@@ -6183,6 +6183,29 @@
         }
       }
     },
+    "cockpit.reportDepartureChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABFLUG MELDEN"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REPORT DEPARTURE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANNONCER LE DÉPART"
+          }
+        }
+      }
+    },
     "dryRun.band": {
       "extractionState": "manual",
       "localizations": {
@@ -15718,6 +15741,98 @@
         }
       }
     },
+    "mapChrome.hint.reportDeparture": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als erledigt markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marks it as done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marque comme fait"
+          }
+        }
+      }
+    },
+    "mapChrome.report.cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sonst wird er nach %@ Min. annulliert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or it is cancelled after %@ min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sinon il est annulé après %@ min"
+          }
+        }
+      }
+    },
+    "mapChrome.report.startsOnReport": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Flugplan startet erst mit der Meldung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your plan only starts when you report it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "votre plan ne démarre qu'à votre annonce"
+          }
+        }
+      }
+    },
+    "mapChrome.report.timesFollow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "damit die Zeiten Ihrem Start folgen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "so the times follow your take-off"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pour que les temps suivent votre décollage"
+          }
+        }
+      }
+    },
     "mapChrome.status.airspaceAhead": {
       "extractionState": "manual",
       "localizations": {
@@ -15760,6 +15875,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ dans %@ min"
+          }
+        }
+      }
+    },
+    "mapChrome.status.reportDeparture": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ABFLUG MELDEN"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REPORT YOUR DEPARTURE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ANNONCEZ VOTRE DÉPART"
           }
         }
       }

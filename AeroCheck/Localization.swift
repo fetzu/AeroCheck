@@ -2942,6 +2942,7 @@ enum L10n {
         static let airspaceOffChip = String(localized: "cockpit.airspaceOffChip")
         static let noAirspaceDataChip = String(localized: "cockpit.noAirspaceDataChip")
         static let dabsNotLoadedChip = String(localized: "cockpit.dabsNotLoadedChip")
+        static let reportDepartureChip = String(localized: "cockpit.reportDepartureChip")
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
         static let endFlightHint = String(localized: "cockpit.endFlightHint")
@@ -3220,6 +3221,22 @@ enum L10n {
         /// "LSR7 HONGRIN in 3 min"
         static func airspaceIn(_ name: String, _ minutes: Int, language: String? = nil) -> String {
             String(format: text("mapChrome.status.airspaceIn", "%@ in %@ min", language), name, String(minutes))
+        }
+        /// The reminder after take-off. (6.9.0)
+        static func reportDeparture(language: String? = nil) -> String {
+            text("mapChrome.status.reportDeparture", "REPORT YOUR DEPARTURE", language)
+        }
+        static func reportDepartureHint(language: String? = nil) -> String {
+            text("mapChrome.hint.reportDeparture", "Marks it as done", language)
+        }
+        static func reportStartsOnReport(language: String? = nil) -> String {
+            text("mapChrome.report.startsOnReport", "your plan only starts when you report it", language)
+        }
+        static func reportTimesFollow(language: String? = nil) -> String {
+            text("mapChrome.report.timesFollow", "so the times follow your take-off", language)
+        }
+        static func reportCancelled(_ minutes: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.report.cancelled", "or it is cancelled after %@ min", language), String(minutes))
         }
         static func airspaceAheadHint(language: String? = nil) -> String {
             text("mapChrome.hint.airspaceAhead", "Shows the airspace at that point", language)

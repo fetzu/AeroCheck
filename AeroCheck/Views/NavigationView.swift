@@ -3050,6 +3050,7 @@ struct NavigationMapView: View {
         case .tellFIS: onDivert?(nil)
         case .sigmet: showSigmets = true
         case .airspaceAhead(let finding): openAirspaceStack(at: finding.entry)
+        case .reportDeparture: cockpitMap?.reportDepartureDone()
         case .briefing(let type): onOpenReference?(type == .departure ? .departureBriefing : .approachBriefing)
         }
     }

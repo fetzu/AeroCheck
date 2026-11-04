@@ -1129,6 +1129,13 @@ extension FlightView {
         HStack(spacing: 8) {
             if appState.hasDeferredWork { deferredChip.coachTarget(.deferredChip) }
             if narrow || !briefingInBar { cockpitBriefingChip }
+            if chartState.reportDeparture != nil {
+                // As the map's slot says it; a tap is Done. No sound, no banner (6.9.0).
+                CockpitChip(title: L10n.Cockpit.reportDepartureChip, icon: "antenna.radiowaves.left.and.right") {
+                    chartState.reportDepartureDone()
+                }
+                .accessibilityIdentifier("cockpit.reportDepartureChip")
+            }
             cockpitNextChip
             Spacer(minLength: 0)
         }

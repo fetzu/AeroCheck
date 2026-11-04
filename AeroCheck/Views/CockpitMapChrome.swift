@@ -866,6 +866,7 @@ enum MapStatusText {
         case .tellFIS: return L10n.MapChrome.tellFIS(language: language)
         case .sigmet: return "SIGMET"
         case .airspaceAhead: return L10n.MapChrome.airspaceAhead(language: language)
+        case .reportDeparture: return L10n.MapChrome.reportDeparture(language: language)
         // As the chip said it, in English in French too.
         case .briefing: return "BRIEFING"
         }
@@ -877,6 +878,7 @@ enum MapStatusText {
         case .tellFIS(let field): return L10n.MapChrome.divertingTo(field, language: language)
         case .sigmet(let summary): return summary.isEmpty ? nil : summary
         case .airspaceAhead(let finding): return L10n.MapChrome.airspaceIn(finding.name, finding.minutes, language: language)
+        case .reportDeparture(let reminder): return reportDetail(reminder, language: language)
         default: return nil
         }
     }
@@ -900,6 +902,7 @@ enum MapStatusText {
         case .tellFIS: return L10n.MapChrome.tellFISHint(language: language)
         case .sigmet: return L10n.MapChrome.sigmetHint(language: language)
         case .airspaceAhead: return L10n.MapChrome.airspaceAheadHint(language: language)
+        case .reportDeparture: return L10n.MapChrome.reportDepartureHint(language: language)
         case .briefing: return L10n.MapChrome.briefingHint(language: language)
         }
     }
@@ -915,8 +918,22 @@ enum MapStatusText {
         case .tellFIS: return "antenna.radiowaves.left.and.right"
         case .sigmet: return "exclamationmark.triangle.fill"
         case .airspaceAhead: return "square.stack.3d.up"
+        case .reportDeparture: return "antenna.radiowaves.left.and.right"
         case .briefing(let type): return type == .departure ? "airplane.departure" : "airplane.arrival"
         }
+    }
+
+    /// "Zurich Information 124.700", then why, where the rule is known.
+    static func reportDetail(_ reminder: ReportDepartureReminder, language: String?) -> String? {
+        let why: String?
+        switch reminder.why {
+        case .startsOnReport: why = L10n.MapChrome.reportStartsOnReport(language: language)
+        case .timesFollow: why = L10n.MapChrome.reportTimesFollow(language: language)
+        case .cancelled(let minutes): why = L10n.MapChrome.reportCancelled(minutes, language: language)
+        case nil: why = nil
+        }
+        let parts = [reminder.station, why].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// The cross-track distance as the map writes distances: "1.2", then whole miles from 10.
@@ -1089,6 +1106,20 @@ final class CockpitMapState {
         if shown != airspaceAhead { airspaceAhead = shown }
     }
 
+    /// The reminder after take-off, as the follower works it out on every fix. (6.9.0)
+    private(set) var reportDeparture: ReportDepartureReminder?
+    @ObservationIgnored private var reportRule = ReportDepartureRule()
+
+    func note(reportDeparture input: ReportDepartureRule.Input, reminder: ReportDepartureReminder, at now: Date) {
+        let shown = reportRule.isShown(input, at: now) ? reminder : nil
+        if shown != reportDeparture { reportDeparture = shown }
+    }
+
+    func reportDepartureDone() {
+        reportRule.done()
+        reportDeparture = nil
+    }
+
     func showWholeRoute() { wholeRouteRequest &+= 1 }
     func showHazards() { hazardsRequest &+= 1 }
 
@@ -1112,6 +1143,9 @@ struct CockpitMapFollower: ViewModifier {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @EnvironmentObject private var aviationWeatherService: AviationWeatherService
+    @EnvironmentObject private var threadManager: FlightThreadManager
+    @EnvironmentObject private var airportDataService: AirportDataService
+    @Environment(CockpitRadio.self) private var radio: CockpitRadio?
 
     /// What OFF ROUTE is evaluated again for, besides a fix.
     struct Key: Equatable {
@@ -1152,6 +1186,28 @@ struct CockpitMapFollower: ViewModifier {
             circuits: appState.isCircuitMode, lineUpTime: appState.lineUpTime, landingTime: appState.landingTime,
             isTracking: locationManager.isTracking, signal: locationManager.gpsSignalStatus,
             isSimulating: locationManager.isSimulatingPosition))
+        noteReportDeparture()
+    }
+
+    /// The reminder after take-off: its conditions from the flight's thread, the departure's rule from the registry,
+    /// the station from the radio, NOW's as ever. A flight without a thread has no tick, so no reminder.
+    private func noteReportDeparture() {
+        guard let plan = flightPlanManager.activeFlightPlan, let thread = threadManager.thread(forPlanId: plan.id) else { return }
+        let ident = plan.waypoints.first?.name.trimmingCharacters(in: .whitespaces).uppercased() ?? ""
+        let types = airportDataService.getFrequencies(for: ident).map(\.type)
+        let hasTower = types.contains { AirportDataService.isContactType($0, "TWR") || AirportDataService.isContactType($0, "AFIS") }
+        let phase = appState.currentPhase
+        let climbDone = phase.rawValue > ChecklistPhase.climb.rawValue || (phase == .climb && appState.currentCheckIsDone)
+        let input = ReportDepartureRule.Input(planWasNeeded: threadManager.planNeeds[thread.id] != nil,
+                                              filed: thread.flightPlanFiledAt != nil, hasTower: hasTower,
+                                              takeOff: appState.lineUpTime, climbCheckDone: climbDone,
+                                              landed: appState.landingTime != nil)
+        let rules = BriefingRegistryService.shared.registry?.flightPlan
+        let state = rules?.departureState(aerodrome: ident, country: FlightThreadManager.departureCountry(of: plan))
+        let station = radio?.now.map { "\($0.station) \($0.freq)" }
+        mapState.note(reportDeparture: input,
+                      reminder: ReportDepartureReminder(station: station, why: ReportDepartureReminder.why(rules?.rule(for: state))),
+                      at: FlightClock.now)
     }
 }
 
@@ -1255,7 +1311,8 @@ struct CockpitChartChrome: View {
             tellFISField: CockpitStatusRule.tellFIS(diversionIdent: plan?.diversion?.ident, hasOpenATCFlightPlan: filed),
             sigmetOnPath: CockpitStatusRule.sigmetOnPath(sigmets).map(Self.sigmetSummary),
             briefing: briefingInBar ? nil : appState.currentPhase.briefingType,
-            airspaceAhead: cockpitMap?.airspaceAhead)
+            airspaceAhead: cockpitMap?.airspaceAhead,
+            reportDeparture: cockpitMap?.reportDeparture)
     }
 
     /// CHART OFFLINE's inputs: the chart picked, the network, the caches, the zoom and the region.

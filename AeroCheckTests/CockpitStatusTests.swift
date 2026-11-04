@@ -54,6 +54,87 @@ final class CockpitStatusTests: XCTestCase {
             AirspaceAheadFinding(airspaceId: "a", name: "LSR7", minutes: 2, isCaution: true, entry: .init())).tone, .caution)
     }
 
+    // MARK: REPORT YOUR DEPARTURE (6.9.0)
+
+    private let takeOff = Date(timeIntervalSinceReferenceDate: 0)
+    private var filed: ReportDepartureRule.Input {
+        ReportDepartureRule.Input(planWasNeeded: true, filed: true, hasTower: false, takeOff: takeOff)
+    }
+
+    func testTheReminderComesThreeMinutesAfterTakeOff() {
+        var rule = ReportDepartureRule()
+        XCTAssertFalse(rule.isShown(filed, at: takeOff.addingTimeInterval(170)))
+        XCTAssertTrue(rule.isShown(filed, at: takeOff.addingTimeInterval(180)))
+    }
+
+    func testTheReminderComesAtOnceWithTheClimbCheckDone() {
+        var rule = ReportDepartureRule()
+        var input = filed
+        input.climbCheckDone = true
+        XCTAssertTrue(rule.isShown(input, at: takeOff.addingTimeInterval(60)))
+    }
+
+    func testTheReminderGoesAfterAQuarterOfAnHour() {
+        var rule = ReportDepartureRule()
+        XCTAssertTrue(rule.isShown(filed, at: takeOff.addingTimeInterval(180)))
+        XCTAssertTrue(rule.isShown(filed, at: takeOff.addingTimeInterval(1000)))
+        XCTAssertFalse(rule.isShown(filed, at: takeOff.addingTimeInterval(1080)))
+    }
+
+    func testDoneAndALandingEndIt() {
+        var rule = ReportDepartureRule()
+        XCTAssertTrue(rule.isShown(filed, at: takeOff.addingTimeInterval(200)))
+        rule.done()
+        XCTAssertFalse(rule.isShown(filed, at: takeOff.addingTimeInterval(201)))
+        var landed = ReportDepartureRule()
+        var input = filed
+        input.landed = true
+        XCTAssertFalse(landed.isShown(input, at: takeOff.addingTimeInterval(200)))
+    }
+
+    func testNoReminderUnlessEveryConditionHolds() {
+        for change in [{ (i: inout ReportDepartureRule.Input) in i.planWasNeeded = false }, { $0.filed = false }, { $0.hasTower = true },
+                       { $0.takeOff = nil }] as [(inout ReportDepartureRule.Input) -> Void] {
+            var input = filed
+            change(&input)
+            var rule = ReportDepartureRule()
+            XCTAssertFalse(rule.isShown(input, at: takeOff.addingTimeInterval(200)))
+        }
+    }
+
+    func testARelaunchLongAfterTakeOffStartsNoNewReminder() {
+        var rule = ReportDepartureRule()
+        XCTAssertFalse(rule.isShown(filed, at: takeOff.addingTimeInterval(1200)))
+    }
+
+    func testTheSecondLineFollowsTheDepartureStatesRule() {
+        typealias R = FlightPlanRules.Rule
+        XCTAssertEqual(ReportDepartureReminder.why(R(alertingWithoutDep: false)), .startsOnReport)
+        XCTAssertEqual(ReportDepartureReminder.why(R(alertingWithoutDep: true)), .timesFollow)
+        XCTAssertEqual(ReportDepartureReminder.why(R(alertingWithoutDep: false, cancelAfterMinutes: 60)), .cancelled(minutes: 60))
+        XCTAssertNil(ReportDepartureReminder.why(R()), "where the rule couldn't be read")
+        XCTAssertNil(ReportDepartureReminder.why(nil))
+    }
+
+    func testTheReminderSitsUnderTheSigmetAndOverAirspaceInformation() {
+        let reminder = ReportDepartureReminder(station: "Zurich Information 124.700", why: .timesFollow)
+        let ahead = AirspaceAheadFinding(airspaceId: "a", name: "A", minutes: 4, isCaution: false, entry: .init())
+        var inputs = everything
+        inputs.reportDeparture = reminder
+        inputs.airspaceAhead = ahead
+        XCTAssertEqual(Array(CockpitStatusRule.pending(inputs).suffix(4)),
+                       [.sigmet(summary: "TS"), .reportDeparture(reminder), .airspaceAhead(ahead), .briefing(.approach)])
+        XCTAssertEqual(CockpitStatus.reportDeparture(reminder).tone, .action)
+    }
+
+    func testTheReminderReadsWithAndWithoutItsSecondLine() {
+        let full = ReportDepartureReminder(station: "Zurich Information 124.700", why: .timesFollow)
+        XCTAssertEqual(MapStatusText.detail(.reportDeparture(full), language: "en"),
+                       "Zurich Information 124.700 · so the times follow your take-off")
+        let plain = ReportDepartureReminder(station: "Zurich Information 124.700", why: nil)
+        XCTAssertEqual(MapStatusText.detail(.reportDeparture(plain), language: "en"), "Zurich Information 124.700")
+    }
+
     /// GPS DEGRADED waits behind everything else (on the ground it held the slot over CHART OFFLINE and
     /// BRIEFING; the header and the strip show it); NO GPS keeps its place under UNDO. (5 Oct, device check)
     func testGPSDegradedComesLastAndNoGPSStaysHigh() {

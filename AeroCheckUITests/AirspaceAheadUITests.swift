@@ -39,9 +39,12 @@ final class AirspaceAheadUITests: XCTestCase {
         pilot.attach(SlotEntry.summary(log), name: "slot-ahead-grenchen")
         pilot.observed("ah-4", "the slot along the flight: \(SlotEntry.summary(log))")
 
+        // The route crosses LSR29, LSR30 and LSR35: glider areas keep their tags and stay out of the slot.
+        let gliders = log.filter { $0.isAhead(of: "TAVANNES") || $0.isAhead(of: "NEUVEVILLE") }
+        pilot.check("ah-4", gliders.isEmpty, "no glider area in the slot: \(SlotEntry.summary(gliders))")
         let grenchen = log.filter { $0.isAhead(of: "GRENCHEN") }
         let information = grenchen.first { !$0.isCaution }
-        pilot.check("ah-1", information.map { $0.t >= entry - 330 && $0.t <= entry - 150 } ?? false,
+        pilot.check("ah-1", information.map { $0.t >= entry - 330 && $0.t <= entry - 230 } ?? false,
                     "information \(information.map { "\"\($0.label)\" \(Int(entry - $0.t)) s before the CTR" } ?? "never shown")")
 
         let amber = grenchen.first { $0.isCaution }

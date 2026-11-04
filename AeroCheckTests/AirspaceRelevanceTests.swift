@@ -163,9 +163,9 @@ final class AirspaceRelevanceTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(ahead([airspace(.tma, cls: 2, north: 3)])).isCaution)
     }
 
-    func testNoAmberForAZoneOrAGliderArea() throws {
+    func testNoAmberForAZoneAndNothingForAGliderArea() throws {
         XCTAssertFalse(try XCTUnwrap(ahead([airspace(.tmz, north: 3)])).isCaution)
-        XCTAssertFalse(try XCTUnwrap(ahead([airspace(.gliderSector, north: 3)])).isCaution)
+        XCTAssertNil(ahead([airspace(.gliderSector, north: 3)]), "a glider area keeps its tag, and stays out of the slot")
     }
 
     func testClassEAndClassGSayNothing() {

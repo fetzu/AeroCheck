@@ -152,8 +152,8 @@ private struct PlaneNM {
 }
 
 /// What the status slot says of the air ahead: the first airspace the track enters at the aircraft's altitude within five
-/// minutes, amber only for R, D, P or class C and D within two (a6 A). Nothing about class E, which asks nothing, or
-/// about an airspace the aircraft is already in.
+/// minutes, amber only for R, D, P or class C and D within two (a6 A). Nothing about class E, which asks nothing, about
+/// glider areas, or about an airspace the aircraft is already in.
 struct AirspaceAheadFinding: Equatable {
     let airspaceId: String
     let name: String
@@ -173,12 +173,14 @@ struct AirspaceAheadFinding: Equatable {
     private static func asks(_ airspace: Airspace) -> Bool {
         guard !airspace.isInformationArea else { return false }
         switch airspace.mapKind {
-        case .restrictive, .controlled, .glider, .zone: return true
-        case .classE, .neutral: return false
+        case .restrictive, .controlled, .zone: return true
+        // On the tags and the map, not here: the DABS doesn't cover them, so they'd count as active every day, and in
+        // the Jura they lit the slot for 11 minutes of a 15-minute flight (the author, 4 Nov).
+        case .glider, .classE, .neutral: return false
         }
     }
 
-    /// Whether this airspace turns amber: a clearance or a keep-out, not a transponder or a glider zone.
+    /// Whether this airspace turns amber: a clearance or a keep-out, not a transponder zone.
     private static func isSerious(_ airspace: Airspace) -> Bool {
         if airspace.mapKind == .restrictive { return true }
         return airspace.airspaceClass == .classC || airspace.airspaceClass == .classD

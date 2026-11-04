@@ -707,7 +707,8 @@ struct MapFootChipView: View {
         .foregroundColor(color)
         .padding(.horizontal, metrics.slotPadding)
         .frame(minHeight: chip.isControl ? metrics.chipHeight : metrics.chipHeight * 0.6)
-        .floatingChromeBackground(cornerRadius: metrics.slotCornerRadius)
+        .background(RoundedRectangle(cornerRadius: metrics.slotCornerRadius).fill(theme.panel.opacity(0.97)))
+        .overlay(RoundedRectangle(cornerRadius: metrics.slotCornerRadius).strokeBorder(theme.panelStroke, lineWidth: 1))
         .contentShape(Rectangle())
     }
 }
@@ -807,7 +808,7 @@ struct MapStatusFace: View {
                 .font(.aero(size: metrics.statusIconSize, weight: .bold))
                 .foregroundColor(colors.accent)
                 .frame(width: metrics.statusIconColumn)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: runsToThreeLines ? 0 : 2) {
                 Text(verbatim: MapStatusText.title(status, language: language))
                     .font(.aero(size: metrics.textSize, weight: .bold))
                     .foregroundColor(colors.accent)
@@ -822,8 +823,17 @@ struct MapStatusFace: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, metrics.slotPadding)
-        .padding(.vertical, 4)
+        .padding(.vertical, runsToThreeLines ? 2 : 4)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The title and two lines of detail: a long airspace name, the reminder's station and why. The slot holds them only
+    /// tightly set.
+    private var runsToThreeLines: Bool {
+        switch status {
+        case .airspaceAhead, .reportDeparture: return true
+        default: return false
+        }
     }
 
     /// The width the words have in a slot `slotWidth` wide.

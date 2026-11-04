@@ -692,6 +692,22 @@ enum L10n {
             String(format: String(localized: "thread.byDay.later"), name, flightDay, publishDay, time)
         }
         static let hintFlightPlanFiled = String(localized: "thread.hint.flightPlanFiled")
+        /// Why a flight needs an ATC plan, whom to tell after take-off, a filed plan gone late. (6.9.0, f7 A)
+        static func planNeeded(_ need: FlightPlanNeed) -> String {
+            switch need {
+            case .border(let state):
+                return String(format: String(localized: "thread.plan.border"), Locale.current.localizedString(forRegionCode: state) ?? state)
+            case .night: return String(localized: "thread.plan.night")
+            case .aerodrome(let ident): return String(format: String(localized: "thread.plan.aerodrome"), ident)
+            case .everyFlight(let state):
+                return String(format: String(localized: "thread.plan.every"), Locale.current.localizedString(forRegionCode: state) ?? state)
+            }
+        }
+        static func planReportTo(_ station: String) -> String {
+            String(format: String(localized: "thread.plan.reportTo"), station)
+        }
+        static let planReportGeneric = String(localized: "thread.plan.reportGeneric")
+        static let planLate = String(localized: "thread.plan.late")
         /// A plan filed from a field without ATS, in a country that wants the pilot to activate it. (6.5.0)
         static func activateWithoutATS(_ ident: String) -> String {
             String(format: String(localized: "thread.activation"), ident)

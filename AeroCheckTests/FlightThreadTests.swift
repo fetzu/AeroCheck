@@ -1756,4 +1756,60 @@ extension FlightThreadTests {
         XCTAssertEqual(customs.first?.id, france.id)
         XCTAssertEqual(customs.first?.state, .done)
     }
+
+    // MARK: The flight plan task (6.9.0, f7 A)
+
+    private func planTask(_ configure: (inout ThreadTaskEngine.Context) -> Void) -> ThreadTask? {
+        var context = ThreadTaskEngine.Context(profile: .full, hasRoute: true, departureIdent: "LSZQ", arrivalIdent: "LFGA")
+        configure(&context)
+        return ThreadTaskEngine.generate(context: context).first { $0.key == .flightPlanFiled }
+    }
+
+    func testThePlanTaskIsPlainWhenNoPlanIsNeeded() throws {
+        XCTAssertFalse(try XCTUnwrap(planTask { _ in }).isUrgent)
+    }
+
+    func testThePlanTaskIsRedWhenOneIsNeededAndNotTicked() throws {
+        XCTAssertTrue(try XCTUnwrap(planTask { $0.planNeed = .border("FR") }).isUrgent)
+    }
+
+    func testTickedItIsPlainAgain() throws {
+        let task = try XCTUnwrap(planTask { $0.planNeed = .border("FR"); $0.flightPlanFiled = true })
+        XCTAssertFalse(task.isUrgent)
+    }
+
+    func testAFiledPlanGoneLateIsRedAgain() throws {
+        let task = try XCTUnwrap(planTask { $0.planNeed = .border("FR"); $0.flightPlanFiled = true; $0.flightPlanLate = true })
+        XCTAssertTrue(task.isUrgent)
+    }
+
+    func testCircuitsHaveNoPlanTask() {
+        XCTAssertNil(planTask { $0.onlyCircuits = true })
+        var local = ThreadTaskEngine.Context(profile: .local, hasRoute: true)
+        local.planNeed = .night
+        XCTAssertFalse(ThreadTaskEngine.generate(context: local).contains { $0.key == .flightPlanFiled })
+    }
+
+    func testAPlanGoesLateThirtyMinutesAfterTheFiledTimeOrTheCountrysOwn() throws {
+        let plan = FlightPlan(name: "T", waypoints: [], plannedDepartureTime: Date(timeIntervalSinceReferenceDate: 0))
+        var rules = FlightPlanRules()
+        XCTAssertEqual(FlightThreadManager.flightPlanLateAt(plan: plan, rules: nil, departureCountry: "CH"),
+                       Date(timeIntervalSinceReferenceDate: 1800))
+        rules.countries["XX"] = .init(cancelAfterMinutes: 20)
+        XCTAssertEqual(FlightThreadManager.flightPlanLateAt(plan: plan, rules: rules, departureCountry: "XX"),
+                       Date(timeIntervalSinceReferenceDate: 1200))
+        rules.countries["ES"] = .init(cancelAfterMinutes: 60)
+        XCTAssertEqual(FlightThreadManager.flightPlanLateAt(plan: plan, rules: rules, departureCountry: "ES"),
+                       Date(timeIntervalSinceReferenceDate: 1800), "30 minutes stays the limit")
+    }
+
+    func testTheHintGivesTheReasonAndWhomToTell() {
+        var briefing = ThreadBriefing()
+        briefing.planNeed = .night
+        briefing.departureFIS = "ZURICH INFORMATION 124.700"
+        XCTAssertTrue(briefing.flightPlanHint.contains(L10n.Thread.planReportTo("ZURICH INFORMATION 124.700")))
+        XCTAssertTrue(briefing.flightPlanHint.contains(L10n.Thread.planNeeded(.night)))
+        briefing.planIsLate = true
+        XCTAssertEqual(briefing.flightPlanHint, L10n.Thread.planLate)
+    }
 }

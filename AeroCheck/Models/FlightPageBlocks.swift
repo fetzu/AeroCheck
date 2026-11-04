@@ -117,7 +117,8 @@ struct FlightBlock: Identifiable, Equatable, Sendable {
         return tasks.filter { sharedIds.contains($0.id) && $0.state == .pending }.compactMap(\.completedAt).max()
     }
 
-    var isUrgent: Bool { tasks.contains { $0.isUrgent && $0.state == .pending } }
+    /// A task the rules hold urgent, whether or not it was ticked: a plan filed and gone late stays red. (6.9.0)
+    var isUrgent: Bool { tasks.contains { $0.isUrgent && ($0.state == .pending || $0.key == .flightPlanFiled) } }
 
     /// Its task, for a block of one.
     var task: ThreadTask? { tasks.first }

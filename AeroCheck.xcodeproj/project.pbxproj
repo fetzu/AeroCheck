@@ -67,6 +67,7 @@
 		A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000029111111110000001 /* RouteDataCalculatorTests.swift */; };
 		A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */; };
 		A500002F111111110000002 /* FlightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002F111111110000001 /* FlightThreadTests.swift */; };
+		A38489C4E3B4A90AFC65AC1A /* FlightPlanRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 832828F6F6E42D2FA178C2A5 /* FlightPlanRulesTests.swift */; };
 		A50000F8111111110000002 /* BriefingRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000F8111111110000001 /* BriefingRegistryTests.swift */; };
 		A50000F9111111110000002 /* PrepareWeatherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000F9111111110000001 /* PrepareWeatherTests.swift */; };
 		A50000FA111111110000002 /* TrafficPatternTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50000FA111111110000001 /* TrafficPatternTests.swift */; };
@@ -393,6 +394,7 @@
 		FP6600021111111000005 /* DecodedWeather.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000005 /* DecodedWeather.swift */; };
 		FP6600021111111000001 /* FlightPageBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = FP6600011111111000001 /* FlightPageBlocks.swift */; };
 		E1000001211111110000042 /* BriefingRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000042 /* BriefingRegistry.swift */; };
+		067A8B0C9186D164174CBDB8 /* FlightPlanRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 396AFBAC2EC13813AF306E01 /* FlightPlanRules.swift */; };
 		E1000001211111110000043 /* CloseOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000043 /* CloseOut.swift */; };
 		E1000001211111110000041 /* ICAOCountry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000041 /* ICAOCountry.swift */; };
 		TC0A0001211111110000001 /* TripOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = TC0A0001111111110000001 /* TripOverview.swift */; };
@@ -571,6 +573,7 @@
 		A5000029111111110000001 /* RouteDataCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculatorTests.swift; sourceTree = "<group>"; };
 		A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportMergeTests.swift; sourceTree = "<group>"; };
 		A500002F111111110000001 /* FlightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadTests.swift; sourceTree = "<group>"; };
+		832828F6F6E42D2FA178C2A5 /* FlightPlanRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanRulesTests.swift; sourceTree = "<group>"; };
 		A50000F8111111110000001 /* BriefingRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistryTests.swift; sourceTree = "<group>"; };
 		A50000F9111111110000001 /* PrepareWeatherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrepareWeatherTests.swift; sourceTree = "<group>"; };
 		A50000FA111111110000001 /* TrafficPatternTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrafficPatternTests.swift; sourceTree = "<group>"; };
@@ -896,6 +899,7 @@
 		FP6600011111111000005 /* DecodedWeather.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodedWeather.swift; sourceTree = "<group>"; };
 		FP6600011111111000001 /* FlightPageBlocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPageBlocks.swift; sourceTree = "<group>"; };
 		E1000001111111110000042 /* BriefingRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingRegistry.swift; sourceTree = "<group>"; };
+		396AFBAC2EC13813AF306E01 /* FlightPlanRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanRules.swift; sourceTree = "<group>"; };
 		E1000001111111110000043 /* CloseOut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseOut.swift; sourceTree = "<group>"; };
 		E1000001111111110000041 /* ICAOCountry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICAOCountry.swift; sourceTree = "<group>"; };
 		TC0A0001111111110000001 /* TripOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripOverview.swift; sourceTree = "<group>"; };
@@ -1062,6 +1066,7 @@
 				A5000029111111110000001 /* RouteDataCalculatorTests.swift */,
 				A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */,
 				A500002F111111110000001 /* FlightThreadTests.swift */,
+				832828F6F6E42D2FA178C2A5 /* FlightPlanRulesTests.swift */,
 				A50000F8111111110000001 /* BriefingRegistryTests.swift */,
 				A50000F9111111110000001 /* PrepareWeatherTests.swift */,
 				A50000FA111111110000001 /* TrafficPatternTests.swift */,
@@ -1378,6 +1383,7 @@
 				FP6600011111111000005 /* DecodedWeather.swift */,
 				FP6600011111111000001 /* FlightPageBlocks.swift */,
 				E1000001111111110000042 /* BriefingRegistry.swift */,
+				396AFBAC2EC13813AF306E01 /* FlightPlanRules.swift */,
 				E1000001111111110000043 /* CloseOut.swift */,
 				E1000001111111110000041 /* ICAOCountry.swift */,
 				TC0A0001111111110000001 /* TripOverview.swift */,
@@ -1869,6 +1875,7 @@
 				A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */,
 				A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */,
 				A500002F111111110000002 /* FlightThreadTests.swift in Sources */,
+				A38489C4E3B4A90AFC65AC1A /* FlightPlanRulesTests.swift in Sources */,
 				A50000F8111111110000002 /* BriefingRegistryTests.swift in Sources */,
 				A50000F9111111110000002 /* PrepareWeatherTests.swift in Sources */,
 				A50000FA111111110000002 /* TrafficPatternTests.swift in Sources */,
@@ -2167,6 +2174,7 @@
 				FP6600021111111000005 /* DecodedWeather.swift in Sources */,
 				FP6600021111111000001 /* FlightPageBlocks.swift in Sources */,
 				E1000001211111110000042 /* BriefingRegistry.swift in Sources */,
+				067A8B0C9186D164174CBDB8 /* FlightPlanRules.swift in Sources */,
 				E1000001211111110000043 /* CloseOut.swift in Sources */,
 				E1000001211111110000041 /* ICAOCountry.swift in Sources */,
 				TC0A0001211111110000001 /* TripOverview.swift in Sources */,

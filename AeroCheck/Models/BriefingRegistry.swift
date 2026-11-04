@@ -15,6 +15,9 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
     /// When the job last changed the file.
     let generated: String?
     let countries: [String: Country]
+    /// What a filed VFR plan does and when one is needed, by country (`FlightPlanRules`); nil until a registry has it,
+    /// and the task is then the plain one. (6.9.0)
+    let flightPlan: FlightPlanRules?
 
     /// Prepare's task kinds, as the registry names them.
     enum Category: String, CaseIterable, Codable, Sendable {
@@ -131,10 +134,12 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
         return closing.phones
     }
 
-    init(v: Int = BriefingRegistry.schema, generated: String? = nil, countries: [String: Country]) {
+    init(v: Int = BriefingRegistry.schema, generated: String? = nil, countries: [String: Country],
+         flightPlan: FlightPlanRules? = nil) {
         self.v = v
         self.generated = generated
         self.countries = countries
+        self.flightPlan = flightPlan
     }
 
     // MARK: Decoding, leniently
@@ -143,6 +148,7 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         v = try c.decode(Int.self, forKey: .v)
         generated = try? c.decodeIfPresent(String.self, forKey: .generated)
+        flightPlan = (try? c.decodeIfPresent(FlightPlanRules.self, forKey: .flightPlan)).flatMap { $0 }
         var read: [String: Country] = [:]
         if let entries = try? c.nestedContainer(keyedBy: AnyKey.self, forKey: .countries) {
             for key in entries.allKeys where key.stringValue.count == 2 {
@@ -154,7 +160,7 @@ struct BriefingRegistry: Codable, Equatable, Sendable {
         countries = read
     }
 
-    private enum CodingKeys: String, CodingKey { case v, generated, countries }
+    private enum CodingKeys: String, CodingKey { case v, generated, countries, flightPlan }
 
     struct AnyKey: CodingKey {
         let stringValue: String

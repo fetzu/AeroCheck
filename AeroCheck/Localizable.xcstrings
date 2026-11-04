@@ -21073,6 +21073,167 @@
         }
       }
     },
+    "thread.plan.aerodrome": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ verlangt einen ATC-Flugplan."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ asks for an ATC flight plan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ exige un plan de vol ATC."
+          }
+        }
+      }
+    },
+    "thread.plan.border": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Flug überquert eine Grenze (%@): Ein ATC-Flugplan ist erforderlich."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight crosses a border (%@): an ATC flight plan is required."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol passe une frontière (%@) : un plan de vol ATC est obligatoire."
+          }
+        }
+      }
+    },
+    "thread.plan.every": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ verlangt für jeden Flug einen ATC-Flugplan."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ asks for an ATC flight plan on every flight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pays : %@. Un plan de vol ATC est obligatoire pour chaque vol."
+          }
+        }
+      }
+    },
+    "thread.plan.late": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach der eingereichten Zeit noch am Boden: Verschieben Sie den ATC-Flugplan."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still on the ground past the filed time: delay the ATC flight plan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours au sol après l'heure déposée : retardez le plan de vol ATC."
+          }
+        }
+      }
+    },
+    "thread.plan.night": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Flug findet nachts statt: Ein ATC-Flugplan ist erforderlich."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This flight is at night: an ATC flight plan is required."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce vol a lieu de nuit : un plan de vol ATC est obligatoire."
+          }
+        }
+      }
+    },
+    "thread.plan.reportGeneric": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melden Sie den Start danach dem FIS."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After take-off, report it to the FIS."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après le décollage, annoncez-le au FIS."
+          }
+        }
+      }
+    },
+    "thread.plan.reportTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melden Sie den Start danach %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After take-off, report it to %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après le décollage, annoncez-le à %@."
+          }
+        }
+      }
+    },
     "thread.prohibited.hint": {
       "extractionState": "manual",
       "localizations": {

@@ -51,6 +51,12 @@ enum ThreadTaskEngine {
         /// Whether a flight plan has been filed for this thread — the close-out reminder only exists
         /// once there is something to close.
         var flightPlanFiled: Bool = false
+        /// The route needs an ATC plan: the task turns red until it is ticked. (6.9.0, f7 A)
+        var planNeed: FlightPlanNeed?
+        /// Filed, and still on the ground past the time the country allows: red again, the plan to delay. (6.9.0)
+        var flightPlanLate: Bool = false
+        /// The route goes nowhere: a circuit session planned as a route has no plan task (the author, 3 Nov 2026).
+        var onlyCircuits: Bool = false
         /// The server's briefing registry: which of the route's countries publish an airspace activity page and an
         /// area forecast, each its own task. Nil (a trip rebuilt at load), the rule before 6.5.0: Switzerland's
         /// DABS and GAFOR on a route through it. (6.5.0)
@@ -161,7 +167,10 @@ enum ThreadTaskEngine {
         if let country = c.borderCountry {
             specs.append(Spec(key: .customsNotified, subject: country, kind: .check))
         }
-        specs.append(Spec(key: .flightPlanFiled, kind: .check))
+        if !c.onlyCircuits {
+            specs.append(Spec(key: .flightPlanFiled, kind: .check,
+                              isUrgent: (c.planNeed != nil && !c.flightPlanFiled) || c.flightPlanLate))
+        }
         specs.append(Spec(key: .navLogReady, kind: .check))
 
         // --- CLOSE ---

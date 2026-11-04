@@ -157,6 +157,7 @@ final class DryRunWorldTests: XCTestCase {
                 "UserDefaults.standard": (1, "the tips' reset, the app's own flag; Settings, never under a dry run"),
             ],
             "Services/BriefingRegistryService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
+            "Services/ActivationService.swift": ["DataPersistenceManager.shared": (1, "where the day's bulletin is cached: public airspace data, written whatever the flight, the dry run's or a real one")],
             "Services/FISAreaService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/NASRPatternService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],

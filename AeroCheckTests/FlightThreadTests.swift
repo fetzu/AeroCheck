@@ -1803,6 +1803,11 @@ extension FlightThreadTests {
                        Date(timeIntervalSinceReferenceDate: 1800), "30 minutes stays the limit")
     }
 
+    func testTheRoutesCountriesWithoutAirspaceKeepTheRoutesOrder() {
+        XCTAssertEqual(ThreadBriefing.countriesLackingAirspace(route: ["CH", "FR", "DE"], lacks: { $0 != "CH" }), ["FR", "DE"])
+        XCTAssertEqual(ThreadBriefing.countriesLackingAirspace(route: ["CH"], lacks: { _ in false }), [])
+    }
+
     func testTheHintGivesTheReasonAndWhomToTell() {
         var briefing = ThreadBriefing()
         briefing.planNeed = .night

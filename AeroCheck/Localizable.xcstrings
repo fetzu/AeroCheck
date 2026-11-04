@@ -21211,6 +21211,29 @@
         }
       }
     },
+    "thread.noAirspaceData": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Luftraumdaten für %@ auf diesem Gerät: Die Karte zeigt dort keine Grenzen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No airspace data for %@ on this device: the map shows no limits there."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de données d'espace aérien pour %@ sur cet appareil : la carte n'y montre aucune limite."
+          }
+        }
+      }
+    },
     "thread.plan.aerodrome": {
       "extractionState": "manual",
       "localizations": {

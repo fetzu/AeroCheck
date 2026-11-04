@@ -182,6 +182,11 @@ struct ThreadBriefing {
     /// The FIS to report the departure to, "Zurich Information 124.700"; nil where the data has none.
     var departureFIS: String?
 
+    /// The route's countries whose airspace isn't on the device, in the route's order.
+    static func countriesLackingAirspace(route: [String], lacks: (String) -> Bool) -> [String] {
+        route.filter(lacks)
+    }
+
     /// The flight plan task's words: why it is needed, how to file, whom to tell after take-off, in every country (f7 A).
     var flightPlanHint: String {
         if planIsLate { return L10n.Thread.planLate }
@@ -378,6 +383,7 @@ struct FlightThreadView: View {
     /// The aerodrome whose note the route block or CLOSE opened. (6.7.0)
     @State private var noteAerodrome: AerodromeRef?
     @ObservedObject private var noteStore = AerodromeNoteStore.shared
+    @State private var airspaceDataRoute: OfflineDataRoute?
     /// Chapters and blocks shown open although done, waiting for the day or before the landing: a tap on their line
     /// opens them in place. (6.6.0)
     @State private var unfoldedChapters: Set<ThreadChapter> = []
@@ -418,6 +424,7 @@ struct FlightThreadView: View {
                             }
                             continuationCard(thread)
                             prohibitedCard(thread)
+                            airspaceDataCard(thread)
                             chapters(thread)
                             footer(thread)
                                 .id(Self.footerId)
@@ -1070,6 +1077,33 @@ struct FlightThreadView: View {
             .coachTarget(.chapterBar)
             .coachTarget(.nextCard)
             .coachTarget(.readiness)
+    }
+
+    /// The route's countries with no airspace on this device: the tags, the tap card and the slot have nothing there,
+    /// and since the OpenAIP chart went, no other limits show either. Not a task: a new key would make older builds drop
+    /// the whole thread they read from iCloud. (6.9.0)
+    @ViewBuilder
+    private func airspaceDataCard(_ thread: FlightThread) -> some View {
+        let missing = ThreadBriefing.countriesLackingAirspace(route: thread.countries ?? []) {
+            !openAIPDataService.downloadedCountries.contains($0)
+        }
+        if !missing.isEmpty, thread.state == .planned || thread.state == .ready {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.Thread.noAirspaceData(missing.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
+                    .joined(separator: ", ")))
+                    .font(.aero(.subheadline))
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.Nav.downloadAirspaceData) { airspaceDataRoute = .country(missing[0]) }
+                    .font(.aero(.subheadline).weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("flightPage.airspaceData")
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.cardBackground))
+            .sheet(item: $airspaceDataRoute) { OfflineDataRouteView(route: $0) }
+        }
     }
 
     /// A route through a country whose airspace is closed, above the chapters before the flight: red, with the

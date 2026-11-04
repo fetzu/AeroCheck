@@ -708,6 +708,10 @@ enum L10n {
         }
         static let planReportGeneric = String(localized: "thread.plan.reportGeneric")
         static let planLate = String(localized: "thread.plan.late")
+        /// "No airspace data for France on this device: the map shows no limits there." (6.9.0)
+        static func noAirspaceData(_ countries: String) -> String {
+            String(format: String(localized: "thread.noAirspaceData"), countries)
+        }
         /// A plan filed from a field without ATS, in a country that wants the pilot to activate it. (6.5.0)
         static func activateWithoutATS(_ ident: String) -> String {
             String(format: String(localized: "thread.activation"), ident)

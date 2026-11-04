@@ -190,7 +190,7 @@ struct ThreadBriefing {
     /// The flight plan task's words: why it is needed, how to file, whom to tell after take-off, in every country (f7 A).
     var flightPlanHint: String {
         if planIsLate { return L10n.Thread.planLate }
-        return [planNeed.map(L10n.Thread.planNeeded), L10n.Thread.hintFlightPlanFiled,
+        return [planNeed.map(L10n.Thread.planNeeded), L10n.Thread.hintFlightPlanFiled + ".",
                 departureFIS.map(L10n.Thread.planReportTo) ?? L10n.Thread.planReportGeneric]
             .compactMap { $0 }.joined(separator: " ")
     }

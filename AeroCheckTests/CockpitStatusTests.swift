@@ -218,6 +218,13 @@ final class CockpitStatusTests: XCTestCase {
             XCTAssertEqual(state.tone, tone, "\(state)")
             XCTAssertEqual(state.accessibilityIdentifier, identifier, "\(state)")
         }
+        // The replays read amber off the identifier: the two states' words are the same.
+        let ahead = { (caution: Bool) in
+            AirspaceAheadFinding(airspaceId: "a", name: "CTR", minutes: 2, isCaution: caution,
+                                 entry: CLLocationCoordinate2D(latitude: 47, longitude: 7))
+        }
+        XCTAssertEqual(CockpitStatus.airspaceAhead(ahead(false)).accessibilityIdentifier, "status.airspaceAhead")
+        XCTAssertEqual(CockpitStatus.airspaceAhead(ahead(true)).accessibilityIdentifier, "status.airspaceAhead.caution")
     }
 
     // MARK: - Each state's inputs

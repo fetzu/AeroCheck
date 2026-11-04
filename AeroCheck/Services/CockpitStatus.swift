@@ -68,7 +68,7 @@ enum CockpitStatus: Equatable {
         case .tellFIS: return "status.tellFIS"
         case .sigmet: return "status.sigmet"
         case .briefing: return "status.briefing"
-        case .airspaceAhead: return "status.airspaceAhead"
+        case .airspaceAhead(let finding): return finding.isCaution ? "status.airspaceAhead.caution" : "status.airspaceAhead"
         case .reportDeparture: return "status.reportDeparture"
         }
     }

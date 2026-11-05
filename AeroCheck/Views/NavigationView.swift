@@ -4008,7 +4008,8 @@ struct OverlaysSections: View {
 
             if showsFlight {
                 groupCard(L10n.Nav.flightSection) {
-                    toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
+                    toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, subtitle: L10n.Nav.trackVectorShort,
+                          isOn: appState.settings.showTrackVector) {
                         appState.settings.showTrackVector.toggle(); appState.saveSettings()
                     }
                 }

@@ -8893,19 +8893,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie KARTE. Das Flugzeug rollt von selbst auf die Piste und startet, und die Karte folgt ihm durch die Platzrunde."
+            "value": "Öffnen Sie KARTE. Das Flugzeug rollt von selbst auf die Piste und startet, und die Karte folgt ihm durch die Platzrunde. Die blaue Linie davor zeigt, wo Sie in 1, 2 und 5 Minuten sein werden."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open MAP. The aircraft lines up and takes off by itself, and the map follows it around the circuit."
+            "value": "Open MAP. The aircraft lines up and takes off by itself, and the map follows it around the circuit. The blue line ahead of it shows where you'll be in 1, 2 and 5 minutes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul, et la carte le suit tout au long du tour de piste."
+            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul, et la carte le suit tout au long du tour de piste. La ligne bleue devant lui montre où vous serez dans 1, 2 et 5 minutes."
           }
         }
       }
@@ -16178,6 +16178,29 @@
         }
       }
     },
+    "nav.trackVectorShort": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wo Sie in 1, 2 und 5 Minuten sein werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where you'll be in 1, 2 and 5 minutes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Où vous serez dans 1, 2 et 5 minutes"
+          }
+        }
+      }
+    },
     "nav.usualStopHint": {
       "extractionState": "manual",
       "localizations": {
@@ -21625,52 +21648,6 @@
         }
       }
     },
-    "tips.nowNextBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Frequenz, die Sie jetzt rufen, und die nächste auf Ihrer Route. Tippen Sie darauf für die ganze Liste."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The frequency to call now, and the next one on your route. Tap it for the full list."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La fréquence à appeler maintenant, et la suivante sur votre route. Touchez-la pour la liste complète."
-          }
-        }
-      }
-    },
-    "tips.nowNextTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AKT. und NÄCHSTE"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOW and NEXT"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ACT et SUIV"
-          }
-        }
-      }
-    },
     "tips.offlineBorderBody": {
       "extractionState": "manual",
       "localizations": {
@@ -21782,52 +21759,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les courtes astuces que chaque fonction montre une fois."
-          }
-        }
-      }
-    },
-    "tips.trackVectorBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sobald Sie sich bewegen, zeigt sie, wo Sie in 1, 2 und 5 Minuten sein werden. Unter Karte › Kursvektor schalten Sie sie ein oder aus."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When you're moving, it shows where you'll be in 1, 2 and 5 minutes. Turn it on or off in Map › Track vector."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quand vous vous déplacez, elle montre où vous serez dans 1, 2 et 5 minutes. Activez-la ou masquez-la dans Carte › Vecteur de route."
-          }
-        }
-      }
-    },
-    "tips.trackVectorTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die magentafarbene Linie"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The magenta line"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La ligne magenta"
           }
         }
       }

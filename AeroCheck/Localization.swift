@@ -1635,10 +1635,6 @@ enum L10n {
     enum Tips {
         static let mapSheetTitle = String(localized: "tips.mapSheetTitle")
         static let mapSheetBody = String(localized: "tips.mapSheetBody")
-        static let trackVectorTitle = String(localized: "tips.trackVectorTitle")
-        static let trackVectorBody = String(localized: "tips.trackVectorBody")
-        static let nowNextTitle = String(localized: "tips.nowNextTitle")
-        static let nowNextBody = String(localized: "tips.nowNextBody")
         static let logbookLineTitle = String(localized: "tips.logbookLineTitle")
         static let logbookLineBody = String(localized: "tips.logbookLineBody")
         static let offlineBorderTitle = String(localized: "tips.offlineBorderTitle")
@@ -3849,6 +3845,7 @@ enum L10n {
         static let showLess = String(localized: "nav.showLess")
         static let trackVector = String(localized: "nav.trackVector")
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
+        static let trackVectorShort = String(localized: "nav.trackVectorShort")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
         /// Listen-only, in NEXT's place: an ATIS, an aerodrome on the way. (6.4.2)

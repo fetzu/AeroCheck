@@ -68,6 +68,23 @@ final class AerodromeCardTests: XCTestCase {
         XCTAssertEqual(card.elevationRow, "1400 ft · PPR")
     }
 
+    func testTheCircuitGoesBesideTheElevationAndTheRunwaysKeepTheirRow() {
+        var facts = AerodromeFacts()
+        facts.runways = ["14/32 1730 m ASPHALT"]
+        facts.circuit = AerodromeFacts.circuitText([3000, 2800])
+        facts.isPPR = true
+        let card = AerodromeCardContent.make(airport: airport("LSZQ"), frequencyLines: nil, note: nil, inFlight: false, chart: nil,
+                                             canOpenNote: false, canDivert: false, canAddToRoute: false, facts: facts)
+        XCTAssertEqual(card.elevationRow, "1400 ft · \(L10n.Nav.cardCircuit("2800–3000")) · PPR")
+        XCTAssertEqual(card.runwayRow, "14/32 1730 m ASPHALT")
+    }
+
+    func testCircuitsThatDifferGiveARangeNeverOneOfThem() {
+        XCTAssertNil(AerodromeFacts.circuitText([]))
+        XCTAssertEqual(AerodromeFacts.circuitText([2400, 2400]), L10n.Nav.cardCircuit("2400"))
+        XCTAssertEqual(AerodromeFacts.circuitText([3000, 2800]), L10n.Nav.cardCircuit("2800–3000"))
+    }
+
     private func runway(_ le: String, _ he: String, feet: Int, surface: String, closed: Bool = false) -> Runway {
         Runway(id: feet, airportRef: 1, airportIdent: "LSZB", lengthFt: feet, widthFt: nil, surface: surface, lighted: false,
                closed: closed, leIdent: le, leLatitude: nil, leLongitude: nil, leElevationFt: nil, leHeadingDegT: nil,

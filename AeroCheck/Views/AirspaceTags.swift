@@ -60,9 +60,11 @@ struct AirspaceTagContent: Hashable {
     /// The arrow tag's limit: the floor above, the ceiling below.
     var arrowText: String { shape == .ceiling ? "▼ \(upper)" : "▲ \(lower)" }
 
-    /// The limits along an airspace's boundary, on Plan › Map and under ALL LIMITS.
+    /// The limits along an airspace's boundary, ground first, from one to the other (the author's q6, 5 Nov 2026): a
+    /// slash is the chart's stack laid flat, and reads upside down this way round. Each keeps its unit, since the two can
+    /// have different references: 2000 AGL – 4000 ft.
     static func boundaryText(_ airspace: Airspace) -> String {
-        "\(badge(airspace)) \(limit(airspace.upperCeiling)) / \(limit(airspace.lowerCeiling))"
+        "\(badge(airspace)) \(limit(airspace.lowerCeiling)) – \(limit(airspace.upperCeiling))"
     }
 }
 

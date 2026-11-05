@@ -812,9 +812,8 @@ struct NavigationMapView: View {
         var facts = AerodromeFacts()
         facts.isPPR = OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident)
         facts.runways = AerodromeFacts.runwayLines(airportDataService.getRunways(for: airport.ident))
-        facts.circuit = OFMDataService.shared.procedures(forAerodrome: airport.ident)
-            .first { $0.kind == .circuit && $0.categories.contains(.powered) && $0.altitudeFt != nil }?
-            .altitudeFt.map(L10n.Nav.cardCircuit)
+        facts.circuit = AerodromeFacts.circuitText(OFMDataService.shared.procedures(forAerodrome: airport.ident)
+            .filter { $0.kind == .circuit && $0.categories.contains(.powered) }.compactMap(\.altitudeFt))
         facts.weather = aviationWeatherService.observations.first { $0.icao == airport.ident }
             .flatMap { AerodromeFacts.weatherLine($0, now: FlightClock.now) }
         // Plan › Map only, after the note (c5 A).
@@ -865,7 +864,7 @@ struct NavigationMapView: View {
     /// How often the tags are worked out: one air's worth of change, and a full Germany stays cheap.
     private static let tagInterval: TimeInterval = 5
 
-    /// What this map draws: one style per screen, and ALL LIMITS or the Map sheet's row can take it away.
+    /// What this map draws: one style per screen, and EVERY AIRSPACE or the Map sheet's row can take it away.
     private var mapFeatures: MapFeatures {
         var features: MapFeatures = dryRunSession != nil ? .dryRun : chrome == .plan ? .navigation : .cockpit
         if cockpitMap?.allLimits == true, chrome != .plan { features = features.showingAllLimits() }
@@ -3024,7 +3023,7 @@ struct NavigationMapView: View {
             .onPreferenceChange(MapStatusShownKey.self) { mapStatusShown = $0 }
     }
 
-    /// What the map says at its foot: ALL LIMITS is on, or what it isn't showing (human-factors principle 12).
+    /// What the map says at its foot: EVERY AIRSPACE is on, or what it isn't showing (human-factors principle 12).
     private var cockpitFootChips: [MapFootChip] {
         var chips: [MapFootChip] = []
         if cockpitMap?.allLimits == true { chips.append(.allLimits) }
@@ -3948,8 +3947,8 @@ struct OverlaysSections: View {
                 }
                 Divider().padding(.leading, 56)
                 // Off keeps the shapes and takes the tags or boundary labels away. No preset touches it. (6.9.0)
-                toggleRow(icon: "textformat.123", title: L10n.Nav.airspaceLimits, subtitle: L10n.Nav.airspaceLimitsDetail,
-                          isOn: appState.settings.showAirspaceLimits) {
+                toggleRow(icon: Image("FloorsAndCeilings").renderingMode(.template),
+                          title: L10n.Nav.airspaceLimits, isOn: appState.settings.showAirspaceLimits) {
                     appState.settings.showAirspaceLimits.toggle(); appState.saveSettings()
                 }
             }
@@ -4161,9 +4160,14 @@ struct OverlaysSections: View {
 
     private func toggleRow(icon: String, title: String, subtitle: String? = nil, isOn: Bool,
                            action: @escaping () -> Void) -> some View {
+        toggleRow(icon: Image(systemName: icon), title: title, subtitle: subtitle, isOn: isOn, action: action)
+    }
+
+    private func toggleRow(icon: Image, title: String, subtitle: String? = nil, isOn: Bool,
+                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Image(systemName: icon).font(.aero(size: 20))
+                icon.font(.aero(size: 20))
                     .foregroundColor(isOn ? theme.action : theme.textSecondary).frame(width: 32)
                 // Opened in flight as well, from the iPad Map sheet: kneeboard-size rows. (v6.0 · P6)
                 VStack(alignment: .leading, spacing: 2) {

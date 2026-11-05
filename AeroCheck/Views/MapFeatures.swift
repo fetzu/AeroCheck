@@ -11,7 +11,7 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let airspace = MapFeatures(rawValue: 1 << 1)
     /// The tags that say the limits of the airspace that matters now (`AirspaceRelevance`): the Cockpit's map. (6.9.0)
     static let airspaceTags = MapFeatures(rawValue: 1 << 2)
-    /// The limits along the airspace's boundaries: Plan › Map, the route builder, ALL LIMITS. (6.9.0)
+    /// The limits along the airspace's boundaries: Plan › Map, the route builder, EVERY AIRSPACE. (6.9.0)
     static let airspaceLabels = MapFeatures(rawValue: 1 << 19)
     /// A tap with no marker under it: every airspace over the point (`AirspaceStackCard`). (6.9.0)
     static let airspaceCard = MapFeatures(rawValue: 1 << 20)
@@ -54,7 +54,7 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let cockpit: MapFeatures = navigation.subtracting(.airspaceLabels).union(.airspaceTags)
     /// The dry run: the Cockpit's map without the pilot's notes, which a dry run neither shows nor writes (n7 B).
     static let dryRun: MapFeatures = cockpit.subtracting(.noteCallout)
-    /// ALL LIMITS turned on, on either: the boundary labels instead of the tags (a10 A).
+    /// EVERY AIRSPACE turned on, on either: the boundary labels instead of the tags (a10 A).
     func showingAllLimits() -> MapFeatures { subtracting(.airspaceTags).union(.airspaceLabels) }
     /// The route builder: the markers, the airspace the route crosses with its limits, the procedures, the route being
     /// planned and its editing, with MapKit's dot, compass and scale. No aircraft or track, as before 6.7.0.

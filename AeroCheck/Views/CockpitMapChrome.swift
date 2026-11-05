@@ -54,7 +54,7 @@ struct MapChromeModel {
     var footChips: [MapFootChip] = []
 }
 
-/// A chip at the chart's foot. ALL LIMITS is touchable and turns itself off; the others are traces of what the map
+/// A chip at the chart's foot. EVERY AIRSPACE is touchable and turns itself off; the others are traces of what the map
 /// isn't showing (a10 A; human-factors principle 12).
 enum MapFootChip: Hashable {
     case allLimits, airspaceOff, noAirspaceData, dabsNotLoaded
@@ -93,7 +93,7 @@ struct MapChromeActions {
     var openStatus: (CockpitStatus) -> Void = { _ in }
     /// A tap on a state that tucks away (`CockpitStatus.tucksAway`) in the slot.
     var tuckStatus: (CockpitStatus) -> Void = { _ in }
-    /// ALL LIMITS' chip tapped.
+    /// EVERY AIRSPACE' chip tapped.
     var endAllLimits: () -> Void = {}
 }
 
@@ -138,7 +138,7 @@ struct MapChromeGeometry: Equatable {
         let arrowSize: CGFloat
         /// `SwissScaleBar`'s card: at most 150 pt of bar, 50 pt tall.
         let scaleSize: CGSize
-        /// A chip at the foot: ALL LIMITS is a control, so a control's height on the kneeboard's in-flight floor.
+        /// A chip at the foot: EVERY AIRSPACE is a control, so a control's height on the kneeboard's in-flight floor.
         let chipHeight: CGFloat
 
         init(_ scale: CockpitScale) {
@@ -679,7 +679,7 @@ struct MapChromeEdgeArrow: View {
 
 /// The slot at the top left: the state `CockpitStatusRule` picks, at one size whatever it is. UNDO is
 /// the message and its button; the others are one button each, a tap away from what they are about.
-/// A chip at the chart's foot. ALL LIMITS in cyan, touchable; a trace in grey, as the read band's secondary text.
+/// A chip at the chart's foot. EVERY AIRSPACE in cyan, touchable; a trace in grey, as the read band's secondary text.
 struct MapFootChipView: View {
     let chip: MapFootChip
     let metrics: MapChromeGeometry.Metrics
@@ -1103,7 +1103,7 @@ final class CockpitMapState {
         if shown != offRouteNM { offRouteNM = shown }
     }
 
-    /// ALL LIMITS, from MENU: on until turned off, and this state lives with the Cockpit, so the next flight is back
+    /// EVERY AIRSPACE, from MENU: on until turned off, and this state lives with the Cockpit, so the next flight is back
     /// to tags (a10 A). (6.9.0)
     var allLimits = false
 

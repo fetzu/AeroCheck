@@ -14,7 +14,7 @@ import UIKit
 struct AerodromeFacts: Equatable {
     var isPPR = false
     var runways: [String] = []
-    /// "Circuit 2900 ft", from open flightmaps.
+    /// "circuit 2900 ft" beside the elevation, from open flightmaps.
     var circuit: String?
     /// "12:50Z · 240/08 kt · 9999 m · Q1018", when the app holds a METAR under an hour old (c3 A).
     var weather: String?
@@ -26,6 +26,14 @@ struct AerodromeFacts: Equatable {
     private static let surfaceNames = ["GRS": "GRASS", "ASP": "ASPHALT", "CON": "CONCRETE", "TURF": "GRASS"]
     /// A field's strips can run to seven (Bern): the card keeps the three longest, its row stays one glance.
     static let maxRunways = 3
+
+    /// A field's circuit altitude, or the range when its circuits differ: Bern flies 3000 ft to the north-east and 2800 ft
+    /// to the south-west, and one number would be wrong for one of them (the author's q9, 5 Nov 2026). The map says which
+    /// circuit is which.
+    static func circuitText(_ altitudes: [Int]) -> String? {
+        guard let low = altitudes.min(), let high = altitudes.max() else { return nil }
+        return L10n.Nav.cardCircuit(low == high ? String(low) : "\(low)–\(high)")
+    }
 
     /// The rows for a field's runways: the longest first, three at most, none closed.
     static func runwayLines(_ runways: [Runway]) -> [String] {
@@ -121,13 +129,13 @@ struct AerodromeCardContent: Equatable {
     /// The rows, so one reads the same with or without data: ident and name, then these.
     var elevationRow: String {
         var parts = [elevationFt.map { "\($0) ft" } ?? Self.dash]
+        if let circuit = facts.circuit { parts.append(circuit) }
         if facts.isPPR { parts.append("PPR") }
         return parts.joined(separator: " · ")
     }
 
     var runwayRow: String {
-        let rows = facts.runways + [facts.circuit].compactMap { $0 }
-        return rows.isEmpty ? Self.dash : rows.joined(separator: "\n")
+        facts.runways.isEmpty ? Self.dash : facts.runways.joined(separator: "\n")
     }
 
     var weatherRow: String { facts.weather ?? Self.dash }

@@ -5936,19 +5936,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Grenzen"
+            "value": "Alle Lufträume beschriften"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All limits"
+            "value": "Label every airspace"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toutes les limites"
+            "value": "Étiqueter tous les espaces"
           }
         }
       }
@@ -5959,19 +5959,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALLE GRENZEN"
+            "value": "ALLE LUFTRÄUME"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALL LIMITS"
+            "value": "EVERY AIRSPACE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "TOUTES LES LIMITES"
+            "value": "TOUS LES ESPACES"
           }
         }
       }
@@ -16000,42 +16000,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Luftraumgrenzen auf der Karte"
+            "value": "Unter- und Obergrenzen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limits on the map"
+            "value": "Floors & ceilings"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limites sur la carte"
-          }
-        }
-      }
-    },
-    "nav.airspaceLimitsDetail": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Etiketten im Cockpit, entlang der Grenzen in Plan › Karte"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tags in the Cockpit, along the boundaries on Plan › Map"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Étiquettes dans le Cockpit, le long des limites dans Plan › Carte"
+            "value": "Planchers et plafonds"
           }
         }
       }
@@ -16075,13 +16052,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Circuit %@ ft"
+            "value": "circuit %@ ft"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tour de piste %@ ft"
+            "value": "tour de piste %@ ft"
           }
         }
       }

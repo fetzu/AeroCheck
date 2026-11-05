@@ -65,7 +65,7 @@ final class AirspaceAheadUITests: XCTestCase {
         pilot.check("ah-4", spans <= 1, "no flicker: \(spans) stretch(es) of the CTR's state")
     }
 
-    /// ah-5: ALL LIMITS from Menu: the row, the chip at the map's foot, and the chip's tap turns it off.
+    /// ah-5: EVERY AIRSPACE from Menu: the row, the chip at the map's foot, and the chip's tap turns it off.
     func testAllLimitsFromTheMenu() throws {
         let pilot = try CockpitPilot.onDeviceData(self, scenario: "ahead-grenchen", page: "690")
         defer { pilot.attachResults(testName: name) }

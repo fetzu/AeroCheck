@@ -27,6 +27,12 @@ final class AirspaceTagsTests: XCTestCase {
         XCTAssertEqual(AirspaceTagContent.limit(AltitudeLimit(value: 1000, unit: 0, referenceDatum: 1)), "3281 ft")
     }
 
+    func testTheBoundaryReadsGroundFirstAndEachLimitKeepsItsUnit() {
+        let lsr27 = airspace(.gliderSector, lower: AltitudeLimit(value: 2000, unit: 1, referenceDatum: 0),
+                             upper: AltitudeLimit(value: 4000, unit: 1, referenceDatum: 1))
+        XCTAssertEqual(AirspaceTagContent.boundaryText(lsr27), "GLD 2000 AGL – 4000 ft")
+    }
+
     func testTheBadges() {
         XCTAssertEqual(AirspaceTagContent.badge(airspace(.restricted)), "R")
         XCTAssertEqual(AirspaceTagContent.badge(airspace(.danger)), "D")

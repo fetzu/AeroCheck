@@ -669,7 +669,10 @@ struct NavigationMapView: View {
         // Not for the airspace: launch reads its count from the same metadata, so the decode lands on the same number
         // and the map stayed without airspace until the first pan (the Atlas shot, 3 Nov 2026). The load finishing is
         // the signal that always changes.
-        .onChange(of: openAIPDataService.isLoaded) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPDataService.isLoaded) { _, _ in
+            recomputeMapSpatialContent(force: true)
+            noteAirspaceTagsNow()
+        }
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -679,6 +682,9 @@ struct NavigationMapView: View {
             if open { airspaceStack = nil; selectedStackAirspace = nil }
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in handleLocationChange(newLocation) }
+        // Every fix, the ones a still aircraft holds back from the pipeline too: on the ramp nothing else would ever
+        // bring the tags (the author's device check, 5 Nov 2026).
+        .onChange(of: locationManager.latestFix) { _, fix in if let fix { noteAirspaceTags(at: fix) } }
         .onChange(of: selectedLayer) { _, newLayer in handleLayerChange(to: newLayer) }
         // One choice for every map: picked in the route builder, or on the other map of a split screen, it shows here
         // at once (the author's device check, 23 Oct 2026). (6.5.0)
@@ -728,6 +734,7 @@ struct NavigationMapView: View {
         if openAIPDataService.isDataAvailable {
             Task { await openAIPDataService.ensureLoaded() }
         }
+        noteAirspaceTagsNow()
         // Trigger streaming CTR fetch if enabled and no downloaded data
         if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
            let coord = locationManager.currentLocation?.coordinate {
@@ -765,7 +772,6 @@ struct NavigationMapView: View {
         // Increment counter to force map view updates (ensures aircraft annotation moves)
         locationUpdateCounter += 1
         updateTrackVectorEMA()
-        if let newLocation { noteAirspaceTags(at: newLocation) }
 
         // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
         // state as the pilot had it for the panel to put back. (6.1, option C)
@@ -865,6 +871,13 @@ struct NavigationMapView: View {
         if cockpitMap?.allLimits == true, chrome != .plan { features = features.showingAllLimits() }
         if !appState.settings.showAirspaceLimits { features.subtract([.airspaceTags, .airspaceLabels]) }
         return features
+    }
+
+    /// The tags from the last fix, without waiting for the next: the map just opened, or its data just arrived.
+    private func noteAirspaceTagsNow() {
+        guard let fix = locationManager.latestFix ?? locationManager.currentLocation else { return }
+        airspaceTagsAt = .distantPast
+        noteAirspaceTags(at: fix)
     }
 
     /// One fix: the climb or descent noted, then every few seconds the tags and the shapes' tiers worked out from the

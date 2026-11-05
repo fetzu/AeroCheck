@@ -4549,6 +4549,8 @@ enum L10n {
             static let mapTakeoffBody = String(localized: "dryRunCoach.step.mapTakeoff.body")
             static let airborneTitle = String(localized: "dryRunCoach.step.airborne.title")
             static let airborneBody = String(localized: "dryRunCoach.step.airborne.body")
+            static let trackLineTitle = String(localized: "dryRunCoach.step.trackLine.title")
+            static let trackLineBody = String(localized: "dryRunCoach.step.trackLine.body")
             static let climbCheckTitle = String(localized: "dryRunCoach.step.climbCheck.title")
             static let climbCheckBody = String(localized: "dryRunCoach.step.climbCheck.body")
             static let climbCheckUpcoming = String(localized: "dryRunCoach.step.climbCheck.upcoming")

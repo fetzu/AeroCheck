@@ -8893,19 +8893,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie KARTE. Das Flugzeug rollt von selbst auf die Piste und startet, und die Karte folgt ihm durch die Platzrunde. Die blaue Linie davor zeigt, wo Sie in 1, 2 und 5 Minuten sein werden."
+            "value": "Öffnen Sie KARTE. Das Flugzeug rollt von selbst auf die Piste und startet, und die Karte folgt ihm durch die Platzrunde."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open MAP. The aircraft lines up and takes off by itself, and the map follows it around the circuit. The blue line ahead of it shows where you'll be in 1, 2 and 5 minutes."
+            "value": "Open MAP. The aircraft lines up and takes off by itself, and the map follows it around the circuit."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul, et la carte le suit tout au long du tour de piste. La ligne bleue devant lui montre où vous serez dans 1, 2 et 5 minutes."
+            "value": "Ouvrez CARTE. L'avion s'aligne et décolle tout seul, et la carte le suit tout au long du tour de piste."
           }
         }
       }
@@ -13207,6 +13207,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "La page du vol"
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.trackLine.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die blaue Linie vor dem Flugzeug zeigt, wo Sie in 1, 2 und 5 Minuten sein werden, bei dieser Geschwindigkeit und auf diesem Kurs."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The blue line ahead of the aircraft shows where you'll be in 1, 2 and 5 minutes, at this speed and on this track."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ligne bleue devant l'avion montre où vous serez dans 1, 2 et 5 minutes, à cette vitesse et sur cette route."
+          }
+        }
+      }
+    },
+    "dryRunCoach.step.trackLine.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wo Sie sein werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where you'll be"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Où vous serez"
           }
         }
       }

@@ -15971,25 +15971,48 @@
         }
       }
     },
-    "nav.airspaceHere": {
+    "nav.airspaceCardGround": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Luftraum hier"
+            "value": "Boden %@ ft"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Airspace here"
+            "value": "Ground %@ ft"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Espaces aériens ici"
+            "value": "Sol %@ ft"
+          }
+        }
+      }
+    },
+    "nav.airspaceCardYou": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie %@ ft"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You %@ ft"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous %@ ft"
           }
         }
       }

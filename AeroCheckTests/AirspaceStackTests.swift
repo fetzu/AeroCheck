@@ -28,6 +28,12 @@ final class AirspaceStackTests: XCTestCase {
         XCTAssertEqual(stack.rows.map(\.name), ["high", "mid", "low"])
     }
 
+    func testEachRowHoldsItsCeilingAndItsFloorApart() throws {
+        let stack = try XCTUnwrap(AirspaceStack.make(at: here, from: [airspace("mid", lower: 2000, upper: 5000)], altitudeFt: nil))
+        XCTAssertEqual(stack.rows[0].upper, "5000 ft")
+        XCTAssertEqual(stack.rows[0].lower, "2000 ft")
+    }
+
     func testTheBandThatHoldsTheAircraftIsFramed() throws {
         let stack = try XCTUnwrap(AirspaceStack.make(at: here, from: [
             airspace("low", lower: 0, upper: 2000), airspace("mid", lower: 2000, upper: 5000)], altitudeFt: 3500))

@@ -3886,7 +3886,12 @@ enum L10n {
         static let cardFees = String(localized: "nav.cardFees")
         static let cardBriefing = String(localized: "nav.cardBriefing")
         /// The tap card's title. (6.9.0)
-        static let airspaceHere = String(localized: "nav.airspaceHere")
+        static func airspaceCardYou(_ feet: String) -> String {
+            String(format: String(localized: "nav.airspaceCardYou"), feet)
+        }
+        static func airspaceCardGround(_ feet: String) -> String {
+            String(format: String(localized: "nav.airspaceCardGround"), feet)
+        }
         /// "Not active today (DABS v3, 12:45)". (6.9.0, a14 A)
         static func dabsNotActive(_ source: String) -> String {
             String(format: String(localized: "nav.dabsNotActive"), source)

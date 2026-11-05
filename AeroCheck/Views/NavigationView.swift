@@ -836,13 +836,27 @@ struct NavigationMapView: View {
         let board = ActivationService.shared.board
         airspaceStack = AirspaceStack.make(at: coordinate, from: airspaces + board.tempAirspaces, altitudeFt: altitude,
                                            board: board)
+        askAirspaceGround(at: coordinate)
+    }
+
+    /// The ground under the tapped point, for the card's corner: Plan › Map only, and only when the app can ask. It never
+    /// holds the card up, and a card that has moved on drops the answer. (the author's q8, 5 Nov 2026)
+    private func askAirspaceGround(at coordinate: CLLocationCoordinate2D) {
+        airspaceGroundTask?.cancel()
+        airspaceGroundFt = nil
+        guard chrome == .plan, airspaceStack != nil else { return }
+        airspaceGroundTask = Task {
+            let metres = await ElevationService().groundElevation(at: coordinate)
+            guard !Task.isCancelled, let metres else { return }
+            airspaceGroundFt = metres * Self.feetPerMetre
+        }
     }
 
     /// The card over the chart: on the iPad in its left half, on the phone over its lower half (a12 A).
     @ViewBuilder private var airspaceStackOverlay: some View {
         if let stack = airspaceStack {
             let phone = CockpitScale.current == .phone
-            AirspaceStackCard(stack: stack, selected: $selectedStackAirspace) {
+            AirspaceStackCard(stack: stack, groundFt: airspaceGroundFt, selected: $selectedStackAirspace) {
                 airspaceStack = nil
                 selectedStackAirspace = nil
             }
@@ -1581,6 +1595,8 @@ struct NavigationMapView: View {
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
     @State private var airspaceTags: [AirspaceRelevantTag] = []
     @State private var airspaceStack: AirspaceStack?
+    @State private var airspaceGroundFt: Double?
+    @State private var airspaceGroundTask: Task<Void, Never>?
     @State private var selectedStackAirspace: String?
     @State private var airspaceTagsAt = Date.distantPast
     @State private var airspaceTrend = AirspaceVerticalTrend()

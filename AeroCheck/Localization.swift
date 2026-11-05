@@ -1632,6 +1632,25 @@ enum L10n {
 
     // MARK: - Onboarding
     /// The one-time tips (`AeroTips`, 6.8.0).
+    enum Permissions {
+        static let pageTitle = String(localized: "permissions.pageTitle")
+        static let pageNext = String(localized: "permissions.pageNext")
+        static let reminders = String(localized: "permissions.reminders")
+        static let remindersWhy = String(localized: "permissions.remindersWhy")
+        static let locationAlways = String(localized: "permissions.locationAlways")
+        static let locationAlwaysWhy = String(localized: "permissions.locationAlwaysWhy")
+        static let motion = String(localized: "permissions.motion")
+        static let motionWhy = String(localized: "permissions.motionWhy")
+        static let settingsTitle = String(localized: "permissions.settingsTitle")
+        static let location = String(localized: "permissions.location")
+        static let stateOn = String(localized: "permissions.stateOn")
+        static let stateOff = String(localized: "permissions.stateOff")
+        static let stateAlways = String(localized: "permissions.stateAlways")
+        static let stateWhileUsing = String(localized: "permissions.stateWhileUsing")
+        static let stateNotAsked = String(localized: "permissions.stateNotAsked")
+        static let settingsLimited = String(localized: "permissions.settingsLimited")
+    }
+
     enum Tips {
         static let mapSheetTitle = String(localized: "tips.mapSheetTitle")
         static let mapSheetBody = String(localized: "tips.mapSheetBody")

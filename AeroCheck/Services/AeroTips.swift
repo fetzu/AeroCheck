@@ -13,16 +13,19 @@ enum AeroTips {
     /// Settings › About's "Show the tips again": TipKit's store is reset before it is configured, so at the next launch.
     nonisolated static let resetPendingKey = "tips.resetPending"
 
+    /// The tests, a replay or a screenshot run: nothing of this kind comes over their screens.
+    nonisolated static var isScripted: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil || environment.keys.contains { $0.hasPrefix("AEROCHECK_") }
+    }
+
     /// Once, at launch.
     static func configure(defaults: UserDefaults = .standard) {
-        let environment = ProcessInfo.processInfo.environment
-        let scripted = environment["XCTestConfigurationFilePath"] != nil
-            || environment.keys.contains { $0.hasPrefix("AEROCHECK_") }
         if defaults.bool(forKey: resetPendingKey) {
             try? Tips.resetDatastore()
             defaults.set(false, forKey: resetPendingKey)
         }
-        if scripted { Tips.hideAllTipsForTesting() }
+        if isScripted { Tips.hideAllTipsForTesting() }
         try? Tips.configure([.displayFrequency(.immediate), .datastoreLocation(.applicationDefault)])
     }
 

@@ -40,8 +40,8 @@ enum FlightCreator {
         // `.notDetermined` when the guard ran, the reminder was dropped, and nothing ever rescans —
         // so the first flight a pilot ever plans silently got no preparation reminder. The prompt
         // still lands here, with the pilot having just asked for it, rather than at cold launch.
-        // (review F16)
-        await notifications.requestAuthorization()
+        // (review F16) The first flight's page asks the rest with it. (6.9.0)
+        await FirstFlightPermissions.shared.askWhenPlanning(notifications)
 
         let thread = threads.createThread(
             from: plan,
@@ -73,7 +73,7 @@ enum FlightCreator {
         plans.add(plan)
 
         // Before `createThread`, for the reason given in `create(from:)` above. (review F16)
-        await notifications.requestAuthorization()
+        await FirstFlightPermissions.shared.askWhenPlanning(notifications)
 
         let thread = threads.createThread(
             from: plan,

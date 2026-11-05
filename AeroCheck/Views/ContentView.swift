@@ -180,6 +180,9 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: threadManager.circuitCloseOutOffer)
         }
         .onAppear {
+            FirstFlightPermissions.shared.locationManager = locationManager
+            FirstFlightPermissions.shared.hasFlown = { [appState] in !appState.flights.isEmpty }
+
             // Only ask for location at launch for users who've already been through onboarding — a fresh
             // install requests it during the onboarding "Location" step instead. A skipped or revoked
             // permission is still caught at flight start (FlightLauncher UX-13). (onboarding revamp)

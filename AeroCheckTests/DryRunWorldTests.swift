@@ -188,10 +188,17 @@ final class DryRunWorldTests: XCTestCase {
             ],
             "Views/CompanionPairingView.swift": ["CompanionConnectivityManager.shared": (2, "Settings, never under a dry run")],
             "Views/FlightLogView.swift": ["@AppStorage": (3, "the share card's look, the pilot's own choice wherever it is made, the dry run's logbook included")],
-            "Views/FlightPlanningView.swift": ["NotificationService.shared": (1, "planning, on the ground")],
+            "Services/FirstFlightPermissions.swift": [
+                "CMAltimeter()": (1, "asks iOS once, behind `isInert` and `AeroTips.quiet`: never under a dry run"),
+                "NotificationService.shared": (1, "START, and `FlightLauncher` refuses a start during a dry run"),
+                "UNUserNotificationCenter": (1, "reads the status, behind the same guards"),
+            ],
             "Views/FlightView.swift": ["CompanionConnectivityManager.shared": (3, "the in-flight menu's Companion toggle, hidden in a dry run (`isDryRun`)")],
             "Views/NavigationView.swift": ["WatchConnectivityManager.shared": (1, "Plan › Map, never open in flight")],
-            "Views/Settings/SyncDataSettingsView.swift": ["SyncManager.shared": (1, "Settings, never under a dry run")],
+            "Views/Settings/SyncDataSettingsView.swift": [
+                "SyncManager.shared": (1, "Settings, never under a dry run"),
+                "UNUserNotificationCenter": (1, "reads the status for Settings, never under a dry run"),
+            ],
             "Views/ShareCardSheet.swift": ["@AppStorage": (4, "the share card's look, the pilot's own choice wherever it is made, the dry run's logbook included")],
         ]
         let apis: [(name: String, pattern: String)] = [

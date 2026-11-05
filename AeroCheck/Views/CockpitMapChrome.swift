@@ -140,6 +140,12 @@ struct MapChromeGeometry: Equatable {
         let scaleSize: CGSize
         /// A chip at the foot: EVERY AIRSPACE is a control, so a control's height on the kneeboard's in-flight floor.
         let chipHeight: CGFloat
+        /// A warning chip: it takes no tap.
+        var warningChipHeight: CGFloat { chipHeight * 0.6 }
+        /// Where a chip starts on the foot line: right of the map's (i), MapLibre's 26 pt attribution button 8 pt from the
+        /// corner. It holds the credit the OpenStreetMap licence asks for, so nothing lies on it for good (the author's
+        /// note on the chip's place, 5 Nov 2026).
+        let attributionRoom: CGFloat = 42
 
         init(_ scale: CockpitScale) {
             let kneeboard = scale == .kneeboard
@@ -192,8 +198,9 @@ struct MapChromeGeometry: Equatable {
 
     /// `showsStack`: false while the phone shows a leg from ROUTE, whose bar takes the chart's foot (Back to
     /// aircraft is centre then). `footRoom`: what that bar takes of the foot, kept clear of the scale and
-    /// the edge arrow.
-    init(size: CGSize, scale: CockpitScale, showsStack: Bool = true, footRoom: CGFloat = 0) {
+    /// the edge arrow. `footChips`: what the map says at its foot, on the foot line (the author's r2-7, A): the chips are
+    /// there for as long as they apply, so they get the line, and the scale, there for two seconds, goes above them.
+    init(size: CGSize, scale: CockpitScale, showsStack: Bool = true, footRoom: CGFloat = 0, footChips chips: [MapFootChip] = []) {
         let m = Metrics(scale)
         let all = showsStack ? Self.controls(for: scale) : []
         let length = { (count: Int) in CGFloat(count) * m.button + CGFloat(max(count - 1, 0)) * m.gap }
@@ -261,6 +268,14 @@ struct MapChromeGeometry: Equatable {
         if !frames.isEmpty, scaleFrame.intersects(stack) {
             scaleFrame.origin.y = min(stack.minY, floor) - m.gap - m.scaleSize.height
         }
+        // The chips where the scale would be, on that same line; the scale over them.
+        var chipsFrame = CGRect.zero
+        if !chips.isEmpty {
+            let height = chips.reduce(CGFloat(chips.count - 1) * m.gap) { $0 + ($1.isControl ? m.chipHeight : m.warningChipHeight) }
+            chipsFrame = CGRect(x: m.attributionRoom, y: scaleFrame.maxY - height,
+                                width: max(0, stack.minX - m.gap - m.attributionRoom), height: height)
+            scaleFrame.origin = CGPoint(x: chipsFrame.minX, y: chipsFrame.minY - m.gap - m.scaleSize.height)
+        }
 
         // The arrow: left of the stack, or above it, whichever leaves it more room; over a leg's bar.
         let below = slot.maxY + m.slotGap
@@ -280,6 +295,7 @@ struct MapChromeGeometry: Equatable {
         self.scale = scaleFrame
         self.arrowBounds = left.width * left.height >= above.width * above.height ? left : above
         self.footRoom = footRoom
+        self.footChips = chipsFrame
     }
 
     /// What a leg's bar takes of the foot: its height and the stack's margin under it.
@@ -291,12 +307,11 @@ struct MapChromeGeometry: Equatable {
         [stack, tuckedStatus, statusSlot, scale, footChips].filter { !$0.isEmpty }
     }
 
-    /// The foot's chips: at the left, over the scale, as wide as the stack leaves.
-    var footChips: CGRect {
-        let height = 2 * metrics.chipHeight + metrics.gap
-        return CGRect(x: metrics.margin, y: scale.minY - metrics.gap - height,
-                      width: max(0, stack.minX - metrics.gap - metrics.margin), height: height)
-    }
+    /// The foot's chips: on the foot line, right of the map's (i), as wide as the stack leaves. Empty without any.
+    let footChips: CGRect
+
+    /// How far the chips lift what stands over the foot: the scale, and the imagery credits.
+    var footChipsRoom: CGFloat { footChips.isEmpty ? 0 : footChips.height + metrics.gap }
 
     /// A leg's bar from ROUTE (`FramedLegBar`) along the chart's foot: from the left margin to the stack
     /// (a gap short of it), or to the right margin without one, on the stack's margin. `height`: the bar's.
@@ -396,7 +411,8 @@ struct CockpitMapChrome: View {
 
     var body: some View {
         GeometryReader { proxy in
-            pieces(MapChromeGeometry(size: proxy.size, scale: scale, showsStack: showsStack, footRoom: footRoom))
+            pieces(MapChromeGeometry(size: proxy.size, scale: scale, showsStack: showsStack, footRoom: footRoom,
+                                     footChips: model.footChips))
         }
         .coordinateSpace(.named(MapChromeElement.space))
         .onAppear {
@@ -704,7 +720,7 @@ struct MapFootChipView: View {
         }
         .foregroundColor(color)
         .padding(.horizontal, metrics.slotPadding)
-        .frame(minHeight: chip.isControl ? metrics.chipHeight : metrics.chipHeight * 0.6)
+        .frame(minHeight: chip.isControl ? metrics.chipHeight : metrics.warningChipHeight)
         .background(RoundedRectangle(cornerRadius: metrics.slotCornerRadius).fill(theme.panel.opacity(0.97)))
         .overlay(RoundedRectangle(cornerRadius: metrics.slotCornerRadius).strokeBorder(theme.panelStroke, lineWidth: 1))
         .contentShape(Rectangle())

@@ -361,7 +361,8 @@ struct PilotMapView: UIViewRepresentable {
             let sources = showing ? ImageryTiles.credited(in: Self.mercatorRect(of: mapView), zoom: mapView.zoomLevel,
                                                           store: PilotMap.imagery) : []
             let ids = sources.map(\.id)
-            // Above the scale bar and MapLibre's attribution button, and above Plan › Map's allowance line.
+            // Above the scale bar and MapLibre's attribution button, and above Plan › Map's allowance line or the Cockpit's
+            // foot chips.
             creditsBottom?.constant = -(64 + map.mapState.footerLift)
             guard ids != shownCredits else { return }
             shownCredits = ids

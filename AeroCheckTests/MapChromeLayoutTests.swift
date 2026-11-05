@@ -36,6 +36,51 @@ final class MapChromeLayoutTests: XCTestCase {
                        accuracy: 0.01, "Plan › Map's card as before")
     }
 
+    // MARK: - The foot's chips (the author's r2-7, A)
+
+    /// On the foot line, in line with the stack's last control: the chip never floats over an empty strip.
+    func testAChipSitsOnTheFootLine() throws {
+        let geometry = MapChromeGeometry(size: Chart.iPadPortrait.size, scale: .kneeboard, footChips: [.allLimits])
+        let foot = try XCTUnwrap(geometry.frames[.zoomOut])
+        XCTAssertEqual(geometry.footChips.maxY, foot.maxY, "on the − button's line")
+        XCTAssertEqual(geometry.footChips.height, geometry.metrics.chipHeight)
+    }
+
+    /// The map's (i) carries the OpenStreetMap credit: no chip lies on it, on any chart, in any number.
+    func testNoChipCoversTheMapsInformationButton() {
+        let chipSets: [[MapFootChip]] = [[.allLimits], [.airspaceOff], [.allLimits, .noAirspaceData], [.allLimits, .noAirspaceData, .dabsNotLoaded]]
+        for chart in Chart.allCases {
+            let button = CGRect(x: 8, y: chart.size.height - 34, width: 26, height: 26)
+            for chips in chipSets {
+                let geometry = MapChromeGeometry(size: chart.size, scale: chart.scale, footChips: chips)
+                XCTAssertFalse(geometry.footChips.intersects(button), "\(chart) \(chips)")
+                XCTAssertFalse(geometry.footChips.intersects(geometry.stack), "\(chart) \(chips): clear of the stack")
+            }
+        }
+    }
+
+    /// The scale, there for two seconds, goes above the chips; without any it stays where it was, and the frames
+    /// around it don't change either way.
+    func testTheScaleGoesAboveTheChips() {
+        for chart in Chart.allCases {
+            let plain = MapChromeGeometry(size: chart.size, scale: chart.scale)
+            let chip = MapChromeGeometry(size: chart.size, scale: chart.scale, footChips: [.allLimits])
+            XCTAssertTrue(plain.footChips.isEmpty, "\(chart)")
+            XCTAssertEqual(plain.footChipsRoom, 0, "\(chart)")
+            XCTAssertEqual(chip.scale.maxY, chip.footChips.minY - chip.metrics.gap, "\(chart)")
+            XCTAssertEqual(chip.scale.minX, chip.footChips.minX, "\(chart): in line with the chip")
+            XCTAssertEqual(chip.footChips.maxY, plain.scale.maxY, "\(chart): on the line the scale had")
+            XCTAssertEqual(chip.footChipsRoom, chip.metrics.chipHeight + chip.metrics.gap, "\(chart)")
+            XCTAssertEqual(chip.frames, plain.frames, "\(chart): the stack stays")
+        }
+    }
+
+    /// Over a leg's bar, the chips and the scale stand on the bar.
+    func testTheChipsStandOnALegsBar() {
+        let leg = MapChromeGeometry(size: Chart.iPadPortrait.size, scale: .kneeboard, footRoom: 96, footChips: [.allLimits])
+        XCTAssertLessThanOrEqual(leg.footChips.maxY, leg.legBarFrame(height: 96 - leg.metrics.margin).minY)
+    }
+
     func testTheStackKeepsItsFramesWhateverTheChromeShows() {
         for chart in Chart.allCases {
             let geometry = MapChromeGeometry(size: chart.size, scale: chart.scale)

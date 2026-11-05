@@ -204,8 +204,8 @@ class SharedMapState: ObservableObject {
     /// laid over the chart where a callout opens, the scale bar and the off-screen route pill, steps aside
     /// until it closes. Kept by the representables' coordinators from MapKit's selection. (6.2.0)
     @Published private(set) var isCalloutOpen = false
-    /// How far the chrome at the chart's bottom left reaches above the scale bar (Plan › Map's allowance line): the
-    /// imagery credits sit above it. (6.8.0)
+    /// How far the chrome at the chart's bottom left reaches above the scale bar (Plan › Map's allowance line, the Cockpit's
+    /// foot chips): the imagery credits sit above it. (6.8.0)
     @Published var footerLift: CGFloat = 0
 
     init() {
@@ -3037,6 +3037,8 @@ struct NavigationMapView: View {
                                zoomOut: { zoom(by: 2.0) },
                                openStatus: { openStatus($0) }))
             .onPreferenceChange(MapStatusShownKey.self) { mapStatusShown = $0 }
+            // The imagery credits stay readable over the chips, as they do over Plan › Map's allowance line.
+            .onChange(of: cockpitChromeGeometry.footChipsRoom, initial: true) { _, room in mapState.footerLift = room }
     }
 
     /// What the map says at its foot: EVERY AIRSPACE is on, or what it isn't showing (human-factors principle 12).
@@ -3113,7 +3115,7 @@ struct NavigationMapView: View {
     /// The chrome's frames on this chart, as `CockpitChartChrome` lays them out.
     private var cockpitChromeGeometry: MapChromeGeometry {
         MapChromeGeometry(size: chartGeometry.chartSize, scale: .current, showsStack: cockpitShowsStack,
-                          footRoom: cockpitLegFootRoom)
+                          footRoom: cockpitLegFootRoom, footChips: cockpitFootChips)
     }
 
     /// The room around what MAP frames: clear of the chrome, within the caps a short chart needs.

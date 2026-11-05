@@ -85,8 +85,8 @@ final class AerodromeCardTests: XCTestCase {
         XCTAssertEqual(AerodromeFacts.circuitText([3000, 2800]), L10n.Nav.cardCircuit("2800–3000"))
     }
 
-    private func runway(_ le: String, _ he: String, feet: Int, surface: String, closed: Bool = false) -> Runway {
-        Runway(id: feet, airportRef: 1, airportIdent: "LSZB", lengthFt: feet, widthFt: nil, surface: surface, lighted: false,
+    private func runway(_ le: String, _ he: String, feet: Int?, surface: String, closed: Bool = false) -> Runway {
+        Runway(id: feet ?? 0, airportRef: 1, airportIdent: "LSZB", lengthFt: feet, widthFt: nil, surface: surface, lighted: false,
                closed: closed, leIdent: le, leLatitude: nil, leLongitude: nil, leElevationFt: nil, leHeadingDegT: nil,
                leDisplacedThresholdFt: nil, heIdent: he, heLatitude: nil, heLongitude: nil, heElevationFt: nil,
                heHeadingDegT: nil, heDisplacedThresholdFt: nil, pcn: nil, leToraFt: nil, leLdaFt: nil, heToraFt: nil,
@@ -98,7 +98,21 @@ final class AerodromeCardTests: XCTestCase {
             runway("16L", "34R", feet: 500, surface: "GRS"), runway("14", "32", feet: 5675, surface: "ASPHALT"),
             runway("16", "34", feet: 1700, surface: "GRASS"), runway("14R", "32L", feet: 2130, surface: "GRASS"),
             runway("01", "19", feet: 9000, surface: "ASPHALT", closed: true)])
-        XCTAssertEqual(lines, ["14/32 · 1730 m · ASPHALT", "14R/32L · 649 m · GRASS", "16/34 · 518 m · GRASS"])
+        XCTAssertEqual(lines, ["14/32   · 1730 m · ASPHALT", "14R/32L ·  649 m · GRASS", "16/34   ·  518 m · GRASS"])
+    }
+
+    func testTheRunwayLinesAlignInColumns() {
+        // Grenchen: the author's r2-4. The card's font is monospaced, so the second dot falls under the second dot.
+        let lines = AerodromeFacts.runwayLines([
+            runway("06", "24", feet: 3280, surface: "ASPHALT"), runway("06R", "24L", feet: 2297, surface: "GRASS"),
+            runway("06G", "24G", feet: 2296, surface: "GRASS")])
+        XCTAssertEqual(lines, ["06/24   · 1000 m · ASPHALT", "06R/24L ·  700 m · GRASS", "06G/24G ·  700 m · GRASS"])
+    }
+
+    func testARunwayWithoutALengthKeepsItsSurfaceInLine() {
+        let lines = AerodromeFacts.runwayLines([
+            runway("14", "32", feet: 5675, surface: "ASPHALT"), runway("16", "34", feet: nil, surface: "GRASS")])
+        XCTAssertEqual(lines, ["14/32 · 1730 m · ASPHALT", "16/34            GRASS"])
     }
 
     func testTheSourcesWriteASurfaceOneWay() {

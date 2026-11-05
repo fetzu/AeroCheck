@@ -35,20 +35,36 @@ struct AerodromeFacts: Equatable {
         return L10n.Nav.cardCircuit(low == high ? String(low) : "\(low)–\(high)")
     }
 
-    /// The rows for a field's runways: the longest first, three at most, none closed.
+    /// The rows for a field's runways: the longest first, three at most, none closed. In columns, the card's font being
+    /// monospaced: Grenchen's 06R/24L under its 06/24 read as a broken list before (the author's r2-4, 5 Nov 2026).
     static func runwayLines(_ runways: [Runway]) -> [String] {
-        Array(runways.filter { !$0.closed }.sorted { ($0.lengthFt ?? 0) > ($1.lengthFt ?? 0) }
-            .compactMap(runwayLine).prefix(maxRunways))
+        let rows = runways.filter { !$0.closed }.sorted { ($0.lengthFt ?? 0) > ($1.lengthFt ?? 0) }
+            .compactMap(runwayColumns).prefix(maxRunways)
+        let nameWidth = rows.map(\.name.count).max() ?? 0
+        let lengthWidth = rows.map(\.length.count).max() ?? 0
+        return rows.map { row in
+            var line = row.name.padding(toLength: nameWidth, withPad: " ", startingAt: 0)
+            if lengthWidth > 0 {
+                line += row.name.isEmpty || row.length.isEmpty ? "   " : " · "
+                line += String(repeating: " ", count: lengthWidth - row.length.count) + row.length
+            }
+            if !row.surface.isEmpty { line += row.length.isEmpty ? "   " : " · " }
+            return (line + row.surface).trimmingCharacters(in: .whitespaces)
+        }
     }
 
     /// "05/23 · 1200 m · ASPHALT": the designators, the length in metres, the surface. Nil for a closed runway.
     static func runwayLine(_ runway: Runway) -> String? {
+        runwayColumns(runway).map { [$0.name, $0.length, $0.surface].filter { !$0.isEmpty }.joined(separator: " · ") }
+    }
+
+    /// A runway's three columns, empty where the source has nothing. Nil for a closed runway, or one with nothing to say.
+    private static func runwayColumns(_ runway: Runway) -> (name: String, length: String, surface: String)? {
         guard !runway.closed else { return nil }
         let name = [runway.leIdent, runway.heIdent].compactMap { $0 }.joined(separator: "/")
-        let length = runway.lengthFt.map { "\(Int((Double($0) * 0.3048).rounded())) m" }
-        let surface = runway.surface.flatMap { $0.isEmpty ? nil : surfaceNames[$0.uppercased()] ?? $0.uppercased() }
-        let parts = [name.isEmpty ? nil : name, length, surface].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        let length = runway.lengthFt.map { "\(Int((Double($0) * 0.3048).rounded())) m" } ?? ""
+        let surface = runway.surface.flatMap { $0.isEmpty ? nil : surfaceNames[$0.uppercased()] ?? $0.uppercased() } ?? ""
+        return name.isEmpty && length.isEmpty && surface.isEmpty ? nil : (name, length, surface)
     }
 
     /// A METAR as one line, or nil over an hour old: wind, visibility, QNH, each left out where the report has none.

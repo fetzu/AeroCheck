@@ -678,8 +678,7 @@ final class DryRunCenter: ObservableObject {
         let start: DryRunStart
     }
 
-    /// Device-local (D7): Today's card put away with Not now, and the guided flight flown to its end.
-    nonisolated static let todayCardDismissedKey = "dryRun.todayCardDismissed"
+    /// Device-local (D7): the guided flight flown to its end.
     nonisolated static let guidedFlownKey = "dryRun.guidedFlown"
     /// Which screen shows the start sheet and the Cockpit (`dryRunPresenter`).
     @Published private(set) var presenter = DryRunCenter.rootPresenter

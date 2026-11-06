@@ -81,6 +81,13 @@ struct AerodromeNoteCloseOffer: View {
     let onOpen: () -> Void
     @ObservedObject private var store = AerodromeNoteStore.shared
 
+    /// Somewhere other than home, or where a note already exists: the field the pilot knows best needs no asking
+    /// after every flight (the author, 6 Nov 2026).
+    static func isOffered(_ aerodrome: AerodromeRef, home: String?, hasNote: Bool) -> Bool {
+        guard !hasNote, let home = HomeAerodrome.normalized(home) else { return true }
+        return !([aerodrome.ident] + aerodrome.otherIdents).contains { $0.uppercased() == home }
+    }
+
     var body: some View {
         let note = store.note(for: aerodrome)
         Button(action: onOpen) {

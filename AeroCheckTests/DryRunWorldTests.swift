@@ -150,8 +150,8 @@ final class DryRunWorldTests: XCTestCase {
             "Services/BarometricAltitudeService.swift": ["CMAltimeter()": (1, "started by a real flight's tracking only (D3)")],
             "Services/DataPersistenceManager.swift": ["UserDefaults.standard": (2, "the app's store; the world's is confined")],
             "Services/DryRunSession.swift": ["UserDefaults.standard": (2, "the app's own flags that the guided flight and the first flight were flown (Today's cards), never the world's")],
-            "Views/DryRunGuidedViews.swift": ["@AppStorage": (3, "Today's card: the app's own flags, read on the ground, never by the world")],
-            "Views/GettingStartedCard.swift": ["@AppStorage": (5, "Today's Getting started card, the app's own flags; not on a dry run's Today")],
+            "Views/FlightPlanMapBuilderView.swift": ["@AppStorage": (1, "the data banner's ✕, the same flag whichever map it was pressed on; it holds no flight")],
+            "Views/GettingStartedCard.swift": ["@AppStorage": (6, "Today's Getting started card, the app's own flags; not on a dry run's Today")],
             "Views/Settings/AboutSettingsView.swift": [
                 "@AppStorage": (1, "the tips' reset, the app's own flag; Settings, never under a dry run"),
                 "UserDefaults.standard": (1, "the tips' reset, the app's own flag; Settings, never under a dry run"),
@@ -171,7 +171,7 @@ final class DryRunWorldTests: XCTestCase {
             "Services/OfficialChartService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/OfflineMapManager.swift": [
                 "DataPersistenceManager.shared": (1, "the offline maps, every flight's"),
-                "UserDefaults.standard": (11, "the offline maps, every flight's"),
+                "UserDefaults.standard": (13, "the offline maps, every flight's"),
             ],
             "Services/OpenAIPCacheManager.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/PhaseFrequencyPlanner.swift": ["WatchConnectivityManager.shared": (1, "the radio's default; a dry run's tells the Watch nothing (D8)")],

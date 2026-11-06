@@ -156,4 +156,13 @@ final class PilotMapChartTests: XCTestCase {
         CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.3] as CFDictionary)
         return CGImageDestinationFinalize(destination) ? out as Data : nil
     }
+
+    func testTheChartReminderWaitsItsWeek() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        XCTAssertTrue(OfflineMapManager.isReminderDue(needed: true, ignored: false, remindAfter: nil, now: now))
+        XCTAssertFalse(OfflineMapManager.isReminderDue(needed: true, ignored: false, remindAfter: now.addingTimeInterval(60), now: now))
+        XCTAssertTrue(OfflineMapManager.isReminderDue(needed: true, ignored: false, remindAfter: now.addingTimeInterval(-60), now: now))
+        XCTAssertFalse(OfflineMapManager.isReminderDue(needed: true, ignored: true, remindAfter: nil, now: now))
+        XCTAssertFalse(OfflineMapManager.isReminderDue(needed: false, ignored: false, remindAfter: nil, now: now))
+    }
 }

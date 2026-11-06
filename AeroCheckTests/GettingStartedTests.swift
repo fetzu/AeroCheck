@@ -37,10 +37,31 @@ final class GettingStartedTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: GettingStarted.proAircraftKey), "HB-KFD")
         GettingStarted.begin(proAircraft: nil, defaults: defaults)
         XCTAssertNil(defaults.string(forKey: GettingStarted.proAircraftKey))
-        XCTAssertTrue(DryRunTodayCard.isOffered(logbookEmpty: true, dismissed: false, guidedFlown: false))
-        XCTAssertFalse(DryRunTodayCard.isOffered(logbookEmpty: true, dismissed: false, guidedFlown: false,
-                                                 gettingStarted: true))
         defaults.removePersistentDomain(forName: "GettingStartedTests")
+    }
+
+    func testATickedRowStaysTicked() {
+        // The last route deleted, a country removed: the row stays done and the card stays gone.
+        let done = GettingStarted.Status(hasHome: true, offlineDone: true, firstFlightFlown: true, hasRoute: true, dryRunFlown: true)
+        XCTAssertFalse(GettingStarted.isShown(offered: true, hidden: false, status: done))
+        let stored = GettingStarted.ticks(GettingStarted.items(done))
+        var later = done
+        later.hasRoute = false
+        later.offlineDone = false
+        XCTAssertTrue(GettingStarted.isShown(offered: true, hidden: false, status: later), "without the memory it came back")
+        XCTAssertFalse(GettingStarted.isShown(offered: true, hidden: false, status: later, ticked: GettingStarted.ticked(from: stored)))
+    }
+
+    func testTheTicksReadBackAndIgnoreARowThatIsGone() {
+        XCTAssertEqual(GettingStarted.ticked(from: "base,route,gone"), [.base, .route])
+        XCTAssertEqual(GettingStarted.ticked(from: ""), [])
+    }
+
+    func testARealFlightRetiresTheCardForGood() {
+        let defaults = UserDefaults(suiteName: "GettingStartedRetire")!
+        GettingStarted.retire(defaults: defaults)
+        XCTAssertTrue(defaults.bool(forKey: GettingStarted.hiddenKey))
+        defaults.removePersistentDomain(forName: "GettingStartedRetire")
     }
 
     /// The one-time tips (the author's answer 8 A): never in flight past the line-up, never in a dry run.

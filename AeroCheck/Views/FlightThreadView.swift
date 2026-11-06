@@ -1253,7 +1253,9 @@ struct FlightThreadView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
             // Something to remember about the field landed at, for next time (n4 A). Not in a dry run. (6.7.0)
-            if dryRunSession == nil, let landed = landedAerodrome(thread) {
+            if dryRunSession == nil, let landed = landedAerodrome(thread),
+               AerodromeNoteCloseOffer.isOffered(landed, home: appState.settings.homeAerodromeIdent,
+                                                 hasNote: noteStore.note(for: landed) != nil) {
                 AerodromeNoteCloseOffer(aerodrome: landed) { noteAerodrome = landed }
             }
         }

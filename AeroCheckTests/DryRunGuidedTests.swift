@@ -525,13 +525,6 @@ final class DryRunGuidedTests: XCTestCase {
 
     // MARK: - Where it is offered
 
-    func testTodaysCardWhileTheLogbookIsEmptyUntilFlownOrPutAway() {
-        XCTAssertTrue(DryRunTodayCard.isOffered(logbookEmpty: true, dismissed: false, guidedFlown: false))
-        XCTAssertFalse(DryRunTodayCard.isOffered(logbookEmpty: false, dismissed: false, guidedFlown: false))
-        XCTAssertFalse(DryRunTodayCard.isOffered(logbookEmpty: true, dismissed: true, guidedFlown: false), "Not now, for good (D7)")
-        XCTAssertFalse(DryRunTodayCard.isOffered(logbookEmpty: true, dismissed: false, guidedFlown: true))
-    }
-
     func testAGuidedRequestIsShownWhereItWasAsked() {
         let center = DryRunCenter.shared
         center.requestGuided(DryRunStart(part: .fly, chapter: 3), presenter: "settings")

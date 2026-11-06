@@ -37,6 +37,11 @@ struct NotamAllSheet: View {
                     } else {
                         rows(sorted.along)
                     }
+                    if !sorted.region.isEmpty {
+                        sectionHead(L10n.Notams.groupRegion.uppercased(), count: sorted.region.count)
+                            .padding(.top, 8)
+                        rows(sorted.region)
+                    }
                     fold(.notDuring, L10n.Notams.groupNotDuring, sorted.notDuring)
                     fold(.above, L10n.Notams.groupAbove, sorted.above)
                     fold(.ifr, L10n.Notams.groupIFR, sorted.ifrOnly)

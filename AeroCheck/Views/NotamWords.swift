@@ -23,7 +23,7 @@ enum NotamWords {
             // An aerodrome's own NOTAM names the place, which the text doesn't.
             let isField = !entry.notam.location.isEmpty && entry.notam.fir.map { $0 != entry.notam.location } ?? false
             return (isField ? name(entry) : L10n.Notams.placeRoute, tag)
-        case nil:
+        case .region?, nil:
             return (entry.notam.location.isEmpty ? entry.notam.fir ?? "" : name(entry), nil)
         }
     }

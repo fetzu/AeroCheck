@@ -282,7 +282,7 @@ final class NotamService: ObservableObject {
 
     private func rebuild() {
         var seen = Set<String>()
-        everything = files.keys.sorted().flatMap { files[$0]?.notams ?? [] }.filter { seen.insert($0.id).inserted }
+        everything = files.keys.sorted().flatMap { files[$0]?.notams ?? [] }.filter { !$0.isChecklist && seen.insert($0.id).inserted }
         byLocation = Dictionary(grouping: everything, by: \.location)
         revision += 1
     }

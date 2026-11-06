@@ -135,7 +135,42 @@ final class NotamTests: NotamTestCase {
         fir.radiusNm = 999
         let sorted = NotamSorter.sort([fir], for: flight())
         XCTAssertTrue(sorted.along.isEmpty)
-        XCTAssertEqual(sorted.away.map(\.id), ["1"], "dropped from the geometry, never from the list")
+        XCTAssertTrue(sorted.away.isEmpty, "all over the country is not away from the route")
+        XCTAssertEqual(sorted.region.map(\.id), ["1"])
+        XCTAssertEqual(sorted.total, 1)
+    }
+
+    func testSeveralRegionsOnTheQLineMeanAWholeRegion() {
+        var strike = notam("1", at: "LFBB", lat: 44.2, lon: 0.67, radius: 460)
+        strike.fir = "LFXX"
+        XCTAssertTrue(strike.isWholeRegion)
+        XCTAssertEqual(NotamSorter.sort([strike], for: flight()).region.map(\.id), ["1"])
+        var crane = strike
+        crane.radiusNm = 2
+        XCTAssertFalse(crane.isWholeRegion, "still a place")
+        var wide = strike
+        wide.fir = "LFEE"
+        XCTAssertFalse(wide.isWholeRegion, "one region's wide circle stays a circle")
+    }
+
+    func testAWholeRegionNotamKeepsToTheFlightsTimeAndTraffic() {
+        var later = notam("1", at: "LSAS", radius: 999, start: noon.addingTimeInterval(24 * 3600))
+        later.lat = 46.8
+        var ifr = notam("2", at: "LSAS", radius: 999, traffic: "I")
+        ifr.lat = 46.8
+        let sorted = NotamSorter.sort([later, ifr], for: flight())
+        XCTAssertTrue(sorted.region.isEmpty)
+        XCTAssertEqual(sorted.notDuring.map(\.id), ["1"])
+        XCTAssertEqual(sorted.ifrOnly.map(\.id), ["2"])
+    }
+
+    func testAChecklistIsLeftOut() {
+        var checklist = notam("1", at: "LSAS", radius: 999)
+        checklist.q = "QKKKK"
+        let sorted = NotamSorter.sort([checklist, onRoute("2")], for: flight())
+        XCTAssertEqual(sorted.along.map(\.id), ["2"])
+        XCTAssertEqual(sorted.total, 1)
+        XCTAssertTrue(sorted.away.isEmpty)
     }
 
     func testTheSideOfTheRouteAndTheLegsAltitude() {
@@ -193,13 +228,14 @@ final class NotamTests: NotamTestCase {
         // F2322/26 of 6 Nov 2026 comes once for each of France's five regions, under another id each time.
         let copies = ["LFRR", "LFBB", "LFMM", "LFEE", "LFFF"].enumerated().map { index, place -> Notam in
             var n = notam("\(index)", at: place, lat: 44.2, lon: 0.67, radius: 460, number: "F2322/26")
+            n.fir = "LFXX"
             n.text = "DUE TO STRIKE"
             return n
         }
         let sorted = NotamSorter.sort(copies, for: flight())
-        XCTAssertEqual(sorted.along.count, 1)
-        XCTAssertEqual(sorted.along.first?.alsoAt, 4)
-        XCTAssertEqual(NotamWords.title(try! XCTUnwrap(sorted.along.first)).where, "LFBB +4", "the first, for the same row every time")
+        XCTAssertEqual(sorted.region.count, 1)
+        XCTAssertEqual(sorted.region.first?.alsoAt, 4)
+        XCTAssertEqual(NotamWords.title(try! XCTUnwrap(sorted.region.first)).where, "LFBB +4", "the first, for the same row every time")
     }
 
     func testARepeatedNotamTakesThePlaceThatMattersMost() {

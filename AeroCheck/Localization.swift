@@ -79,6 +79,7 @@ enum L10n {
         static let groupAbove = String(localized: "notams.group.above")
         static let groupIFR = String(localized: "notams.group.ifr")
         static let groupAway = String(localized: "notams.group.away")
+        static let groupRegion = String(localized: "notams.group.region")
         static func copyFooter(_ time: String) -> String { String(format: String(localized: "notams.copyFooter"), time) }
         static let spelledOut = String(localized: "notams.spelledOut")
         static let spelledOutHint = String(localized: "notams.spelledOutHint")

@@ -5,7 +5,9 @@ import Foundation
 
 // A NOTAM is along the flight when it is at the departure, the destination, a stop or the alternate, or its circle or
 // point lies within 10 NM of the route, and its time overlaps the flight, and its band overlaps the ground to the
-// planned altitude, and its traffic isn't IFR only. Nothing disappears: every other one goes in a group with its count.
+// planned altitude, and its traffic isn't IFR only. A NOTAM for a whole region has no place on the route, and goes in a
+// group of its own. Nothing else disappears: every other one goes in a group with its count; only the checklists, which
+// are lists of numbers, are left out.
 // Pure, so the page, See all and the tests read the same answer.
 
 /// What a NOTAM is sorted against.
@@ -73,6 +75,8 @@ enum NotamPlace: Equatable, Hashable {
     case aerodrome(NotamFlight.Role)
     /// Its centre's distance from the route, the side (nil on the line), the leg's altitude, and how far along.
     case route(offsetNm: Double, side: Side?, altitudeFt: Double?, alongNm: Double)
+    /// All over its region or country.
+    case region
 }
 
 /// A NOTAM and where it stands; no place for one away from the route.
@@ -90,6 +94,8 @@ struct NotamSorted: Equatable {
     static let shownOnBlock = 3
 
     var along: [NotamEntry] = []
+    /// For the whole of a region or country on the route.
+    var region: [NotamEntry] = []
     var notDuring: [NotamEntry] = []
     var above: [NotamEntry] = []
     var ifrOnly: [NotamEntry] = []
@@ -97,7 +103,7 @@ struct NotamSorted: Equatable {
     var away: [NotamEntry] = []
 
     /// Those that touch the route: the page's "All 16".
-    var total: Int { along.count + notDuring.count + above.count + ifrOnly.count }
+    var total: Int { along.count + region.count + notDuring.count + above.count + ifrOnly.count }
     var isEmpty: Bool { total == 0 && away.isEmpty }
 }
 
@@ -106,7 +112,7 @@ enum NotamSorter {
         var sorted = NotamSorted()
         for entry in entries(notams, for: flight) {
             let notam = entry.notam
-            guard entry.place != nil else {
+            guard let place = entry.place else {
                 sorted.away.append(entry)
                 continue
             }
@@ -116,6 +122,8 @@ enum NotamSorter {
                 sorted.above.append(entry)
             } else if notam.isIFROnly {
                 sorted.ifrOnly.append(entry)
+            } else if place == .region {
+                sorted.region.append(entry)
             } else {
                 sorted.along.append(entry)
             }
@@ -124,15 +132,20 @@ enum NotamSorter {
         sorted.notDuring.sort(by: inListOrder)
         sorted.above.sort(by: inListOrder)
         sorted.ifrOnly.sort(by: inListOrder)
-        sorted.away.sort { ($0.notam.location, $0.notam.number) < ($1.notam.location, $1.notam.number) }
+        sorted.region.sort(by: byPlace)
+        sorted.away.sort(by: byPlace)
         return sorted
+    }
+
+    private static func byPlace(_ a: NotamEntry, _ b: NotamEntry) -> Bool {
+        (a.notam.location, a.notam.number) < (b.notam.location, b.notam.number)
     }
 
     /// Each NOTAM once, at the place of its that matters most to the flight.
     private static func entries(_ notams: [Notam], for flight: NotamFlight) -> [NotamEntry] {
         var seen = Set<String>()
         var byNotam: [String: [Notam]] = [:]
-        for notam in notams where seen.insert(notam.id).inserted { byNotam[notam.sameNotamKey, default: []].append(notam) }
+        for notam in notams where !notam.isChecklist && seen.insert(notam.id).inserted { byNotam[notam.sameNotamKey, default: []].append(notam) }
         return byNotam.values.map { copies in
             let placed = copies.map { NotamEntry(notam: $0, place: place(of: $0, in: flight)) }
             let best = placed.min { rank($0.place) != rank($1.place) ? rank($0.place) < rank($1.place) : $0.notam.location < $1.notam.location }!
@@ -155,15 +168,17 @@ enum NotamSorter {
         case .aerodrome(.destination): return (0, 0)
         case .aerodrome(.stop): return (1, 0)
         case .route(_, _, _, let along): return (2, along)
-        case .aerodrome(.alternate): return (3, 0)
-        case .aerodrome(.departure): return (4, 0)
-        case nil: return (5, 0)
+        case .region: return (3, 0)
+        case .aerodrome(.alternate): return (4, 0)
+        case .aerodrome(.departure): return (5, 0)
+        case nil: return (6, 0)
         }
     }
 
-    /// At one of the flight's aerodromes, or within the corridor of its route; nil otherwise.
+    /// At one of the flight's aerodromes, all over a region, or within the corridor of its route; nil otherwise.
     static func place(of notam: Notam, in flight: NotamFlight) -> NotamPlace? {
         if let role = flight.aerodromes[notam.location] { return .aerodrome(role) }
+        if notam.isWholeRegion { return .region }
         guard let circle = notam.circle, let nearest = nearest(to: circle.centre, on: flight.route),
               nearest.distanceNm - circle.radiusNm <= NotamFlight.corridorNm else { return nil }
         // Inside a wide circle the route is in the area: how far its centre lies says nothing ("328 NM RIGHT").

@@ -244,9 +244,18 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
 
     /// From this radius on a NOTAM means its whole region, not a place.
     static let wholeRegionRadiusNm = 999.0
+    /// The same for one that names several regions, "LFXX" on its Q line: France's five come to 460 NM. Under this one it
+    /// can still be a place, like a crane on a border.
+    static let severalRegionsRadiusNm = 200.0
 
     /// Whether the radius says a whole region: it never counts as a place, on the map or against the route.
-    var isWholeRegion: Bool { (radiusNm ?? 0) >= Self.wholeRegionRadiusNm }
+    var isWholeRegion: Bool {
+        let radius = radiusNm ?? 0
+        return radius >= Self.wholeRegionRadiusNm || (radius >= Self.severalRegionsRadiusNm && fir?.hasSuffix("XX") == true)
+    }
+
+    /// A list of a series' numbers, for the offices' books: nothing a pilot reads, so it's left out (the author, 6 Nov 2026).
+    var isChecklist: Bool { q?.uppercased().hasPrefix("QKK") == true }
 
     /// Item E, or the full form when the server has no item E.
     var shownText: String { text.isEmpty ? icao : text }

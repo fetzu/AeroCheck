@@ -16651,6 +16651,29 @@
         }
       }
     },
+    "notams.group.region": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesamte Region"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole region"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toute la région"
+          }
+        }
+      }
+    },
     "notams.mapCredit": {
       "extractionState": "manual",
       "localizations": {

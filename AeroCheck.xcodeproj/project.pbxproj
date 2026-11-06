@@ -426,6 +426,7 @@
 		7A31C0E2B94D4F1A8C6E0D53 /* PilotMapShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D54 /* PilotMapShapes.swift */; };
 		19D1BED456DADF3D6C8B4675 /* AirspaceTags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237670852DC7297A72695ADA /* AirspaceTags.swift */; };
 		NM0000012111111100000012 /* NotamSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000012 /* NotamSheets.swift */; };
+		NM0000012111111100000007 /* NotamViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000007 /* NotamViews.swift */; };
 		NM0000012111111100000006 /* NotamWords.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000006 /* NotamWords.swift */; };
 		66F0838B531A0AD74E8C7DF9 /* AirspaceStackCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E460F70621F4FAA30B1BBFD6 /* AirspaceStackCard.swift */; };
 		7A31C0E2B94D4F1A8C6E0D5B /* PilotMapCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C0E2B94D4F1A8C6E0D5C /* PilotMapCamera.swift */; };
@@ -943,6 +944,7 @@
 		7A31C0E2B94D4F1A8C6E0D54 /* PilotMapShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapShapes.swift; sourceTree = "<group>"; };
 		237670852DC7297A72695ADA /* AirspaceTags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceTags.swift; sourceTree = "<group>"; };
 		NM0000011111111100000012 /* NotamSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamSheets.swift; sourceTree = "<group>"; };
+		NM0000011111111100000007 /* NotamViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamViews.swift; sourceTree = "<group>"; };
 		NM0000011111111100000006 /* NotamWords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamWords.swift; sourceTree = "<group>"; };
 		E460F70621F4FAA30B1BBFD6 /* AirspaceStackCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceStackCard.swift; sourceTree = "<group>"; };
 		7A31C0E2B94D4F1A8C6E0D5C /* PilotMapCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotMapCamera.swift; sourceTree = "<group>"; };
@@ -1353,6 +1355,7 @@
 				7A31C0E2B94D4F1A8C6E0D54 /* PilotMapShapes.swift */,
 				237670852DC7297A72695ADA /* AirspaceTags.swift */,
 				NM0000011111111100000012 /* NotamSheets.swift */,
+				NM0000011111111100000007 /* NotamViews.swift */,
 				NM0000011111111100000006 /* NotamWords.swift */,
 				E460F70621F4FAA30B1BBFD6 /* AirspaceStackCard.swift */,
 				7A31C0E2B94D4F1A8C6E0D5C /* PilotMapCamera.swift */,
@@ -2244,6 +2247,7 @@
 				7A31C0E2B94D4F1A8C6E0D53 /* PilotMapShapes.swift in Sources */,
 				19D1BED456DADF3D6C8B4675 /* AirspaceTags.swift in Sources */,
 				NM0000012111111100000012 /* NotamSheets.swift in Sources */,
+				NM0000012111111100000007 /* NotamViews.swift in Sources */,
 				NM0000012111111100000006 /* NotamWords.swift in Sources */,
 				66F0838B531A0AD74E8C7DF9 /* AirspaceStackCard.swift in Sources */,
 				7A31C0E2B94D4F1A8C6E0D5B /* PilotMapCamera.swift in Sources */,

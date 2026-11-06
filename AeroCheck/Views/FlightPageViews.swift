@@ -207,6 +207,8 @@ struct FlightFoldedLine: View {
     let look: Look
     let title: String
     var detail: String = ""
+    /// What wants a look though the line is done: "1 new since your tick", in amber.
+    var alert: String?
     var chevron = true
     let action: () -> Void
 
@@ -224,6 +226,13 @@ struct FlightFoldedLine: View {
                         Text(detail)
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.secondaryText)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let alert {
+                        Text(alert)
+                            .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                            .foregroundColor(.aviationAmber)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }

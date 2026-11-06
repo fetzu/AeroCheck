@@ -487,6 +487,8 @@ final class PilotMapMarkers {
                                         detail: detail, add: add)
         }
         let callout = PilotMarkerCallout(marker: marker, content: content)
+        // A map following the aircraft comes back at the next fix, and the callout would go with it off the top.
+        callout.movesMap = !map.isFollowingAircraft
         self.callout = callout
         return callout
     }
@@ -664,6 +666,8 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
     var rightAccessoryView = UIView()
     weak var delegate: MLNCalloutViewDelegate?
     let content: UIView
+    /// Whether the map may move to make room. If not, the callout stays inside it, over its marker if it must.
+    var movesMap = true
 
     var dismissesAutomatically: Bool { false }
 
@@ -724,9 +728,9 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
         let frame = CalloutPlacement.frame(for: bounds.size, over: top, in: area)
         (content as? AerodromeCardView)?.tailX = top.x - frame.minX
         (content as? PilotMarkerBubble)?.tailX = top.x - frame.minX
-        self.frame = superview.convert(frame, from: mapView)
+        self.frame = superview.convert(movesMap ? frame : CalloutPlacement.kept(frame, in: area), from: mapView)
         let shortfall = CalloutPlacement.shortfall(of: frame, anchor: top, in: area)
-        guard moving, shortfall > 0 else { return }
+        guard moving, movesMap, shortfall > 0 else { return }
         let center = CGPoint(x: mapView.bounds.midX, y: mapView.bounds.midY - shortfall)
         mapView.setCenter(mapView.convert(center, toCoordinateFrom: mapView), animated: true)
     }

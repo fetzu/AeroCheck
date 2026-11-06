@@ -250,6 +250,20 @@ final class AerodromeCardTests: XCTestCase {
         XCTAssertEqual(CalloutPlacement.shortfall(of: high, anchor: CGPoint(x: 410, y: -500), in: area), 0,
                        "a marker not placed yet moves nothing")
     }
+
+    func testACardOnAMapThatFollowsStaysInsideIt() {
+        // A phone on its side: the chart beside the Cockpit's column, the marker low enough for no room above.
+        let area = CGRect(x: 12, y: 12, width: 480, height: 360)
+        let size = CGSize(width: 380, height: 230)
+        let frame = CalloutPlacement.frame(for: size, over: CGPoint(x: 250, y: 150), in: area)
+        XCTAssertLessThan(frame.minY, area.minY, "off the top: the case from the device check")
+        let kept = CalloutPlacement.kept(frame, in: area)
+        XCTAssertEqual(kept.minY, area.minY)
+        XCTAssertEqual(kept.minX, frame.minX)
+        XCTAssertEqual(CalloutPlacement.kept(CGRect(x: 12, y: 100, width: 380, height: 230), in: area).minY, 100, "room: untouched")
+        let tall = CalloutPlacement.kept(CGRect(x: 12, y: -80, width: 380, height: 500), in: area)
+        XCTAssertEqual(tall.minY, area.minY, "taller than the map: its top stays, with the name on it")
+    }
 }
 
 private extension UIView {

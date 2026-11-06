@@ -19,6 +19,14 @@ enum CalloutPlacement {
         return CGRect(x: left, y: anchor.y - gap - size.height, width: size.width, height: size.height)
     }
 
+    /// The callout's frame once the map has gone as far as it will: inside `area`, over its marker if it must. A map that
+    /// follows the aircraft can't move for it, and a phone on its side has little room above the marker.
+    static func kept(_ frame: CGRect, in area: CGRect) -> CGRect {
+        var kept = frame
+        kept.origin.y = max(min(frame.minY, area.maxY - frame.height), area.minY)
+        return kept
+    }
+
     /// How far the map moves down so a callout leaving `area` at the top fits: never so far that the marker leaves it
     /// at the bottom.
     static func shortfall(of frame: CGRect, anchor: CGPoint, in area: CGRect) -> CGFloat {

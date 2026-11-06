@@ -211,4 +211,17 @@ final class AppStateSelectAircraftTests: XCTestCase {
             XCTAssertTrue(option.isSelected(in: appState.settings), option.registration)
         }
     }
+
+    func testAnAircraftPickedFromAHiddenClubIsListedWhileItIsTheOne() {
+        // The author's device check, 6 Nov 2026: a filtered aircraft picked from Premium aircraft.
+        let hidden = metadata(id: "dr400-140b-gvmn~HB-KFO", registration: "HB-KFO")
+        var settings = AppSettings()
+        settings.hiddenAircraftIds = [hidden.id]
+        XCTAssertFalse(AircraftOption.flyable(remote: [hidden], settings: settings).contains { $0.remoteId == hidden.id })
+        settings.selectedRemoteAircraftId = hidden.id
+        XCTAssertTrue(AircraftOption.flyable(remote: [hidden], settings: settings).contains { $0.remoteId == hidden.id })
+        settings.selectedRemoteAircraftId = nil
+        XCTAssertFalse(AircraftOption.flyable(remote: [hidden], settings: settings).contains { $0.remoteId == hidden.id },
+                       "another pick and it's filtered again")
+    }
 }

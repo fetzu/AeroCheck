@@ -158,6 +158,7 @@ final class DryRunWorldTests: XCTestCase {
             ],
             "Services/BriefingRegistryService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/ActivationService.swift": ["DataPersistenceManager.shared": (1, "where the day's bulletin is cached: public airspace data, written whatever the flight, the dry run's or a real one")],
+            "Services/NotamService.swift": ["DataPersistenceManager.shared": (1, "where the NOTAM copy is kept: public data, and `mayFetch` refuses during a dry run")],
             "Services/FISAreaService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/NASRPatternService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],

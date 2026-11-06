@@ -373,6 +373,7 @@ struct AeroCheckApp: App {
                     // 6.4.2: where another FIS works low-level traffic (Bâle Information over AZ4), weekly.
                     Task { await FISAreaService.shared.refreshIfNeeded() }
                     Task { await ActivationService.shared.refreshIfNeeded() }
+                    refreshNotams()
                     // The aircraft requests sent from this device: where they stand. (6.3.0)
                     if !appState.isFlightActive && !DryRunCenter.shared.isRunning {
                         Task { await AircraftRequestStore.shared.refreshIfDue() }
@@ -416,6 +417,7 @@ struct AeroCheckApp: App {
                     // The FIS areas when a week old. (6.4.2)
                     Task { await FISAreaService.shared.refreshIfNeeded() }
                     Task { await ActivationService.shared.refreshIfNeeded() }
+                    refreshNotams()
                     // The aerodrome notes another device may have changed through iCloud Drive. (6.7.0)
                     Task { await AerodromeNoteStore.shared.reload() }
                     // The pilot's map: its index, the allowance's plan, and the month's new builds of the downloaded
@@ -515,6 +517,18 @@ struct AeroCheckApp: App {
         default:
             break
         }
+    }
+
+    /// The NOTAMs on foreground: today's flights' countries, the armed route's, and what's on the device. The service
+    /// keeps its own interval, and in flight only reads the copy from the disk. (decided 6 Nov 2026)
+    private func refreshNotams() {
+        let moment = FlightClock.now
+        var countries = flightThreadManager.threads
+            .filter { ($0.state == .planned || $0.state == .ready) && $0.scheduledDeparture != nil && $0.isDueToday(now: moment) }
+            .flatMap { $0.countries ?? [] }
+        countries += RouteDataCalculator.countries(crossing: flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? [])
+        let onGround = !appState.isFlightActive
+        Task { await NotamService.shared.refreshIfNeeded(countries: countries, onGround: onGround) }
     }
 
     private func handleFlightStateChange(isActive: Bool) {

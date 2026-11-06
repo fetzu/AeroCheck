@@ -15,6 +15,8 @@ struct AirspaceTagContent: Hashable {
     let upper: String
     let lower: String
     let kind: AirspaceMapKind
+    /// A NOTAM's tag: a tap reads it.
+    var notamId: String?
 
     init(_ tag: AirspaceRelevantTag) {
         id = tag.airspace.id
@@ -28,6 +30,18 @@ struct AirspaceTagContent: Hashable {
         upper = Self.limit(tag.airspace.upperCeiling)
         lower = Self.limit(tag.airspace.lowerCeiling)
         kind = tag.airspace.mapKind
+    }
+
+    /// A NOTAM area's tag, in the same box: its number and its band.
+    init(notam: Notam) {
+        id = "notam." + notam.id
+        shape = .full
+        badge = "N"
+        name = notam.number
+        upper = NotamWords.limit(notam.upperFl, isUpper: true)
+        lower = NotamWords.limit(notam.lowerFl, isUpper: false)
+        kind = .notam
+        notamId = notam.id
     }
 
     /// "GND", "FL 130", "4500 ft", "2000 AGL".
@@ -148,6 +162,8 @@ enum AirspaceTagPlacer {
         let size: CGSize
         /// Where the tag's centre was, if it is on the map.
         var previous: CGPoint?
+        /// Where it may go instead of inside `ring`, best first: around a circle too small to take a tag.
+        var around: [CGPoint]?
     }
 
     static let margin: CGFloat = 6
@@ -166,8 +182,16 @@ enum AirspaceTagPlacer {
                 else { return nil }
                 return rect
             }
-            let candidates = (request.previous.map { [$0] } ?? []) + spots(in: request.ring, within: area)
-            for point in candidates where inside(point, request.ring) {
+            let candidates: [CGPoint]
+            if let around = request.around {
+                // The side it is on first, so a tag doesn't jump around its circle.
+                let was = request.previous
+                candidates = was.map { p in around.sorted { hypot($0.x - p.x, $0.y - p.y) < hypot($1.x - p.x, $1.y - p.y) } } ?? around
+            } else {
+                candidates = ((request.previous.map { [$0] } ?? []) + spots(in: request.ring, within: area))
+                    .filter { inside($0, request.ring) }
+            }
+            for point in candidates {
                 if let rect = fits(point) {
                     taken.append(rect)
                     placed[request.id] = point
@@ -233,4 +257,40 @@ final class AirspaceTagAnnotation: NSObject, MKAnnotation {
         self.content = content
         self.coordinate = coordinate
     }
+}
+
+// MARK: - The NOTAM areas' marks
+
+/// The layer's colour and an obstacle's mark: violet, which no airspace, route or caution on the map uses.
+enum NotamMapStyle {
+    private static var kind: (red: Double, green: Double, blue: Double) { AirspaceMapKind.notam.color }
+    static var color: UIColor { UIColor(red: kind.red, green: kind.green, blue: kind.blue, alpha: 1) }
+
+    /// A small violet diamond on a white edge, so it reads on every chart.
+    static let obstacleImage: UIImage = {
+        let side: CGFloat = 16
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+            let path = UIBezierPath()
+            path.move(to: CGPoint(x: side / 2, y: 1.5))
+            path.addLine(to: CGPoint(x: side - 1.5, y: side / 2))
+            path.addLine(to: CGPoint(x: side / 2, y: side - 1.5))
+            path.addLine(to: CGPoint(x: 1.5, y: side / 2))
+            path.close()
+            color.setFill()
+            UIColor.white.setStroke()
+            path.lineWidth = 1.5
+            path.fill()
+            path.stroke()
+        }
+    }()
+}
+
+/// An obstacle from a NOTAM on the map. A tap reads it.
+final class NotamMarkerAnnotation: NSObject, MKAnnotation {
+    let item: NotamMapContent.Item
+    var coordinate: CLLocationCoordinate2D { item.coordinate }
+    var title: String? { item.notam.number }
+    var subtitle: String? { item.notam.shownText }
+
+    init(item: NotamMapContent.Item) { self.item = item }
 }

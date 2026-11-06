@@ -280,6 +280,14 @@ struct PilotMapView: UIViewRepresentable {
                     if map.isInFlight { map.atoTap?(waypoint.waypointIndex) }
                 case is VFRApproachAnnotation:
                     mapView.deselectAnnotation(annotation, animated: false)
+                case let tag as AirspaceTagAnnotation:
+                    mapView.deselectAnnotation(annotation, animated: false)
+                    if let id = tag.content.notamId, let item = map.shownNotams.first(where: { $0.id == id }) {
+                        map.notamReader?([item.notam], item.notam.number)
+                    }
+                case let notam as NotamMarkerAnnotation:
+                    mapView.deselectAnnotation(annotation, animated: false)
+                    map.notamReader?([notam.item.notam], notam.item.notam.number)
                 default:
                     // A route pin selects its row in the route builder too. (planning proposal D3)
                     _ = markers.plannedRoute.didSelect(marker.base)

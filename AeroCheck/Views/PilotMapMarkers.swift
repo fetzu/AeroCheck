@@ -29,8 +29,10 @@ final class PilotMapMarkers {
     /// The airspace's tags on the map, and when they were last placed.
     private var tags: [String: PilotMarker] = [:]
     private var tagsPlaced = Date.distantPast
+    private var tagsZoom = 0.0
     private var tagKeepOut: [CGRect] = []
-    private var tagRequests: [AirspaceTagContent: Airspace] = [:]
+    private var tagRings: [AirspaceTagContent: [CLLocationCoordinate2D]] = [:]
+    private var tagBeside: [AirspaceTagContent: NotamMapContent.Item] = [:]
     /// Once in this long at most, or when the tags themselves change: a tag stays where it is between.
     private static let tagInterval: TimeInterval = 2
 
@@ -70,13 +72,21 @@ final class PilotMapMarkers {
     /// The tags the map should show, placed where they fit. Kept where they are while that holds (`AirspaceTagPlacer`).
     private func syncTags(_ map: AeroMapView, on mapView: MLNMapView) {
         let wanted = map.shownAirspaceTags
-        let contents = wanted.map(AirspaceTagContent.init)
+        // The NOTAM areas' after the airspace's: what the pilot is flying through keeps its place. A circle too small on
+        // the screen to take a tag stays a circle, and a tap still reads it.
+        let notams = Self.notamTags(map.shownNotams, on: mapView)
+        let contents = wanted.map(AirspaceTagContent.init) + notams.map(\.content)
         let shown = Set(tags.values.compactMap { ($0.base as? AirspaceTagAnnotation)?.content })
         let changed = Set(contents) != shown
-        guard changed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
+        // A new zoom moves a small circle's tag beside it: at once, or it stays where the last zoom left it.
+        let rezoomed = !notams.isEmpty && abs(mapView.zoomLevel - tagsZoom) > 0.2
+        guard changed || rezoomed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
         tagsPlaced = Date()
+        tagsZoom = mapView.zoomLevel
         tagKeepOut = map.airspaceTagKeepOut
-        tagRequests = Dictionary(zip(contents, wanted.map(\.airspace)), uniquingKeysWith: { first, _ in first })
+        tagRings = Dictionary(zip(contents, wanted.map(\.airspace.polygonCoordinates) + notams.map(\.ring)),
+                              uniquingKeysWith: { first, _ in first })
+        tagBeside = Dictionary(notams.compactMap { tag in tag.beside.map { (tag.content, $0) } }, uniquingKeysWith: { first, _ in first })
         placeTags(contents, map: map, on: mapView)
     }
 
@@ -84,10 +94,11 @@ final class PilotMapMarkers {
         let toScreen = { (c: CLLocationCoordinate2D) in mapView.convert(c, toPointTo: mapView) }
         let k = CockpitType.label(for: .current) / 20
         let requests = contents.compactMap { content -> AirspaceTagPlacer.Request? in
-            guard let airspace = tagRequests[content] else { return nil }
-            return AirspaceTagPlacer.Request(id: content.id, ring: airspace.polygonCoordinates.map(toScreen),
-                                             size: AirspaceTagImage.size(content, scale: k),
-                                             previous: tags[content.id].map { toScreen($0.coordinate) })
+            guard let ring = tagRings[content] else { return nil }
+            let size = AirspaceTagImage.size(content, scale: k)
+            return AirspaceTagPlacer.Request(id: content.id, ring: ring.map(toScreen), size: size,
+                                             previous: tags[content.id].map { toScreen($0.coordinate) },
+                                             around: tagBeside[content].map { Self.sides(of: $0, size: size, on: mapView) })
         }
         var keepOut = tagKeepOut
         let square = { (point: CGPoint, side: CGFloat) in
@@ -116,6 +127,38 @@ final class PilotMapMarkers {
             tags[content.id] = marker
             mapView.addAnnotation(marker)
         }
+    }
+
+    /// A circle's radius on the screen from which it takes a tag, and from which the tag fits inside without hiding it.
+    private static let notamTagRadius: CGFloat = 14
+    private static let notamTagInsideRadius: CGFloat = 90
+    /// The tags a NOTAM area may take at a time: the nearest to the map's middle come first.
+    private static let maxNotamTags = 8
+
+    /// What takes a tag, and its circle: inside when the tag fits, else `placeTags` puts it beside, so a small circle stays
+    /// seen.
+    private static func notamTags(_ items: [NotamMapContent.Item], on mapView: MLNMapView)
+        -> [(content: AirspaceTagContent, ring: [CLLocationCoordinate2D], beside: NotamMapContent.Item?)] {
+        let metersPerPoint = mapView.metersPerPoint(atLatitude: mapView.centerCoordinate.latitude)
+        guard metersPerPoint > 0 else { return [] }
+        let tags = items.compactMap { item -> (content: AirspaceTagContent, ring: [CLLocationCoordinate2D], beside: NotamMapContent.Item?)? in
+            guard case .area(let radius) = item.shape else { return nil }
+            let onScreen = CGFloat(radius * 1852 / metersPerPoint)
+            guard onScreen >= notamTagRadius else { return nil }
+            return (AirspaceTagContent(notam: item.notam), NotamMapContent.ring(centre: item.coordinate, radiusNm: radius, points: 24),
+                    onScreen >= notamTagInsideRadius ? nil : item)
+        }
+        return Array(tags.prefix(maxNotamTags))
+    }
+
+    /// The four sides of a circle where a tag of `size` touches it, north first.
+    private static func sides(of item: NotamMapContent.Item, size: CGSize, on mapView: MLNMapView) -> [CGPoint] {
+        guard case .area(let radius) = item.shape else { return [] }
+        let centre = mapView.convert(item.coordinate, toPointTo: mapView)
+        let reach = CGFloat(radius * 1852 / mapView.metersPerPoint(atLatitude: item.latitude)) + 6
+        let (x, y) = (reach + size.width / 2, reach + size.height / 2)
+        return [CGPoint(x: centre.x, y: centre.y - y), CGPoint(x: centre.x + x, y: centre.y),
+                CGPoint(x: centre.x, y: centre.y + y), CGPoint(x: centre.x - x, y: centre.y)]
     }
 
     /// The aircraft on its cached course (it survives GPS gaps), moved rather than replaced so it doesn't blink.
@@ -157,6 +200,9 @@ final class PilotMapMarkers {
         }
         for obstacle in map.shownObstacles {
             out.append(Wanted(key: "obs|\(obstacle.id)") { ObstacleAnnotation(obstacle: obstacle) })
+        }
+        for item in map.shownNotams where item.shape == .obstacle {
+            out.append(Wanted(key: "notam|\(item.id)") { NotamMarkerAnnotation(item: item) })
         }
         // A label's revision in the key: a point renamed is a new marker. (6.0.1)
         for point in map.shownReportingPoints {
@@ -214,7 +260,7 @@ final class PilotMapMarkers {
         view.accessibilityLabel = Self.accessibilityLabel(for: marker.base)
         view.layer.zPosition = 0   // a reused view may have been a route pin's (raised below)
         view.isHidden = false      // or the moved waypoint's (`hideWaypointMarker`)
-        view.isUserInteractionEnabled = !(marker.base is AirspaceTagAnnotation)
+        view.isUserInteractionEnabled = (marker.base as? AirspaceTagAnnotation).map { $0.content.notamId != nil } ?? true
         switch marker.base {
         case let tag as AirspaceTagAnnotation:
             view.show(AirspaceTagImage.image(tag.content, scale: CockpitType.label(for: .current) / 20))
@@ -225,6 +271,8 @@ final class PilotMapMarkers {
             view.show(AeroMarkerImages.navaid)
         case is ObstacleAnnotation:
             view.show(AeroMarkerImages.obstacle)
+        case is NotamMarkerAnnotation:
+            view.show(NotamMapStyle.obstacleImage)
         case let point as ReportingPointAnnotation:
             view.show(AeroMarkerImages.reportingPoint(compulsory: point.point.compulsory))
         case let waypoint as FlightPlanWaypointAnnotation:
@@ -377,7 +425,8 @@ final class PilotMapMarkers {
     /// What a marker's tap opens: its card or callout, or nothing (a runway number; a waypoint, whose tap is its time
     /// over).
     static func hasCallout(_ annotation: MKAnnotation) -> Bool {
-        !(annotation is VFRApproachAnnotation || annotation is FlightPlanWaypointAnnotation)
+        !(annotation is VFRApproachAnnotation || annotation is FlightPlanWaypointAnnotation
+          || annotation is NotamMarkerAnnotation || annotation is AirspaceTagAnnotation)
     }
 
     private weak var callout: PilotMarkerCallout?

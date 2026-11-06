@@ -6183,6 +6183,29 @@
         }
       }
     },
+    "cockpit.noNotamListChip": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KEINE NOTAM-LISTE HIER"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NO NOTAM LIST HERE"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PAS DE LISTE NOTAM ICI"
+          }
+        }
+      }
+    },
     "cockpit.reportDepartureChip": {
       "extractionState": "manual",
       "localizations": {
@@ -16224,6 +16247,29 @@
         }
       }
     },
+    "nav.notamAreas": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM-Gebiete"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM areas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zones NOTAM"
+          }
+        }
+      }
+    },
     "nav.trackVectorShort": {
       "extractionState": "manual",
       "localizations": {
@@ -16601,6 +16647,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pas pendant votre vol"
+          }
+        }
+      }
+    },
+    "notams.mapCredit": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM aus unserer Kopie, %@ · unverbindlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAMs from our copy, %@ · indicative"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM d'après notre copie, %@ · indicatif"
           }
         }
       }

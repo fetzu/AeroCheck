@@ -476,7 +476,7 @@ struct AltitudeLimit: Codable {
 /// An airspace's look on every map: blue for controlled, dashed blue for class E, charcoal hatched for R, D and P, olive
 /// dashed for glider areas, slate dash-dot for TMZ and RMZ (a1 A, 3 Nov 2026).
 enum AirspaceMapKind: CaseIterable {
-    case controlled, classE, restrictive, glider, zone, neutral
+    case controlled, classE, restrictive, glider, zone, neutral, notam
 
     var color: (red: Double, green: Double, blue: Double) {
         switch self {
@@ -486,6 +486,7 @@ enum AirspaceMapKind: CaseIterable {
         case .glider: return (0.373, 0.420, 0.180)       // #5F6B2E
         case .zone: return (0.290, 0.333, 0.388)         // #4A5563
         case .neutral: return (0.4, 0.4, 0.4)
+        case .notam: return (0.482, 0.184, 0.745)        // #7B2FBE
         }
     }
 
@@ -493,7 +494,7 @@ enum AirspaceMapKind: CaseIterable {
     var dash: [Double] {
         switch self {
         case .controlled, .restrictive: return []
-        case .classE, .glider, .neutral: return [8, 4]
+        case .classE, .glider, .neutral, .notam: return [8, 4]
         case .zone: return [8, 4, 2, 4]
         }
     }

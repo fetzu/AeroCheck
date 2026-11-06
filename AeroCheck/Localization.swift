@@ -89,6 +89,7 @@ enum L10n {
         static let placeAlternate = String(localized: "notams.place.alternate")
         static func sideLeft(_ distance: String) -> String { String(format: String(localized: "notams.side.left"), distance) }
         static func sideRight(_ distance: String) -> String { String(format: String(localized: "notams.side.right"), distance) }
+        static func mapCredit(_ time: String) -> String { String(format: String(localized: "notams.mapCredit"), time) }
     }
 
     enum AerodromeNotes {
@@ -3005,6 +3006,7 @@ enum L10n {
         static let airspaceOffChip = String(localized: "cockpit.airspaceOffChip")
         static let noAirspaceDataChip = String(localized: "cockpit.noAirspaceDataChip")
         static let dabsNotLoadedChip = String(localized: "cockpit.dabsNotLoadedChip")
+        static let noNotamListChip = String(localized: "cockpit.noNotamListChip")
         static let reportDepartureChip = String(localized: "cockpit.reportDepartureChip")
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
@@ -3939,6 +3941,7 @@ enum L10n {
         static let airspaceCharts = String(localized: "Airspace & charts")
         /// The Map sheet's row for the limits on the map. (6.9.0)
         static let airspaceLimits = String(localized: "nav.airspaceLimits")
+        static let notamAreas = String(localized: "nav.notamAreas")
         /// The aerodrome card's rows and links. (6.9.0)
         static func cardCircuit(_ feet: String) -> String {
             String(format: String(localized: "nav.cardCircuit"), feet)

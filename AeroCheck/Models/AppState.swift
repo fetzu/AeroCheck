@@ -236,6 +236,8 @@ struct AppSettings: Codable, Equatable {
     /// The airspace's limits on the map: tags in the Cockpit, along the boundaries on Plan › Map. On by default, and no
     /// preset touches it. Off keeps the shapes. (6.9.0)
     var showAirspaceLimits: Bool = true
+    /// The NOTAM areas on Plan › Map and MAP. Off until the pilot turns it on, and no preset touches it.
+    var showNotamAreasOnMap: Bool = false
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
     /// The downloaded data's updates when the app opens on Wi-Fi, never in flight: Settings › Offline data's one
@@ -269,7 +271,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `protectedFields` below.
-    static let currentSchemaVersion = 9
+    static let currentSchemaVersion = 10
 
     /// A field a settings schema protects: the schema that brought it (or changed what it means), its
     /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
@@ -318,6 +320,8 @@ struct AppSettings: Codable, Equatable {
         ProtectedField(8, .showNonPoweredCircuitsOnMap, \.showNonPoweredCircuitsOnMap),
         // Schema 9 (v6.9.0): the limits on the map. An older build would write it back to the default.
         ProtectedField(9, .showAirspaceLimits, \.showAirspaceLimits),
+        // Schema 10: the NOTAM areas' switch, for the same reason.
+        ProtectedField(10, .showNotamAreasOnMap, \.showNotamAreasOnMap),
     ]
 
     /// Whether the writer of this record could not express `field`: its schema came before the field,
@@ -475,6 +479,7 @@ struct AppSettings: Codable, Equatable {
         case showOpenAIPOverlay
         case showOpenAIPTiles
         case showAirspaceLimits
+        case showNotamAreasOnMap
         case openAIPOfflineCountries
         case enableAirspaceStreaming
         case autoUpdateOfflineData
@@ -563,6 +568,7 @@ struct AppSettings: Codable, Equatable {
         showOpenAIPOverlay = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPOverlay) ?? false
         showOpenAIPTiles = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPTiles) ?? false
         showAirspaceLimits = try container.decodeIfPresent(Bool.self, forKey: .showAirspaceLimits) ?? true
+        showNotamAreasOnMap = try container.decodeIfPresent(Bool.self, forKey: .showNotamAreasOnMap) ?? false
         openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         autoUpdateOfflineData = try container.decodeIfPresent(Bool.self, forKey: .autoUpdateOfflineData) ?? true

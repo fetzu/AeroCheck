@@ -176,7 +176,7 @@ struct AirspaceAheadFinding: Equatable {
         case .restrictive, .controlled, .zone: return true
         // On the tags and the map, not here: the DABS doesn't cover them, so they'd count as active every day, and in
         // the Jura they lit the slot for 11 minutes of a 15-minute flight (the author, 4 Nov).
-        case .glider, .classE, .neutral: return false
+        case .glider, .classE, .neutral, .notam: return false
         }
     }
 
@@ -276,7 +276,7 @@ enum AirspaceRelevance {
         case .controlled: return 1
         case .glider, .zone: return 2
         case .classE: return 3
-        case .neutral: return nil
+        case .neutral, .notam: return nil
         }
     }
 

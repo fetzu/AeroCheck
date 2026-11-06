@@ -9,7 +9,7 @@ enum NotamWords {
     static func title(_ entry: NotamEntry) -> (where: String, tag: String?) {
         switch entry.place {
         case .aerodrome(let role)?:
-            return (entry.notam.location, roleWord(role))
+            return (name(entry), roleWord(role))
         case let .route(offset, side, altitude, _)?:
             var parts: [String] = []
             let distance = String(Int(offset.rounded()))
@@ -22,10 +22,15 @@ enum NotamWords {
             let tag = parts.isEmpty ? nil : parts.joined(separator: ", ")
             // An aerodrome's own NOTAM names the place, which the text doesn't.
             let isField = !entry.notam.location.isEmpty && entry.notam.fir.map { $0 != entry.notam.location } ?? false
-            return (isField ? entry.notam.location : L10n.Notams.placeRoute, tag)
+            return (isField ? name(entry) : L10n.Notams.placeRoute, tag)
         case nil:
-            return (entry.notam.location.isEmpty ? entry.notam.fir ?? "" : entry.notam.location, nil)
+            return (entry.notam.location.isEmpty ? entry.notam.fir ?? "" : name(entry), nil)
         }
+    }
+
+    /// "LFBB", "LFBB +4" for a NOTAM that covers other places too.
+    private static func name(_ entry: NotamEntry) -> String {
+        entry.alsoAt > 0 ? "\(entry.notam.location) +\(entry.alsoAt)" : entry.notam.location
     }
 
     static func roleWord(_ role: NotamFlight.Role) -> String {
@@ -44,17 +49,26 @@ enum NotamWords {
         return parts.joined(separator: " · ")
     }
 
-    /// "SFC to FL 095".
+    /// "SFC to FL 095", "2500 ft to 5000 ft": as items F and G write it, or else from the Q line.
     static func band(_ notam: Notam) -> String {
-        L10n.Notams.band(notam.lowerFl <= 0 ? "SFC" : level(notam.lowerFl), notam.upperFl >= 999 ? "UNL" : level(notam.upperFl))
+        L10n.Notams.band(limit(notam, isUpper: false), limit(notam, isUpper: true))
     }
 
     private static func level(_ fl: Int) -> String { String(format: "FL %03d", fl) }
 
-    /// The tag's limit on the map: "SFC", "FL 095".
-    static func limit(_ fl: Int, isUpper: Bool) -> String {
-        if isUpper { return fl >= 999 ? "UNL" : level(fl) }
-        return fl <= 0 ? "SFC" : level(fl)
+    /// The tag's limit on the map, as the airspace tags write one: "SFC", "FL 095", "5000 ft", "300 AGL".
+    static func limit(_ notam: Notam, isUpper: Bool) -> String {
+        if let written = notam.writtenLimits, let words = limit(written: isUpper ? written.upper : written.lower) { return words }
+        return isUpper ? (notam.upperFl >= 999 ? "UNL" : level(notam.upperFl)) : (notam.lowerFl <= 0 ? "SFC" : level(notam.lowerFl))
+    }
+
+    /// One written limit; nil for a form the app doesn't know, which falls back on the Q line.
+    private static func limit(written: String) -> String? {
+        let text = written.uppercased()
+        if ["SFC", "GND", "UNL"].contains(text) { return text }
+        if let match = text.wholeMatch(of: /FL\s*(\d{1,3})/), let fl = Int(match.1) { return level(fl) }
+        guard let match = text.wholeMatch(of: /(\d+)\s*FT(?:\s+(AMSL|MSL|AGL|SFC))?/) else { return nil }
+        return match.2 == "AGL" || match.2 == "SFC" ? "\(match.1) AGL" : "\(match.1) ft"
     }
 
     /// "today 08:00–16:00 UTC", "until 12 Nov", "from 7 Nov 08:00 UTC", "permanent".

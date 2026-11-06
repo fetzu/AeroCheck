@@ -16,8 +16,8 @@ class NotamTestCase: XCTestCase {
 
     func notam(_ id: String, at location: String = "LFEE", lat: Double? = nil, lon: Double? = nil, radius: Double? = nil,
                        traffic: String? = "V", lower: Int = 0, upper: Int = 999, start: Date? = nil, end: Date? = nil,
-                       kind: Notam.Kind = .other) -> Notam {
-        Notam(id: id, number: "A\(id)/26", location: location, fir: "LFEE", traffic: traffic, lowerFl: lower, upperFl: upper, start: start,
+                       kind: Notam.Kind = .other, number: String? = nil) -> Notam {
+        Notam(id: id, number: number ?? "A\(id)/26", location: location, fir: "LFEE", traffic: traffic, lowerFl: lower, upperFl: upper, start: start,
               end: end, text: "TEXT \(id)", lat: lat, lon: lon, radiusNm: radius, kind: kind)
     }
 
@@ -187,6 +187,46 @@ final class NotamTests: NotamTestCase {
 
     func testANumberThatComesTwiceCountsOnce() {
         XCTAssertEqual(NotamSorter.sort([onRoute("1"), onRoute("1")], for: flight()).total, 1)
+    }
+
+    func testOneNotamForFiveRegionsIsOneRow() {
+        // F2322/26 of 6 Nov 2026 comes once for each of France's five regions, under another id each time.
+        let copies = ["LFRR", "LFBB", "LFMM", "LFEE", "LFFF"].enumerated().map { index, place -> Notam in
+            var n = notam("\(index)", at: place, lat: 44.2, lon: 0.67, radius: 460, number: "F2322/26")
+            n.text = "DUE TO STRIKE"
+            return n
+        }
+        let sorted = NotamSorter.sort(copies, for: flight())
+        XCTAssertEqual(sorted.along.count, 1)
+        XCTAssertEqual(sorted.along.first?.alsoAt, 4)
+        XCTAssertEqual(NotamWords.title(try! XCTUnwrap(sorted.along.first)).where, "LFBB +4", "the first, for the same row every time")
+    }
+
+    func testARepeatedNotamTakesThePlaceThatMattersMost() {
+        let far = notam("1", at: "LFBB", lat: 44, lon: 0, radius: 5, number: "A0001/26")
+        var field = notam("2", at: "LFGA", number: "A0001/26")
+        field.text = far.text
+        let sorted = NotamSorter.sort([far, field], for: flight())
+        XCTAssertEqual(sorted.along.map(\.notam.location), ["LFGA"])
+        XCTAssertEqual(sorted.along.first?.place, .aerodrome(.destination))
+        XCTAssertTrue(sorted.away.isEmpty)
+    }
+
+    func testTheSameNumberFromAnotherCountryIsAnotherNotam() {
+        let a = notam("1", at: "LSZQ", number: "A0001/26"), b = notam("2", at: "LFGA", number: "A0001/26")
+        XCTAssertEqual(NotamSorter.sort([a, b], for: flight()).along.count, 2)
+    }
+
+    func testInsideAWideCircleTheRouteIsInTheArea() {
+        let wide = notam("1", at: "LFBB", lat: 44.2, lon: 0.67, radius: 460)
+        guard case let .route(offset, side, _, _)? = NotamSorter.place(of: wide, in: flight()) else { return XCTFail("along the route") }
+        XCTAssertEqual(offset, 0, "not 328 NM to the right")
+        XCTAssertNil(side)
+        // A small one keeps its distance: that crane is 3 NM to one side.
+        let crane = notam("2", lat: 47.75, lon: 7.28, radius: 1)
+        guard case let .route(near, nearSide, _, _)? = NotamSorter.place(of: crane, in: flight()) else { return XCTFail("along the route") }
+        XCTAssertGreaterThan(near, 1)
+        XCTAssertNotNil(nearSide)
     }
 
     func testTheStopAndTheAlternateCount() {

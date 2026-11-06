@@ -40,7 +40,9 @@ enum NotamMapContent {
     /// What to draw of `notams` in a box around `centre`, the nearest first.
     static func items(_ notams: [Notam], from: Date, to: Date, centre: CLLocationCoordinate2D, latSpan: Double, lonSpan: Double) -> [Item] {
         let halfLat = latSpan / 2 + 1, halfLon = lonSpan / 2 + 1.5
-        let found = notams.compactMap { notam -> Item? in
+        var seen = Set<String>()
+        // A repeated NOTAM is one circle, not five on top of each other.
+        let found = notams.filter { seen.insert($0.sameNotamKey).inserted }.compactMap { notam -> Item? in
             guard let item = item(notam, from: from, to: to), abs(item.latitude - centre.latitude) <= halfLat,
                   abs(item.longitude - centre.longitude) <= halfLon else { return nil }
             return item

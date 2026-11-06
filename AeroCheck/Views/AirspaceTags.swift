@@ -38,8 +38,8 @@ struct AirspaceTagContent: Hashable {
         shape = .full
         badge = "N"
         name = notam.number
-        upper = NotamWords.limit(notam.upperFl, isUpper: true)
-        lower = NotamWords.limit(notam.lowerFl, isUpper: false)
+        upper = NotamWords.limit(notam, isUpper: true)
+        lower = NotamWords.limit(notam, isUpper: false)
         kind = .notam
         notamId = notam.id
     }

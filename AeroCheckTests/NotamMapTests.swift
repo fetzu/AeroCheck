@@ -45,6 +45,14 @@ final class NotamMapTests: NotamTestCase {
         XCTAssertEqual(NotamMapContent.hits([item], at: inside, toleranceNm: 0.5, insideToo: true).map(\.id), ["1"])
     }
 
+    func testARepeatedNotamIsOneCircle() {
+        let a = notam("1", at: "LFBB", lat: 47, lon: 7, radius: 3, kind: .airspace, number: "A0001/26")
+        var b = notam("2", at: "LFEE", lat: 47, lon: 7, radius: 3, kind: .airspace, number: "A0001/26")
+        b.text = a.text
+        let items = NotamMapContent.items([a, b], from: noon, to: noon, centre: CLLocationCoordinate2D(latitude: 47, longitude: 7), latSpan: 1, lonSpan: 1)
+        XCTAssertEqual(items.count, 1)
+    }
+
     func testAnAreasTagIsTheChartsBoxInViolet() {
         var n = notam("1", lat: 47, lon: 7, radius: 3, kind: .airspace)
         n.upperFl = 95

@@ -30,6 +30,26 @@ final class NotamWordsTests: NotamTestCase {
         XCTAssertTrue(NotamWords.when(n, now: noon).hasSuffix("EST"))
     }
 
+    func testTheLimitsAreAsWritten() {
+        // W2096/26 of 6 Nov 2026: 025/050 on the Q line, and F and G in feet.
+        var n = onRoute("1", start: noon)
+        n.lowerFl = 25
+        n.upperFl = 50
+        XCTAssertEqual(NotamWords.limit(n, isUpper: true), "FL 050", "no F and G: the Q line")
+        n.icao = "W2096/26 NOTAMN\nQ) LFEE/QWBLW/IV/M/AW/025/050/4744N00726E005\nA) LFGB\nE) AEROBATICS\nF) 2500FT AMSL G) 5000FT AMSL"
+        XCTAssertEqual(NotamWords.limit(n, isUpper: false), "2500 ft")
+        XCTAssertEqual(NotamWords.limit(n, isUpper: true), "5000 ft", "not FL 050")
+        XCTAssertEqual(NotamWords.band(n), L10n.Notams.band("2500 ft", "5000 ft"))
+        n.icao = "E) CRANE\nF) SFC G) 300FT AGL"
+        XCTAssertEqual(NotamWords.limit(n, isUpper: false), "SFC")
+        XCTAssertEqual(NotamWords.limit(n, isUpper: true), "300 AGL")
+        n.icao = "E) AREA\nF) FL195 G) UNL"
+        XCTAssertEqual(NotamWords.limit(n, isUpper: false), "FL 195")
+        XCTAssertEqual(NotamWords.limit(n, isUpper: true), "UNL")
+        n.icao = "E) AREA\nF) 900M AMSL G) 1500M AMSL"
+        XCTAssertEqual(NotamWords.limit(n, isUpper: true), "FL 050", "metres: back to the Q line")
+    }
+
     func testTheBandShowsOnlyWhenItSaysSomething() {
         let whole = onRoute("1", start: noon)
         XCTAssertFalse(NotamWords.meta(whole, now: noon).contains("SFC"))

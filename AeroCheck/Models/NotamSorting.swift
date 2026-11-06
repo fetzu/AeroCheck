@@ -79,6 +79,8 @@ enum NotamPlace: Equatable, Hashable {
 struct NotamEntry: Equatable, Hashable, Identifiable {
     let notam: Notam
     let place: NotamPlace?
+    /// One NOTAM's other regions: the source repeats it for each place on its line A (a real French one, five times).
+    var alsoAt = 0
     var id: String { notam.id }
 }
 
@@ -102,13 +104,12 @@ struct NotamSorted: Equatable {
 enum NotamSorter {
     static func sort(_ notams: [Notam], for flight: NotamFlight) -> NotamSorted {
         var sorted = NotamSorted()
-        var seen = Set<String>()
-        for notam in notams where seen.insert(notam.id).inserted {
-            guard let place = place(of: notam, in: flight) else {
-                sorted.away.append(NotamEntry(notam: notam, place: nil))
+        for entry in entries(notams, for: flight) {
+            let notam = entry.notam
+            guard entry.place != nil else {
+                sorted.away.append(entry)
                 continue
             }
-            let entry = NotamEntry(notam: notam, place: place)
             if !notam.overlaps(from: flight.start, to: flight.end) {
                 sorted.notDuring.append(entry)
             } else if let ceiling = flight.ceilingFt, Double(notam.lowerFl) * 100 > ceiling {
@@ -125,6 +126,18 @@ enum NotamSorter {
         sorted.ifrOnly.sort(by: inListOrder)
         sorted.away.sort { ($0.notam.location, $0.notam.number) < ($1.notam.location, $1.notam.number) }
         return sorted
+    }
+
+    /// Each NOTAM once, at the place of its that matters most to the flight.
+    private static func entries(_ notams: [Notam], for flight: NotamFlight) -> [NotamEntry] {
+        var seen = Set<String>()
+        var byNotam: [String: [Notam]] = [:]
+        for notam in notams where seen.insert(notam.id).inserted { byNotam[notam.sameNotamKey, default: []].append(notam) }
+        return byNotam.values.map { copies in
+            let placed = copies.map { NotamEntry(notam: $0, place: place(of: $0, in: flight)) }
+            let best = placed.min { rank($0.place) != rank($1.place) ? rank($0.place) < rank($1.place) : $0.notam.location < $1.notam.location }!
+            return NotamEntry(notam: best.notam, place: best.place, alsoAt: copies.count - 1)
+        }
     }
 
     /// The field first, then along the route, then by when it starts: the same order for the same list.
@@ -153,6 +166,10 @@ enum NotamSorter {
         if let role = flight.aerodromes[notam.location] { return .aerodrome(role) }
         guard let circle = notam.circle, let nearest = nearest(to: circle.centre, on: flight.route),
               nearest.distanceNm - circle.radiusNm <= NotamFlight.corridorNm else { return nil }
+        // Inside a wide circle the route is in the area: how far its centre lies says nothing ("328 NM RIGHT").
+        if circle.radiusNm >= NotamFlight.corridorNm, nearest.distanceNm <= circle.radiusNm {
+            return .route(offsetNm: 0, side: nil, altitudeFt: nearest.altitudeFt, alongNm: nearest.alongNm)
+        }
         return .route(offsetNm: nearest.distanceNm, side: nearest.side, altitudeFt: nearest.altitudeFt, alongNm: nearest.alongNm)
     }
 

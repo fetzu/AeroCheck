@@ -232,6 +232,16 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
         case lat, lon, radiusNm, polygon, kind
     }
 
+    /// The same NOTAM repeated for another place on its line A. Numbers repeat between countries, not their text.
+    var sameNotamKey: String { number + "\n" + text }
+
+    /// Items F and G as written, when the NOTAM has them: "SFC" and "3300FT AMSL". The Q line's levels are the same limits
+    /// rounded to a flight level, which 5000 ft AMSL isn't.
+    var writtenLimits: (lower: String, upper: String)? {
+        guard let match = icao.matches(of: /(?m)\bF\)\s*(.+?)\s+G\)\s*(.+?)\s*$/).last else { return nil }
+        return (String(match.1), String(match.2))
+    }
+
     /// From this radius on a NOTAM means its whole region, not a place.
     static let wholeRegionRadiusNm = 999.0
 

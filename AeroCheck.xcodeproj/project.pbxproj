@@ -127,6 +127,7 @@
 		CCDBF006308D1A6B32854CBE /* ActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20763792330E5D999F6A0E56 /* ActivationTests.swift */; };
 		NM0000012111111100000005 /* NotamServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000005 /* NotamServiceTests.swift */; };
 		NM0000012111111100000004 /* NotamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000004 /* NotamTests.swift */; };
+		NM0000012111111100000015 /* NotamCardRowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000015 /* NotamCardRowTests.swift */; };
 		NM0000012111111100000013 /* NotamWordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NM0000011111111100000013 /* NotamWordsTests.swift */; };
 		A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002B111111110000001 /* OnboardingRegionTests.swift */; };
 		A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002E111111110000001 /* DisclaimerGateTests.swift */; };
@@ -646,6 +647,7 @@
 		20763792330E5D999F6A0E56 /* ActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivationTests.swift; sourceTree = "<group>"; };
 		NM0000011111111100000005 /* NotamServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamServiceTests.swift; sourceTree = "<group>"; };
 		NM0000011111111100000004 /* NotamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamTests.swift; sourceTree = "<group>"; };
+		NM0000011111111100000015 /* NotamCardRowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamCardRowTests.swift; sourceTree = "<group>"; };
 		NM0000011111111100000013 /* NotamWordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotamWordsTests.swift; sourceTree = "<group>"; };
 		A500002B111111110000001 /* OnboardingRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRegionTests.swift; sourceTree = "<group>"; };
 		A500002E111111110000001 /* DisclaimerGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerGateTests.swift; sourceTree = "<group>"; };
@@ -1153,6 +1155,7 @@
 				20763792330E5D999F6A0E56 /* ActivationTests.swift */,
 				NM0000011111111100000005 /* NotamServiceTests.swift */,
 				NM0000011111111100000004 /* NotamTests.swift */,
+				NM0000011111111100000015 /* NotamCardRowTests.swift */,
 				NM0000011111111100000013 /* NotamWordsTests.swift */,
 				A500002B111111110000001 /* OnboardingRegionTests.swift */,
 				A500002E111111110000001 /* DisclaimerGateTests.swift */,
@@ -1975,6 +1978,7 @@
 				CCDBF006308D1A6B32854CBE /* ActivationTests.swift in Sources */,
 				NM0000012111111100000005 /* NotamServiceTests.swift in Sources */,
 				NM0000012111111100000004 /* NotamTests.swift in Sources */,
+				NM0000012111111100000015 /* NotamCardRowTests.swift in Sources */,
 				NM0000012111111100000013 /* NotamWordsTests.swift in Sources */,
 				A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */,
 				A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */,

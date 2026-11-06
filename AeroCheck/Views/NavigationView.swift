@@ -590,6 +590,11 @@ struct NavigationMapView: View {
             AerodromeNoteSheet(aerodrome: ref, readOnly: appState.isFlightActive)
                 .environmentObject(AerodromeNoteStore.shared)
         }
+        // What the card or the map has on the device, read on request, in flight too. (decided 6 Nov 2026)
+        .sheet(item: $notamReading) { reading in
+            NotamReaderSheet(notams: reading.notams, title: reading.title)
+                .environment(appState)
+        }
     }
 
     /// Opening and closing the map, its region, the panel, the overlay settings, the phase, the leg and
@@ -821,8 +826,12 @@ struct NavigationMapView: View {
             facts.feeLink = AirfieldTariffService.shared.tariff(for: airport.ident).flatMap { URL(string: $0.url) }
             facts.briefingLink = BriefingRegistryService.shared.registry?.country(airport.isoCountry)?.notam.first?.url
         }
+        // What's on the device, on the ground and in flight, never in a dry run.
+        if dryRunSession == nil { facts.notams = NotamService.shared.notams(at: airport.ident) }
         return facts
     }
+
+    private func openNotams(_ notams: [Notam], title: String) { notamReading = NotamReading(notams: notams, title: title) }
 
     // MARK: - The airspace over a point (6.9.0)
 
@@ -1599,6 +1608,8 @@ struct NavigationMapView: View {
     @State private var airspaceGroundTask: Task<Void, Never>?
     @State private var selectedStackAirspace: String?
     @State private var airspaceTagsAt = Date.distantPast
+    /// What the card asked to read.
+    @State private var notamReading: NotamReading?
     @State private var airspaceTrend = AirspaceVerticalTrend()
     /// The traffic circuits, VFR routes and sectors drawn for the region. (6.2.0)
     @State private var vfrContent: VFRMapContent = .empty()
@@ -1871,6 +1882,7 @@ struct NavigationMapView: View {
             airspaceTagKeepOut: chrome == .plan ? [] : cockpitChromeGeometry.tagKeepOut,
             onAirspaceTap: { openAirspaceStack(at: $0) },
             aerodromeFacts: { aerodromeFacts(for: $0) },
+            onReadNotams: { openNotams($0, title: $1) },
             trackVectorOverlays: trackVectorOverlays,
             trackVectorEnabled: appState.settings.showTrackVector,
             currentWaypointIndex: currentWaypointIndex,
@@ -4257,6 +4269,8 @@ struct AeroMapView: View {
     var onAirspaceTap: ((CLLocationCoordinate2D) -> Void)?
     /// A field's rows for its card. (6.9.0, c1 A)
     var aerodromeFacts: ((Airport) -> AerodromeFacts)?
+    /// What reads a NOTAM from the card: the NOTAMs and the sheet's title.
+    var onReadNotams: (([Notam], String) -> Void)?
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates
@@ -4303,6 +4317,7 @@ struct AeroMapView: View {
     var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
     var shownAirspaceTags: [AirspaceRelevantTag] { features.contains(.airspaceTags) ? airspaceTags : [] }
     var shownAirspaceLabels: Bool { features.contains(.airspaceLabels) }
+    var notamReader: (([Notam], String) -> Void)? { onReadNotams }
     var airspaceTapHandler: ((CLLocationCoordinate2D) -> Void)? { features.contains(.airspaceCard) ? onAirspaceTap : nil }
     var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
     var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }

@@ -407,8 +407,13 @@ final class PilotMapMarkers {
                 isDiverting: map.activeFlightPlan?.diversion != nil)
             let area = PilotMarkerCallout.area(of: mapView)
             let width = min(AerodromeCardView.maxWidth(metrics: metrics), max(area.width, 240))
-            content = AerodromeCardView(content: card, metrics: metrics, tint: palette.action, width: width) {
-                [weak self] action in
+            let ident = airport.airport.ident
+            let openNotams: (() -> Void)? = card.notamRow == nil ? nil : {
+                close()
+                map.notamReader?(card.facts.notams, ident)
+            }
+            content = AerodromeCardView(content: card, metrics: metrics, tint: palette.action, width: width,
+                                        onNotams: openNotams) { [weak self] action in
                 close()
                 switch action {
                 case .chart(let link): map.chartOpener?(link.url)

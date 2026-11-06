@@ -47,6 +47,50 @@ enum L10n {
     }
 
     // MARK: - Aerodrome notes (6.7.0)
+    /// The NOTAMs from our copy: the flight page, See all, the detail, the card. (decided 6 Nov 2026)
+    enum Notams {
+        static let readFirst = String(localized: "notams.readFirst")
+        static let alongFlight = String(localized: "notams.alongFlight")
+        /// One key: the author is still choosing the sentence.
+        static let notice = String(localized: "notams.notice")
+        static let noneFound = String(localized: "notams.noneFound")
+        static let noListHere = String(localized: "notams.noListHere")
+        static let noListSection = String(localized: "notams.noListSection")
+        static let readOfficialPage = String(localized: "notams.readOfficialPage")
+        static func all(_ count: Int) -> String { String(localized: "notams.all \(count)") }
+        static func newSinceTick(_ count: Int) -> String { String(localized: "notams.newSinceTick \(count)") }
+        static let refresh = String(localized: "notams.refresh")
+        static func couldNotRefresh(_ time: String) -> String {
+            String(format: String(localized: "notams.couldNotRefresh"), time)
+        }
+        static let notLoaded = String(localized: "notams.notLoaded")
+        static func ageHours(_ hours: String) -> String { String(format: String(localized: "notams.ageHours"), hours) }
+        static func upTo(_ feet: String) -> String { String(format: String(localized: "notams.upTo"), feet) }
+        static let corridor = String(localized: "notams.corridor")
+        static func today(_ time: String) -> String { String(format: String(localized: "notams.today"), time) }
+        static func tomorrow(_ time: String) -> String { String(format: String(localized: "notams.tomorrow"), time) }
+        static func until(_ day: String) -> String { String(format: String(localized: "notams.until"), day) }
+        static func from(_ day: String) -> String { String(format: String(localized: "notams.from"), day) }
+        static let permanent = String(localized: "notams.permanent")
+        static func band(_ lower: String, _ upper: String) -> String {
+            String(format: String(localized: "notams.band"), lower, upper)
+        }
+        static let groupNotDuring = String(localized: "notams.group.notDuring")
+        static let groupAbove = String(localized: "notams.group.above")
+        static let groupIFR = String(localized: "notams.group.ifr")
+        static let groupAway = String(localized: "notams.group.away")
+        static func copyFooter(_ time: String) -> String { String(format: String(localized: "notams.copyFooter"), time) }
+        static let spelledOut = String(localized: "notams.spelledOut")
+        static let spelledOutHint = String(localized: "notams.spelledOutHint")
+        static let placeRoute = String(localized: "notams.place.route")
+        static let placeDeparture = String(localized: "notams.place.departure")
+        static let placeDestination = String(localized: "notams.place.destination")
+        static let placeStop = String(localized: "notams.place.stop")
+        static let placeAlternate = String(localized: "notams.place.alternate")
+        static func sideLeft(_ distance: String) -> String { String(format: String(localized: "notams.side.left"), distance) }
+        static func sideRight(_ distance: String) -> String { String(format: String(localized: "notams.side.right"), distance) }
+    }
+
     enum AerodromeNotes {
         static let title = String(localized: "aerodromeNote.title")
         static let arrival = String(localized: "aerodromeNote.arrival")

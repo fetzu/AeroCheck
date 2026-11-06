@@ -626,7 +626,9 @@ final class CockpitPilot {
         let notTheButtons = NSPredicate(format: "label ==[c] 'END FLIGHT' AND NOT (identifier IN {'menu.endFlight', 'cockpit.endFlight'})")
         if !tapNow(element("cockpit.endFlight")) {
             tap("cockpit.menu")
-            tap("menu.endFlight")
+            // XCUITest's own tap: it scrolls the Menu first. END FLIGHT can sit at the sheet's very foot, on screen by its
+            // frame and out of reach.
+            if let end = waitFor("menu.endFlight") { end.tap() }
         }
         // The alert's (act band) or the confirmation dialog's (Menu) END FLIGHT.
         let confirm = app.buttons.matching(notTheButtons).firstMatch

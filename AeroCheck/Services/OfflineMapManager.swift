@@ -96,6 +96,8 @@ class OfflineMapManager: ObservableObject {
     private let icaoCacheDateKey = "offlineMapCacheDate"
     private let segelflugCacheDateKey = "offlineMapSegelflugCacheDate"
     private let updateReminderDismissedKey = "offlineMapUpdateReminderDismissed"
+    private let updateRemindAfterKey = "offlineMapUpdateRemindAfter"
+    nonisolated static let updateRemindInterval: TimeInterval = 7 * 24 * 3600
 
     // MARK: - Computed Properties
 
@@ -198,7 +200,8 @@ class OfflineMapManager: ObservableObject {
 
     /// Check if should show update reminder
     var shouldShowUpdateReminder: Bool {
-        return needsYearlyUpdate && !updateReminderDismissed
+        return Self.isReminderDue(needed: needsYearlyUpdate, ignored: updateReminderDismissed,
+                                  remindAfter: UserDefaults.standard.object(forKey: updateRemindAfterKey) as? Date)
     }
 
     // MARK: - Initialization
@@ -446,9 +449,14 @@ class OfflineMapManager: ObservableObject {
     private nonisolated static let mapDataFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("MapData", isDirectory: true)
 
-    /// Mark "Remind me later" for update
+    /// Whether the reminder comes at a launch now.
+    nonisolated static func isReminderDue(needed: Bool, ignored: Bool, remindAfter: Date?, now: Date = Date()) -> Bool {
+        needed && !ignored && (remindAfter ?? .distantPast) <= now
+    }
+
+    /// Remind Me: a week's peace.
     func remindLater() {
-        // Don't dismiss, just close - will show again next app launch
+        UserDefaults.standard.set(Date().addingTimeInterval(Self.updateRemindInterval), forKey: updateRemindAfterKey)
     }
 
     /// Ignore update for this year

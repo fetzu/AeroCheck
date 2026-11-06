@@ -2318,17 +2318,6 @@ struct FlightInfoSheet: View {
                                     else { CompanionConnectivityManager.shared.disconnect() }
                                 }
                             ))
-                        } else {
-                            rowDivider
-                            HStack(spacing: 8) {
-                                Image(systemName: "ipad.and.iphone")
-                                    .font(.aero(size: 16))
-                                    .foregroundColor(theme.textDim)
-                                Text(L10n.Companion.pairInSettings)
-                                    .font(.aero(size: 16))
-                                    .foregroundColor(theme.textSecondary)
-                                Spacer(minLength: 0)
-                            }
                         }
                     }
 

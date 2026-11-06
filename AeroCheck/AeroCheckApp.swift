@@ -379,8 +379,8 @@ struct AeroCheckApp: App {
                         Task { await AircraftRequestStore.shared.refreshIfDue() }
                     }
 
-                    // Check for yearly map update reminder (after main content loads)
-                    if offlineMapManager.shouldShowUpdateReminder {
+                    // The yearly chart reminder, after main content loads. Never with a flight running.
+                    if offlineMapManager.shouldShowUpdateReminder && !appState.isFlightActive {
                         showUpdateReminder = true
                     }
                 }
@@ -574,29 +574,17 @@ struct MapUpdateReminderSheet: View {
                     .foregroundColor(.aviationGold)
                     .padding(.top, 40)
 
-                // Title
-                Text("ICAO Chart Update Available")
+                // The one fact and the one question (the author, 6 Nov 2026).
+                Text("The new ICAO chart is out.")
                     .font(.aero(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.center)
 
-                // Description
-                Text("swisstopo has released a new version of the ICAO Aeronautical Chart. The chart is updated every year in April. Update your saved chart to keep your navigation data accurate.")
+                Text("Update your saved chart?")
                     .font(.aero(size: 16))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
-
-                // Current cache info
-                VStack(spacing: 8) {
-                    Text("Current cache: \(offlineMapManager.cacheVersion)")
-                        .font(.aero(size: 14))
-                        .foregroundColor(.secondaryText)
-
-                    Text("Downloaded: \(offlineMapManager.formattedCacheDate)")
-                        .font(.aero(size: 14))
-                        .foregroundColor(.secondaryText)
-                }
-                .padding(.top, 8)
 
                 Spacer()
 
@@ -636,7 +624,7 @@ struct MapUpdateReminderSheet: View {
                         .padding(.horizontal, 24)
 
                         Button(action: remindLater) {
-                            Text("Remind Me Next Time")
+                            Text("Remind Me in a Week")
                                 .font(.aero(size: 17, weight: .medium))
                                 .foregroundColor(.aviationGold)
                                 .frame(maxWidth: .infinity)

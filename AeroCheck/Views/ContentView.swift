@@ -27,6 +27,18 @@ struct ContentView: View {
     /// A dry run's Cockpit covers the app while one runs. (6.4.0)
     @ObservedObject private var dryRuns = DryRunCenter.shared
 
+    /// The Companion screen is up: a flight surface, though the flight is the iPad's. No banner comes over it.
+    private var showsCompanionScreen: Bool {
+        companionConnectivityManager.currentRole == .viewer &&
+            (companionConnectivityManager.connectionState == .connected
+                || companionConnectivityManager.connectionState == .reconnecting)
+    }
+
+    /// A banner may come: no flight here, none on the Companion screen, and the safety gate passed.
+    private var bannersAllowed: Bool {
+        !appState.isFlightActive && !showsCompanionScreen && !appState.needsDisclaimerAcceptance
+    }
+
     private var tipsQuiet: Bool {
         AeroTips.isQuiet(flightActive: appState.isFlightActive, phase: appState.currentPhase,
                          dryRunRunning: dryRuns.isRunning)
@@ -53,9 +65,7 @@ struct ContentView: View {
                 } else if !appState.hasSeenOnboarding {
                     OnboardingView()
                         .transition(.opacity)
-                } else if companionConnectivityManager.currentRole == .viewer &&
-                          (companionConnectivityManager.connectionState == .connected ||
-                           companionConnectivityManager.connectionState == .reconnecting) {
+                } else if showsCompanionScreen {
                     // A viewer iPhone mirrors the master iPad's flight and has no local flight of
                     // its own, so this is checked BEFORE `isFlightActive` (always false on the
                     // viewer — previously a connected viewer fell through to HomeView and never
@@ -92,7 +102,7 @@ struct ContentView: View {
                 }
 
                 // PR-41: non-blocking banner when the checklist was served in a fallback language.
-                if let notice = appState.languageFallbackNotice, !appState.needsDisclaimerAcceptance {
+                if let notice = appState.languageFallbackNotice, bannersAllowed {
                     VStack {
                         LanguageFallbackBanner(message: notice) {
                             appState.languageFallbackNotice = nil
@@ -105,8 +115,7 @@ struct ContentView: View {
                 // v4.4.0: an activation retired by age says so, with a one-tap way to put it back.
                 // Never during a flight — the expiry cannot fire then, and a banner over the HUD would
                 // be exactly the wrong moment.
-                if let expired = flightPlanManager.expiredActivation, !appState.isFlightActive,
-                   !appState.needsDisclaimerAcceptance {
+                if let expired = flightPlanManager.expiredActivation, bannersAllowed {
                     VStack {
                         ActivationExpiredBanner(
                             routeLabel: expired.routeLabel,
@@ -122,8 +131,7 @@ struct ContentView: View {
                 // most insistent banner in the app and the only one in red — search and rescue is alerted
                 // after the ETA (30 minutes in Switzerland), so this is the one piece of admin with a
                 // search-and-rescue consequence for forgetting it. Since 6.5.0, by the country landed in.
-                if let notice = threadManager.openFlightPlanNotice, !appState.isFlightActive,
-                   !appState.needsDisclaimerAcceptance {
+                if let notice = threadManager.openFlightPlanNotice, bannersAllowed {
                     VStack {
                         OpenFlightPlanBanner(
                             routeLabel: notice.routeLabel,
@@ -140,8 +148,7 @@ struct ContentView: View {
 
                 // v5.x: a circuit session that ended with nothing following it. An offer, not a
                 // thread created behind the pilot's back — dismissing it is a complete answer.
-                if let offer = threadManager.circuitCloseOutOffer, !appState.isFlightActive,
-                   !appState.needsDisclaimerAcceptance {
+                if let offer = threadManager.circuitCloseOutOffer, bannersAllowed {
                     VStack {
                         CircuitCloseOutBanner(
                             routeLabel: offer.routeLabel,
@@ -157,11 +164,13 @@ struct ContentView: View {
                 }
 
                 // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
-                if dataStatusManager.showStaleNudge && !appState.isFlightActive
-                    && appState.settings.hasCompletedOnboarding && !appState.needsDisclaimerAcceptance {
+                if dataStatusManager.showStaleNudge && bannersAllowed && appState.settings.hasCompletedOnboarding {
                     VStack {
                         DataFreshnessNudgeBanner(message: L10n.DataStorage.nudgeMessage) {
+                            // Off for a week, and to where it can be put right.
                             dataStatusManager.snoozeNudge()
+                            appState.pendingSettingsSection = .dataStorage
+                            appState.groundTab = .settings
                         }
                         Spacer()
                     }
@@ -210,6 +219,10 @@ struct ContentView: View {
         }
         .onChange(of: keepsScreenAwake) { _, awake in
             UIApplication.shared.isIdleTimerDisabled = awake
+        }
+        // A real flight in the logbook: Getting started has done its work, for good.
+        .onChange(of: appState.flights.isEmpty, initial: true) { _, empty in
+            if !empty && !dryRuns.isRunning { GettingStarted.retire() }
         }
         // The one-time tips keep quiet in flight past the line-up and in a dry run. (6.8.0)
         .onChange(of: tipsQuiet, initial: true) { _, quiet in
@@ -785,7 +798,7 @@ struct CircuitCloseOutBanner: View {
 
 struct DataFreshnessNudgeBanner: View {
     let message: String
-    let onDismiss: () -> Void
+    let onOpen: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -805,10 +818,9 @@ struct DataFreshnessNudgeBanner: View {
         .padding(.top, 8)
         .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
         .contentShape(Rectangle())
-        .onTapGesture { onDismiss() }
+        .onTapGesture { onOpen() }
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(message)
-        .accessibilityHint(Text(L10n.Button.close))
     }
 }
 

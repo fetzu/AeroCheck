@@ -1564,7 +1564,18 @@ class AppState {
         guard fellBack, let served, served != requested else {
             return
         }
+        // Never with a flight running, and once per checklist and language (the author, 6 Nov 2026).
+        guard !isFlightActive, Self.firstLanguageNotice(for: checklist.id, language: served) else { return }
         languageFallbackNotice = L10n.Aircraft.checklistLanguageOnly(Self.languageDisplayName(served))
+    }
+
+    /// Whether this checklist's notice is still to come, noting it as said.
+    nonisolated static func firstLanguageNotice(for checklist: String, language: String, defaults: UserDefaults = .standard) -> Bool {
+        let key = "checklistLanguageNotice.shown"
+        var shown = Set(defaults.stringArray(forKey: key) ?? [])
+        guard shown.insert("\(checklist)~\(language)").inserted else { return false }
+        defaults.set(Array(shown), forKey: key)
+        return true
     }
 
     /// Human-readable language name for a checklist language code (aviation languages only).

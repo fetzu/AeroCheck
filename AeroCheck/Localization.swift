@@ -1702,8 +1702,6 @@ enum L10n {
         static let mapSheetBody = String(localized: "tips.mapSheetBody")
         static let logbookLineTitle = String(localized: "tips.logbookLineTitle")
         static let logbookLineBody = String(localized: "tips.logbookLineBody")
-        static let offlineBorderTitle = String(localized: "tips.offlineBorderTitle")
-        static let offlineBorderBody = String(localized: "tips.offlineBorderBody")
         static let showAgain = String(localized: "tips.showAgain")
         static let showAgainSubtitle = String(localized: "tips.showAgainSubtitle")
         static let showAgainPending = String(localized: "tips.showAgainPending")
@@ -4214,7 +4212,6 @@ enum L10n {
         static let exitConfirmTitle = String(localized: "companion.exitConfirmTitle")
         static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
         static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
-        static let pairInSettings = String(localized: "companion.pairInSettings")
 
         // Divert from the phone (6.2.0). The rest of its words are the iPad's Divert sheet's (`Trip`).
         static let divertHint = String(localized: "companion.divertHint")
@@ -4472,10 +4469,6 @@ enum L10n {
         static let showAgain = String(localized: "dryRunCoach.showAgain")
         static let habitsTitle = String(localized: "dryRunCoach.habitsTitle")
         static let nextFree = String(localized: "dryRunCoach.nextFree")
-        static let todayTitle = String(localized: "dryRunCoach.todayTitle")
-        static let todayBody = String(localized: "dryRunCoach.todayBody")
-        static let todayStart = String(localized: "dryRunCoach.todayStart")
-        static let todayNotNow = String(localized: "dryRunCoach.todayNotNow")
         static let chaptersFooter = String(localized: "dryRunCoach.chaptersFooter")
 
         /// Onboarding's circuit on the ground (`DryRunFirstFlight`). (6.8.0)

@@ -858,6 +858,22 @@
         }
       }
     },
+    "Remind Me in a Week": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In einer Woche erinnern"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Me le rappeler dans une semaine"
+          }
+        }
+      }
+    },
     "Some stations have no mass, so this is not a valid check": {
       "localizations": {
         "de": {
@@ -902,6 +918,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Passe à la palette à contraste élevé lorsque l'écran est proche de la luminosité maximale. L'app ne peut pas mesurer la lumière ambiante : elle se fie donc à la luminosité de l'écran."
+          }
+        }
+      }
+    },
+    "The new ICAO chart is out.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die neue ICAO-Karte ist erschienen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La nouvelle carte OACI est parue."
           }
         }
       }
@@ -982,6 +1014,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Retirer des favoris"
+          }
+        }
+      }
+    },
+    "Update your saved chart?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherte Karte aktualisieren?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre à jour votre carte enregistrée ?"
           }
         }
       }
@@ -13395,29 +13443,6 @@
         }
       }
     },
-    "dryRunCoach.todayBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Planen Sie einen Flug, fliegen Sie ihn mit der WT9, schliessen Sie ihn ab und sehen Sie ihn in Ihrem Flugbuch an, mit einer Anleitung bei jedem Schritt. Das dauert etwa 15 Minuten, und nichts davon wird behalten."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plan a flight, fly it with the WT9, close it out and look at it in your logbook, with a guide at each step. It takes about 15 minutes, and none of it is kept."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Planifiez un vol, faites-le avec le WT9, clôturez-le et retrouvez-le dans votre carnet, avec un guide à chaque étape. Cela prend environ 15 minutes, et rien n'en est gardé."
-          }
-        }
-      }
-    },
     "dryRunCoach.flightName": {
       "extractionState": "manual",
       "localizations": {
@@ -13598,75 +13623,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "La prochaine fois, essayez la pratique libre, depuis Réglages › À propos."
-          }
-        }
-      }
-    },
-    "dryRunCoach.todayTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fliegen Sie Ihren ersten Flug am Boden"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fly your first flight on the ground"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Faites votre premier vol au sol"
-          }
-        }
-      }
-    },
-    "dryRunCoach.todayStart": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trockenübung beginnen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start the dry run"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commencer le vol à blanc"
-          }
-        }
-      }
-    },
-    "dryRunCoach.todayNotNow": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nicht jetzt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not now"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pas maintenant"
           }
         }
       }
@@ -18040,19 +17996,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Einige Luftfahrtdaten sind veraltet. Öffnen Sie Offline-Daten, um sie zu aktualisieren."
+            "value": "Einige Luftfahrtdaten sind veraltet. Zum Aktualisieren tippen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Some aeronautical data is out of date. Open Offline data to update."
+            "value": "Some aeronautical data is out of date. Tap to update."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Certaines données aéronautiques sont périmées. Ouvrez Données hors ligne pour les mettre à jour."
+            "value": "Certaines données aéronautiques sont périmées. Touchez pour les mettre à jour."
           }
         }
       }
@@ -22164,22 +22120,6 @@
         }
       }
     },
-    "swisstopo has released a new version of the ICAO Aeronautical Chart. The chart is updated every year in April. Update your saved chart to keep your navigation data accurate.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "swisstopo hat eine neue Ausgabe der ICAO-Luftfahrtkarte veröffentlicht. Die Karte wird jedes Jahr im April aktualisiert. Aktualisieren Sie Ihre gespeicherte Karte, damit Ihre Navigationsdaten stimmen."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "swisstopo a publié une nouvelle version de la carte aéronautique OACI. La carte est mise à jour chaque année en avril. Mettez à jour votre carte enregistrée pour garder des données de navigation exactes."
-          }
-        }
-      }
-    },
     "thread.access.account": {
       "extractionState": "manual",
       "localizations": {
@@ -22945,19 +22885,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeiten und Landungen stammen aus der GPS-Spur. Tippen Sie für die Details. Wischen Sie nach rechts, um ihn erneut zu planen oder als Favorit zu speichern."
+            "value": "Zeiten und Landungen stammen aus der GPS-Spur. Wischen Sie nach rechts, um ihn erneut zu planen oder als Favorit zu speichern."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Times and landings come from the GPS track. Tap for the details. Swipe right to plan it again or save it as a favourite."
+            "value": "Times and landings come from the GPS track. Swipe right to plan it again or save it as a favourite."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les heures et les atterrissages viennent de la trace GPS. Touchez pour le détail. Glissez vers la droite pour le planifier à nouveau ou l'enregistrer en favori."
+            "value": "Les heures et les atterrissages viennent de la trace GPS. Glissez vers la droite pour le planifier à nouveau ou l'enregistrer en favori."
           }
         }
       }
@@ -22991,19 +22931,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unter Karte wählen Sie die Grundkarte und blenden die Lufträume, die Flugplätze und die übrigen Ebenen ein oder aus."
+            "value": "Grundkarte, Lufträume, Flugplätze und die übrigen Ebenen finden Sie alle hier."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Map is where you choose the base chart and switch the airspace, the aerodromes and the other layers on or off."
+            "value": "The base chart, airspace, aerodromes and the other layers are all in here."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans Carte, vous choisissez la carte de fond et affichez ou masquez les espaces aériens, les aérodromes et les autres couches."
+            "value": "La carte de fond, les espaces aériens, les aérodromes et les autres couches sont tous ici."
           }
         }
       }
@@ -23027,52 +22967,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les couches de la carte"
-          }
-        }
-      }
-    },
-    "tips.offlineBorderBody": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diese Route führt in ein Land, das Sie nicht heruntergeladen haben. Laden Sie es hier herunter, oder verwalten Sie Ihre Länder unter Einstellungen › Offline-Daten."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This route enters a country you haven't downloaded. Download it here, or manage your countries in Settings › Offline data."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette route entre dans un pays que vous n'avez pas téléchargé. Téléchargez-le ici, ou gérez vos pays dans Réglages › Données hors ligne."
-          }
-        }
-      }
-    },
-    "tips.offlineBorderTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline-Daten nach Land"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline data, by country"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Données hors ligne, par pays"
           }
         }
       }
@@ -43664,24 +43558,6 @@
         }
       }
     },
-    "Current cache: %@": {
-      "comment": "A pair of text labels displaying the current version of the ICAO chart cache and the date it was last downloaded.",
-      "isCommentAutoGenerated": true,
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aktueller Cache: %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cache actuel : %@"
-          }
-        }
-      }
-    },
     "Custom Position": {
       "localizations": {
         "de": {
@@ -43899,24 +43775,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Télécharger les données pour cette route"
-          }
-        }
-      }
-    },
-    "Downloaded: %@": {
-      "comment": "A label displaying the date and time when the ICAO Aeronautical Chart was last downloaded.",
-      "isCommentAutoGenerated": true,
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heruntergeladen: %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Téléchargé : %@"
           }
         }
       }
@@ -45015,22 +44873,6 @@
       "comment": "A label for the speed unit.",
       "isCommentAutoGenerated": true
     },
-    "ICAO Chart Update Available": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aktualisierung der ICAO-Karte verfügbar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mise à jour de la carte OACI disponible"
-          }
-        }
-      }
-    },
     "Ignore": {
       "localizations": {
         "de": {
@@ -45867,22 +45709,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Actualiser"
-          }
-        }
-      }
-    },
-    "Remind Me Next Time": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beim nächsten Mal erinnern"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Me le rappeler plus tard"
           }
         }
       }
@@ -51262,29 +51088,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Appairez d'abord un appareil pour activer la connexion."
-          }
-        }
-      }
-    },
-    "companion.pairInSettings": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sie können ein Begleitgerät in den Einstellungen koppeln."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You can pair a companion device in Settings."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous pouvez appairer un appareil compagnon dans les Réglages."
           }
         }
       }

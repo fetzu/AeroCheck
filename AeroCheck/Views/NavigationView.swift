@@ -3925,7 +3925,9 @@ struct OverlaysSections: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            if airspaceNeedsUpdate || isUpdatingAeroData {
+            // Not past the line-up, as the tips: an Update button is no use there. The amber mark on the button stays.
+            if airspaceNeedsUpdate || isUpdatingAeroData,
+               !AeroTips.isQuiet(flightActive: appState.isFlightActive, phase: appState.currentPhase, dryRunRunning: false) {
                 staleDataBanner
             }
             groupCard(L10n.Nav.airspaceCharts) {

@@ -309,4 +309,15 @@ final class AerodromeNotesTests: XCTestCase {
         XCTAssertEqual(names, [DataPersistenceManager.aerodromeNoteFilename(for: kept)])
         XCTAssertEqual(DataPersistenceManager.deletionKind(ofFolder: folder), .aerodromeNote)
     }
+
+    // MARK: After landing
+
+    func testTheOfferAfterLandingKeepsAwayFromHome() {
+        let bressaucourt = AerodromeRef(ident: "LSZQ", name: "Bressaucourt", latitude: 47.39, longitude: 7.03, otherIdents: ["LSBR"])
+        XCTAssertFalse(AerodromeNoteCloseOffer.isOffered(bressaucourt, home: "lszq", hasNote: false))
+        XCTAssertFalse(AerodromeNoteCloseOffer.isOffered(bressaucourt, home: "LSBR", hasNote: false), "the same field by its other code")
+        XCTAssertTrue(AerodromeNoteCloseOffer.isOffered(bressaucourt, home: "LSZG", hasNote: false), "away from home")
+        XCTAssertTrue(AerodromeNoteCloseOffer.isOffered(bressaucourt, home: nil, hasNote: false), "no home set")
+        XCTAssertTrue(AerodromeNoteCloseOffer.isOffered(bressaucourt, home: "LSZQ", hasNote: true), "a note to read again, even at home")
+    }
 }

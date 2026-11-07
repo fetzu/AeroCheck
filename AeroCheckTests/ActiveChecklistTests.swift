@@ -449,4 +449,12 @@ final class BundledChecklistParityTests: XCTestCase {
             XCTAssertEqual(staticEntry, jsonEntry, "Speed \(name) drifted between the Swift statics and the JSON")
         }
     }
+
+    func testTheLanguageNoticeComesOnce() {
+        let defaults = UserDefaults(suiteName: "LanguageNotice")!
+        defer { defaults.removePersistentDomain(forName: "LanguageNotice") }
+        XCTAssertTrue(AppState.firstLanguageNotice(for: "cap10-c", language: "fr", defaults: defaults))
+        XCTAssertFalse(AppState.firstLanguageNotice(for: "cap10-c", language: "fr", defaults: defaults))
+        XCTAssertTrue(AppState.firstLanguageNotice(for: "pa18-150", language: "fr", defaults: defaults))
+    }
 }

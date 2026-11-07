@@ -4,7 +4,7 @@ import TipKit
 // MARK: - One-time tips (6.8.0)
 
 /// A few tips where a feature lives, each shown once with Apple's TipKit (the author's answer 8 A on the onboarding
-/// page, 31 Oct 2026): the Map sheet, the logbook's line, offline data for a route across a border. None in the Cockpit
+/// page, 31 Oct 2026): the Map sheet and the logbook's line. None in the Cockpit
 /// (the author's q2, 5 Nov 2026): the dry run teaches the Cockpit, with the aircraft moving and nobody flying. Never in a
 /// flight past its line-up nor in a dry run (`isQuiet`); never in the tests or a screenshot run. Settings › About shows
 /// them again from the next launch.
@@ -53,14 +53,6 @@ struct LogbookLineTip: Tip {
     var title: Text { Text(L10n.Tips.logbookLineTitle) }
     var message: Text? { Text(L10n.Tips.logbookLineBody) }
     var image: Image? { Image(systemName: "book.closed") }
-    var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
-}
-
-/// A route across a border whose countries are not all on the device.
-struct OfflineBorderTip: Tip {
-    var title: Text { Text(L10n.Tips.offlineBorderTitle) }
-    var message: Text? { Text(L10n.Tips.offlineBorderBody) }
-    var image: Image? { Image(systemName: "arrow.down.circle") }
     var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
 }
 

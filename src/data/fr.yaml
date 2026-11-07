@@ -1,7 +1,7 @@
 lang: "fr"
 meta:
-  title: "AéroCheck · Le cockpit guidé par la checklist, pour les pilotes VFR"
-  description: "Un cockpit guidé par la checklist pour les pilotes VFR, sur un iPad sur la planchette et sur l'iPhone : il suit le vol de la vérification prévol à l'arrêt moteur, dit quelle vérification est à faire, et garde la carte, la route et le carnet à portée de doigt. Gratuit avec un avion."
+  title: "AéroCheck · L'app de checklists pour les pilotes VFR"
+  description: "Une app de checklists pour les pilotes VFR, sur l'iPad fixé à votre planchette ou sur votre iPhone. Elle suit votre vol de la vérification prévol à l'arrêt moteur, indique quelle vérification est à faire, et garde la carte, la route et le carnet à portée de main. Gratuite pour un avion."
 brand: "AéroCheck"
 
 nav:
@@ -21,22 +21,22 @@ theme: { to_dark: "Passer au thème sombre", to_light: "Passer au thème clair" 
 hero:
   eyebrow: "Pour les pilotes VFR · iPad et iPhone"
   title: "Conçu pour la planchette."
-  subtitle: "AéroCheck est un cockpit guidé par la checklist, pour les pilotes VFR. Il suit le vol de la vérification prévol à l'arrêt moteur, ouvre la vérification qui est à faire, et garde la carte, la route et le carnet à portée de doigt. Gratuit avec un avion."
+  subtitle: "AéroCheck est une app de checklists pour les pilotes VFR. Elle suit votre vol de la vérification prévol à l'arrêt moteur, ouvre la vérification à faire, et garde la carte, la route et le carnet à portée de main. Gratuite pour un avion."
   secondary: { label: "Suivre un vol réel", href: "/fr/flight" }
   facts: "16 phases · {total} avions · français, allemand et anglais · open source"
   shot: "cockpit"
   shot_alt: "Le cockpit en croisière sur un iPad"
   callouts:
     - { side: "left", x: 2.5, y: 5.0,  where: "En haut",        title: "Où vous en êtes",      text: "La vérification en cours, le temps de vol et le GPS." }
-    - { side: "right", x: 97, y: 13.4, where: "Juste dessous",  title: "Ce que vous pilotez",  text: "Vitesse sol, altitude, route, et le chemin jusqu'au prochain point." }
+    - { side: "right", x: 97, y: 13.4, where: "Juste dessous",  title: "Vos paramètres de vol",  text: "Vitesse sol, altitude, route, et ce qu'il reste jusqu'au prochain point." }
     - { side: "left", x: 2.5, y: 23.6, where: "Sous les chiffres", title: "Qui appeler",      text: "La fréquence à utiliser maintenant, et la suivante." }
-    - { side: "right", x: 97, y: 56.6, where: "Au milieu",      title: "L'élément en cours",   text: "Encadré là où il se trouve, le reste de la vérification autour." }
-    - { side: "left", x: 2.5, y: 93.8, where: "En bas",         title: "Quatre boutons",       text: "Sous le pouce, à la même place dans chaque phase." }
+    - { side: "right", x: 97, y: 56.6, where: "Au milieu",      title: "L'élément en cours",   text: "Encadré dans la liste, avec les autres éléments autour." }
+    - { side: "left", x: 2.5, y: 93.8, where: "En bas",         title: "Quatre boutons",       text: "À la même place dans chaque phase (pour ne pas avoir à les chercher)." }
 
 dryrun:
   band: "VOL À BLANC · 4×"
   title: "Votre premier vol avec AéroCheck, au sol."
-  text: "Une fois l'app sur votre iPad ou votre iPhone, son vol à blanc vous fait faire tout un vol à votre bureau : une histoire guidée en quatre parties, de la préparation au carnet, dans le vrai cockpit. Ensuite, la pratique libre : des tours de piste sur tout aérodrome doté d'une piste, ou l'une de vos routes. Rien n'en est conservé, et la position n'est pas nécessaire."
+  text: "Une fois l'app sur votre iPad ou votre iPhone, le vol à blanc vous fait faire tout un vol depuis votre bureau : une histoire guidée en quatre parties, de la préparation au carnet, dans le vrai cockpit. Ensuite, la pratique libre : des tours de piste sur tout aérodrome doté d'une piste, ou l'une de vos routes. Aucun de ces vols ne finit dans votre carnet, et vous n'avez même pas à quitter votre chaise."
   link: { label: "Comment marche le vol à blanc", href: "/manual#vol-à-blanc" }
   shot: "dryrun"
   alt: "Un vol à blanc guidé en première finale, sur un iPhone"
@@ -45,8 +45,8 @@ dryrun:
 chapters:
   heading: "Un vol, quatre chapitres"
   items:
-    - { key: "plan",    name: "Planifier", line: "Où, quand, quel avion, et une route qui se vérifie toute seule." }
-    - { key: "prepare", name: "Préparer",  line: "La météo, les NOTAM, le plan de vol ATC et les règles de frontière, en liste à cocher." }
+    - { key: "plan",    name: "Planifier", line: "Où, quand, quel avion, et une route que l'app vérifie pendant que vous la tracez." }
+    - { key: "prepare", name: "Préparer",  line: "La météo, les NOTAM, le plan de vol ATC et les formalités de frontière, en liste à cocher." }
     - { key: "fly",     name: "Voler",     line: "Un seul écran de cockpit : la vérification à faire, la carte ou la route.", core: true }
     - { key: "close",   name: "Clôturer",  line: "Clôturer le plan de vol ATC ; la ligne du carnet est déjà écrite." }
   story: { label: "Suivre un vrai vol, de Bressaucourt à Samedan", href: "/flight" }
@@ -57,22 +57,22 @@ flagship:
   items:
     - step: "01 · Planifier"
       anchor: "plan"
-      title: "Un vol, pas seulement une route"
-      description: "Planifier un vol demande quand et d'où, et construit le reste autour. L'éditeur de route trace le profil au-dessus du relief et liste chaque espace aérien traversé, à l'altitude prévue."
-      facts: ["Relief et espaces aériens vérifiés pendant le tracé", "Des voyages avec escales", "Le carburant à bord d'un tap"]
+      title: "Planifier tout le vol"
+      description: "Dans Planifier un vol, indiquez quand et d'où vous partez : l'app prépare le vol pour vous. L'éditeur de route trace le profil au-dessus du relief et liste chaque espace aérien où vous entrez à l'altitude prévue."
+      facts: ["Relief et espaces aériens vérifiés pendant le tracé", "Des voyages avec escales", "Le carburant à bord en un toucher"]
       shot: "route"
     - step: "02 · Préparer"
       anchor: "prepare"
       where: true
-      title: "Tout ce que vous garderiez sinon en tête"
-      description: "La météo, les NOTAM, le plan de vol ATC et la frontière deviennent des blocs à cocher, chacun avec son lien. Une ligne sous le nom du vol dit ce qui reste, et avant quand."
-      facts: ["Un rappel la veille", "Les règles de frontière de six pays", "Un log de nav A5 pour la planchette"]
+      title: "Tout ce qu'il faudrait sinon garder en tête"
+      description: "La météo, les NOTAM, le plan de vol ATC et la frontière sont des blocs à cocher, chacun avec son lien. La ligne sous le nom du vol indique ce qu'il reste à faire, et pour quand."
+      facts: ["Un rappel la veille", "Les formalités de frontière de six pays", "Un log de nav A5 pour la planchette"]
       shot: "prepare"
     - step: "03 · Voler"
       anchor: "fly"
       fly: true
-      title: "Des vérifications qui viennent à vous"
-      description: "Le vol dit quand une vérification est à faire : la montée après le décollage, la croisière à la mise en palier, l'approche à cinq milles. Une vérification dépassée est marquée en retard, pas oubliée, et les remises de gaz, posés-décollés et atterrissages sont enregistrés d'eux-mêmes, avec annulation."
+      title: "Chaque vérification s'ouvre au bon moment"
+      description: "AéroCheck vous indique quand une vérification est à faire : la montée après le décollage, la croisière à la mise en palier, l'approche à cinq milles. Si vous passez une vérification sans la faire, elle reste dans la liste, marquée en retard. Les remises de gaz, posés-décollés et atterrissages sont enregistrés automatiquement (et vous pouvez les annuler)."
       facts: ["Les éléments reportés restent en vue", "Masquer les éléments mémoire pour vous tester", "V-SPEEDS et les briefings s'ouvrent par-dessus la page"]
       note: "AéroCheck accompagne la checklist approuvée de votre avion et l'AFM, et ne remplace ni l'une ni l'autre : la checklist papier reste à bord."
       shot: "vspeeds"
@@ -81,7 +81,7 @@ flagship:
       fly: true
       where: true
       title: "La carte, avec les tours de piste"
-      description: "En route, la page passe à la carte : l'avion, la route et les espaces aériens, avec MARQUER et Dérouter sous le pouce. Autour des aérodromes, les tours de piste, les secteurs d'arrivée et les routes VFR d'open flightmaps. Touchez un aérodrome pour sa fiche : ses fréquences, sa carte officielle et votre propre note sur lui, écrite au sol et lue en vol."
+      description: "En route, la page passe à la carte : l'avion, la route et les espaces aériens, avec MARQUER et Dérouter à portée de main. Autour des aérodromes, vous avez aussi les tours de piste, les secteurs d'arrivée et les routes VFR d'open flightmaps. Touchez un aérodrome pour ouvrir sa fiche : fréquences, carte officielle et votre propre note sur cet aérodrome (celle que vous avez écrite au sol pour ne pas avoir à vous en souvenir)."
       facts: ["Cartes OACI et vol à voile suisses, hors ligne", "Tours de piste et routes VFR dans {ofmCountries} pays", "Liens vers les cartes officielles dans {chartCountries} pays"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
@@ -90,9 +90,9 @@ flagship:
       fly: true
       where: true
       title: "Atlas : une carte dessinée pour le vol"
-      description: "AéroCheck dessine sa propre carte, tirée d'OpenStreetMap, pour ce que vous cherchez par la fenêtre : les villes selon leur taille, autoroutes et routes principales, voies ferrées et téléphériques, rivières, lacs et forêts, glaciers, et les sommets avec leur altitude en pieds, sur le relief. Chaque pays de la page Pays, les grands par région, réunis à leurs frontières."
+      description: "AéroCheck dessine sa propre carte à partir d'OpenStreetMap, avec ce que vous cherchez vraiment par la fenêtre : les villes selon leur taille, autoroutes et routes principales, voies ferrées et téléphériques, rivières, lacs et forêts, glaciers, et les sommets avec leur altitude en pieds, sur le relief. Elle couvre chaque pays de la page Pays (les grands par région) et les raccorde aux frontières."
       facts: ["Téléchargez une région : elle fonctionne hors ligne", "Reconstruite chaque mois depuis OpenStreetMap", "Images aériennes de sources publiques ouvertes"]
-      note: "En ligne, la carte lit ce qui est à l'écran, dans un quota mensuel : 1 500 tuiles, 15 000 avec Pro. Une région téléchargée n'y compte jamais."
+      note: "En ligne, la carte charge ce qui est à l'écran, dans la limite d'un quota mensuel : 1 500 tuiles, ou 15 000 avec Pro. Les régions téléchargées ne comptent pas."
       shot: "atlas"
     - step: "04 · Clôturer"
       anchor: "close"
@@ -105,16 +105,16 @@ flagship:
 phone:
   step: "03 · Voler · iPhone"
   title: "Le même cockpit sur l'iPhone"
-  description: "Dimensionné pour un téléphone à bout de bras : les mêmes trois pages et un mot par bouton sous le pouce. En mode paysage, les commandes passent dans une colonne et la carte prend le reste. À côté d'un iPad, l'iPhone devient un second écran qui le suit, et donne son GPS à un iPad Wi-Fi."
+  description: "Dimensionné pour un téléphone à bout de bras : les mêmes trois pages, avec un mot sur chaque bouton. Tournez-le sur le côté : les commandes passent dans une colonne, avec la carte à côté. Associé à un iPad, l'iPhone devient un second écran qui le suit, et fournit le GPS à un iPad Wi-Fi."
   shots: ["cockpitmap", "landscape"]
 
 pricing:
   heading: "Ce que ça coûte"
   tiers:
-    - { name: "Gratuit", title: "Tout, avec un avion", text: "Toutes les fonctions de l'app, avec la checklist de l'Aerospool WT9 Dynamic." }
+    - { name: "Gratuit", title: "Tout, pour un avion", text: "Toutes les fonctions de l'app, avec la checklist de l'Aerospool WT9 Dynamic." }
     - { name: "AéroCheck Pro", title: "Tous les avions de club", text: "Les checklists des {premium} autres avions : au mois, ou à l'année avec une semaine d'essai gratuite pour les comptes éligibles.", highlight: true }
-    - { name: "À vie", title: "Un seul paiement", text: "AéroCheck Pro pour de bon, en un achat unique via votre compte Apple." }
-  send: "AéroCheck a commencé avec trois aéroclubs suisses, à Porrentruy, Lausanne et Neuchâtel. Les clubs et les pilotes nous envoient leurs checklists, et de nouveaux avions arrivent régulièrement : si le vôtre manque encore, envoyez-le depuis l'app ou depuis ce site."
+    - { name: "À vie", title: "Un seul paiement", text: "AéroCheck Pro à vie, en un achat unique via votre compte Apple." }
+  send: "AéroCheck a commencé avec trois aéroclubs suisses, à Porrentruy, Lausanne et Neuchâtel. Les clubs et les pilotes nous envoient leurs checklists, et de nouveaux avions s'ajoutent régulièrement : si le vôtre n'y est pas encore, envoyez sa checklist depuis l'app ou depuis ce site."
   links:
     - { label: "Voir les avions", href: "/aircraft" }
     - { label: "Envoyer une checklist", href: "/send" }
@@ -122,18 +122,18 @@ pricing:
 faq:
   heading: "Questions"
   items:
-    - q: "Remplace-t-il ma checklist papier ?"
+    - q: "AéroCheck remplace-t-il ma checklist papier ?"
       a: "Non. AéroCheck accompagne la checklist approuvée de votre avion, l'AFM et votre propre jugement, et ne remplace aucun des trois. La checklist papier reste à bord."
-    - q: "Mon avion y est-il ?"
-      a: "{total} avions aujourd'hui, pour la plupart de flottes de clubs suisses ; la page Aéronefs les liste. Si le vôtre manque, envoyez sa checklist depuis l'app ou depuis aerocheck.app/fr/send : de nouveaux avions arrivent régulièrement."
+    - q: "Mon avion est-il dans la liste ?"
+      a: "{total} avions aujourd'hui, pour la plupart de flottes de clubs suisses ; la page Aéronefs les liste. Si le vôtre manque, envoyez sa checklist depuis l'app ou depuis aerocheck.app/fr/send : de nouveaux avions s'ajoutent régulièrement."
     - q: "Fonctionne-t-il hors de Suisse ?"
-      a: "Oui. Les espaces aériens des pays où vous volez, les tours de piste et routes VFR dans {ofmCountries} pays, les liens vers les cartes officielles dans {chartCountries}. Les cartes suisses, la DABS et le GAFOR sont des plus pour la Suisse. Pays par pays, aerocheck.app/fr/countries dit ce qui marche où."
+      a: "Oui. Vous avez les espaces aériens des pays où vous volez, les tours de piste et routes VFR dans {ofmCountries} pays, et les liens vers les cartes officielles dans {chartCountries}. Les cartes suisses, le DABS et le GAFOR sont des plus propres à la Suisse. aerocheck.app/fr/countries indique ce qui est disponible, pays par pays."
     - q: "Fonctionne-t-il sans connexion ?"
       a: "Oui. Cartes, espaces aériens et aérodromes restent sur l'appareil : téléchargez-les avant de voler."
     - q: "Qu'apporte l'iPhone ?"
-      a: "Seul, l'iPhone offre le même cockpit, adapté à l'écran d'un téléphone. Associé à un iPad en mode compagnon, il devient un second écran qui suit le vol de l'iPad, et vous pouvez cocher les points sur l'un comme sur l'autre. Si votre iPad est un modèle Wi-Fi, sans GPS, l'iPhone lui prête aussi sa position. Le mode compagnon demande iOS 26 sur les deux appareils."
+      a: "Sans iPad, l'iPhone offre le même cockpit, adapté à l'écran d'un téléphone. Associé à un iPad en mode compagnon, il devient un second écran qui suit le vol de l'iPad, et vous pouvez cocher les éléments sur l'un comme sur l'autre. Si votre iPad est un modèle Wi-Fi (donc sans GPS), l'iPhone lui donne aussi sa position. Le mode compagnon demande iOS 26 sur les deux appareils."
     - q: "Que deviennent mes données ?"
-      a: "Vos vols, vos traces et vos notes d'aérodrome restent sur votre appareil et dans votre propre iCloud. Pas de compte, pas de publicité, pas de pistage ; la politique de confidentialité donne le détail."
+      a: "Vos vols, vos traces et vos notes d'aérodrome restent sur votre appareil et dans votre propre iCloud. Vous n'avez pas besoin de compte, et il n'y a ni publicité ni pistage (la politique de confidentialité donne le détail)."
 
 also:
   label: "Aussi"
@@ -150,8 +150,8 @@ story:
   secondary: { label: "Retour aux fonctionnalités", href: "/#features" }
   prologue:
     band: "VOL À BLANC · 4×"
-    title: "Avant votre premier vol avec lui, faites-en un au sol."
-    text: "Une fois l'app installée : un vol guidé en quatre parties, de la préparation au carnet, dans le vrai cockpit, à votre bureau. Ensuite, la pratique libre : des tours de piste sur tout aérodrome, une remise de gaz en deuxième finale. Rien n'en est conservé."
+    title: "Avant votre premier vol avec AéroCheck, faites-en un au sol."
+    text: "Une fois l'app installée : un vol guidé en quatre parties, de la préparation au carnet, dans le vrai cockpit, depuis votre bureau. Ensuite, la pratique libre : des tours de piste sur tout aérodrome, une remise de gaz en deuxième finale. Aucun de ces vols ne finit dans votre carnet."
     link: { label: "Comment marche le vol à blanc", href: "/manual#vol-à-blanc" }
     shot: "dryrun"
     alt: "Un vol à blanc guidé en première finale, sur un iPad"
@@ -167,23 +167,23 @@ story:
       sub: "Avant de partir"
       chapter: "Préparer"
       title: "Dix sur douze, et les NOTAM encore à lire."
-      text: "La météo, la DABS, le GAFOR, les règles de frontière pour la France et l'Italie, le plan de vol ATC : chacun une tâche avec son lien, cochée au fil de la préparation. L'anneau ne dit prêt que lorsque les douze sont faites."
+      text: "La météo, le DABS, le GAFOR, les formalités de frontière pour la France et l'Italie, le plan de vol ATC : chacun est une tâche avec son lien, à cocher au fur et à mesure. L'anneau n'affiche prêt que lorsque les douze sont faites."
       shot: "prepare"
       alt: "La page du vol, 10 sur 12 faites"
     - when: "0:16"
       sub: "Aligné, piste 07"
       chapter: "Voler"
       fly: true
-      title: "Alignement fait. La montée attend le décollage."
-      text: "Chaque vérification depuis le prévol, un élément à la fois. Sur la piste, SUIVANT désigne DEKAM et le bouton affiche APRÈS LE DÉCOLLAGE : la vérification de montée arrive une fois le décollage détecté."
+      title: "Alignement fait. La vérification de montée s'ouvre après le décollage."
+      text: "Toutes les vérifications jusqu'ici, un élément à la fois. Sur la piste, SUIVANT désigne DEKAM et le bouton affiche APRÈS LE DÉCOLLAGE : la vérification de montée s'ouvre dès que l'app détecte le décollage."
       shot: "lineup"
       alt: "Le cockpit aligné à Bressaucourt"
     - when: "0:21"
       sub: "Au-dessus du lac de Bienne"
       chapter: "Voler"
       fly: true
-      title: "Les points tournants se marquent d'eux-mêmes."
-      text: "BENOT est marqué au passage de l'avion, avec Annuler pendant six secondes. La zone de Berne est à quelques minutes : sa tour est passée à contacter en SUIV et un toucher l'a mise en ACT, Zürich Info en SUIV pour quand la route en ressort."
+      title: "Les points tournants sont marqués automatiquement."
+      text: "L'app marque BENOT à votre passage, et Annuler reste affiché six secondes. La zone de Berne est à quelques minutes : sa tour était à contacter en SUIV, vous l'avez touchée et elle est passée en ACT. Zürich Info vient ensuite, pour la sortie de zone."
       shot: "automark"
       alt: "BENOT marqué automatiquement, la vérification de croisière ouverte, la tour de Berne en ACT"
     - when: "1:04"
@@ -191,22 +191,22 @@ story:
       chapter: "Voler"
       fly: true
       title: "La carte, la route et le col suivant."
-      text: "En croisière, la page passe à la carte : la route par-dessus les cols, le prochain point et son heure, MARQUER et le chrono sous le pouce."
+      text: "En croisière, la page passe à la carte : la route par-dessus les cols, le prochain point et son heure, avec MARQUER et le chrono en bas de l'écran."
       shot: "alps"
       alt: "La carte du cockpit au-dessus des Alpes"
     - when: "1:53"
       sub: "Au-dessus de Saint-Moritz"
       chapter: "Voler"
       fly: true
-      title: "La vérification d'approche, sans rien demander."
-      text: "En descente vers l'Engadine, la vérification d'approche arrive d'elle-même : la case de vérification passe à l'ambre, six éléments à faire. La fréquence active est la tour de Samedan, et SUIV reste vide."
+      title: "La vérification d'approche s'ouvre au moment voulu."
+      text: "En descente vers l'Engadine, la vérification d'approche s'ouvre automatiquement : la case de vérification passe à l'ambre, avec six éléments à faire. ACT est la tour de Samedan, et SUIV est vide (vous y êtes presque)."
       shot: "approach"
       alt: "La vérification d'approche près de Samedan"
     - when: "Moteur coupé"
       sub: "Samedan"
       chapter: "Clôturer"
       title: "Clôturer le plan de vol. La ligne du carnet est déjà écrite."
-      text: "Le rappel de clôturer le plan de vol ATC reste rouge tant que ce n'est pas fait. Les heures bloc et de vol viennent de la trace, les heures moteur des deux relevés d'horamètre saisis."
+      text: "Le rappel de clôturer le plan de vol ATC reste rouge tant que ce n'est pas fait. Les heures bloc et de vol viennent de la trace, et les heures moteur des deux relevés d'horamètre que vous avez saisis."
       shot: "closeout"
       alt: "La clôture du vol à Samedan"
     - when: "Plus tard"
@@ -218,7 +218,7 @@ story:
       alt: "Le vol dans le carnet"
   end:
     title: "Votre prochain vol, sur votre planchette."
-    text: "Gratuit avec le WT9 Dynamic, tous les avions de club avec AéroCheck Pro."
+    text: "Le WT9 Dynamic est gratuit. Tous les avions de club sont inclus dans AéroCheck Pro."
     secondary: { label: "Lire le manuel", href: "/manual" }
 
 device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Choisir un écran" }
@@ -245,21 +245,21 @@ footer:
 countries:
   title: "Pays"
   description: "Ce qu'AéroCheck propose dans le pays où vous volez : pages de briefing, tours de piste, cartes officielles, taxes d'atterrissage. Le cockpit fonctionne partout."
-  eyebrow: "Pays · ce qui marche où"
+  eyebrow: "Pays · ce qui est disponible"
   ask: "Je vole"
   choose: "… (choisir)"
   elsewhere: "ailleurs"
   select_label: "Le pays où vous volez"
   option_choose: "Choisir un pays"
   option_elsewhere: "Ailleurs"
-  guessed_tz: "Deviné d'après le fuseau horaire de cet appareil ({tz}). Rien ne quitte votre navigateur."
-  guessed_lang: "Deviné d'après la langue de ce navigateur ({lang}). Rien ne quitte votre navigateur."
+  guessed_tz: "Deviné d'après le fuseau horaire de cet appareil ({tz}). Cette information reste dans votre navigateur."
+  guessed_lang: "Deviné d'après la langue de ce navigateur ({lang}). Cette information reste dans votre navigateur."
   empty: "Choisissez le pays où vous volez, ci-dessus ou sur la carte, pour voir ce que l'app y propose."
   lead:
-    home: "C'est en Suisse qu'AéroCheck est né, et c'est là qu'il en sait le plus."
+    home: "C'est en Suisse qu'AéroCheck est né, et c'est là qu'il a le plus de données."
     closed: "Les vols y sont interdits."
-    thin: "{In}, le cockpit fonctionne comme partout ; ce que l'app sait autour reste mince."
-    knows: "{In}, AéroCheck connaît {list}."
+    thin: "{In}, le cockpit fonctionne comme partout, mais l'app a encore peu de données locales."
+    knows: "{In}, AéroCheck vous donne {list}."
     and: " et "
     parts:
       brief: "les pages de briefing"
@@ -270,7 +270,7 @@ countries:
       circuits: "les tours de piste de {n} aérodromes"
     other: "{name} n'est pas encore dans la liste. Le cockpit y fonctionne comme partout."
     other_none: "Où que vous voliez, le cockpit fonctionne comme partout."
-  prohibited: "Vols interdits : les opérations dans cet espace aérien sont interdites ({directive}). Préparer l'affiche en rouge ; rien n'est bloqué."
+  prohibited: "Vols interdits : les opérations dans cet espace aérien sont interdites ({directive}). Préparer l'affiche en rouge, mais vous pouvez quand même démarrer le vol."
   levels: { on: "oui", part: "en partie", off: "pas encore" }
   chapters: { prepare: "Avant le vol", fly: "En vol", close: "Après l'atterrissage" }
   labels:
@@ -291,7 +291,7 @@ countries:
   table_groups: { briefing: "Briefing", flightplan: "Plan de vol ATC", map: "Sur la carte" }
   table_heads: { weather: "Météo", notam: "NOTAM", airspace: "Activité des espaces aériens", forecast: "Prévision de zone", filing: "Dépôt", close: "Clôture", border: "Passage de frontière", openaip: "Espaces aériens et fréquences", circuits: "Tours de piste", routes: "Routes VFR", charts: "Cartes officielles", fees: "Taxes d'atterrissage" }
   table_words: { link: "un lien vers le portail", number: "le numéro et la règle", rule: "la règle seule" }
-  table_hints: { weather: "Un lien vers les pages météo officielles du pays", notam: "Un lien vers la page NOTAM du pays", airspace: "Un lien vers la page d'activité des espaces aériens du pays", forecast: "Un lien vers la prévision de zone du pays", filing: "Où déposer le plan de vol ATC, et avant quand", close: "Comment le clôturer après l'atterrissage : la règle et les numéros", border: "Aérodrome douanier et préavis, vers et depuis la Suisse", openaip: "Espaces aériens, aérodromes et fréquences, d'OpenAIP", circuits: "Les tours de piste sur la carte, avec leur altitude", routes: "Les routes VFR d'arrivée et de départ sur la carte, avec leurs secteurs", charts: "Un lien vers la carte officielle de chaque aérodrome", fees: "Un lien vers le tarif de l'exploitant, par aérodrome" }
+  table_hints: { weather: "Un lien vers les pages météo officielles du pays", notam: "Un lien vers la page NOTAM du pays", airspace: "Un lien vers la page d'activité des espaces aériens du pays", forecast: "Un lien vers la prévision de zone du pays", filing: "Où déposer le plan de vol ATC, et dans quel délai", close: "Comment le clôturer après l'atterrissage : la règle et les numéros", border: "Aérodrome douanier et préavis, vers et depuis la Suisse", openaip: "Espaces aériens, aérodromes et fréquences, d'OpenAIP", circuits: "Les tours de piste sur la carte, avec leur altitude", routes: "Les routes VFR d'arrivée et de départ sur la carte, avec leurs secteurs", charts: "Un lien vers la carte officielle de chaque aérodrome", fees: "Un lien vers le tarif de l'exploitant, par aérodrome" }
   access: { account: "compte gratuit", paid: "payant", restricted: "utilisateurs autorisés", signin: "connexion" }
   text:
     general: "{publishers}, la page générale"
@@ -300,8 +300,8 @@ countries:
     border_ch: "Aérodrome douanier et préavis, vers et depuis la France, l'Allemagne, l'Autriche, l'Italie et le Royaume-Uni"
     border: "Aérodrome douanier et préavis, vers et depuis la Suisse"
     border_off: "Seulement vers et depuis la Suisse"
-    openaip: "OpenAIP : espaces aériens, aérodromes et fréquences, que suit la radio"
-    openaip_off: "OpenAIP ne publie pas ce pays"
+    openaip: "OpenAIP : espaces aériens, aérodromes, fréquences, ACT et SUIV de la radio"
+    openaip_off: "OpenAIP ne couvre pas ce pays"
     nasr: "Sens du tour de piste sur {n} aéroports, altitude du tour de piste sur {altitudes} (FAA) ; aucun tour dessiné"
     circuits: { one: "{n} aérodrome, avec son altitude (open flightmaps)", other: "{n} aérodromes, avec leur altitude (open flightmaps)" }
     circuits_none: "Aucun pour l'instant (open flightmaps) ; ses {points} points de report sont sur la carte"
@@ -326,15 +326,15 @@ countries:
     close_call: "Signalez votre arrivée"
     close_aerodromes: "le numéro propre à chaque aérodrome ({n})"
     close_activation: "Sans ATS au départ, vous l'activez après le décollage"
-    close_unchecked: "La règle valable partout ; aucun numéro vérifié pour l'instant"
-    close_none: "La règle valable partout ; pas de numéro"
+    close_unchecked: "La règle générale ; aucun numéro vérifié pour l'instant"
+    close_none: "La règle générale ; pas de numéro"
     close_no_number: "pas de numéro"
     fees: { one: "Liens vers le tarif de l'exploitant, {n} aérodrome", other: "Liens vers le tarif de l'exploitant, {n} aérodromes" }
     fees_none: "Aucun pour l'instant"
   everywhere: "les checklists des 16 phases, le GPS et le carnet de vol, le log de nav, le vol à blanc, les METAR, TAF et SIGMET là où ils sont émis, les vents en altitude"
   everywhere_here: "Partout, ici aussi"
   everywhere_label: "Partout"
-  everywhere_other: "et les espaces aériens et fréquences d'OpenAIP là où OpenAIP publie le pays. Pages de briefing, tours de piste et liens vers les cartes viennent pays par pays : le tableau ci-dessous dit où."
+  everywhere_other: "et les espaces aériens et fréquences d'OpenAIP là où OpenAIP couvre le pays. Les pages de briefing, les tours de piste et les liens vers les cartes dépendent du pays : le tableau ci-dessous indique où."
   checked: "Pages de briefing vérifiées à la main le {date}, liens chaque jeudi."
   tell: "Il vous manque quelque chose {in} ? Dites-le-nous"
   tell_other: "Vous volez là où nous ne sommes pas encore ? Dites-le-nous"
@@ -342,7 +342,7 @@ countries:
   not_on_map: "Hors de cette carte"
   map_label: "Carte de l'Europe"
   table: { summary: "Chaque pays, chaque fonction", country: "Pays", note: "L'app ne dépose ni ne clôture votre plan de vol : elle renvoie vers le portail, donne le numéro et vous le rappelle.", key: "● oui · ◐ en partie (touchez-le pour voir ce qui manque) · – pas encore. Chiffres : aérodromes (aéroports aux États-Unis). Touchez un pays pour l'ouvrir plus haut." }
-  home_line: { lead: "Le cockpit fonctionne partout.", briefing: "des pages de briefing pour {n} pays", circuits: "des tours de piste dans {n}", charts: "des liens vers les cartes officielles dans {n}", link: "Ce qui marche où" }
+  home_line: { lead: "Le cockpit fonctionne partout.", briefing: "des pages de briefing pour {n} pays", circuits: "des tours de piste dans {n}", charts: "des liens vers les cartes officielles dans {n}", link: "La couverture par pays" }
   where: "Où ça marche"
   in:
     AL: "en Albanie"

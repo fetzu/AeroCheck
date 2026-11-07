@@ -10,13 +10,13 @@ Depuis la version 6.8.0, AéroCheck propose sa propre carte pour le vol : l'Atla
 L'Atlas est dessiné sur votre appareil par MapLibre Native, à partir de tuiles vectorielles que nous construisons chaque mois depuis OpenStreetMap, et du relief de Mapterhorn. Il montre ce que vous chercheriez par la fenêtre : villes et villages (selon leur taille), routes principales, voies ferrées, rivières et lacs, forêts, zones bâties, glaciers, frontières, téléphériques, et sommets avec leur altitude en pieds. Les couches aéronautiques (espaces aériens, aérodromes, procédures et votre route) sont dessinées par-dessus, un peu comme sur les cartes suisses.
 
 Elle se compose de deux parties :
-- Le contour du monde, livré avec l'app : terres, mer, grands lacs et grandes rivières, frontières, pays et capitales. C'est ce que la carte affiche quand elle n'a aucune région à lire, c.-à-d. hors ligne en dehors des régions téléchargées, ou une fois le quota en ligne du mois épuisé.
-- Les régions, construites à partir des données complètes : une par pays de la page [Pays](/fr/countries), les plus grands étant découpés plus finement (les États américains, les Länder allemands, les régions françaises…), environ 236 en tout. Une région se lit soit en ligne (dans un quota mensuel), soit se télécharge et s'utilise hors ligne.
+- Le contour du monde, livré avec l'app : terres, mer, grands lacs et grandes rivières, frontières, pays et capitales. C'est ce que la carte affiche quand elle n'a aucune région à afficher, c.-à-d. hors ligne en dehors des régions téléchargées, ou une fois le quota en ligne du mois épuisé.
+- Les régions, construites à partir des données complètes : une par pays de la page [Pays](/fr/countries), les plus grands étant découpés plus finement (les États américains, les Länder allemands, les régions françaises…), environ 236 en tout. Une région se charge en ligne (dans un quota mensuel) ou se télécharge pour un usage hors ligne.
 
 
 ## 2.0 D'où viennent les données
 
-- OpenStreetMap : © les contributeurs d'OpenStreetMap, sous l'[Open Database Licence](https://opendatacommons.org/licenses/odbl/1-0/) (ODbL 1.0), lu via la compilation quotidienne du [fond de carte Protomaps](https://docs.protomaps.com/basemaps/downloads). Les données de la carte sont une œuvre produite au sens de l'ODbL ; les données elles-mêmes se trouvent sur [openstreetmap.org](https://www.openstreetmap.org/copyright).
+- OpenStreetMap : © les contributeurs d'OpenStreetMap, sous l'[Open Database Licence](https://opendatacommons.org/licenses/odbl/1-0/) (ODbL 1.0), obtenu via la compilation quotidienne du [fond de carte Protomaps](https://docs.protomaps.com/basemaps/downloads). Les données de la carte sont une œuvre produite au sens de l'ODbL ; les données elles-mêmes se trouvent sur [openstreetmap.org](https://www.openstreetmap.org/copyright).
 - Relief : [Mapterhorn](https://mapterhorn.com), des données de terrain ouvertes issues de modèles d'altitude nationaux et mondiaux. Ses sources et leurs licences sont listées sur [mapterhorn.com/attribution](https://mapterhorn.com/attribution).
 - Contours des régions : [Overture Maps](https://overturemaps.org), tirés des limites d'OpenStreetMap et sous la même ODbL (© les contributeurs d'OpenStreetMap, Overture Maps Foundation).
 - Noms des pays et grandes rivières du contour du monde : [Natural Earth](https://www.naturalearthdata.com) (domaine public).
@@ -26,7 +26,7 @@ Elle se compose de deux parties :
 
 ## 3.0 Ce que nous gardons, et ce que nous laissons de côté
 
-Notre construction lit les tuiles de Protomaps et garde, élément par élément, ce dont un pilote se sert vraiment (ou, plus exactement, ce qu'un pilote cherche depuis le cockpit). Ce qu'elle garde est copié tel quel : rien n'est simplifié une seconde fois, et rien n'est déplacé.
+Notre traitement part des tuiles de Protomaps et garde, élément par élément, ce dont un pilote se sert vraiment (ou, plus exactement, ce qu'un pilote cherche depuis le cockpit). Ce qu'il garde est copié tel quel : nous ne le simplifions pas une seconde fois et nous ne le déplaçons pas.
 
 ### 3.1 Gardé
 - Les terres et la couverture du sol.
@@ -35,10 +35,10 @@ Notre construction lit les tuiles de Protomaps et garde, élément par élément
 - Les frontières des pays.
 - Les routes : autoroutes, voies rapides, routes principales et secondaires, avec leurs numéros (et si elles passent en tunnel).
 - Le chemin de fer : grandes lignes, voies étroites et funiculaires, avec leurs tunnels (mais pas les voies de service), ainsi que les téléphériques et autres remontées par câble.
-- Les lieux : villes, bourgs, villages, hameaux et habitations isolées, avec leurs noms et leur population (qui décide à partir de quel niveau de zoom un lieu s'affiche).
+- Les lieux : villes, bourgs, villages, hameaux et habitations isolées, avec leurs noms et leur population (qui détermine à partir de quel niveau de zoom un lieu s'affiche).
 
 ### 3.2 Ajouté
-- Les sommets, une couche que nous construisons nous-mêmes à partir des sommets d'OpenStreetMap : le nom, l'altitude en pieds et la distance jusqu'au sommet plus haut le plus proche, qui décide à partir de quel niveau de zoom un sommet s'affiche (un sommet isolé apparaît avant une bosse sur une arête).
+- Les sommets, une couche que nous construisons nous-mêmes à partir des sommets d'OpenStreetMap : le nom, l'altitude en pieds et la distance jusqu'au sommet plus haut le plus proche, qui détermine à partir de quel niveau de zoom un sommet s'affiche (un sommet isolé apparaît avant une bosse sur une arête).
 
 ### 3.3 Laissé de côté
 - Bâtiments, commerces et autres points d'intérêt, transports publics, petites routes, chemins/sentiers, et frontières cantonales ou régionales.
@@ -52,22 +52,22 @@ Une région ne contient que les données comprises dans son propre contour. Ce c
 
 ## 5.0 Construite chaque mois
 
-La carte est reconstruite chaque mois à partir des dernières données d'OpenStreetMap, et chaque fichier porte le nom de son contenu. C'est ce qui garde les mises à jour légères :
+La carte est reconstruite chaque mois à partir des dernières données d'OpenStreetMap, et chaque fichier porte le nom de son contenu. Les mises à jour restent ainsi légères :
 - un appareil demande le fichier d'une région sous ce nom, et ne le redemande qu'une fois le nom changé : une région qui n'a pas changé n'est jamais téléchargée deux fois ;
 - en vérifiant les mises à jour, l'appareil indique quelle version il a, et une réponse « inchangé » ne pèse que quelques octets ;
-- une région téléchargée se met à jour d'elle-même tous les trois mois, en Wi-Fi et jamais en vol (le bouton « Mettre à jour », quand l'app le propose, charge la nouvelle version plus tôt).
+- une région téléchargée se met à jour automatiquement tous les trois mois, en Wi-Fi et pas en vol (le bouton « Mettre à jour », quand l'app le propose, charge la nouvelle version plus tôt).
 
-OpenStreetMap est modifié chaque minute : une carte mensuelle a donc au plus quelques semaines de retard sur lui. Si quelque chose manque ou est faux sur la carte, le mieux est de le corriger [dans OpenStreetMap même](https://www.openstreetmap.org/fixthemap) : la construction suivante le reprendra.
+OpenStreetMap est modifié chaque minute : une carte mensuelle a donc au plus quelques semaines de retard sur lui. Si quelque chose manque ou est faux sur la carte, le mieux est de le corriger [dans OpenStreetMap même](https://www.openstreetmap.org/fixthemap) : la prochaine mise à jour de la carte le reprendra.
 
 
 ## 6.0 Comment l'app obtient la carte
 
-Les fichiers sont stockés sur tiles.aerocheck.app. Une région téléchargée se lit depuis l'appareil et fonctionne hors ligne ; la moitié des régions font moins de 30 Mo (la Suisse avec le Liechtenstein environ 90 Mo, les plus grandes quelques centaines de Mo). Ailleurs, l'app lit en ligne les tuiles à l'écran (en vue éloignée, depuis un aperçu unique de toutes les régions), dans un quota mensuel par appareil : 1 500 tuiles, ou 15 000 avec AéroCheck Pro. Une région téléchargée ne compte jamais dans ce quota. Ce que ces requêtes révèlent, et ce que nous en gardons, est détaillé dans [la politique de confidentialité](/fr/privacy), section 3.10.
+Les fichiers sont stockés sur tiles.aerocheck.app. Une région téléchargée se lit depuis l'appareil et fonctionne hors ligne ; la moitié des régions font moins de 30 Mo (la Suisse avec le Liechtenstein environ 90 Mo, les plus grandes quelques centaines de Mo). Ailleurs, l'app charge en ligne les tuiles à l'écran (en vue éloignée, depuis un aperçu unique de toutes les régions), dans un quota mensuel par appareil : 1 500 tuiles, ou 15 000 avec AéroCheck Pro. Une région téléchargée ne compte pas dans ce quota. Ce que ces requêtes révèlent, et ce que nous en gardons, est détaillé dans [la politique de confidentialité](/fr/privacy), section 3.10.
 
 
 ## 7.0 Images aériennes
 
-Le fond « Images aériennes » montre des orthophotos publiques ouvertes (et rien d'autre). Chaque appareil les charge directement depuis le service public qui les publie, pendant qu'elles sont à l'écran : AéroCheck n'en héberge aucune, n'en intègre aucune et n'en télécharge aucune à l'avance. Chaque source est utilisée sous sa licence ouverte, découpée à la limite de la zone qu'elle couvre, et créditée dans ses propres termes sur la carte dès que ses images sont visibles (à une frontière, où plusieurs s'affichent à la fois, chacune l'est). Là où aucun État ne publie d'images que nous avons le droit d'utiliser, le fond reste tout simplement vide.
+Le fond « Images aériennes » montre des orthophotos publiques ouvertes (et rien d'autre). Chaque appareil les charge directement depuis le service public qui les publie, pendant qu'elles sont à l'écran : AéroCheck ne les héberge pas et ne les stocke pas. Chaque source est utilisée sous sa licence ouverte, découpée à la limite de la zone qu'elle couvre, et créditée avec sa propre mention sur la carte dès que ses images sont visibles (à une frontière, où plusieurs s'affichent à la fois, chacune l'est). Là où aucun État ne publie d'images que nous avons le droit d'utiliser, le fond reste simplement vide.
 
 | Zone | Mention du fournisseur | Licence |
 |---|---|---|

@@ -67,7 +67,7 @@ final class NotificationService: NSObject, ObservableObject {
 
     /// A dry run's (6.4.0): asks, schedules and cancels nothing, so a flight planned, flown or closed out
     /// in a dry run's world (its thread manager, `FlightCreator`) never reaches the system's notifications.
-    private let isInert: Bool
+    let isInert: Bool
 
     private init(inert: Bool = false) {
         isInert = inert

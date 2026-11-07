@@ -120,6 +120,14 @@ actor ElevationService {
         return nil
     }
 
+    /// The ground under one point, anywhere: swisstopo in Switzerland, Open-Meteo elsewhere, in metres. Nil offline.
+    func groundElevation(at coordinate: CLLocationCoordinate2D) async -> Double? {
+        if let metres = await fetchElevation(at: coordinate) { return metres }
+        guard !isInSwitzerland(coordinate), let url = Self.openMeteoElevationURL(for: [coordinate]),
+              let (data, response) = try? await ExternalRequest.data(from: url), response.statusCode == 200 else { return nil }
+        return Self.parseOpenMeteoElevations(data, expectedCount: 1)?.first
+    }
+
     /// Terrain along a route, sampled about every `spacingNM` along each leg: swisstopo when the whole
     /// route is in Switzerland, Open-Meteo elsewhere. Distance in NM from the first waypoint, elevation
     /// in metres. Empty on any failure, never a partial or zero-filled profile (PERF-15 / SEC-14).

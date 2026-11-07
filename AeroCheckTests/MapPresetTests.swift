@@ -73,13 +73,15 @@ final class MapPresetTests: XCTestCase {
         }
     }
 
-    func testPresetsLeaveTheTrackVectorAndTilesAlone() {
+    func testPresetsLeaveTheTrackVectorAndTheLimitsAlone() {
         var settings = AppSettings()
         settings.showTrackVector = false
-        settings.showOpenAIPTiles = true
+        settings.showAirspaceLimits = false
         MapPreset.everything.apply(to: &settings)
         XCTAssertFalse(settings.showTrackVector)
-        XCTAssertTrue(settings.showOpenAIPTiles)
+        XCTAssertFalse(settings.showAirspaceLimits)
+        settings.showAirspaceLimits = true
+        XCTAssertEqual(MapPreset.allCases.filter { $0.matches(settings) }, [.everything])
     }
 
     func testAHandMadeMixMatchesNoPreset() {

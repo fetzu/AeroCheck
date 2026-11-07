@@ -651,7 +651,7 @@ struct FlightPlanningView: View {
         // while the prompt is up — so scheduling first dropped the reminder, permanently, on the
         // very first flight a pilot follows. (review F16)
         Task {
-            await NotificationService.shared.requestAuthorization()
+            await FirstFlightPermissions.shared.askWhenPlanning(.shared)
             // PPR and destination fuel are derived by the manager now, so creation and
             // regeneration can never disagree about them.
             threadManager.createThread(from: plan)

@@ -2665,6 +2665,8 @@ private struct RouteProfileView: View {
 /// missing (the author's v65-14, 23 Oct 2026). Computed from the services directly (the singletons and the injected
 /// airspace service), avoiding the fragile env-injection of DataStatusManager through the builder's full-screen cover.
 struct TripDataBanner: View {
+    nonisolated static let dismissedKey = "tripData.dismissedCountries"
+
     let route: [CLLocationCoordinate2D]
     /// Where Plan › Map rests, beside the route if there is one (the author's device checks r4-33 and r4-43, 1-2 Nov
     /// 2026: with a route active, panning over another country offered nothing). Said "here" when the route itself
@@ -2675,7 +2677,8 @@ struct TripDataBanner: View {
     @ObservedObject private var pilotMap = PilotMapDownloads.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var dismissed = false
+    /// The countries the ✕ was pressed for: it lasts until they change (the author, 6 Nov 2026).
+    @AppStorage(Self.dismissedKey) private var dismissedCountries = ""
     @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
     /// Which of the per-country layers is being fetched, so the banner can count instead of spin.
     @State private var prefetchStep = 0
@@ -2707,6 +2710,9 @@ struct TripDataBanner: View {
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeedsSomething) // (UX-18)
     }
+
+    /// What a ✕ holds: "CH,FR".
+    private var countriesKey: String { routeCountriesCache.joined(separator: ",") }
 
     /// Recompute the cached route→countries set (the expensive part), on appear and when the route changes.
     private func updateRouteCountriesCache() {
@@ -2844,7 +2850,7 @@ struct TripDataBanner: View {
     @ViewBuilder
     private var banner: some View {
         let needed = tripNeededCountries
-        if !dismissed, tripNeedsSomething {
+        if dismissedCountries != countriesKey, tripNeedsSomething {
             let tint: Color = tripPrefetchFailed ? .aviationAmber : .aviationGold
             HStack(spacing: 10) {
                 Image(systemName: tripPrefetchFailed ? "exclamationmark.triangle" : "square.and.arrow.down")
@@ -2889,7 +2895,7 @@ struct TripDataBanner: View {
                     .font(.aero(size: 13, weight: .semibold))
                     .foregroundColor(tint)
                     Button {
-                        dismissed = true
+                        dismissedCountries = countriesKey
                     } label: {
                         Image(systemName: "xmark")
                             .font(.aero(size: 11, weight: .semibold))
@@ -2910,8 +2916,6 @@ struct TripDataBanner: View {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(tint.opacity(0.35), lineWidth: 1)
             )
-            // Offline data country by country, the first route across a border without it. (6.8.0)
-            .aeroTip(OfflineBorderTip(), shown: routeCountriesCache.count > 1 && !tripPrefetchFailed, arrowEdge: .top)
             .padding(.horizontal, 12)
             .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))

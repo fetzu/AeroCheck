@@ -201,9 +201,10 @@ enum MarketingSceneInjector {
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
             await injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService,
                                   aircraftDataService: aircraftDataService, flightPlanManager: flightPlanManager, fix: .onTheLeg)
-            // The chart as the 5.0 captures showed it: the ICAO chart's own airspace, no OpenAIP layers
-            // over it. The scene sets it rather than relying on a simulator's settings.
-            appState.settings.showOpenAIPOverlay = false
+            // The airspace with its tags, the flight's own limits (6.9.0). The scene sets it rather than relying on a
+            // simulator's settings.
+            appState.settings.showOpenAIPOverlay = true
+            appState.settings.showAirspaceLimits = true
             appState.settings.showReportingPointsOnMap = false
             appState.settings.showObstaclesOnMap = false
             // Every cruise item checked: the pane rule then shows the map. Checked as the pilot's last tap does,

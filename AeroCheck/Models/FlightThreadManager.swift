@@ -198,6 +198,14 @@ class FlightThreadManager: ObservableObject {
             ?? Self.pprIdents(on: plan, fallingBackTo: existing)
         context.destinationFuels = Self.destinationFuels(on: plan)
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
+        // Filed, and still not gone: red again until the plan is delayed and ticked anew.
+        if context.flightPlanFiled, threads[index].flightId == nil,
+           let late = Self.flightPlanLateAt(plan: plan, rules: context.registry?.flightPlan,
+                                            departureCountry: context.departureCountry) {
+            context.flightPlanLate = FlightClock.now >= late
+        }
+        planNeeds[threadId] = context.planNeed
+        if context.flightPlanLate { lateFlightPlans.insert(threadId) } else { lateFlightPlans.remove(threadId) }
         let regenerated = ThreadTaskEngine.generate(context: context, existing: existing)
 
         // Bail out when nothing actually changed.
@@ -263,6 +271,11 @@ class FlightThreadManager: ObservableObject {
                                                             departure: departure)
         }
     }
+
+    /// Why each thread's flight needs an ATC plan, and the threads whose filed plan has gone late, as the last
+    /// regeneration found them. Not persisted: each comes from the route and the clock. (6.9.0)
+    @Published private(set) var planNeeds: [UUID: FlightPlanNeed] = [:]
+    @Published private(set) var lateFlightPlans: Set<UUID> = []
 
     /// Aerodromes on the route that OpenAIP flags as PPR. Falls back to the rows already on the
     /// thread when the airport layer is not loaded — an undownloaded dataset must never delete a
@@ -1316,7 +1329,38 @@ class FlightThreadManager: ObservableObject {
         built.departureCountry = departure
         built.arrivalCountry = arrival
         built.registry = BriefingRegistryService.shared.registry
+        if let plan, let rules = built.registry?.flightPlan {
+            built.planNeed = rules.need(for: flightPlanFlight(plan, departure: departure, arrival: arrival))
+        }
         return built
+    }
+
+    /// A route as the flight plan rules read it: the states under it, in order, at their real borders (no margin:
+    /// LSZQ → LFGA crosses France's, a circuit at LSZQ doesn't), its ends, and whether its times fall at night. (6.9.0)
+    static func flightPlanFlight(_ plan: FlightPlan, departure: String?, arrival: String?) -> FlightPlanRules.Flight {
+        let points = plan.waypoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+        var states: [String] = departure.map { [$0] } ?? []
+        for point in RouteDataCalculator.sampledPoints(for: points) {
+            let here = CountryBoundaries.shared.countries(near: point, bufferNm: 0)
+            guard let state = here.contains(states.last ?? "") ? nil : here.sorted().first else { continue }
+            states.append(state)
+        }
+        if let arrival, states.last != arrival { states.append(arrival) }
+        let idents = plan.waypoints.map { $0.name.trimmingCharacters(in: .whitespaces).uppercased() }
+        let night = CivilTwilight.flightIsNight(departure: plan.plannedDepartureTime,
+                                                arrival: plan.plannedDepartureTime?.addingTimeInterval(plan.totalEET),
+                                                from: points.first, to: points.last)
+        return FlightPlanRules.Flight(states: states, departure: idents.first, arrival: idents.last, isNight: night)
+    }
+
+    /// The time a late plan turns red: 30 minutes after the filed time, the strictest limit found, or the country's
+    /// own where shorter (f7 A). Nil with no planned time.
+    nonisolated static func flightPlanLateAt(plan: FlightPlan?, rules: FlightPlanRules?, departureCountry: String?) -> Date? {
+        guard let planned = plan?.plannedDepartureTime else { return nil }
+        let ident = plan?.waypoints.first?.name.trimmingCharacters(in: .whitespaces).uppercased()
+        let state = rules?.departureState(aerodrome: ident, country: departureCountry)
+        let minutes = min(30, rules?.rule(for: state)?.cancelAfterMinutes ?? 30)
+        return planned.addingTimeInterval(TimeInterval(minutes * 60))
     }
 
     /// The country you are departing FROM, which is what decides which of the crossed countries are
@@ -1380,6 +1424,7 @@ class FlightThreadManager: ObservableObject {
 
         context.hasRoute = plan.waypoints.count >= 2
         let idents = plan.waypoints.map(\.name).map { $0.trimmingCharacters(in: .whitespaces) }
+        context.onlyCircuits = idents.count >= 2 && Set(idents.map { $0.uppercased() }).count == 1
         context.departureIdent = idents.first
         context.arrivalIdent = idents.last
 

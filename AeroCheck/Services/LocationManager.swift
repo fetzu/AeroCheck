@@ -401,7 +401,7 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     /// Upgrade WhenInUse -> Always so the GPS track survives backgrounding on long flights. (PERF-04)
-    private func requestAlwaysUpgradeIfNeeded() {
+    func requestAlwaysUpgradeIfNeeded() {
         guard !isDryRun else { return }
         if authorizationStatus == .authorizedWhenInUse {
             locationManager.requestAlwaysAuthorization()

@@ -89,8 +89,10 @@ enum AircraftOption: Identifiable, Hashable {
 
 extension AircraftOption {
     /// Every aircraft the pilot can fly, in the order they are offered: the bundled ones (never
-    /// hidden), then each premium aircraft they have access to that isn't hidden in Settings. The
-    /// one list Today's aircraft menu and the Aircraft tab both show. (on-device review #1, G-06)
+    /// hidden), then each premium aircraft they have access to that isn't hidden in Settings, and the
+    /// one they picked from Premium aircraft even if it is: the filter tidies the list, it doesn't
+    /// forbid an aircraft (the author, 6 Nov 2026). The one list Today's aircraft menu and the Aircraft
+    /// tab both show. (on-device review #1, G-06)
     ///
     /// `canFly` is `AircraftDataService.canFly`: Pro active on the server AND on this device. The
     /// default, the server's flag alone, is what the lists used before on-device review #4.
@@ -99,7 +101,8 @@ extension AircraftOption {
         AircraftType.allCases.map { .bundled($0) }
             + remote
                 .filter { canFly($0) && !$0.isBundled
-                    && settings.isAircraftVisible(aircraftId: $0.id, aeroclub: $0.aeroclub) }
+                    && (settings.isAircraftVisible(aircraftId: $0.id, aeroclub: $0.aeroclub)
+                        || settings.selectedRemoteAircraftId == $0.id) }
                 .map { .remote($0) }
     }
 
@@ -446,11 +449,23 @@ struct HomeView: View {
         .onChange(of: appState.settings.selectedRemoteAircraftId) { _, _ in syncSelectedAircraftIndex() }
         .onChange(of: appState.settings.selectedAircraft) { _, _ in syncSelectedAircraftIndex() }
         .onChange(of: appState.settings.hiddenAircraftIds) { _, _ in
+            dropHiddenSelection()
             syncSelectedAircraftIndex()
         }
         .onChange(of: appState.settings.hiddenAeroclubs) { _, _ in
+            dropHiddenSelection()
             syncSelectedAircraftIndex()
         }
+    }
+
+    /// Hiding the selected aircraft in Settings moves the selection, as it always did. Picking a hidden one doesn't get
+    /// here: only a change of the filter does.
+    private func dropHiddenSelection() {
+        guard let id = appState.settings.selectedRemoteAircraftId,
+              let meta = aircraftDataService.availableAircraft.first(where: { $0.id == id }),
+              !appState.settings.isAircraftVisible(aircraftId: meta.id, aeroclub: meta.aeroclub) else { return }
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.saveSettings()
     }
 
     /// Sync the selected index with the current app state aircraft selection
@@ -541,11 +556,9 @@ struct HomeView: View {
                         .coachTarget(.planNewFlight)
                 }
             }
-            // The guided flight on the ground, while the logbook is empty (6.4.0, D7); never in a dry run's own
-            // Today. After the 6.8.0 onboarding, the Getting started card instead, the dry run among its rows.
+            // After the 6.8.0 onboarding, the dry run among its rows; never in a dry run's own Today.
             if dryRunSession == nil {
                 GettingStartedCard(isCompact: isCompact)
-                DryRunTodayCard(isCompact: isCompact)
             }
             sectionLabel(L10n.Ground.recent, isCompact: isCompact)
                 .padding(.top, isCompact ? 4 : 8)

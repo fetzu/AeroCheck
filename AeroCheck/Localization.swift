@@ -692,6 +692,26 @@ enum L10n {
             String(format: String(localized: "thread.byDay.later"), name, flightDay, publishDay, time)
         }
         static let hintFlightPlanFiled = String(localized: "thread.hint.flightPlanFiled")
+        /// Why a flight needs an ATC plan, whom to tell after take-off, a filed plan gone late. (6.9.0, f7 A)
+        static func planNeeded(_ need: FlightPlanNeed) -> String {
+            switch need {
+            case .border(let state):
+                return String(format: String(localized: "thread.plan.border"), Locale.current.localizedString(forRegionCode: state) ?? state)
+            case .night: return String(localized: "thread.plan.night")
+            case .aerodrome(let ident): return String(format: String(localized: "thread.plan.aerodrome"), ident)
+            case .everyFlight(let state):
+                return String(format: String(localized: "thread.plan.every"), Locale.current.localizedString(forRegionCode: state) ?? state)
+            }
+        }
+        static func planReportTo(_ station: String) -> String {
+            String(format: String(localized: "thread.plan.reportTo"), station)
+        }
+        static let planReportGeneric = String(localized: "thread.plan.reportGeneric")
+        static let planLate = String(localized: "thread.plan.late")
+        /// "No airspace data for France on this device: the map shows no limits there." (6.9.0)
+        static func noAirspaceData(_ countries: String) -> String {
+            String(format: String(localized: "thread.noAirspaceData"), countries)
+        }
         /// A plan filed from a field without ATS, in a country that wants the pilot to activate it. (6.5.0)
         static func activateWithoutATS(_ ident: String) -> String {
             String(format: String(localized: "thread.activation"), ident)
@@ -1612,17 +1632,30 @@ enum L10n {
 
     // MARK: - Onboarding
     /// The one-time tips (`AeroTips`, 6.8.0).
+    enum Permissions {
+        static let pageTitle = String(localized: "permissions.pageTitle")
+        static let pageNext = String(localized: "permissions.pageNext")
+        static let reminders = String(localized: "permissions.reminders")
+        static let remindersWhy = String(localized: "permissions.remindersWhy")
+        static let locationAlways = String(localized: "permissions.locationAlways")
+        static let locationAlwaysWhy = String(localized: "permissions.locationAlwaysWhy")
+        static let motion = String(localized: "permissions.motion")
+        static let motionWhy = String(localized: "permissions.motionWhy")
+        static let settingsTitle = String(localized: "permissions.settingsTitle")
+        static let location = String(localized: "permissions.location")
+        static let stateOn = String(localized: "permissions.stateOn")
+        static let stateOff = String(localized: "permissions.stateOff")
+        static let stateAlways = String(localized: "permissions.stateAlways")
+        static let stateWhileUsing = String(localized: "permissions.stateWhileUsing")
+        static let stateNotAsked = String(localized: "permissions.stateNotAsked")
+        static let settingsLimited = String(localized: "permissions.settingsLimited")
+    }
+
     enum Tips {
         static let mapSheetTitle = String(localized: "tips.mapSheetTitle")
         static let mapSheetBody = String(localized: "tips.mapSheetBody")
-        static let trackVectorTitle = String(localized: "tips.trackVectorTitle")
-        static let trackVectorBody = String(localized: "tips.trackVectorBody")
-        static let nowNextTitle = String(localized: "tips.nowNextTitle")
-        static let nowNextBody = String(localized: "tips.nowNextBody")
         static let logbookLineTitle = String(localized: "tips.logbookLineTitle")
         static let logbookLineBody = String(localized: "tips.logbookLineBody")
-        static let offlineBorderTitle = String(localized: "tips.offlineBorderTitle")
-        static let offlineBorderBody = String(localized: "tips.offlineBorderBody")
         static let showAgain = String(localized: "tips.showAgain")
         static let showAgainSubtitle = String(localized: "tips.showAgainSubtitle")
         static let showAgainPending = String(localized: "tips.showAgainPending")
@@ -2920,6 +2953,13 @@ enum L10n {
         static let reopenHint = String(localized: "cockpit.stepBackHint")
         static let checkAgainHint = String(localized: "cockpit.checkAgainHint")
         static let menu = String(localized: "cockpit.menu")
+        /// MENU's switch for every limit on the map, and the chips at the map's foot. (6.9.0)
+        static let allLimits = String(localized: "cockpit.allLimits")
+        static let allLimitsChip = String(localized: "cockpit.allLimitsChip")
+        static let airspaceOffChip = String(localized: "cockpit.airspaceOffChip")
+        static let noAirspaceDataChip = String(localized: "cockpit.noAirspaceDataChip")
+        static let dabsNotLoadedChip = String(localized: "cockpit.dabsNotLoadedChip")
+        static let reportDepartureChip = String(localized: "cockpit.reportDepartureChip")
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
         static let endFlightHint = String(localized: "cockpit.endFlightHint")
@@ -3191,6 +3231,32 @@ enum L10n {
         }
         static func chartOffline(language: String? = nil) -> String {
             text("mapChrome.status.chartOffline", "CHART OFFLINE", language)
+        }
+        static func airspaceAhead(language: String? = nil) -> String {
+            text("mapChrome.status.airspaceAhead", "AIRSPACE AHEAD", language)
+        }
+        /// "LSR7 HONGRIN in 3 min"
+        static func airspaceIn(_ name: String, _ minutes: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.status.airspaceIn", "%@ in %@ min", language), name, String(minutes))
+        }
+        /// The reminder after take-off. (6.9.0)
+        static func reportDeparture(language: String? = nil) -> String {
+            text("mapChrome.status.reportDeparture", "REPORT YOUR DEPARTURE", language)
+        }
+        static func reportDepartureHint(language: String? = nil) -> String {
+            text("mapChrome.hint.reportDeparture", "Marks it as done", language)
+        }
+        static func reportStartsOnReport(language: String? = nil) -> String {
+            text("mapChrome.report.startsOnReport", "your plan only starts when you report it", language)
+        }
+        static func reportTimesFollow(language: String? = nil) -> String {
+            text("mapChrome.report.timesFollow", "so the times follow your take-off", language)
+        }
+        static func reportCancelled(_ minutes: Int, language: String? = nil) -> String {
+            String(format: text("mapChrome.report.cancelled", "or it is cancelled after %@ min", language), String(minutes))
+        }
+        static func airspaceAheadHint(language: String? = nil) -> String {
+            text("mapChrome.hint.airspaceAhead", "Shows the airspace at that point", language)
         }
         /// Over "Diverting to LSGC" (`divertingTo`).
         static func tellFIS(language: String? = nil) -> String {
@@ -3796,6 +3862,7 @@ enum L10n {
         static let showLess = String(localized: "nav.showLess")
         static let trackVector = String(localized: "nav.trackVector")
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
+        static let trackVectorShort = String(localized: "nav.trackVectorShort")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
         /// Listen-only, in NEXT's place: an ATIS, an aerodrome on the way. (6.4.2)
@@ -3824,9 +3891,30 @@ enum L10n {
         static let tripDataFailedDetail = String(localized: "The provider is not serving these layers right now. Try again later.")
         static let layers = String(localized: "Layers")   // v4.1.0 ② (literal-keyed; FR in pass)
         static let airspaceCharts = String(localized: "Airspace & charts")
-        /// OpenAIP's own raster chart, online only since 6.8.0 (the author's answer to question 17). (v4.1.0, 6.8.0)
-        static let openAIPChart = String(localized: "nav.openAIPChart")
-        static let openAIPChartDetail = String(localized: "nav.openAIPChartDetail")
+        /// The Map sheet's row for the limits on the map. (6.9.0)
+        static let airspaceLimits = String(localized: "nav.airspaceLimits")
+        /// The aerodrome card's rows and links. (6.9.0)
+        static func cardCircuit(_ feet: String) -> String {
+            String(format: String(localized: "nav.cardCircuit"), feet)
+        }
+        static let cardFees = String(localized: "nav.cardFees")
+        static let cardBriefing = String(localized: "nav.cardBriefing")
+        /// The tap card's title. (6.9.0)
+        static func airspaceCardYou(_ feet: String) -> String {
+            String(format: String(localized: "nav.airspaceCardYou"), feet)
+        }
+        static func airspaceCardGround(_ feet: String) -> String {
+            String(format: String(localized: "nav.airspaceCardGround"), feet)
+        }
+        /// "Not active today (DABS v3, 12:45)". (6.9.0, a14 A)
+        static func dabsNotActive(_ source: String) -> String {
+            String(format: String(localized: "nav.dabsNotActive"), source)
+        }
+        /// "Active 06:30–21:00 UTC (DABS v3, 12:45)"
+        static func dabsActive(_ windows: String, _ source: String) -> String {
+            String(format: String(localized: "nav.dabsActive"), windows, source)
+        }
+        static let dabsNoNotam = String(localized: "nav.dabsNoNotam")
         static let mapMarkers = String(localized: "Map markers")
         static let flightSection = String(localized: "Flight")
         static let showAll = String(localized: "Show all")
@@ -4076,7 +4164,6 @@ enum L10n {
         static let exitConfirmTitle = String(localized: "companion.exitConfirmTitle")
         static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
         static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
-        static let pairInSettings = String(localized: "companion.pairInSettings")
 
         // Divert from the phone (6.2.0). The rest of its words are the iPad's Divert sheet's (`Trip`).
         static let divertHint = String(localized: "companion.divertHint")
@@ -4334,10 +4421,6 @@ enum L10n {
         static let showAgain = String(localized: "dryRunCoach.showAgain")
         static let habitsTitle = String(localized: "dryRunCoach.habitsTitle")
         static let nextFree = String(localized: "dryRunCoach.nextFree")
-        static let todayTitle = String(localized: "dryRunCoach.todayTitle")
-        static let todayBody = String(localized: "dryRunCoach.todayBody")
-        static let todayStart = String(localized: "dryRunCoach.todayStart")
-        static let todayNotNow = String(localized: "dryRunCoach.todayNotNow")
         static let chaptersFooter = String(localized: "dryRunCoach.chaptersFooter")
 
         /// Onboarding's circuit on the ground (`DryRunFirstFlight`). (6.8.0)
@@ -4459,6 +4542,8 @@ enum L10n {
             static let mapTakeoffBody = String(localized: "dryRunCoach.step.mapTakeoff.body")
             static let airborneTitle = String(localized: "dryRunCoach.step.airborne.title")
             static let airborneBody = String(localized: "dryRunCoach.step.airborne.body")
+            static let trackLineTitle = String(localized: "dryRunCoach.step.trackLine.title")
+            static let trackLineBody = String(localized: "dryRunCoach.step.trackLine.body")
             static let climbCheckTitle = String(localized: "dryRunCoach.step.climbCheck.title")
             static let climbCheckBody = String(localized: "dryRunCoach.step.climbCheck.body")
             static let climbCheckUpcoming = String(localized: "dryRunCoach.step.climbCheck.upcoming")

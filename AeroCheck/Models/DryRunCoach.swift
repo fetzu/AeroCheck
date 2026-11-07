@@ -406,6 +406,10 @@ enum DryRunChapters {
             // 4 · Take-off and climb
             S(id: "airborne", chapter: 4, kind: .look, target: nil, veils: false, holds: true, moment: .airborne,
               done: .next, title: T.airborneTitle, body: T.airborneBody),
+            // On MAP with the aircraft moving: the line is there to see. A card of its own, not a line on "Open MAP" above,
+            // which a pilot already on MAP never gets (the author's r2-10, 5 Nov 2026).
+            S(id: "trackLine", chapter: 4, kind: .look, target: nil, veils: false, holds: true, moment: .now,
+              done: .next, title: T.trackLineTitle, body: T.trackLineBody, page: .map),
             S(id: "climbCheck", chapter: 4, kind: .act, target: .check, veils: false, holds: true,
               moment: .shows(.check(.climb)), done: .checkDone(.climb), title: T.climbCheckTitle,
               body: T.climbCheckBody, upcoming: T.climbCheckUpcoming, fold: T.climbCheckFold),
@@ -1280,6 +1284,7 @@ enum DryRunFirstFlight {
             // The story's card sends the pilot to the climb check next, done for them here.
             story("mapTakeoff", auto: false, body: T.mapTakeoffBody),
             story("airborne", auto: false),
+            story("trackLine", auto: false),
             S(id: "ffRadio", chapter: 4, kind: .look, target: .radioLine, veils: false, holds: true, moment: .now,
               done: .next, title: T.radioTitle, body: T.radioBody),
             story("climbCheck"),

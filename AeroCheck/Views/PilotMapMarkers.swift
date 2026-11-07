@@ -26,6 +26,13 @@ final class PilotMapMarkers {
     /// The aircraft: one marker, moved in place, above every other as on MapKit.
     private let aircraft = PilotAircraftMarker()
     private var aircraftShown = false
+    /// The airspace's tags on the map, and when they were last placed.
+    private var tags: [String: PilotMarker] = [:]
+    private var tagsPlaced = Date.distantPast
+    private var tagKeepOut: [CGRect] = []
+    private var tagRequests: [AirspaceTagContent: Airspace] = [:]
+    /// Once in this long at most, or when the tags themselves change: a tag stays where it is between.
+    private static let tagInterval: TimeInterval = 2
 
     nonisolated init() {}
 
@@ -35,6 +42,7 @@ final class PilotMapMarkers {
     func sync(_ map: AeroMapView, on mapView: MLNMapView) {
         plannedRoute.route = map.shownPlannedRoute
         syncAircraft(map, on: mapView)
+        syncTags(map, on: mapView)
         let content = map.shownProcedures
         let plan = map.shownPlan
         let planned = map.shownPlannedRoute
@@ -57,6 +65,57 @@ final class PilotMapMarkers {
         if !added.isEmpty { mapView.addAnnotations(added) }
         pillsFor = nil
         layout(on: mapView, atRest: true)
+    }
+
+    /// The tags the map should show, placed where they fit. Kept where they are while that holds (`AirspaceTagPlacer`).
+    private func syncTags(_ map: AeroMapView, on mapView: MLNMapView) {
+        let wanted = map.shownAirspaceTags
+        let contents = wanted.map(AirspaceTagContent.init)
+        let shown = Set(tags.values.compactMap { ($0.base as? AirspaceTagAnnotation)?.content })
+        let changed = Set(contents) != shown
+        guard changed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
+        tagsPlaced = Date()
+        tagKeepOut = map.airspaceTagKeepOut
+        tagRequests = Dictionary(zip(contents, wanted.map(\.airspace)), uniquingKeysWith: { first, _ in first })
+        placeTags(contents, map: map, on: mapView)
+    }
+
+    private func placeTags(_ contents: [AirspaceTagContent], map: AeroMapView, on mapView: MLNMapView) {
+        let toScreen = { (c: CLLocationCoordinate2D) in mapView.convert(c, toPointTo: mapView) }
+        let k = CockpitType.label(for: .current) / 20
+        let requests = contents.compactMap { content -> AirspaceTagPlacer.Request? in
+            guard let airspace = tagRequests[content] else { return nil }
+            return AirspaceTagPlacer.Request(id: content.id, ring: airspace.polygonCoordinates.map(toScreen),
+                                             size: AirspaceTagImage.size(content, scale: k),
+                                             previous: tags[content.id].map { toScreen($0.coordinate) })
+        }
+        var keepOut = tagKeepOut
+        let square = { (point: CGPoint, side: CGFloat) in
+            CGRect(x: point.x - side / 2, y: point.y - side / 2, width: side, height: side)
+        }
+        if let aircraft = map.shownAircraft { keepOut.append(square(toScreen(aircraft.coordinate), 92)) }
+        if let plan = map.shownPlan, let first = plan.waypoints.first, let last = plan.waypoints.last {
+            keepOut.append(square(toScreen(first.coordinate), 80))
+            keepOut.append(square(toScreen(last.coordinate), 80))
+        }
+        let placed = AirspaceTagPlacer.place(requests, in: mapView.bounds, keepOut: keepOut)
+        for (id, marker) in tags {
+            let same = (marker.base as? AirspaceTagAnnotation).map { old in contents.contains(old.content) } ?? false
+            guard let point = placed[id], same,
+                  hypot(toScreen(marker.coordinate).x - point.x, toScreen(marker.coordinate).y - point.y) < 1 else {
+                mapView.removeAnnotation(marker)
+                tags[id] = nil
+                continue
+            }
+        }
+        for content in contents where tags[content.id] == nil {
+            guard let point = placed[content.id] else { continue }
+            let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
+            let marker = PilotMarker(base: AirspaceTagAnnotation(content: content, coordinate: coordinate),
+                                     key: "tag|\(content.id)")
+            tags[content.id] = marker
+            mapView.addAnnotation(marker)
+        }
     }
 
     /// The aircraft on its cached course (it survives GPS gaps), moved rather than replaced so it doesn't blink.
@@ -155,7 +214,11 @@ final class PilotMapMarkers {
         view.accessibilityLabel = Self.accessibilityLabel(for: marker.base)
         view.layer.zPosition = 0   // a reused view may have been a route pin's (raised below)
         view.isHidden = false      // or the moved waypoint's (`hideWaypointMarker`)
+        view.isUserInteractionEnabled = !(marker.base is AirspaceTagAnnotation)
         switch marker.base {
+        case let tag as AirspaceTagAnnotation:
+            view.show(AirspaceTagImage.image(tag.content, scale: CockpitType.label(for: .current) / 20))
+            view.layer.zPosition = 400
         case let airport as AirportAnnotation:
             view.show(AeroMarkerImages.airport(airport.airport))
         case is NavaidAnnotation:
@@ -339,7 +402,9 @@ final class PilotMapMarkers {
                 chart: map.chartOpener == nil ? nil : OfficialChartService.shared.link(for: airport.airport),
                 canOpenNote: map.noteOpener != nil,
                 canDivert: map.activeFlightPlan != nil && map.divertHandler != nil,
-                canAddToRoute: plannedRoute.canAdd(airport))
+                canAddToRoute: plannedRoute.canAdd(airport),
+                facts: map.aerodromeFacts?(airport.airport) ?? AerodromeFacts(),
+                isDiverting: map.activeFlightPlan?.diversion != nil)
             let area = PilotMarkerCallout.area(of: mapView)
             let width = min(AerodromeCardView.maxWidth(metrics: metrics), max(area.width, 240))
             content = AerodromeCardView(content: card, metrics: metrics, tint: palette.action, width: width) {
@@ -350,6 +415,7 @@ final class PilotMapMarkers {
                 case .note: map.noteOpener?(ref)
                 case .divert: map.divertHandler?(airport.airport.ident)
                 case .addToRoute: self?.plannedRoute.add(airport)
+                case .fees(let url), .briefing(let url): map.chartOpener?(url)
                 }
             }
         case let label as VFRProcedureAnnotation:
@@ -367,6 +433,8 @@ final class PilotMapMarkers {
                                         detail: detail, add: add)
         }
         let callout = PilotMarkerCallout(marker: marker, content: content)
+        // A map following the aircraft comes back at the next fix, and the callout would go with it off the top.
+        callout.movesMap = !map.isFollowingAircraft
         self.callout = callout
         return callout
     }
@@ -544,6 +612,8 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
     var rightAccessoryView = UIView()
     weak var delegate: MLNCalloutViewDelegate?
     let content: UIView
+    /// Whether the map may move to make room. If not, the callout stays inside it, over its marker if it must.
+    var movesMap = true
 
     var dismissesAutomatically: Bool { false }
 
@@ -604,9 +674,9 @@ final class PilotMarkerCallout: UIView, MLNCalloutView {
         let frame = CalloutPlacement.frame(for: bounds.size, over: top, in: area)
         (content as? AerodromeCardView)?.tailX = top.x - frame.minX
         (content as? PilotMarkerBubble)?.tailX = top.x - frame.minX
-        self.frame = superview.convert(frame, from: mapView)
+        self.frame = superview.convert(movesMap ? frame : CalloutPlacement.kept(frame, in: area), from: mapView)
         let shortfall = CalloutPlacement.shortfall(of: frame, anchor: top, in: area)
-        guard moving, shortfall > 0 else { return }
+        guard moving, movesMap, shortfall > 0 else { return }
         let center = CGPoint(x: mapView.bounds.midX, y: mapView.bounds.midY - shortfall)
         mapView.setCenter(mapView.convert(center, toCoordinateFrom: mapView), animated: true)
     }

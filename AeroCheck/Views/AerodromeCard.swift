@@ -10,11 +10,94 @@ import UIKit
 // (`PilotMarkerCallout`, by `CalloutPlacement`), so the move to MapLibre (6.8.0) kept the card and changed only the
 // anchor.
 
+/// What the map knows of a field beyond its marker: the rows of the card. (6.9.0, c1 A)
+struct AerodromeFacts: Equatable {
+    var isPPR = false
+    var runways: [String] = []
+    /// "circuit 2900 ft" beside the elevation, from open flightmaps.
+    var circuit: String?
+    /// "12:50Z · 240/08 kt · 9999 m · Q1018", when the app holds a METAR under an hour old (c3 A).
+    var weather: String?
+    /// Plan › Map's links, after the note (c5 A).
+    var feeLink: URL?
+    var briefingLink: URL?
+
+    /// What the two sources write for the same surface. Words a pilot reads as written in every language.
+    private static let surfaceNames = ["GRS": "GRASS", "ASP": "ASPHALT", "CON": "CONCRETE", "TURF": "GRASS"]
+    /// A field's strips can run to seven (Bern): the card keeps the three longest, its row stays one glance.
+    static let maxRunways = 3
+
+    /// A field's circuit altitude, or the range when its circuits differ: Bern flies 3000 ft to the north-east and 2800 ft
+    /// to the south-west, and one number would be wrong for one of them (the author's q9, 5 Nov 2026). The map says which
+    /// circuit is which.
+    static func circuitText(_ altitudes: [Int]) -> String? {
+        guard let low = altitudes.min(), let high = altitudes.max() else { return nil }
+        return L10n.Nav.cardCircuit(low == high ? String(low) : "\(low)–\(high)")
+    }
+
+    /// The rows for a field's runways: the longest first, three at most, none closed. In columns, the card's font being
+    /// monospaced: Grenchen's 06R/24L under its 06/24 read as a broken list before (the author's r2-4, 5 Nov 2026).
+    static func runwayLines(_ runways: [Runway]) -> [String] {
+        let rows = runways.filter { !$0.closed }.sorted { ($0.lengthFt ?? 0) > ($1.lengthFt ?? 0) }
+            .compactMap(runwayColumns).prefix(maxRunways)
+        let nameWidth = rows.map(\.name.count).max() ?? 0
+        let lengthWidth = rows.map(\.length.count).max() ?? 0
+        return rows.map { row in
+            var line = row.name.padding(toLength: nameWidth, withPad: " ", startingAt: 0)
+            if lengthWidth > 0 {
+                line += row.name.isEmpty || row.length.isEmpty ? "   " : " · "
+                line += String(repeating: " ", count: lengthWidth - row.length.count) + row.length
+            }
+            if !row.surface.isEmpty { line += row.length.isEmpty ? "   " : " · " }
+            return (line + row.surface).trimmingCharacters(in: .whitespaces)
+        }
+    }
+
+    /// "05/23 · 1200 m · ASPHALT": the designators, the length in metres, the surface. Nil for a closed runway.
+    static func runwayLine(_ runway: Runway) -> String? {
+        runwayColumns(runway).map { [$0.name, $0.length, $0.surface].filter { !$0.isEmpty }.joined(separator: " · ") }
+    }
+
+    /// A runway's three columns, empty where the source has nothing. Nil for a closed runway, or one with nothing to say.
+    private static func runwayColumns(_ runway: Runway) -> (name: String, length: String, surface: String)? {
+        guard !runway.closed else { return nil }
+        let name = [runway.leIdent, runway.heIdent].compactMap { $0 }.joined(separator: "/")
+        let length = runway.lengthFt.map { "\(Int((Double($0) * 0.3048).rounded())) m" } ?? ""
+        let surface = runway.surface.flatMap { $0.isEmpty ? nil : surfaceNames[$0.uppercased()] ?? $0.uppercased() } ?? ""
+        return name.isEmpty && length.isEmpty && surface.isEmpty ? nil : (name, length, surface)
+    }
+
+    /// A METAR as one line, or nil over an hour old: wind, visibility, QNH, each left out where the report has none.
+    static func weatherLine(_ metar: AviationWeatherService.Metar, now: Date) -> String? {
+        guard let observed = metar.observedAt, now.timeIntervalSince(observed) < 3600 else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let time = calendar.dateComponents([.hour, .minute], from: observed)
+        var parts = [String(format: "%02d:%02dZ", time.hour ?? 0, time.minute ?? 0)]
+        if metar.windVariable, let speed = metar.windSpeedKt {
+            parts.append(String(format: "VRB/%02d kt", speed))
+        } else if let direction = metar.windDirectionDeg, let speed = metar.windSpeedKt {
+            parts.append(String(format: "%03d/%02d kt", direction, speed))
+        }
+        if let conditions = metar.decoded?.conditions {
+            if conditions.cavok {
+                parts.append("CAVOK")
+            } else if let visibility = conditions.visibility {
+                parts.append(visibility.unit == "m" ? "\(Int(visibility.value)) m" : "\(visibility.value) SM")
+            }
+        }
+        if let qnh = metar.altimeterHpa { parts.append("Q\(Int(qnh.rounded()))") }
+        return parts.joined(separator: " · ")
+    }
+}
+
 /// What an aerodrome's card holds, decided from the field, the pilot's note and what the map surface offers.
 struct AerodromeCardContent: Equatable {
     struct Frequency: Equatable {
         let label: String
         let value: String
+        /// The field's own contact, framed (c2 A).
+        var isFieldContact = false
     }
 
     /// A part of the pilot's note as the card shows it: its text and how many lines it may take.
@@ -30,6 +113,8 @@ struct AerodromeCardContent: Equatable {
         case note(existing: Bool)
         case divert
         case addToRoute
+        case fees(URL)
+        case briefing(URL)
 
         var identifier: String {
             switch self {
@@ -37,6 +122,8 @@ struct AerodromeCardContent: Equatable {
             case .note: return "aerodromeCard.note"
             case .divert: return "aerodromeCard.divert"
             case .addToRoute: return "aerodromeCard.addToRoute"
+            case .fees: return "aerodromeCard.fees"
+            case .briefing: return "aerodromeCard.briefing"
             }
         }
     }
@@ -46,6 +133,28 @@ struct AerodromeCardContent: Equatable {
     let frequencies: [Frequency]
     let note: [NoteLine]
     let actions: [Action]
+    var elevationFt: Int? = nil
+    var facts = AerodromeFacts()
+    /// In flight the Cockpit's colours, on the ground the gold (c6 A).
+    var inFlight = false
+    var isDiverting = false
+
+    /// What the card writes where the app has nothing (c1 A).
+    static let dash = "—"
+
+    /// The rows, so one reads the same with or without data: ident and name, then these.
+    var elevationRow: String {
+        var parts = [elevationFt.map { "\($0) ft" } ?? Self.dash]
+        if let circuit = facts.circuit { parts.append(circuit) }
+        if facts.isPPR { parts.append("PPR") }
+        return parts.joined(separator: " · ")
+    }
+
+    var runwayRow: String {
+        facts.runways.isEmpty ? Self.dash : facts.runways.joined(separator: "\n")
+    }
+
+    var weatherRow: String { facts.weather ?? Self.dash }
 
     /// On the ground the first line of each part written, two lines each; in flight the Arrival part alone, three
     /// lines, as everywhere in the Cockpit (c2 A, n1 A). A note without an Arrival part shows nothing in flight.
@@ -59,7 +168,8 @@ struct AerodromeCardContent: Equatable {
     ///   - canDivert: in flight, with a route to divert from.
     ///   - canAddToRoute: the route builder's "+".
     static func make(airport: Airport, frequencyLines: String?, note: AerodromeNote?, inFlight: Bool,
-                     chart: OfficialChartLink?, canOpenNote: Bool, canDivert: Bool, canAddToRoute: Bool) -> Self {
+                     chart: OfficialChartLink?, canOpenNote: Bool, canDivert: Bool, canAddToRoute: Bool,
+                     facts: AerodromeFacts = AerodromeFacts(), isDiverting: Bool = false) -> Self {
         var lines: [NoteLine] = []
         if let note, !note.isEmpty {
             if inFlight {
@@ -79,16 +189,52 @@ struct AerodromeCardContent: Equatable {
         if canOpenNote, !lines.isEmpty || !inFlight { actions.append(.note(existing: !lines.isEmpty)) }
         if canDivert { actions.append(.divert) }
         if canAddToRoute { actions.append(.addToRoute) }
+        if !inFlight {
+            if let link = facts.feeLink { actions.append(.fees(link)) }
+            if let link = facts.briefingLink { actions.append(.briefing(link)) }
+        }
         return Self(ident: airport.ident, name: AerodromeName.display(airport.name),
-                    frequencies: frequencies(from: frequencyLines), note: lines, actions: actions)
+                    frequencies: frequencies(from: frequencyLines), note: lines, actions: actions,
+                    elevationFt: airport.elevation, facts: facts, inFlight: inFlight, isDiverting: isDiverting)
+    }
+
+    /// Who a pilot calls, in that order: ATIS, approach or information, the field, ground (c2 A).
+    static func callingRank(_ label: String) -> Int {
+        let upper = label.uppercased()
+        if upper.contains("ATIS") { return 0 }
+        if ["APP", "ARR", "DEP", "INFO", "FIS", "APPROACH"].contains(where: upper.contains) { return 1 }
+        if ["TWR", "TOWER", "AFIS", "AD", "RDO", "RADIO", "A/G", "CTAF", "UNICOM"].contains(where: upper.contains) { return 2 }
+        if ["GND", "GROUND", "DEL", "APRON"].contains(where: upper.contains) { return 3 }
+        return 4
+    }
+
+    /// The field's frequencies in calling order, one chip per frequency: two names for one frequency are merged, the
+    /// 8.33 kHz name kept (`Station.preferredName`), and the field's own contact framed.
+    static func called(_ frequencies: [Frequency]) -> [Frequency] {
+        var merged: [Frequency] = []
+        for frequency in frequencies {
+            let hertz = RouteRadioPlanner.Station.hertz(frequency.value)
+            if let hertz, let index = merged.firstIndex(where: { RouteRadioPlanner.Station.hertz($0.value) == hertz }) {
+                let kept = merged[index]
+                let label = callingRank(frequency.label) < callingRank(kept.label) ? frequency.label : kept.label
+                merged[index] = Frequency(label: label, value: RouteRadioPlanner.Station.preferredName(kept.value, frequency.value))
+            } else {
+                merged.append(frequency)
+            }
+        }
+        var ordered = merged.enumerated().sorted {
+            (callingRank($0.element.label), $0.offset) < (callingRank($1.element.label), $1.offset)
+        }.map(\.element)
+        if let field = ordered.firstIndex(where: { callingRank($0.label) == 2 }) { ordered[field].isFieldContact = true }
+        return ordered
     }
 
     static func frequencies(from lines: String?) -> [Frequency] {
-        (lines ?? "").split(whereSeparator: \.isNewline).compactMap { line in
+        called((lines ?? "").split(whereSeparator: \.isNewline).compactMap { line in
             let words = line.split(separator: " ", maxSplits: 1).map(String.init)
             guard let label = words.first, !label.isEmpty else { return nil }
             return words.count == 2 ? Frequency(label: label, value: words[1]) : Frequency(label: "", value: label)
-        }
+        })
     }
 
     private static func firstLine(of text: String) -> String? {
@@ -203,12 +349,12 @@ final class AerodromeCardView: UIView {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(inset + Self.tailHeight)),
         ])
 
-        // The code large and gold, the name beside it.
+        // The code large, the name beside it: gold on the ground, the Cockpit's white in flight (c6 A).
         let head = UILabel()
         head.numberOfLines = 2
         let headText = NSMutableAttributedString(string: content.ident, attributes: [
             .font: UIFont.aero(size: 22 * scale, weight: .bold, monospaced: true),
-            .foregroundColor: UIColor(Color.aviationGold)])
+            .foregroundColor: content.inFlight ? UIColor(Color.primaryText) : UIColor(Color.aviationGold)])
         if !content.name.isEmpty, content.name != content.ident {
             headText.append(NSAttributedString(string: "  " + content.name, attributes: [
                 .font: UIFont.aero(size: 16 * scale), .foregroundColor: UIColor(Color.primaryText)]))
@@ -217,7 +363,15 @@ final class AerodromeCardView: UIView {
         head.accessibilityIdentifier = "aerodromeCard.head"
         stack.addArrangedSubview(head)
 
-        if !content.frequencies.isEmpty { stack.addArrangedSubview(chips(scale: scale, available: frame.width - 2 * inset)) }
+        // Fixed rows, the same on the ground and in flight, a dash where the app has nothing (c1 A).
+        stack.addArrangedSubview(rowLabel(content.elevationRow, id: "elevation", scale: scale))
+        if content.frequencies.isEmpty {
+            stack.addArrangedSubview(rowLabel(AerodromeCardContent.dash, id: "radio", scale: scale))
+        } else {
+            stack.addArrangedSubview(chips(scale: scale, available: frame.width - 2 * inset))
+        }
+        stack.addArrangedSubview(rowLabel(content.runwayRow, id: "runways", scale: scale))
+        stack.addArrangedSubview(rowLabel(content.weatherRow, id: "weather", scale: scale))
         if !content.note.isEmpty { stack.addArrangedSubview(noteBlock(scale: scale)) }
         if !content.actions.isEmpty {
             stack.addArrangedSubview(buttonRow(metrics: metrics, tint: tint, available: frame.width - 2 * inset))
@@ -227,7 +381,18 @@ final class AerodromeCardView: UIView {
         accessibilityIdentifier = "aerodromeCard"
     }
 
-    /// The frequencies as chips, as many to a row as fit, in the order the data gives them.
+    /// A row of plain facts.
+    private func rowLabel(_ text: String, id: String, scale: CGFloat) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.font = UIFont.aero(size: 14 * scale, monospaced: true)
+        label.textColor = UIColor(Color.primaryText)
+        label.text = text
+        label.accessibilityIdentifier = "aerodromeCard.\(id)"
+        return label
+    }
+
+    /// The frequencies as chips, as many to a row as fit, in calling order, the field's own framed (c2 A).
     private func chips(scale: CGFloat, available: CGFloat) -> UIView {
         let font = UIFont.aero(size: 13 * scale, monospaced: true)
         let rows = UIStackView()
@@ -257,6 +422,10 @@ final class AerodromeCardView: UIView {
             label.backgroundColor = UIColor(Color.cardBackground)
             label.layer.cornerRadius = 7
             label.clipsToBounds = true
+            if frequency.isFieldContact {
+                label.layer.borderWidth = 1.5
+                label.layer.borderColor = UIColor(Color.primaryText).cgColor
+            }
             let width = label.intrinsicContentSize.width
             if used > 0, used + 6 + width > available { newRow() }
             row.addArrangedSubview(label)
@@ -265,7 +434,10 @@ final class AerodromeCardView: UIView {
         return rows
     }
 
-    /// The note under a gold rule, each part's name inline before its text.
+    /// The note's mark: gold on the ground, grey in flight, where gold reads as a caution (c6 A).
+    private var noteMark: UIColor { content.inFlight ? UIColor(Color.secondaryText) : UIColor(Color.aviationGold) }
+
+    /// The note under a rule, each part's name inline before its text.
     private func noteBlock(scale: CGFloat) -> UIView {
         let lines = UIStackView()
         lines.axis = .vertical
@@ -277,7 +449,7 @@ final class AerodromeCardView: UIView {
             let title = line.part == .arrival ? L10n.AerodromeNotes.arrival : L10n.AerodromeNotes.onTheGround
             let text = NSMutableAttributedString(string: title.uppercased() + "  ", attributes: [
                 .font: UIFont.aero(size: 11 * scale, weight: .bold, monospaced: true), .kern: 0.8,
-                .foregroundColor: UIColor(Color.aviationGold)])
+                .foregroundColor: noteMark])
             text.append(NSAttributedString(string: line.text, attributes: [
                 .font: UIFont.aero(size: 14 * scale), .foregroundColor: UIColor(Color.primaryText)]))
             label.attributedText = text
@@ -285,7 +457,7 @@ final class AerodromeCardView: UIView {
             lines.addArrangedSubview(label)
         }
         let rule = UIView()
-        rule.backgroundColor = UIColor(Color.aviationGold)
+        rule.backgroundColor = noteMark
         rule.layer.cornerRadius = 1.5
         rule.widthAnchor.constraint(equalToConstant: 3).isActive = true
         let block = UIStackView(arrangedSubviews: [rule, lines])
@@ -334,6 +506,8 @@ final class AerodromeCardView: UIView {
         // The verb, as on the Cockpit's own Divert button: French "Dérouter" fits, "Déroutement" was cut (r2-11).
         case .divert: return L10n.Act.divert
         case .addToRoute: return L10n.Nav.addToRouteShort
+        case .fees: return L10n.Nav.cardFees
+        case .briefing: return L10n.Nav.cardBriefing
         }
     }
 
@@ -355,13 +529,24 @@ final class AerodromeCardView: UIView {
             label = existing ? L10n.AerodromeNotes.yourNote : L10n.AerodromeNotes.add
         case .divert:
             configuration = .filled()
-            configuration.baseBackgroundColor = UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
+            // The Cockpit's own Divert in flight: cyan, amber while diverting. Gold on the ground (c6 A).
+            configuration.baseBackgroundColor = content.inFlight
+                ? (content.isDiverting ? UIColor(CockpitTheme.day.warning) : tint)
+                : UIColor(red: 0.898, green: 0.655, blue: 0.227, alpha: 1.0)
             symbol = "arrow.triangle.turn.up.right.diamond.fill"
             label = L10n.Trip.divert
         case .addToRoute:
             configuration = .tinted()
             symbol = "plus"
             label = L10n.Nav.addToRoute
+        case .fees:
+            configuration = .tinted()
+            symbol = "banknote"
+            label = L10n.Nav.cardFees
+        case .briefing:
+            configuration = .tinted()
+            symbol = "doc.text"
+            label = L10n.Nav.cardBriefing
         }
         configuration.title = Self.title(for: action)
         configuration.image = UIImage(systemName: symbol)

@@ -1,3 +1,5 @@
+import CoreMotion
+import UserNotifications
 import SwiftUI
 
 /// Settings sub-page for iCloud sync, GPS configuration, and data statistics
@@ -12,6 +14,7 @@ struct SyncDataSettingsView: View {
     @State private var gpsInterval: Double = 5.0
     @State private var gpsPriority: GPSPriority = .precision
     @State private var isLoadingSettings: Bool = false
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
 
     private let tint: Color = .altimeterBlue
 
@@ -19,6 +22,7 @@ struct SyncDataSettingsView: View {
         SettingsPage {
             iCloudSyncSection
             gpsSection
+            permissionsSection
             dataSection
         }
         .navigationTitle(L10n.Settings.syncAndData)
@@ -93,6 +97,60 @@ struct SyncDataSettingsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd.MM.yyyy HH:mm"
         return formatter.string(from: date)
+    }
+
+    // MARK: - Permissions (6.9.0)
+
+    /// What iOS was told, and the way back: iOS asks once. (the author's q1, 5 Nov 2026)
+    private var permissionsSection: some View {
+        SettingsGroup(title: L10n.Permissions.settingsTitle, tint: tint,
+                      footer: permissionsLimited ? L10n.Permissions.settingsLimited : nil) {
+            SettingsValueRow(icon: "bell", title: L10n.Permissions.reminders, tint: tint, value: reminderState,
+                             valueColor: .secondaryText)
+            SettingsValueRow(icon: "location", title: L10n.Permissions.location, tint: tint, value: locationState,
+                             valueColor: .secondaryText)
+            if BarometricAltitudeService.isAvailable {
+                SettingsValueRow(icon: "barometer", title: L10n.Permissions.motion, tint: tint, value: motionState,
+                                 valueColor: .secondaryText)
+            }
+            if permissionsLimited {
+                SettingsButtonRow(icon: "gearshape", title: L10n.Button.openSettings, tint: tint, showsChevron: false) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+            }
+        }
+        .task { notificationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
+    }
+
+    private var permissionsLimited: Bool {
+        notificationStatus == .denied || locationManager.authorizationStatus != .authorizedAlways
+            && locationManager.authorizationStatus != .notDetermined
+            || (BarometricAltitudeService.isAvailable && CMAltimeter.authorizationStatus() == .denied)
+    }
+
+    private var reminderState: String {
+        switch notificationStatus {
+        case .notDetermined: return L10n.Permissions.stateNotAsked
+        case .denied: return L10n.Permissions.stateOff
+        default: return L10n.Permissions.stateOn
+        }
+    }
+
+    private var locationState: String {
+        switch locationManager.authorizationStatus {
+        case .authorizedAlways: return L10n.Permissions.stateAlways
+        case .authorizedWhenInUse: return L10n.Permissions.stateWhileUsing
+        case .notDetermined: return L10n.Permissions.stateNotAsked
+        default: return L10n.Permissions.stateOff
+        }
+    }
+
+    private var motionState: String {
+        switch CMAltimeter.authorizationStatus() {
+        case .authorized: return L10n.Permissions.stateOn
+        case .notDetermined: return L10n.Permissions.stateNotAsked
+        default: return L10n.Permissions.stateOff
+        }
     }
 
     // MARK: - GPS Section

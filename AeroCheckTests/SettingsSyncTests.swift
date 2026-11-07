@@ -28,6 +28,7 @@ final class SettingsSyncTests: XCTestCase {
         settings.stepByStepHighlighting = false
         settings.fullTanksLitres = ["F-HVXA": 100]
         settings.homeAerodromeIdent = "LSZQ"
+        settings.showAirspaceLimits = false
         settings.cruiseSpeedKIAS = ["F-HVXA": 97]
         settings.showVFRCircuitsOnMap = true
         settings.showVFRRoutesOnMap = true
@@ -87,7 +88,7 @@ final class SettingsSyncTests: XCTestCase {
     /// Schema 8 (6.2): a 6.1 device relays a record without the aerodrome procedures' switches; the ones
     /// this pilot turned on stay on. And a settings file from before 6.2 reads them as off.
     func testTheAerodromeProceduresSwitchesSurviveAnOlderRecord() throws {
-        XCTAssertEqual(AppSettings.currentSchemaVersion, 8)
+        XCTAssertGreaterThanOrEqual(AppSettings.currentSchemaVersion, 8)
         let keys = ["showVFRCircuitsOnMap", "showVFRRoutesOnMap", "showNonPoweredCircuitsOnMap"]
         XCTAssertTrue(keys.allSatisfy { key in AppSettings.protectedFields.contains { $0.key == key } })
 

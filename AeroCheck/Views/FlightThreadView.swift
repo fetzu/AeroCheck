@@ -36,7 +36,7 @@ struct ThreadTaskPresentation {
         case .notamChecked:
             return .init(title: L10n.Thread.taskNotam, hint: nil, icon: "exclamationmark.bubble")
         case .flightPlanFiled:
-            return .init(title: L10n.Thread.taskFlightPlanFiled, hint: L10n.Thread.hintFlightPlanFiled, icon: "paperplane")
+            return .init(title: L10n.Thread.taskFlightPlanFiled, hint: briefing?.flightPlanHint ?? L10n.Thread.hintFlightPlanFiled, icon: "paperplane")
         case .navLogReady:
             return .init(title: L10n.Thread.taskNavLog, hint: L10n.Thread.hintNavLog, icon: "doc.plaintext")
         case .pprObtained:
@@ -176,6 +176,24 @@ struct ThreadBriefing {
     var now: Date = Date()
     /// How the plan is closed where the flight lands. (q3)
     var closeOut: CloseOut?
+    /// Why this flight needs an ATC plan, and whether a filed one has gone late. (6.9.0)
+    var planNeed: FlightPlanNeed?
+    var planIsLate = false
+    /// The FIS to report the departure to, "Zurich Information 124.700"; nil where the data has none.
+    var departureFIS: String?
+
+    /// The route's countries whose airspace isn't on the device, in the route's order.
+    static func countriesLackingAirspace(route: [String], lacks: (String) -> Bool) -> [String] {
+        route.filter(lacks)
+    }
+
+    /// The flight plan task's words: why it is needed, how to file, whom to tell after take-off, in every country (f7 A).
+    var flightPlanHint: String {
+        if planIsLate { return L10n.Thread.planLate }
+        return [planNeed.map(L10n.Thread.planNeeded), L10n.Thread.hintFlightPlanFiled + ".",
+                departureFIS.map(L10n.Thread.planReportTo) ?? L10n.Thread.planReportGeneric]
+            .compactMap { $0 }.joined(separator: " ")
+    }
 
     /// The close-out's numbers, each a call, then the country's links.
     var closeOutLinks: [ThreadTaskLink] {
@@ -365,6 +383,7 @@ struct FlightThreadView: View {
     /// The aerodrome whose note the route block or CLOSE opened. (6.7.0)
     @State private var noteAerodrome: AerodromeRef?
     @ObservedObject private var noteStore = AerodromeNoteStore.shared
+    @State private var airspaceDataRoute: OfflineDataRoute?
     /// Chapters and blocks shown open although done, waiting for the day or before the landing: a tap on their line
     /// opens them in place. (6.6.0)
     @State private var unfoldedChapters: Set<ThreadChapter> = []
@@ -405,6 +424,7 @@ struct FlightThreadView: View {
                             }
                             continuationCard(thread)
                             prohibitedCard(thread)
+                            airspaceDataCard(thread)
                             chapters(thread)
                             footer(thread)
                                 .id(Self.footerId)
@@ -582,6 +602,8 @@ struct FlightThreadView: View {
         // reading REQ 0 / FOB 0 forever, and never ticking itself once the tanks were entered.
         // `regenerateTasks` preserves everything the pilot has ticked, so this is safe to run often.
         .onAppear { refreshFromPlan() }
+        // A filed plan goes late by the clock, with the screen open. (6.9.0)
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in refreshFromPlan() }
         // Every save of the plans, not `.onChange(of:)`: `FlightPlan`'s `==` compares ids only, so an
         // edited plan never counted as a change, and the fuel entered in the details sheet stayed
         // unseen until the page was reopened. The editor also saves after the sheet's `onDismiss`
@@ -1057,6 +1079,33 @@ struct FlightThreadView: View {
             .coachTarget(.readiness)
     }
 
+    /// The route's countries with no airspace on this device: the tags, the tap card and the slot have nothing there,
+    /// and since the OpenAIP chart went, no other limits show either. Not a task: a new key would make older builds drop
+    /// the whole thread they read from iCloud. (6.9.0)
+    @ViewBuilder
+    private func airspaceDataCard(_ thread: FlightThread) -> some View {
+        let missing = ThreadBriefing.countriesLackingAirspace(route: thread.countries ?? []) {
+            !openAIPDataService.downloadedCountries.contains($0)
+        }
+        if !missing.isEmpty, thread.state == .planned || thread.state == .ready {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.Thread.noAirspaceData(missing.map { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
+                    .joined(separator: ", ")))
+                    .font(.aero(.subheadline))
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(L10n.Nav.downloadAirspaceData) { airspaceDataRoute = .country(missing[0]) }
+                    .font(.aero(.subheadline).weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("flightPage.airspaceData")
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.cardBackground))
+            .sheet(item: $airspaceDataRoute) { OfflineDataRouteView(route: $0) }
+        }
+    }
+
     /// A route through a country whose airspace is closed, above the chapters before the flight: red, with the
     /// directive. Nothing is blocked. (6.5.0, q5)
     @ViewBuilder
@@ -1204,7 +1253,9 @@ struct FlightThreadView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
             // Something to remember about the field landed at, for next time (n4 A). Not in a dry run. (6.7.0)
-            if dryRunSession == nil, let landed = landedAerodrome(thread) {
+            if dryRunSession == nil, let landed = landedAerodrome(thread),
+               AerodromeNoteCloseOffer.isOffered(landed, home: appState.settings.homeAerodromeIdent,
+                                                 hasNote: noteStore.note(for: landed) != nil) {
                 AerodromeNoteCloseOffer(aerodrome: landed) { noteAerodrome = landed }
             }
         }
@@ -1930,7 +1981,19 @@ struct FlightThreadView: View {
         return ThreadBriefing(registry: briefingRegistry.registry, countries: countries,
                               departureCountry: FlightThreadManager.departureCountry(of: plan(for: thread)) ?? countries.first,
                               flightDay: thread.scheduledDeparture,
-                              closeOut: thread.flightPlanFiledAt == nil ? nil : closeOut(for: thread))
+                              closeOut: thread.flightPlanFiledAt == nil ? nil : closeOut(for: thread),
+                              planNeed: threadManager.planNeeds[thread.id],
+                              planIsLate: threadManager.lateFlightPlans.contains(thread.id),
+                              departureFIS: departureFIS(for: thread))
+    }
+
+    /// The FIS over the departure, from the airspace data.
+    private func departureFIS(for thread: FlightThread) -> String? {
+        guard let first = plan(for: thread)?.waypoints.first else { return nil }
+        let at = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+        return openAIPDataService.fisSectors(containing: at).first?.primaryFrequency.map { frequency in
+            [frequency.name, frequency.value].compactMap { $0 }.joined(separator: " ")
+        }
     }
 
     /// How this flight's plan is closed, the field's tower known from the app's data. (6.5.0)

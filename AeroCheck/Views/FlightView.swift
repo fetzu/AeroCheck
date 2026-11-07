@@ -284,6 +284,8 @@ struct FlightView: View {
             })
             // A dry run's coach over the Menu: its switch for the memory items rung (r3-7). (6.4.0)
             .environment(\.dryRunSession, dryRunSession)
+            // EVERY AIRSPACE is the Cockpit's: a sheet doesn't get what `cockpitBody` gives its pages.
+            .environment(chartState)
             .dryRunCoachScreen(.menu)
         }
         #if DEBUG
@@ -1129,6 +1131,13 @@ extension FlightView {
         HStack(spacing: 8) {
             if appState.hasDeferredWork { deferredChip.coachTarget(.deferredChip) }
             if narrow || !briefingInBar { cockpitBriefingChip }
+            if chartState.reportDeparture != nil {
+                // As the map's slot says it; a tap is Done. No sound, no banner (6.9.0).
+                CockpitChip(title: L10n.Cockpit.reportDepartureChip, icon: "antenna.radiowaves.left.and.right") {
+                    chartState.reportDepartureDone()
+                }
+                .accessibilityIdentifier("cockpit.reportDepartureChip")
+            }
             cockpitNextChip
             Spacer(minLength: 0)
         }
@@ -2177,6 +2186,7 @@ struct HoldToConfirmButton: View {
 /// FLIGHT at any phase. It was an unlabelled grey gear called "HUD Settings". (v6.0 · B7)
 struct FlightInfoSheet: View {
     @Environment(\.cockpitTheme) private var theme
+    @Environment(CockpitMapState.self) private var cockpitMap: CockpitMapState?
     @Environment(AppState.self) private var appState
     @ObservedObject var locationManager: LocationManager
     /// Ends the flight now, whatever the phase. The sheet asks first.
@@ -2278,6 +2288,7 @@ struct FlightInfoSheet: View {
 
                     // The most useful settings without leaving the flight.
                     settingsCard(title: L10n.Cockpit.options) {
+                        allLimitsRow
                         circuitsRow
                         rowDivider
                         toggleRow(L10n.Settings.memoryTest, Binding(
@@ -2307,17 +2318,6 @@ struct FlightInfoSheet: View {
                                     else { CompanionConnectivityManager.shared.disconnect() }
                                 }
                             ))
-                        } else {
-                            rowDivider
-                            HStack(spacing: 8) {
-                                Image(systemName: "ipad.and.iphone")
-                                    .font(.aero(size: 16))
-                                    .foregroundColor(theme.textDim)
-                                Text(L10n.Companion.pairInSettings)
-                                    .font(.aero(size: 16))
-                                    .foregroundColor(theme.textSecondary)
-                                Spacer(minLength: 0)
-                            }
                         }
                     }
 
@@ -2475,6 +2475,15 @@ struct FlightInfoSheet: View {
 
     /// Circuits, both ways, for this flight: off for the pattern left behind, on for circuits at the end of
     /// a cross-country (in cruise or descent, on to the approach check). (6.3.0, the author's Q6)
+    /// Every limit on the map, for this flight (a10 A).
+    @ViewBuilder private var allLimitsRow: some View {
+        if let cockpitMap {
+            toggleRow(L10n.Cockpit.allLimits, Binding(get: { cockpitMap.allLimits }, set: { cockpitMap.allLimits = $0 }))
+                .accessibilityIdentifier("menu.allLimits")
+            rowDivider
+        }
+    }
+
     private var circuitsRow: some View {
         toggleRow(L10n.Cockpit.circuits, Binding(
             get: { appState.isCircuitMode },

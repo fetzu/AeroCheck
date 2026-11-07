@@ -50,6 +50,33 @@ struct MapChromeModel {
     /// An aerodrome's or a procedure's callout is open: the stack at the right edge steps aside, as Plan › Map's
     /// controls do, so the callout reads whole, its Divert button included. (6.7.0)
     var calloutOpen = false
+    /// What the map says at its foot, bottom up. (6.9.0)
+    var footChips: [MapFootChip] = []
+}
+
+/// A chip at the chart's foot. EVERY AIRSPACE is touchable and turns itself off; the others are traces of what the map
+/// isn't showing (a10 A; human-factors principle 12).
+enum MapFootChip: Hashable {
+    case allLimits, airspaceOff, noAirspaceData, dabsNotLoaded
+
+    var title: String {
+        switch self {
+        case .allLimits: return L10n.Cockpit.allLimitsChip
+        case .airspaceOff: return L10n.Cockpit.airspaceOffChip
+        case .noAirspaceData: return L10n.Cockpit.noAirspaceDataChip
+        case .dabsNotLoaded: return L10n.Cockpit.dabsNotLoadedChip
+        }
+    }
+
+    var isControl: Bool { self == .allLimits }
+    var accessibilityIdentifier: String {
+        switch self {
+        case .allLimits: return "map.chip.allLimits"
+        case .airspaceOff: return "map.chip.airspaceOff"
+        case .noAirspaceData: return "map.chip.noAirspaceData"
+        case .dabsNotLoaded: return "map.chip.dabsNotLoaded"
+        }
+    }
 }
 
 /// What the chrome's taps do. The map owns them.
@@ -66,6 +93,8 @@ struct MapChromeActions {
     var openStatus: (CockpitStatus) -> Void = { _ in }
     /// A tap on a state that tucks away (`CockpitStatus.tucksAway`) in the slot.
     var tuckStatus: (CockpitStatus) -> Void = { _ in }
+    /// EVERY AIRSPACE' chip tapped.
+    var endAllLimits: () -> Void = {}
 }
 
 // MARK: - Geometry
@@ -109,9 +138,18 @@ struct MapChromeGeometry: Equatable {
         let arrowSize: CGFloat
         /// `SwissScaleBar`'s card: at most 150 pt of bar, 50 pt tall.
         let scaleSize: CGSize
+        /// A chip at the foot: EVERY AIRSPACE is a control, so a control's height on the kneeboard's in-flight floor.
+        let chipHeight: CGFloat
+        /// A warning chip: it takes no tap.
+        var warningChipHeight: CGFloat { chipHeight * 0.6 }
+        /// Where a chip starts on the foot line: right of the map's (i), MapLibre's 26 pt attribution button 8 pt from the
+        /// corner. It holds the credit the OpenStreetMap licence asks for, so nothing lies on it for good (the author's
+        /// note on the chip's place, 5 Nov 2026).
+        let attributionRoom: CGFloat = 42
 
         init(_ scale: CockpitScale) {
             let kneeboard = scale == .kneeboard
+            chipHeight = kneeboard ? 78 : 56
             button = kneeboard ? 78 : 72
             gap = kneeboard ? 10 : 6
             margin = kneeboard ? 16 : 12
@@ -160,8 +198,9 @@ struct MapChromeGeometry: Equatable {
 
     /// `showsStack`: false while the phone shows a leg from ROUTE, whose bar takes the chart's foot (Back to
     /// aircraft is centre then). `footRoom`: what that bar takes of the foot, kept clear of the scale and
-    /// the edge arrow.
-    init(size: CGSize, scale: CockpitScale, showsStack: Bool = true, footRoom: CGFloat = 0) {
+    /// the edge arrow. `footChips`: what the map says at its foot, on the foot line (the author's r2-7, A): the chips are
+    /// there for as long as they apply, so they get the line, and the scale, there for two seconds, goes above them.
+    init(size: CGSize, scale: CockpitScale, showsStack: Bool = true, footRoom: CGFloat = 0, footChips chips: [MapFootChip] = []) {
         let m = Metrics(scale)
         let all = showsStack ? Self.controls(for: scale) : []
         let length = { (count: Int) in CGFloat(count) * m.button + CGFloat(max(count - 1, 0)) * m.gap }
@@ -229,6 +268,14 @@ struct MapChromeGeometry: Equatable {
         if !frames.isEmpty, scaleFrame.intersects(stack) {
             scaleFrame.origin.y = min(stack.minY, floor) - m.gap - m.scaleSize.height
         }
+        // The chips where the scale would be, on that same line; the scale over them.
+        var chipsFrame = CGRect.zero
+        if !chips.isEmpty {
+            let height = chips.reduce(CGFloat(chips.count - 1) * m.gap) { $0 + ($1.isControl ? m.chipHeight : m.warningChipHeight) }
+            chipsFrame = CGRect(x: m.attributionRoom, y: scaleFrame.maxY - height,
+                                width: max(0, stack.minX - m.gap - m.attributionRoom), height: height)
+            scaleFrame.origin = CGPoint(x: chipsFrame.minX, y: chipsFrame.minY - m.gap - m.scaleSize.height)
+        }
 
         // The arrow: left of the stack, or above it, whichever leaves it more room; over a leg's bar.
         let below = slot.maxY + m.slotGap
@@ -248,10 +295,23 @@ struct MapChromeGeometry: Equatable {
         self.scale = scaleFrame
         self.arrowBounds = left.width * left.height >= above.width * above.height ? left : above
         self.footRoom = footRoom
+        self.footChips = chipsFrame
     }
 
     /// What a leg's bar takes of the foot: its height and the stack's margin under it.
     let footRoom: CGFloat
+
+    /// What an airspace's tag never covers: the controls, a tucked state's square, the status slot, the scale, and the
+    /// foot's chips (a11 A).
+    var tagKeepOut: [CGRect] {
+        [stack, tuckedStatus, statusSlot, scale, footChips].filter { !$0.isEmpty }
+    }
+
+    /// The foot's chips: on the foot line, right of the map's (i), as wide as the stack leaves. Empty without any.
+    let footChips: CGRect
+
+    /// How far the chips lift what stands over the foot: the scale, and the imagery credits.
+    var footChipsRoom: CGFloat { footChips.isEmpty ? 0 : footChips.height + metrics.gap }
 
     /// A leg's bar from ROUTE (`FramedLegBar`) along the chart's foot: from the left margin to the stack
     /// (a gap short of it), or to the right margin without one, on the stack's margin. `height`: the bar's.
@@ -351,7 +411,8 @@ struct CockpitMapChrome: View {
 
     var body: some View {
         GeometryReader { proxy in
-            pieces(MapChromeGeometry(size: proxy.size, scale: scale, showsStack: showsStack, footRoom: footRoom))
+            pieces(MapChromeGeometry(size: proxy.size, scale: scale, showsStack: showsStack, footRoom: footRoom,
+                                     footChips: model.footChips))
         }
         .coordinateSpace(.named(MapChromeElement.space))
         .onAppear {
@@ -384,6 +445,18 @@ struct CockpitMapChrome: View {
                 .modifier(MapChromePlacement(element: .tuckedStatus, frame: geometry.tuckedStatus, onPlace: onPlace))
                 .modifier(StepsAsideForCallout(isHidden: model.calloutOpen, reduceMotion: reduceMotion))
                 .transition(.opacity)
+            }
+            if !model.footChips.isEmpty {
+                VStack(alignment: .leading, spacing: geometry.metrics.gap) {
+                    Spacer(minLength: 0)
+                    ForEach(model.footChips.reversed(), id: \.self) { chip in
+                        MapFootChipView(chip: chip, metrics: geometry.metrics, language: language) {
+                            actions.endAllLimits()
+                        }
+                    }
+                }
+                .frame(width: geometry.footChips.width, height: geometry.footChips.height, alignment: .bottomLeading)
+                .offset(x: geometry.footChips.minX, y: geometry.footChips.minY)
             }
             if let arrow = edgeArrow(geometry) {
                 MapChromeEdgeArrow(degrees: arrow.degrees, size: geometry.metrics.arrowSize, language: language)
@@ -486,8 +559,6 @@ struct MapChromeControlButton: View {
             .accessibilityLabel(MapChromeControlButton.label(control, model: model, language: language))
             .accessibilityValue(MapChromeControlButton.value(control, model: model, language: language))
             .accessibilityIdentifier(MapChromeControlButton.identifier(control))
-            // The track vector, the first time on the Cockpit's MAP: where to switch it lives here. (6.8.0)
-            .aeroTip(TrackVectorTip(), shown: control == .layers, arrowEdge: .trailing)
     }
 
     private var prominent: Bool { control == .centre && !model.isFollowingAircraft }
@@ -622,6 +693,40 @@ struct MapChromeEdgeArrow: View {
 
 /// The slot at the top left: the state `CockpitStatusRule` picks, at one size whatever it is. UNDO is
 /// the message and its button; the others are one button each, a tap away from what they are about.
+/// A chip at the chart's foot. EVERY AIRSPACE in cyan, touchable; a trace in grey, as the read band's secondary text.
+struct MapFootChipView: View {
+    let chip: MapFootChip
+    let metrics: MapChromeGeometry.Metrics
+    var language: String? = nil
+    let action: () -> Void
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        if chip.isControl {
+            Button(action: action) { label(color: theme.action, icon: "xmark") }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(chip.accessibilityIdentifier)
+        } else {
+            label(color: theme.textSecondary, icon: nil)
+                .accessibilityIdentifier(chip.accessibilityIdentifier)
+        }
+    }
+
+    private func label(color: Color, icon: String?) -> some View {
+        HStack(spacing: 10) {
+            Text(chip.title).font(.aero(size: metrics.textSize, weight: .bold))
+            if let icon { Image(systemName: icon).font(.aero(size: metrics.textSize, weight: .bold)) }
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, metrics.slotPadding)
+        .frame(minHeight: chip.isControl ? metrics.chipHeight : metrics.warningChipHeight)
+        .background(RoundedRectangle(cornerRadius: metrics.slotCornerRadius).fill(theme.panel.opacity(0.97)))
+        .overlay(RoundedRectangle(cornerRadius: metrics.slotCornerRadius).strokeBorder(theme.panelStroke, lineWidth: 1))
+        .contentShape(Rectangle())
+    }
+}
+
 struct MapStatusSlot: View {
     let status: CockpitStatus
     let undoOffer: NavUndoOffer?
@@ -717,7 +822,7 @@ struct MapStatusFace: View {
                 .font(.aero(size: metrics.statusIconSize, weight: .bold))
                 .foregroundColor(colors.accent)
                 .frame(width: metrics.statusIconColumn)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: runsToThreeLines ? 0 : 2) {
                 Text(verbatim: MapStatusText.title(status, language: language))
                     .font(.aero(size: metrics.textSize, weight: .bold))
                     .foregroundColor(colors.accent)
@@ -732,8 +837,17 @@ struct MapStatusFace: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, metrics.slotPadding)
-        .padding(.vertical, 4)
+        .padding(.vertical, runsToThreeLines ? 2 : 4)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The title and two lines of detail: a long airspace name, the reminder's station and why. The slot holds them only
+    /// tightly set.
+    private var runsToThreeLines: Bool {
+        switch status {
+        case .airspaceAhead, .reportDeparture: return true
+        default: return false
+        }
     }
 
     /// The width the words have in a slot `slotWidth` wide.
@@ -775,6 +889,8 @@ enum MapStatusText {
         case .chartOffline: return L10n.MapChrome.chartOffline(language: language)
         case .tellFIS: return L10n.MapChrome.tellFIS(language: language)
         case .sigmet: return "SIGMET"
+        case .airspaceAhead: return L10n.MapChrome.airspaceAhead(language: language)
+        case .reportDeparture: return L10n.MapChrome.reportDeparture(language: language)
         // As the chip said it, in English in French too.
         case .briefing: return "BRIEFING"
         }
@@ -785,6 +901,8 @@ enum MapStatusText {
         switch status {
         case .tellFIS(let field): return L10n.MapChrome.divertingTo(field, language: language)
         case .sigmet(let summary): return summary.isEmpty ? nil : summary
+        case .airspaceAhead(let finding): return L10n.MapChrome.airspaceIn(finding.name, finding.minutes, language: language)
+        case .reportDeparture(let reminder): return reportDetail(reminder, language: language)
         default: return nil
         }
     }
@@ -807,6 +925,8 @@ enum MapStatusText {
         case .chartOffline: return L10n.MapChrome.chartOfflineHint(language: language)
         case .tellFIS: return L10n.MapChrome.tellFISHint(language: language)
         case .sigmet: return L10n.MapChrome.sigmetHint(language: language)
+        case .airspaceAhead: return L10n.MapChrome.airspaceAheadHint(language: language)
+        case .reportDeparture: return L10n.MapChrome.reportDepartureHint(language: language)
         case .briefing: return L10n.MapChrome.briefingHint(language: language)
         }
     }
@@ -821,8 +941,23 @@ enum MapStatusText {
         case .chartOffline: return "wifi.slash"
         case .tellFIS: return "antenna.radiowaves.left.and.right"
         case .sigmet: return "exclamationmark.triangle.fill"
+        case .airspaceAhead: return "square.stack.3d.up"
+        case .reportDeparture: return "antenna.radiowaves.left.and.right"
         case .briefing(let type): return type == .departure ? "airplane.departure" : "airplane.arrival"
         }
+    }
+
+    /// "Zurich Information 124.700", then why, where the rule is known.
+    static func reportDetail(_ reminder: ReportDepartureReminder, language: String?) -> String? {
+        let why: String?
+        switch reminder.why {
+        case .startsOnReport: why = L10n.MapChrome.reportStartsOnReport(language: language)
+        case .timesFollow: why = L10n.MapChrome.reportTimesFollow(language: language)
+        case .cancelled(let minutes): why = L10n.MapChrome.reportCancelled(minutes, language: language)
+        case nil: why = nil
+        }
+        let parts = [reminder.station, why].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// The cross-track distance as the map writes distances: "1.2", then whole miles from 10.
@@ -982,6 +1117,33 @@ final class CockpitMapState {
         if shown != offRouteNM { offRouteNM = shown }
     }
 
+    /// EVERY AIRSPACE, from MENU: on until turned off, and this state lives with the Cockpit, so the next flight is back
+    /// to tags (a10 A). (6.9.0)
+    var allLimits = false
+
+    /// AIRSPACE AHEAD as the slot shows it, held through a boundary (`AirspaceAheadWatch`). (6.9.0)
+    private(set) var airspaceAhead: AirspaceAheadFinding?
+    @ObservationIgnored private var airspaceWatch = AirspaceAheadWatch()
+
+    func note(airspaceAhead finding: AirspaceAheadFinding?, at now: Date) {
+        let shown = airspaceWatch.update(finding, at: now)
+        if shown != airspaceAhead { airspaceAhead = shown }
+    }
+
+    /// The reminder after take-off, as the follower works it out on every fix. (6.9.0)
+    private(set) var reportDeparture: ReportDepartureReminder?
+    @ObservationIgnored private var reportRule = ReportDepartureRule()
+
+    func note(reportDeparture input: ReportDepartureRule.Input, reminder: ReportDepartureReminder, at now: Date) {
+        let shown = reportRule.isShown(input, at: now) ? reminder : nil
+        if shown != reportDeparture { reportDeparture = shown }
+    }
+
+    func reportDepartureDone() {
+        reportRule.done()
+        reportDeparture = nil
+    }
+
     func showWholeRoute() { wholeRouteRequest &+= 1 }
     func showHazards() { hazardsRequest &+= 1 }
 
@@ -1005,6 +1167,9 @@ struct CockpitMapFollower: ViewModifier {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
     @EnvironmentObject private var aviationWeatherService: AviationWeatherService
+    @EnvironmentObject private var threadManager: FlightThreadManager
+    @EnvironmentObject private var airportDataService: AirportDataService
+    @Environment(CockpitRadio.self) private var radio: CockpitRadio?
 
     /// What OFF ROUTE is evaluated again for, besides a fix.
     struct Key: Equatable {
@@ -1045,6 +1210,28 @@ struct CockpitMapFollower: ViewModifier {
             circuits: appState.isCircuitMode, lineUpTime: appState.lineUpTime, landingTime: appState.landingTime,
             isTracking: locationManager.isTracking, signal: locationManager.gpsSignalStatus,
             isSimulating: locationManager.isSimulatingPosition))
+        noteReportDeparture()
+    }
+
+    /// The reminder after take-off: its conditions from the flight's thread, the departure's rule from the registry,
+    /// the station from the radio, NOW's as ever. A flight without a thread has no tick, so no reminder.
+    private func noteReportDeparture() {
+        guard let plan = flightPlanManager.activeFlightPlan, let thread = threadManager.thread(forPlanId: plan.id) else { return }
+        let ident = plan.waypoints.first?.name.trimmingCharacters(in: .whitespaces).uppercased() ?? ""
+        let types = airportDataService.getFrequencies(for: ident).map(\.type)
+        let hasTower = types.contains { AirportDataService.isContactType($0, "TWR") || AirportDataService.isContactType($0, "AFIS") }
+        let phase = appState.currentPhase
+        let climbDone = phase.rawValue > ChecklistPhase.climb.rawValue || (phase == .climb && appState.currentCheckIsDone)
+        let input = ReportDepartureRule.Input(planWasNeeded: threadManager.planNeeds[thread.id] != nil,
+                                              filed: thread.flightPlanFiledAt != nil, hasTower: hasTower,
+                                              takeOff: appState.lineUpTime, climbCheckDone: climbDone,
+                                              landed: appState.landingTime != nil)
+        let rules = BriefingRegistryService.shared.registry?.flightPlan
+        let state = rules?.departureState(aerodrome: ident, country: FlightThreadManager.departureCountry(of: plan))
+        let station = radio?.now.map { "\($0.station) \($0.freq)" }
+        mapState.note(reportDeparture: input,
+                      reminder: ReportDepartureReminder(station: station, why: ReportDepartureReminder.why(rules?.rule(for: state))),
+                      at: FlightClock.now)
     }
 }
 
@@ -1088,6 +1275,7 @@ struct CockpitChartChrome: View {
     let sigmets: [SigmetHazardItem]
     var showsStack = true
     var footRoom: CGFloat = 0
+    var footChips: [MapFootChip] = []
     /// Every tap but UNDO's dismissal, which is this view's.
     let actions: MapChromeActions
 
@@ -1115,7 +1303,7 @@ struct CockpitChartChrome: View {
                                   aircraft: locationManager.currentLocation?.coordinate,
                                   zoom: mapState.cameraDistance,
                                   nauticalMiles: appState.settings.distanceInNauticalMiles,
-                                  calloutOpen: mapState.isCalloutOpen),
+                                  calloutOpen: mapState.isCalloutOpen, footChips: footChips),
             actions: wiredActions, showsStack: showsStack, footRoom: footRoom)
             // A waypoint the flight marked, or a check just confirmed, withdraws the band's older offer.
             .modifier(UndoOfferFollower(cockpitNav: cockpitNav))
@@ -1125,7 +1313,7 @@ struct CockpitChartChrome: View {
     /// Every state that would show, highest first: UNDO first, then what the flight says (plan §5.1).
     private func pendingStates(undoOffered: Bool) -> [CockpitStatus] {
         #if DEBUG
-        // The captures' (6.2): `AEROCHECK_STATUS=gps|nogps|offroute|chartoffline|tellfis|sigmet|briefing`
+        // The captures' (6.2): `AEROCHECK_STATUS=gps|nogps|offroute|chartoffline|tellfis|sigmet|briefing|ahead|aheadamber|report`
         // holds the slot on that state, under UNDO.
         if !undoOffered, let held = Self.capturedStatus { return [held] }
         #endif
@@ -1146,7 +1334,9 @@ struct CockpitChartChrome: View {
             chartOffline: ChartAvailability.isChartOffline(chartInput),
             tellFISField: CockpitStatusRule.tellFIS(diversionIdent: plan?.diversion?.ident, hasOpenATCFlightPlan: filed),
             sigmetOnPath: CockpitStatusRule.sigmetOnPath(sigmets).map(Self.sigmetSummary),
-            briefing: briefingInBar ? nil : appState.currentPhase.briefingType)
+            briefing: briefingInBar ? nil : appState.currentPhase.briefingType,
+            airspaceAhead: cockpitMap?.airspaceAhead,
+            reportDeparture: cockpitMap?.reportDeparture)
     }
 
     /// CHART OFFLINE's inputs: the chart picked, the network, the caches, the zoom and the region.
@@ -1179,6 +1369,7 @@ struct CockpitChartChrome: View {
         }
         let cockpitMap = cockpitMap
         wired.tuckStatus = { status in cockpitMap?.tuck(status) }
+        wired.endAllLimits = { cockpitMap?.allLimits = false }
         return wired
     }
 
@@ -1192,6 +1383,12 @@ struct CockpitChartChrome: View {
         case "tellfis": return .tellFIS(field: "LSGC")
         case "sigmet": return .sigmet(summary: "SEV TURB · " + L10n.Nav.sigmetOnRoute)
         case "briefing": return .briefing(.approach)
+        case "ahead", "aheadamber":
+            let amber = ProcessInfo.processInfo.environment["AEROCHECK_STATUS"]?.lowercased() == "aheadamber"
+            return .airspaceAhead(AirspaceAheadFinding(airspaceId: "capture", name: "CTR GRENCHEN", minutes: amber ? 2 : 4, isCaution: amber,
+                                                       entry: CLLocationCoordinate2D(latitude: 47.16, longitude: 7.33)))
+        case "report":
+            return .reportDeparture(ReportDepartureReminder(station: "Zürich Info 124.700", why: .timesFollow))
         default: return nil
         }
     }()

@@ -27,11 +27,13 @@ final class PilotMapShapes {
         var sourceID: String { "aero.\(self)" }
     }
 
-    /// One shape: its overlay, the renderer MapKit would draw it with, its tier within the group (higher on top).
+    /// One shape: its overlay, the renderer MapKit would draw it with, its tier within the group (higher on top), and
+    /// how strong its hatch is (an R, D or P area's, `PilotMapStyle.hatchImage`), which a renderer can't say.
     struct Shape {
         let overlay: MKOverlay
         let renderer: MKOverlayRenderer?
         let tier: Int
+        var hatch: Double = 0
     }
 
     /// A shape's paint as its MapKit renderer has it: colours with the renderer's alpha in them, the width and the
@@ -83,6 +85,7 @@ final class PilotMapShapes {
     struct LayerKey: Hashable, Comparable {
         enum Kind: Hashable {
             case fill
+            case hatch
             case line(cap: CGLineCap, dash: [Double])
         }
 
@@ -93,6 +96,7 @@ final class PilotMapShapes {
         var id: String {
             switch kind {
             case .fill: return "\(group.sourceID).\(tier).fill"
+            case .hatch: return "\(group.sourceID).\(tier).hatch"
             case let .line(cap, dash):
                 let pattern = dash.map { String(format: "%.2f", $0) }.joined(separator: "-")
                 return "\(group.sourceID).\(tier).line.\(cap.rawValue)" + (dash.isEmpty ? "" : ".\(pattern)")
@@ -102,7 +106,8 @@ final class PilotMapShapes {
         private var kindOrder: Int {
             switch kind {
             case .fill: return 0
-            case .line: return 1
+            case .hatch: return 1
+            case .line: return 2
             }
         }
 
@@ -119,9 +124,15 @@ final class PilotMapShapes {
         var features: [MLNShape & MLNFeature] = []
         var keys = Set<LayerKey>()
         for shape in shapes {
-            guard let paint = Paint(shape.renderer), paint.strokes || paint.fills,
+            guard let paint = Paint(shape.renderer), paint.strokes || paint.fills || shape.hatch > 0,
                   let feature = feature(for: shape.overlay) else { continue }
             var attributes: [String: Any] = [:]
+            if shape.hatch > 0 {
+                let key = LayerKey(group: group, tier: shape.tier, kind: .hatch)
+                keys.insert(key)
+                attributes["hk"] = key.id
+                attributes["hatch"] = shape.hatch
+            }
             if paint.fills, let fill = paint.fill {
                 let key = LayerKey(group: group, tier: shape.tier, kind: .fill)
                 keys.insert(key)
@@ -179,6 +190,8 @@ final class PilotMapShapes {
     private var signatures: [Group: Int] = [:]
     /// The layers on the style, by group.
     private var layers: [Group: Set<LayerKey>] = [:]
+    private var labelSignature: Int?
+    private static let labelSourceID = "aero.airspace.labels"
 
     nonisolated init() {}
 
@@ -186,6 +199,7 @@ final class PilotMapShapes {
     func reset() {
         signatures = [:]
         layers = [:]
+        labelSignature = nil
     }
 
     /// The lowest of these layers: what the charts go under.
@@ -225,6 +239,9 @@ final class PilotMapShapes {
             if let above = all.first(where: { $0 > key && style.layer(withIdentifier: $0.id) != nil }),
                let sibling = style.layer(withIdentifier: above.id) {
                 style.insertLayer(layer, below: sibling)
+            } else if let labels = style.layer(withIdentifier: Self.labelSourceID) {
+                // The boundary labels stay on top, or the lines they mask run through them.
+                style.insertLayer(layer, below: labels)
             } else {
                 style.addLayer(layer)
             }
@@ -237,6 +254,12 @@ final class PilotMapShapes {
             let layer = MLNFillStyleLayer(identifier: key.id, source: source)
             layer.predicate = NSPredicate(format: "fk == %@", key.id)
             layer.fillColor = NSExpression(mglJSONObject: ["to-color", ["get", "fill"]])
+            return layer
+        case .hatch:
+            let layer = MLNFillStyleLayer(identifier: key.id, source: source)
+            layer.predicate = NSPredicate(format: "hk == %@", key.id)
+            layer.fillPattern = NSExpression(forConstantValue: PilotMapStyle.hatchImageName)
+            layer.fillOpacity = NSExpression(mglJSONObject: ["get", "hatch"])
             return layer
         case let .line(cap, dash):
             let layer = MLNLineStyleLayer(identifier: key.id, source: source)
@@ -261,13 +284,18 @@ extension PilotMapShapes {
         // The airspace: each polygon as `AirspacePolygon.style` paints it, the selected one on top.
         let airspace = map.shownAirspace
         let selected = map.shownAirspaceSelection
-        sync(.airspace, signature: Self.hash(airspace.map(\.airspaceId), selected), on: style, traits: traits) {
+        sync(.airspace, signature: Self.hash(airspace.map { "\($0.airspaceId).\($0.tier.rawValue)" }, selected), on: style,
+             traits: traits) {
             airspace.map { polygon in
                 let renderer = MKPolygonRenderer(polygon: polygon)
-                polygon.style(renderer, selected: polygon.airspaceId == selected)
-                return Shape(overlay: polygon, renderer: renderer, tier: polygon.airspaceId == selected ? 1 : 0)
+                let isSelected = polygon.airspaceId == selected
+                polygon.style(renderer, selected: isSelected)
+                return Shape(overlay: polygon, renderer: renderer, tier: isSelected ? 1 : 0,
+                             hatch: polygon.hatchAlpha(selected: isSelected))
             }
         }
+
+        syncLabels(map.shownAirspaceLabels ? airspace : [], on: style)
 
         // The aerodrome procedures: `VFRMapLayer`'s overlays for the map's zoom (dashes, ticks and arrowheads are cut
         // for it), in its tiers. Their labels are markers (PR 7).
@@ -348,6 +376,44 @@ extension PilotMapShapes {
             }
         }
 
+    }
+
+    /// The limits along the airspace's boundaries: one text layer over one source of closed lines. (6.9.0)
+    private func syncLabels(_ airspace: [AirspacePolygon], on style: MLNStyle) {
+        let signature = Self.hash(airspace.map(\.airspaceId), airspace.map(\.boundaryText))
+        guard labelSignature != signature else { return }
+        labelSignature = signature
+        var features: [MLNPolylineFeature] = []
+        for polygon in airspace {
+            var coords = [CLLocationCoordinate2D](repeating: CLLocationCoordinate2D(), count: polygon.pointCount)
+            polygon.getCoordinates(&coords, range: NSRange(location: 0, length: polygon.pointCount))
+            guard let first = coords.first else { continue }
+            coords.append(first)
+            let line = MLNPolylineFeature(coordinates: coords, count: UInt(coords.count))
+            let c = polygon.mapKind.color
+            line.attributes = ["text": polygon.boundaryText,
+                               "color": Self.css(UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 1), traits: .current)]
+            features.append(line)
+        }
+        let source: MLNShapeSource
+        if let existing = style.source(withIdentifier: Self.labelSourceID) as? MLNShapeSource {
+            source = existing
+        } else {
+            source = MLNShapeSource(identifier: Self.labelSourceID, shape: nil, options: nil)
+            style.addSource(source)
+        }
+        source.shape = MLNShapeCollectionFeature(shapes: features)
+        guard style.layer(withIdentifier: Self.labelSourceID) == nil else { return }
+        let layer = MLNSymbolStyleLayer(identifier: Self.labelSourceID, source: source)
+        layer.text = NSExpression(mglJSONObject: ["get", "text"])
+        layer.textFontNames = NSExpression(forConstantValue: ["B612 Bold"])
+        layer.textFontSize = NSExpression(forConstantValue: 15)
+        layer.textColor = NSExpression(mglJSONObject: ["to-color", ["get", "color"]])
+        layer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+        layer.textHaloWidth = NSExpression(forConstantValue: 2.4)
+        layer.symbolPlacement = NSExpression(forConstantValue: "line")
+        layer.symbolSpacing = NSExpression(forConstantValue: 260)
+        style.addLayer(layer)
     }
 
     /// The map's zoom as `VFRMapLayer` sizes its arrowheads and dashes: metres per point at the map's middle.

@@ -56,8 +56,7 @@ final class PilotMapShapesTests: XCTestCase {
 
     func testAnAreaGetsAFillAndAnEdge() throws {
         let polygon = AirspacePolygon(coordinates: [a, b, c], count: 3)
-        polygon.overlayColor = (0.2, 0.4, 0.8)
-        polygon.isDashed = true
+        polygon.mapKind = .controlled
         let renderer = MKPolygonRenderer(polygon: polygon)
         polygon.style(renderer, selected: false)
         let (features, keys) = PilotMapShapes.features(for: [.init(overlay: polygon, renderer: renderer, tier: 0)],
@@ -65,7 +64,90 @@ final class PilotMapShapesTests: XCTestCase {
         let feature = try XCTUnwrap(features.first as? MLNPolygonFeature)
         XCTAssertNotNil(feature.attribute(forKey: "fill"))
         XCTAssertNotNil(feature.attribute(forKey: "stroke"))
-        XCTAssertEqual(Set(keys.map(\.kind)), [.fill, .line(cap: .round, dash: [8 / 1.5, 4 / 1.5])])
+        XCTAssertEqual(Set(keys.map(\.kind)), [.fill, .line(cap: .round, dash: [])])
+    }
+
+    func testAClassEAreaIsADashedEdgeWithNoWash() throws {
+        let polygon = AirspacePolygon(coordinates: [a, b, c], count: 3)
+        polygon.mapKind = .classE
+        let renderer = MKPolygonRenderer(polygon: polygon)
+        polygon.style(renderer, selected: false)
+        let (features, keys) = PilotMapShapes.features(for: [.init(overlay: polygon, renderer: renderer, tier: 0)],
+                                                       group: .airspace, traits: traits)
+        XCTAssertNil(try XCTUnwrap(features.first).attribute(forKey: "fill"))
+        XCTAssertEqual(Set(keys.map(\.kind)), [.line(cap: .round, dash: [8 / 2.2, 4 / 2.2])])
+    }
+
+    func testARestrictedAreaIsHatchedAndNeverWashed() throws {
+        let polygon = AirspacePolygon(coordinates: [a, b, c], count: 3)
+        polygon.mapKind = .restrictive
+        let renderer = MKPolygonRenderer(polygon: polygon)
+        polygon.style(renderer, selected: false)
+        let shape = PilotMapShapes.Shape(overlay: polygon, renderer: renderer, tier: 0,
+                                         hatch: polygon.hatchAlpha(selected: false))
+        let (features, keys) = PilotMapShapes.features(for: [shape], group: .airspace, traits: traits)
+        let feature = try XCTUnwrap(features.first)
+        XCTAssertNil(feature.attribute(forKey: "fill"))
+        XCTAssertEqual(feature.attribute(forKey: "hatch") as? Double, 0.9)
+        XCTAssertEqual(Set(keys.map(\.kind)), [.hatch, .line(cap: .round, dash: [])])
+    }
+
+    func testTheTiersFadeAndNothingIsHidden() {
+        let polygon = AirspacePolygon(coordinates: [a, b, c], count: 3)
+        polygon.mapKind = .restrictive
+        var edges: [CGFloat] = []
+        for tier in AirspaceMapTier.allCases {
+            polygon.tier = tier
+            let renderer = MKPolygonRenderer(polygon: polygon)
+            polygon.style(renderer, selected: false)
+            let alpha = renderer.strokeColor?.cgColor.alpha ?? 0
+            XCTAssertGreaterThan(alpha, 0, "a faint area stays drawn: \(tier)")
+            edges.append(alpha)
+        }
+        XCTAssertEqual(edges, edges.sorted())
+        polygon.tier = .far
+        XCTAssertEqual(polygon.hatchAlpha(selected: false), 0)
+        XCTAssertEqual(polygon.hatchAlpha(selected: true), 0.9, "a selected area shows whatever its tier")
+    }
+
+    func testAnAirspaceNeverWearsAColourOfTheContract() {
+        // Red, amber, magenta and cyan mean a warning, a caution, the route and a control in flight (a1 A).
+        let contract: [UIColor] = [.init(red: 1, green: 0, blue: 0, alpha: 1), .init(red: 1, green: 0.75, blue: 0, alpha: 1),
+                                   .init(red: 1, green: 0, blue: 0.8, alpha: 1), .init(red: 0, green: 0.75, blue: 0.9, alpha: 1)]
+        func hue(_ color: UIColor) -> CGFloat {
+            var h: CGFloat = 0; color.getHue(&h, saturation: nil, brightness: nil, alpha: nil); return h * 360
+        }
+        for kind in AirspaceMapKind.allCases {
+            let c = kind.color
+            let color = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 1)
+            var saturation: CGFloat = 0
+            color.getHue(nil, saturation: &saturation, brightness: nil, alpha: nil)
+            guard saturation > 0.45 else { continue }  // Charcoal and slate have next to no hue
+            for wanted in contract {
+                let apart = abs(hue(color) - hue(wanted))
+                XCTAssertGreaterThan(min(apart, 360 - apart), 15, "\(kind)")
+            }
+        }
+    }
+
+    func testEveryAirspaceFindsItsKind() {
+        func kind(_ type: AirspaceTypeCategory, _ cls: Int? = nil) -> AirspaceMapKind {
+            let limit = AltitudeLimit(value: 0, unit: 1, referenceDatum: 0)
+            return Airspace(id: "a", name: "A", type: type.rawValue, icaoClass: cls, country: "CH", upperCeiling: limit,
+                            lowerCeiling: limit, geometry: AirspaceGeometry(type: "Polygon", coordinates: []), activity: nil,
+                            frequencies: nil).mapKind
+        }
+        XCTAssertEqual(kind(.restricted), .restrictive)
+        XCTAssertEqual(kind(.danger, 8), .restrictive)
+        XCTAssertEqual(kind(.prohibited), .restrictive)
+        XCTAssertEqual(kind(.tma, 3), .controlled)
+        XCTAssertEqual(kind(.tma, 4), .classE)
+        XCTAssertEqual(kind(.other, 4), .classE)
+        XCTAssertEqual(kind(.ctr), .controlled)
+        XCTAssertEqual(kind(.tmz), .zone)
+        XCTAssertEqual(kind(.rmz), .zone)
+        XCTAssertEqual(kind(.gliderSector), .glider)
+        XCTAssertEqual(kind(.other, 6), .neutral)
     }
 
     func testAnInvisibleShapeMakesNoFeature() {
@@ -99,10 +181,11 @@ final class PilotMapShapesTests: XCTestCase {
             Key(group: .airspace, tier: 1, kind: .line(cap: .round, dash: [])),
             Key(group: .airspace, tier: 0, kind: .line(cap: .round, dash: [])),
             Key(group: .airspace, tier: 0, kind: .fill),
+            Key(group: .airspace, tier: 0, kind: .hatch),
             Key(group: .route, tier: 0, kind: .line(cap: .round, dash: [])),
         ]
         XCTAssertEqual(keys.sorted().map(\.id), [
-            "aero.airspace.0.fill", "aero.airspace.0.line.1", "aero.airspace.1.line.1",
+            "aero.airspace.0.fill", "aero.airspace.0.hatch", "aero.airspace.0.line.1", "aero.airspace.1.line.1",
             "aero.route.0.line.1", "aero.route.1.line.1",
         ])
     }

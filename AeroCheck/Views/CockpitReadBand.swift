@@ -87,9 +87,6 @@ struct CockpitReadRows: View {
                     columnCard
                 }
             }
-            // NOW and NEXT, the first time a frequency is known: on the ground, the tips quiet past the line-up.
-            // (6.8.0)
-            .aeroTip(NowNextTip(), shown: now != nil, arrowEdge: .top)
         }
         .padding(.horizontal, wide ? 16 : 12)
         .readBandPart(.rows)

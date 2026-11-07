@@ -9,8 +9,12 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     // What it draws
     static let airports = MapFeatures(rawValue: 1 << 0)
     static let airspace = MapFeatures(rawValue: 1 << 1)
-    /// OpenAIP's raster layer.
-    static let openAIPTiles = MapFeatures(rawValue: 1 << 2)
+    /// The tags that say the limits of the airspace that matters now (`AirspaceRelevance`): the Cockpit's map. (6.9.0)
+    static let airspaceTags = MapFeatures(rawValue: 1 << 2)
+    /// The limits along the airspace's boundaries: Plan › Map, the route builder, EVERY AIRSPACE. (6.9.0)
+    static let airspaceLabels = MapFeatures(rawValue: 1 << 19)
+    /// A tap with no marker under it: every airspace over the point (`AirspaceStackCard`). (6.9.0)
+    static let airspaceCard = MapFeatures(rawValue: 1 << 20)
     static let navaids = MapFeatures(rawValue: 1 << 3)
     static let obstacles = MapFeatures(rawValue: 1 << 4)
     static let reportingPoints = MapFeatures(rawValue: 1 << 5)
@@ -43,15 +47,19 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
 
     static let markers: MapFeatures = [.airports, .navaids, .obstacles, .reportingPoints]
 
-    /// Plan › Map, the Cockpit's MAP and the dry run: everything.
-    static let navigation: MapFeatures = [.markers, .airspace, .openAIPTiles, .procedures, .route, .aircraft, .track,
-                                          .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
-    /// The dry run: the navigation map without the pilot's notes, which a dry run neither shows nor writes (n7 B).
-    static let dryRun: MapFeatures = navigation.subtracting(.noteCallout)
-    /// The route builder: the markers, the airspace the route crosses, the procedures, the route being planned and
-    /// its editing, with MapKit's dot, compass and scale. No aircraft, track or OpenAIP tiles, as before 6.7.0.
-    static let builder: MapFeatures = [.markers, .airspace, .procedures, .plannedRoute, .editRoute, .addToRouteCallout,
-                                       .officialChartCallout, .noteCallout, .mapKitControls]
+    /// Plan › Map: everything, the limits along the boundaries.
+    static let navigation: MapFeatures = [.markers, .airspace, .airspaceLabels, .airspaceCard, .procedures, .route, .aircraft,
+                                          .track, .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
+    /// The Cockpit's MAP: the same with tags. One style per screen, and it never changes in the air (a9 A).
+    static let cockpit: MapFeatures = navigation.subtracting(.airspaceLabels).union(.airspaceTags)
+    /// The dry run: the Cockpit's map without the pilot's notes, which a dry run neither shows nor writes (n7 B).
+    static let dryRun: MapFeatures = cockpit.subtracting(.noteCallout)
+    /// EVERY AIRSPACE turned on, on either: the boundary labels instead of the tags (a10 A).
+    func showingAllLimits() -> MapFeatures { subtracting(.airspaceTags).union(.airspaceLabels) }
+    /// The route builder: the markers, the airspace the route crosses with its limits, the procedures, the route being
+    /// planned and its editing, with MapKit's dot, compass and scale. No aircraft or track, as before 6.7.0.
+    static let builder: MapFeatures = [.markers, .airspace, .airspaceLabels, .procedures, .plannedRoute, .editRoute,
+                                       .addToRouteCallout, .officialChartCallout, .noteCallout, .mapKitControls]
     /// The chart alone.
     static let chartOnly: MapFeatures = []
     /// The coordinate picker: the chart under its crosshair, with MapKit's dot, compass and scale.

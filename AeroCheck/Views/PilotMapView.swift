@@ -46,6 +46,24 @@ enum PilotMapStyle {
     }
 
     /// The peaks' mark: a small brown triangle, as the style's `peak` image.
+    /// The hatch of an R, D or P area: charcoal diagonals that tile across the pattern's edges (a1 A).
+    static let hatchImageName = "airspace.hatch"
+    static let hatchImage: UIImage = {
+        let side: CGFloat = 12
+        let c = AirspaceMapKind.restrictive.color
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
+            let cg = context.cgContext
+            cg.setStrokeColor(UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 1).cgColor)
+            cg.setLineWidth(1.5)
+            cg.setLineCap(.square)
+            for offset in [-side, 0, side] {
+                cg.move(to: CGPoint(x: offset, y: side))
+                cg.addLine(to: CGPoint(x: offset + side, y: 0))
+            }
+            cg.strokePath()
+        }
+    }()
+
     static let peakImage: UIImage = {
         let size = CGSize(width: 11, height: 9)
         return UIGraphicsImageRenderer(size: size).image { context in
@@ -180,6 +198,7 @@ struct PilotMapView: UIViewRepresentable {
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             self.style = style
             style.setImage(PilotMapStyle.peakImage, forName: "peak")
+            style.setImage(PilotMapStyle.hatchImage, forName: PilotMapStyle.hatchImageName)
             drawnRasters = []
             MainActor.assumeIsolated { shapes.reset() }
             applyLayers(on: mapView)
@@ -196,7 +215,11 @@ struct PilotMapView: UIViewRepresentable {
                 if view is PilotMarkerView || view is PilotMarkerCallout { return }
                 hit = view.superview
             }
+            // The first tap beside an open callout closes it, as it always did. Only a tap with nothing to close asks
+            // what is over the point (6.9.0).
+            let closedCallout = !mapView.selectedAnnotations.isEmpty
             for annotation in mapView.selectedAnnotations { mapView.deselectAnnotation(annotation, animated: true) }
+            if !closedCallout, let tap = map.airspaceTapHandler { tap(mapView.convert(point, toCoordinateFrom: mapView)) }
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
@@ -285,14 +308,11 @@ struct PilotMapView: UIViewRepresentable {
             MainActor.assumeIsolated { shapes.apply(map, on: mapView, style: style, routePreview: editing.preview) }
         }
 
-        /// The chart's rasters, then OpenAIP's, above the pilot's map (a chart covers the map where it has tiles) and
+        /// The chart's rasters, above the pilot's map (a chart covers the map where it has tiles) and
         /// under the lines and areas (`PilotMapShapes`).
         func applyLayers(on mapView: MLNMapView) {
             guard let style else { return }
-            var wanted = PilotMapCharts.rasters(for: map.layerType, policy: policy)
-            if map.features.contains(.openAIPTiles) && map.showOpenAIPTiles {
-                wanted.append(PilotMapCharts.openAIPRaster(offline: map.isStrictOfflineMode))
-            }
+            let wanted = PilotMapCharts.rasters(for: map.layerType, policy: policy)
             guard wanted != drawnRasters else { return }
             for raster in drawnRasters {
                 if let layer = style.layer(withIdentifier: raster.id) { style.removeLayer(layer) }
@@ -341,7 +361,8 @@ struct PilotMapView: UIViewRepresentable {
             let sources = showing ? ImageryTiles.credited(in: Self.mercatorRect(of: mapView), zoom: mapView.zoomLevel,
                                                           store: PilotMap.imagery) : []
             let ids = sources.map(\.id)
-            // Above the scale bar and MapLibre's attribution button, and above Plan › Map's allowance line.
+            // Above the scale bar and MapLibre's attribution button, and above Plan › Map's allowance line or the Cockpit's
+            // foot chips.
             creditsBottom?.constant = -(64 + map.mapState.footerLift)
             guard ids != shownCredits else { return }
             shownCredits = ids

@@ -231,7 +231,11 @@ struct AppSettings: Codable, Equatable {
 
     // OpenAIP aviation data overlay
     var showOpenAIPOverlay: Bool = true // When true, draws OpenAIP airspace (vector CTRs from downloaded data) on the nav map — ON by default
-    var showOpenAIPTiles: Bool = false // When true, overlays the OpenAIP raster chart tiles (data-first: tiles are an opt-in, separate from the airspace vector) — OFF by default (v4.1.0)
+    /// OpenAIP's raster chart, gone in 6.9.0: the limits are the app's own now. Still decoded and synced for older builds.
+    var showOpenAIPTiles: Bool = false
+    /// The airspace's limits on the map: tags in the Cockpit, along the boundaries on Plan › Map. On by default, and no
+    /// preset touches it. Off keeps the shapes. (6.9.0)
+    var showAirspaceLimits: Bool = true
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
     /// The downloaded data's updates when the app opens on Wi-Fi, never in flight: Settings › Offline data's one
@@ -265,7 +269,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `protectedFields` below.
-    static let currentSchemaVersion = 8
+    static let currentSchemaVersion = 9
 
     /// A field a settings schema protects: the schema that brought it (or changed what it means), its
     /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
@@ -312,6 +316,8 @@ struct AppSettings: Codable, Equatable {
         ProtectedField(8, .showVFRCircuitsOnMap, \.showVFRCircuitsOnMap),
         ProtectedField(8, .showVFRRoutesOnMap, \.showVFRRoutesOnMap),
         ProtectedField(8, .showNonPoweredCircuitsOnMap, \.showNonPoweredCircuitsOnMap),
+        // Schema 9 (v6.9.0): the limits on the map. An older build would write it back to the default.
+        ProtectedField(9, .showAirspaceLimits, \.showAirspaceLimits),
     ]
 
     /// Whether the writer of this record could not express `field`: its schema came before the field,
@@ -468,6 +474,7 @@ struct AppSettings: Codable, Equatable {
         case shareCardMapLayer
         case showOpenAIPOverlay
         case showOpenAIPTiles
+        case showAirspaceLimits
         case openAIPOfflineCountries
         case enableAirspaceStreaming
         case autoUpdateOfflineData
@@ -555,6 +562,7 @@ struct AppSettings: Codable, Equatable {
         shareCardMapLayer = try container.decodeIfPresent(ShareCardMapLayer.self, forKey: .shareCardMapLayer) ?? .standard
         showOpenAIPOverlay = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPOverlay) ?? false
         showOpenAIPTiles = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPTiles) ?? false
+        showAirspaceLimits = try container.decodeIfPresent(Bool.self, forKey: .showAirspaceLimits) ?? true
         openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         autoUpdateOfflineData = try container.decodeIfPresent(Bool.self, forKey: .autoUpdateOfflineData) ?? true
@@ -1550,7 +1558,18 @@ class AppState {
         guard fellBack, let served, served != requested else {
             return
         }
+        // Never with a flight running, and once per checklist and language (the author, 6 Nov 2026).
+        guard !isFlightActive, Self.firstLanguageNotice(for: checklist.id, language: served) else { return }
         languageFallbackNotice = L10n.Aircraft.checklistLanguageOnly(Self.languageDisplayName(served))
+    }
+
+    /// Whether this checklist's notice is still to come, noting it as said.
+    nonisolated static func firstLanguageNotice(for checklist: String, language: String, defaults: UserDefaults = .standard) -> Bool {
+        let key = "checklistLanguageNotice.shown"
+        var shown = Set(defaults.stringArray(forKey: key) ?? [])
+        guard shown.insert("\(checklist)~\(language)").inserted else { return false }
+        defaults.set(Array(shown), forKey: key)
+        return true
     }
 
     /// Human-readable language name for a checklist language code (aviation languages only).

@@ -4,24 +4,28 @@ import TipKit
 // MARK: - One-time tips (6.8.0)
 
 /// A few tips where a feature lives, each shown once with Apple's TipKit (the author's answer 8 A on the onboarding
-/// page, 31 Oct 2026): the Map sheet, the track vector, NOW and NEXT, the logbook's line, offline data for a route
-/// across a border. Never in flight past the line-up nor in a dry run (`isQuiet`); never in the tests or a screenshot
-/// run. Settings › About shows them again from the next launch.
+/// page, 31 Oct 2026): the Map sheet and the logbook's line. None in the Cockpit
+/// (the author's q2, 5 Nov 2026): the dry run teaches the Cockpit, with the aircraft moving and nobody flying. Never in a
+/// flight past its line-up nor in a dry run (`isQuiet`); never in the tests or a screenshot run. Settings › About shows
+/// them again from the next launch.
 enum AeroTips {
 
     /// Settings › About's "Show the tips again": TipKit's store is reset before it is configured, so at the next launch.
     nonisolated static let resetPendingKey = "tips.resetPending"
 
+    /// The tests, a replay or a screenshot run: nothing of this kind comes over their screens.
+    nonisolated static var isScripted: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil || environment.keys.contains { $0.hasPrefix("AEROCHECK_") }
+    }
+
     /// Once, at launch.
     static func configure(defaults: UserDefaults = .standard) {
-        let environment = ProcessInfo.processInfo.environment
-        let scripted = environment["XCTestConfigurationFilePath"] != nil
-            || environment.keys.contains { $0.hasPrefix("AEROCHECK_") }
         if defaults.bool(forKey: resetPendingKey) {
             try? Tips.resetDatastore()
             defaults.set(false, forKey: resetPendingKey)
         }
-        if scripted { Tips.hideAllTipsForTesting() }
+        if isScripted { Tips.hideAllTipsForTesting() }
         try? Tips.configure([.displayFrequency(.immediate), .datastoreLocation(.applicationDefault)])
     }
 
@@ -44,35 +48,11 @@ struct MapSheetTip: Tip {
     var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
 }
 
-/// The Cockpit's MAP: the magenta line ahead of the aircraft.
-struct TrackVectorTip: Tip {
-    var title: Text { Text(L10n.Tips.trackVectorTitle) }
-    var message: Text? { Text(L10n.Tips.trackVectorBody) }
-    var image: Image? { Image(systemName: "arrow.up.right") }
-    var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
-}
-
-/// The Cockpit's read band: NOW and NEXT, the frequency in use and the one after.
-struct NowNextTip: Tip {
-    var title: Text { Text(L10n.Tips.nowNextTitle) }
-    var message: Text? { Text(L10n.Tips.nowNextBody) }
-    var image: Image? { Image(systemName: "antenna.radiowaves.left.and.right") }
-    var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
-}
-
 /// The logbook: a flight's line, once there is one.
 struct LogbookLineTip: Tip {
     var title: Text { Text(L10n.Tips.logbookLineTitle) }
     var message: Text? { Text(L10n.Tips.logbookLineBody) }
     var image: Image? { Image(systemName: "book.closed") }
-    var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
-}
-
-/// A route across a border whose countries are not all on the device.
-struct OfflineBorderTip: Tip {
-    var title: Text { Text(L10n.Tips.offlineBorderTitle) }
-    var message: Text? { Text(L10n.Tips.offlineBorderBody) }
-    var image: Image? { Image(systemName: "arrow.down.circle") }
     var rules: [Rule] { #Rule(AeroTips.$quiet) { !$0 } }
 }
 

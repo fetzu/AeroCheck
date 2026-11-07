@@ -1,9 +1,15 @@
-6.8.2 corrige quatre petites choses trouvées pendant la sortie de 6.8.0.
+6.9.0 place le plancher et le plafond de chaque espace aérien sur la carte, et indique les zones suisses actives aujourd'hui.
 
 À essayer :
-- Le carnet de vol sans aucun vol (une nouvelle installation) : deux phrases sur deux lignes, sans « \n ».
-- La carte sur la carte OACI : zoomez lentement de toute la Suisse jusqu'à un village. La carte OACI, puis la carte vol à voile, puis la carte nationale, chacune nette jusqu'à ce que la suivante prenne le relais. Essayez aussi sur un iPhone couché, dans la CARTE du cockpit.
-- L'introduction suggère toujours votre base d'après l'endroit où vous êtes, hors ligne aussi.
-- Activez la couche des espaces aériens, fermez l'app depuis le sélecteur d'apps et rouvrez-la : la carte montre les espaces aériens sans qu'il faille la déplacer.
+- Démarrez un vol et regardez la carte du Cockpit : des étiquettes nomment l'espace qui compte maintenant. Menu › Étiqueter tous les espaces (la puce TOUS LES ESPACES) les étiquette tous.
+- Planifier › Carte : les limites le long des frontières (feuille Carte › Planchers et plafonds) et la hauteur du sol.
+- Touchez la carte n'importe où : la pile des espaces au-dessus de ce point.
+- Volez ou rejouez une route vers un espace contrôlé : ESPACE AÉRIEN DEVANT apparaît dans l'emplacement d'état.
+- En Suisse, une zone R ou D inactive aujourd'hui s'estompe et ne déclenche pas ESPACE AÉRIEN DEVANT.
+- Touchez un aérodrome : la fiche en rangées fixes, au sol et en vol.
+- Planifiez un vol qui passe une frontière : la page du vol dit s'il vous faut un plan de vol. Après un décollage d'un aérodrome sans tour, ANNONCER LE DÉPART vous le rappelle. Les tours de piste ne demandent ni l'un ni l'autre.
+- Planifiez une route par un pays sans espaces aériens téléchargés : la page du vol le dit et le propose.
+- Sur une nouvelle installation, le premier vol planifié montre une page sur les autorisations (ensuite Réglages › iCloud et journal › Autorisations).
+- Masquez un club dans les Réglages, puis choisissez un de ses avions sous Avions Premium : il reste sélectionné.
 
-Envoyez ce que vous remarquez depuis l'app TestFlight : une capture d'écran avec une ligne de texte, c'est le plus rapide.
+Envoyez ce que vous remarquez depuis l'app TestFlight : une capture avec une ligne de texte est le plus rapide.

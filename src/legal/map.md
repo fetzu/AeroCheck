@@ -10,7 +10,7 @@ Starting with version 6.8.0, AéroCheck provides its own map for flying: the Atl
 The Atlas is drawn on your device by MapLibre Native, from vector tiles we build every month from OpenStreetMap, and from the Mapterhorn relief. It shows what you would look for out of the window: towns and villages (by size), main roads, railways, rivers and lakes, forests, built-up areas, glaciers, borders, cable cars, and peaks with their height in feet. The aeronautical layers (airspace, aerodromes, procedures and your route) are drawn on top of it, much like on the Swiss charts.
 
 It comes in two parts:
-- The world outline, which ships with the app: land, sea, the larger lakes and rivers, borders, countries and capitals. This is what the map falls back on when it has no region to read, i.e. offline outside the regions you downloaded, or once the month's online allowance is used up.
+- The world outline, which ships with the app: land, sea, the larger lakes and rivers, borders, countries and capitals. This is what the map falls back on when it has no region to show, i.e. offline outside the regions you downloaded, or once the month's online allowance is used up.
 - The regions, built from the full data: one per country listed on the [Countries](/countries) page, with the larger ones split further (the US states, the German Länder, the French régions…), about 236 in all. A region is either read online (within a monthly allowance) or downloaded and used offline.
 
 
@@ -26,7 +26,7 @@ It comes in two parts:
 
 ## 3.0 What we keep, and what we leave out
 
-Our build reads the Protomaps tiles and keeps, feature by feature, what a pilot actually uses (or, more exactly, what a pilot looks for from the cockpit). Whatever it keeps is copied as is: nothing is simplified a second time, and nothing is moved.
+Our build reads the Protomaps tiles and keeps, feature by feature, what a pilot actually uses (or, more exactly, what a pilot looks for from the cockpit). Whatever it keeps is copied as is: we don't simplify or move it.
 
 ### 3.1 Kept
 - Land and land cover.
@@ -52,22 +52,22 @@ A region only contains the data inside its own outline. That outline is OpenStre
 
 ## 5.0 Built each month
 
-The map is rebuilt every month from the latest OpenStreetMap data, and each file is named after its content. That is what keeps updates small:
+The map is rebuilt every month from the latest OpenStreetMap data, and each file is named after its content. This keeps updates small:
 - a device asks for a region's file by that name, and only asks again once the name has changed: a region that did not change is never downloaded twice;
-- when checking for updates, the device states which version it has, and an "unchanged" answer weighs a few bytes;
-- a downloaded region updates itself every three months, on Wi-Fi and never in flight (the "Update" button, when the app offers it, fetches the newer build sooner).
+- when checking for updates, the device states which version it has, and an "unchanged" answer is only a few bytes;
+- a downloaded region updates itself every three months, on Wi-Fi and not in flight (the "Update" button, when the app offers it, fetches the newer build sooner).
 
 OpenStreetMap is edited every minute, so a monthly map is at most a few weeks behind it. If something is missing or wrong on the map, the best place to fix it is [OpenStreetMap itself](https://www.openstreetmap.org/fixthemap): the next build will pick it up.
 
 
 ## 6.0 How the app gets the map
 
-The files are stored on tiles.aerocheck.app. A downloaded region is read from the device and works offline; half of the regions are under 30 MB (Switzerland and Liechtenstein together about 90 MB, the largest a few hundred MB). Elsewhere, the app reads the tiles on screen online (zoomed out, from a single overview of every region), within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. A downloaded region never counts against that allowance. What these requests reveal, and what we keep of them, is detailed in [the privacy policy](/privacy), section 3.10.
+The files are stored on tiles.aerocheck.app. A downloaded region is read from the device and works offline; half of the regions are under 30 MB (Switzerland and Liechtenstein together about 90 MB, the largest a few hundred MB). Elsewhere, the app loads the tiles on screen online (zoomed out, from a single overview of every region), within a monthly allowance per device: 1,500 tiles, or 15,000 with AéroCheck Pro. A downloaded region never counts against that allowance. What these requests reveal, and what we keep of them, is detailed in [the privacy policy](/privacy), section 3.10.
 
 
 ## 7.0 Aerial imagery
 
-The "Aerial imagery" layer shows open government orthophotos (and nothing else). Each device fetches them directly from the government's own service while they are on screen: AéroCheck hosts none, bundles none and downloads none ahead of time. Each source is used under its open licence, cut at the border of the area it covers, and credited in its own words on the map whenever its imagery is visible (at a border, where several show at once, each of them is). Where no government publishes imagery we are allowed to use, the layer simply stays empty.
+The "Aerial imagery" layer shows open government orthophotos (and nothing else). Each device fetches them directly from the government's own service while they are on screen: AéroCheck doesn't host or store them. Each source is used under its open licence, cut at the border of the area it covers, and credited in its own words on the map whenever its imagery is visible (at a border, where several show at once, each of them is). Where no government publishes imagery we are allowed to use, the layer simply stays empty.
 
 | Area | Provider's credit | Licence |
 |---|---|---|

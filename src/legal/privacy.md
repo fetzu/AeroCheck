@@ -4,7 +4,7 @@ October 2026
 
 AéroCheck is an open-source flight checklist and situational-awareness app for pilots, developed and published by Julien Bono in Switzerland. This page says what the app keeps on your device, what it sends, to whom and how precisely, and what our own servers keep.
 
-The short version: there is no account, no advertising, no analytics and no tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase and a random key per install, to check that requests come from the genuine app, never a location. If you send us an aircraft's checklist, from this website or from the app, we keep what you send for as long as the request needs it (section 4.3).
+In short: the app has no account, advertising, analytics or tracking. Your flights are kept on your device and, if you sync, in your own iCloud. Some requests carry a position, a route or a few points of a track, most of them rounded, so that the app can show weather, terrain and airspace (section 3.0 lists every one of them). Our API server keeps a record of a purchase and a random key per install, to check that requests come from the genuine app. It keeps no location. If you send us an aircraft's checklist, from this website or from the app, we keep what you send for as long as the request needs it (section 4.3).
 
 
 ## 1.0 What stays on your device
@@ -19,12 +19,12 @@ The app uses GPS for the moving map, the recorded track, the instruments and the
 The Apple Watch app and the companion mode (iPad and iPhone together) exchange flight data directly between your own devices, without going through a server. The home-screen widget reads the list of your aircraft from the device.
 
 ### 1.4 No analytics or tracking
-AéroCheck contains no analytics or advertising SDK, no crash reporter and no tracking of any kind, and it does not use the advertising identifier. If you allow it in iOS (Settings, Privacy & Security, Analytics & Improvements, "Share With App Developers"), Apple passes anonymised crash reports to the developer; that is Apple's setting, not the app's.
+AéroCheck contains no analytics or advertising SDK, no crash reporter and no tracking of any kind, and it does not use the advertising identifier. If you allow it in iOS (Settings, Privacy & Security, Analytics & Improvements, "Share With App Developers"), Apple passes anonymised crash reports to the developer; this is a setting in iOS.
 
 
 ## 2.0 iCloud
 
-With "Sync to iCloud" on (in the app's settings, on by default), your flights (with their tracks), flight plans, trips, flight pages, aerodrome notes (one file per aerodrome) and settings (including the pilot and instructor names you enter) are kept in AéroCheck's folder in your iCloud Drive, which is also why you can see them in the Files app, and settings and flights are synced between your devices through the app's private database in your iCloud account. Both are your own iCloud account: Apple stores the data under [Apple's privacy policy](https://www.apple.com/legal/privacy/), and the developer has no access to it.
+With "Sync to iCloud" on (in the app's settings, on by default), your flights (with their tracks), flight plans, trips, flight pages, aerodrome notes (one file per aerodrome) and settings (including the pilot and instructor names you enter) are kept in AéroCheck's folder in your iCloud Drive, so you can also see them in the Files app, and settings and flights are synced between your devices through the app's private database in your iCloud account. Both are your own iCloud account: Apple stores the data under [Apple's privacy policy](https://www.apple.com/legal/privacy/), and the developer has no access to it.
 
 With the switch off, all of it stays on the device: the app neither reads nor writes its iCloud Drive folder, and syncs nothing. Turning it off first copies what is in iCloud Drive to the device and leaves the files in iCloud Drive where they are (delete them in the Files app if you want them gone); turning it back on copies what you did in the meantime back to iCloud Drive. The switch applies to the device it is set on.
 
@@ -45,7 +45,7 @@ The proxy rounds again on its side, then asks [aviationweather.gov](https://avia
 ### 3.2 swisstopo (Federal Office of Topography, geo.admin.ch)
 - Swiss map tiles (the ICAO chart, the glider chart, the national maps and aerial images), on the navigation map and on share cards with a Swiss layer: the tiles requested show the area on screen, and the navigation map follows the aircraft. On the ICAO chart a tile is about 7 km wide; on the most detailed maps, about 100 m.
 - Terrain in Switzerland: the waypoints of a route you plan (route profile, "Set altitudes", the elevation of a waypoint you edit), rounded to the metre; and, when you add terrain to a flight's share card, up to 200 points of the recorded track, its start and end included, rounded to the metre.
-- MeteoSwiss surface wind, for the departure and approach briefings: during a flight, the app downloads the whole current wind dataset from data.geo.admin.ch every ten minutes, without any position. It only does so in or near Switzerland (so the request itself says that much).
+- MeteoSwiss surface wind, for the departure and approach briefings: during a flight, the app downloads the whole current wind dataset from data.geo.admin.ch every ten minutes, without any position. It only does so in or near Switzerland (so the request itself reveals that).
 
 ### 3.3 Open-Meteo (open-meteo.com)
 Terrain outside Switzerland, sent directly from the app: points along a route you plan ("Set altitudes"), or up to 80 points of a recorded track when you add terrain to its share card, start and end included, rounded to three decimals. Winds aloft go to Open-Meteo through our proxy (section 3.1).
@@ -61,17 +61,17 @@ Terrain outside Switzerland, sent directly from the app: points along a route yo
 - Once per install, the app has Apple vouch for a key it creates, so that our servers can tell the genuine app from a copy (App Attest). Apple learns that AéroCheck did so on this device, under [Apple's privacy policy](https://www.apple.com/legal/privacy/); nothing else is sent.
 
 ### 3.6 OurAirports
-The airport database is downloaded whole, without any position.
+The airport database is downloaded in full, without any position.
 
 ### 3.7 AéroCheck API server (api.aerocheck.app)
 No position ever. When you open an aircraft, the app sends its identifier, its registration and the language you use, to get the right checklist. With AéroCheck Pro, the app also sends the proof of purchase Apple gives it (a transaction signed by Apple) and that purchase's original transaction identifier, and from then on a session token with each request. What the server keeps is in section 4.0.
 
-The same server hands out, as small files, the VFR procedures from open flightmaps (traffic circuits, VFR arrival and departure routes, and the reporting points OpenAIP lacks), the list of official chart links, the briefing registry (each country's official pages and its rule for closing a flight plan) and the traffic patterns of the US airports. The app downloads the procedures by country, with the other aeronautical data (the request names the country, nothing else), the chart list and the briefing registry about once a week, and the traffic patterns the first time it shows a US airport, then once a week at most. No position either, and no session token.
+The same server provides, as small files, the VFR procedures from open flightmaps (traffic circuits, VFR arrival and departure routes, and the reporting points OpenAIP lacks), the list of official chart links, the briefing registry (each country's official pages and its rule for closing a flight plan) and the traffic patterns of the US airports. The app downloads the procedures by country, with the other aeronautical data (the request names the country, nothing else), the chart list and the briefing registry about once a week, and the traffic patterns the first time it shows a US airport, then once a week at most. No position either, and no session token.
 
 ### 3.8 Pages you open in your browser
-Some buttons open a page in your browser instead of fetching anything themselves: the briefing links of a flight's page open their publisher's page, and the close-out's numbers start a phone call. The app sends the publisher nothing on its own: the site you land on receives what any visit sends it. Two of these links say what you were looking at:
-- "Official chart" opens the aerodrome's chart on its publisher's site, the national air navigation or aeronautical information service of its country. Where the link leads to the aerodrome's own chart (Germany, France, the United States and 11 more countries), the publisher learns the aerodrome from it; where it leads to one page for the whole country (Switzerland's SkyBriefing, Austria, Greece, Australia, New Zealand, and the sign-in portals of Croatia and Bulgaria), it gets the same page whatever the aerodrome.
-- "Report an error", on a traffic circuit or a VFR route, opens open flightmaps' error-report form (a Google form, under [Google's privacy policy](https://policies.google.com/privacy)) with its description filled in: the region, the AIRAC cycle, the aerodrome, the procedure and its open flightmaps identifier, and the position of the label you tapped (a point of the procedure, not yours). Nothing about you: the form has an e-mail field of its own, which you may leave empty. Without the form, the app prepares the same text as an e-mail to open flightmaps, which you send or not.
+Some buttons open a page in your browser instead of fetching anything themselves: the briefing links of a flight's page open their publisher's page, and the close-out's numbers start a phone call. The app itself sends the publisher nothing: the site you land on receives what any visit sends it. Two of these links say what you were looking at:
+- "Official chart" opens the aerodrome's chart on its publisher's site, the national air navigation or aeronautical information service of its country. Where the link leads to the aerodrome's own chart (Germany, France, the United States and 11 more countries), the publisher learns the aerodrome from it; where it leads to one page for the whole country (Switzerland's SkyBriefing, Austria, Greece, Australia, New Zealand, and the sign-in portals of Croatia and Bulgaria), it gets the same page for every aerodrome.
+- "Report an error", on a traffic circuit or a VFR route, opens open flightmaps' error-report form (a Google form, under [Google's privacy policy](https://policies.google.com/privacy)) with its description filled in: the region, the AIRAC cycle, the aerodrome, the procedure and its open flightmaps identifier, and the position of the label you tapped (a point of the procedure, not yours). It contains nothing about you: the form has its own e-mail field, which you may leave empty. Without the form, the app prepares the same text as an e-mail to open flightmaps, which you send or not.
 
 
 ### 3.9 AéroCheck request server (intake.aerocheck.app)
@@ -80,17 +80,17 @@ Only if you send us an aircraft's checklist from the app (Aircraft › “Send u
 - what you fill in and the files you add, as the website's form sends them (section 4.3). A photo goes without the position it may carry: the app takes it out first. A scan becomes a PDF on the device;
 - for the check against robots, the app opens a page of this website, aerocheck.app/send/app/, in a small web view, which loads Cloudflare Turnstile as the form does.
 
-Once a request is sent, the app keeps its number and its link on the device (the link in the device's keychain) and lists it under “Your requests”. When the app comes to the foreground, at most every three hours, it asks the request server where each open request stands, sending that link's code and nothing else. A request closed for 30 days leaves the list.
+Once a request is sent, the app keeps its number and its link on the device (the link in the device's keychain) and lists it under “Your requests”. When the app comes to the foreground, at most every three hours, it asks the request server the status of each open request, sending that link's code and nothing else. A request closed for 30 days leaves the list.
 
 
 ### 3.10 The Atlas (tiles.aerocheck.app and Cloudflare's storage)
 The map the app draws itself, also under the route thumbnails and on share cards (unless you pick a Swiss layer); [how it is made](/map). No position and nothing about you. So that only the genuine app reads it, the device creates a key once and has Apple vouch for it (section 3.5).
 - At most every six hours, while the app is open, the list of regions and the list of imagery sources (section 3.11), without any position.
-- Outside the regions on the device, the map is read online: each request names a region's file and the part of it that holds the tiles on screen, so it shows the area you look at, as a map tile request does. It also carries the day's value, the same for every device that day. Once a day, the app asks our API server for that value, in a request signed with the key and carrying nothing else.
+- Outside the regions on the device, the map is read online: each request names a region's file and the part of it with the tiles on screen, so it shows the area you look at, as a map tile request does. It also carries the day's value, the same for every device that day. Once a day, the app asks our API server for that value, in a request signed with the key and carrying nothing else.
 - A region you download: the app asks our API server for links to the region's files, valid for an hour. That request names the regions, is signed with the key and, with AéroCheck Pro, carries the session token, for the larger monthly allowance (section 4.1). The files then come straight from Cloudflare's storage.
 
 ### 3.11 Aerial imagery (government services)
-With **Aerial imagery** chosen as the base chart, on the map or on a share card, the device fetches the imagery from the government service that publishes it ([the list](/map#70-aerial-imagery)): the tiles requested show the area on screen. Each service sees the device's IP address, as any website does, under its own rules: Digitaal Vlaanderen, for Flanders, keeps it up to 90 days. Nothing passes through our servers, and the app sends nothing else.
+With **Aerial imagery** chosen as the base chart, on the map or on a share card, the device fetches the imagery from the government service that publishes it ([the list](/map#70-aerial-imagery)): the tiles requested show the area on screen. Each service sees the device's IP address, as any website does, under its own rules: Digitaal Vlaanderen, for Flanders, keeps it up to 90 days. The images don't pass through our servers, and the app sends nothing else.
 
 
 ## 4.0 What our servers keep
@@ -100,14 +100,14 @@ Our three servers (the API, the weather proxy and the one that receives aircraft
 ### 4.1 API server
 - Per purchase, a record filed under the purchase's original transaction identifier: its status, expiry date, product, environment (App Store or test), whether it renews, and when it was last checked. It is kept until 30 days after a subscription's expiry date, for 90 days after the last check of a lifetime purchase, and for 7 days once a purchase has lapsed or been refunded.
 - Which record a purchase belongs to, and a marker if Apple reports a refund, for 400 days.
-- The session tokens the app authenticates with, as SHA-256 hashes only (never the tokens themselves), for 180 days, with a list of those hashes per purchase so that at most five are valid at a time.
+- The session tokens the app authenticates with, as SHA-256 hashes only (not the tokens themselves), for 180 days, with a list of those hashes per purchase so that at most five are valid at a time.
 - Your IP address, as part of a request counter that limits how often one address may call the server, for one minute.
 - Per install, for the map (section 3.10): the key's public part and its signature counter, when it was registered and last used, and how many download links it received this month. Never the regions, an IP address or a purchase: the session token sent with a download only sets the monthly allowance. Deleted 90 days after its last use.
 
-Apple notifies the server of expiries, refunds and revocations; those notices only update the purchase record (and add the refund marker). The server never learns your name, your e-mail address or your Apple ID, and never receives a position. Its logs record the kind of event and identifiers shortened to their last four characters. Because the purchase record is filed under an identifier, the App Store privacy label declares the purchase history and a user ID as linked to you, and a device ID (the key) as not linked to you, all used for the app's functionality and never for tracking.
+Apple notifies the server of expiries, refunds and revocations; those notices only update the purchase record (and add the refund marker). The server never learns your name, your e-mail address or your Apple ID, and never receives a position. Its logs record the kind of event and identifiers shortened to their last four characters. Because the purchase record is filed under an identifier, the App Store privacy label declares the purchase history and a user ID as linked to you, and a device ID (the key) as not linked to you, all used for the app's functionality and not for tracking.
 
 ### 4.2 Weather proxy
-No database and no logs of its own: only the cache described in section 3.1.
+It has no database and no logs: only the cache described in section 3.1.
 
 ### 4.3 Aircraft requests (intake.aerocheck.app)
 Only if you send us an aircraft's checklist, from [aerocheck.app/send](/send) or from the app (section 3.9). The request server keeps:
@@ -115,16 +115,16 @@ Only if you send us an aircraft's checklist, from [aerocheck.app/send](/send) or
 - the files you send (the club's document, as a PDF or images), in Cloudflare R2, and the request in a Cloudflare D1 database, with its history: each status, when it changed, and the messages we write to you;
 - the club's answer when it is asked: the name and role of the person who answers for it, the decision and their message;
 - your verdict and your message, if you proofread the draft;
-- the links to your request's page and to the club's page, as SHA-256 hashes only (the links themselves are in the e-mails, never on our side);
+- the links to your request's page and to the club's page, as SHA-256 hashes only (the links themselves are only in the e-mails);
 - your IP address, in a request counter that limits how often one address may send, for one minute at most.
 
 The form is protected by Cloudflare Turnstile, which looks at your browser (in the app, its web view) to tell a person from a robot, under [Cloudflare's Turnstile privacy addendum](https://www.cloudflare.com/turnstile-privacy-policy/); the server only checks Turnstile's answer.
 
-Who reads it: Julien Bono, who develops AéroCheck, reads the request and its files to prepare the checklist for the app. Each request is also tracked as an issue in a private GitHub repository: the registrations, the type, the club, your notes, the files' names and sizes, and, as comments, the club's answer and your proofreading message; never an e-mail address. What reaches the app is the checklist, never your file, your name or your address.
+Who reads it: Julien Bono, who develops AéroCheck, reads the request and its files to prepare the checklist for the app. Each request is also tracked as an issue in a private GitHub repository: the registrations, the type, the club, your notes, the files' names and sizes, and, as comments, the club's answer and your proofreading message, but no e-mail address. The app gets the checklist, not your file, your name or your address.
 
 The e-mails about your request (received, a question, live) and the club's link go out through [Resend](https://resend.com/legal/privacy-policy), an e-mail service based in the United States, which receives the address, the message and the link to deliver them. Replies reach support@aerocheck.app.
 
-How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files are deleted, and so are every e-mail address, your name, your notes, the name and role of whoever answered for the club, and the messages; what stays on the request server is the request's record (its number, the registrations, the type, the club, its statuses and their dates). The GitHub issue stays as it is (it never held an e-mail address or your name), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
+How long: everything is kept while the request is open. 90 days after it closes (live, declined or a duplicate), the files are deleted, and so are every e-mail address, your name, your notes, the name and role of whoever answered for the club, and the messages; what stays on the request server is the request's record (its number, the registrations, the type, the club, its statuses and their dates). The GitHub issue stays as it is (it never contained an e-mail address or your name), so that we know where a checklist came from. A request whose files never finished uploading is deleted after 24 hours. To have a request deleted earlier, or to know what we keep about it, write to support@aerocheck.app or reply to one of our e-mails.
 
 ### 4.4 Map files (tiles.aerocheck.app and Cloudflare's storage)
 No code of ours runs when the map is read or a region downloaded, and we keep no log of these requests: Cloudflare serves the files from its storage and its cache. A firewall rule checks that each request carries the app's value and the day's value; to stop abuse, Cloudflare also counts the requests from each IP address over a short window (a rate limit); we see none of it.
@@ -132,7 +132,7 @@ No code of ours runs when the map is read or a region downloaded, and we keep no
 
 ## 5.0 Exports and sharing
 
-You can export or share flights (GPX, JSON, ZIP), your logbook (PDF, CSV), flight plans and nav logs (GPX, JSON, spreadsheet, PDF), your aerodrome notes (one text file) and share cards (images). Nothing is exported unless you ask. The copy the app prepares for the share sheet or the preview is deleted as soon as that sheet closes (or at the next launch, if the app was stopped first). Once shared, the file is yours to handle: it may contain your name and a detailed location history.
+You can export or share flights (GPX, JSON, ZIP), your logbook (PDF, CSV), flight plans and nav logs (GPX, JSON, spreadsheet, PDF), your aerodrome notes (one text file) and share cards (images). The app exports only what you ask for. The copy the app prepares for the share sheet or the preview is deleted as soon as that sheet closes (or at the next launch, if the app was stopped first). Once shared, you are responsible for the file: it may contain your name and a detailed location history.
 
 
 ## 6.0 Permissions
@@ -147,7 +147,7 @@ You can change each of them at any time in the iOS Settings app.
 
 ## 7.0 Deleting your data
 
-Deleting the app deletes its data on the device. To remove what is in your iCloud, delete AéroCheck's folder in iCloud Drive and the app's iCloud data (in the iOS Settings app, under your name, iCloud, storage). The purchase record on our server expires by itself (section 4.1); to have it deleted earlier, contact us (section 10.0). An aircraft request is deleted as section 4.3 says, or earlier if you write to support@aerocheck.app. Removing it from the app's list (a long press) forgets it on the device only.
+Deleting the app deletes its data on the device. To remove what is in your iCloud, delete AéroCheck's folder in iCloud Drive and the app's iCloud data (in the iOS Settings app, under your name, iCloud, storage). The purchase record on our server expires automatically (section 4.1); to have it deleted earlier, contact us (section 10.0). An aircraft request is deleted as section 4.3 says, or earlier if you write to support@aerocheck.app. Removing it from the app's list (a long press) forgets it on the device only.
 
 
 ## 8.0 This website

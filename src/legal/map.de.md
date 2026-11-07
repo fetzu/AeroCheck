@@ -7,11 +7,11 @@ Seit Version 6.8.0 bietet AéroCheck seine eigene Karte zum Fliegen: den Atlas. 
 
 ## 1.0 Was die Karte ist
 
-Der Atlas wird auf Ihrem Gerät von MapLibre Native gezeichnet, aus Vektorkacheln, die wir jeden Monat aus OpenStreetMap erstellen, und aus dem Relief von Mapterhorn. Er zeigt, was Sie aus dem Fenster suchen würden: Städte und Dörfer (nach ihrer Grösse), Hauptstrassen, Eisenbahnen, Flüsse und Seen, Wälder, Siedlungsgebiete, Gletscher, Grenzen, Seilbahnen und Gipfel mit ihrer Höhe in Fuss. Die Luftfahrtebenen (Lufträume, Flugplätze, Verfahren und Ihre Route) liegen darüber, ähnlich wie auf den Schweizer Karten.
+Der Atlas wird auf Ihrem Gerät von MapLibre Native gezeichnet, aus Vektorkacheln, die wir jeden Monat aus OpenStreetMap erstellen, und aus dem Relief von Mapterhorn. Er zeigt, was Sie aus dem Cockpit suchen würden: Städte und Dörfer (nach ihrer Grösse), Hauptstrassen, Eisenbahnen, Flüsse und Seen, Wälder, Siedlungsgebiete, Gletscher, Grenzen, Seilbahnen und Gipfel mit ihrer Höhe in Fuss. Die Luftfahrtebenen (Lufträume, Flugplätze, Verfahren und Ihre Route) liegen darüber, ähnlich wie auf den Schweizer Karten.
 
 Er besteht aus zwei Teilen:
-- Der Weltumriss, der mit der App geliefert wird: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte. Auf ihn greift die Karte zurück, wenn sie keine Region lesen kann, d. h. offline ausserhalb der heruntergeladenen Regionen, oder wenn das Online-Kontingent des Monats aufgebraucht ist.
-- Die Regionen, aus den vollständigen Daten erstellt: eine pro Land auf der Seite [Länder](/de/countries), die grösseren weiter unterteilt (die US-Bundesstaaten, die deutschen Länder, die französischen Regionen…), etwa 236 insgesamt. Eine Region wird entweder online gelesen (innerhalb eines monatlichen Kontingents) oder heruntergeladen und offline genutzt.
+- Der Weltumriss, der mit der App geliefert wird: Land, Meer, die grösseren Seen und Flüsse, Grenzen, Länder und Hauptstädte. Auf ihn greift die Karte zurück, wenn sie keine Region zeigen kann, d. h. offline ausserhalb der heruntergeladenen Regionen, oder wenn das Online-Kontingent des Monats aufgebraucht ist.
+- Die Regionen, aus den vollständigen Daten erstellt: eine pro Land auf der Seite [Länder](/de/countries), die grösseren weiter unterteilt (die US-Bundesstaaten, die deutschen Länder, die französischen Regionen…), etwa 236 insgesamt. Eine Region wird entweder online geladen (innerhalb eines monatlichen Kontingents) oder heruntergeladen und offline genutzt.
 
 
 ## 2.0 Woher die Daten kommen
@@ -26,7 +26,7 @@ Er besteht aus zwei Teilen:
 
 ## 3.0 Was wir behalten und was wir weglassen
 
-Unser Build liest die Protomaps-Kacheln und behält, Element für Element, was ein Pilot tatsächlich braucht (oder genauer: was ein Pilot aus dem Cockpit sucht). Was er behält, wird unverändert übernommen: Nichts wird ein zweites Mal vereinfacht, und nichts wird verschoben.
+Unser Build liest die Protomaps-Kacheln und behält, Element für Element, was ein Pilot tatsächlich braucht (oder genauer: was ein Pilot aus dem Cockpit sucht). Was er behält, wird unverändert übernommen: Wir vereinfachen und verschieben es nicht.
 
 ### 3.1 Behalten
 - Land und Bodenbedeckung.
@@ -52,22 +52,22 @@ Eine Region enthält nur die Daten innerhalb ihres eigenen Umrisses. Dieser Umri
 
 ## 5.0 Jeden Monat neu erstellt
 
-Die Karte wird jeden Monat aus den neusten Daten von OpenStreetMap neu erstellt, und jede Datei ist nach ihrem Inhalt benannt. Das hält die Updates klein:
-- Ein Gerät fragt die Datei einer Region unter diesem Namen an und fragt erst wieder, wenn sich der Name geändert hat: Eine unveränderte Region wird nie zweimal heruntergeladen.
-- Bei der Suche nach Updates nennt das Gerät seine Version, und eine Antwort «unverändert» wiegt nur wenige Bytes.
-- Eine heruntergeladene Region aktualisiert sich alle drei Monate selbst, im WLAN und nie im Flug (die Taste «Aktualisieren», wenn die App sie anbietet, holt den neueren Build früher).
+Die Karte wird jeden Monat aus den neusten Daten von OpenStreetMap neu erstellt, und jede Datei ist nach ihrem Inhalt benannt. Dadurch bleiben die Updates klein:
+- Ein Gerät fragt die Datei einer Region unter diesem Namen an und fragt erst wieder, wenn sich der Name geändert hat: Eine unveränderte Region wird nicht zweimal heruntergeladen.
+- Bei der Suche nach Updates nennt das Gerät seine Version, und die Antwort «unverändert» ist nur wenige Bytes gross.
+- Eine heruntergeladene Region wird alle drei Monate automatisch aktualisiert, im WLAN und nicht im Flug (die Taste «Aktualisieren», wenn die App sie anbietet, holt den neueren Build früher).
 
 OpenStreetMap wird jede Minute bearbeitet, eine monatliche Karte liegt also höchstens ein paar Wochen zurück. Fehlt etwas auf der Karte oder ist etwas falsch, korrigiert man es am besten [direkt in OpenStreetMap](https://www.openstreetmap.org/fixthemap): Der nächste Build übernimmt es.
 
 
 ## 6.0 Wie die App die Karte erhält
 
-Die Dateien liegen auf tiles.aerocheck.app. Eine heruntergeladene Region wird vom Gerät gelesen und funktioniert offline; die Hälfte der Regionen ist kleiner als 30 MB (die Schweiz mit Liechtenstein etwa 90 MB, die grössten einige hundert MB). Anderswo liest die App die Kacheln auf dem Bildschirm online (herausgezoomt, aus einer einzigen Übersicht aller Regionen), innerhalb eines monatlichen Kontingents pro Gerät: 1'500 Kacheln, oder 15'000 mit AéroCheck Pro. Eine heruntergeladene Region zählt nie zu diesem Kontingent. Was diese Abfragen preisgeben und was wir davon behalten, steht in der [Datenschutzerklärung](/de/privacy), Abschnitt 3.10.
+Die Dateien liegen auf tiles.aerocheck.app. Eine heruntergeladene Region wird vom Gerät gelesen und funktioniert offline; die Hälfte der Regionen ist kleiner als 30 MB (die Schweiz mit Liechtenstein etwa 90 MB, die grössten einige hundert MB). Anderswo lädt die App die Kacheln auf dem Bildschirm online (herausgezoomt, aus einer einzigen Übersicht aller Regionen), innerhalb eines monatlichen Kontingents pro Gerät: 1'500 Kacheln, oder 15'000 mit AéroCheck Pro. Eine heruntergeladene Region zählt nicht zu diesem Kontingent. Was diese Abfragen preisgeben und was wir davon behalten, steht in der [Datenschutzerklärung](/de/privacy), Abschnitt 3.10.
 
 
 ## 7.0 Luftbilder
 
-Die Ebene «Luftbilder» zeigt offene Orthofotos öffentlicher Stellen (und sonst nichts). Jedes Gerät lädt sie direkt vom Dienst der jeweiligen Behörde, solange sie auf dem Bildschirm sind: AéroCheck hostet keine, liefert keine mit und lädt keine im Voraus herunter. Jede Quelle wird unter ihrer offenen Lizenz genutzt, an der Grenze des Gebiets zugeschnitten, das sie abdeckt, und auf der Karte mit ihrem eigenen Vermerk genannt, sobald ihre Bilder zu sehen sind (an einer Grenze, wo mehrere gleichzeitig erscheinen, jede von ihnen). Wo keine Behörde Bilder veröffentlicht, die wir nutzen dürfen, bleibt die Ebene schlicht leer.
+Die Ebene «Luftbilder» zeigt offene Orthofotos öffentlicher Stellen (und sonst nichts). Jedes Gerät lädt sie direkt vom Dienst der jeweiligen Behörde, solange sie auf dem Bildschirm sind: AéroCheck hostet und speichert keine davon. Jede Quelle wird unter ihrer offenen Lizenz genutzt, an der Grenze des Gebiets zugeschnitten, das sie abdeckt, und auf der Karte mit ihrem eigenen Vermerk genannt, sobald ihre Bilder zu sehen sind (an einer Grenze, wo mehrere gleichzeitig erscheinen, jede von ihnen). Wo keine Behörde Bilder veröffentlicht, die wir nutzen dürfen, bleibt die Ebene leer.
 
 | Gebiet | Vermerk des Anbieters | Lizenz |
 |---|---|---|

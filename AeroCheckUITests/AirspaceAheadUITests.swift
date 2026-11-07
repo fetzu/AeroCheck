@@ -93,9 +93,10 @@ final class AirspaceAheadUITests: XCTestCase {
             let card = pilot.waitFor("map.airspaceStack", timeout: 3) != nil
             pilot.shot("na-2", "card")
             pilot.check("na-2", card, "the slot's tap opens the area at the entry, at \(Int(pilot.trackNow)) s")
-            let words = pilot.texts(containing: "NOTAM")
-            pilot.check("na-2", words.contains { $0.contains("R NOTAM X0001/26") } && words.contains { $0.contains("(NOTAM X0001/26)") },
-                        "the card names the area and gives the NOTAM's times: \(words)")
+            let named = pilot.texts(containing: "R NOTAM X0001/26")
+            let times = pilot.texts(containing: "UTC").filter { $0.hasPrefix("Active") }
+            pilot.check("na-2", !named.isEmpty && !times.isEmpty, "the card names the area and gives the NOTAM's times: \(named) \(times)")
+            pilot.check("na-2", pilot.texts(containing: "DABS").isEmpty, "no word of the DABS abroad: \(pilot.texts(containing: "DABS"))")
             pilot.app.buttons["Close"].firstMatch.tap()
         }
         pilot.attach(SlotEntry.summary(log), name: "slot-ahead-notam")

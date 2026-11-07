@@ -120,6 +120,7 @@ final class DryRunAutopilot {
                 hold()
                 return
             }
+            if DryRunFrames.current?.holds(step, coach: coach, appState: appState) == true { return }
             if step.id != stepId {
                 stepId = step.id
                 stepSince = Date()
@@ -160,6 +161,77 @@ final class DryRunAutopilot {
         } else if generator.mark("stopped") != nil, session.setup.isCircuits {
             appState.goToPhase(.beforeDeparture)
         }
+    }
+}
+
+/// DEV-ONLY: the guided flight captured card by card, for the website's dry run (`AEROCHECK_DRYRUN_FRAMES=<folder>`,
+/// `AEROCHECK_DRYRUN_FRAMES_ONLY=<step ids, in order>`, with the autopilot flying). At each named card the autopilot
+/// waits; the app writes `<nn>-<id>.json` (the card's words, where its ring is, in the screen's points) and
+/// `<nn>-<id>.want`, and goes on once the host has answered with `<nn>-<id>.done`. The card itself is left out of the
+/// frame: the page sets its words beside the screen, at a size a visitor can read. The veil and the ring stay. (6.10.0)
+@MainActor
+final class DryRunFrames {
+    static let current: DryRunFrames? = {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["AEROCHECK_DRYRUN_FRAMES"], !path.isEmpty else { return nil }
+        let only = (env["AEROCHECK_DRYRUN_FRAMES_ONLY"] ?? "").split(separator: ",").map(String.init)
+        return DryRunFrames(folder: URL(fileURLWithPath: path, isDirectory: true), only: only)
+    }()
+
+    /// The card's opacity in a frame.
+    nonisolated static var cardOpacity: Double {
+        ProcessInfo.processInfo.environment["AEROCHECK_DRYRUN_FRAMES"] == nil ? 1 : 0
+    }
+
+    private let folder: URL
+    private let only: [String]
+    private var rings: [String: CGRect] = [:]
+    private var taken: Set<String> = []
+    private var current: (id: String, since: Date, name: String?)?
+
+    private init(folder: URL, only: [String]) {
+        self.folder = folder
+        self.only = only
+    }
+
+    /// The ring as the veil draws it, in the window: `nil` for a card that rings nothing.
+    func note(_ id: String, ring: CGRect?) {
+        rings[id] = ring
+    }
+
+    /// Whether the autopilot waits on this card: until its frame is taken.
+    func holds(_ step: DryRunCoachStep, coach: DryRunCoach, appState: AppState) -> Bool {
+        guard let index = only.firstIndex(of: step.id), !taken.contains(step.id) else { return false }
+        guard let shown = current, shown.id == step.id else {
+            current = (step.id, Date(), nil)
+            return true
+        }
+        guard let name = shown.name else {
+            // The screen settled: the sheet up, the ring in place, the map's tiles drawn.
+            guard Date().timeIntervalSince(shown.since) >= (step.screen == .cockpit ? 2.5 : 1.5) else { return true }
+            let name = String(format: "%02d-%@", index + 1, step.id)
+            write(step, appState: appState, name: name)
+            current = (step.id, shown.since, name)
+            return true
+        }
+        guard FileManager.default.fileExists(atPath: folder.appendingPathComponent("\(name).done").path) else { return true }
+        taken.insert(step.id)
+        current = nil
+        return false
+    }
+
+    private func write(_ step: DryRunCoachStep, appState: AppState, name: String) {
+        let screen = UIScreen.main.bounds.size
+        var record: [String: Any] = [
+            "id": step.id, "part": step.part.rawValue, "partTitle": step.part.title, "title": step.title,
+            "body": step.text(appState), "kind": "\(step.kind)", "width": screen.width, "height": screen.height,
+        ]
+        if let ring = rings[step.id] {
+            record["ring"] = ["x": ring.minX, "y": ring.minY, "width": ring.width, "height": ring.height]
+        }
+        let json = (try? JSONSerialization.data(withJSONObject: record, options: [.prettyPrinted, .sortedKeys])) ?? Data()
+        try? json.write(to: folder.appendingPathComponent("\(name).json"))
+        FileManager.default.createFile(atPath: folder.appendingPathComponent("\(name).want").path, contents: Data())
     }
 }
 

@@ -290,6 +290,7 @@ countries:
     fees: "Taxes d'atterrissage"
   table_groups: { briefing: "Briefing", flightplan: "Plan de vol ATC", map: "Sur la carte" }
   table_heads: { weather: "Météo", notam: "NOTAM", airspace: "Activité des espaces aériens", forecast: "Prévision de zone", filing: "Dépôt", close: "Clôture", border: "Passage de frontière", openaip: "Espaces aériens et fréquences", circuits: "Tours de piste", routes: "Routes VFR", charts: "Cartes officielles", fees: "Taxes d'atterrissage" }
+  table_words: { link: "un lien vers le portail", number: "le numéro et la règle", rule: "la règle seule" }
   table_hints: { weather: "Un lien vers les pages météo officielles du pays", notam: "Un lien vers la page NOTAM du pays", airspace: "Un lien vers la page d'activité des espaces aériens du pays", forecast: "Un lien vers la prévision de zone du pays", filing: "Où déposer le plan de vol ATC, et avant quand", close: "Comment le clôturer après l'atterrissage : la règle et les numéros", border: "Aérodrome douanier et préavis, vers et depuis la Suisse", openaip: "Espaces aériens, aérodromes et fréquences, d'OpenAIP", circuits: "Les tours de piste sur la carte, avec leur altitude", routes: "Les routes VFR d'arrivée et de départ sur la carte, avec leurs secteurs", charts: "Un lien vers la carte officielle de chaque aérodrome", fees: "Un lien vers le tarif de l'exploitant, par aérodrome" }
   access: { account: "compte gratuit", paid: "payant", restricted: "utilisateurs autorisés", signin: "connexion" }
   text:
@@ -327,6 +328,7 @@ countries:
     close_activation: "Sans ATS au départ, vous l'activez après le décollage"
     close_unchecked: "La règle valable partout ; aucun numéro vérifié pour l'instant"
     close_none: "La règle valable partout ; pas de numéro"
+    close_no_number: "pas de numéro"
     fees: { one: "Liens vers le tarif de l'exploitant, {n} aérodrome", other: "Liens vers le tarif de l'exploitant, {n} aérodromes" }
     fees_none: "Aucun pour l'instant"
   everywhere: "les checklists des 16 phases, le GPS et le carnet de vol, le log de nav, le vol à blanc, les METAR, TAF et SIGMET là où ils sont émis, les vents en altitude"
@@ -339,7 +341,7 @@ countries:
   near: { heading: "De l'autre côté de la frontière", briefing: "pages de briefing", circuits: "tours de piste sur {n}", charts: "cartes pour {n}", chart_links: "liens vers les cartes", cockpit: "le cockpit et OpenAIP", closed: "fermé aux vols" }
   not_on_map: "Hors de cette carte"
   map_label: "Carte de l'Europe"
-  table: { summary: "Chaque pays, chaque fonction", country: "Pays", key: "● oui · ◐ en partie (touchez-le pour voir ce qui manque) · – pas encore. Chiffres : aérodromes (aéroports aux États-Unis). Touchez un pays pour l'ouvrir plus haut." }
+  table: { summary: "Chaque pays, chaque fonction", country: "Pays", note: "L'app ne dépose ni ne clôture votre plan de vol : elle renvoie vers le portail, donne le numéro et vous le rappelle.", key: "● oui · ◐ en partie (touchez-le pour voir ce qui manque) · – pas encore. Chiffres : aérodromes (aéroports aux États-Unis). Touchez un pays pour l'ouvrir plus haut." }
   home_line: { lead: "Le cockpit fonctionne partout.", briefing: "des pages de briefing pour {n} pays", circuits: "des tours de piste dans {n}", charts: "des liens vers les cartes officielles dans {n}", link: "Ce qui marche où" }
   where: "Où ça marche"
   in:

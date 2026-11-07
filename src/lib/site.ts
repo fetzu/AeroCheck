@@ -84,6 +84,7 @@ export interface CountriesCopy {
   table_groups: Record<string, string>;
   table_heads: Record<string, string>;
   table_hints: Record<string, string>;
+  table_words: { link: string; number: string; rule: string };
   access: { account: string; paid: string; restricted: string; signin: string };
   text: {
     general: string; no_page: string; europe_only: string;
@@ -93,13 +94,13 @@ export interface CountriesCopy {
     charts_reason: Record<string, string>;
     swisstopo: string; wind_ch: string; wind: string;
     close_alert: string; close_report: string; close_call: string; close_aerodromes: string; close_activation: string;
-    close_unchecked: string; close_none: string; fees: Plural; fees_none: string;
+    close_unchecked: string; close_none: string; close_no_number: string; fees: Plural; fees_none: string;
   };
   everywhere: string; everywhere_here: string; everywhere_label: string; everywhere_other: string;
   checked: string; tell: string; tell_other: string;
   near: { heading: string; briefing: string; circuits: string; charts: string; chart_links: string; cockpit: string; closed: string };
   not_on_map: string; map_label: string;
-  table: { summary: string; country: string; key: string };
+  table: { summary: string; country: string; note: string; key: string };
   home_line: { lead: string; briefing: string; circuits: string; charts: string; link: string };
   where: string;
   /** "in der Schweiz", "aux Pays-Bas": the preposition goes with the country. */

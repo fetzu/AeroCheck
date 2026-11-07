@@ -6,6 +6,7 @@
 // table at the foot is the page.
 import type { Lang, CountriesCopy } from '../lib/site';
 import { langBase, DATE_LOCALES } from '../lib/langs';
+import Icon from './Icon.astro';
 import { loadReleasedCoverage } from '../lib/coverage';
 import { buildCountries, MAP } from '../lib/countries';
 import { toJsonScript } from '../lib/requests-copy';
@@ -112,6 +113,7 @@ const data = {
 
   <details class="matrix" id="every-country" open>
     <summary>{t.table.summary}</summary>
+    <p class="mx-note">{t.table.note}</p>
     <div class="mx-wrap">
       <table class="mx">
         <thead>
@@ -135,6 +137,7 @@ const data = {
                 const shown = `${sym[cell.level]}${cell.n ? ` ${cell.n.toLocaleString(DATE_LOCALES[lang])}` : ''}`;
                 // An "in part" cell says what it has: on hover, and on a tap in a popover over the page (the table
                 // scrolls in its own box on a phone, which would clip a tooltip). (the author, 31 Oct 2026)
+                if (cell.icon) return <td class:list={[`c-${cell.level}`, { start: cell.start }]}><span role="img" aria-label={cell.icon.label} title={cell.icon.label}><Icon name={cell.icon.name} size={15} class="mx-ic" /></span></td>;
                 return <td class:list={[`c-${cell.level}`, { start: cell.start }]}>{cell.hint
                   ? <><button type="button" class="mx-hint" popovertarget={`hint-${m.cc}-${cell.id}`} title={cell.hint}
                         aria-label={`${m.name}, ${cell.hint}`}>{shown}</button>
@@ -147,6 +150,7 @@ const data = {
       </table>
     </div>
     <p class="mx-key">{t.table.key}</p>
+    <p class="mx-key mx-key-fp"><strong>{t.table_groups.flightplan}{lang === 'fr' ? '\u00a0:' : ':'}</strong> <Icon name="link" size={14} class="mx-ic" /> {t.table_words.link} · <Icon name="phone" size={14} class="mx-ic" /> {t.table_words.number} · ◐ {t.table_words.rule}</p>
   </details>
   <script type="application/json" id="cty-data" set:html={toJsonScript(data)}></script>
 </section>
@@ -278,4 +282,8 @@ const data = {
   .mx-pop strong { color: var(--text); }
   .mx-pop::backdrop { background: rgb(0 0 0 / .25); }
   .mx-key { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+  .mx-key-fp { margin-top: 4px; }
+  .mx-key-fp strong { font-weight: 500; color: var(--text); }
+  .mx-ic { display: inline-block; vertical-align: -2px; }
+  .mx-note { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
 </style>

@@ -26,9 +26,16 @@ import { appVersion } from './version';
 export type Level = 'on' | 'part' | 'off';
 export type Access = 'open' | 'account' | 'paid' | 'restricted';
 export interface Publisher { name: string; access: Access; names?: Record<string, string>; }
-export interface Category { level: Level; publishers?: Publisher[]; }
+export interface Category {
+  level: Level;
+  publishers?: Publisher[];
+  /** What a "yes" is on the table: filing has a "link" (the author's f2, 3 Nov 2026). */
+  word?: 'link';
+}
 export interface Close {
   level: Level;
+  /** What a "yes" is on the table: a "number" and the rule, or the "rule" only. */
+  word?: 'number' | 'rule';
   alertMinutes?: number;
   reportMinutes?: number;
   /** Whose number it is ("DSNA ARO"), never the number. */

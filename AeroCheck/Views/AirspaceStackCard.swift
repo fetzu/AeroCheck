@@ -18,8 +18,10 @@ struct AirspaceStack: Equatable {
         let kind: AirspaceMapKind
         /// The aircraft is in this band, as the map's tiers read it (a8 A).
         let holdsAircraft: Bool
-        /// What the DABS says of it. (6.9.0, a14 A)
+        /// What the DABS says of it (6.9.0, a14 A), or abroad a NOTAM (6.10.0).
         var note: String? = nil
+        /// The note is the DABS's: the card then says the DABS doesn't replace the NOTAMs.
+        var noteIsBulletin = false
         /// A Swiss area the DABS has off for now: faded here as on the map.
         var isFaded = false
     }
@@ -30,7 +32,7 @@ struct AirspaceStack: Equatable {
     let altitudeFt: Double?
     let rows: [Row]
     /// A bulletin stands behind a row: the card says it doesn't replace the NOTAMs.
-    var mentionsBulletin: Bool { rows.contains { $0.note != nil } }
+    var mentionsBulletin: Bool { rows.contains { $0.note != nil && $0.noteIsBulletin } }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.rows == rhs.rows && lhs.altitudeFt == rhs.altitudeFt && lhs.coordinate.latitude == rhs.coordinate.latitude
@@ -53,6 +55,7 @@ struct AirspaceStack: Equatable {
                        upper: AirspaceTagContent.limit(airspace.upperCeiling), lower: AirspaceTagContent.limit(airspace.lowerCeiling),
                        frequency: airspace.primaryFrequency?.value, lowerFt: lower, upperFt: upper,
                        kind: airspace.mapKind, holdsAircraft: holds, note: board?.note(for: airspace),
+                       noteIsBulletin: board?.isBulletinNote(for: airspace) ?? false,
                        isFaded: board.map { !$0.isActive(airspace) } ?? false)
         }
         guard !rows.isEmpty else { return nil }

@@ -681,8 +681,15 @@ struct NavigationMapView: View {
         .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onReceive(ActivationService.shared.$files) { _ in recomputeMapSpatialContent(force: true) }
-        .onReceive(NotamService.shared.$revision) { _ in recomputeMapSpatialContent(force: true) }
+        // New data counts at once, not at the next fix: the tags and AIRSPACE AHEAD read the DABS and the NOTAMs' areas.
+        .onReceive(ActivationService.shared.$files) { _ in
+            recomputeMapSpatialContent(force: true)
+            noteAirspaceTagsNow()
+        }
+        .onReceive(NotamService.shared.$revision) { _ in
+            recomputeMapSpatialContent(force: true)
+            noteAirspaceTagsNow()
+        }
         .onChange(of: appState.settings.showNotamAreasOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         // One card at a time: an aerodrome's takes the airspace's place. (6.9.0)
         .onChange(of: mapState.isCalloutOpen) { _, open in

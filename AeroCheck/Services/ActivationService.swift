@@ -191,9 +191,15 @@ struct ActivationBoard {
         return String(format: "DABS v%d, %02d:%02d", file.version, parts.hour ?? 0, parts.minute ?? 0)
     }
 
+    /// Whether `note(for:)` is the DABS's own, not a NOTAM's from abroad.
+    func isBulletinNote(for airspace: Airspace) -> Bool {
+        notams.drawn[airspace.id] == nil && airspace.country.uppercased() == "CH"
+    }
+
     /// What the tap card says of an airspace, or nil where the bulletin and the NOTAMs say nothing of it.
     func note(for airspace: Airspace) -> String? {
-        if let area = notams.drawn[airspace.id] { return area.note(now: now) }
+        // Its name carries the NOTAM's number already
+        if let area = notams.drawn[airspace.id] { return area.note(now: now, naming: false) }
         if airspace.country.uppercased() != "CH", let key = airspace.designatorKey, let area = notams.naming(key, now: now) {
             return area.note(now: now)
         }
@@ -328,15 +334,15 @@ struct NotamArea: Equatable {
     let activation: NotamActivation
     let country: String
 
-    /// "Active 08:30–09:30 UTC (NOTAM R3307/26)": its windows of the next day, else the next one; with the NOTAM's own
+    /// "Active 08:30–09:30 UTC (NOTAM R3307/26)", without the number on the NOTAM's own area: its windows of the next day, else the next one; with the NOTAM's own
     /// schedule after them when the server couldn't read it, since the window is then its whole span.
-    func note(now: Date) -> String? {
+    func note(now: Date, naming: Bool = true) -> String? {
         let ahead = activation.windows.filter { $0.end >= now && $0.start <= now.addingTimeInterval(24 * 3600) }
         let shown = ahead.isEmpty ? Array(activation.windows.filter { $0.end >= now }.prefix(1)) : Array(ahead.prefix(3))
         guard !shown.isEmpty else { return nil }
         var text = shown.map { "\(Self.moment($0.start, now: now))–\(Self.moment($0.end, now: now))" }.joined(separator: ", ")
         if !activation.exact, let schedule = notam.schedule { text += ", \(schedule)" }
-        return L10n.Nav.dabsActive(text, "NOTAM \(notam.number)")
+        return naming ? L10n.Nav.dabsActive(text, "NOTAM \(notam.number)") : L10n.Nav.notamActive(text)
     }
 
     /// "08:30" today (UTC), "02.12 11:00" on another day.

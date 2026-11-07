@@ -3963,6 +3963,10 @@ enum L10n {
             String(format: String(localized: "nav.dabsActive"), windows, source)
         }
         static let dabsNoNotam = String(localized: "nav.dabsNoNotam")
+        /// "Active 08:00–15:00 UTC": the times on the card of an area a NOTAM draws abroad, whose name has its number. (6.10.0)
+        static func notamActive(_ windows: String) -> String {
+            String(format: String(localized: "nav.notamActive"), windows)
+        }
         static let mapMarkers = String(localized: "Map markers")
         static let flightSection = String(localized: "Flight")
         static let showAll = String(localized: "Show all")

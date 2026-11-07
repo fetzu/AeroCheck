@@ -274,7 +274,22 @@ final class ActivationTests: XCTestCase {
     func testAnUnreadScheduleShowsItsWordsAfterTheSpan() throws {
         let b = abroad([czechArea(exact: false)])
         let drawn = try XCTUnwrap(b.drawnTempAirspaces(in: nil).first)
-        XCTAssertEqual(b.note(for: drawn), L10n.Nav.dabsActive("08:00–15:00, SR-SS", "NOTAM B1/26"))
+        XCTAssertEqual(b.note(for: drawn), L10n.Nav.notamActive("08:00–15:00, SR-SS"))
+    }
+
+    func testANotamsAreaOnTheCardHasItsTimesOnceAndNoWordOfTheDabs() throws {
+        let b = abroad([czechArea()])
+        let drawn = try XCTUnwrap(b.drawnTempAirspaces(in: nil).first)
+        let stack = try XCTUnwrap(AirspaceStack.make(at: CLLocationCoordinate2D(latitude: 50.2, longitude: 12.9), from: [drawn],
+                                                     altitudeFt: 3000, board: b))
+        XCTAssertEqual(stack.rows.first?.note, L10n.Nav.notamActive("08:00–15:00"))
+        XCTAssertFalse(stack.mentionsBulletin)
+        // A Swiss area's DABS note still says the DABS doesn't replace the NOTAMs
+        let swiss = board(file(areas: [area("LSR14")]))
+        let saentis = airspace("LSR14 SAENTIS")
+        let card = try XCTUnwrap(AirspaceStack.make(at: CLLocationCoordinate2D(latitude: 47.05, longitude: 7.05), from: [saentis],
+                                                    altitudeFt: 3000, board: swiss))
+        XCTAssertTrue(card.mentionsBulletin)
     }
 
     func testAnAglCeilingKeepsItsHeight() {

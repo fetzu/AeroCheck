@@ -16203,6 +16203,29 @@
         }
       }
     },
+    "nav.notamActive": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktiv %@ UTC"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active %@ UTC"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active %@ UTC"
+          }
+        }
+      }
+    },
     "nav.notamAreas": {
       "extractionState": "manual",
       "localizations": {

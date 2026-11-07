@@ -48,7 +48,8 @@ final class MapChromeLayoutTests: XCTestCase {
 
     /// The map's (i) carries the OpenStreetMap credit: no chip lies on it, on any chart, in any number.
     func testNoChipCoversTheMapsInformationButton() {
-        let chipSets: [[MapFootChip]] = [[.allLimits], [.airspaceOff], [.allLimits, .noAirspaceData], [.allLimits, .noAirspaceData, .dabsNotLoaded]]
+        let chipSets: [[MapFootChip]] = [[.allLimits], [.airspaceOff], [.allLimits, .noAirspaceData], [.allLimits, .noAirspaceData, .dabsNotLoaded],
+                                        [.allLimits, .noAirspaceData, .dabsNotLoaded, .noNotamList], [.noNotamList]]
         for chart in Chart.allCases {
             let button = CGRect(x: 8, y: chart.size.height - 34, width: 26, height: 26)
             for chips in chipSets {

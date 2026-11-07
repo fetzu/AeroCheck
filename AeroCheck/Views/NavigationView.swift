@@ -590,6 +590,11 @@ struct NavigationMapView: View {
             AerodromeNoteSheet(aerodrome: ref, readOnly: appState.isFlightActive)
                 .environmentObject(AerodromeNoteStore.shared)
         }
+        // What the card or the map has on the device, read on request, in flight too. (decided 6 Nov 2026)
+        .sheet(item: $notamReading) { reading in
+            NotamReaderSheet(notams: reading.notams, title: reading.title)
+                .environment(appState)
+        }
     }
 
     /// Opening and closing the map, its region, the panel, the overlay settings, the phase, the leg and
@@ -677,6 +682,8 @@ struct NavigationMapView: View {
         .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: reportingPointCatalog.revision) { _, _ in recomputeMapSpatialContent(force: true) }
         .onReceive(ActivationService.shared.$files) { _ in recomputeMapSpatialContent(force: true) }
+        .onReceive(NotamService.shared.$revision) { _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showNotamAreasOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         // One card at a time: an aerodrome's takes the airspace's place. (6.9.0)
         .onChange(of: mapState.isCalloutOpen) { _, open in
             if open { airspaceStack = nil; selectedStackAirspace = nil }
@@ -821,8 +828,56 @@ struct NavigationMapView: View {
             facts.feeLink = AirfieldTariffService.shared.tariff(for: airport.ident).flatMap { URL(string: $0.url) }
             facts.briefingLink = BriefingRegistryService.shared.registry?.country(airport.isoCountry)?.notam.first?.url
         }
+        // What's on the device, on the ground and in flight, never in a dry run.
+        if dryRunSession == nil { facts.notams = NotamService.shared.notams(at: airport.ident) }
         return facts
     }
+
+    // MARK: - The NOTAM areas
+
+    /// When an area counts on this map: the flight's window with a route armed or flying, else now.
+    private var notamWindow: (from: Date, to: Date) {
+        let moment = FlightClock.now
+        guard let plan = flightPlanManager.activeFlightPlan else { return (moment, moment) }
+        let flight = NotamFlight.make(plan: plan, departure: plan.plannedDepartureTime, now: moment)
+        return (min(flight.start, moment), max(flight.end, moment))
+    }
+
+    /// What the layer draws in `region`. Plan › Map also asks for the country under it, on the ground.
+    private func recomputeNotams(in region: MKCoordinateRegion) {
+        guard appState.settings.showNotamAreasOnMap, dryRunSession == nil else {
+            if !visibleNotams.isEmpty { visibleNotams = [] }
+            return
+        }
+        if chrome == .plan, !appState.isFlightActive {
+            let countries = Array(NotamService.countries(at: region.center))
+            Task { await NotamService.shared.refreshIfNeeded(countries: countries, onGround: true) }
+        }
+        let window = notamWindow
+        visibleNotams = NotamMapContent.items(NotamService.shared.allNotams, from: window.from, to: window.to, centre: region.center,
+                                              latSpan: region.span.latitudeDelta, lonSpan: region.span.longitudeDelta)
+    }
+
+    /// A tap on the chart: a NOTAM area's edge reads it; inside one, the airspace's card keeps the tap, and with no
+    /// airspace there the NOTAM is read.
+    private func chartTapped(at coordinate: CLLocationCoordinate2D) {
+        let toleranceNm = mapState.region.span.latitudeDelta * 60 * Self.notamTapShare
+        let onEdge = NotamMapContent.hits(visibleNotams, at: coordinate, toleranceNm: toleranceNm, insideToo: false)
+        guard onEdge.isEmpty else {
+            openNotams(onEdge, title: onEdge.count == 1 ? onEdge[0].number : "NOTAMs")
+            return
+        }
+        openAirspaceStack(at: coordinate)
+        let inside = NotamMapContent.hits(visibleNotams, at: coordinate, toleranceNm: toleranceNm, insideToo: true)
+        if airspaceStack == nil, !inside.isEmpty {
+            openNotams(inside, title: inside.count == 1 ? inside[0].number : "NOTAMs")
+        }
+    }
+
+    /// A finger's width on the chart, as a share of its height.
+    private static let notamTapShare = 0.025
+
+    private func openNotams(_ notams: [Notam], title: String) { notamReading = NotamReading(notams: notams, title: title) }
 
     // MARK: - The airspace over a point (6.9.0)
 
@@ -1599,6 +1654,9 @@ struct NavigationMapView: View {
     @State private var airspaceGroundTask: Task<Void, Never>?
     @State private var selectedStackAirspace: String?
     @State private var airspaceTagsAt = Date.distantPast
+    /// The NOTAM areas on the map, and what the card or the map asked to read.
+    @State private var visibleNotams: [NotamMapContent.Item] = []
+    @State private var notamReading: NotamReading?
     @State private var airspaceTrend = AirspaceVerticalTrend()
     /// The traffic circuits, VFR routes and sectors drawn for the region. (6.2.0)
     @State private var vfrContent: VFRMapContent = .empty()
@@ -1733,6 +1791,7 @@ struct NavigationMapView: View {
             visibleAirspacePolygons = []
         }
 
+        recomputeNotams(in: region)
         recomputeVFRContent(region: region)
     }
 
@@ -1869,8 +1928,10 @@ struct NavigationMapView: View {
             airspacePolygons: visibleAirspacePolygons,
             airspaceTags: airspaceTags,
             airspaceTagKeepOut: chrome == .plan ? [] : cockpitChromeGeometry.tagKeepOut,
-            onAirspaceTap: { openAirspaceStack(at: $0) },
+            onAirspaceTap: { chartTapped(at: $0) },
             aerodromeFacts: { aerodromeFacts(for: $0) },
+            notamItems: visibleNotams,
+            onReadNotams: { openNotams($0, title: $1) },
             trackVectorOverlays: trackVectorOverlays,
             trackVectorEnabled: appState.settings.showTrackVector,
             currentWaypointIndex: currentWaypointIndex,
@@ -3057,6 +3118,11 @@ struct NavigationMapView: View {
            CountryBoundaries.shared.countries(near: here, bufferNm: 0).contains("CH") {
             chips.append(.dabsNotLoaded)
         }
+        // Over a country without a list, a map with no NOTAM areas is a map that says nothing: it says so (q4 A).
+        if appState.settings.showNotamAreasOnMap, dryRunSession == nil, let here = locationManager.currentLocation?.coordinate {
+            let countries = NotamService.countries(at: here)
+            if !countries.isEmpty, !countries.contains(where: NotamService.shared.hasList) { chips.append(.noNotamList) }
+        }
         return chips
     }
 
@@ -3888,6 +3954,7 @@ enum MapPreset: CaseIterable {
 /// The overlay switches (airspace and tiles, markers, track vector), in the Map sheet. (v6.0 · C1)
 struct OverlaysSections: View {
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.dryRunSession) private var dryRunSession
     @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
@@ -3970,6 +4037,13 @@ struct OverlaysSections: View {
                 toggleRow(icon: Image("FloorsAndCeilings").renderingMode(.template),
                           title: L10n.Nav.airspaceLimits, isOn: appState.settings.showAirspaceLimits) {
                     appState.settings.showAirspaceLimits.toggle(); appState.saveSettings()
+                }
+                // What's on the device, indicative; no preset touches it, and a dry run has none. (decided 6 Nov 2026)
+                if dryRunSession == nil {
+                    Divider().padding(.leading, 56)
+                    toggleRow(icon: "exclamationmark.bubble", title: L10n.Nav.notamAreas, isOn: appState.settings.showNotamAreasOnMap) {
+                        appState.settings.showNotamAreasOnMap.toggle(); appState.saveSettings()
+                    }
                 }
             }
 
@@ -4214,11 +4288,21 @@ struct OverlaysSections: View {
 /// it didn't.)
 struct MapDataCredits: View {
     @Environment(\.cockpitTheme) private var theme
+    @Environment(\.dryRunSession) private var dryRunSession
+    @Environment(AppState.self) private var appState
     @ObservedObject private var vfrProcedureService = OFMDataService.shared
+    @ObservedObject private var notamService = NotamService.shared
+
+    private var notamCredit: String? {
+        guard appState.settings.showNotamAreasOnMap, dryRunSession == nil,
+              let time = notamService.copyState(countries: []).time else { return nil }
+        return L10n.Notams.mapCredit(NotamWords.copyTime(time))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(VFRMapStrings.credit(cycles: vfrProcedureService.cycles.values.map(\.airac)))
+            if let notamCredit { Text(notamCredit) }
             if let attributed = try? AttributedString(markdown: L10n.DataStorage.openAIPAttribution) {
                 Text(attributed)
             } else {
@@ -4259,6 +4343,9 @@ struct AeroMapView: View {
     var onAirspaceTap: ((CLLocationCoordinate2D) -> Void)?
     /// A field's rows for its card. (6.9.0, c1 A)
     var aerodromeFacts: ((Airport) -> AerodromeFacts)?
+    /// The NOTAM areas layer, and what reads a NOTAM from the map or the card: the NOTAMs and the sheet's title.
+    var notamItems: [NotamMapContent.Item] = []
+    var onReadNotams: (([Notam], String) -> Void)?
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates
@@ -4305,6 +4392,8 @@ struct AeroMapView: View {
     var shownAirspace: [AirspacePolygon] { features.contains(.airspace) ? airspacePolygons : [] }
     var shownAirspaceTags: [AirspaceRelevantTag] { features.contains(.airspaceTags) ? airspaceTags : [] }
     var shownAirspaceLabels: Bool { features.contains(.airspaceLabels) }
+    var shownNotams: [NotamMapContent.Item] { features.contains(.notamAreas) ? notamItems : [] }
+    var notamReader: (([Notam], String) -> Void)? { onReadNotams }
     var airspaceTapHandler: ((CLLocationCoordinate2D) -> Void)? { features.contains(.airspaceCard) ? onAirspaceTap : nil }
     var shownProcedures: VFRMapContent { features.contains(.procedures) ? vfrContent : .empty() }
     var shownPlan: FlightPlan? { features.contains(.route) ? activeFlightPlan : nil }

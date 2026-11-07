@@ -29,6 +29,7 @@ final class SettingsSyncTests: XCTestCase {
         settings.fullTanksLitres = ["F-HVXA": 100]
         settings.homeAerodromeIdent = "LSZQ"
         settings.showAirspaceLimits = false
+        settings.showNotamAreasOnMap = true
         settings.cruiseSpeedKIAS = ["F-HVXA": 97]
         settings.showVFRCircuitsOnMap = true
         settings.showVFRRoutesOnMap = true

@@ -921,7 +921,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         waypoints.count >= 2 ? waypoints.last.flatMap(FlightPlan.aerodromeIdent) : nil
     }
 
-    private static func aerodromeIdent(_ waypoint: FlightPlanWaypoint) -> String? {
+    static func aerodromeIdent(_ waypoint: FlightPlanWaypoint) -> String? {
         if waypoint.pointKind == .aerodrome, let code = EETCalibration.aerodromeKey(waypoint.sourceId) { return code }
         let name = waypoint.name.trimmingCharacters(in: .whitespaces).uppercased()
         return ICAONaming.isICAO(name) ? name : nil

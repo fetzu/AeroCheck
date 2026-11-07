@@ -341,6 +341,7 @@ struct FlightThreadView: View {
     @ObservedObject private var officialCharts = OfficialChartService.shared
     /// The briefing registry: the briefing tasks' links when it arrives. (6.5.0)
     @ObservedObject private var briefingRegistry = BriefingRegistryService.shared
+    @ObservedObject private var notamService = NotamService.shared
     /// The reports, for the iPhone weather row's verdict ("No SIGMET"). (6.6.0)
     @ObservedObject private var weatherService = PrepareWeatherService.shared
 
@@ -451,6 +452,8 @@ struct FlightThreadView: View {
                     unfoldedBlocks.insert(kind)
                     withAnimation(.easeInOut(duration: 0.25)) { scroller.scrollTo(AnyHashable(kind), anchor: .top) }
                 }
+                // The NOTAMs as the page opens, on the ground, on the day. (decided 6 Nov 2026)
+                .task(id: notamRefreshKey(thread)) { await refreshNotams(thread) }
                 }
             } else {
                 // The thread was deleted underneath us (another device, or the pilot). Say so rather
@@ -1183,7 +1186,8 @@ struct FlightThreadView: View {
             .id(chapter)
         } else if !blocks.isEmpty {
             FlightFoldedLine(look: shape == .done ? .done : .waiting, title: chapterName(chapter).uppercased(),
-                             detail: chapterLine(chapter, shape: shape, blocks: blocks, thread: thread)) {
+                             detail: chapterLine(chapter, shape: shape, blocks: blocks, thread: thread),
+                             alert: blocks.lazy.compactMap { newNotamWords($0, thread) }.first) {
                 withAnimation(.easeInOut(duration: 0.2)) { _ = unfoldedChapters.insert(chapter) }
             }
             .id(chapter)
@@ -1277,7 +1281,8 @@ struct FlightThreadView: View {
                 FlightFoldedLine(look: block.state == .done ? .done : .notApplicable, title: title,
                                  detail: [FlightPageWords.doneWords(block, wordsContext(for: thread)),
                                           block.kind == .route ? noteCount(thread) : nil]
-                                    .compactMap { $0 }.joined(separator: " · "), action: unfold)
+                                    .compactMap { $0 }.joined(separator: " · "), alert: newNotamWords(block, thread),
+                                 action: unfold)
                     .accessibilityIdentifier(Self.blockIdentifier(block.kind))
             } else {
                 blockCard(block, thread, foldable: true)
@@ -1297,7 +1302,7 @@ struct FlightThreadView: View {
     /// A block's card: on the iPad where it stands, on the iPhone in its sheet (`foldable` false: Done closes it).
     private func blockCard(_ block: FlightBlock, _ thread: FlightThread, foldable: Bool) -> some View {
         FlightBlockCard(block: block, title: FlightPageWords.title(block.kind), meta: meta(block, thread),
-                        notes: notes(block),
+                        notes: notes(block, thread),
                         onTick: { tick(block, thread) },
                         onFold: foldable && (block.state != .pending || block.waitsForDay)
                             ? { withAnimation(.easeInOut(duration: 0.2)) { _ = unfoldedBlocks.remove(block.kind) } } : nil,
@@ -1366,6 +1371,7 @@ struct FlightThreadView: View {
             return nil
         case .done:
             if block.isAuto { return nil }
+            if let new = newNotamWords(block, thread) { return FlightBlockMeta(text: new, tone: .caution) }
             return block.completedAt.map { FlightBlockMeta(text: shortTime($0)) }
         case .pending:
             if block.waitsForDay { return FlightBlockMeta(text: L10n.FlightPage.onTheDayShort) }
@@ -1481,8 +1487,9 @@ struct FlightThreadView: View {
     }
 
     /// Under the title: "for the whole trip", and a trip's briefing to check again for this leg.
-    private func notes(_ block: FlightBlock) -> [(String, Color)] {
+    private func notes(_ block: FlightBlock, _ thread: FlightThread) -> [(String, Color)] {
         var notes: [(String, Color)] = []
+        if let new = newNotamWords(block, thread) { notes.append((new, .aviationAmber)) }
         if block.isShared { notes.append((L10n.FlightPage.wholeTrip, .dimText)) }
         if let since = block.recheckSince { notes.append((L10n.Flights.recheckForThisLeg(shortTime(since)), .aviationGold)) }
         return notes
@@ -1503,7 +1510,7 @@ struct FlightThreadView: View {
             ThreadWeatherBody(threadId: thread.id, fields: weatherFields(thread), route: weatherRoute(thread),
                               links: briefing(for: thread).weatherLinks(), departure: departure(of: thread)) { openURL($0) }
         case .notamsAndAirspace:
-            notamsBody(thread)
+            notamsBody(thread, block: block)
         default:
             if let task = block.task {
                 VStack(alignment: .leading, spacing: 6) {
@@ -1533,9 +1540,10 @@ struct FlightThreadView: View {
         }
     }
 
-    /// The NOTAMs and every country's airspace activity, a row each, in the route's order (the departure's first);
-    /// the DABS in words by day above them. One tick in the head for all of it (round 1 q4 A).
-    private func notamsBody(_ thread: FlightThread) -> some View {
+    /// The official pages first, under a heading that names what to do: every country's NOTAMs and airspace activity, a
+    /// row each, in the route's order (the departure's first), the DABS in words by day above them. Then what our copy
+    /// found, as an extra (q1 A, 6 Nov 2026). One tick in the head for all of it, and it stays the pilot's (round 1 q4 A).
+    private func notamsBody(_ thread: FlightThread, block: FlightBlock) -> some View {
         let b = briefing(for: thread)
         var links: [ThreadTaskLink] = []
         var seen = Set<URL>()
@@ -1549,22 +1557,65 @@ struct FlightThreadView: View {
         }
         let days = b.countries.compactMap { b.dayWords($0) }
         return VStack(alignment: .leading, spacing: 4) {
-            ForEach(days, id: \.self) { line in
-                Text(line)
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            VStack(spacing: 0) {
-                ForEach(links, id: \.url) { link in
-                    ThreadLinkRow(link: link) { openURL(link.url) }
-                        .coachTarget(ifAny: link.url == links.first?.url ? .notamLink : nil)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.Notams.readFirst)
+                    .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(days, id: \.self) { line in
+                    Text(line)
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                VStack(spacing: 0) {
+                    ForEach(links, id: \.url) { link in
+                        ThreadLinkRow(link: link) { openURL(link.url) }
+                            .coachTarget(ifAny: link.url == links.first?.url ? .notamLink : nil)
+                    }
+                }
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 9)
+            .background(Color.altimeterBlue.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.altimeterBlue.opacity(0.4), lineWidth: 1))
+            if !block.waitsForDay, let flight = notamFlight(thread) {
+                NotamListSection(flight: flight, countries: b.countries)
             }
         }
         .padding(.leading, 68)
         .padding(.trailing, 14)
         .padding(.bottom, 8)
+    }
+
+    /// The flight the list is sorted against: before it, for a route the app knows, never in a dry run, whose story has
+    /// no network and whose clock isn't today's.
+    private func notamFlight(_ thread: FlightThread) -> NotamFlight? {
+        guard dryRunSession == nil, thread.state == .planned || thread.state == .ready, let plan = plan(for: thread),
+              !plan.waypoints.isEmpty else { return nil }
+        return NotamFlight.make(plan: plan, departure: departure(of: thread), label: thread.routeLabel, now: FlightClock.now)
+    }
+
+    /// "1 new since your tick": on the block, for a NOTAM along the flight this device first saw after the tick. Never a
+    /// banner or a notification, and the tick stays (q4 A).
+    private func newNotamWords(_ block: FlightBlock, _ thread: FlightThread) -> String? {
+        guard block.kind == .notamsAndAirspace, block.state == .done, let tick = block.completedAt,
+              let flight = notamFlight(thread) else { return nil }
+        let sorted = notamService.sorted(for: flight, countries: thread.countries ?? [])
+        let count = NotamSorter.newSince(tick, along: sorted.along, firstSeen: notamService.firstSeen)
+        return count > 0 ? L10n.Notams.newSinceTick(count) : nil
+    }
+
+    /// What starts the NOTAMs' fetch again: another flight, or its day coming. Empty when the page has none to fetch.
+    private func notamRefreshKey(_ thread: FlightThread) -> String {
+        guard notamFlight(thread) != nil, page(for: thread).block(.notamsAndAirspace)?.waitsForDay == false else { return "" }
+        return thread.id.uuidString + (thread.countries ?? []).joined()
+    }
+
+    private func refreshNotams(_ thread: FlightThread) async {
+        guard !notamRefreshKey(thread).isEmpty else { return }
+        await notamService.refreshIfNeeded(countries: thread.countries ?? [], onGround: !appState.isFlightActive)
     }
 
     /// "2 notes": the pilot's notes on the flight's aerodromes, on the route block's folded line, which hides the

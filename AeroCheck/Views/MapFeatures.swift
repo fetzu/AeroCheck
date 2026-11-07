@@ -15,6 +15,8 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let airspaceLabels = MapFeatures(rawValue: 1 << 19)
     /// A tap with no marker under it: every airspace over the point (`AirspaceStackCard`). (6.9.0)
     static let airspaceCard = MapFeatures(rawValue: 1 << 20)
+    /// The NOTAM areas layer, and a tap on one reading it.
+    static let notamAreas = MapFeatures(rawValue: 1 << 21)
     static let navaids = MapFeatures(rawValue: 1 << 3)
     static let obstacles = MapFeatures(rawValue: 1 << 4)
     static let reportingPoints = MapFeatures(rawValue: 1 << 5)
@@ -48,12 +50,13 @@ struct MapFeatures: OptionSet, Hashable, Sendable {
     static let markers: MapFeatures = [.airports, .navaids, .obstacles, .reportingPoints]
 
     /// Plan › Map: everything, the limits along the boundaries.
-    static let navigation: MapFeatures = [.markers, .airspace, .airspaceLabels, .airspaceCard, .procedures, .route, .aircraft,
-                                          .track, .trackVector, .officialChartCallout, .divertCallout, .noteCallout, .recordATO]
+    static let navigation: MapFeatures = [.markers, .airspace, .airspaceLabels, .airspaceCard, .notamAreas, .procedures, .route,
+                                          .aircraft, .track, .trackVector, .officialChartCallout, .divertCallout, .noteCallout,
+                                          .recordATO]
     /// The Cockpit's MAP: the same with tags. One style per screen, and it never changes in the air (a9 A).
     static let cockpit: MapFeatures = navigation.subtracting(.airspaceLabels).union(.airspaceTags)
     /// The dry run: the Cockpit's map without the pilot's notes, which a dry run neither shows nor writes (n7 B).
-    static let dryRun: MapFeatures = cockpit.subtracting(.noteCallout)
+    static let dryRun: MapFeatures = cockpit.subtracting([.noteCallout, .notamAreas])
     /// EVERY AIRSPACE turned on, on either: the boundary labels instead of the tags (a10 A).
     func showingAllLimits() -> MapFeatures { subtracting(.airspaceTags).union(.airspaceLabels) }
     /// The route builder: the markers, the airspace the route crosses with its limits, the procedures, the route being

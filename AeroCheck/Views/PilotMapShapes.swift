@@ -18,6 +18,7 @@ final class PilotMapShapes {
     /// The groups, bottom first.
     enum Group: Int, CaseIterable {
         case airspace
+        case notams
         case procedures
         case track
         case plannedRoute
@@ -296,6 +297,22 @@ extension PilotMapShapes {
         }
 
         syncLabels(map.shownAirspaceLabels ? airspace : [], on: style)
+
+        // The NOTAM areas: a dashed circle each, over the airspace and under everything the pilot flies by.
+        let notams = map.shownNotams
+        sync(.notams, signature: Self.hash(notams.map(\.id)), on: style, traits: traits) {
+            notams.compactMap { item in
+                guard case .area(let radius) = item.shape else { return nil }
+                var ring = NotamMapContent.ring(centre: item.coordinate, radiusNm: radius)
+                let line = MKPolyline(coordinates: &ring, count: ring.count)
+                let renderer = MKPolylineRenderer(polyline: line)
+                renderer.strokeColor = NotamMapStyle.color
+                renderer.lineWidth = 2.5
+                renderer.lineDashPattern = AirspaceMapKind.notam.dash.map { NSNumber(value: $0) }
+                renderer.lineCap = .butt
+                return Shape(overlay: line, renderer: renderer, tier: 0)
+            }
+        }
 
         // The aerodrome procedures: `VFRMapLayer`'s overlays for the map's zoom (dashes, ticks and arrowheads are cut
         // for it), in its tiers. Their labels are markers (PR 7).

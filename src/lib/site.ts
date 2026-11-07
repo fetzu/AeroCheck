@@ -94,7 +94,7 @@ export interface CountriesCopy {
     charts_reason: Record<string, string>;
     swisstopo: string; wind_ch: string; wind: string;
     close_alert: string; close_report: string; close_call: string; close_aerodromes: string; close_activation: string;
-    close_unchecked: string; close_none: string; fees: Plural; fees_none: string;
+    close_unchecked: string; close_none: string; close_no_number: string; fees: Plural; fees_none: string;
   };
   everywhere: string; everywhere_here: string; everywhere_label: string; everywhere_other: string;
   checked: string; tell: string; tell_other: string;

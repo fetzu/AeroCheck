@@ -41,7 +41,7 @@ export interface CountryView {
   groups: Group[]; near: Neighbour[]; checked?: string; tell: string; onMap: boolean;
 }
 /** A cell; `hint` says what an "in part" cell has, in its card's words (the author, 31 Oct 2026). */
-export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; word?: string; start: boolean; hint?: string }[]; }
+export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; icon?: { name: 'link' | 'phone'; label: string }; start: boolean; hint?: string }[]; }
 export interface TableColumn { id: FeatureId; head: string; hint: string; start: boolean; }
 /** A group of the table's header: its name over its columns, or, for a group of one, just that column. */
 export interface TableGroup { name?: string; columns: TableColumn[]; }
@@ -185,14 +185,21 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
     return {
       cc, name: name(cc),
       cells: TABLE.map((id) => {
-        const { level, html } = row(id, c, cc);
+        const { level: rowLevel, html } = row(id, c, cc);
+        // Filing and closing show what a "yes" is, by icon (the author's f2, 3 Nov, and option C, 7 Nov 2026): a link to
+        // the portal, a number to call, or the half circle where only the rule is known
+        const ruleOnly = id === 'close' && c.close?.word === 'rule';
+        const level = ruleOnly && rowLevel === 'on' ? 'part' : rowLevel;
         const n = level === 'off' ? undefined
           : id === 'circuits' ? c.circuits?.count : id === 'routes' ? c.routes?.count
           : id === 'charts' ? c.charts?.count : id === 'fees' ? c.fees?.count : undefined;
-        // Filing and closing say what a "yes" is: the app doesn't do either for you (the author's f2, 3 Nov 2026)
-        const said = level === 'off' ? undefined : id === 'filing' ? c.filing?.word : id === 'close' ? c.close?.word : undefined;
-        const hint = level === 'part' ? `${t.labels[id]}: ${plain(html)}` : undefined;
-        return { id, level, n, word: said && t.table_words[said], start: GROUP_START.has(id), hint };
+        const icon = level !== 'on' ? undefined
+          : id === 'filing' && c.filing?.word === 'link' ? { name: 'link' as const, label: t.table_words.link }
+          : id === 'close' && c.close?.word === 'number' ? { name: 'phone' as const, label: t.table_words.number }
+          : undefined;
+        const noNumber = ruleOnly && rowLevel === 'on' ? `${lang === 'fr' ? '\u202f;' : ';'} ${t.text.close_no_number}` : '';
+        const hint = level === 'part' ? `${t.labels[id]}${lang === 'fr' ? '\u00a0:' : ':'} ${plain(html)}${noNumber}` : undefined;
+        return { id, level, n, icon, start: GROUP_START.has(id), hint };
       }),
     };
   });

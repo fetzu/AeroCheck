@@ -1,7 +1,7 @@
 lang: "en"
 meta:
-  title: "AéroCheck · The checklist-led cockpit for VFR pilots"
-  description: "A checklist-led cockpit for VFR pilots, on an iPad on the kneeboard and on the iPhone: it follows the flight from the pre-flight check to the shutdown, says which check is due, and keeps the map, the route and the logbook one tap away. Free with one aircraft."
+  title: "AéroCheck · The checklist app for VFR pilots"
+  description: "A checklist app for VFR pilots, on an iPad on your kneeboard or on your iPhone. It follows your flight from the pre-flight check to the shutdown, shows you which check is due, and keeps the map, the route and the logbook one tap away. Free with one aircraft."
 brand: "AéroCheck"
 
 nav:
@@ -21,23 +21,23 @@ theme: { to_dark: "Switch to the dark theme", to_light: "Switch to the light the
 hero:
   eyebrow: "For VFR pilots · iPad and iPhone"
   title: "Built for the kneeboard."
-  subtitle: "AéroCheck is a checklist-led cockpit for VFR pilots. It follows the flight from the pre-flight check to the shutdown, opens the check that is due, and keeps the map, the route and the logbook one tap away. Free with one aircraft."
+  subtitle: "AéroCheck is a checklist app for VFR pilots. It follows your flight from the pre-flight check to the shutdown, opens the check that is due, and keeps the map, the route and the logbook one tap away. Free with one aircraft."
   secondary: { label: "Follow a real flight", href: "/flight" }
   facts: "16 phases · {total} aircraft · English, German and French · open source"
   shot: "cockpit"
   shot_alt: "The Cockpit in cruise on an iPad"
   # Positions in percent of the iPad screenshot (cockpit.jpg). A label sits beside the picture; only its line crosses it.
   callouts:
-    - { side: "left", x: 2.5, y: 5.0,  where: "At the top",    title: "Where you are",        text: "The check you are on, the flight time and the GPS." }
-    - { side: "right", x: 97, y: 13.4, where: "Below it",      title: "What you are flying",  text: "Ground speed, altitude, track, and the way to the next waypoint." }
+    - { side: "left", x: 2.5, y: 5.0,  where: "At the top",    title: "Where you are",        text: "The current check, the flight time and the GPS." }
+    - { side: "right", x: 97, y: 13.4, where: "Below it",      title: "What you are flying",  text: "Ground speed, altitude, track, and what is left to the next waypoint." }
     - { side: "left", x: 2.5, y: 23.6, where: "Under the figures", title: "Who to call",    text: "The frequency to use now, and the next one." }
-    - { side: "right", x: 97, y: 56.6, where: "In the middle", title: "The item you are on",  text: "Framed where it stands, the rest of the check around it." }
-    - { side: "left", x: 2.5, y: 93.8, where: "At the foot",   title: "Four buttons",         text: "Under your thumb, in the same place in every phase." }
+    - { side: "right", x: 97, y: 56.6, where: "In the middle", title: "The item you are on",  text: "Framed in the list, with the other items around it." }
+    - { side: "left", x: 2.5, y: 93.8, where: "At the bottom",   title: "Four buttons",         text: "In the same place in every phase (so you don't have to look for them)." }
 
 dryrun:
   band: "DRY RUN · 4×"
   title: "Your first flight with AéroCheck, on the ground."
-  text: "Once the app is on your iPad or iPhone, its dry run takes you through a whole flight at your desk: a guided story in four parts, from planning to the logbook, in the real Cockpit. Then free practice: circuits at any aerodrome with a runway, or one of your routes. Nothing is kept, and no location is needed."
+  text: "Once the app is on your iPad or iPhone, the dry run takes you through a whole flight from your desk: a guided story in four parts, from planning to the logbook, in the real Cockpit. After that, free practice: circuits at any aerodrome with a runway, or one of your routes. None of it ends up in your logbook, and you don't even have to leave your chair."
   link: { label: "How the dry run works", href: "/manual#dry-run" }
   shot: "dryrun"
   alt: "A guided dry run on its first final, on an iPhone"
@@ -46,7 +46,7 @@ dryrun:
 chapters:
   heading: "A flight has four chapters"
   items:
-    - { key: "plan",    name: "Plan",    line: "Where, when, which aircraft, and a route that checks itself." }
+    - { key: "plan",    name: "Plan",    line: "Where, when, which aircraft, and a route the app checks as you draw it." }
     - { key: "prepare", name: "Prepare", line: "The weather, NOTAMs, the ATC flight plan and the border rules, as a list you tick." }
     - { key: "fly",     name: "Fly",     line: "One cockpit screen: the check that is due, the map or the route.", core: true }
     - { key: "close",   name: "Close",   line: "Close the ATC flight plan; the logbook line is already written." }
@@ -58,23 +58,23 @@ flagship:
   items:
     - step: "01 · Plan"
       anchor: "plan"
-      title: "A flight, not just a route"
-      description: "Plan new flight asks for when and where from, and builds the rest around them. The route editor draws the profile over the terrain and lists every airspace the route enters, at the altitude you planned."
+      title: "Plan the whole flight"
+      description: "Tell Plan new flight when and where you are leaving from, and it sets up the flight for you. The route editor draws the profile over the terrain and lists every airspace you enter at the altitude you planned."
       facts: ["Terrain and airspace checked as you draw", "Trips with stops", "Fuel on board in one tap"]
       shot: "route"
     - step: "02 · Prepare"
       anchor: "prepare"
       where: true
       title: "Everything you would otherwise keep in your head"
-      description: "Weather, NOTAMs, the ATC flight plan and the border become blocks you tick, each with its link. A line under the flight's name says what is left, and by when."
+      description: "Weather, NOTAMs, the ATC flight plan and the border are blocks you tick, each with its link. The line under the flight's name shows what is left to do, and by when."
       facts: ["A reminder the day before", "Border rules for six countries", "An A5 nav log for the kneeboard"]
       shot: "prepare"
     - step: "03 · Fly"
       anchor: "fly"
       fly: true
-      title: "Checks that come to you"
-      description: "The flight says when a check is due: climb after the take-off, cruise at the level-off, approach five miles out. A check you fly past is marked overdue, not lost, and go-arounds, touch-and-goes and landings are recorded by themselves, with undo."
-      facts: ["Deferred items wait where you can see them", "Hide the memory items to test yourself", "V-SPEEDS and the briefings open over the page"]
+      title: "Each check opens when it's due"
+      description: "AéroCheck tells you when a check is due: climb after the take-off, cruise at the level-off, approach five miles out. If you fly past a check, it stays on the list, marked overdue. Go-arounds, touch-and-goes and landings are recorded automatically (and you can undo them)."
+      facts: ["Deferred items stay in view", "Hide the memory items to test yourself", "V-SPEEDS and the briefings open over the page"]
       note: "AéroCheck supports your aircraft's approved checklist and the AFM, and replaces neither: the paper checklist stays on board."
       shot: "vspeeds"
       iphone_shot: "cockpit"
@@ -82,7 +82,7 @@ flagship:
       fly: true
       where: true
       title: "The map, with the circuits drawn"
-      description: "En route the page turns to the chart: the aircraft, the route and the airspace, with MARK and Divert under your thumb. Around the aerodromes, the traffic circuits, arrival sectors and VFR routes from open flightmaps. Tap an aerodrome for its card: its frequencies, its official chart, and your own note on it, written on the ground and read in flight."
+      description: "En route the page switches to the chart: the aircraft, the route and the airspace, with MARK and Divert one tap away. Around aerodromes, you also get the traffic circuits, arrival sectors and VFR routes from open flightmaps. Tap an aerodrome for its card: frequencies, official chart, and your own note on it (the one you wrote on the ground so you wouldn't have to remember)."
       facts: ["Swiss ICAO and glider charts, offline", "Circuits and VFR routes in {ofmCountries} countries", "Official chart links in {chartCountries} countries"]
       shot: "circuits"
       iphone_shot: "cockpitmap"
@@ -91,9 +91,9 @@ flagship:
       fly: true
       where: true
       title: "Atlas: a map drawn for flying"
-      description: "AéroCheck draws its own map, from OpenStreetMap, for what you look for out of the window: towns by size, motorways and main roads, railways and cable cars, rivers, lakes and forests, glaciers, and peaks with their height in feet, over the relief. Every country of the Countries page, the large ones by region, joined at their borders."
+      description: "AéroCheck draws its own map from OpenStreetMap, with what you actually look for out of the window: towns by size, motorways and main roads, railways and cable cars, rivers, lakes and forests, glaciers, and peaks with their height in feet, over the relief. It covers every country on the Countries page (the large ones by region) and joins them at the borders."
       facts: ["Download a region and it works offline", "Rebuilt every month from OpenStreetMap", "Aerial imagery from open government sources"]
-      note: "Online, the map reads what is on screen, within a monthly allowance: 1,500 tiles, 15,000 with Pro. A downloaded region never counts."
+      note: "Online, the map loads what is on screen, within a monthly allowance: 1,500 tiles, or 15,000 with Pro. Downloaded regions don't count."
       shot: "atlas"
     - step: "04 · Close"
       anchor: "close"
@@ -106,7 +106,7 @@ flagship:
 phone:
   step: "03 · Fly · iPhone"
   title: "The same Cockpit on the iPhone"
-  description: "Sized for a phone at arm's length: the same three pages and a word per button under the thumb. On its side, the controls move to a column and the map takes the rest. Next to an iPad, the iPhone becomes a second screen that follows it, and gives a Wi-Fi-only iPad its GPS."
+  description: "Sized for a phone at arm's length: the same three pages, with a one-word label on each button. Turn it on its side and the controls move to a column, with the map beside them. Next to an iPad, the iPhone becomes a second screen that follows it, and gives a Wi-Fi-only iPad its GPS."
   shots: ["cockpitmap", "landscape"]
 
 pricing:
@@ -128,13 +128,13 @@ faq:
     - q: "Is my aircraft in it?"
       a: "{total} aircraft today, most from Swiss club fleets; the Aircraft page lists them. If yours isn't there, send its checklist from the app or from aerocheck.app/send: new aircraft are added regularly."
     - q: "Does it work outside Switzerland?"
-      a: "Yes. The airspace of the countries you fly, traffic circuits and VFR routes in {ofmCountries} countries, official chart links in {chartCountries}. The Swiss charts, DABS and GAFOR are extras for Switzerland. Country by country, aerocheck.app/countries says what works where."
+      a: "Yes. You get the airspace of the countries you fly in, traffic circuits and VFR routes in {ofmCountries} countries, and official chart links in {chartCountries}. The Swiss charts, DABS and GAFOR are Swiss extras. aerocheck.app/countries shows what works where, country by country."
     - q: "Does it work without a connection?"
       a: "Yes. Maps, airspace and aerodromes are kept on the device: download them before you fly."
     - q: "What does the iPhone add?"
-      a: "On its own, the iPhone runs the same Cockpit, laid out for a phone. Paired with an iPad in Companion mode, it becomes a second screen that follows the iPad's flight, and you can tick items on either device. If your iPad is a Wi-Fi-only model, which has no GPS of its own, the iPhone also lends it its position. Companion mode needs iOS 26 on both devices."
+      a: "Without an iPad, the iPhone runs the same Cockpit, laid out for a phone. Paired with an iPad in Companion mode, it becomes a second screen that follows the iPad's flight, and you can tick items on either device. If your iPad is a Wi-Fi-only model (so no GPS), the iPhone also gives it its position. Companion mode needs iOS 26 on both devices."
     - q: "What happens to my data?"
-      a: "Your flights, tracks and aerodrome notes stay on your device and in your own iCloud. No account, no advertising, no tracking; the privacy policy has the details."
+      a: "Your flights, tracks and aerodrome notes stay on your device and in your own iCloud. You don't need an account, and there is no advertising or tracking (the privacy policy has the details)."
 
 also:
   label: "Also"
@@ -152,7 +152,7 @@ story:
   prologue:
     band: "DRY RUN · 4×"
     title: "Before your first flight with it, fly one on the ground."
-    text: "Once the app is installed: a guided flight in four parts, from planning to the logbook, through the real Cockpit, at your desk. Then free practice: circuits at any aerodrome, a go-around on the second final. Nothing is kept."
+    text: "Once the app is installed: a guided flight in four parts, from planning to the logbook, in the real Cockpit, from your desk. After that, free practice: circuits at any aerodrome, a go-around on the second final. None of it ends up in your logbook."
     link: { label: "How the dry run works", href: "/manual#dry-run" }
     shot: "dryrun"
     alt: "A guided dry run on its first final, on an iPad"
@@ -168,23 +168,23 @@ story:
       sub: "Before leaving"
       chapter: "Prepare"
       title: "Ten of twelve, and the NOTAMs still to read."
-      text: "Weather, DABS, GAFOR, the border rules for France and Italy, the ATC flight plan: each a task with its link, ticked as you go. The ring says ready only when all twelve are done."
+      text: "Weather, DABS, GAFOR, the border rules for France and Italy, the ATC flight plan: each one is a task with its link, and you tick them as you go. The ring only shows ready once all twelve are done."
       shot: "prepare"
       alt: "The flight's page, 10 of 12 done"
     - when: "0:16"
       sub: "Lined up, runway 07"
       chapter: "Fly"
       fly: true
-      title: "Line-up check done. The climb check waits for the take-off."
-      text: "Every check since the pre-flight check, one item at a time. On the runway, NEXT points at DEKAM and the button reads AFTER TAKE-OFF: the climb check comes up once the take-off is detected."
+      title: "Line-up check done. The climb check opens after the take-off."
+      text: "Every check so far, one item at a time. On the runway, NEXT points at DEKAM and the button reads AFTER TAKE-OFF: the climb check opens as soon as the app detects the take-off."
       shot: "lineup"
       alt: "The Cockpit lined up at Bressaucourt"
     - when: "0:21"
       sub: "Over Lake Biel"
       chapter: "Fly"
       fly: true
-      title: "Turning points mark themselves."
-      text: "BENOT is marked as the aircraft passes it, with UNDO for six seconds. Bern's zone is a few minutes ahead: its tower came due in NEXT and a tap made it NOW, with Zürich Info NEXT for once the route leaves it."
+      title: "Waypoints are marked automatically."
+      text: "The app marks BENOT as you pass it, and UNDO stays there for six seconds. Bern's zone is a few minutes ahead: its tower was due in NEXT, you tapped it, and it became NOW. Zürich Info is next, for when you leave the zone."
       shot: "automark"
       alt: "BENOT marked automatically, the cruise check open, Bern's tower NOW"
     - when: "1:04"
@@ -192,22 +192,22 @@ story:
       chapter: "Fly"
       fly: true
       title: "The chart, the route and the next pass."
-      text: "In cruise the page turns to the map: the route over the passes, the next waypoint and its time, MARK and the leg timer under your thumb."
+      text: "In cruise the page switches to the map: the route over the passes, the next waypoint and its time, plus MARK and the leg timer at the bottom of the screen."
       shot: "alps"
       alt: "The Cockpit's map over the Alps"
     - when: "1:53"
       sub: "Over St. Moritz"
       chapter: "Fly"
       fly: true
-      title: "The approach check, without asking."
-      text: "Descending into the Engadine, the approach check comes up by itself: the check slot turns amber, six items to go. NOW is Samedan's tower, and nothing else is NEXT."
+      title: "The approach check opens when you need it."
+      text: "Descending into the Engadine, the approach check opens automatically: the check slot turns amber, with six items to go. NOW is Samedan's tower, and NEXT is empty (you are almost there)."
       shot: "approach"
       alt: "The approach check near Samedan"
     - when: "Engine off"
       sub: "Samedan"
       chapter: "Close"
       title: "Close the flight plan. The logbook line is already written."
-      text: "The reminder to close the ATC flight plan stays red until you do. Block and flight times come from the track, the engine hours from the two readings you typed."
+      text: "The reminder to close the ATC flight plan stays red until you do. Block and flight times come from the track, and the engine hours from the two readings you typed in."
       shot: "closeout"
       alt: "Closing out the flight at Samedan"
     - when: "Later"
@@ -219,7 +219,7 @@ story:
       alt: "The flight in the logbook"
   end:
     title: "Your next flight, on your kneeboard."
-    text: "Free with the WT9 Dynamic, every club aircraft with AéroCheck Pro."
+    text: "The WT9 Dynamic is free. Every club aircraft comes with AéroCheck Pro."
     secondary: { label: "Read the manual", href: "/manual" }
 
 device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Choose a screen" }
@@ -253,14 +253,14 @@ countries:
   select_label: "The country you fly in"
   option_choose: "Choose a country"
   option_elsewhere: "Elsewhere"
-  guessed_tz: "Guessed from this device's time zone ({tz}). Nothing leaves your browser."
-  guessed_lang: "Guessed from this browser's language ({lang}). Nothing leaves your browser."
+  guessed_tz: "Guessed from this device's time zone ({tz}). This stays in your browser."
+  guessed_lang: "Guessed from this browser's language ({lang}). This stays in your browser."
   empty: "Choose the country you fly in, above or on the map, to see what the app has there."
   lead:
-    home: "Switzerland is where AéroCheck started, and where it knows the most."
+    home: "Switzerland is where AéroCheck started, and where it has the most data."
     closed: "Flights there are prohibited."
-    thin: "{In}, the cockpit works as it does everywhere; what the app knows around it is still thin."
-    knows: "{In}, AéroCheck knows {list}."
+    thin: "{In}, the cockpit works as it does everywhere, but the app has little local data so far."
+    knows: "{In}, AéroCheck shows you {list}."
     and: " and "
     parts:
       brief: "where to brief"
@@ -271,7 +271,7 @@ countries:
       circuits: "the circuits of {n} aerodromes"
     other: "{name} isn't on the list yet. The cockpit works there as it does everywhere."
     other_none: "Wherever you fly, the cockpit works as it does everywhere."
-  prohibited: "Flights prohibited: operations in this airspace are prohibited ({directive}). Prepare shows it in red; nothing is blocked."
+  prohibited: "Flights prohibited: operations in this airspace are prohibited ({directive}). Prepare shows this in red, but you can still start the flight."
   levels: { on: "yes", part: "in part", off: "not yet" }
   chapters: { prepare: "Before the flight", fly: "In the air", close: "After landing" }
   labels:
@@ -327,15 +327,15 @@ countries:
     close_call: "Report your arrival"
     close_aerodromes: "each aerodrome's own number ({n})"
     close_activation: "Without ATS at departure, you activate it after take-off"
-    close_unchecked: "The rule that holds everywhere; no number checked yet"
-    close_none: "The rule that holds everywhere; no number"
+    close_unchecked: "The general rule; no number checked yet"
+    close_none: "The general rule; no number"
     close_no_number: "no number"
     fees: { one: "Links to the operator's tariff, {n} aerodrome", other: "Links to the operator's tariff, {n} aerodromes" }
     fees_none: "None yet"
   everywhere: "the checklists of all 16 phases, the GPS and the logbook, the nav log, the dry run, METAR, TAF and SIGMET wherever they are reported, winds aloft"
-  everywhere_here: "Everywhere, here too"
+  everywhere_here: "Everywhere, including here"
   everywhere_label: "Everywhere"
-  everywhere_other: "and OpenAIP's airspace and frequencies where OpenAIP publishes the country. Briefing pages, circuits and chart links come country by country: the table below says where."
+  everywhere_other: "and OpenAIP's airspace and frequencies where OpenAIP covers the country. Briefing pages, circuits and chart links depend on the country: the table below shows where."
   checked: "Briefing pages checked by hand on {date}, links every Thursday."
   tell: "Missing something you use {in}? Tell us"
   tell_other: "Flying somewhere we don't cover yet? Tell us"

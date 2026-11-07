@@ -41,7 +41,7 @@ export interface CountryView {
   groups: Group[]; near: Neighbour[]; checked?: string; tell: string; onMap: boolean;
 }
 /** A cell; `hint` says what an "in part" cell has, in its card's words (the author, 31 Oct 2026). */
-export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; start: boolean; hint?: string }[]; }
+export interface MatrixRow { cc: string; name: string; cells: { id: FeatureId; level: Level; n?: number; word?: string; start: boolean; hint?: string }[]; }
 export interface TableColumn { id: FeatureId; head: string; hint: string; start: boolean; }
 /** A group of the table's header: its name over its columns, or, for a group of one, just that column. */
 export interface TableGroup { name?: string; columns: TableColumn[]; }
@@ -189,13 +189,17 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
         const n = level === 'off' ? undefined
           : id === 'circuits' ? c.circuits?.count : id === 'routes' ? c.routes?.count
           : id === 'charts' ? c.charts?.count : id === 'fees' ? c.fees?.count : undefined;
+        // Filing and closing say what a "yes" is: the app doesn't do either for you (the author's f2, 3 Nov 2026)
+        const said = level === 'off' ? undefined : id === 'filing' ? c.filing?.word : id === 'close' ? c.close?.word : undefined;
         const hint = level === 'part' ? `${t.labels[id]}: ${plain(html)}` : undefined;
-        return { id, level, n, start: GROUP_START.has(id), hint };
+        return { id, level, n, word: said && t.table_words[said], start: GROUP_START.has(id), hint };
       }),
     };
   });
 
-  const column = (id: FeatureId): TableColumn => ({ id, head: t.table_heads[id], hint: t.table_hints[id], start: GROUP_START.has(id) });
+  const flightPlan = TABLE_GROUPS.find((g) => g.id === 'flightplan')?.features ?? [];
+  const columnHint = (id: FeatureId) => (flightPlan.includes(id) ? `${t.table_hints[id]}. ${t.table.note}` : t.table_hints[id]);
+  const column = (id: FeatureId): TableColumn => ({ id, head: t.table_heads[id], hint: columnHint(id), start: GROUP_START.has(id) });
   const table: TableGroup[] = TABLE_GROUPS.map((g) => ({
     name: g.features.length > 1 ? t.table_groups[g.id] : undefined,
     columns: g.features.map(column),

@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "generated": "2026-10-22T17:17:22Z",
+  "generated": "2026-11-06T19:48:52Z",
   "countries": {
     "AL": {
       "weather": {
@@ -44,6 +44,7 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Tirana ARO"
         ],
@@ -89,6 +90,7 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARMATS, Zvartnots AIS (ext. 314)"
         ],
@@ -144,14 +146,17 @@
             "name": "Homebriefing (Austro Control)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "AIS/ARO Wien"
         ],
-        "ats": "sera"
+        "ats": "sera",
+        "activation": true
       },
       "reviewed": "2026-10-18",
       "circuits": {
@@ -220,6 +225,7 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "FIC Banja Luka",
           "ARO Sarajevo"
@@ -268,10 +274,12 @@
             "name": "skeyes",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Brussels ARO"
         ],
@@ -342,10 +350,12 @@
             "name": "B-FLIP (BULATSA)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
-        "level": "part"
+        "level": "part",
+        "word": "rule"
       },
       "reviewed": "2026-10-18",
       "circuits": {
@@ -386,7 +396,8 @@
         "level": "off"
       },
       "close": {
-        "level": "part"
+        "level": "part",
+        "word": "rule"
       },
       "prohibited": "EASA SD-2021-02",
       "reviewed": "2026-10-18",
@@ -451,10 +462,12 @@
             "name": "skybriefing",
             "access": "paid"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "alertMinutes": 30,
         "units": [
           "skyguide ARO"
@@ -531,10 +544,12 @@
             "name": "Cyprus DCA AIS",
             "access": "open"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Larnaka ARO"
         ]
@@ -593,10 +608,12 @@
             "name": "IBS (ANS CR)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Praha FIC"
         ],
@@ -669,10 +686,12 @@
             "name": "DFS AIS-Portal",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "AIS-C (DFS)"
         ],
@@ -681,7 +700,7 @@
       "reviewed": "2026-10-18",
       "circuits": {
         "level": "on",
-        "count": 548,
+        "count": 549,
         "source": "ofm"
       },
       "routes": {
@@ -745,11 +764,12 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
-          "AIS Briefing Naviair"
+          "ACC København"
         ]
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "circuits": {
         "level": "off",
         "count": 0,
@@ -815,10 +835,12 @@
             "name": "EANS AIM",
             "access": "open"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "reportMinutes": 30,
         "units": [
           "EANS Flight Data Assistant"
@@ -880,10 +902,12 @@
             "name": "ICARO (ENAIRE)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "aerodromes": 119,
         "ats": "sera"
       },
@@ -941,10 +965,12 @@
             "name": "ais.fi (Fintraffic)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ACC VFR Control"
         ],
@@ -1003,11 +1029,12 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
-          "AIS Briefing Naviair"
+          "Vágar AFIS"
         ]
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "charts": {
         "level": "off"
       },
@@ -1057,10 +1084,12 @@
             "name": "SOFIA-Briefing (DGAC)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "DSNA ARO"
         ],
@@ -1135,15 +1164,18 @@
             "name": "AFPEx (NATS)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "alertMinutes": 30,
         "units": [
           "AFPEx Helpdesk"
         ],
-        "ats": "atsu"
+        "ats": "atsu",
+        "activation": true
       },
       "reviewed": "2026-10-18",
       "charts": {
@@ -1202,10 +1234,12 @@
             "name": "Sakaeronavigatsia AIS",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Tbilisi"
         ],
@@ -1247,6 +1281,7 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Nuuk FIC"
         ]
@@ -1292,7 +1327,8 @@
         "level": "off"
       },
       "close": {
-        "level": "part"
+        "level": "part",
+        "word": "rule"
       },
       "reviewed": "2026-10-18",
       "circuits": {
@@ -1359,10 +1395,12 @@
             "name": "Internet Briefing (Croatia Control)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Central ARO Split"
         ]
@@ -1433,17 +1471,21 @@
             "name": "NetBriefing (HungaroControl)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
-          "ARO Budapest"
+          "Budapest FIC West",
+          "Budapest FIC East",
+          "Budapest FIC North",
+          "Budapest FIC North-East"
         ],
-        "ats": "sera",
-        "activation": true
+        "ats": "sera"
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "circuits": {
         "level": "on",
         "count": 47,
@@ -1457,7 +1499,7 @@
       "charts": {
         "level": "on",
         "kind": "every",
-        "count": 69
+        "count": 70
       },
       "fees": {
         "level": "on",
@@ -1497,10 +1539,12 @@
             "name": "AirNav Ireland",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Shannon ATS",
           "Dublin ATS"
@@ -1561,10 +1605,12 @@
             "name": "AFPEx (NATS)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "alertMinutes": 30,
         "units": [
           "Isle of Man ATC",
@@ -1622,10 +1668,12 @@
             "name": "Cronos (Avians)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Reykjavík ACC"
         ]
@@ -1675,7 +1723,8 @@
         "level": "off"
       },
       "close": {
-        "level": "part"
+        "level": "part",
+        "word": "rule"
       },
       "reviewed": "2026-10-18",
       "circuits": {
@@ -1740,7 +1789,8 @@
         "level": "off"
       },
       "close": {
-        "level": "part"
+        "level": "part",
+        "word": "rule"
       },
       "reviewed": "2026-10-18",
       "charts": {
@@ -1796,10 +1846,12 @@
             "name": "skeyes",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Luxembourg (ANA)",
           "Brussels ARO"
@@ -1829,7 +1881,13 @@
     },
     "LV": {
       "weather": {
-        "level": "off"
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (LGS)",
+            "access": "open"
+          }
+        ]
       },
       "notam": {
         "level": "on",
@@ -1850,13 +1908,27 @@
         ]
       },
       "forecast": {
-        "level": "off"
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (LGS)",
+            "access": "open"
+          }
+        ]
       },
       "filing": {
-        "level": "off"
+        "level": "on",
+        "publishers": [
+          {
+            "name": "IBS (LGS)",
+            "access": "account"
+          }
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "reportMinutes": 30,
         "units": [
           "ARO Riga"
@@ -1918,10 +1990,12 @@
             "name": "MoldATSA AIM",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Chişinău"
         ]
@@ -1988,6 +2062,7 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Malta AIS (NOF)"
         ]
@@ -2057,10 +2132,12 @@
             "name": "Amsterdam Integrated Briefing (LVNL)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Schiphol"
         ],
@@ -2136,10 +2213,12 @@
             "name": "IPPC (Avinor)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "AIS Norway"
         ],
@@ -2206,10 +2285,12 @@
             "name": "IWB (PANSA)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "alertMinutes": 30,
         "units": [
           "ARO Poland"
@@ -2227,7 +2308,7 @@
         "level": "off",
         "count": 0
       },
-      "points": 464,
+      "points": 467,
       "charts": {
         "level": "on",
         "kind": "every",
@@ -2259,10 +2340,10 @@
         ]
       },
       "airspace": {
-        "level": "part",
+        "level": "on",
         "publishers": [
           {
-            "name": "EUROCONTROL EAUP",
+            "name": "NAV Portugal AIS",
             "access": "open"
           }
         ]
@@ -2283,10 +2364,12 @@
             "name": "eARO (NAV Portugal)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Portugal"
         ],
@@ -2338,13 +2421,11 @@
       },
       "close": {
         "level": "on",
+        "word": "rule",
         "reportMinutes": 30,
-        "units": [
-          "ARO Bucureşti"
-        ],
         "ats": "sera"
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "circuits": {
         "level": "on",
         "count": 18,
@@ -2402,11 +2483,13 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Beograd"
-        ]
+        ],
+        "aerodromes": 26
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "charts": {
         "level": "off"
       },
@@ -2460,10 +2543,12 @@
             "name": "AROWeb (LFV)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "reportMinutes": 30,
         "units": [
           "Stockholm ACC",
@@ -2540,6 +2625,7 @@
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "ARO Slovenia"
         ],
@@ -2555,7 +2641,7 @@
         "level": "off",
         "count": 0
       },
-      "points": 74,
+      "points": 104,
       "charts": {
         "level": "on",
         "kind": "every",
@@ -2611,18 +2697,19 @@
             "name": "IBAF (LPS SR)",
             "access": "account"
           }
-        ]
+        ],
+        "word": "link"
       },
       "close": {
         "level": "on",
+        "word": "number",
         "units": [
           "Bratislava FIC",
           "CARO Bratislava"
         ],
-        "ats": "sera",
-        "activation": true
+        "ats": "sera"
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-03",
       "circuits": {
         "level": "on",
         "count": 37,
@@ -2686,11 +2773,10 @@
       },
       "close": {
         "level": "on",
-        "units": [
-          "Ankara FIC"
-        ]
+        "word": "rule",
+        "reportMinutes": 30
       },
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "charts": {
         "level": "off"
       },
@@ -2699,14 +2785,14 @@
     "US": {
       "circuits": {
         "level": "on",
-        "count": 4856,
+        "count": 4855,
         "source": "nasr",
         "altitudes": 438
       },
       "charts": {
         "level": "on",
         "kind": "every",
-        "count": 5285
+        "count": 5279
       },
       "openaip": true
     },

@@ -112,6 +112,7 @@ const data = {
 
   <details class="matrix" id="every-country" open>
     <summary>{t.table.summary}</summary>
+    <p class="mx-note">{t.table.note}</p>
     <div class="mx-wrap">
       <table class="mx">
         <thead>
@@ -132,7 +133,7 @@ const data = {
             <tr data-row={m.cc}>
               <th scope="row"><a href={`#${m.cc}`} data-cc={m.cc}>{m.name}</a></th>
               {m.cells.map((cell) => {
-                const shown = `${sym[cell.level]}${cell.n ? ` ${cell.n.toLocaleString(DATE_LOCALES[lang])}` : ''}`;
+                const shown = cell.word ?? `${sym[cell.level]}${cell.n ? ` ${cell.n.toLocaleString(DATE_LOCALES[lang])}` : ''}`;
                 // An "in part" cell says what it has: on hover, and on a tap in a popover over the page (the table
                 // scrolls in its own box on a phone, which would clip a tooltip). (the author, 31 Oct 2026)
                 return <td class:list={[`c-${cell.level}`, { start: cell.start }]}>{cell.hint
@@ -278,4 +279,5 @@ const data = {
   .mx-pop strong { color: var(--text); }
   .mx-pop::backdrop { background: rgb(0 0 0 / .25); }
   .mx-key { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+  .mx-note { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
 </style>

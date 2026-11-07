@@ -291,6 +291,7 @@ countries:
     fees: "Landing fees"
   table_groups: { briefing: "Briefing", flightplan: "Flight plan", map: "On the map" }
   table_heads: { weather: "Weather", notam: "NOTAMs", airspace: "Airspace activity", forecast: "Area forecast", filing: "Filing", close: "Closing", border: "Border rules", openaip: "Airspace & frequencies", circuits: "Traffic circuits", routes: "VFR routes", charts: "Official charts", fees: "Landing fees" }
+  table_words: { link: "link", number: "number and rule", rule: "rule only" }
   table_hints: { weather: "A link to the country's official weather pages", notam: "A link to the country's NOTAM page", airspace: "A link to the country's airspace activity page", forecast: "A link to the country's area forecast", filing: "Where to file the ATC flight plan, and by when", close: "How to close it after landing: the rule and the numbers", border: "Customs aerodrome and notice, to and from Switzerland", openaip: "Airspace, aerodromes and frequencies, from OpenAIP", circuits: "Traffic circuits on the map, with their altitude", routes: "VFR arrival and departure routes on the map, with their sectors", charts: "A link to each aerodrome's official chart", fees: "A link to the operator's tariff, per aerodrome" }
   access: { account: "free account", paid: "paid", restricted: "authorised users", signin: "sign-in" }
   text:
@@ -340,7 +341,7 @@ countries:
   near: { heading: "Across the border", briefing: "briefing pages", circuits: "circuits at {n}", charts: "charts for {n}", chart_links: "chart links", cockpit: "the cockpit and OpenAIP", closed: "closed to flights" }
   not_on_map: "Not on this map"
   map_label: "Map of Europe"
-  table: { summary: "Every country, every feature", country: "Country", key: "● yes · ◐ in part (tap it for what is missing) · – not yet. Figures: aerodromes (airports in the United States). Tap a country to open it above." }
+  table: { summary: "Every country, every feature", country: "Country", note: "The app doesn't file or close your flight plan: it links the portal, gives the number and reminds you.", key: "● yes · ◐ in part (tap it for what is missing) · – not yet. Figures: aerodromes (airports in the United States). Tap a country to open it above." }
   home_line: { lead: "The cockpit works everywhere.", briefing: "briefing pages for {n} countries", circuits: "traffic circuits in {n}", charts: "official chart links in {n}", link: "What works where" }
   where: "Where it works"
   in:

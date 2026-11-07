@@ -123,12 +123,16 @@ final class CockpitPilot {
     /// The app on the scenario, in English, with the Memory test on (the 6.1.0 page's setup), the event cards
     /// as `cards` says. `resume`: a relaunch mid-flight, the replay going on where it was.
     func launch(memoryTest: Bool = true, resume: Bool = false) {
-        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_CH"]
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_CH"] + extraLaunchArguments
         app.launchEnvironment["AEROCHECK_REPLAY"] = scenarioURL.path
         app.launchEnvironment["AEROCHECK_REPLAY_SPEED"] = String(Int(rate))
         app.launchEnvironment["AEROCHECK_MEMORY_TEST"] = memoryTest ? "1" : "0"
         app.launchEnvironment["AEROCHECK_CONFIRM_EVENTS"] = cards ? "1" : "0"
         app.launchEnvironment["AEROCHECK_REPLAY_RESUME"] = resume ? "1" : "0"
+        // What the runner asks of the app (a capture's clock, its weather, its folder): `TEST_RUNNER_AEROCHECK_APP_*`.
+        for (key, value) in ProcessInfo.processInfo.environment where key.hasPrefix("AEROCHECK_APP_") {
+            app.launchEnvironment["AEROCHECK_" + key.dropFirst("AEROCHECK_APP_".count)] = value
+        }
         app.launch()
         dismissSystemAlerts()
         guard !resume else { return }
@@ -144,6 +148,9 @@ final class CockpitPilot {
             _ = home.waitForExistence(timeout: 15)
         }
     }
+
+    /// Settings for this run, read from the argument domain and never saved ("-map.selectedLayer", "ICAO Chart").
+    var extraLaunchArguments: [String] = []
 
     /// What the harness had to do to get going, for the record.
     private(set) var launchNotes: [String] = []
@@ -394,10 +401,20 @@ final class CockpitPilot {
 
     // MARK: The pilot's checklist work
 
-    /// The hour meter asks at ENGINE START when the reading is logged (the default): skipped here.
+    /// The readings to give the hour meter, next first; none: it is skipped.
+    var hourMeterReadings: [String] = []
+
+    /// The hour meter asks at ENGINE START when the reading is logged (the default): skipped here, or given the next of
+    /// `hourMeterReadings`.
     func skipHourMeterIfAsked() {
         let b = app.buttons.matching(NSPredicate(format: "label IN {'Skip', 'SKIP', 'Cancel'}")).firstMatch
-        if let s = snap(b), s.isEnabled { tapNow(b) }
+        guard let s = snap(b), s.isEnabled else { return }
+        guard !hourMeterReadings.isEmpty else {
+            tapNow(b)
+            return
+        }
+        for digit in hourMeterReadings.removeFirst() { app.buttons[String(digit)].firstMatch.tap() }
+        app.buttons["Done"].firstMatch.tap()
     }
 
     /// CHECK through the current list (at most `max` items), until CHECK gives way. One query a CHECK:

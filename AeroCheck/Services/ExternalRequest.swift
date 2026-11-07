@@ -295,9 +295,11 @@ enum WeatherFixture {
         URL.applicationSupportDirectory.appending(path: "DebugFixtures/weather", directoryHint: .isDirectory)
     }
 
-    /// A weather request: the proxy's, or MeteoSwiss's measurements (`WindDataService`).
+    /// A weather request: the proxy's, MeteoSwiss's measurements (`WindDataService`), or the day's DABS, which a capture
+    /// needs as fixed as its weather (6.10.0).
     static func isWeather(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
+        if url.path.contains("/activation/v1/") { return true }
         if host == URL(string: APIConfig.weatherBaseURL)?.host?.lowercased() { return true }
         return host == "data.geo.admin.ch" && url.path.hasPrefix("/ch.meteoschweiz.")
     }

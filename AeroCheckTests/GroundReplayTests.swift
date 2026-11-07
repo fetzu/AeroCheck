@@ -127,6 +127,7 @@ final class GroundReplayTests: XCTestCase {
         XCTAssertEqual(cursor.t, 600, "stops at the end of the track")
         XCTAssertEqual(GroundReplayCursor.Condition("phase:climb"), .phase(.climb))
         XCTAssertNil(GroundReplayCursor.Condition("whenever"))
+        XCTAssertEqual(GroundReplayCursor.Condition("frame:alpsFrame"), .frame("alpsFrame"), "a frame's name keeps its case")
     }
 
     /// A stop-and-go waits for the line-up check itself: the Cockpit is past it already (on the landing

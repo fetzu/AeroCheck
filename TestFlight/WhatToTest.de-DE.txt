@@ -1,9 +1,15 @@
-6.8.2 behebt vier Kleinigkeiten, die bei der Veröffentlichung von 6.8.0 aufgefallen sind.
+6.9.0 bringt die Unter- und Obergrenze jedes Luftraums auf die Karte und zeigt, welche Schweizer Gebiete heute aktiv sind.
 
-Zum Ausprobieren:
-- Das Flugbuch ohne Flug (eine neue Installation): zwei Sätze auf zwei Zeilen, ohne «\n».
-- Die Karte auf der ICAO-Karte: Zoomen Sie langsam von der ganzen Schweiz bis zu einem Dorf. Die ICAO-Karte, dann die Segelflugkarte, dann die Landeskarte, jede scharf, bis die nächste übernimmt. Versuchen Sie es auch auf einem quer gehaltenen iPhone, in der KARTE des Cockpits.
-- Die Einführung schlägt Ihre Basis weiterhin anhand Ihres Standorts vor, auch offline.
-- Schalten Sie die Luftraum-Ebene ein, schliessen Sie die App im App-Umschalter und öffnen Sie sie wieder: Die Karte zeigt die Lufträume, ohne dass Sie sie verschieben.
+Das können Sie ausprobieren:
+- Starten Sie einen Flug und schauen Sie auf die Cockpit-Karte: Etiketten nennen den Luftraum, der jetzt zählt. Menü › Alle Lufträume beschriften (der Chip ALLE LUFTRÄUME) beschriftet alle.
+- Planen › Karte: die Grenzen entlang der Luftraumränder (Kartenblatt › Unter- und Obergrenzen) und die Geländehöhe.
+- Tippen Sie irgendwo auf die Karte: die Lufträume über diesem Punkt, übereinander.
+- Fliegen Sie eine Route auf einen kontrollierten Luftraum zu: LUFTRAUM VORAUS erscheint im Statusfeld.
+- In der Schweiz wird ein heute inaktives R- oder D-Gebiet blass und löst LUFTRAUM VORAUS nicht aus.
+- Tippen Sie auf einen Flugplatz: die Karte in festen Zeilen, am Boden und im Flug.
+- Planen Sie einen Flug über eine Grenze: Die Flugseite sagt, ob Sie einen ATC-Flugplan brauchen. Nach dem Start auf einem Flugplatz ohne Turm erinnert ABFLUG MELDEN daran. Platzrunden verlangen beides nicht.
+- Planen Sie eine Route durch ein Land ohne heruntergeladene Lufträume: Die Flugseite sagt es und bietet es an.
+- Bei einer Neuinstallation zeigt der erste geplante Flug eine Seite zu den Berechtigungen (danach Einstellungen › iCloud & Aufzeichnung › Berechtigungen).
+- Blenden Sie einen Club in den Einstellungen aus und wählen Sie dann eines seiner Flugzeuge unter Premium-Flugzeuge: Es bleibt ausgewählt.
 
-Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Bildschirmfoto mit einer Zeile Text geht am schnellsten.
+Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Screenshot mit einer Zeile Text ist am schnellsten.

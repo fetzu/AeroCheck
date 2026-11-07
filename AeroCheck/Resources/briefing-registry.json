@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "generated": "2026-10-25T10:33:20Z",
+  "generated": "2026-11-07T15:14:10Z",
   "countries": {
     "AL": {
       "weather": [
@@ -135,6 +135,7 @@
         ]
       },
       "generic": [],
+      "activation": "no-ats",
       "reviewed": "2026-10-18",
       "filingLeadMinutes": 60,
       "filingLeadMinutesDomestic": 30
@@ -545,13 +546,13 @@
       "closing": {
         "phones": [
           {
-            "number": "+4532478272",
-            "name": "AIS Briefing Naviair"
+            "number": "+4532462338",
+            "name": "ACC København"
           }
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-07",
       "filingLeadMinutes": 60
     },
     "EE": {
@@ -602,7 +603,7 @@
       },
       "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-07",
       "filingLeadMinutes": 60,
       "filingLeadMinutesDomestic": 30
     },
@@ -669,19 +670,35 @@
               }
             ]
           },
+          "LEUC": {
+            "phones": [
+              {
+                "number": "+34942202111",
+                "name": "ARO Santander, until 10 Nov"
+              },
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LERP": {
+            "phones": [
+              {
+                "number": "+34942202111",
+                "name": "ARO Santander, until 10 Nov"
+              },
+              {
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
           "LEMR": {
             "phones": [
               {
                 "number": "+34918603556",
                 "name": "Centralised ARO, area 1"
-              },
-              {
-                "number": "+34985127531",
-                "name": "ARO Asturias"
-              },
-              {
-                "number": "+34985127532",
-                "name": "ARO Asturias"
               }
             ]
           },
@@ -714,14 +731,26 @@
               {
                 "number": "+34918603556",
                 "name": "Centralised ARO, area 1"
+              }
+            ]
+          },
+          "LEDB": {
+            "phones": [
+              {
+                "number": "+34945163518",
+                "name": "ARO Vitoria, until 16 Nov"
               },
               {
-                "number": "+34985127531",
-                "name": "ARO Asturias"
-              },
+                "number": "+34918603557",
+                "name": "Centralised ARO, area 2"
+              }
+            ]
+          },
+          "LEUM": {
+            "phones": [
               {
-                "number": "+34985127532",
-                "name": "ARO Asturias"
+                "number": "+34918603557",
+                "name": "Centralised ARO, area 2"
               }
             ]
           },
@@ -997,15 +1026,43 @@
               }
             ]
           },
+          "LEIS": {
+            "phones": [
+              {
+                "number": "+34918603562",
+                "name": "Centralised ARO, area 7"
+              }
+            ]
+          },
+          "LESB": {
+            "phones": [
+              {
+                "number": "+34918603562",
+                "name": "Centralised ARO, area 7"
+              }
+            ]
+          },
+          "LEPT": {
+            "phones": [
+              {
+                "number": "+34918603562",
+                "name": "Centralised ARO, area 7"
+              }
+            ]
+          },
           "LESL": {
             "phones": [
               {
                 "number": "+34918603562",
                 "name": "Centralised ARO, area 7"
-              },
+              }
+            ]
+          },
+          "LEJF": {
+            "phones": [
               {
-                "number": "+34971157138",
-                "name": "ARO Menorca"
+                "number": "+34918603562",
+                "name": "Centralised ARO, area 7"
               }
             ]
           },
@@ -1512,12 +1569,8 @@
                 "name": "ARO León"
               },
               {
-                "number": "+34985127531",
-                "name": "ARO Asturias, outside León's hours"
-              },
-              {
-                "number": "+34985127532",
-                "name": "ARO Asturias, outside León's hours"
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1, outside León's hours"
               }
             ]
           },
@@ -1528,12 +1581,8 @@
                 "name": "ARO León"
               },
               {
-                "number": "+34985127531",
-                "name": "ARO Asturias, outside León's hours"
-              },
-              {
-                "number": "+34985127532",
-                "name": "ARO Asturias, outside León's hours"
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1, outside León's hours"
               }
             ]
           },
@@ -1544,12 +1593,8 @@
                 "name": "ARO León"
               },
               {
-                "number": "+34985127531",
-                "name": "ARO Asturias, outside León's hours"
-              },
-              {
-                "number": "+34985127532",
-                "name": "ARO Asturias, outside León's hours"
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1, outside León's hours"
               }
             ]
           },
@@ -1560,12 +1605,8 @@
                 "name": "ARO León"
               },
               {
-                "number": "+34985127531",
-                "name": "ARO Asturias, outside León's hours"
-              },
-              {
-                "number": "+34985127532",
-                "name": "ARO Asturias, outside León's hours"
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1, outside León's hours"
               }
             ]
           },
@@ -1576,84 +1617,8 @@
                 "name": "ARO León"
               },
               {
-                "number": "+34985127531",
-                "name": "ARO Asturias, outside León's hours"
-              },
-              {
-                "number": "+34985127532",
-                "name": "ARO Asturias, outside León's hours"
-              }
-            ]
-          },
-          "LEIS": {
-            "phones": [
-              {
-                "number": "+34971789275",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789286",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789309",
-                "name": "ARO Palma de Mallorca"
-              }
-            ]
-          },
-          "LEJF": {
-            "phones": [
-              {
-                "number": "+34971789275",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789286",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789309",
-                "name": "ARO Palma de Mallorca"
-              }
-            ]
-          },
-          "LEPT": {
-            "phones": [
-              {
-                "number": "+34971789275",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789286",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789309",
-                "name": "ARO Palma de Mallorca"
-              }
-            ]
-          },
-          "LESB": {
-            "phones": [
-              {
-                "number": "+34971789275",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789286",
-                "name": "ARO Palma de Mallorca"
-              },
-              {
-                "number": "+34971789309",
-                "name": "ARO Palma de Mallorca"
-              }
-            ]
-          },
-          "LEUM": {
-            "phones": [
-              {
-                "number": "+34948168740",
-                "name": "ARO Pamplona"
+                "number": "+34918603556",
+                "name": "Centralised ARO, area 1, outside León's hours"
               }
             ]
           },
@@ -1693,30 +1658,6 @@
               }
             ]
           },
-          "LEUC": {
-            "phones": [
-              {
-                "number": "+34942202111",
-                "name": "ARO Santander"
-              },
-              {
-                "number": "+34942202113",
-                "name": "ARO Santander"
-              }
-            ]
-          },
-          "LERP": {
-            "phones": [
-              {
-                "number": "+34942202111",
-                "name": "ARO Santander"
-              },
-              {
-                "number": "+34942202113",
-                "name": "ARO Santander"
-              }
-            ]
-          },
           "LEVB": {
             "phones": [
               {
@@ -1740,21 +1681,13 @@
                 "name": "ARO Valladolid"
               }
             ]
-          },
-          "LEDB": {
-            "phones": [
-              {
-                "number": "+34945163518",
-                "name": "ARO Vitoria"
-              }
-            ]
           }
         }
       },
       "generic": [
         "airspace"
       ],
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-07",
       "filingLeadMinutes": 60
     },
     "FI": {
@@ -1828,13 +1761,13 @@
       "closing": {
         "phones": [
           {
-            "number": "+4532478272",
-            "name": "AIS Briefing Naviair"
+            "number": "+298354450",
+            "name": "Vágar AFIS"
           }
         ]
       },
       "generic": [],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-11-04"
     },
     "FR": {
       "weather": [
@@ -1933,6 +1866,7 @@
         "atsClose": "atsu"
       },
       "generic": [],
+      "activation": "no-ats",
       "reviewed": "2026-10-18",
       "filingLeadMinutes": 60
     },
@@ -2143,8 +2077,20 @@
       "closing": {
         "phones": [
           {
-            "number": "+3612934310",
-            "name": "ARO Budapest"
+            "number": "+3612934102",
+            "name": "Budapest FIC West"
+          },
+          {
+            "number": "+3612934103",
+            "name": "Budapest FIC East"
+          },
+          {
+            "number": "+3612934104",
+            "name": "Budapest FIC North"
+          },
+          {
+            "number": "+3612934133",
+            "name": "Budapest FIC North-East"
           }
         ],
         "atsClose": "sera",
@@ -2157,8 +2103,7 @@
         ]
       },
       "generic": [],
-      "activation": "no-ats",
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-07",
       "filingLeadMinutes": 60
     },
     "IE": {
@@ -2425,7 +2370,13 @@
       "filingLeadMinutesDomestic": 30
     },
     "LV": {
-      "weather": [],
+      "weather": [
+        {
+          "name": "IBS (LGS)",
+          "url": "https://ibs.lgs.lv/home.do",
+          "access": "open"
+        }
+      ],
       "notam": [
         {
           "name": "LGS AIS",
@@ -2440,8 +2391,20 @@
           "access": "open"
         }
       ],
-      "forecast": [],
-      "filing": [],
+      "forecast": [
+        {
+          "name": "IBS (LGS)",
+          "url": "https://ibs.lgs.lv/home.do",
+          "access": "open"
+        }
+      ],
+      "filing": [
+        {
+          "name": "IBS (LGS)",
+          "url": "https://ibs.lgs.lv/home.do",
+          "access": "account"
+        }
+      ],
       "closing": {
         "phones": [
           {
@@ -2452,13 +2415,9 @@
         "reportMinutes": 30,
         "atsClose": "sera"
       },
-      "generic": [
-        "weather",
-        "forecast",
-        "filing"
-      ],
+      "generic": [],
       "activation": "no-ats",
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-07",
       "filingLeadMinutes": 60,
       "filingLeadMinutesDomestic": 30
     },
@@ -2729,8 +2688,8 @@
       ],
       "airspace": [
         {
-          "name": "EUROCONTROL EAUP",
-          "url": "https://www.public.nm.eurocontrol.int/PUBPORTAL/gateway/spec/index.html",
+          "name": "NAV Portugal AIS",
+          "url": "https://ais.nav.pt/access-the-airspace-use-plan-updated-use-plan/",
           "access": "open"
         }
       ],
@@ -2764,11 +2723,10 @@
           }
         ]
       },
-      "generic": [
-        "airspace"
-      ],
-      "reviewed": "2026-10-18",
-      "filingLeadMinutes": 60
+      "generic": [],
+      "reviewed": "2026-11-07",
+      "filingLeadMinutes": 60,
+      "filingLeadMinutesDomestic": 30
     },
     "RO": {
       "weather": [],
@@ -2798,7 +2756,11 @@
         "phones": [
           {
             "number": "+40212032122",
-            "name": "ARO Bucureşti"
+            "name": "ARO/Briefing București"
+          },
+          {
+            "number": "+40213114315",
+            "name": "ARO/Briefing București"
           }
         ],
         "reportMinutes": 30,
@@ -2808,7 +2770,7 @@
         "weather",
         "filing"
       ],
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-07",
       "filingLeadMinutes": 60
     },
     "RS": {
@@ -2841,10 +2803,220 @@
             "number": "+381113814576",
             "name": "ARO Beograd"
           }
-        ]
+        ],
+        "aerodromes": {
+          "LYBJ": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYKU": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYNS": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYPA": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYSU": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYVJ": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYZR": {
+            "phones": [
+              {
+                "number": "+381113106210",
+                "name": "ARO Batajnica"
+              }
+            ]
+          },
+          "LYBE": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYKG": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYKT": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYSD": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYSM": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYSP": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYVA": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYZP": {
+            "phones": [
+              {
+                "number": "+381113814576",
+                "name": "ARO Beograd"
+              }
+            ]
+          },
+          "LYCA": {
+            "phones": [
+              {
+                "number": "+38136305201",
+                "name": "ARO Kraljevo"
+              }
+            ]
+          },
+          "LYKA": {
+            "phones": [
+              {
+                "number": "+38136305201",
+                "name": "ARO Kraljevo"
+              }
+            ]
+          },
+          "LYKV": {
+            "phones": [
+              {
+                "number": "+38136305201",
+                "name": "ARO Kraljevo"
+              }
+            ]
+          },
+          "LYPJ": {
+            "phones": [
+              {
+                "number": "+38136305201",
+                "name": "ARO Kraljevo"
+              }
+            ]
+          },
+          "LYTR": {
+            "phones": [
+              {
+                "number": "+38136305201",
+                "name": "ARO Kraljevo"
+              }
+            ]
+          },
+          "LYUZ": {
+            "phones": [
+              {
+                "number": "+38136305201",
+                "name": "ARO Kraljevo"
+              }
+            ]
+          },
+          "LYCU": {
+            "phones": [
+              {
+                "number": "+381184290803",
+                "name": "ARO Niš"
+              }
+            ]
+          },
+          "LYKS": {
+            "phones": [
+              {
+                "number": "+381184290803",
+                "name": "ARO Niš"
+              }
+            ]
+          },
+          "LYNI": {
+            "phones": [
+              {
+                "number": "+381184290803",
+                "name": "ARO Niš"
+              }
+            ]
+          },
+          "LYPN": {
+            "phones": [
+              {
+                "number": "+381184290803",
+                "name": "ARO Niš"
+              }
+            ]
+          },
+          "LYVR": {
+            "phones": [
+              {
+                "number": "+38113800820",
+                "name": "ARO Vršac"
+              }
+            ]
+          }
+        }
       },
       "generic": [],
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-04",
       "filingLeadMinutes": 60,
       "filingLeadMinutesDomestic": 30
     },
@@ -3004,8 +3176,7 @@
       "generic": [
         "airspace"
       ],
-      "activation": "no-ats",
-      "reviewed": "2026-10-18",
+      "reviewed": "2026-11-03",
       "filingLeadMinutes": 60,
       "filingLeadMinutesDomestic": 30
     },
@@ -3040,94 +3211,963 @@
       ],
       "filing": [],
       "closing": {
-        "phones": [
-          {
-            "number": "+903128271048",
-            "name": "Ankara FIC"
-          }
-        ]
+        "phones": [],
+        "reportMinutes": 30
       },
       "generic": [
         "notam",
         "airspace"
       ],
-      "reviewed": "2026-10-18"
+      "reviewed": "2026-11-04"
     }
   },
   "flags": [
     {
-      "country": "LV",
-      "url": "https://ibs.lgs.lv/home.do",
-      "status": 403,
-      "detail": "weather: IBS (LGS) failed; left out",
-      "level": "link"
-    },
-    {
-      "country": "LV",
-      "url": "https://ibs.lgs.lv/home.do",
-      "status": 403,
-      "detail": "forecast: IBS (LGS) failed; left out",
-      "level": "link"
-    },
-    {
-      "country": "LV",
-      "url": "https://ibs.lgs.lv/home.do",
-      "status": 403,
-      "detail": "filing: IBS (LGS) failed; left out",
-      "level": "link"
-    },
-    {
-      "country": "PT",
-      "url": "https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html",
-      "status": 526,
-      "detail": "ais: NAV Portugal eAIP failed; left out",
-      "level": "link"
-    },
-    {
-      "country": "PT",
-      "url": "https://ais.nav.pt/access-the-airspace-use-plan-updated-use-plan/",
-      "status": 526,
-      "detail": "airspace: NAV Portugal AIS failed; left out",
-      "level": "link"
-    },
-    {
-      "country": "SI",
-      "url": "https://aim.sloveniacontrol.si/aim/",
+      "country": "CZ",
+      "url": "https://aim.rlp.cz/?lang=en",
       "status": 0,
-      "detail": "ais: Slovenia Control AIM failed; left out",
+      "detail": "ais: AIM ANS CR failed; left out",
       "level": "link"
     },
     {
-      "country": "SI",
-      "url": "https://aim.sloveniacontrol.si/aim/products/notam-summary/",
+      "country": "CZ",
+      "url": "https://meteo.rlp.cz/",
       "status": 0,
-      "detail": "notam: Slovenia Control AIM: no answer, last week's link kept (silent since 2026-10-22)",
+      "detail": "weather: ANS CR Meteo: no answer, last week's link kept (silent since 2026-11-07)",
       "level": "link",
-      "since": "2026-10-22"
+      "since": "2026-11-07"
     },
     {
-      "country": "SI",
-      "url": "https://aim.sloveniacontrol.si/aim/products/restricted-area-activation/",
+      "country": "CZ",
+      "url": "https://ibs.rlp.cz/",
       "status": 0,
-      "detail": "airspace: Slovenia Control AIM: no answer, last week's link kept (silent since 2026-10-22)",
+      "detail": "notam: IBS (ANS CR): no answer, last week's link kept (silent since 2026-11-07)",
       "level": "link",
-      "since": "2026-10-22"
+      "since": "2026-11-07"
     },
     {
-      "country": "TR",
-      "url": "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+      "country": "CZ",
+      "url": "https://aup.rlp.cz/",
       "status": 0,
-      "detail": "ais: DHMİ AIP: no answer, last week's link kept (silent since 2026-10-22)",
+      "detail": "airspace: AUP (ANS CR): no answer, last week's link kept (silent since 2026-11-07)",
       "level": "link",
-      "since": "2026-10-22"
+      "since": "2026-11-07"
     },
     {
-      "country": "TR",
-      "url": "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+      "country": "CZ",
+      "url": "https://ibs.rlp.cz/",
       "status": 0,
-      "detail": "notam: DHMİ AIP: no answer, last week's link kept (silent since 2026-10-22)",
+      "detail": "filing: IBS (ANS CR): no answer, last week's link kept (silent since 2026-11-07)",
       "level": "link",
-      "since": "2026-10-22"
+      "since": "2026-11-07"
     }
-  ]
+  ],
+  "flightPlan": {
+    "countries": {
+      "CH": {
+        "depRequired": true,
+        "alertingWithoutDep": true,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "aerodromes",
+            "icao": [
+              "LSGG",
+              "LSZH"
+            ]
+          }
+        ]
+      },
+      "LI": {
+        "depRequired": true,
+        "alertingWithoutDep": true,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "AT": {
+        "depRequired": true,
+        "alertingWithoutDep": true,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "classes": [
+                  "E",
+                  "G"
+                ],
+                "day": true
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "AU": {
+        "depRequired": false,
+        "alertingWithoutDep": true,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "NZ": {
+        "depRequired": false,
+        "alertingWithoutDep": true,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          }
+        ]
+      },
+      "AL": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "BA": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "BE": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "classes": [
+                  "G"
+                ],
+                "from": [
+                  "AT",
+                  "BE",
+                  "BG",
+                  "CH",
+                  "CZ",
+                  "DE",
+                  "DK",
+                  "EE",
+                  "ES",
+                  "FI",
+                  "FR",
+                  "GR",
+                  "HR",
+                  "HU",
+                  "IS",
+                  "IT",
+                  "LI",
+                  "LT",
+                  "LU",
+                  "LV",
+                  "MT",
+                  "NL",
+                  "NO",
+                  "PL",
+                  "PT",
+                  "RO",
+                  "SE",
+                  "SI",
+                  "SK"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "CZ": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "AT",
+                  "BE",
+                  "BG",
+                  "CH",
+                  "CZ",
+                  "DE",
+                  "DK",
+                  "EE",
+                  "ES",
+                  "FI",
+                  "FR",
+                  "GR",
+                  "HR",
+                  "HU",
+                  "IS",
+                  "IT",
+                  "LI",
+                  "LT",
+                  "LU",
+                  "LV",
+                  "MT",
+                  "NL",
+                  "NO",
+                  "PL",
+                  "PT",
+                  "RO",
+                  "SE",
+                  "SI",
+                  "SK"
+                ],
+                "classes": [
+                  "E",
+                  "G"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C"
+            ]
+          },
+          {
+            "when": "aerodromes",
+            "icao": [
+              "LKCV",
+              "LKKB",
+              "LKNA",
+              "LKPD"
+            ]
+          }
+        ]
+      },
+      "EE": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "FI": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "GB": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "IM"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "IE": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "IT": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "SM"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "LV": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "MT": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "NO": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "PL": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "CZ",
+                  "DE",
+                  "LT",
+                  "SK"
+                ],
+                "classes": [
+                  "G"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "SE": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "US": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": 120,
+        "planNeeded": [
+          {
+            "when": "border"
+          }
+        ]
+      },
+      "DE": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "AT",
+                  "BE",
+                  "CH",
+                  "CZ",
+                  "DK",
+                  "FR",
+                  "LU",
+                  "NL",
+                  "PL"
+                ]
+              },
+              {
+                "states": [
+                  "EE",
+                  "ES",
+                  "FI",
+                  "GR",
+                  "HU",
+                  "IS",
+                  "IT",
+                  "LT",
+                  "LV",
+                  "MT",
+                  "NO",
+                  "PT",
+                  "SE",
+                  "SI",
+                  "SK"
+                ],
+                "nonStop": true
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "DK": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "FO": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "FR": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "GL": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "IM": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "GB"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "LU": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "classes": [
+                  "G"
+                ],
+                "from": [
+                  "AT",
+                  "BE",
+                  "BG",
+                  "CH",
+                  "CZ",
+                  "DE",
+                  "DK",
+                  "EE",
+                  "ES",
+                  "FI",
+                  "FR",
+                  "GR",
+                  "HR",
+                  "HU",
+                  "IS",
+                  "IT",
+                  "LI",
+                  "LT",
+                  "LU",
+                  "LV",
+                  "MT",
+                  "NL",
+                  "NO",
+                  "PL",
+                  "PT",
+                  "RO",
+                  "SE",
+                  "SI",
+                  "SK"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "SI": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "ZA": {
+        "depRequired": true,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": 60,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "ES": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": 60,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "PT": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": 30,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "HU": {
+        "depRequired": true,
+        "alertingWithoutDep": false,
+        "cancelAfterMinutes": 60,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "AT",
+                  "BE",
+                  "BG",
+                  "CH",
+                  "CZ",
+                  "DE",
+                  "DK",
+                  "EE",
+                  "ES",
+                  "FI",
+                  "FR",
+                  "GR",
+                  "HR",
+                  "HU",
+                  "IS",
+                  "IT",
+                  "LI",
+                  "LT",
+                  "LU",
+                  "LV",
+                  "MT",
+                  "NL",
+                  "NO",
+                  "PL",
+                  "PT",
+                  "RO",
+                  "SE",
+                  "SI"
+                ],
+                "classes": [
+                  "G"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          },
+          {
+            "when": "classes",
+            "classes": [
+              "C",
+              "D"
+            ]
+          }
+        ]
+      },
+      "AM": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          }
+        ]
+      },
+      "CY": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "GE": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          }
+        ]
+      },
+      "IS": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "ME": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "MK": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "NL": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border",
+            "waived": [
+              {
+                "states": [
+                  "AT",
+                  "BE",
+                  "BG",
+                  "CH",
+                  "CZ",
+                  "DE",
+                  "DK",
+                  "EE",
+                  "ES",
+                  "FI",
+                  "FR",
+                  "GR",
+                  "HR",
+                  "HU",
+                  "IS",
+                  "IT",
+                  "LI",
+                  "LT",
+                  "LU",
+                  "LV",
+                  "MT",
+                  "NL",
+                  "NO",
+                  "PL",
+                  "PT",
+                  "RO",
+                  "SE",
+                  "SI",
+                  "SK"
+                ]
+              }
+            ]
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "RO": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "border"
+          },
+          {
+            "when": "night"
+          }
+        ]
+      },
+      "RS": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "all"
+          }
+        ]
+      },
+      "TR": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": [
+          {
+            "when": "all"
+          }
+        ]
+      },
+      "BG": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      },
+      "BY": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      },
+      "GR": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      },
+      "HR": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      },
+      "LT": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      },
+      "MD": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      },
+      "SK": {
+        "depRequired": null,
+        "alertingWithoutDep": null,
+        "cancelAfterMinutes": null,
+        "planNeeded": null
+      }
+    },
+    "aerodromeDeparture": {
+      "LFSB": "CH"
+    }
+  }
 }

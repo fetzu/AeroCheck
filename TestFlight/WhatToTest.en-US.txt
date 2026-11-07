@@ -1,9 +1,15 @@
-6.8.2 fixes four small things found while 6.8.0 was released.
+6.9.0 puts each airspace's floor and ceiling on the map, and tells you which Swiss areas are active today.
 
 What to try:
-- The Logbook with no flight in it (a fresh install): two sentences on two lines, no "\n".
-- The map on the ICAO chart: zoom in slowly from the whole of Switzerland to a village. The ICAO chart, then the glider chart, then the National Map, each sharp until the next takes over. Try it on an iPhone on its side too, in the Cockpit's MAP.
-- The introduction still suggests your base from where you are, offline too.
-- Turn the airspace layer on, close the app from the app switcher and open it again: the map shows the airspace without a pan.
+- Start a flight and watch the Cockpit's map: tags name the airspace that matters now. Menu › Label every airspace (the EVERY AIRSPACE chip) labels all of them.
+- Plan › Map: the limits along the boundaries (Map sheet › Floors & ceilings) and the ground height.
+- Tap the map anywhere: the stack of airspaces over that point.
+- Fly or replay a route towards controlled airspace: AIRSPACE AHEAD appears in the status slot.
+- In Switzerland, an R or D area that is off today is faded, and doesn't trigger AIRSPACE AHEAD.
+- Tap an aerodrome: the card in fixed rows, on the ground and in flight.
+- Plan a flight across a border: the flight page tells you if you need a flight plan. After take-off from an aerodrome without a tower, REPORT DEPARTURE reminds you. Circuits ask for neither.
+- Plan a route through a country without downloaded airspace: the flight page says so and offers it.
+- On a fresh install, the first flight you plan shows one page about permissions (Settings › iCloud & Log › Permissions afterwards).
+- Hide a club in Settings, then pick one of its aircraft under Premium aircraft: it stays selected.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

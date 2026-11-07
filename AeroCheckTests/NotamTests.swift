@@ -80,6 +80,44 @@ final class NotamTests: NotamTestCase {
     }
 
     /// The server's fallbacks: "" for a string it doesn't have, IV and QXXXX, and `bytes` in the index.
+    func testAnActivationReadsAndOneThatCantBeReadLeavesTheNotam() throws {
+        let json = """
+        {"v":1,"notams":[
+         {"id":"1","number":"B1/26","location":"LKAA","text":"T","activation":{"kind":"R","areas":["lktsa2b"],
+          "shapes":[{"centre":[50.2,12.9],"radiusNm":3},{"polygon":[[12.9,50.2],[13.0,50.2],[13.0,50.3],[12.9,50.2]]},{"centre":[99,1],"radiusNm":1}],
+          "windowsUtc":[["2026-11-04T08:00:00Z","2026-11-04T15:00:00Z"],["bad","2026-11-04T15:00:00Z"]],"exact":true,
+          "lower":{"raw":"GND","ft":0,"ref":"GND"},"upper":{"raw":"4000FT AMSL","ft":4000,"ref":"MSL"},"newKey":1}},
+         {"id":"2","number":"B2/26","location":"LKAA","text":"T","activation":{"kind":"X","windowsUtc":[],"lower":{},"upper":{}}},
+         {"id":"3","number":"B3/26","location":"LKAA","text":"T","activation":{"kind":"D","windowsUtc":[],
+          "lower":{"raw":"GND","ft":0,"ref":"GND"},"upper":{"raw":"FL95","ft":9500,"ref":"STD"}}}
+        ]}
+        """
+        let file = try JSONDecoder().decode(NotamFile.self, from: Data(json.utf8))
+        XCTAssertEqual(file.notams.map(\.number), ["B1/26", "B2/26", "B3/26"])
+        let read = try XCTUnwrap(file.notams[0].activation)
+        XCTAssertEqual(read.kind, .restricted)
+        XCTAssertEqual(read.areas, ["LKTSA2B"])
+        XCTAssertEqual(read.shapes.count, 2)
+        XCTAssertEqual(read.windows.count, 1)
+        XCTAssertTrue(read.exact)
+        XCTAssertEqual(read.upper.ft, 4000)
+        // An unknown kind, or no window: the NOTAM stays, without an area
+        XCTAssertNil(file.notams[1].activation)
+        XCTAssertNil(file.notams[2].activation)
+    }
+
+    func testAnAirspacesDesignatorReadsAsTheServerWritesANotamsAreas() {
+        XCTAssertEqual(Airspace.designatorKey(of: "LF-R68B (AMC MANAGEABLE AERA)"), "LFR68B")
+        XCTAssertEqual(Airspace.designatorKey(of: "EHTSA 16B AMSTERDAM/DAM SQUARE"), "EHTSA16B")
+        XCTAssertEqual(Airspace.designatorKey(of: "EY-D 10"), "EYD10")
+        XCTAssertEqual(Airspace.designatorKey(of: "LI TRA426 - FRANCAVILLA"), "LITRA426")
+        XCTAssertEqual(Airspace.designatorKey(of: "EB-D26-ARDENNES 05"), "EBD26")
+        XCTAssertEqual(Airspace.designatorKey(of: "TSA26B ARDENNES 04"), "TSA26B")
+        XCTAssertEqual(Airspace.designatorKey(of: "ED-R37B_2 NORDHORN NOTAM"), "EDR37B")
+        XCTAssertEqual(Airspace.designatorKey(of: "LSR11A ZUOZ/S-CHANF"), "LSR11A")
+        XCTAssertNil(Airspace.designatorKey(of: "ZRT SAINT-DIZIER"))
+    }
+
     func testTheServersEmptyStringsReadAsNothing() throws {
         let json = """
         {"v":1,"notams":[{"id":"1","number":"A1/26","location":"","fir":"","text":"","icao":"A1/26 NOTAMN","schedule":"","plain":"",

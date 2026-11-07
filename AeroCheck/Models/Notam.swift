@@ -170,11 +170,13 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
     /// [[lon, lat]].
     var polygon: [[Double]]?
     var kind: Kind
+    /// Only on a NOTAM that creates or activates an area: the server's reading of it (6.10.0).
+    var activation: NotamActivation?
 
     init(id: String, number: String, location: String, fir: String? = nil, q: String? = nil, traffic: String? = "IV",
          scope: String? = nil, lowerFl: Int = 0, upperFl: Int = 999, start: Date? = nil, end: Date? = nil, estimated: Bool = false,
          schedule: String? = nil, text: String, icao: String = "", plain: String? = nil, lat: Double? = nil, lon: Double? = nil,
-         radiusNm: Double? = nil, polygon: [[Double]]? = nil, kind: Kind = .other) {
+         radiusNm: Double? = nil, polygon: [[Double]]? = nil, kind: Kind = .other, activation: NotamActivation? = nil) {
         self.id = id
         self.number = number
         self.location = location
@@ -196,6 +198,7 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
         self.radiusNm = radiusNm
         self.polygon = polygon
         self.kind = kind
+        self.activation = activation
     }
 
     init(from decoder: Decoder) throws {
@@ -225,11 +228,13 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
         radiusNm = optional(Double.self, .radiusNm)
         polygon = optional([[Double]].self, .polygon)
         kind = optional(String.self, .kind).flatMap(Kind.init(rawValue:)) ?? .other
+        // One that can't be read is a NOTAM without one: it stays in the list.
+        activation = optional(NotamActivation.self, .activation)
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, number, location, fir, q, traffic, scope, lowerFl, upperFl, start, end, estimated, schedule, text, icao, plain
-        case lat, lon, radiusNm, polygon, kind
+        case lat, lon, radiusNm, polygon, kind, activation
     }
 
     /// The same NOTAM repeated for another place on its line A. Numbers repeat between countries, not their text.
@@ -287,6 +292,93 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
 
     /// Goes from the ground to the top of the sky, as most at an aerodrome do: its band says nothing.
     var isWholeBand: Bool { lowerFl <= 0 && upperFl >= 999 }
+}
+
+/// What a NOTAM that creates or activates an area says of it, as the server read it (step 4 of the NOTAM plan, the author's
+/// answers of 7 Nov 2026): the areas it names, the shapes it draws, when and how high. The server reads the NOTAM; the app
+/// only checks the clock. Outside Switzerland, where nothing like the DABS exists.
+struct NotamActivation: Decodable, Equatable, Hashable {
+    /// R also stands for a temporary restricted area; TRA for a reserved one (TRA or TSA); M for a military area.
+    enum Kind: String { case restricted = "R", danger = "D", prohibited = "P", reserved = "TRA", military = "M" }
+
+    enum Shape: Equatable, Hashable {
+        case circle(latitude: Double, longitude: Double, radiusNm: Double)
+        /// One closed ring of [lon, lat].
+        case polygon([[Double]])
+    }
+
+    struct Window: Equatable, Hashable {
+        let start: Date
+        let end: Date
+    }
+
+    let kind: Kind
+    /// Letters and digits only, as `Airspace.designatorKey` reads an OpenAIP name: "LFR68A".
+    var areas: [String]
+    var shapes: [Shape]
+    var windows: [Window]
+    /// False: the server couldn't read item D, and the one window is the NOTAM's whole span.
+    var exact: Bool
+    var lower: ActivationFile.Limit
+    var upper: ActivationFile.Limit
+
+    init(kind: Kind, areas: [String] = [], shapes: [Shape] = [], windows: [Window], exact: Bool = true,
+         lower: ActivationFile.Limit, upper: ActivationFile.Limit) {
+        self.kind = kind
+        self.areas = areas
+        self.shapes = shapes
+        self.windows = windows
+        self.exact = exact
+        self.lower = lower
+        self.upper = upper
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        guard let kind = Kind(rawValue: try c.decode(String.self, forKey: .kind)) else {
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: c, debugDescription: "an area kind the app doesn't know")
+        }
+        self.kind = kind
+        areas = ((try? c.decodeIfPresent([String].self, forKey: .areas)) ?? nil)?.map { $0.uppercased() } ?? []
+        shapes = ((try? c.decodeIfPresent([RawShape].self, forKey: .shapes)) ?? nil)?.compactMap(\.shape) ?? []
+        windows = try c.decode([[String]].self, forKey: .windowsUtc).compactMap { pair in
+            guard pair.count == 2, let start = NotamTime.date(pair[0]), let end = NotamTime.date(pair[1]), end > start else { return nil }
+            return Window(start: start, end: end)
+        }
+        // A NOTAM's area with no window would never be active: no activation at all, the NOTAM stays in the list
+        guard !windows.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .windowsUtc, in: c, debugDescription: "no window")
+        }
+        exact = ((try? c.decodeIfPresent(Bool.self, forKey: .exact)) ?? nil) ?? false
+        lower = try c.decode(ActivationFile.Limit.self, forKey: .lower)
+        upper = try c.decode(ActivationFile.Limit.self, forKey: .upper)
+    }
+
+    private enum CodingKeys: String, CodingKey { case kind, areas, shapes, windowsUtc, exact, lower, upper }
+
+    private struct RawShape: Decodable {
+        var centre: [Double]?
+        var radiusNm: Double?
+        var polygon: [[Double]]?
+
+        var shape: Shape? {
+            if let centre, centre.count == 2, abs(centre[0]) <= 90, abs(centre[1]) <= 180, let radiusNm, radiusNm > 0 {
+                return .circle(latitude: centre[0], longitude: centre[1], radiusNm: radiusNm)
+            }
+            if let polygon, polygon.count >= 4, polygon.allSatisfy({ $0.count >= 2 }) { return .polygon(polygon) }
+            return nil
+        }
+    }
+
+    /// Active at `moment`, or within `lead` of it.
+    func isActive(at moment: Date, lead: TimeInterval = 0) -> Bool {
+        windows.contains { $0.start <= moment.addingTimeInterval(lead) && moment <= $0.end }
+    }
+
+    /// Whether it has a window between two moments.
+    func overlaps(from: Date, to: Date) -> Bool {
+        windows.contains { $0.start <= to && $0.end >= from }
+    }
 }
 
 /// The contract's times: ISO 8601, with or without fractions.

@@ -888,9 +888,9 @@ struct NavigationMapView: View {
         let airspaces = openAIPDataService.airspacesInBounds(MKCoordinateRegion(center: coordinate, span: span))
         let altitude = appState.isFlightActive ? locationManager.currentLocation.map { $0.altitude * Self.feetPerMetre } : nil
         selectedStackAirspace = nil
-        let board = ActivationService.shared.board
-        airspaceStack = AirspaceStack.make(at: coordinate, from: airspaces + board.tempAirspaces, altitudeFt: altitude,
-                                           board: board)
+        let board = ActivationService.shared.board(knownAreas: openAIPDataService.designatorKeys)
+        airspaceStack = AirspaceStack.make(at: coordinate, from: airspaces + board.drawnTempAirspaces(in: MKCoordinateRegion(
+            center: coordinate, span: span)), altitudeFt: altitude, board: board)
         askAirspaceGround(at: coordinate)
     }
 
@@ -969,7 +969,8 @@ struct NavigationMapView: View {
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: (box.minLat + box.maxLat) / 2, longitude: (box.minLon + box.maxLon) / 2),
             span: MKCoordinateSpan(latitudeDelta: box.maxLat - box.minLat, longitudeDelta: box.maxLon - box.minLon))
-        let airspaces = ActivationService.shared.board.applied(openAIPDataService.airspacesInBounds(region))
+        let airspaces = ActivationService.shared.board(knownAreas: openAIPDataService.designatorKeys)
+            .applied(openAIPDataService.airspacesInBounds(region), region: region)
         let speed = max(location.speed, 0) * 1.94384
         // In the air only: on the ground a taxi at 30 kt is no entry into the CTR around the field.
         let airborne = OffRouteRule.isAirborne(lineUpTime: appState.lineUpTime, landingTime: appState.landingTime)
@@ -1773,8 +1774,8 @@ struct NavigationMapView: View {
                 return a.airspaceType.rawValue < b.airspaceType.rawValue
             }
             let altitude = chrome == .plan ? nil : locationManager.currentLocation.map { $0.altitude * Self.feetPerMetre }
-            let board = ActivationService.shared.board
-            visibleAirspacePolygons = (Array(sorted.prefix(100)) + board.tempAirspaces).compactMap { airspace in
+            let board = ActivationService.shared.board(knownAreas: openAIPDataService.designatorKeys)
+            visibleAirspacePolygons = (Array(sorted.prefix(100)) + board.drawnTempAirspaces(in: region)).compactMap { airspace in
                 let coords = airspace.polygonCoordinates
                 guard coords.count >= 3 else { return nil }
                 var mutableCoords = coords

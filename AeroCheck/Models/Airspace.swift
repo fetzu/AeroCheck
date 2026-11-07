@@ -99,6 +99,18 @@ struct Airspace: Codable, Identifiable {
         }
     }
 
+    /// The area's designator at the start of its name, letters and digits only, as the server writes the areas a NOTAM
+    /// names: "LF-R68B (AMC…)" and "LF-R68 B" are LFR68B, "EHTSA 16B AMSTERDAM" EHTSA16B, "EY-D 10" EYD10. Nil for a name
+    /// that starts with no designator ("ZRT SAINT-DIZIER"). (6.10.0)
+    var designatorKey: String? { Self.designatorKey(of: name) }
+
+    static func designatorKey(of name: String) -> String? {
+        guard let match = name.uppercased().firstMatch(of: /^([A-Z]{2}-?\s?)?([A-Z]{1,4})[\s-]?(\d{1,5})([A-Z]{0,2}\d{0,2})(?![A-Z0-9])/)
+        else { return nil }
+        let joined = "\(match.1 ?? "")\(match.2)\(match.3)\(match.4)"
+        return joined.filter { $0.isLetter || $0.isNumber }
+    }
+
     /// Human-readable airspace type
     var airspaceType: AirspaceTypeCategory {
         AirspaceTypeCategory(rawValue: type) ?? .other

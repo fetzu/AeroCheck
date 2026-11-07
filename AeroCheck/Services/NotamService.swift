@@ -284,8 +284,21 @@ final class NotamService: ObservableObject {
         var seen = Set<String>()
         everything = files.keys.sorted().flatMap { files[$0]?.notams ?? [] }.filter { !$0.isChecklist && seen.insert($0.id).inserted }
         byLocation = Dictionary(grouping: everything, by: \.location)
+        // Switzerland (and Liechtenstein, in its file) has the DABS, which carries its NOTAMs' areas already.
+        var once = Set<String>()
+        areaActivations = files.keys.sorted().flatMap { name -> [NotamArea] in
+            guard let file = files[name], let country = file.country?.uppercased(), country != "CH", country != "LI" else { return [] }
+            return file.notams.compactMap { notam in
+                // The FAA repeats a NOTAM for each place on its line A: one area
+                guard let activation = notam.activation, once.insert(notam.sameNotamKey).inserted else { return nil }
+                return NotamArea(notam: notam, activation: activation, country: country)
+            }
+        }
         revision += 1
     }
+
+    /// Abroad, the NOTAMs that create or activate an area, each once (6.10.0).
+    private(set) var areaActivations: [NotamArea] = []
 
     private func store(index data: Data, fresh: [String: Data], kept: Set<String>) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

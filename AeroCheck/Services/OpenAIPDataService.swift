@@ -68,7 +68,12 @@ class OpenAIPDataService: ObservableObject {
             }
         }
         spatialGrid = grid
+        designatorKeys = Set(airspaces.filter { $0.country.uppercased() != "CH" }.compactMap(\.designatorKey))
     }
+
+    /// Every designator abroad on the device: a NOTAM naming one of these marks an area the device has, so it draws no
+    /// shape of its own. (6.10.0)
+    private(set) var designatorKeys: Set<String> = []
 
     // Streaming cache
     private struct StreamingCTRCache {

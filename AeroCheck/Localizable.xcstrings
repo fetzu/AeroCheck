@@ -2063,7 +2063,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nous avons votre demande et ses fichiers. Nous décidons ensuite si (et quand) nous l’ajoutons."
+            "value": "Nous avons bien reçu votre demande et ses fichiers. Nous décidons ensuite si (et quand) nous l’ajoutons."
           }
         }
       }
@@ -2419,7 +2419,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jemand hat dieses Flugzeug bereits angefragt. Die andere Anfrage läuft weiter, und diese hier ist abgeschlossen."
+            "value": "Jemand hat dieses Flugzeug bereits angefragt. Die andere Anfrage bleibt offen, und diese hier ist abgeschlossen."
           }
         },
         "en": {
@@ -2431,7 +2431,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelqu’un a déjà demandé cet avion. Cette demande-là continue, et celle-ci est close."
+            "value": "Quelqu’un a déjà demandé cet avion. Cette demande-là reste ouverte, et celle-ci est close."
           }
         }
       }
@@ -3408,7 +3408,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Sprache, in der das Dokument geschrieben ist. Die Checkliste bleibt in dieser Sprache, unabhängig von der Sprache der App (Deutsch, Englisch oder Französisch): Eine deutsche Checkliste erscheint in allen dreien auf Deutsch."
+            "value": "Die Sprache, in der das Dokument geschrieben ist. Die Checkliste bleibt in der App in dieser Sprache, auch wenn die App auf Deutsch, Englisch oder Französisch eingestellt ist."
           }
         },
         "en": {
@@ -3420,7 +3420,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La langue dans laquelle le document est écrit. La checklist reste dans cette langue, quelle que soit celle de l’app (anglais, allemand ou français) : une checklist en allemand se lit en allemand dans les trois."
+            "value": "La langue dans laquelle le document est écrit. La checklist reste dans cette langue dans l’app, même si l’app est en anglais, en allemand ou en français : une checklist en allemand se lit en allemand dans les trois."
           }
         }
       }
@@ -3627,7 +3627,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Par exemple : quelles pages sont la checklist, ce qui a changé dans cette révision, ou un avion qui diffère des autres."
+            "value": "Par exemple : quelles pages contiennent la checklist, ce qui a changé dans cette révision, ou un avion qui diffère des autres."
           }
         }
       }
@@ -3891,7 +3891,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Prüfung konnte nicht geladen werden (keine Verbindung, oder Cloudflare ist nicht erreichbar). Versuchen Sie es in einem Moment erneut."
+            "value": "Die Prüfung konnte nicht geladen werden (keine Verbindung, oder Cloudflare ist nicht erreichbar). Versuchen Sie es gleich noch einmal."
           }
         },
         "en": {
@@ -4271,7 +4271,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indiquez votre adresse e-mail : c’est là que nous vous tenons au courant de votre demande."
+            "value": "Indiquez votre adresse e-mail : nous l’utilisons pour vous tenir au courant de votre demande."
           }
         }
       }
@@ -4880,7 +4880,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Dienst hatte auf seiner Seite ein Problem. Versuchen Sie es in einem Moment erneut; wenn es weiter passiert, schreiben Sie uns."
+            "value": "Beim Dienst ist ein Problem aufgetreten. Versuchen Sie es gleich noch einmal; tritt der Fehler weiter auf, schreiben Sie uns."
           }
         },
         "en": {
@@ -4903,7 +4903,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anfragen sind im Moment geschlossen (der Dienst ist nicht bereit). Versuchen Sie es später erneut: Es wurde nichts gesendet."
+            "value": "Anfragen sind im Moment nicht möglich (der Dienst ist nicht bereit). Versuchen Sie es später erneut: Es wurde nichts gesendet."
           }
         },
         "en": {
@@ -4995,7 +4995,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etwas ist schiefgelaufen. Versuchen Sie es in einem Moment erneut."
+            "value": "Etwas ist schiefgelaufen. Versuchen Sie es gleich noch einmal."
           }
         },
         "en": {
@@ -5087,7 +5087,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wir sehen sie uns an und bereiten sie dann vor. Das dauert so lange, wie es dauert: Eine Person macht das in ihrer Freizeit, ohne versprochenes Datum. Sie erhalten bei jedem Schritt, der eine verlangt, eine E-Mail."
+            "value": "Wir sehen sie uns an und bereiten sie dann vor. Wie lange das dauert, lässt sich nicht sagen: Eine Person macht das in ihrer Freizeit, ohne festen Termin. Sie erhalten bei jedem wichtigen Schritt eine E-Mail, und die Seite zeigt immer den aktuellen Stand."
           }
         },
         "en": {
@@ -5110,7 +5110,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Kontaktperson des Clubs hat eine E-Mail erhalten, die sie um Bestätigung bittet. Ohne Bestätigung kommt nichts in die App."
+            "value": "Die Kontaktperson des Clubs hat eine E-Mail erhalten, die sie um Bestätigung bittet. Ohne Bestätigung veröffentlichen wir nichts."
           }
         },
         "en": {
@@ -5122,7 +5122,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le contact du club a reçu un e-mail lui demandant de confirmer. Rien n’est mis en ligne sans son accord."
+            "value": "Le contact du club a reçu un e-mail lui demandant de confirmer. Nous ne publions rien sans son accord."
           }
         }
       }
@@ -7088,7 +7088,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trockenübung fliegen"
+            "value": "Trockenübung machen"
           }
         },
         "en": {
@@ -7134,7 +7134,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Was geflogen wird"
+            "value": "Flugart"
           }
         },
         "en": {
@@ -7146,7 +7146,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quoi voler"
+            "value": "Type de vol"
           }
         }
       }
@@ -7387,7 +7387,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "TROCKENÜBUNG FLIEGEN"
+            "value": "TROCKENÜBUNG BEGINNEN"
           }
         },
         "en": {
@@ -7548,7 +7548,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trockenübung am Boden fliegen"
+            "value": "Trockenübung am Boden machen"
           }
         },
         "en": {
@@ -7594,7 +7594,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trockenübung fliegen"
+            "value": "Trockenübung machen"
           }
         },
         "en": {
@@ -7813,7 +7813,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le vol à blanc vole jusqu'au début de ce chapitre et fait les vérifications précédentes pour vous. Cela prend quelques secondes."
+            "value": "Le vol à blanc avance jusqu'au début de ce chapitre et fait les vérifications précédentes pour vous. Cela prend quelques secondes."
           }
         }
       }
@@ -8560,7 +8560,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Platzrunden funktionieren auch"
+            "value": "Auch in Platzrunden"
           }
         },
         "en": {
@@ -8572,7 +8572,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les tours de piste fonctionnent aussi"
+            "value": "Aussi en tours de piste"
           }
         }
       }
@@ -9079,7 +9079,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Den Flug fliegen, Kapitel für Kapitel"
+            "value": "Fliegen, Kapitel für Kapitel"
           }
         },
         "en": {
@@ -9091,7 +9091,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le voler, chapitre par chapitre"
+            "value": "Voler, chapitre par chapitre"
           }
         }
       }
@@ -9585,7 +9585,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Den Flug fliegen"
+            "value": "Fliegen"
           }
         },
         "en": {
@@ -9597,7 +9597,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le voler"
+            "value": "Voler"
           }
         }
       }
@@ -14415,7 +14415,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geflogen %1$@ bis %2$@"
+            "value": "Geflogen von %1$@ bis %2$@"
           }
         },
         "en": {
@@ -14427,7 +14427,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volé de %1$@ à %2$@"
+            "value": "Vol de %1$@ à %2$@"
           }
         }
       }
@@ -15082,7 +15082,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geflogen am %1$@, %2$@ bis %3$@"
+            "value": "Geflogen am %1$@, von %2$@ bis %3$@"
           }
         },
         "en": {
@@ -15094,7 +15094,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volé le %1$@, de %2$@ à %3$@"
+            "value": "Vol du %1$@, de %2$@ à %3$@"
           }
         }
       }
@@ -15876,7 +15876,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ESPACE AÉRIEN DEVANT"
+            "value": "ESPACE AÉRIEN À VENIR"
           }
         }
       }
@@ -16278,7 +16278,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wenn diese Route geflogen wird"
+            "value": "Wenn Sie diese Route fliegen"
           }
         },
         "en": {
@@ -16290,7 +16290,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quand cette route est volée"
+            "value": "Quand vous faites cette route"
           }
         }
       }
@@ -17247,7 +17247,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein Land aus einer Region lädt mit einem Tippen. Ein grösseres öffnet seine Seite: dort alles mit einem Tippen oder die Regionen, in denen Sie fliegen."
+            "value": "Ein Land mit nur einer Region wird mit einem Tippen geladen. Ein grösseres öffnet seine Seite: Laden Sie dort alles oder nur die Regionen, in denen Sie fliegen."
           }
         },
         "en": {
@@ -17259,7 +17259,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un pays d'une seule région se télécharge d'une pression. Un plus grand ouvre sa page : tout d'une pression, ou les régions où vous volez."
+            "value": "Un pays d'une seule région se télécharge d'un toucher. Un plus grand ouvre sa page : téléchargez-le en entier, ou seulement les régions où vous volez."
           }
         }
       }
@@ -17927,7 +17927,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kein Land passt."
+            "value": "Kein Land gefunden."
           }
         },
         "en": {
@@ -18702,7 +18702,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kommt mit den Luftfahrtdaten"
+            "value": "In den Luftfahrtdaten enthalten"
           }
         },
         "en": {
@@ -18714,7 +18714,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vient avec les données aéronautiques"
+            "value": "Incluses dans les données aéronautiques"
           }
         }
       }
@@ -20953,7 +20953,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "80 % der Online-Karte dieses Monats verbraucht"
+            "value": "80 % des monatlichen Online-Kontingents verbraucht"
           }
         },
         "en": {
@@ -20965,7 +20965,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "80 % de la carte en ligne du mois utilisés"
+            "value": "80 % du quota mensuel de carte en ligne utilisé"
           }
         }
       }
@@ -23058,7 +23058,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Étape %1$lld · %2$@, volée : son vol reste dans le carnet de vol"
+            "value": "Étape %1$lld · %2$@, effectuée : son vol reste dans le carnet de vol"
           }
         }
       }
@@ -23299,7 +23299,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Es war ein Ausweichen"
+            "value": "Es war eine Ausweichlandung"
           }
         },
         "en": {
@@ -23495,7 +23495,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passer l’escale : ce vol reste tel qu’il a été volé, et les étapes jusqu’à %@ quittent le voyage."
+            "value": "Passer l’escale : ce vol reste tel quel, et les étapes jusqu’à %@ quittent le voyage."
           }
         }
       }
@@ -32914,7 +32914,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volée"
+            "value": "Effectuée"
           }
         }
       }
@@ -34351,7 +34351,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keine Route passt zu «%@»."
+            "value": "Keine Route zu «%@» gefunden."
           }
         },
         "en": {
@@ -37228,7 +37228,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "nicht geflogen"
+            "value": "nicht erreicht"
           }
         },
         "en": {
@@ -37240,7 +37240,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "non volé"
+            "value": "non atteint"
           }
         }
       }
@@ -59950,7 +59950,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kein Flugplatz, Meldepunkt oder Navigationshilfe passt zu «%@»."
+            "value": "Kein Flugplatz, Meldepunkt und keine Navigationshilfe zu «%@» gefunden."
           }
         },
         "en": {
@@ -59996,7 +59996,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kein Flugplatz passt zu «%@»."
+            "value": "Kein Flugplatz zu «%@» gefunden."
           }
         },
         "en": {

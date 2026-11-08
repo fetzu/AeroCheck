@@ -16,6 +16,9 @@ struct AboutSettingsView: View {
     @State private var versionTapCount: Int = 0
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
+    /// iOS's daily reports on the device, to share (`MetricReports`). (6.10.0)
+    @State private var metricReportFiles: [URL] = []
+    @State private var showMetricReports = false
     @State private var showSafetyNotice: Bool = false
     @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
@@ -43,6 +46,9 @@ struct AboutSettingsView: View {
         .sheet(isPresented: $showTransactionDebug) {
             TransactionDebugView()
                 .environmentObject(subscriptionManager)
+        }
+        .sheet(isPresented: $showMetricReports) {
+            ShareSheet(activityItems: metricReportFiles)
         }
         .sheet(isPresented: $showSubscriptionLogs) {
             SubscriptionDebugLogView(debugLogger: subscriptionManager.debugLogger)
@@ -370,6 +376,16 @@ struct AboutSettingsView: View {
                         await aircraftDataService.fetchAvailableAircraft()
                         await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
                     }
+                }
+
+                // iOS's daily reports (MetricKit), kept on the device: shared only from here. (decision q5, 6.10.0)
+                SettingsButtonRow(icon: "battery.75percent", title: "Share battery and hang reports",
+                                  subtitle: MetricReports.shared.files().isEmpty
+                                    ? "None yet: iOS gives one a day, on a device"
+                                    : "\(MetricReports.shared.files().count) on this device",
+                                  tint: tint, showsChevron: false) {
+                    metricReportFiles = MetricReports.shared.files()
+                    if !metricReportFiles.isEmpty { showMetricReports = true }
                 }
 
                 // Temporary: fire a sample detected event so the restyled confirmation prompt can be

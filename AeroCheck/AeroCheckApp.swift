@@ -13,6 +13,8 @@ final class AeroCheckAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         NotificationService.shared.configure()
+        // iOS's daily battery and hang reports, kept on the device for Developer options. (6.10.0)
+        MetricReports.shared.start()
         // Exports a previous run staged and never got to remove (a crash, a kill with a share sheet
         // open), and the loose ones older builds left in tmp/. No sheet is open yet. (S9-06)
         let launchedAt = Date()

@@ -140,6 +140,7 @@ final class CountryBoundariesTests: XCTestCase {
             ("LIMC Milan",        .init(latitude: 45.630, longitude: 8.723), "IT"),
             ("LOWW Vienna",       .init(latitude: 48.110, longitude: 16.570), "AT"),
             ("EGLL Heathrow",     .init(latitude: 51.470, longitude: -0.454), "GB"),
+            ("LMML Luqa",         .init(latitude: 35.857, longitude: 14.477), "MT"),  // 6.10.0
         ]
         for (name, coordinate, expected) in cases {
             let found = CountryBoundaries.shared.countries(near: coordinate, bufferNm: 0)

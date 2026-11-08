@@ -54,6 +54,14 @@ export interface SiteData {
     moments: Moment[];
     end: { title: string; text: string; secondary: Link };
   };
+  /** The dry run in the browser (/dry-run). [n] and [total] in `step`. */
+  dry_run: {
+    meta: { title: string; description: string };
+    eyebrow: string; title: string; subtitle: string; note: string;
+    back: string; next: string; step: string;
+    hint_tap: string; hint_look: string; hint_elsewhere: string; ring_label: string;
+    end: { title: string; text: string; story: Link };
+  };
   device_labels: { ipad: string; iphone: string; dots: string };
   countries: CountriesCopy;
   footer: {

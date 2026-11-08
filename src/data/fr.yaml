@@ -37,7 +37,7 @@ dryrun:
   band: "VOL À BLANC · 4×"
   title: "Votre premier vol avec AéroCheck, au sol."
   text: "Une fois l'app sur votre iPad ou votre iPhone, le vol à blanc vous fait faire tout un vol depuis votre bureau : une histoire guidée en quatre parties, de la préparation au carnet, dans le vrai cockpit. Ensuite, la pratique libre : des tours de piste sur tout aérodrome doté d'une piste, ou l'une de vos routes. Aucun de ces vols ne finit dans votre carnet, et vous n'avez même pas à quitter votre chaise."
-  link: { label: "Comment marche le vol à blanc", href: "/manual#vol-à-blanc" }
+  link: { label: "L'essayer dans votre navigateur", href: "/dry-run" }
   shot: "dryrun"
   alt: "Un vol à blanc guidé en première finale, sur un iPhone"
 
@@ -152,7 +152,7 @@ story:
     band: "VOL À BLANC · 4×"
     title: "Avant votre premier vol avec AéroCheck, faites-en un au sol."
     text: "Une fois l'app installée : un vol guidé en quatre parties, de la préparation au carnet, dans le vrai cockpit, depuis votre bureau. Ensuite, la pratique libre : des tours de piste sur tout aérodrome, une remise de gaz en deuxième finale. Aucun de ces vols ne finit dans votre carnet."
-    link: { label: "Comment marche le vol à blanc", href: "/manual#vol-à-blanc" }
+    link: { label: "L'essayer dans votre navigateur", href: "/dry-run" }
     shot: "dryrun"
     alt: "Un vol à blanc guidé en première finale, sur un iPad"
   moments:
@@ -223,6 +223,27 @@ story:
 
 device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Choisir un écran" }
 
+
+# Le vol à blanc dans le navigateur (/fr/dry-run, 7 nov. 2026). Les mots des cartes sont ceux de l'app (src/data/dry-run/).
+dry_run:
+  meta:
+    title: "Vol à blanc"
+    description: "Tout un vol dans AéroCheck, de la préparation au carnet, en cinq minutes environ. Dans votre navigateur, sans rien installer."
+  eyebrow: "Vol à blanc · dans votre navigateur"
+  title: "Tout un vol, en cinq minutes."
+  subtitle: "De la préparation au carnet, sur les vrais écrans de l'app. Touchez ce que montre l'anneau, et vous n'avez même rien à installer."
+  note: "Ce sont de vrais écrans de l'app, un à la fois : les chiffres ne changent donc que d'une étape à l'autre. Dans l'app, l'avion vole."
+  back: "Retour"
+  next: "Suivant"
+  step: "[n] sur [total]"
+  hint_tap: "Touchez l'anneau sur l'écran."
+  hint_look: "Regardez, puis touchez Suivant."
+  hint_elsewhere: "Pas là : touchez à l'intérieur de l'anneau."
+  ring_label: "Touchez ici"
+  end:
+    title: "Posé et consigné."
+    text: "Dans l'app, le vol à blanc fait voler ce vol pour de bon, avec chaque vérification et à votre rythme. Ensuite, vous pouvez vous exercer aux tours de piste sur tout aérodrome doté d'une piste, ou voler l'une de vos routes."
+    story: { label: "Suivre un vrai vol, de Bressaucourt à Samedan", href: "/flight" }
 
 footer:
   safety: "AéroCheck est une aide, pas un équipement de bord certifié ni un moyen de navigation primaire."

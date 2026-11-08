@@ -190,6 +190,24 @@ shows), the clock starts at 9:16 under the status bar's 9:41. The moments, in se
 in each frame: the page's times are the Cockpit's flight clock in its frame (`story.moments[].when` in the three
 languages).
 
+## The dry run (/dry-run)
+
+`/dry-run`, `/fr/dry-run` and `/de/dry-run` walk the app's guided dry run, cut to 27 cards (about five minutes, the
+author's choice of 7 Nov 2026): one frame per card, the iPad's on wide screens, the iPhone's on phones, in each language.
+The card list is `CLAUDE/tools/shots/dryrun-cards.txt`. The app flies it itself (its DEBUG autopilot) and writes each
+card's words and the ring's place beside the screenshot (`DryRunFrames`); the card is left out of the frame and the
+page sets its words beside the screen. Six runs, two simulators side by side, about twelve minutes:
+
+```bash
+CLAUDE/tools/shots/dryrun.sh --app <Debug build of the tag>/AeroCheck.app   # tail -f CLAUDE/shots/dryrun-<date>/progress.log
+python3 CLAUDE/tools/shots/dryrun_publish.py CLAUDE/shots/dryrun-<date> <a worktree of this branch>
+```
+
+The publish step writes `v6/dry-run/<lang>/<device>/<nn>-<id>.jpg` and `src/data/dry-run/<lang>.json`. A run that
+missed a card says so in `progress.log` ("26 of 27 cards"); take it again with `--languages <lang> --devices <device>`
+into the same folder. Recapture both at each minor release, from the tag, as the screenshots: the guided dry run
+changes whenever the Cockpit or the flight's page does.
+
 ## App Store
 
 **Exact sizes.** App Store Connect matches screenshot dimensions EXACTLY against a device size class and rejects

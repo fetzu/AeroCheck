@@ -38,7 +38,7 @@ dryrun:
   band: "DRY RUN · 4×"
   title: "Your first flight with AéroCheck, on the ground."
   text: "Once the app is on your iPad or iPhone, the dry run takes you through a whole flight from your desk: a guided story in four parts, from planning to the logbook, in the real Cockpit. After that, free practice: circuits at any aerodrome with a runway, or one of your routes. None of it ends up in your logbook, and you don't even have to leave your chair."
-  link: { label: "How the dry run works", href: "/manual#dry-run" }
+  link: { label: "Try it in your browser", href: "/dry-run" }
   shot: "dryrun"
   alt: "A guided dry run on its first final, on an iPhone"
 
@@ -153,7 +153,7 @@ story:
     band: "DRY RUN · 4×"
     title: "Before your first flight with it, fly one on the ground."
     text: "Once the app is installed: a guided flight in four parts, from planning to the logbook, in the real Cockpit, from your desk. After that, free practice: circuits at any aerodrome, a go-around on the second final. None of it ends up in your logbook."
-    link: { label: "How the dry run works", href: "/manual#dry-run" }
+    link: { label: "Try it in your browser", href: "/dry-run" }
     shot: "dryrun"
     alt: "A guided dry run on its first final, on an iPad"
   moments:
@@ -224,6 +224,28 @@ story:
 
 device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Choose a screen" }
 
+
+# The dry run in the browser (/dry-run, 7 Nov 2026): the app's guided flight, cut to about five minutes. The cards' words
+# are the app's (src/data/dry-run/); these are the page's own.
+dry_run:
+  meta:
+    title: "Dry run"
+    description: "A whole flight in AéroCheck, from planning to the logbook, in about five minutes. In your browser, with nothing to install."
+  eyebrow: "Dry run · in your browser"
+  title: "A whole flight, in five minutes."
+  subtitle: "From planning to the logbook, on the app's real screens. Tap what the ring shows, and you don't even have to install anything."
+  note: "These are real screens from the app, one at a time, so the figures only change from one step to the next. In the app, the aircraft flies."
+  back: "Back"
+  next: "Next"
+  step: "[n] of [total]"
+  hint_tap: "Tap the ring on the screen."
+  hint_look: "Have a look, then tap Next."
+  hint_elsewhere: "Not there: tap inside the ring."
+  ring_label: "Tap here"
+  end:
+    title: "Landed and logged."
+    text: "In the app, the dry run flies this flight for real, with every check and at your pace. Then you can practise circuits at any aerodrome with a runway, or fly one of your own routes."
+    story: { label: "Follow one real flight, from Bressaucourt to Samedan", href: "/flight" }
 
 footer:
   safety: "AéroCheck is an aid, not certified avionics and not a primary means of navigation."

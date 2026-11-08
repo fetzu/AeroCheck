@@ -1,0 +1,644 @@
+[
+ {
+  "id": "today",
+  "part": 1,
+  "partTitle": "Plan a flight",
+  "title": "Plan a flight",
+  "body": "Every flight starts on Today. Tap Plan new flight.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/01-today.jpg",
+   "ring": {
+    "x": 50.12,
+    "y": 39.7,
+    "width": 38.41,
+    "height": 6.44
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/01-today.jpg",
+   "ring": {
+    "x": 49.75,
+    "y": 46.72,
+    "width": 47.76,
+    "height": 8.7
+   }
+  }
+ },
+ {
+  "id": "planSheet",
+  "part": 1,
+  "partTitle": "Plan a flight",
+  "title": "The flight",
+  "body": "Here you choose the departure, the destination, any stops, the day and the aircraft. For this dry run the route is ready: your aerodrome, two turning points and back. A flight planned for another day gets a reminder the day before. Tap Create flight.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/02-planSheet.jpg",
+   "ring": {
+    "x": 15.85,
+    "y": 71.31,
+    "width": 68.29,
+    "height": 6.14
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/02-planSheet.jpg",
+   "ring": {
+    "x": 2.49,
+    "y": 87.15,
+    "width": 95.02,
+    "height": 8.28
+   }
+  }
+ },
+ {
+  "id": "flightPage",
+  "part": 1,
+  "partTitle": "Plan a flight",
+  "title": "One page per flight",
+  "body": "Each flight has its own page, from the plan to the logbook: the flight thread. Its four chapters (Plan, Prepare, Fly and Close) follow the stages of every flight; those with something to do now are open, the others are one line. The line under the title says when you leave and what is left.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/03-flightPage.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 5.04
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/03-flightPage.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 8.62
+   }
+  }
+ },
+ {
+  "id": "nextCard",
+  "part": 1,
+  "partTitle": "Plan a flight",
+  "title": "What is left",
+  "body": "What is left is always in the line under the title, and on Today. A tap on an item takes you to it.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/04-nextCard.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 5.04
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/04-nextCard.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 8.62
+   }
+  }
+ },
+ {
+  "id": "startFlight",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "START FLIGHT",
+  "body": "START FLIGHT, in the Fly chapter, opens the Cockpit. For this dry run, the rest of Plan and Prepare has been ticked for you. In a real flight, START FLIGHT first lists anything still open.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/05-startFlight.jpg",
+   "ring": {
+    "x": 3.41,
+    "y": 31.06,
+    "width": 93.17,
+    "height": 5.55
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/05-startFlight.jpg",
+   "ring": {
+    "x": 5.47,
+    "y": 43.1,
+    "width": 89.05,
+    "height": 7.48
+   }
+  }
+ },
+ {
+  "id": "cockpitAfterPlan",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Your first flight, on the ground",
+  "body": "This is the Cockpit, opened by START FLIGHT. The aircraft waits for you at each step.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/06-cockpitAfterPlan.jpg"
+  },
+  "iphone": {
+   "image": "en/iphone/06-cockpitAfterPlan.jpg"
+  }
+ },
+ {
+  "id": "checkOnce",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Check an item",
+  "body": "CHECK ticks off the highlighted item and moves to the next one. Tap it once.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/07-checkOnce.jpg",
+   "ring": {
+    "x": 33.9,
+    "y": 87.97,
+    "width": 32.68,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/07-checkOnce.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "engineStart",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "ENGINE START",
+  "body": "Tap it once the engine is running: the app records the time, and the flight times start from there.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/08-engineStart.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 32.68,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/08-engineStart.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "defer",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Defer an item",
+  "body": "Can't do an item right now? DEFER puts it aside, and the app keeps it for later. Try it now.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/09-defer.jpg",
+   "ring": {
+    "x": 66.59,
+    "y": 87.97,
+    "width": 16.1,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/09-defer.jpg",
+   "ring": {
+    "x": 54.06,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "deferredChip",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Nothing is lost",
+  "body": "Everything you deferred waits here, in amber. Tap it at any time to finish it.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/10-deferredChip.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 25.47,
+    "width": 9.88,
+    "height": 5.42
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/10-deferredChip.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 23.84,
+    "width": 17.66,
+    "height": 6.64
+   }
+  }
+ },
+ {
+  "id": "readyForLineUp",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "READY FOR LINE UP",
+  "body": "Tap it. The app uses this moment as the take-off time and times the route from it.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/11-readyForLineUp.jpg",
+   "ring": {
+    "x": 33.9,
+    "y": 87.97,
+    "width": 32.68,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/11-readyForLineUp.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "mapTakeoff",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Watch the take-off",
+  "body": "Open MAP. In a dry run, the aircraft lines up and takes off automatically; your next step is the climb check, once airborne.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/12-mapTakeoff.jpg",
+   "ring": {
+    "x": 22.5,
+    "y": 31.1,
+    "width": 14.76,
+    "height": 5.42
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/12-mapTakeoff.jpg",
+   "ring": {
+    "x": 36.57,
+    "y": 31.69,
+    "width": 32.26,
+    "height": 6.18
+   }
+  }
+ },
+ {
+  "id": "airborne",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Take-off detected",
+  "body": "AéroCheck noticed the take-off and noted its time for the logbook. It does the same for go-arounds, touch-and-goes and full-stop landings, so you can focus on flying the plane.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/13-airborne.jpg"
+  },
+  "iphone": {
+   "image": "en/iphone/13-airborne.jpg"
+  }
+ },
+ {
+  "id": "trackLine",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Where you'll be",
+  "body": "The blue line ahead of the aircraft shows where you'll be in 1, 2 and 5 minutes, at this speed and on this track.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/14-trackLine.jpg"
+  },
+  "iphone": {
+   "image": "en/iphone/14-trackLine.jpg"
+  }
+ },
+ {
+  "id": "readBand",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "What you read",
+  "body": "GS, ALT and TRK come from the GPS. Below them, you find where the current leg leads and when you get there, then who to call: NOW and NEXT.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/15-readBand.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 14.15,
+    "width": 101.46,
+    "height": 16.78
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/15-readBand.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 12.59,
+    "width": 102.99,
+    "height": 19.79
+   }
+  }
+ },
+ {
+  "id": "radioDue",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Changed frequency? Tap NEXT",
+  "body": "NEXT is outlined: it is time to change to it, and the line along its foot runs out where the app changes by itself. When you change frequency, tap NEXT (on a phone, the NOW line) and it becomes NOW. Undo takes it back.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/16-radioDue.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 26.06,
+    "width": 97.56,
+    "height": 4.87
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/16-radioDue.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 26.85,
+    "width": 97.01,
+    "height": 5.53
+   }
+  }
+ },
+ {
+  "id": "timeOver",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "The turning point",
+  "body": "The app detected the passage of this turning point: it recorded the time over on ROUTE and moved to the next leg automatically. If that was too early, Undo here takes it back.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/17-timeOver.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 38.05,
+    "width": 60.0,
+    "height": 7.63
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/17-timeOver.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 38.56,
+    "width": 97.01,
+    "height": 11.9
+   }
+  }
+ },
+ {
+  "id": "goAround",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Try a go-around",
+  "body": "On this final, choose GO AROUND on the card: the aircraft climbs away and the app detects the go-around. In a real flight, you fly it yourself.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/18-goAround.jpg",
+   "ring": {
+    "x": 0.73,
+    "y": 75.85,
+    "width": 69.76,
+    "height": 11.44
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/18-goAround.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 71.17,
+    "width": 97.01,
+    "height": 16.02
+   }
+  }
+ },
+ {
+  "id": "goAroundCard",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "Go-around detected",
+  "body": "The app detected the go-around and recorded it automatically: the checks went back to the climb check. If it wasn't one, Undo takes it back for a few seconds. After a real flight, you confirm it in the Flight review.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/19-goAroundCard.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 78.31,
+    "width": 97.56,
+    "height": 8.98
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/19-goAroundCard.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 78.72,
+    "width": 97.01,
+    "height": 8.47
+   }
+  }
+ },
+ {
+  "id": "fullStop",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "This time, a full stop",
+  "body": "FULL STOP is already selected, so the aircraft lands. On short final, tap the landing check and work through its items.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/20-fullStop.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 32.68,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/20-fullStop.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "engineShutdown",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "ENGINE SHUTDOWN",
+  "body": "The engine has stopped: tap it, and the app records the time.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/21-engineShutdown.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 32.68,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/21-engineShutdown.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "endFlight",
+  "part": 2,
+  "partTitle": "Fly it",
+  "title": "END FLIGHT",
+  "body": "It closes the flight and creates its logbook entry, with the times from the GPS track. This is a dry run, so none of it is kept.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/22-endFlight.jpg",
+   "ring": {
+    "x": 33.9,
+    "y": 87.97,
+    "width": 32.68,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/22-endFlight.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "closeOut",
+  "part": 3,
+  "partTitle": "Close out",
+  "title": "After the flight",
+  "body": "END FLIGHT moved the flight to CLOSE-OUT: the page now opens on Close, and the line under the title counts what is left. If you had filed a flight plan, closing it would come first, in red, with the number to call.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/23-closeOut.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 5.04
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/23-closeOut.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 6.83
+   }
+  }
+ },
+ {
+  "id": "numbers",
+  "part": 3,
+  "partTitle": "Close out",
+  "title": "Logbook & costs",
+  "body": "Block and flight time, the landings, the engine hours, and the cost at the aircraft's rate. Copy line puts the line on the clipboard. Close the sheet when you have read it.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/24-numbers.jpg"
+  },
+  "iphone": {
+   "image": "en/iphone/24-numbers.jpg"
+  }
+ },
+ {
+  "id": "finish",
+  "part": 3,
+  "partTitle": "Close out",
+  "title": "Finish",
+  "body": "Finish closes the flight's page; the flight stays in your logbook.",
+  "kind": "act",
+  "ipad": {
+   "image": "en/ipad/25-finish.jpg",
+   "ring": {
+    "x": 41.52,
+    "y": 33.56,
+    "width": 16.95,
+    "height": 6.14
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/25-finish.jpg",
+   "ring": {
+    "x": 32.75,
+    "y": 47.83,
+    "width": 34.58,
+    "height": 8.28
+   }
+  }
+ },
+ {
+  "id": "dashboard",
+  "part": 4,
+  "partTitle": "Your logbook",
+  "title": "The year at a glance",
+  "body": "Your hours, flights and landings, the hours per aircraft, what you spent and how your checks went. The dry run's logbook has five made-up flights before yours.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/26-dashboard.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 8.64,
+    "width": 97.56,
+    "height": 14.7
+   }
+  },
+  "iphone": {
+   "image": "en/iphone/26-dashboard.jpg",
+   "ring": {
+    "x": 2.49,
+    "y": 18.76,
+    "width": 95.02,
+    "height": 30.21
+   }
+  }
+ },
+ {
+  "id": "track",
+  "part": 4,
+  "partTitle": "Your logbook",
+  "title": "The flight's page",
+  "body": "Everything about this flight is here: its track on the map, the altitude and speed chart (slide along it to replay the flight), the timeline, how each check ended, the engine hours and the plan compared with what you flew. Have a look around, then tap Next.",
+  "kind": "look",
+  "ipad": {
+   "image": "en/ipad/27-track.jpg"
+  },
+  "iphone": {
+   "image": "en/iphone/27-track.jpg"
+  }
+ }
+]

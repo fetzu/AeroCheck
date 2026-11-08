@@ -1,0 +1,10 @@
+---
+import Base from '../../layouts/Base.astro';
+import DryRun from '../../components/DryRun.astro';
+import { loadSite } from '../../lib/site';
+import { loadSiteCounts, applySiteTokensDeep } from '../../lib/fleet';
+const site = applySiteTokensDeep(loadSite('de'), await loadSiteCounts());
+---
+<Base site={site} lang="de" title={site.dry_run.meta.title} description={site.dry_run.meta.description}>
+  <DryRun site={site} />
+</Base>

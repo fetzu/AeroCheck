@@ -1,0 +1,644 @@
+[
+ {
+  "id": "today",
+  "part": 1,
+  "partTitle": "Einen Flug planen",
+  "title": "Einen Flug planen",
+  "body": "Jeder Flug beginnt auf Heute. Tippen Sie auf «Neuen Flug planen».",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/01-today.jpg",
+   "ring": {
+    "x": 50.12,
+    "y": 39.7,
+    "width": 38.41,
+    "height": 6.44
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/01-today.jpg",
+   "ring": {
+    "x": 49.75,
+    "y": 46.72,
+    "width": 47.76,
+    "height": 8.7
+   }
+  }
+ },
+ {
+  "id": "planSheet",
+  "part": 1,
+  "partTitle": "Einen Flug planen",
+  "title": "Der Flug",
+  "body": "Hier wählen Sie den Abflug, das Ziel, allfällige Zwischenhalte, den Tag und das Flugzeug. Für diese Trockenübung ist die Route bereit: Ihr Flugplatz, zwei Kontrollpunkte und zurück. Ein Flug, der für einen anderen Tag geplant ist, bekommt am Vortag eine Erinnerung. Tippen Sie auf «Flug erstellen».",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/02-planSheet.jpg",
+   "ring": {
+    "x": 15.85,
+    "y": 71.31,
+    "width": 68.29,
+    "height": 6.14
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/02-planSheet.jpg",
+   "ring": {
+    "x": 2.49,
+    "y": 87.15,
+    "width": 95.02,
+    "height": 8.28
+   }
+  }
+ },
+ {
+  "id": "flightPage",
+  "part": 1,
+  "partTitle": "Einen Flug planen",
+  "title": "Eine Seite pro Flug",
+  "body": "Jeder Flug hat seine eigene Seite, von der Planung bis zum Flugbuch: der Flugverlauf. Seine vier Kapitel (Planen, Vorbereiten, Fliegen und Abschliessen) folgen dem Ablauf jedes Flugs; offen sind die, in denen jetzt etwas zu tun ist, die anderen stehen auf einer Zeile. Die Zeile unter dem Titel sagt, wann Sie abfliegen und was noch offen ist.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/03-flightPage.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 6.4
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/03-flightPage.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 10.45
+   }
+  }
+ },
+ {
+  "id": "nextCard",
+  "part": 1,
+  "partTitle": "Einen Flug planen",
+  "title": "Was noch offen ist",
+  "body": "Was noch offen ist, steht immer in der Zeile unter dem Titel und auf Heute. Ein Tippen auf einen Eintrag führt Sie dorthin.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/04-nextCard.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 6.4
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/04-nextCard.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 10.45
+   }
+  }
+ },
+ {
+  "id": "startFlight",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "FLUG BEGINNEN",
+  "body": "FLUG BEGINNEN, im Kapitel Fliegen, öffnet das Cockpit. Für diese Trockenübung wurde der Rest von Planen und Vorbereiten für Sie abgehakt. In einem echten Flug listet FLUG BEGINNEN zuerst auf, was noch offen ist.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/05-startFlight.jpg",
+   "ring": {
+    "x": 3.41,
+    "y": 31.14,
+    "width": 93.17,
+    "height": 5.55
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/05-startFlight.jpg",
+   "ring": {
+    "x": 5.47,
+    "y": 43.1,
+    "width": 89.05,
+    "height": 7.48
+   }
+  }
+ },
+ {
+  "id": "cockpitAfterPlan",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Ihr erster Flug, am Boden",
+  "body": "Das ist das Cockpit, geöffnet mit FLUG BEGINNEN. Das Flugzeug wartet bei jedem Schritt auf Sie.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/06-cockpitAfterPlan.jpg"
+  },
+  "iphone": {
+   "image": "de/iphone/06-cockpitAfterPlan.jpg"
+  }
+ },
+ {
+  "id": "checkOnce",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Einen Punkt abhaken",
+  "body": "ABHAKEN hakt den hervorgehobenen Punkt ab und geht zum nächsten. Tippen Sie einmal darauf.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/07-checkOnce.jpg",
+   "ring": {
+    "x": 32.07,
+    "y": 87.97,
+    "width": 30.85,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/07-checkOnce.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "engineStart",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "MOTOR ANLASSEN",
+  "body": "Tippen Sie darauf, sobald der Motor läuft: Die App erfasst die Zeit, und die Zeiten des Flugs zählen ab dort.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/08-engineStart.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 30.85,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/08-engineStart.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "defer",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Einen Punkt aufschieben",
+  "body": "Können Sie einen Punkt gerade nicht erledigen? AUFSCHIEBEN legt ihn beiseite, und die App behält ihn für später. Versuchen Sie es jetzt.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/09-defer.jpg",
+   "ring": {
+    "x": 62.93,
+    "y": 87.97,
+    "width": 17.93,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/09-defer.jpg",
+   "ring": {
+    "x": 54.06,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "deferredChip",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Nichts geht verloren",
+  "body": "Alles, was Sie aufgeschoben haben, wartet hier, in Bernsteinfarbe. Tippen Sie jederzeit darauf, um es zu erledigen.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/10-deferredChip.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 25.47,
+    "width": 9.88,
+    "height": 5.42
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/10-deferredChip.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 23.84,
+    "width": 17.66,
+    "height": 6.64
+   }
+  }
+ },
+ {
+  "id": "readyForLineUp",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "BEREIT ZUM AUFROLLEN",
+  "body": "Tippen Sie darauf. Die App nimmt diesen Moment als Startzeit und berechnet die Zeiten der Route ab dort.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/11-readyForLineUp.jpg",
+   "ring": {
+    "x": 32.07,
+    "y": 87.97,
+    "width": 30.85,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/11-readyForLineUp.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "mapTakeoff",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Den Start beobachten",
+  "body": "Öffnen Sie KARTE. In einer Trockenübung rollt das Flugzeug automatisch auf und startet; Ihr nächster Schritt ist die Steigflugkontrolle, sobald Sie in der Luft sind.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/12-mapTakeoff.jpg",
+   "ring": {
+    "x": 23.96,
+    "y": 31.1,
+    "width": 16.95,
+    "height": 5.42
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/12-mapTakeoff.jpg",
+   "ring": {
+    "x": 39.05,
+    "y": 31.69,
+    "width": 31.01,
+    "height": 6.18
+   }
+  }
+ },
+ {
+  "id": "airborne",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Start erkannt",
+  "body": "AéroCheck hat den Start bemerkt und seine Zeit fürs Flugbuch notiert. Dasselbe tut es bei Durchstarts, Touch-and-gos und Full Stops, damit Sie sich aufs Fliegen konzentrieren können.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/13-airborne.jpg"
+  },
+  "iphone": {
+   "image": "de/iphone/13-airborne.jpg"
+  }
+ },
+ {
+  "id": "trackLine",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Wo Sie sein werden",
+  "body": "Die blaue Linie vor dem Flugzeug zeigt, wo Sie in 1, 2 und 5 Minuten sein werden, bei dieser Geschwindigkeit und auf diesem Kurs.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/14-trackLine.jpg"
+  },
+  "iphone": {
+   "image": "de/iphone/14-trackLine.jpg"
+  }
+ },
+ {
+  "id": "readBand",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Was Sie ablesen",
+  "body": "GS, ALT und TRK kommen vom GPS. Darunter finden Sie, wohin die aktuelle Teilstrecke führt und wann Sie dort sind, dann, wen Sie rufen: AKT. und NÄCHSTE.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/15-readBand.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 14.15,
+    "width": 101.46,
+    "height": 16.78
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/15-readBand.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 12.59,
+    "width": 102.99,
+    "height": 19.79
+   }
+  }
+ },
+ {
+  "id": "radioDue",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Frequenz gewechselt? Tippen Sie auf NÄCHSTE",
+  "body": "NÄCHSTE ist umrandet: Es ist Zeit, dorthin zu wechseln, und die Linie an seinem Fuss läuft bis zu der Stelle ab, an der die App von selbst wechselt. Wenn Sie die Frequenz wechseln, tippen Sie auf NÄCHSTE (auf dem iPhone auf die AKT.-Zeile), und daraus wird AKT. Mit STORNO nehmen Sie das zurück.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/16-radioDue.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 26.06,
+    "width": 97.56,
+    "height": 4.87
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/16-radioDue.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 26.85,
+    "width": 97.01,
+    "height": 5.53
+   }
+  }
+ },
+ {
+  "id": "timeOver",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Der Kontrollpunkt",
+  "body": "Die App hat den Überflug dieses Kontrollpunkts erkannt, die Überflugzeit auf ROUTE erfasst und ist automatisch zur nächsten Teilstrecke gewechselt. War das zu früh, nimmt STORNO es hier zurück.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/17-timeOver.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 38.05,
+    "width": 60.0,
+    "height": 7.63
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/17-timeOver.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 38.56,
+    "width": 97.01,
+    "height": 11.9
+   }
+  }
+ },
+ {
+  "id": "goAround",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Ein Durchstarten versuchen",
+  "body": "Wählen Sie in diesem Endanflug DURCHSTARTEN in der Einblendung: Das Flugzeug steigt wieder, und die App erkennt das Durchstarten. In einem echten Flug starten Sie selbst durch.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/18-goAround.jpg",
+   "ring": {
+    "x": 0.73,
+    "y": 74.49,
+    "width": 69.76,
+    "height": 12.8
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/18-goAround.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 71.17,
+    "width": 97.01,
+    "height": 16.02
+   }
+  }
+ },
+ {
+  "id": "goAroundCard",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Durchstarten erkannt",
+  "body": "Die App hat das Durchstarten erkannt und automatisch aufgezeichnet: Die Kontrollen sind zur Steigflugkontrolle zurückgekehrt. War es keines, nimmt STORNO es während einiger Sekunden zurück. Nach einem echten Flug bestätigen Sie es in der Flugauswertung.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/19-goAroundCard.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 78.31,
+    "width": 97.56,
+    "height": 8.98
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/19-goAroundCard.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 78.72,
+    "width": 97.01,
+    "height": 8.47
+   }
+  }
+ },
+ {
+  "id": "fullStop",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "Diesmal ein Full Stop",
+  "body": "FULL STOP ist bereits gewählt, also landet das Flugzeug. Tippen Sie im kurzen Endanflug auf die Landekontrolle und führen Sie ihre Punkte durch.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/20-fullStop.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 30.85,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/20-fullStop.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "engineShutdown",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "MOTOR ABSTELLEN",
+  "body": "Der Motor steht: Tippen Sie darauf, und die App erfasst die Zeit.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/21-engineShutdown.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 30.85,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/21-engineShutdown.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "endFlight",
+  "part": 2,
+  "partTitle": "Den Flug fliegen",
+  "title": "FLUG BEENDEN",
+  "body": "Damit wird der Flug abgeschlossen und sein Flugbucheintrag erstellt, mit den Zeiten aus dem GPS-Flugweg. Dies ist eine Trockenübung, also wird nichts davon behalten.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/22-endFlight.jpg",
+   "ring": {
+    "x": 32.07,
+    "y": 87.97,
+    "width": 30.85,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/22-endFlight.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "closeOut",
+  "part": 3,
+  "partTitle": "Abschliessen",
+  "title": "Nach dem Flug",
+  "body": "FLUG BEENDEN hat den Flug in den ABSCHLUSS gebracht: Die Seite öffnet jetzt bei Abschliessen, und die Zeile unter dem Titel zählt, was noch offen ist. Hätten Sie einen ATC-Flugplan aufgegeben, käme sein Schliessen zuerst, in Rot, mit der Nummer, die Sie anrufen.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/23-closeOut.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 5.04
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/23-closeOut.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 6.83
+   }
+  }
+ },
+ {
+  "id": "numbers",
+  "part": 3,
+  "partTitle": "Abschliessen",
+  "title": "Flugbuch & Kosten",
+  "body": "Block- und Flugzeit, die Landungen, die Motorstunden und die Kosten zum Tarif des Flugzeugs. «Zeile kopieren» legt die Zeile in die Zwischenablage. Schliessen Sie das Fenster, wenn Sie es gelesen haben.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/24-numbers.jpg"
+  },
+  "iphone": {
+   "image": "de/iphone/24-numbers.jpg"
+  }
+ },
+ {
+  "id": "finish",
+  "part": 3,
+  "partTitle": "Abschliessen",
+  "title": "Beenden",
+  "body": "«Beenden» schliesst die Seite des Flugs; der Flug bleibt in Ihrem Flugbuch.",
+  "kind": "act",
+  "ipad": {
+   "image": "de/ipad/25-finish.jpg",
+   "ring": {
+    "x": 39.76,
+    "y": 33.56,
+    "width": 20.49,
+    "height": 6.14
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/25-finish.jpg",
+   "ring": {
+    "x": 29.1,
+    "y": 47.83,
+    "width": 41.79,
+    "height": 8.28
+   }
+  }
+ },
+ {
+  "id": "dashboard",
+  "part": 4,
+  "partTitle": "Ihr Flugbuch",
+  "title": "Das Jahr im Überblick",
+  "body": "Ihre Stunden, Flüge und Landungen, die Stunden pro Flugzeug, was Sie ausgegeben haben und wie Ihre Kontrollen liefen. Das Flugbuch der Trockenübung enthält fünf erfundene Flüge vor Ihrem.",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/26-dashboard.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 8.64,
+    "width": 97.56,
+    "height": 14.7
+   }
+  },
+  "iphone": {
+   "image": "de/iphone/26-dashboard.jpg",
+   "ring": {
+    "x": 2.49,
+    "y": 18.76,
+    "width": 95.02,
+    "height": 35.28
+   }
+  }
+ },
+ {
+  "id": "track",
+  "part": 4,
+  "partTitle": "Ihr Flugbuch",
+  "title": "Die Seite des Flugs",
+  "body": "Alles über diesen Flug steht hier: sein Flugweg auf der Karte, das Diagramm von Höhe und Geschwindigkeit (fahren Sie mit dem Finger daran entlang, um den Flug erneut abzuspielen), die Zeitleiste, wie jede Kontrolle endete, die Motorstunden und der Plan im Vergleich mit dem, was Sie geflogen sind. Sehen Sie sich um und tippen Sie dann auf «Weiter».",
+  "kind": "look",
+  "ipad": {
+   "image": "de/ipad/27-track.jpg"
+  },
+  "iphone": {
+   "image": "de/iphone/27-track.jpg"
+  }
+ }
+]

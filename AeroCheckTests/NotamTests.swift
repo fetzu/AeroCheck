@@ -106,6 +106,40 @@ final class NotamTests: NotamTestCase {
         XCTAssertNil(file.notams[2].activation)
     }
 
+    /// A real copy, downloaded by hand: `TEST_RUNNER_AEROCHECK_NOTAM_COPY=<folder of <cc>.json>`. Skipped otherwise.
+    /// Every activation the server wrote must read, every shape must draw, and every area must have a note.
+    func testEveryActivationOfARealCopyReadsAndDraws() throws {
+        guard let folder = ProcessInfo.processInfo.environment["AEROCHECK_NOTAM_COPY"] else {
+            throw XCTSkip("No real copy given (TEST_RUNNER_AEROCHECK_NOTAM_COPY).")
+        }
+        let names = try FileManager.default.contentsOfDirectory(atPath: folder).filter { $0.hasSuffix(".json") && $0 != "index.json" }
+        XCTAssertFalse(names.isEmpty)
+        var written = 0, read = 0, shapes = 0, drawn = 0
+        let now = Date()
+        for name in names {
+            let data = try Data(contentsOf: URL(fileURLWithPath: folder).appendingPathComponent(name))
+            let raw = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let rawNotams = raw["notams"] as? [[String: Any]] ?? []
+            written += rawNotams.filter { $0["activation"] != nil }.count
+            let file = try JSONDecoder().decode(NotamFile.self, from: data)
+            XCTAssertEqual(file.notams.count, rawNotams.count, "\(name): a NOTAM left out")
+            for notam in file.notams {
+                guard let activation = notam.activation else { continue }
+                read += 1
+                let area = NotamArea(notam: notam, activation: activation, country: file.country ?? "")
+                shapes += activation.shapes.count
+                drawn += area.airspaces.count
+                XCTAssertNotNil(area.note(now: activation.windows[0].start), "\(name) \(notam.number): no note")
+            }
+            _ = NotamAreaSet(areas: file.notams.compactMap { notam in
+                notam.activation.map { NotamArea(notam: notam, activation: $0, country: file.country ?? "") }
+            }, knownAreas: [], now: now)
+        }
+        XCTAssertEqual(read, written, "an activation the app couldn't read")
+        XCTAssertEqual(drawn, shapes, "a shape the app couldn't draw")
+        print("real copy: \(names.count) files, \(read) activations, \(shapes) shapes")
+    }
+
     func testAnAirspacesDesignatorReadsAsTheServerWritesANotamsAreas() {
         XCTAssertEqual(Airspace.designatorKey(of: "LF-R68B (AMC MANAGEABLE AERA)"), "LFR68B")
         XCTAssertEqual(Airspace.designatorKey(of: "EHTSA 16B AMSTERDAM/DAM SQUARE"), "EHTSA16B")

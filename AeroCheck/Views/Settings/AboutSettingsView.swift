@@ -206,6 +206,11 @@ struct AboutSettingsView: View {
             // NOAA. (6.5.0)
             dataSourceRow(name: "FAA NASR", detail: L10n.DataStorage.sourcePatterns,
                           url: "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/")
+            // The NOTAMs (6.10.0): the NMS's terms let us pass them on but forbid calling them FAA data, so the row names
+            // the service they come through and says each country issues them, as other apps on the NMS do. The FAA's own
+            // wording is asked by e-mail; this follows its answer once it comes.
+            dataSourceRow(name: "FAA NOTAM Management Service", detail: L10n.DataStorage.sourceNotams,
+                          url: "https://www.faa.gov/about/initiatives/notam")
             dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
             // Natural Earth is public domain and explicitly waives attribution, so this is courtesy
             // rather than obligation — but the bundled borders decide which countries a trip prefetch

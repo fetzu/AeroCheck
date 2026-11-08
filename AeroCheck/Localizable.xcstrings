@@ -16452,19 +16452,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus unserer Kopie, Stand %@. Nichts hier ersetzt die offiziellen Seiten."
+            "value": "Aus unserer Kopie, Stand %@, bezogen über den NOTAM Management Service der FAA. Nichts hier ersetzt die offiziellen Seiten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "From our copy, as of %@. Nothing here replaces the official pages."
+            "value": "From our copy, as of %@, received through the FAA's NOTAM Management Service. Nothing here replaces the official pages."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "D'après notre copie, à %@. Rien ici ne remplace les pages officielles."
+            "value": "D'après notre copie, à %@, reçue par le NOTAM Management Service de la FAA. Rien ici ne remplace les pages officielles."
           }
         }
       }
@@ -22070,6 +22070,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Liens de briefing"
+          }
+        }
+      }
+    },
+    "settings.source.notams": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM · von jedem Land herausgegeben, über diesen Dienst bezogen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAMs · as each country issues them, received through this service"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM · tels que chaque pays les émet, reçus par ce service"
           }
         }
       }

@@ -359,6 +359,8 @@ enum L10n {
         static let sourceBriefingName = String(localized: "settings.source.briefingName")
         static let sourceBriefing = String(localized: "settings.source.briefing")
         static let sourcePatterns = String(localized: "settings.source.patterns")
+        /// The NOTAMs' credit (6.10.0): each country issues them, the FAA's NMS hands them on. Its terms forbid calling them FAA data.
+        static let sourceNotams = String(localized: "settings.source.notams")
         static let sourceTypeface = String(localized: "dataStorage.source.typeface")
         static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")

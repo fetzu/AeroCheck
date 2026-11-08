@@ -640,7 +640,6 @@ final class CompanionLinkTests: XCTestCase {
         plan.calculateRouteData()
         plans.add(plan)
         plans.activateFlightPlan(plan)
-        addTeardownBlock { @MainActor in plans.stopChronometer() }
         return plan
     }
 

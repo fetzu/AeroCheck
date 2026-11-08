@@ -266,10 +266,7 @@ final class UndoOfferTests: XCTestCase {
             plans.add(plan)
             plans.activateFlightPlan(plan)
             plans.startChronometer()
-            test.addTeardownBlock { @MainActor [plans, appState] in
-                plans.stopChronometer()
-                appState.cancelFlight()
-            }
+            test.addTeardownBlock { @MainActor [appState] in appState.cancelFlight() }
         }
 
         /// The landing check confirmed from memory: a check's offer.

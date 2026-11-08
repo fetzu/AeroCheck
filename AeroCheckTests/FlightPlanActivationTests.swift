@@ -257,7 +257,6 @@ final class FlightPlanActivationTests: XCTestCase {
             let armed = plan()
             manager.add(armed)
             manager.activateFlightPlan(armed)
-            addTeardownBlock { @MainActor in manager.stopChronometer() }
             let before = try encoded(manager.activeFlightPlan)
 
             appState.startFlight(withAircraft: appState.settings.defaultAirplane,
@@ -300,7 +299,6 @@ final class FlightPlanActivationTests: XCTestCase {
         let armed = plan()
         manager.add(armed)
         manager.activateFlightPlan(armed)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         let before = try encoded(manager.activeFlightPlan)
         appState.startFlight(withAircraft: appState.settings.defaultAirplane, circuitMode: true)
 
@@ -320,7 +318,6 @@ final class FlightPlanActivationTests: XCTestCase {
         let armed = plan()
         manager.add(armed)
         manager.activateFlightPlan(armed)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: armed.id)
 
         let abandoned = appState.currentFlight
@@ -377,7 +374,6 @@ final class FlightPlanActivationTests: XCTestCase {
         let p = departingPlan()
         manager.add(p)
         manager.activateFlightPlan(p)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         return (manager, p)
     }
 
@@ -594,7 +590,6 @@ final class FlightPlanActivationTests: XCTestCase {
         route.timeOn = plannedDeparture.addingTimeInterval(-84_600)
         manager.add(route)
         manager.activateFlightPlan(route)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         let roll = plannedDeparture.addingTimeInterval(16 * 60)
         let takeoff = try measuredTakeoff(rollingAt: roll)
         let early = track(rollingAt: roll, upTo: roll.addingTimeInterval(12))
@@ -630,7 +625,6 @@ final class FlightPlanActivationTests: XCTestCase {
         route.counterStop = 1_200.9
         manager.add(route)
         manager.activateFlightPlan(route)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         let roll = plannedDeparture.addingTimeInterval(16 * 60)
         let takeoff = try measuredTakeoff(rollingAt: roll)
         let landing = takeoff.addingTimeInterval(1_500)

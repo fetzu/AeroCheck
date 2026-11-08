@@ -10,7 +10,13 @@ class FlightPlanManager: ObservableObject {
 
     @Published var flightPlans: [FlightPlan] = []
     @Published var activeFlightPlan: FlightPlan?
-    @Published var chronometerElapsed: TimeInterval = 0
+    /// The leg time, read when needed: a 1 s timer published it, and every view that observes the manager (most of the
+    /// Cockpit) re-ran each second, in the background too. What shows it counts in a `TimelineView`; start, pause,
+    /// reset and the plan's start time publish as they always did. (6.10.0)
+    var chronometerElapsed: TimeInterval {
+        guard let start = activeFlightPlan?.chronometerStartTime else { return chronometerAccumulated }
+        return chronometerAccumulated + FlightClock.now.timeIntervalSince(start)
+    }
     /// Set once at launch when an activation is retired by age; drives the notice banner. (v4.4.0)
     @Published var expiredActivation: ExpiredActivation?
     /// The waypoint the flight just marked on its own (`catchUpWaypointPassages`), offered back by
@@ -21,7 +27,9 @@ class FlightPlanManager: ObservableObject {
     /// (`UndoOfferRule`). (6.2)
     private(set) var lastAutoMarkOfferAt: Date?
     /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
-    private var chronometerAccumulated: TimeInterval = 0
+    private var chronometerAccumulated: TimeInterval = 0 {
+        willSet { if newValue != chronometerAccumulated { objectWillChange.send() } }
+    }
 
     /// True while the leg timer is actively counting (pause clears the plan's start time). (v4 UI/UX Revamp)
     var isChronometerRunning: Bool { activeFlightPlan?.chronometerStartTime != nil }
@@ -29,7 +37,6 @@ class FlightPlanManager: ObservableObject {
     // MARK: - Private Properties
 
     private let activeFlightPlanKey = "activeFlightPlan"
-    private var chronometerTimer: Timer?
     /// Where the plan files live. Injectable for the same reason as `defaults`: in a test, `.shared`
     /// is the simulator app's own datastore.
     private let persistence: DataPersistenceManager
@@ -66,7 +73,6 @@ class FlightPlanManager: ObservableObject {
         // stall on iCloud — for an evicted file, long enough on a slow network to trip the launch
         // watchdog — so they load off-main, mirroring the flights fix (PR-24). (PERF-25)
         loadActiveFlightPlan()
-        startChronometerIfNeeded()
         Task { [weak self] in
             await self?.loadFlightPlansAsync()
         }
@@ -465,7 +471,6 @@ class FlightPlanManager: ObservableObject {
         }
 
         activeFlightPlan = activePlan
-        chronometerElapsed = 0
         chronometerAccumulated = 0
         autoMarkNotice = nil
         saveFlightPlans()
@@ -546,11 +551,9 @@ class FlightPlanManager: ObservableObject {
         }
 
         activeFlightPlan = nil
-        chronometerElapsed = 0
         chronometerAccumulated = 0
         autoMarkNotice = nil
         detectedTakeoff = nil
-        stopChronometer()
         saveFlightPlans()
         clearActiveFlightPlan()
     }
@@ -969,7 +972,6 @@ class FlightPlanManager: ObservableObject {
         }
 
         saveActiveFlightPlan()
-        startChronometerTimer()
     }
 
     #if DEBUG
@@ -986,8 +988,6 @@ class FlightPlanManager: ObservableObject {
             flightPlans[index] = plan
         }
         saveActiveFlightPlan()
-        chronometerElapsed = elapsedSeconds
-        startChronometerTimer()
     }
     #endif
 
@@ -1005,15 +1005,6 @@ class FlightPlanManager: ObservableObject {
         }
 
         saveActiveFlightPlan()
-        chronometerTimer?.invalidate()
-        chronometerTimer = nil
-        chronometerElapsed = chronometerAccumulated
-    }
-
-    /// Stop the chronometer
-    func stopChronometer() {
-        chronometerTimer?.invalidate()
-        chronometerTimer = nil
     }
 
     /// Reset the leg timer to zero, keeping the running/paused state. (v4 UI/UX Revamp)
@@ -1026,7 +1017,6 @@ class FlightPlanManager: ObservableObject {
         chronometerAccumulated = 0
         if plan.chronometerStartTime != nil { plan.chronometerStartTime = min(legStart ?? FlightClock.now, FlightClock.now) }
         activeFlightPlan = plan
-        updateChronometerElapsed()
 
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
             flightPlans[index] = plan
@@ -1057,13 +1047,6 @@ class FlightPlanManager: ObservableObject {
             flightPlans[index] = plan
         }
         saveActiveFlightPlan()
-        if snapshot.startTime != nil {
-            startChronometerTimer()
-        } else {
-            chronometerTimer?.invalidate()
-            chronometerTimer = nil
-        }
-        updateChronometerElapsed()
     }
 
     /// Take back a MARK: the waypoint is the target again, its crossing is forgotten, and the leg
@@ -1095,30 +1078,6 @@ class FlightPlanManager: ObservableObject {
         saveFlightPlans()
         saveActiveFlightPlan()
         resetChronometer()
-    }
-
-    private func startChronometerTimer() {
-        chronometerTimer?.invalidate()
-        chronometerTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateChronometerElapsed()
-            }
-        }
-    }
-
-    private func updateChronometerElapsed() {
-        guard let startTime = activeFlightPlan?.chronometerStartTime else {
-            chronometerElapsed = chronometerAccumulated  // paused — frozen at the accumulated value
-            return
-        }
-        chronometerElapsed = chronometerAccumulated + FlightClock.now.timeIntervalSince(startTime)
-    }
-
-    private func startChronometerIfNeeded() {
-        if activeFlightPlan?.chronometerStartTime != nil {
-            startChronometerTimer()
-            updateChronometerElapsed()
-        }
     }
 
     /// Formatted chronometer string (MM:SS or HH:MM:SS)

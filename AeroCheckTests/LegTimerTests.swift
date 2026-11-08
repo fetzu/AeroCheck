@@ -16,7 +16,6 @@ final class LegTimerTests: XCTestCase {
         ])
         manager.add(plan)
         manager.activateFlightPlan(plan)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         return manager
     }
 
@@ -262,7 +261,6 @@ final class LegTimerTests: XCTestCase {
 
             // The app is killed mid-flight and relaunched.
             let relaunched = makeTestPlanManager(datastore: datastore, defaults: defaults)
-            addTeardownBlock { @MainActor in relaunched.stopChronometer() }
             XCTAssertEqual(relaunched.activeFlightPlan?.takenBackWaypointIds, [lsgcId])
             catchUp(relaunched, track, takeoff: takeoff)
             XCTAssertEqual(seconds(relaunched.activeFlightPlan?.waypoints[1].actualTimeOver), seconds(markTime),
@@ -292,7 +290,6 @@ final class LegTimerTests: XCTestCase {
         catchUp(activePlan(datastore: datastore, defaults: defaults), track, takeoff: takeoff)
 
         let relaunched = makeTestPlanManager(datastore: datastore, defaults: defaults)
-        addTeardownBlock { @MainActor in relaunched.stopChronometer() }
         XCTAssertEqual(relaunched.activeFlightPlan?.currentWaypointIndex, 2)
         relaunched.resumeLeg(at: 1)
         catchUp(relaunched, track, takeoff: takeoff)

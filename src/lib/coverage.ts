@@ -127,10 +127,12 @@ export function atLeast(version: string, wanted: string): boolean {
 
 /**
  * The coverage as the released app has it. 6.5.0 brought the briefing pages and the closing rule beyond Switzerland
- * (Switzerland's came earlier), the US traffic patterns and the chart links of Australia, New Zealand and the US.
+ * (Switzerland's came earlier), the US traffic patterns and the chart links of Australia, New Zealand and the US;
+ * 6.10.0, Malta's airspace from OpenAIP.
  */
 export function released(coverage: Coverage, version: string): Coverage {
-  if (atLeast(version, '6.5.0')) return coverage;
+  if (atLeast(version, '6.10.0')) return coverage;
+  if (atLeast(version, '6.5.0')) return before6100(coverage);
   const countries: Record<string, CountryCoverage> = {};
   for (const [cc, facts] of Object.entries(coverage.countries)) {
     const c: CountryCoverage = { ...facts };
@@ -143,7 +145,14 @@ export function released(coverage: Coverage, version: string): Coverage {
     if (['AU', 'NZ', 'US'].includes(cc)) c.charts = { level: 'off' };
     countries[cc] = c;
   }
-  return { ...coverage, countries };
+  return before6100({ ...coverage, countries });
+}
+
+/** 6.10.0 added Malta to the app's OpenAIP countries, once OpenAIP published its airspace. */
+function before6100(coverage: Coverage): Coverage {
+  const malta = coverage.countries.MT;
+  if (!malta?.openaip) return coverage;
+  return { ...coverage, countries: { ...coverage.countries, MT: { ...malta, openaip: false } } };
 }
 
 /** AEROCHECK_PREVIEW_VERSION builds the site as if that app version were out, to check a release's pages before it ships. */

@@ -863,7 +863,7 @@ struct NavigationMapView: View {
         }
         if chrome == .plan, !appState.isFlightActive {
             let countries = Array(NotamService.countries(at: region.center))
-            Task { await NotamService.shared.refreshIfNeeded(countries: countries, onGround: true) }
+            Task { await NotamService.shared.refreshIfNeeded(countries: countries, onGround: true, lookedAt: true) }
         }
         let window = notamWindow
         // A NOTAM whose area the board already draws (abroad, 6.10.0) is left to the board: one outline, not two.

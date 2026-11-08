@@ -385,19 +385,20 @@ struct NotamActivation: Decodable, Equatable, Hashable {
 
 /// The contract's times: ISO 8601, with or without fractions.
 enum NotamTime {
+    /// Swift's own parser: a new `ISO8601DateFormatter` for each of a file's thousands of dates was most of the NOTAMs'
+    /// load at each launch (110 µs a date, against under 1 µs). (6.10.0)
     static func date(_ text: String) -> Date? {
-        ISO8601DateFormatter().date(from: text) ?? {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            return formatter.date(from: text)
-        }()
+        (try? Date(text, strategy: plain)) ?? (try? Date(text, strategy: fractional))
     }
 
-    static var utc: Calendar {
+    private static let plain = Date.ISO8601FormatStyle()
+    private static let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+
+    static let utc: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
         return calendar
-    }
+    }()
 
     /// "07:15".
     static func clock(_ date: Date) -> String {

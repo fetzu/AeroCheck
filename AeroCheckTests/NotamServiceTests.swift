@@ -150,6 +150,40 @@ final class NotamServiceTests: XCTestCase {
         XCTAssertTrue(s.notams(at: "LSZQ").isEmpty, "no row for it on a card")
     }
 
+    func testACountryOnlyLookedAtOnTheMapLeavesAfterADay() async {
+        publish(ch: [notam("1")])
+        let s = service()
+        await s.refreshIfNeeded(countries: ["CH"], onGround: true)
+        await s.refreshIfNeeded(countries: ["FR"], onGround: true, lookedAt: true)
+        XCTAssertTrue(s.hasList("FR"), "the map's country comes down")
+        moment = start.addingTimeInterval(NotamService.lookedAtKeptFor + 60)
+        await s.refreshIfNeeded(countries: ["CH"], onGround: true)
+        XCTAssertFalse(s.hasList("FR"), "a day later, with no flight through it, it goes")
+        XCTAssertTrue(s.hasList("CH"), "the flight's country keeps its 8 days")
+    }
+
+    func testACountryPlannedAndLookedAtKeepsAFlightsEightDays() async {
+        publish(ch: [notam("1")])
+        let s = service()
+        await s.refreshIfNeeded(countries: ["FR"], onGround: true)
+        moment = start.addingTimeInterval(NotamService.minInterval + 1)
+        await s.refreshIfNeeded(countries: ["FR"], onGround: true, lookedAt: true)
+        moment = start.addingTimeInterval(NotamService.lookedAtKeptFor * 2)
+        await s.refreshIfNeeded(countries: ["CH"], onGround: true)
+        XCTAssertTrue(s.hasList("FR"), "a look never shortens what a flight asked for")
+    }
+
+    func testTheContractsTimesReadWithOrWithoutFractionsAndOffsets() {
+        let t = Date(timeIntervalSince1970: 1_793_517_300)   // 2026-11-01T07:15:00Z
+        XCTAssertEqual(NotamTime.date("2026-11-01T07:15:00Z"), t)
+        XCTAssertEqual(NotamTime.date("2026-11-01T08:15:00+01:00"), t)
+        XCTAssertEqual(NotamTime.date("2026-11-01T07:15:00.000Z"), t)
+        XCTAssertEqual(NotamTime.date("2026-11-01T07:15:00.5Z")?.timeIntervalSince(t) ?? 0, 0.5, accuracy: 0.001)
+        XCTAssertNil(NotamTime.date("2026-11-01"))
+        XCTAssertNil(NotamTime.date(""))
+        XCTAssertNil(NotamTime.date("PERM"))
+    }
+
     func testAFieldsNotamsLeaveOutThoseOverFirstStartedFirst() {
         let s = service()
         let over = Notam(id: "1", number: "A1/26", location: "LSZQ", end: start.addingTimeInterval(-1), text: "OVER")

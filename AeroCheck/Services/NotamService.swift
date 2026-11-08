@@ -41,6 +41,8 @@ final class NotamService: ObservableObject {
     nonisolated static let minForcedInterval: TimeInterval = 20
     /// A country no flight has asked for in this long leaves the device.
     nonisolated static let keptFor: TimeInterval = 8 * 24 * 3600
+    /// A country only looked at on Plan › Map, no flight planned through it, leaves after a day (decision q3, 6.10.0).
+    nonisolated static let lookedAtKeptFor: TimeInterval = 24 * 3600
 
     static func url(_ file: String) -> URL { APIConfig.dataURL("notams/v1/\(file)") }
 
@@ -50,6 +52,8 @@ final class NotamService: ObservableObject {
         var firstSeen: [String: Date] = [:]
         /// When a flight last asked for each file.
         var wanted: [String: Date] = [:]
+        /// When Plan › Map last asked for each file, for the country under it. Optional: older copies don't have it.
+        var lookedAt: [String: Date]?
         /// Each file's ETag, for the next conditional fetch.
         var etags: [String: String] = [:]
         /// The index's time for a country when its file was last known to match: the copy's age. The file's own time only
@@ -186,8 +190,9 @@ final class NotamService: ObservableObject {
     // MARK: Fetching
 
     /// When the flight page opens, on foreground, at START. Only on the ground; `force` is the block's refresh button.
-    /// A country not on the device yet doesn't wait for the interval.
-    func refreshIfNeeded(countries: [String], force: Bool = false, onGround: Bool) async {
+    /// A country not on the device yet doesn't wait for the interval. `lookedAt`: the country under Plan › Map, kept a day
+    /// rather than a flight's 8.
+    func refreshIfNeeded(countries: [String], force: Bool = false, onGround: Bool, lookedAt: Bool = false) async {
         await ensureLoaded()
         guard onGround, mayFetch else { return }
         let moment = now()
@@ -201,10 +206,10 @@ final class NotamService: ObservableObject {
         } else if !missing, let lastFetch, moment.timeIntervalSince(lastFetch) < Self.minInterval {
             return
         }
-        await refresh(countries: wanted)
+        await refresh(countries: wanted, lookedAt: lookedAt)
     }
 
-    private func refresh(countries: Set<String>) async {
+    private func refresh(countries: Set<String>, lookedAt: Bool) async {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
@@ -215,16 +220,23 @@ final class NotamService: ObservableObject {
             return
         }
         lastFetch = moment
-        for code in countries { if let entry = newIndex.countries[code], newIndex.hasList(code) { memory.wanted[entry.file] = moment } }
+        var looked = memory.lookedAt ?? [:]
+        for code in countries {
+            guard let entry = newIndex.countries[code], newIndex.hasList(code) else { continue }
+            if lookedAt { looked[entry.file] = moment } else { memory.wanted[entry.file] = moment }
+        }
         memory.wanted = memory.wanted.filter { moment.timeIntervalSince($0.value) < Self.keptFor }
+        memory.lookedAt = looked.filter { moment.timeIntervalSince($0.value) < Self.lookedAtKeptFor }
+        let asked = memory
+        let kept = { (name: String) in asked.wanted[name] != nil || asked.lookedAt?[name] != nil }
         var updated = files
         // Whatever no country has any more, or no flight has asked for in a while, goes.
         let listed = Set(newIndex.countries.filter { newIndex.hasList($0.key) }.map(\.value.file))
-        updated = updated.filter { listed.contains($0.key) && memory.wanted[$0.key] != nil }
+        updated = updated.filter { listed.contains($0.key) && kept($0.key) }
         var failed = false
         // Every wanted file, conditionally: the index's time moves at every run, whether a file changed or not.
         var entries: [String: NotamIndex.Country] = [:]
-        for (code, entry) in newIndex.countries where memory.wanted[entry.file] != nil && newIndex.hasList(code) { entries[entry.file] = entry }
+        for (code, entry) in newIndex.countries where kept(entry.file) && newIndex.hasList(code) { entries[entry.file] = entry }
         var fresh: [String: Data] = [:]
         for (name, entry) in entries.sorted(by: { $0.key < $1.key }) {
             guard let reply = try? await fetch(Self.url(name), etag: updated[name] == nil ? nil : memory.etags[name],
@@ -249,11 +261,11 @@ final class NotamService: ObservableObject {
         memory.firstSeen = memory.firstSeen.filter { ids.contains($0.key) }
         memory.etags = memory.etags.filter { updated[$0.key] != nil }
         memory.confirmed = memory.confirmed.filter { updated[$0.key] != nil }
-        store(index: indexData, fresh: fresh, kept: Set(updated.keys))
+        await store(index: indexData, fresh: fresh, kept: Set(updated.keys))
         index = newIndex
         files = updated
         couldNotRefresh = failed
-        rebuild()
+        await rebuild()
     }
 
     /// The copy from the disk, once: for a flight after a relaunch, with no signal.
@@ -279,18 +291,26 @@ final class NotamService: ObservableObject {
         index = read.0
         files = read.1
         if let saved = read.2 { memory = saved }
-        rebuild()
+        await rebuild()
     }
 
     private nonisolated static let memoryName = "memory.json"
 
-    private func rebuild() {
+    /// What the lists and the map read, worked out from the files.
+    private struct Built {
+        var everything: [Notam] = []
+        var byLocation: [String: [Notam]] = [:]
+        var areaActivations: [NotamArea] = []
+    }
+
+    private nonisolated static func build(_ files: [String: NotamFile]) -> Built {
+        var built = Built()
         var seen = Set<String>()
-        everything = files.keys.sorted().flatMap { files[$0]?.notams ?? [] }.filter { !$0.isChecklist && seen.insert($0.id).inserted }
-        byLocation = Dictionary(grouping: everything, by: \.location)
+        built.everything = files.keys.sorted().flatMap { files[$0]?.notams ?? [] }.filter { !$0.isChecklist && seen.insert($0.id).inserted }
+        built.byLocation = Dictionary(grouping: built.everything, by: \.location)
         // Switzerland (and Liechtenstein, in its file) has the DABS, which carries its NOTAMs' areas already.
         var once = Set<String>()
-        areaActivations = files.keys.sorted().flatMap { name -> [NotamArea] in
+        built.areaActivations = files.keys.sorted().flatMap { name -> [NotamArea] in
             guard let file = files[name], let country = file.country?.uppercased(), country != "CH", country != "LI" else { return [] }
             return file.notams.compactMap { notam in
                 // The FAA repeats a NOTAM for each place on its line A: one area
@@ -298,23 +318,54 @@ final class NotamService: ObservableObject {
                 return NotamArea(notam: notam, activation: activation, country: country)
             }
         }
+        return built
+    }
+
+    private func apply(_ built: Built) {
+        everything = built.everything
+        byLocation = built.byLocation
+        areaActivations = built.areaActivations
         revision += 1
     }
+
+    /// Off the main thread: 1 to 2.5 ms of it for three or four countries. A later build supersedes one still running.
+    /// (6.10.0)
+    private func rebuild() async {
+        buildGeneration += 1
+        let generation = buildGeneration
+        let files = self.files
+        let built = await Task.detached(priority: .utility) { Self.build(files) }.value
+        guard generation == buildGeneration else { return }
+        apply(built)
+    }
+
+    private var buildGeneration = 0
 
     /// Abroad, the NOTAMs that create or activate an area, each once (6.10.0).
     private(set) var areaActivations: [NotamArea] = []
 
-    private func store(index data: Data, fresh: [String: Data], kept: Set<String>) {
+    /// The files written off the main thread: a country's runs to several megabytes, written with file protection. (6.10.0)
+    private func store(index data: Data, fresh: [String: Data], kept: Set<String>) async {
+        let folder = self.folder
+        let options = DataPersistenceManager.protectedWriteOptions
+        let saved = try? JSONEncoder().encode(memory)
+        await Task.detached(priority: .utility) {
+            Self.write(index: data, fresh: fresh, memory: saved, kept: kept, in: folder, options: options)
+        }.value
+    }
+
+    private nonisolated static func write(index data: Data, fresh: [String: Data], memory saved: Data?, kept: Set<String>,
+                                          in folder: URL, options: Data.WritingOptions) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try? data.write(to: folder.appendingPathComponent("index.json"), options: DataPersistenceManager.protectedWriteOptions)
+        try? data.write(to: folder.appendingPathComponent("index.json"), options: options)
         for (name, body) in fresh {
-            try? body.write(to: folder.appendingPathComponent(name), options: DataPersistenceManager.protectedWriteOptions)
+            try? body.write(to: folder.appendingPathComponent(name), options: options)
         }
-        if let saved = try? JSONEncoder().encode(memory) {
-            try? saved.write(to: folder.appendingPathComponent(Self.memoryName), options: DataPersistenceManager.protectedWriteOptions)
+        if let saved {
+            try? saved.write(to: folder.appendingPathComponent(memoryName), options: options)
         }
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
-        for name in names where !kept.contains(name) && name != "index.json" && name != Self.memoryName {
+        for name in names where !kept.contains(name) && name != "index.json" && name != memoryName {
             try? FileManager.default.removeItem(at: folder.appendingPathComponent(name))
         }
     }
@@ -345,6 +396,7 @@ final class NotamService: ObservableObject {
         self.index = index
         self.files = files
         memory.firstSeen = firstSeen
-        rebuild()
+        buildGeneration += 1
+        apply(Self.build(files))
     }
 }

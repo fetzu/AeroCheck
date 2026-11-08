@@ -88,8 +88,12 @@ final class NotamService: ObservableObject {
         var override = fetch
         #if DEBUG
         // A local folder of the server's files, in place of the network: a look at the screens. (AEROCHECK_NOTAM_DIR)
+        // `fixture` is the screenshot run's copy, put in `Library/Application Support/DebugFixtures/notams/` as the
+        // weather's (6.10.0).
         if override == nil, let local = ProcessInfo.processInfo.environment["AEROCHECK_NOTAM_DIR"], !local.isEmpty {
-            let root = URL(fileURLWithPath: local, isDirectory: true)
+            let root = local == "fixture"
+                ? URL.applicationSupportDirectory.appending(path: "DebugFixtures/notams", directoryHint: .isDirectory)
+                : URL(fileURLWithPath: local, isDirectory: true)
             override = { url, _ in Reply(body: try Data(contentsOf: root.appendingPathComponent(url.lastPathComponent))) }
         }
         #endif

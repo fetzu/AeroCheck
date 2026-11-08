@@ -173,7 +173,7 @@ struct ThreadBriefing {
     var departureCountry: String?
     var flightDay: Date?
     var language: String = AppLanguage.current
-    var now: Date = Date()
+    var now: Date = FlightClock.displayNow
     /// How the plan is closed where the flight lands. (q3)
     var closeOut: CloseOut?
     /// Why this flight needs an ATC plan, and whether a filed one has gone late. (6.9.0)

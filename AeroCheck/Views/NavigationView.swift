@@ -1318,6 +1318,13 @@ struct NavigationMapView: View {
             mapState.objectWillChange.send()
             return
         }
+        if scene == "notammap" {
+            isFollowingAircraft = false
+            mapState.pendingCallout = nil
+            mapState.pendingCameraMove = PendingCameraMove(center: MarketingSceneInjector.notamMapCentre, spanNM: 40)
+            mapState.objectWillChange.send()
+            return
+        }
         guard scene == "circuits" else { return }
         Task {
             await airportDataService.ensureLoaded()

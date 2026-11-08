@@ -41,6 +41,18 @@ enum OfflineCountryCatalog {
         .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
     }
 
+    /// One country of `countries`, without building and sorting the whole list: Today's card asks for the home country
+    /// at each of its passes. (6.10.0)
+    static func country(_ code: String, atlasRegions: [PilotMapRegion], vfrCountries: Set<String>,
+                        name: (String) -> String = OpenAIPConfig.countryName(for:)) -> OfflineCountry? {
+        let inOpenAIP = OpenAIPConfig.continents.contains { $0.countries.contains(code) }
+        let regions = atlasRegions.filter { $0.id != PilotMapRegion.overviewID && country(of: $0) == code }
+        guard inOpenAIP || !regions.isEmpty else { return nil }
+        return OfflineCountry(id: code, name: name(code),
+                              atlasRegions: regions.sorted { $0.displayName.localizedCompare($1.displayName) == .orderedAscending },
+                              hasAeronauticalData: inOpenAIP, hasVFRProcedures: vfrCountries.contains(code))
+    }
+
     /// A region's country: the index's, or its id when that is a country code (indexes before the worldwide regions).
     static func country(of region: PilotMapRegion) -> String? {
         if let country = region.country { return country.uppercased() }

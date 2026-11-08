@@ -400,7 +400,7 @@ struct OnboardingView: View {
         .onAppear {
             if locationManager.authorizationStatus == .authorizedWhenInUse
                 || locationManager.authorizationStatus == .authorizedAlways {
-                locationManager.startLocationUpdates()
+                locationManager.startWarmUp()
             }
             noteSyncedBase(appState.settings.homeAerodromeIdent)
         }

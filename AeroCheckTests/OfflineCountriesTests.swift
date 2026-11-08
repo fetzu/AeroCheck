@@ -53,6 +53,14 @@ final class OfflineCountriesTests: XCTestCase {
         XCTAssertEqual(countries.map(\.name), countries.map(\.name).sorted { $0.localizedCompare($1) == .orderedAscending })
     }
 
+    func testOneCountryIsTheCatalogsOwnWithoutTheWholeList() {
+        let catalog = Self.catalog()
+        for code in ["CH", "FR", "XK", "MA", "ZZ"] {
+            XCTAssertEqual(OfflineCountryCatalog.country(code, atlasRegions: Self.atlas, vfrCountries: ["CH", "FR"], name: { $0 }),
+                           catalog.first { $0.id == code }, code)
+        }
+    }
+
     func testOnDeviceIsTheDataKeptTheAtlasRegionsAndTheSwissCharts() {
         XCTAssertEqual(OfflineCountryCatalog.onDevice(aeronautical: ["AT"], atlasDownloaded: [Self.atlas[1], Self.atlas[5]],
                                                       swissCharts: true),

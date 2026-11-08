@@ -419,7 +419,7 @@ struct HomeView: View {
             // (v4.1 — fixes the systematic first-try GPS warning)
             if locationManager.authorizationStatus == .authorizedWhenInUse
                 || locationManager.authorizationStatus == .authorizedAlways {
-                locationManager.startLocationUpdates()
+                locationManager.startWarmUp()
             }
         }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in

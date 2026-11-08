@@ -130,6 +130,7 @@ class LocationManager: NSObject, ObservableObject {
             storedGPSSignalStatus = newValue
             // Kept in the device's log, for a field report read back with `log collect`. (6.1.0)
             AppLog.location.publicNotice("GPS status: \(oldValue.description) → \(newValue.description)")
+            followDiagnostics()
         }
     }
     private var storedGPSSignalStatus: GPSSignalStatus = .good
@@ -560,6 +561,9 @@ class LocationManager: NSObject, ObservableObject {
         }
 
         pendingLocationUpdatesStart = false
+        // A map or START wants the GPS for as long as it is open: no rest. (6.10.0)
+        warmUpRest?.cancel()
+        warmUpRest = nil
 
         // If already tracking a flight, GPS is already active.
         // Just mark location updates as active without resetting signal state,
@@ -578,6 +582,24 @@ class LocationManager: NSObject, ObservableObject {
         startSignalCheckTimer()
         updateBackgroundTrackingLimited()
     }
+
+    /// Today's and onboarding's warm-up: the GPS on as they show, so START finds a fix at once (the 6.1.0 fix), at rest
+    /// after 5 minutes with no flight and no map. A map, or START (`FlightLauncher`), starts it again; START waits for
+    /// a fix up to 5 s as before. (decision q2, 6.10.0)
+    func startWarmUp() {
+        startLocationUpdates()
+        guard isLocationUpdatesActive, !isTracking else { return }
+        warmUpRest = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(Self.warmUpLength))
+            guard let self, !Task.isCancelled else { return }
+            self.warmUpRest = nil
+            AppLog.location.publicNotice("GPS rests: \(Int(Self.warmUpLength / 60)) min on Today without a flight")
+            self.stopLocationUpdates()
+        }
+    }
+
+    static let warmUpLength: TimeInterval = 5 * 60
+    private var warmUpRest: Task<Void, Never>?
 
     /// Stop location updates when navigation view is closed
     /// Only stops if not currently tracking a flight or feeding a companion master
@@ -659,14 +681,15 @@ class LocationManager: NSObject, ObservableObject {
         signalCheckTimer = timer
         fixDigest = GPSFixDigest()
         signalChecks = 0
-        startLiveDiagnostics()
+        followDiagnostics()
     }
 
     private func stopSignalCheckTimer() {
         signalCheckTimer?.invalidate()
         signalCheckTimer = nil
-        liveDiagnostics?.cancel()
-        liveDiagnostics = nil
+        diagnosticsLinger?.cancel()
+        diagnosticsLinger = nil
+        stopLiveDiagnostics()
     }
 
     // MARK: - What the GPS delivers, in the log (6.1.0)
@@ -684,6 +707,33 @@ class LocationManager: NSObject, ObservableObject {
     private var signalChecks = 0
     private var liveDiagnostics: Task<Void, Never>?
     private var liveSaysUnavailable = false
+
+    /// Core Location's diagnostics run while the GPS status isn't green, and for a minute after it turns green again:
+    /// their words help when something is wrong and are noise when all is well, and the stream woke the app once more
+    /// at each fix (decision q4, 6.10.0). The 10 s line runs as before.
+    private func followDiagnostics() {
+        guard signalCheckTimer != nil else { return }
+        if gpsSignalStatus != .good {
+            diagnosticsLinger?.cancel()
+            diagnosticsLinger = nil
+            startLiveDiagnostics()
+        } else if liveDiagnostics != nil, diagnosticsLinger == nil {
+            diagnosticsLinger = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(Self.diagnosticsLingerLength))
+                guard let self, !Task.isCancelled else { return }
+                self.diagnosticsLinger = nil
+                if self.gpsSignalStatus == .good { self.stopLiveDiagnostics() }
+            }
+        }
+    }
+
+    static let diagnosticsLingerLength: TimeInterval = 60
+    private var diagnosticsLinger: Task<Void, Never>?
+
+    private func stopLiveDiagnostics() {
+        liveDiagnostics?.cancel()
+        liveDiagnostics = nil
+    }
 
     /// Core Location's own diagnostics, alongside the location manager's fixes: recorded, not acted on.
     private func startLiveDiagnostics() {

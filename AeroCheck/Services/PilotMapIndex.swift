@@ -196,10 +196,11 @@ struct PilotMapRegion: Codable, Equatable, Identifiable, Sendable {
     }
 
     /// The name in the app's language (English, French or German), else the index's.
-    var displayName: String {
-        let language = Bundle.main.preferredLocalizations.first.map { String($0.prefix(2)) } ?? "en"
-        return names?[language] ?? name
-    }
+    var displayName: String { names?[Self.language] ?? name }
+
+    /// Read once: the bundle's language doesn't change while the app runs, and a sort asked for it at each comparison.
+    /// (6.10.0)
+    private static let language = Bundle.main.preferredLocalizations.first.map { String($0.prefix(2)) } ?? "en"
 
     func has(_ kind: PilotMapKind) -> Bool { kind == .map ? mapBytes > 0 : reliefBytes > 0 }
 

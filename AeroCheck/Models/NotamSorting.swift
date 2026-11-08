@@ -153,7 +153,7 @@ enum NotamSorter {
         }
     }
 
-    /// The field first, then along the route, then by when it starts: the same order for the same list.
+    /// In flight order, then by when it starts: the same order for the same list.
     private static func inListOrder(_ a: NotamEntry, _ b: NotamEntry) -> Bool {
         let (ra, rb) = (rank(a.place), rank(b.place))
         if ra.0 != rb.0 { return ra.0 < rb.0 }
@@ -162,15 +162,16 @@ enum NotamSorter {
         return sa != sb ? sa < sb : a.notam.number < b.notam.number
     }
 
-    /// The destination, a stop, the route, the alternate, the departure: what can't be seen out of the window first.
+    /// In the order the flight meets them, as a briefing reads: the departure, along the route, a stop, the destination,
+    /// the alternate, then the whole region. Until the author's device check n-5 (8 Nov 2026) the departure came last.
     private static func rank(_ place: NotamPlace?) -> (Int, Double) {
         switch place {
-        case .aerodrome(.destination): return (0, 0)
-        case .aerodrome(.stop): return (1, 0)
-        case .route(_, _, _, let along): return (2, along)
-        case .region: return (3, 0)
+        case .aerodrome(.departure): return (0, 0)
+        case .route(_, _, _, let along): return (1, along)
+        case .aerodrome(.stop): return (2, 0)
+        case .aerodrome(.destination): return (3, 0)
         case .aerodrome(.alternate): return (4, 0)
-        case .aerodrome(.departure): return (5, 0)
+        case .region: return (5, 0)
         case nil: return (6, 0)
         }
     }

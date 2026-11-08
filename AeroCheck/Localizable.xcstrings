@@ -16452,19 +16452,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus unserer Kopie, Stand %@, bezogen über den NOTAM Management Service der FAA. Nichts hier ersetzt die offiziellen Seiten."
+            "value": "NOTAM Stand %@, vom NOTAM Management Service der FAA. Prüfen Sie vor dem Flug die offiziellen Seiten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "From our copy, as of %@, received through the FAA's NOTAM Management Service. Nothing here replaces the official pages."
+            "value": "NOTAMs as of %@, from the FAA NOTAM Management Service. Check the official pages before you fly."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "D'après notre copie, à %@, reçue par le NOTAM Management Service de la FAA. Rien ici ne remplace les pages officielles."
+            "value": "NOTAM à %@, du NOTAM Management Service de la FAA. Consultez les pages officielles avant de voler."
           }
         }
       }
@@ -16659,19 +16659,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOTAM aus unserer Kopie, %@ · unverbindlich"
+            "value": "NOTAM Stand %@ · unverbindlich"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOTAMs from our copy, %@ · indicative"
+            "value": "NOTAMs as of %@ · indicative"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOTAM d'après notre copie, %@ · indicatif"
+            "value": "NOTAM à %@ · indicatif"
           }
         }
       }
@@ -16833,19 +16833,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Liste kann lokale NOTAM auslassen. Massgebend sind die offiziellen Seiten oben."
+            "value": "Diese Liste kann unvollständig sein. Verwenden Sie die offiziellen Seiten oben."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This list can miss local NOTAMs. The official pages above are the reference."
+            "value": "This list may be incomplete. Use the official pages above."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette liste peut manquer des NOTAM locaux. Les pages officielles ci-dessus font référence."
+            "value": "Cette liste peut être incomplète. Utilisez les pages officielles ci-dessus."
           }
         }
       }
@@ -17306,6 +17306,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Espaces aériens, aérodromes, aides radio, obstacles, points de report"
+          }
+        }
+      }
+    },
+    "offlineData.aeronauticalDetailNoPoints": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lufträume, Flugplätze, Funknavigationshilfen, Hindernisse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace, aerodromes, navaids, obstacles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espaces aériens, aérodromes, aides radio, obstacles"
           }
         }
       }

@@ -178,8 +178,24 @@ final class NotamTests: NotamTestCase {
 
     func testAtTheFlightsAerodromesWhateverItsGeometry() {
         let sorted = NotamSorter.sort([notam("1", at: "LFGA"), notam("2", at: "LSZQ")], for: flight())
-        XCTAssertEqual(sorted.along.map(\.id), ["1", "2"], "the destination first")
-        XCTAssertEqual(sorted.along[0].place, .aerodrome(.destination))
+        XCTAssertEqual(sorted.along.map(\.id), ["2", "1"], "in flight order: the departure first")
+        XCTAssertEqual(sorted.along[0].place, .aerodrome(.departure))
+        XCTAssertEqual(sorted.along[1].place, .aerodrome(.destination))
+    }
+
+    /// Basel's six mobile cranes, P3303/26: filed at LFSB with the field's own point, its marker took the field's taps
+    /// (device check n-9). With the field drawn, its card reads it; an obstacle elsewhere keeps its marker.
+    func testAnObstacleOnTheFieldIsLeftToTheFieldsCard() throws {
+        let basel = Airport(id: 1, ident: "LFSB", type: .largeAirport, name: "Basel-Mulhouse", latitude: 47.5896, longitude: 7.5299,
+                            elevation: 885, continent: "EU", isoCountry: "FR", isoRegion: "FR-68", municipality: nil,
+                            scheduledService: true, gpsCode: nil, iataCode: nil, localCode: nil)
+        let onField = notam("1", at: "LFSB", lat: 47.59, lon: 7.529167, kind: .obstacle)
+        let offField = notam("2", at: "LFSB", lat: 47.65, lon: 7.53, kind: .obstacle)       // 3.6 NM north
+        let elsewhere = notam("3", at: "LFEE", lat: 47.59, lon: 7.529167, kind: .obstacle)
+        let items = [onField, offField, elsewhere].compactMap { NotamMapContent.item($0, from: .distantPast, to: .distantFuture) }
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(NotamMapContent.leavingFieldObstacles(items, fields: [basel]).map(\.notam.id), ["2", "3"])
+        XCTAssertEqual(NotamMapContent.leavingFieldObstacles(items, fields: []).count, 3, "a field not drawn keeps them all")
     }
 
     func testAPointWithinTenNauticalMilesOfTheRouteIsAlongIt() {
@@ -340,7 +356,7 @@ final class NotamTests: NotamTestCase {
     func testTheStopAndTheAlternateCount() {
         let f = flight(aerodromes: ["LSZQ": .departure, "LFGA": .destination, "LFSB": .alternate, "LSGC": .stop])
         let sorted = NotamSorter.sort([notam("1", at: "LFSB"), notam("2", at: "LSGC"), notam("3", at: "LSZQ")], for: f)
-        XCTAssertEqual(sorted.along.map(\.id), ["2", "1", "3"])
+        XCTAssertEqual(sorted.along.map(\.id), ["3", "2", "1"], "the departure, the stop, the alternate")
     }
 
     func testAFlightFromItsPlan() {

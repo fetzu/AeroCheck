@@ -149,6 +149,7 @@ struct OfflineCountryPage: View {
     @ObservedObject private var pilotMap = PilotMapDownloads.shared
     @ObservedObject private var vfr = OFMDataService.shared
     @ObservedObject private var countryDownloads = OfflineCountryDownloads.shared
+    @ObservedObject private var reportingPoints = OpenAIPReportingPointDataService.shared
 
     @State private var sizes = OfflineCountrySizes()
     @State private var pendingCountryDelete = false
@@ -171,6 +172,8 @@ struct OfflineCountryPage: View {
         .navigationTitle(OpenAIPConfig.countryName(for: code))
         .navigationBarTitleDisplayMode(.inline)
         .task { sizes = await OfflineCountrySizes.read() }
+        // The reporting points on the device, for the aeronautical row's line. (6.10.0)
+        .task { await reportingPoints.ensureLoaded() }
         .onChange(of: countryDownloads.isSyncing) { _, syncing in if !syncing { Task { sizes = await OfflineCountrySizes.read() } } }
         .onChange(of: pilotMap.downloaded) { _, _ in Task { sizes = await OfflineCountrySizes.read() } }
         .alert(L10n.OfflineData.deleteCountryTitle(OpenAIPConfig.countryName(for: code)),
@@ -280,10 +283,20 @@ struct OfflineCountryPage: View {
             }
             if let bytes = sizes.aeronautical[code], bytes > 0 { line += " · " + OfflineDataView.bytes(bytes) }
         }
-        return partRow(title: L10n.OfflineData.aeronauticalTitle, subtitle: L10n.OfflineData.aeronauticalDetail,
+        return partRow(title: L10n.OfflineData.aeronauticalTitle, subtitle: aeronauticalDetail(onDevice: holding.aeronautical),
                        line: line, failed: failed, busy: adding, onDevice: holding.aeronautical) {
             countryDownloads.add(code, appState: appState, airspace: openAIPDataService, navaids: openAIPNavaidDataService)
         }
+    }
+
+    /// What OpenAIP has for the country: without reporting points where it has none on the device (Malta, whose
+    /// `mt_rpp` answers 404: device check mt-1, 6.10.0). A neighbour's point inside the box keeps the full line.
+    private func aeronauticalDetail(onDevice: Bool) -> String {
+        guard onDevice, reportingPoints.isLoaded, let box = OpenAIPConfig.countryBounds[code],
+              reportingPoints.reportingPointsInRegion(latRange: box.minLat...box.maxLat, lonRange: box.minLon...box.maxLon,
+                                                      limit: 1).isEmpty
+        else { return L10n.OfflineData.aeronauticalDetail }
+        return L10n.OfflineData.aeronauticalDetailNoPoints
     }
 
     /// Open flightmaps' circuits and routes come with the aeronautical data: no button of their own.

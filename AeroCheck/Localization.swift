@@ -245,6 +245,8 @@ enum L10n {
         static let notOnDevice = String(localized: "offlineData.notOnDevice")
         static let aeronauticalTitle = String(localized: "offlineData.aeronauticalTitle")
         static let aeronauticalDetail = String(localized: "offlineData.aeronauticalDetail")
+        /// A country OpenAIP has no reporting points for (Malta). (6.10.0)
+        static let aeronauticalDetailNoPoints = String(localized: "offlineData.aeronauticalDetailNoPoints")
         static let vfrTitle = String(localized: "offlineData.vfrTitle")
         static let vfrDetail = String(localized: "offlineData.vfrDetail")
         static let withAeronautical = String(localized: "offlineData.withAeronautical")

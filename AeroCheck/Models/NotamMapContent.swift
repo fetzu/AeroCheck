@@ -51,6 +51,19 @@ enum NotamMapContent {
             .prefix(maxShown))
     }
 
+    /// An obstacle filed at a field and placed on it (the Q line's point is the field's own: Basel's six mobile cranes,
+    /// P3303/26) is left to that field's card, whose NOTAM row reads it, when the field is drawn: its marker sat on the
+    /// field's and took every tap meant for it (device check n-9, 6.10.0).
+    static let fieldObstacleNm = 0.5
+
+    static func leavingFieldObstacles(_ items: [Item], fields: [Airport]) -> [Item] {
+        let drawn = Dictionary(fields.map { ($0.ident.uppercased(), $0.coordinate) }, uniquingKeysWith: { first, _ in first })
+        return items.filter { item in
+            guard item.shape == .obstacle, let field = drawn[item.notam.location.uppercased()] else { return true }
+            return NotamGeometry.distanceNm(field, item.coordinate) > fieldObstacleNm
+        }
+    }
+
     /// The circle as a closed ring, for the line and the tag's place.
     static func ring(centre: CLLocationCoordinate2D, radiusNm: Double, points: Int = 72) -> [CLLocationCoordinate2D] {
         let cosLat = max(cos(centre.latitude * .pi / 180), 0.01)

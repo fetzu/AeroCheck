@@ -681,3 +681,29 @@ private final class PaddedLabel: UILabel {
         return CGSize(width: size.width + insets.left + insets.right, height: size.height + insets.top + insets.bottom)
     }
 }
+
+extension AerodromeFacts {
+    /// What the card says of a field, from what the app already holds: nothing here fetches. The map and the route builder
+    /// share it; until 6.10.0 the builder's card had none of it and showed a dash on every row (device check n-7).
+    /// - Parameters:
+    ///   - planMap: Plan › Map's links, after the note (c5 A).
+    ///   - dryRun: no NOTAMs in a dry run.
+    @MainActor
+    static func onDevice(_ airport: Airport, airports: AirportDataService, observations: [AviationWeatherService.Metar], planMap: Bool,
+                         dryRun: Bool) -> AerodromeFacts {
+        var facts = AerodromeFacts()
+        facts.isPPR = OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident)
+        facts.runways = runwayLines(airports.getRunways(for: airport.ident))
+        facts.circuit = circuitText(OFMDataService.shared.procedures(forAerodrome: airport.ident)
+            .filter { $0.kind == .circuit && $0.categories.contains(.powered) }.compactMap(\.altitudeFt))
+        facts.weather = observations.first { $0.icao == airport.ident }
+            .flatMap { weatherLine($0, now: FlightClock.now) }
+        if planMap {
+            facts.feeLink = AirfieldTariffService.shared.tariff(for: airport.ident).flatMap { URL(string: $0.url) }
+            facts.briefingLink = BriefingRegistryService.shared.registry?.country(airport.isoCountry)?.notam.first?.url
+        }
+        // What's on the device, on the ground and in flight, never in a dry run.
+        if !dryRun { facts.notams = NotamService.shared.notams(at: airport.ident) }
+        return facts
+    }
+}

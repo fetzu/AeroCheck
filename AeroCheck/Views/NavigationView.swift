@@ -823,21 +823,8 @@ struct NavigationMapView: View {
 
     /// What the card says of a field, from what the app already holds: nothing here fetches.
     private func aerodromeFacts(for airport: Airport) -> AerodromeFacts {
-        var facts = AerodromeFacts()
-        facts.isPPR = OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident)
-        facts.runways = AerodromeFacts.runwayLines(airportDataService.getRunways(for: airport.ident))
-        facts.circuit = AerodromeFacts.circuitText(OFMDataService.shared.procedures(forAerodrome: airport.ident)
-            .filter { $0.kind == .circuit && $0.categories.contains(.powered) }.compactMap(\.altitudeFt))
-        facts.weather = aviationWeatherService.observations.first { $0.icao == airport.ident }
-            .flatMap { AerodromeFacts.weatherLine($0, now: FlightClock.now) }
-        // Plan › Map only, after the note (c5 A).
-        if chrome == .plan {
-            facts.feeLink = AirfieldTariffService.shared.tariff(for: airport.ident).flatMap { URL(string: $0.url) }
-            facts.briefingLink = BriefingRegistryService.shared.registry?.country(airport.isoCountry)?.notam.first?.url
-        }
-        // What's on the device, on the ground and in flight, never in a dry run.
-        if dryRunSession == nil { facts.notams = NotamService.shared.notams(at: airport.ident) }
-        return facts
+        AerodromeFacts.onDevice(airport, airports: airportDataService, observations: aviationWeatherService.observations,
+                                planMap: chrome == .plan, dryRun: dryRunSession != nil)
     }
 
     // MARK: - The NOTAM areas
@@ -864,9 +851,11 @@ struct NavigationMapView: View {
         // A NOTAM whose area the board already draws (abroad, 6.10.0) is left to the board: one outline, not two.
         let drawn = Set(ActivationService.shared.board(knownAreas: openAIPDataService.designatorKeys).notams.drawn.values
             .map(\.notam.sameNotamKey))
-        visibleNotams = NotamMapContent.items(NotamService.shared.allNotams.filter { !drawn.contains($0.sameNotamKey) },
-                                              from: window.from, to: window.to, centre: region.center,
-                                              latSpan: region.span.latitudeDelta, lonSpan: region.span.longitudeDelta)
+        let items = NotamMapContent.items(NotamService.shared.allNotams.filter { !drawn.contains($0.sameNotamKey) },
+                                          from: window.from, to: window.to, centre: region.center,
+                                          latSpan: region.span.latitudeDelta, lonSpan: region.span.longitudeDelta)
+        visibleNotams = appState.settings.showAirportsOnMap
+            ? NotamMapContent.leavingFieldObstacles(items, fields: visibleAirports) : items
     }
 
     /// A tap on the chart: a NOTAM area's edge reads it; inside one, the airspace's card keeps the tap, and with no
@@ -1536,11 +1525,26 @@ struct NavigationMapView: View {
             }
             .frame(minHeight: 0, alignment: .top)
         }
+        if planShowsNoNotamList {
+            HStack {
+                PlanMapNoteChip(text: L10n.Cockpit.noNotamListChip)
+                    .accessibilityIdentifier(MapFootChip.noNotamList.accessibilityIdentifier)
+                Spacer(minLength: 0)
+            }
+        }
         if showsRouteOffScreenPill {
             routeOffScreenPill
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
                 .modifier(StepsAsideForCallout(isHidden: mapState.isCalloutOpen, reduceMotion: reduceMotion))
         }
+    }
+
+    /// Plan › Map over a country without a list, the NOTAM areas on: a map with no NOTAM areas says so, as the Cockpit's
+    /// does where the aircraft is (q4 A). By the map's centre, as the pilot looks there (device check n-12, 6.10.0).
+    private var planShowsNoNotamList: Bool {
+        guard chrome == .plan, appState.settings.showNotamAreasOnMap, dryRunSession == nil else { return false }
+        let countries = NotamService.countries(at: mapState.region.center)
+        return !countries.isEmpty && !countries.contains(where: NotamService.shared.hasList)
     }
 
     /// The off-screen route's pill, but not with the legs open. (6.1, option C)

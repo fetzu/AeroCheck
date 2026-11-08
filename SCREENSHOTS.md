@@ -170,19 +170,25 @@ checked too. The home page went from 5 MB of images to about 0.8 MB.
 
 The eight iPad images under `public/assets/screenshot/v6/story/` (`route`, `prepare`, `lineup`, `automark`, `alps`,
 `approach`, `closeout`, `log`, keyed in `STORY` in `src/lib/shots.ts`) come from one real flight, Bressaucourt to Samedan
-in F-HVXA on 23 Sep 2026 (its export, `AeroCheck_20260923_1033_F-HVXA.json`), replayed on the Dev Check iPad through
-the app's ground replay (`AEROCHECK_REPLAY`, 5×) and flown as a pilot would: the flight planned for today, its tasks
-ticked to 10 of 12, every check worked, ENGINE START and the line-up held by the scenario. The scenario lists no
-aerodromes, so the replay keeps the simulator's own airport data and the frequencies show (a DEBUG harness change made
-for these captures). The logbook frame comes from a second, untouched run at 30×. Captured on 18 Oct 2026 for the
-6.4.0 site; the page's times are the Cockpit's flight clock in each frame.
+in F-HVXA on 23 Sep 2026, replayed on a seeded iPad Air 11-inch throwaway and flown through the Cockpit by a UI test,
+`StoryReplayUITests/testTheFlightStory` in the app. English only. Since 7 Nov 2026 (the 6.9.0 set) it is one unattended
+command, from the workspace, with an app checkout of what the store has (the release's tag, with nothing unreleased):
 
-`automark` was recaptured on 22 Oct 2026 from the `6.4.3` tag, for the radio's NOW and NEXT of 6.4.2 and 6.4.3: the
-same scenario at 2× (so the six seconds of BENOT's UNDO last three on the wall clock), flown by a temporary UI test on
-`CockpitPilot` (every check worked, NEXT tapped each time a call came due, the cruise check left open on CHECKLIST,
-shots taken while BENOT's mark offers UNDO). The replay's clock does not take the capture clock (`AEROCHECK_CLOCK`);
-a local change, never committed, started it at 09:16 so the frame reads 9:38 under the status bar's 9:41. The other
-frames are still the 18 Oct run's, whose longer ground holds put the line-up at 00:18 on the flight clock.
+```bash
+U=$(CLAUDE/tools/sim-seed.sh new story ipad)
+CLAUDE/tools/replays/story.sh "$U" --app-repo <checkout>   # tail -f CLAUDE/shots/story-<date>/progress.log
+CLAUDE/tools/sim-seed.sh drop "$U"
+```
+
+About ten minutes, the build left aside: the 6.9.0 runs of 7 Nov took 9 min 41 s and 10 min 49 s from the start of the flight to the last frame, the UI test itself 8 min 57 s and 8 min 55 s.
+The flight's export stays in the workspace's `BUFFER/` and is never copied or committed: `replays/story.py` turns it
+into the run's scenario. At each frame the replay stops with the clock stopped (`GroundReplayFrames`, a `frame:<id>`
+hold), so a frame never has to be caught on the fly; the ground is flown at 1x and the air at 20x. The weather comes
+from the screenshots' fixture, the DABS from a bulletin with no area active (only the airspace that is always there
+shows), the clock starts at 9:16 under the status bar's 9:41. The moments, in seconds of the track, are in
+`replays/story.py`. Convert each `frames/<key>.png` to `v6/story/<key>.jpg` (1112 px wide, JPEG 86) and read the times
+in each frame: the page's times are the Cockpit's flight clock in its frame (`story.moments[].when` in the three
+languages).
 
 ## App Store
 

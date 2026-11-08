@@ -97,6 +97,8 @@ struct PilotMapView: UIViewRepresentable {
         view.attributionButtonPosition = .bottomLeft
         view.isPitchEnabled = false
         view.isRotateEnabled = true
+        // The follow's slide at 30 frames a second; the pilot's finger gets the screen's full rate (6.10.0).
+        view.preferredFramesPerSecond = .lowPower
         let platformControls = map.features.contains(.mapKitControls)
         view.compassView.isHidden = !platformControls
         view.showsScale = platformControls
@@ -125,6 +127,18 @@ struct PilotMapView: UIViewRepresentable {
     func updateUIView(_ view: MLNMapView, context: Context) {
         let coordinator = context.coordinator
         coordinator.map = map
+        // In the background MapLibre draws nothing, so a follow never arrives and was asked again at each pass. The
+        // map catches up once the app is active again. (6.10.0)
+        if UIApplication.shared.applicationState == .background {
+            coordinator.deferUpdate(of: view)
+            return
+        }
+        Self.update(view, coordinator: coordinator)
+    }
+
+    /// Everything the shared state asks of the map: the layers, shapes, markers, credits, zoom limits and camera.
+    static func update(_ view: MLNMapView, coordinator: Coordinator) {
+        let map = coordinator.map
         // A finger dragging the planned route has the map until release. (6.7.0)
         if coordinator.routeDragging(on: view) { return }
         PilotMap.onlineAllowed = !map.isStrictOfflineMode
@@ -187,6 +201,49 @@ struct PilotMapView: UIViewRepresentable {
         }
 
         init(map: AeroMapView) { self.map = map }
+
+        deinit {
+            if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
+        }
+
+        // MARK: Background
+
+        /// The map a pass in the background left alone, brought up to date when the app is active again.
+        private weak var deferredView: MLNMapView?
+        private var activeObserver: NSObjectProtocol?
+
+        func deferUpdate(of mapView: MLNMapView) {
+            deferredView = mapView
+            guard activeObserver == nil else { return }
+            activeObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let view = self.deferredView else { return }
+                    self.deferredView = nil
+                    PilotMapView.update(view, coordinator: self)
+                }
+            }
+        }
+
+        // MARK: Frame rate
+
+        /// Back to the follow's 30 frames a second a second after the pilot's finger left the map (6.10.0).
+        private var frameRateRestore: DispatchWorkItem?
+
+        func fingerFrameRate(on mapView: MLNMapView) {
+            frameRateRestore?.cancel()
+            frameRateRestore = nil
+            if mapView.preferredFramesPerSecond != .maximum { mapView.preferredFramesPerSecond = .maximum }
+        }
+
+        func restoreFollowFrameRate(on mapView: MLNMapView) {
+            guard mapView.preferredFramesPerSecond != .lowPower else { return }
+            frameRateRestore?.cancel()
+            let restore = DispatchWorkItem { [weak mapView] in mapView?.preferredFramesPerSecond = .lowPower }
+            frameRateRestore = restore
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: restore)
+        }
 
         private var policy: ChartPolicy {
             ChartPolicy(forceICAO: map.forceICAOLayer, strictOffline: map.isStrictOfflineMode,
@@ -473,6 +530,7 @@ struct PilotMapView: UIViewRepresentable {
             if !reason.intersection(gestures).isEmpty {
                 isUserInteracting = true
                 map.isFollowingAircraft = false
+                fingerFrameRate(on: mapView)
             }
         }
 
@@ -496,6 +554,7 @@ struct PilotMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             isUserInteracting = false
+            restoreFollowFrameRate(on: mapView)
             // An animation cut short by the next one (two zoom taps): its halfway camera is nobody's.
             if reason.contains(.transitionCancelled) { return }
             // Not before the view is on screen at its size: the placeholder's camera is nobody's.

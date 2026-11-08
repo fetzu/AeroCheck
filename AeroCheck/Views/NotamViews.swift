@@ -29,14 +29,22 @@ struct NotamListSection: View {
                 } else if sorted.along.isEmpty {
                     plainLine(L10n.Notams.noneFound)
                         .accessibilityIdentifier("notams.noneFound")
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(sorted.along.prefix(NotamSorted.shownOnBlock)) { entry in
-                            NotamRow(entry: entry, now: now) { reading = entry.notam }
-                        }
-                    }
                 }
-                allLink(sorted)
+                // The rows and All in one framed box, as the official pages above: a box on this page is a list of
+                // things to open, ↗ outside the app, › in it. The rows were text between hairlines, and the author
+                // couldn't tell they opened (device check, 8 Nov 2026; decision page TUufjTV5ABQjFu7Nf4FYXk, B).
+                let shown = Array(sorted.along.prefix(NotamSorted.shownOnBlock))
+                if !shown.isEmpty || sorted.total > 0 || !sorted.away.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(shown.enumerated()), id: \.element.id) { index, entry in
+                            NotamRow(entry: entry, now: now, topLine: index > 0) { reading = entry.notam }
+                        }
+                        allLink(sorted, topLine: !shown.isEmpty)
+                    }
+                    .background(Color.altimeterBlue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.altimeterBlue.opacity(0.4), lineWidth: 1))
+                }
                 if copy.couldNotRefresh, let time = copy.time {
                     hint(L10n.Notams.couldNotRefresh(NotamWords.copyTime(time)))
                         .accessibilityIdentifier("notams.couldNotRefresh")
@@ -97,23 +105,26 @@ struct NotamListSection: View {
         .frame(minHeight: 44)
     }
 
-    /// "All 16 ›". With nothing near the route, what's away from it stays one tap away.
+    /// "All 16 ›", the box's last row. With nothing near the route, what's away from it stays one tap away.
     @ViewBuilder
-    private func allLink(_ sorted: NotamSorted) -> some View {
+    private func allLink(_ sorted: NotamSorted, topLine: Bool) -> some View {
         if sorted.total > 0 || !sorted.away.isEmpty {
             Button { showsAll = true } label: {
                 HStack(spacing: 6) {
                     Text(sorted.total > 0 ? L10n.Notams.all(sorted.total) : "\(L10n.Notams.groupAway) \(sorted.away.count)")
                         .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
-                    Image(systemName: "chevron.right")
-                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
+                        .foregroundColor(.aviationGold)
                     Spacer(minLength: 0)
+                    NotamRowChevron()
                 }
-                .foregroundColor(.aviationGold)
+                .padding(.horizontal, 11)
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
+                .overlay(alignment: .top) {
+                    if topLine { Rectangle().fill(Color.altimeterBlue.opacity(0.25)).frame(height: 1) }
+                }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NotamRowPressStyle())
             .accessibilityIdentifier("notams.all")
         }
     }
@@ -147,16 +158,20 @@ struct NotamListSection: View {
     }
 }
 
-/// One NOTAM in a list: where, what, when. A tap reads it.
+/// One NOTAM in the flight page's box: where, what, when, and a › at its end. A tap reads it.
 struct NotamRow: View {
     let entry: NotamEntry
     let now: Date
+    var topLine = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) { NotamRowLabel(entry: entry, now: now) }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("notams.row.\(entry.notam.number)")
+        Button(action: action) {
+            NotamRowLabel(entry: entry, now: now, lineColor: Color.altimeterBlue.opacity(0.25), topLine: topLine)
+                .padding(.horizontal, 11)
+        }
+        .buttonStyle(NotamRowPressStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("notams.row.\(entry.notam.number)")
     }
 }

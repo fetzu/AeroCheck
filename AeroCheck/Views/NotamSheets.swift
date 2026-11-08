@@ -90,7 +90,7 @@ struct NotamAllSheet: View {
             NavigationLink(value: entry.notam) {
                 NotamRowLabel(entry: entry, now: now)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NotamRowPressStyle())
             .accessibilityIdentifier("notams.row.\(entry.notam.number)")
         }
     }
@@ -161,35 +161,42 @@ struct NotamAllSheet: View {
 struct NotamRowLabel: View {
     let entry: NotamEntry
     let now: Date
+    var lineColor = Color.white.opacity(0.06)
+    var topLine = true
 
     var body: some View {
         let title = NotamWords.title(entry)
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(title.where)
-                    .scaledFont(size: 13, weight: .bold, relativeTo: .footnote)
-                    .foregroundColor(.primaryText)
-                if let tag = title.tag {
-                    Text(tag)
-                        .scaledFont(size: 11, relativeTo: .caption2)
-                        .foregroundColor(.dimText)
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(title.where)
+                        .scaledFont(size: 13, weight: .bold, relativeTo: .footnote)
+                        .foregroundColor(.primaryText)
+                    if let tag = title.tag {
+                        Text(tag)
+                            .scaledFont(size: 11, relativeTo: .caption2)
+                            .foregroundColor(.dimText)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                Text(entry.notam.shownText)
+                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+                Text(NotamWords.meta(entry.notam, now: now))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .multilineTextAlignment(.leading)
             }
-            Text(entry.notam.shownText)
-                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
-                .foregroundColor(.primaryText)
-                .multilineTextAlignment(.leading)
-                .lineLimit(4)
-            Text(NotamWords.meta(entry.notam, now: now))
-                .scaledFont(size: 12, relativeTo: .caption)
-                .foregroundColor(.dimText)
-                .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // A tap opens it in the app: the ›, as the official pages' ↗ says they open outside (8 Nov 2026).
+            NotamRowChevron()
         }
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .contentShape(Rectangle())
-        .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
+        .overlay(alignment: .top) { if topLine { Rectangle().fill(lineColor).frame(height: 1) } }
     }
 }
 
@@ -425,4 +432,22 @@ struct NotamReading: Identifiable {
     let notams: [Notam]
     let title: String
     var id: String { notams.map(\.id).joined(separator: "|") }
+}
+
+/// The › at a NOTAM row's end: it opens in the app.
+struct NotamRowChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+            .foregroundColor(.altimeterBlue)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A NOTAM row under the finger: shaded while pressed, so the tap shows before the sheet opens.
+struct NotamRowPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(Color.white.opacity(configuration.isPressed ? 0.10 : 0))
+    }
 }

@@ -2572,7 +2572,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Master: re-elect which GPS feeds the flight (own preferred, peer as fallback). (shared-GPS)
     private func updateEffectiveGPSSource() {
-        guard currentRole == .master else { effectiveGPSSource = .own; return }
+        // Assigned on change only: it was set at each 1 Hz tick of the stream, and five views observe the manager. (6.10.0)
+        guard currentRole == .master else {
+            if effectiveGPSSource != .own { effectiveGPSSource = .own }
+            return
+        }
         let now = Date()
         // Own validity reads own-fix LIVENESS, never `currentLocation` — once we borrow, currentLocation
         // holds the peer fix and would masquerade as "own", pinning the election to .own and starving the
@@ -2584,7 +2588,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // elected, after which effectiveLocation builds a CLLocation straight from the wire values.
         let peerValid = gpsElection.isPeerFixValid(receivedPeerGPS,
                                                    age: lastPeerGPSReceivedAt.map { now.timeIntervalSince($0) })
-        effectiveGPSSource = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
+        let elected = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
+        if elected != effectiveGPSSource { effectiveGPSSource = elected }
     }
 
     /// True when a connected companion is currently supplying a usable fix this device could borrow —

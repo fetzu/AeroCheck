@@ -212,6 +212,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Private Methods
 
+    private static let contextInterval: TimeInterval = 4
+    private var lastContextAt = Date.distantPast
+
     private func sendFlightData(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
         // No paired/installed Watch to receive this — short-circuit instead of building + encoding the
         // payload for nobody. (WATCH-01)
@@ -224,13 +227,18 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
 
-        // Always stage the latest snapshot in the application context, so a watch resuming from the
-        // background (wrist-raise) reads the freshest state immediately rather than a stale one. The OS
-        // coalesces these and delivers only the most recent, so calling it each tick is fine. (sync freshness)
-        try? session.updateApplicationContext([
-            WatchConnectivityKeys.flightData: encodedData,
-            WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
-        ])
+        // Stage the latest snapshot in the application context, so a watch resuming from the background
+        // (wrist-raise) reads a fresh state at once rather than a stale one. (sync freshness) Every 4 s, not
+        // each second: the Watch shows its stale banner after 5 s without data, and once its app is open the
+        // message below comes every second. The whole flight's data went over twice a second. (6.10.0)
+        let now = Date()
+        if now.timeIntervalSince(lastContextAt) >= Self.contextInterval {
+            lastContextAt = now
+            try? session.updateApplicationContext([
+                WatchConnectivityKeys.flightData: encodedData,
+                WatchConnectivityKeys.timestamp: now.timeIntervalSince1970
+            ])
+        }
 
         // When the watch is reachable (both apps active), also push live for ~instant updates.
         if session.isReachable {

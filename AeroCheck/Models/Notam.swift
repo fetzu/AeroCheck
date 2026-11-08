@@ -264,6 +264,8 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
 
     /// Item E, or the full form when the server has no item E.
     var shownText: String { text.isEmpty ? icao : text }
+    /// The server spelled its abbreviations out: the reader's switch has something to switch to.
+    var hasPlain: Bool { !(plain ?? "").isEmpty }
 
     /// "I": for IFR flights only. "IV", "V" and "K" concern a VFR flight.
     var isIFROnly: Bool { traffic?.uppercased() == "I" }

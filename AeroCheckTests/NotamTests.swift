@@ -198,6 +198,23 @@ final class NotamTests: NotamTestCase {
         XCTAssertEqual(NotamMapContent.leavingFieldObstacles(items, fields: []).count, 3, "a field not drawn keeps them all")
     }
 
+    /// The card's header says when and how high once, under the boxed number (decision page 8YkwKvUpdGcvbnpsgtn9fL);
+    /// the switch reads back what it stored.
+    func testACardsHeaderSaysWhenAndHowHighOnce() {
+        var n = notam("1", lower: 0, upper: 11, end: noon.addingTimeInterval(30 * 86400))
+        XCTAssertEqual(NotamWords.facts(n, now: noon), NotamWords.when(n, now: noon) + " · " + NotamWords.band(n))
+        XCTAssertFalse(NotamWords.facts(n, now: noon).contains(n.number), "the number is in its box, not in the line")
+        n.upperFl = 999
+        XCTAssertEqual(NotamWords.facts(n, now: noon), NotamWords.when(n, now: noon), "from the ground up: when alone")
+        XCTAssertFalse(n.hasPlain)
+        n.plain = ""
+        XCTAssertFalse(n.hasPlain, "an empty spelled-out text is none")
+        n.plain = "RUNWAY CLOSED"
+        XCTAssertTrue(n.hasPlain)
+        XCTAssertEqual(NotamTextMode(rawValue: "spelledOut"), .spelledOut)
+        XCTAssertEqual(NotamTextMode(rawValue: "original"), .original)
+    }
+
     func testAPointWithinTenNauticalMilesOfTheRouteIsAlongIt() {
         let near = onRoute("1")
         var far = notam("2")

@@ -196,6 +196,7 @@ final class DryRunWorldTests: XCTestCase {
             ],
             "Views/FlightView.swift": ["CompanionConnectivityManager.shared": (3, "the in-flight menu's Companion toggle, hidden in a dry run (`isDryRun`)")],
             "Views/NavigationView.swift": ["WatchConnectivityManager.shared": (1, "Plan › Map, never open in flight")],
+            "Views/NotamSheets.swift": ["@AppStorage": (2, "the NOTAM reader's switch, original or spelled out, the pilot's own choice; a dry run shows no NOTAMs")],
             "Views/Settings/SyncDataSettingsView.swift": [
                 "SyncManager.shared": (1, "Settings, never under a dry run"),
                 "UNUserNotificationCenter": (1, "reads the status for Settings, never under a dry run"),

@@ -6237,19 +6237,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "KEINE NOTAM-LISTE HIER"
+            "value": "NOTAM HIER NICHT ANGEZEIGT"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NO NOTAM LIST HERE"
+            "value": "NOTAMS NOT SHOWN HERE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PAS DE LISTE NOTAM ICI"
+            "value": "NOTAM NON AFFICHÉS ICI"
           }
         }
       }
@@ -16538,6 +16538,29 @@
         }
       }
     },
+    "notams.fullNotam": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganzes NOTAM"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full NOTAM"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM complet"
+          }
+        }
+      }
+    },
     "notams.group.above": {
       "extractionState": "manual",
       "localizations": {
@@ -16781,6 +16804,29 @@
         }
       }
     },
+    "notams.noSpelledOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine ausgeschriebene Fassung: das Original."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No spelled-out version: the original."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas de version en toutes lettres : l'original."
+          }
+        }
+      }
+    },
     "notams.noneFound": {
       "extractionState": "manual",
       "localizations": {
@@ -16846,6 +16892,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cette liste peut être incomplète. Utilisez les pages officielles ci-dessus."
+          }
+        }
+      }
+    },
+    "notams.original": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original"
           }
         }
       }
@@ -17132,19 +17201,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wort für Wort nach einer festen Abkürzungsliste. Das Original bleibt oben."
+            "value": "Ausgeschrieben: Wort für Wort nach einer festen Abkürzungsliste."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Word for word from a fixed list of abbreviations. The original stays on top."
+            "value": "Spelled out: word for word from a fixed list of abbreviations."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mot à mot d'après une liste fixe d'abréviations. L'original reste en haut."
+            "value": "En toutes lettres : mot à mot d'après une liste fixe d'abréviations."
           }
         }
       }

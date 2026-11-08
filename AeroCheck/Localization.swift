@@ -83,6 +83,10 @@ enum L10n {
         static func copyFooter(_ time: String) -> String { String(format: String(localized: "notams.copyFooter"), time) }
         static let spelledOut = String(localized: "notams.spelledOut")
         static let spelledOutHint = String(localized: "notams.spelledOutHint")
+        /// The reader's switch and card (6.10.0, decision page 8YkwKvUpdGcvbnpsgtn9fL).
+        static let original = String(localized: "notams.original")
+        static let fullNotam = String(localized: "notams.fullNotam")
+        static let noSpelledOut = String(localized: "notams.noSpelledOut")
         static let placeRoute = String(localized: "notams.place.route")
         static let placeDeparture = String(localized: "notams.place.departure")
         static let placeDestination = String(localized: "notams.place.destination")

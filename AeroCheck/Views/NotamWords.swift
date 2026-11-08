@@ -49,6 +49,13 @@ enum NotamWords {
         return parts.joined(separator: " · ")
     }
 
+    /// A card's header line: when, then how high unless from the ground up ("until 19 Mar 2027 · SFC to FL 011").
+    static func facts(_ notam: Notam, now: Date, calendar: Calendar = NotamTime.utc) -> String {
+        var parts = [when(notam, now: now, calendar: calendar)]
+        if !notam.isWholeBand { parts.append(band(notam)) }
+        return parts.joined(separator: " · ")
+    }
+
     /// "SFC to FL 095", "2500 ft to 5000 ft": as items F and G write it, or else from the Q line.
     static func band(_ notam: Notam) -> String {
         L10n.Notams.band(limit(notam, isUpper: false), limit(notam, isUpper: true))

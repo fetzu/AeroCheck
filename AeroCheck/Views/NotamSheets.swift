@@ -195,15 +195,65 @@ struct NotamRowLabel: View {
 
 // MARK: - The detail
 
-/// A NOTAM: the original first, in monospace, then the abbreviations spelled out when the server has that. No AI, nothing
-/// reworded here (q3 A).
+/// Which text the NOTAM cards show: the original, or the abbreviations spelled out. One switch for every card, kept on
+/// the device from one reading to the next (the author's choice, 8 Nov 2026, decision page 8YkwKvUpdGcvbnpsgtn9fL: A, q2 A).
+/// Until then each card showed both, one under the other, and a card of four NOTAMs said eight messages.
+enum NotamTextMode: String {
+    case original, spelledOut
+    static let storageKey = "notams.textMode"
+}
+
+/// The switch under a reader's title. Shown only when one of its NOTAMs has a spelled-out version. In flight at the
+/// Cockpit's sizes.
+struct NotamTextSwitch: View {
+    @Binding var mode: NotamTextMode
+    var large = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            segment(.original, L10n.Notams.original)
+            segment(.spelledOut, L10n.Notams.spelledOut)
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("notams.textSwitch")
+    }
+
+    private func segment(_ value: NotamTextMode, _ title: String) -> some View {
+        Button { mode = value } label: {
+            Text(title.uppercased())
+                .scaledFont(size: large ? CockpitType.label : 13, weight: .bold, relativeTo: .subheadline)
+                .foregroundColor(mode == value ? .primaryText : .dimText)
+                .frame(maxWidth: .infinity, minHeight: large ? CockpitTarget.control : 34)
+                .background(RoundedRectangle(cornerRadius: 8).fill(mode == value ? Color.white.opacity(0.16) : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(mode == value ? .isSelected : [])
+        .accessibilityIdentifier("notams.textSwitch.\(value.rawValue)")
+    }
+}
+
+/// See all's page for one NOTAM: its card, under the switch.
 struct NotamDetail: View {
     let notam: Notam
 
+    @AppStorage(NotamTextMode.storageKey) private var mode: NotamTextMode = .original
+
     var body: some View {
         ScrollView {
-            NotamDetailContent(notam: notam)
-                .padding(16)
+            VStack(alignment: .leading, spacing: 12) {
+                NotamDetailContent(notam: notam, mode: mode)
+                if mode == .spelledOut, notam.hasPlain { NotamSpelledOutHint() }
+            }
+            .padding(16)
+        }
+        .safeAreaInset(edge: .top) {
+            if notam.hasPlain {
+                NotamTextSwitch(mode: $mode).padding(.horizontal, 16).padding(.vertical, 8).background(Color.cockpitBackground)
+            }
         }
         .background(Color.cockpitBackground.ignoresSafeArea())
         .navigationTitle(notam.number)
@@ -211,53 +261,116 @@ struct NotamDetail: View {
     }
 }
 
-/// A NOTAM's text, in the detail and the reader. `large`: read in flight, at the Cockpit's sizes.
+/// One NOTAM as a card: a header that reads as one (the number boxed, the place, when it ends and how high), then the
+/// message once, in the switch's text, then the whole NOTAM on a tap (q3 A). The header used to share the gold label of
+/// "Spelled out" (the author's device check, 8 Nov). `large`: read in flight, at the Cockpit's sizes.
 struct NotamDetailContent: View {
     let notam: Notam
     var large = false
+    var mode: NotamTextMode = .original
+
+    @State private var showsFull = false
 
     private var bodySize: CGFloat { large ? CockpitType.label : 14 }
+    private var smallSize: CGFloat { large ? CockpitType.row - 4 : 12 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(notam.number)
-                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
-                .foregroundColor(.aviationGold)
-                .accessibilityAddTraits(.isHeader)
-            Text(notam.icao.isEmpty ? notam.shownText : notam.icao)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(notam.number)
+                    .scaledFont(size: smallSize, weight: .bold, design: .monospaced, relativeTo: .caption)
+                    .foregroundColor(.primaryText)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.dimText, lineWidth: 1))
+                if !notam.location.isEmpty {
+                    Text(notam.location)
+                        .scaledFont(size: smallSize, weight: .bold, relativeTo: .caption)
+                        .foregroundColor(.aviationGold)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            Text(NotamWords.facts(notam, now: FlightClock.now))
+                .scaledFont(size: smallSize, relativeTo: .caption)
+                .foregroundColor(.dimText)
+                .fixedSize(horizontal: false, vertical: true)
+            message
+            if let schedule = notam.schedule, !schedule.isEmpty {
+                Text(schedule)
+                    .scaledFont(size: bodySize, design: .monospaced, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !notam.icao.isEmpty && notam.icao != notam.text {
+                Button { showsFull.toggle() } label: {
+                    HStack(spacing: 6) {
+                        Text(L10n.Notams.fullNotam)
+                            .scaledFont(size: smallSize, weight: .semibold, relativeTo: .caption)
+                        Image(systemName: showsFull ? "chevron.up" : "chevron.down")
+                            .scaledFont(size: smallSize - 2, weight: .semibold, relativeTo: .caption)
+                    }
+                    .foregroundColor(.altimeterBlue)   // the links' blue, as the official page's link
+                    .frame(minHeight: large ? CockpitTarget.control : 32, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("notams.full")
+                if showsFull {
+                    Text(notam.icao)
+                        .scaledFont(size: smallSize, design: .monospaced, relativeTo: .caption)
+                        .foregroundColor(.secondaryText)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("notams.icao")
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    /// The message once: spelled out where the switch says so and the server has it, else the original, which a NOTAM
+    /// without a spelled-out version says rather than showing nothing.
+    @ViewBuilder
+    private var message: some View {
+        if mode == .spelledOut, let plain = notam.plain, !plain.isEmpty {
+            Text(plain)
+                .scaledFont(size: bodySize, relativeTo: .body)
+                .foregroundColor(.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("notams.plain")
+        } else {
+            Text(notam.shownText)
                 .scaledFont(size: bodySize, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.primaryText)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("notams.original")
-            if let schedule = notam.schedule, !schedule.isEmpty, notam.icao.isEmpty {
-                Text(schedule)
-                    .scaledFont(size: bodySize, design: .monospaced, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-            }
-            if let plain = notam.plain, !plain.isEmpty {
-                Text(L10n.Notams.spelledOut.uppercased())
-                    .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
-                    .foregroundColor(.aviationGold)
-                    .padding(.top, 6)
-                    .accessibilityAddTraits(.isHeader)
-                Text(plain)
-                    .scaledFont(size: bodySize, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("notams.plain")
-                Text(L10n.Notams.spelledOutHint)
-                    .scaledFont(size: 12, relativeTo: .caption)
+            if mode == .spelledOut {
+                Text(L10n.Notams.noSpelledOut)
+                    .scaledFont(size: smallSize, relativeTo: .caption)
+                    .italic()
                     .foregroundColor(.dimText)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// What "spelled out" is, once at a reader's foot.
+struct NotamSpelledOutHint: View {
+    var body: some View {
+        Text(L10n.Notams.spelledOutHint)
+            .scaledFont(size: 12, relativeTo: .caption)
+            .foregroundColor(.dimText)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
 /// What a tap reads: a NOTAM from a list, a field's from its card (also in flight, from what's on the device), an area
-/// from the map. One opens at once; several are listed. Close at the top left (Apple's rule, #518).
+/// from the map. Every one as a card, under the switch. Close at the top left (Apple's rule, #518).
 struct NotamReaderSheet: View {
     let notams: [Notam]
     let title: String
@@ -265,23 +378,19 @@ struct NotamReaderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @ObservedObject private var service = NotamService.shared
+    @AppStorage(NotamTextMode.storageKey) private var mode: NotamTextMode = .original
 
     private var large: Bool { appState.isFlightActive }
-    private var now: Date { FlightClock.now }
+    private var anySpelledOut: Bool { notams.contains(where: \.hasPlain) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(notams.enumerated()), id: \.element.id) { index, notam in
-                        if index > 0 { Divider().overlay(Color.white.opacity(0.12)) }
-                        NotamDetailContent(notam: notam, large: large)
-                        if !notam.icao.isEmpty || notams.count > 1 {
-                            Text(NotamWords.when(notam, now: now))
-                                .scaledFont(size: 12, relativeTo: .caption)
-                                .foregroundColor(.dimText)
-                        }
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(notams) { notam in
+                        NotamDetailContent(notam: notam, large: large, mode: mode)
                     }
+                    if mode == .spelledOut, anySpelledOut { NotamSpelledOutHint() }
                     if let time = service.copyState(countries: []).time {
                         Text(L10n.Notams.copyFooter(NotamWords.copyTime(time)))
                             .scaledFont(size: 12, relativeTo: .caption)
@@ -290,6 +399,13 @@ struct NotamReaderSheet: View {
                     }
                 }
                 .padding(16)
+            }
+            .safeAreaInset(edge: .top) {
+                if anySpelledOut {
+                    NotamTextSwitch(mode: $mode, large: large)
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .background(Color.cockpitBackground)
+                }
             }
             .background(Color.cockpitBackground.ignoresSafeArea())
             .navigationTitle(title)
@@ -305,7 +421,6 @@ struct NotamReaderSheet: View {
     }
 }
 
-/// A set of NOTAMs to read, from the card or the map.
 struct NotamReading: Identifiable {
     let notams: [Notam]
     let title: String

@@ -21,6 +21,8 @@ final class PilotMapShapes {
         case notams
         case procedures
         case track
+        /// The track's live end, from the last whole minute (`splitTrack`).
+        case trackTail
         case plannedRoute
         case route
         case trackVector
@@ -209,6 +211,16 @@ final class PilotMapShapes {
     }
 
     /// Draws `group` from `shapes` (built only when `signature` differs from the last one drawn).
+    /// The flown track in two: up to its last whole minute, sent to the map once a minute, and the live end from there
+    /// (the cut point in both, so the line is whole). The track was sent whole at each recorded point, up to 3,000
+    /// vertices, and past them the subsampling moved the whole line each time. (6.10.0)
+    nonisolated static func splitTrack(_ track: [GPSPoint]) -> (history: ArraySlice<GPSPoint>, tail: ArraySlice<GPSPoint>) {
+        guard let last = track.last else { return ([], []) }
+        let minute = (last.timestamp.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60
+        let cut = track.lastIndex { $0.timestamp.timeIntervalSinceReferenceDate <= minute } ?? 0
+        return (track[...cut], track[cut...])
+    }
+
     func sync(_ group: Group, signature: Int, on style: MLNStyle, traits: UITraitCollection,
               shapes: @MainActor () -> [Shape]) {
         guard signatures[group] != signature else { return }
@@ -337,15 +349,19 @@ extension PilotMapShapes {
             return shapes
         }
 
-        // The flown track, in its layer's colour.
+        // The flown track, in its layer's colour: up to the last whole minute, then its live end.
         let track = map.shownTrack
-        sync(.track, signature: Self.hash(track.count, track.last?.timestamp, map.layerType.rawValue), on: style,
-             traits: traits) {
-            guard track.count > 1 else { return [] }
-            let coords = subsampledTrackCoordinates(track)
+        let (history, tail) = Self.splitTrack(track)
+        let trackLine = { (points: [GPSPoint]) -> [Shape] in
+            guard points.count > 1 else { return [] }
+            let coords = subsampledTrackCoordinates(points)
             let line = GPSTrackPolyline(coordinates: coords, count: coords.count)
             return [Shape(overlay: line, renderer: AeroMapView.lineRenderer(for: line, layerType: map.layerType), tier: 0)]
         }
+        sync(.track, signature: Self.hash(history.count, history.last?.timestamp, map.layerType.rawValue), on: style,
+             traits: traits) { trackLine(Array(history)) }
+        sync(.trackTail, signature: Self.hash(tail.count, tail.last?.timestamp, map.layerType.rawValue), on: style,
+             traits: traits) { trackLine(Array(tail)) }
 
         // The route builder's route: the selected leg's halo, the casing, the core.
         // While a finger drags it, the working geometry, with no leg selected.

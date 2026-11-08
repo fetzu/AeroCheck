@@ -72,9 +72,11 @@ enum WidgetBridge {
         }
 
         guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
-        if let data = try? JSONEncoder().encode(list) {
-            defaults.set(data, forKey: aircraftDefaultsKey)
-        }
+        let data = try? JSONEncoder().encode(list)
+        // The aircraft list publishes again at each fetch, mostly the same: the widgets reload only for a new one.
+        // (6.10.0)
+        guard let data, data != defaults.data(forKey: aircraftDefaultsKey) else { return }
+        defaults.set(data, forKey: aircraftDefaultsKey)
         // Ensure the launch token exists before the widget next builds a timeline. (SA-25)
         _ = launchToken
         WidgetCenter.shared.reloadAllTimelines()

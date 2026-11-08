@@ -7,6 +7,23 @@ import XCTest
 /// by tier and paint, stacked as MapKit stacked them.
 @MainActor
 final class PilotMapShapesTests: XCTestCase {
+
+    /// The track up to its last whole minute and the live end from there, sharing the cut point (6.10.0).
+    func testTheTrackSplitsAtItsLastWholeMinute() {
+        let t0 = Date(timeIntervalSinceReferenceDate: 60 * 1_000)
+        let track = (0..<30).map { GPSPoint(latitude: 47, longitude: 7 + Double($0) / 1000, altitude: 500,
+                                            timestamp: t0.addingTimeInterval(Double($0) * 5)) }
+        // 29 × 5 s = 145 s: the last whole minute is t0 + 120 s, point 24.
+        let (history, tail) = PilotMapShapes.splitTrack(track)
+        XCTAssertEqual(history.count, 25)
+        XCTAssertEqual(tail.first?.id, history.last?.id, "the line is whole")
+        XCTAssertEqual(tail.last?.id, track.last?.id)
+        // Three points later the history is the same, so the map isn't sent it again.
+        let later = track + (30..<33).map { GPSPoint(latitude: 47, longitude: 7, altitude: 500,
+                                                     timestamp: t0.addingTimeInterval(Double($0) * 5)) }
+        XCTAssertEqual(PilotMapShapes.splitTrack(later).history.last?.id, history.last?.id)
+        XCTAssertTrue(PilotMapShapes.splitTrack([]).history.isEmpty)
+    }
     private let traits = UITraitCollection(userInterfaceStyle: .light)
 
     private func line(_ coords: [CLLocationCoordinate2D]) -> MKPolyline {

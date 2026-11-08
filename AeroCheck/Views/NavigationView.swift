@@ -164,9 +164,18 @@ class SharedMapState: ObservableObject {
     @Published var region: MKCoordinateRegion
     // cameraDistance is not @Published - only read when creating a new map view
     var cameraDistance: Double = 10000
-    // cameraHeading IS @Published so the compass UI updates in real-time
-    // The infinite loop is prevented by checking if the value actually changed
-    @Published var cameraHeading: Double = 0
+    // cameraHeading is published so the compass UI updates in real-time; only when it turns by more than a tenth of
+    // a degree, as the map's own reports and track-up set it at every fix. (6.10.0)
+    var cameraHeading: Double {
+        get { storedCameraHeading }
+        set {
+            let d = abs(newValue - storedCameraHeading).truncatingRemainder(dividingBy: 360)
+            guard min(d, 360 - d) > 0.1 else { return }
+            objectWillChange.send()
+            storedCameraHeading = newValue
+        }
+    }
+    private var storedCameraHeading: Double = 0
     // Flag to indicate a heading reset was requested (user tapped compass)
     var pendingHeadingReset: Bool = false
     /// Coordinates the map should frame on its next update (user tapped "Show" on the off-screen
@@ -222,8 +231,18 @@ class SharedMapState: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             // A fit came since: this region is older than the one it framed (`updateFromFit`).
             guard let self, generation == self.fitGeneration else { return }
+            // The map's report of the region the follow just set: the same, and every view of the map re-ran for it.
+            // (6.10.0)
+            guard !Self.same(self.region, newRegion) else { return }
             self.region = newRegion
         }
+    }
+
+    /// Within a hundred-thousandth of a degree (about a metre), centre and span.
+    static func same(_ a: MKCoordinateRegion, _ b: MKCoordinateRegion) -> Bool {
+        let e = 1e-5
+        return abs(a.center.latitude - b.center.latitude) < e && abs(a.center.longitude - b.center.longitude) < e
+            && abs(a.span.latitudeDelta - b.span.latitudeDelta) < e && abs(a.span.longitudeDelta - b.span.longitudeDelta) < e
     }
 
     /// The region the map was just fitted to (a leg from ROUTE, Show on the route pill). It replaces any
@@ -265,6 +284,8 @@ class SharedMapState: ObservableObject {
     /// Request the map to reset heading to north
     func requestHeadingReset() {
         pendingHeadingReset = true
+        // Published even when the heading is already about north: the map takes the reset at its next update.
+        objectWillChange.send()
         cameraHeading = 0
     }
 }
@@ -441,7 +462,6 @@ struct NavigationMapView: View {
     /// Timer.publish recreated each render can stall, so the reminder never fired. (v4 UI/UX Revamp fix)
     @State private var fredaEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var mapOrientationMode: MapOrientationMode = .northUp
-    @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
@@ -783,8 +803,6 @@ struct NavigationMapView: View {
     }
 
     private func handleLocationChange(_ newLocation: CLLocation?) {
-        // Increment counter to force map view updates (ensures aircraft annotation moves)
-        locationUpdateCounter += 1
         updateTrackVectorEMA()
 
         // Not with the legs panel open: its band follows the aircraft itself, and leaves the shared
@@ -1958,7 +1976,6 @@ struct NavigationMapView: View {
             trackVectorOverlays: trackVectorOverlays,
             trackVectorEnabled: appState.settings.showTrackVector,
             currentWaypointIndex: currentWaypointIndex,
-            locationUpdateCounter: locationUpdateCounter,
             visibleAirports: visibleAirports,
             visibleNavaids: visibleNavaids,
             visibleObstacles: visibleObstacles,
@@ -4372,7 +4389,6 @@ struct AeroMapView: View {
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates
-    var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
     var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)

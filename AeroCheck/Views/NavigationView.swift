@@ -861,7 +861,11 @@ struct NavigationMapView: View {
             Task { await NotamService.shared.refreshIfNeeded(countries: countries, onGround: true) }
         }
         let window = notamWindow
-        visibleNotams = NotamMapContent.items(NotamService.shared.allNotams, from: window.from, to: window.to, centre: region.center,
+        // A NOTAM whose area the board already draws (abroad, 6.10.0) is left to the board: one outline, not two.
+        let drawn = Set(ActivationService.shared.board(knownAreas: openAIPDataService.designatorKeys).notams.drawn.values
+            .map(\.notam.sameNotamKey))
+        visibleNotams = NotamMapContent.items(NotamService.shared.allNotams.filter { !drawn.contains($0.sameNotamKey) },
+                                              from: window.from, to: window.to, centre: region.center,
                                               latSpan: region.span.latitudeDelta, lonSpan: region.span.longitudeDelta)
     }
 

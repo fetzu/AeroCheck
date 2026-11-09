@@ -485,6 +485,14 @@ final class FlightMergeValidationTests: XCTestCase {
 /// and had no coverage at all: only the pure `Flight.merge` / `validatedForIngest` helpers it calls
 /// were tested, not the branch selection that decides which of them runs.
 final class SyncSendFailureClassificationTests: XCTestCase {
+    /// Each batch's line in the device's log: counts only, nothing that names a flight (device pass, 9 Nov 2026).
+    func testABatchsLineCountsWhatItCarries() {
+        XCTAssertEqual(SyncManager.batchLine(settings: true, flights: 2, tracks: 1, trackPoints: 2_160, deletions: 0, encodeMs: 41),
+                       "CloudKit batch: settings 1, flights 2, tracks 1 (2160 points), deletions 0, encoded in 41 ms")
+        XCTAssertEqual(SyncManager.batchLine(settings: false, flights: 0, tracks: 0, trackPoints: 0, deletions: 3, encodeMs: 0),
+                       "CloudKit batch: settings 0, flights 0, tracks 0 (0 points), deletions 3, encoded in 0 ms")
+    }
+
 
     private func classify(
         code: Int,

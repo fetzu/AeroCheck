@@ -1409,6 +1409,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             pending = self.gatherPendingBatch(syncEngine: syncEngine)
         }
         guard let pending else { return nil }
+        let started = DispatchTime.now()
 
         var recordsToSave: [CKRecord] = []
         if let settingsRecord = pending.settingsRecord {
@@ -1430,6 +1431,14 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         guard !recordsToSave.isEmpty || !pending.deletions.isEmpty else {
             return nil
         }
+        // What each batch carries, in counts, kept by the device (`publicNotice`): CloudKit writes its own lines as
+        // <private>, so a launch's send couldn't be told from a log (device pass, 9 Nov 2026).
+        let encodeMs = Int((DispatchTime.now().uptimeNanoseconds - started.uptimeNanoseconds) / 1_000_000)
+        AppLog.sync.publicNotice(SyncManager.batchLine(
+            settings: pending.settingsRecord != nil, flights: pending.flightRecordIDs.count,
+            tracks: pending.trackRecordIDs.count,
+            trackPoints: pending.trackRecordIDs.reduce(0) { $0 + $1.flight.gpsTrack.count },
+            deletions: pending.deletions.count, encodeMs: encodeMs))
 
         return CKSyncEngine.RecordZoneChangeBatch(
             recordsToSave: recordsToSave,
@@ -1825,5 +1834,14 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
             AppLog.sync.debugLine("Failed to save record: \(recordName), error: \(error)")
         }
+    }
+}
+
+extension SyncManager {
+    /// A CloudKit batch in one line, for the device's log: counts only, no name, id or position (SA-20).
+    nonisolated static func batchLine(settings: Bool, flights: Int, tracks: Int, trackPoints: Int, deletions: Int,
+                                      encodeMs: Int) -> String {
+        "CloudKit batch: settings \(settings ? 1 : 0), flights \(flights), tracks \(tracks) (\(trackPoints) points), "
+            + "deletions \(deletions), encoded in \(encodeMs) ms"
     }
 }

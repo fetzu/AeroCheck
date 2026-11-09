@@ -30,6 +30,8 @@ final class PilotMapMarkers {
     private var tags: [String: PilotMarker] = [:]
     private var tagsPlaced = Date.distantPast
     private var tagsZoom = 0.0
+    /// What the tags were last placed for (`tagKey`): nothing to build while it holds and the interval runs.
+    private var tagsKey: Int?
     private var tagKeepOut: [CGRect] = []
     private var tagRings: [AirspaceTagContent: [CLLocationCoordinate2D]] = [:]
     private var tagBeside: [AirspaceTagContent: NotamMapContent.Item] = [:]
@@ -74,15 +76,18 @@ final class PilotMapMarkers {
         let wanted = map.shownAirspaceTags
         // The NOTAM areas' after the airspace's: what the pilot is flying through keeps its place. A circle too small on
         // the screen to take a tag stays a circle, and a tap still reads it.
-        let notams = Self.notamTags(map.shownNotams, on: mapView)
-        let contents = wanted.map(AirspaceTagContent.init) + notams.map(\.content)
-        let shown = Set(tags.values.compactMap { ($0.base as? AirspaceTagAnnotation)?.content })
-        let changed = Set(contents) != shown
+        let picked = Self.notamTagItems(map.shownNotams, on: mapView)
+        // Changed or not, from ids alone: the rings and the tags' contents were built at every pass, before this guard,
+        // a tenth of the map's main thread on the author's iPad with the NOTAM layer on (device pass, 9 Nov 2026).
+        let key = Self.tagKey(wanted, picked)
         // A new zoom moves a small circle's tag beside it: at once, or it stays where the last zoom left it.
-        let rezoomed = !notams.isEmpty && abs(mapView.zoomLevel - tagsZoom) > 0.2
-        guard changed || rezoomed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
+        let rezoomed = !picked.isEmpty && abs(mapView.zoomLevel - tagsZoom) > 0.2
+        guard key != tagsKey || rezoomed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
+        tagsKey = key
         tagsPlaced = Date()
         tagsZoom = mapView.zoomLevel
+        let notams = Self.notamTags(picked)
+        let contents = wanted.map(AirspaceTagContent.init) + notams.map(\.content)
         tagKeepOut = map.airspaceTagKeepOut
         tagRings = Dictionary(zip(contents, wanted.map(\.airspace.polygonCoordinates) + notams.map(\.ring)),
                               uniquingKeysWith: { first, _ in first })
@@ -137,18 +142,50 @@ final class PilotMapMarkers {
 
     /// What takes a tag, and its circle: inside when the tag fits, else `placeTags` puts it beside, so a small circle stays
     /// seen.
-    private static func notamTags(_ items: [NotamMapContent.Item], on mapView: MLNMapView)
-        -> [(content: AirspaceTagContent, ring: [CLLocationCoordinate2D], beside: NotamMapContent.Item?)] {
-        let metersPerPoint = mapView.metersPerPoint(atLatitude: mapView.centerCoordinate.latitude)
+    /// The circles that take a tag, and whether it fits inside: cheap, at every pass.
+    static func notamTagItems(_ items: [NotamMapContent.Item], on mapView: MLNMapView) -> [(item: NotamMapContent.Item, inside: Bool)] {
+        notamTagItems(items, metersPerPoint: mapView.metersPerPoint(atLatitude: mapView.centerCoordinate.latitude))
+    }
+
+    static func notamTagItems(_ items: [NotamMapContent.Item], metersPerPoint: Double) -> [(item: NotamMapContent.Item, inside: Bool)] {
         guard metersPerPoint > 0 else { return [] }
-        let tags = items.compactMap { item -> (content: AirspaceTagContent, ring: [CLLocationCoordinate2D], beside: NotamMapContent.Item?)? in
+        let picked = items.compactMap { item -> (item: NotamMapContent.Item, inside: Bool)? in
             guard case .area(let radius) = item.shape else { return nil }
             let onScreen = CGFloat(radius * 1852 / metersPerPoint)
             guard onScreen >= notamTagRadius else { return nil }
-            return (AirspaceTagContent(notam: item.notam), NotamMapContent.ring(centre: item.coordinate, radiusNm: radius, points: 24),
-                    onScreen >= notamTagInsideRadius ? nil : item)
+            return (item, onScreen >= notamTagInsideRadius)
         }
-        return Array(tags.prefix(maxNotamTags))
+        return Array(picked.prefix(maxNotamTags))
+    }
+
+    /// Their tags and rings, built when the tags are placed.
+    private static func notamTags(_ picked: [(item: NotamMapContent.Item, inside: Bool)])
+        -> [(content: AirspaceTagContent, ring: [CLLocationCoordinate2D], beside: NotamMapContent.Item?)] {
+        picked.compactMap { pick in
+            guard case .area(let radius) = pick.item.shape else { return nil }
+            return (AirspaceTagContent(notam: pick.item.notam),
+                    NotamMapContent.ring(centre: pick.item.coordinate, radiusNm: radius, points: 24), pick.inside ? nil : pick.item)
+        }
+    }
+
+    /// What decides a tag's content and place: an airspace by its id and its shape (its texts come from the airspace),
+    /// a NOTAM circle by its NOTAM and whether its tag fits inside.
+    static func tagKey(_ wanted: [AirspaceRelevantTag], _ picked: [(item: NotamMapContent.Item, inside: Bool)]) -> Int {
+        var hasher = Hasher()
+        for tag in wanted {
+            hasher.combine(tag.airspace.id)
+            switch tag.kind {
+            case .atLevel: hasher.combine(0)
+            case .floor: hasher.combine(1)
+            case .ceiling: hasher.combine(2)
+            }
+        }
+        hasher.combine(-1)
+        for pick in picked {
+            hasher.combine(pick.item.id)
+            hasher.combine(pick.inside)
+        }
+        return hasher.finalize()
     }
 
     /// The four sides of a circle where a tag of `size` touches it, north first.

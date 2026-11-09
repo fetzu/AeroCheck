@@ -486,6 +486,21 @@ final class FlightMergeValidationTests: XCTestCase {
 /// were tested, not the branch selection that decides which of them runs.
 final class SyncSendFailureClassificationTests: XCTestCase {
     /// Each batch's line in the device's log: counts only, nothing that names a flight (device pass, 9 Nov 2026).
+    func testASendsLineCountsFailuresByKindAndErrorWithoutAName() {
+        let flight = UUID().uuidString, track = "track-" + UUID().uuidString
+        let line = SyncManager.sentLine(
+            saved: ["settings"],
+            failedSaves: [(track, CKError.serverRecordChanged.rawValue, 2004), (flight, CKError.batchRequestFailed.rawValue, nil),
+                          (UUID().uuidString, CKError.batchRequestFailed.rawValue, nil)],
+            deleted: 0, failedDeletes: 1)
+        XCTAssertEqual(line, "CloudKit sent: saved settings 1; failed flights batchRequestFailed ×2, "
+                       + "tracks serverRecordChanged (server 2004) ×1; deleted 0, failed deletes 1")
+        XCTAssertFalse(line.contains(flight) || line.contains(track), "no record's name")
+        XCTAssertEqual(SyncManager.sentLine(saved: [], failedSaves: [], deleted: 2, failedDeletes: 0),
+                       "CloudKit sent: saved none; failed none; deleted 2, failed deletes 0")
+        XCTAssertEqual(SyncManager.errorName(999), "code 999")
+    }
+
     func testABatchsLineCountsWhatItCarries() {
         XCTAssertEqual(SyncManager.batchLine(settings: true, flights: 2, tracks: 1, trackPoints: 2_160, deletions: 0, encodeMs: 41),
                        "CloudKit batch: settings 1, flights 2, tracks 1 (2160 points), deletions 0, encoded in 41 ms")

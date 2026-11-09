@@ -1701,6 +1701,15 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     @MainActor
     private func handleSentRecordZoneChanges(_ changes: CKSyncEngine.Event.SentRecordZoneChanges) async {
         AppLog.sync.debugLine("Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
+        // What CloudKit took and what it refused, by kind and error, kept by the device: the failures' own lines are
+        // private, and FlyPad's log showed every launch's batch refused without saying why (9 Nov 2026).
+        AppLog.sync.publicNotice(SyncManager.sentLine(
+            saved: changes.savedRecords.map(\.recordID.recordName),
+            failedSaves: changes.failedRecordSaves.map { failed in
+                let error = failed.error as NSError
+                return (failed.record.recordID.recordName, error.code, error.userInfo["CKErrorServerErrorCode"] as? Int)
+            },
+            deleted: changes.deletedRecordIDs.count, failedDeletes: changes.failedRecordDeletes.count))
 
         // Clear pending data for successfully saved records
         var didMarkSynced = false
@@ -1838,6 +1847,57 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 }
 
 extension SyncManager {
+    /// What a send came back with, in one line for the device's log: records by kind, failures by kind and error code.
+    /// Counts only: a record's name is read for its kind and never written (SA-20).
+    nonisolated static func sentLine(saved: [String], failedSaves: [(name: String, code: Int, serverCode: Int?)],
+                                     deleted: Int, failedDeletes: Int) -> String {
+        func kind(_ name: String) -> String {
+            if name == "settings" { return "settings" }
+            if flightId(fromTrackRecordName: name) != nil { return "tracks" }
+            return UUID(uuidString: name) != nil ? "flights" : "other"
+        }
+        let savedByKind = Dictionary(grouping: saved, by: kind).mapValues(\.count)
+        let savedText = ["flights", "tracks", "settings", "other"].compactMap { k in savedByKind[k].map { "\(k) \($0)" } }
+        var failures: [String: Int] = [:]
+        for failure in failedSaves {
+            var label = "\(kind(failure.name)) \(errorName(failure.code))"
+            if let server = failure.serverCode { label += " (server \(server))" }
+            failures[label, default: 0] += 1
+        }
+        let failedText = failures.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+            .map { "\($0.key) ×\($0.value)" }
+        return "CloudKit sent: saved " + (savedText.isEmpty ? "none" : savedText.joined(separator: ", "))
+            + "; failed " + (failedText.isEmpty ? "none" : failedText.joined(separator: ", "))
+            + "; deleted \(deleted), failed deletes \(failedDeletes)"
+    }
+
+    /// A CloudKit error code by its name, the code itself when unknown.
+    nonisolated static func errorName(_ code: Int) -> String {
+        switch CKError.Code(rawValue: code) {
+        case .serverRecordChanged: "serverRecordChanged"
+        case .batchRequestFailed: "batchRequestFailed"
+        case .unknownItem: "unknownItem"
+        case .zoneNotFound: "zoneNotFound"
+        case .userDeletedZone: "userDeletedZone"
+        case .limitExceeded: "limitExceeded"
+        case .quotaExceeded: "quotaExceeded"
+        case .invalidArguments: "invalidArguments"
+        case .permissionFailure: "permissionFailure"
+        case .serverRejectedRequest: "serverRejectedRequest"
+        case .constraintViolation: "constraintViolation"
+        case .assetFileNotFound: "assetFileNotFound"
+        case .assetFileModified: "assetFileModified"
+        case .networkFailure: "networkFailure"
+        case .networkUnavailable: "networkUnavailable"
+        case .serviceUnavailable: "serviceUnavailable"
+        case .requestRateLimited: "requestRateLimited"
+        case .zoneBusy: "zoneBusy"
+        case .notAuthenticated: "notAuthenticated"
+        case .internalError: "internalError"
+        default: "code \(code)"
+        }
+    }
+
     /// A CloudKit batch in one line, for the device's log: counts only, no name, id or position (SA-20).
     nonisolated static func batchLine(settings: Bool, flights: Int, tracks: Int, trackPoints: Int, deletions: Int,
                                       encodeMs: Int) -> String {

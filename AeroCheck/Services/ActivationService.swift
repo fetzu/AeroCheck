@@ -258,7 +258,10 @@ final class ActivationService: ObservableObject {
 
     /// Today's bulletin and, abroad, the NOTAMs on the device (never in a dry run). `knownAreas`: the designators of the
     /// device's airspace (`OpenAIPDataService.designatorKeys`). The NOTAMs' part is built once a minute.
-    func board(knownAreas: Set<String>, notams: NotamService = .shared) -> ActivationBoard {
+    /// `notams` nil: the app's own (`NotamService.shared`), read here on the main actor; a default argument is evaluated
+    /// outside it, which Swift 6 refuses.
+    func board(knownAreas: Set<String>, notams: NotamService? = nil) -> ActivationBoard {
+        let notams = notams ?? .shared
         let moment = now()
         let key = NotamMemoKey(revision: notams.revision, known: knownAreas.count,
                                minute: Int(moment.timeIntervalSinceReferenceDate / 60), dryRun: DryRunCenter.shared.isRunning)

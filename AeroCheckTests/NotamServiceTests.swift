@@ -266,12 +266,16 @@ final class NotamServiceTests: XCTestCase {
     }
 
     /// C) …EST: it stands until a cancellation or a replacement, which the copy brings within 15 minutes, so its
-    /// estimated end never takes it off the list, the field or the map.
-    func testAnEstimatedEndKeepsTheNotamUntilTheCopyDropsIt() {
+    /// estimated end doesn't take it off the list, the field or the map. A leftover past the 7 days does go
+    /// (LIER's "airport closed" of March 2023 was still in the copy on 10 Nov 2026).
+    func testAnEstimatedEndKeepsTheNotamSevenDays() {
         let s = service()
         let estimated = Notam(id: "1", number: "A1/26", location: "LSZQ", end: start.addingTimeInterval(-3600), estimated: true,
                               text: "CRANE")
-        s.seedForTesting(index: NotamIndex(countries: ["CH": .init(file: "ch.json")]), files: ["ch.json": NotamFile(notams: [estimated])])
+        let leftover = Notam(id: "2", number: "A2/23", location: "LSZQ", end: start.addingTimeInterval(-8 * 86_400), estimated: true,
+                             text: "AD CLSD")
+        s.seedForTesting(index: NotamIndex(countries: ["CH": .init(file: "ch.json")]),
+                         files: ["ch.json": NotamFile(notams: [estimated, leftover])])
         XCTAssertEqual(s.notams(in: ["CH"]).map(\.id), ["1"])
         XCTAssertEqual(s.allNotams.map(\.id), ["1"])
         XCTAssertEqual(s.notams(at: "LSZQ").map(\.id), ["1"])

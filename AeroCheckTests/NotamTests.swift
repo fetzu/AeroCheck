@@ -198,13 +198,16 @@ final class NotamTests: NotamTestCase {
         XCTAssertEqual(NotamMapContent.leavingFieldObstacles(items, fields: []).count, 3, "a field not drawn keeps them all")
     }
 
-    /// An estimated end (EST) is no end: it still overlaps a flight after it, and the card says it's past but standing.
+    /// An estimated end (EST) holds 7 more days: it still overlaps a flight after it, and the card says it's past but
+    /// standing. After the 7 days it goes, like the copy's leftovers years past their end.
     func testAnEstimatedEndStillApplies() {
         var n = notam("1", start: noon.addingTimeInterval(-8 * 3600), end: noon.addingTimeInterval(-2 * 3600), kind: .obstacle)
         XCTAssertFalse(n.overlaps(from: noon, to: noon.addingTimeInterval(3600)), "a firm end closes it")
         n.estimated = true
-        XCTAssertNil(n.closes)
+        XCTAssertEqual(n.closes, noon.addingTimeInterval(-2 * 3600 + 7 * 86_400))
         XCTAssertTrue(n.overlaps(from: noon, to: noon.addingTimeInterval(3600)))
+        XCTAssertFalse(n.overlaps(from: noon.addingTimeInterval(7 * 86_400), to: noon.addingTimeInterval(7 * 86_400 + 3600)),
+                       "7 days past its estimated end it goes")
         n.lat = 47.5
         n.lon = 7.0
         XCTAssertNotNil(NotamMapContent.item(n, from: noon, to: noon.addingTimeInterval(3600)), "on the map too")

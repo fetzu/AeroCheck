@@ -287,9 +287,13 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
         return (centre, corners.map { NotamGeometry.distanceNm(centre, $0) }.max() ?? 0)
     }
 
-    /// When it stops applying: nil for a permanent one, and for an estimated end (EST), which stands until a
-    /// cancellation or a replacement removes it (ICAO Annex 15). The copy drops it when that comes, within 15 minutes.
-    var closes: Date? { estimated ? nil : end }
+    /// An estimated end (EST) stands until a cancellation or a replacement removes it (ICAO Annex 15), which the copy
+    /// brings within 15 minutes. But some never come: the copy holds EST NOTAMs years past their end. So one stays
+    /// this long past its estimated end, then goes (the author, 10 Nov 2026; the server's files drop it then too).
+    static let estimatedGrace: TimeInterval = 7 * 86_400
+
+    /// When it stops applying: nil for a permanent one; an estimated end plus `estimatedGrace`.
+    var closes: Date? { estimated ? end?.addingTimeInterval(Self.estimatedGrace) : end }
 
     /// Whether it applies at some moment between two dates.
     func overlaps(from: Date, to: Date) -> Bool {

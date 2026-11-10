@@ -238,6 +238,30 @@ final class ActivationTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(b.drawnTempAirspaces(in: nil).first).name, "LKR9 NOTAM B1/26")
     }
 
+    /// Past an estimated end the server keeps the area 7 days more (server #216): the card still says the NOTAM's own end,
+    /// marked EST, never the 7 days.
+    func testAnEstimatedEndShowsTheNotamsOwnEnd() {
+        let start = NotamTime.date("\(day)T08:00:00Z")!, end = NotamTime.date("2026-11-06T22:00:00Z")!
+        let activation = NotamActivation(kind: .restricted, windows: [.init(start: start, end: end.addingTimeInterval(7 * 86_400))],
+                                         lower: limitFt(0, "GND"), upper: limitFt(4000, "MSL"))
+        var notam = Notam(id: "N1", number: "W1/26", location: "LSAS", end: end, estimated: true, text: "R-AREA LSR18 ACT",
+                          kind: .airspace, activation: activation)
+        let area = NotamArea(notam: notam, activation: activation, country: "CH")
+        XCTAssertEqual(area.note(now: noon), L10n.Nav.dabsActive("08:00–06.11 22:00", "EST, NOTAM W1/26"))
+        XCTAssertEqual(area.note(now: noon, naming: false), L10n.Nav.notamActive("08:00–06.11 22:00") + " EST")
+
+        let scheduled = NotamActivation(kind: .restricted, windows: [.init(start: start, end: start.addingTimeInterval(4 * 3600)),
+                                                                     .init(start: end, end: end.addingTimeInterval(7 * 86_400))],
+                                        exact: false, lower: limitFt(0, "GND"), upper: limitFt(4000, "MSL"))
+        notam.schedule = "DAILY 0800-1200"
+        let past = NotamArea(notam: notam, activation: scheduled, country: "CH")
+        XCTAssertEqual(past.note(now: end.addingTimeInterval(3600)),
+                       L10n.Nav.dabsActive(L10n.Notams.from("22:00") + ", DAILY 0800-1200", "EST, NOTAM W1/26"))
+        notam.estimated = false
+        XCTAssertEqual(NotamArea(notam: notam, activation: activation, country: "CH").note(now: noon),
+                       L10n.Nav.dabsActive("08:00–13.11 22:00", "NOTAM W1/26"), "a firm end shows its window as it is")
+    }
+
     func testAnAreaNoNotamNamesAbroadStaysActiveWithNoNote() {
         let b = abroad([czechArea()])
         let other = airspace("ED-R54 LEHNIN", country: "DE")

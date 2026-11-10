@@ -343,9 +343,19 @@ struct NotamArea: Equatable {
         let ahead = activation.windows.filter { $0.end >= now && $0.start <= now.addingTimeInterval(24 * 3600) }
         let shown = ahead.isEmpty ? Array(activation.windows.filter { $0.end >= now }.prefix(1)) : Array(ahead.prefix(3))
         guard !shown.isEmpty else { return nil }
-        var text = shown.map { "\(Self.moment($0.start, now: now))–\(Self.moment($0.end, now: now))" }.joined(separator: ", ")
+        // Past an estimated end the server keeps the area 7 days more: say the NOTAM's own end, marked EST, never that
+        let estimatedEnd = notam.estimated ? notam.end : nil
+        var text = shown.map { window -> String in
+            guard let end = estimatedEnd, window.end > end else {
+                return "\(Self.moment(window.start, now: now))–\(Self.moment(window.end, now: now))"
+            }
+            return window.start >= end ? L10n.Notams.from(Self.moment(end, now: now))
+                : "\(Self.moment(window.start, now: now))–\(Self.moment(end, now: now))"
+        }.joined(separator: ", ")
         if !activation.exact, let schedule = notam.schedule { text += ", \(schedule)" }
-        return naming ? L10n.Nav.dabsActive(text, "NOTAM \(notam.number)") : L10n.Nav.notamActive(text)
+        let mark = estimatedEnd == nil ? "" : "EST, "
+        return naming ? L10n.Nav.dabsActive(text, "\(mark)NOTAM \(notam.number)")
+            : L10n.Nav.notamActive(text) + (estimatedEnd == nil ? "" : " EST")
     }
 
     /// "08:30" today (UTC), "02.12 11:00" on another day.

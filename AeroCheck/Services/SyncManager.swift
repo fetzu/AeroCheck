@@ -234,6 +234,9 @@ class SyncManager: ObservableObject {
             if let record = newValue,
                let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) {
                 defaults.set(data, forKey: settingsRecordKey)
+            } else if newValue == nil {
+                // nil kept the old record: a stale one could never be dropped (6.10.0).
+                defaults.removeObject(forKey: settingsRecordKey)
             }
         }
     }
@@ -879,6 +882,13 @@ class SyncManager: ObservableObject {
         case settingsConflict(hasServerRecord: Bool)
         /// A flight metadata record conflicted. Merge when both sides are available.
         case flightConflict(flightId: UUID, hasServerRecord: Bool)
+        /// A flight's track record conflicted: take the server's change tag and send the track again, unless the
+        /// server's has as many points. It used to stay pending as it was, refused at every send. (6.10.0)
+        case trackConflict(flightId: UUID, hasServerRecord: Bool)
+        /// CloudKit doesn't have the record this save updates (`unknownItem`): its stored change tag is stale. Forget it
+        /// and send the record as new. A stale settings record refused the author's whole logbook at every launch
+        /// (FlyPad, 10 Nov 2026). (6.10.0)
+        case staleRecord
         /// Permanently oversized. Retrying the identical record is futile, so drop the pending
         /// change. `flightId` is nil for records whose name is not a bare flight UUID.
         case tooLarge(flightId: UUID?)
@@ -911,11 +921,15 @@ class SyncManager: ObservableObject {
             if let flightId = UUID(uuidString: recordName) {
                 return .flightConflict(flightId: flightId, hasServerRecord: hasServerRecord)
             }
-            // A conflict on a record we do not special-case (e.g. a track record, whose name is not
-            // a bare UUID) falls through to the permanent-failure check below, exactly as before.
+            if let flightId = flightId(fromTrackRecordName: recordName) {
+                return .trackConflict(flightId: flightId, hasServerRecord: hasServerRecord)
+            }
+            // A conflict on a record we do not special-case falls through to the permanent-failure check below.
         }
 
         switch CKError.Code(rawValue: errorCode) {
+        case .unknownItem:
+            return .staleRecord
         case .limitExceeded:
             return .tooLarge(flightId: UUID(uuidString: recordName))
         case .quotaExceeded:
@@ -1207,6 +1221,14 @@ class SyncManager: ObservableObject {
         settingsOwed = false
     }
 
+    /// CloudKit has no settings record by the cached one's name and tag: drop the cached copy, so the next save is an
+    /// insert. (6.10.0)
+    func forgetSettingsRecord() {
+        cachedSettingsRecord = nil
+        settingsRecordExists = false
+        defaults.set(false, forKey: settingsRecordExistsKey)
+    }
+
     /// The server holds a settings record already (a conflict told us).
     func markSettingsRecordExists() {
         settingsRecordExists = true
@@ -1292,6 +1314,17 @@ class SyncManager: ObservableObject {
         recordSystemFields.removeValue(forKey: id.uuidString)
         recordSystemFields.removeValue(forKey: SyncManager.trackRecordName(id))
         persistRecordSystemFields()
+    }
+
+    /// Drops one record's stored fields: CloudKit doesn't have it, so its next save must be an insert. (6.10.0)
+    func forgetSystemFields(forRecordName name: String) {
+        guard recordSystemFields.removeValue(forKey: name) != nil else { return }
+        persistRecordSystemFields()
+    }
+
+    /// Queues one record's save again, after its failure was resolved here. (6.10.0)
+    func requeueSave(_ recordID: CKRecord.ID) {
+        syncEngine?.queue([.saveRecord(recordID)])
     }
 
     private func persistRecordSystemFields() {
@@ -1443,7 +1476,9 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         return CKSyncEngine.RecordZoneChangeBatch(
             recordsToSave: recordsToSave,
             recordIDsToDelete: pending.deletions,
-            atomicByZone: true
+            // Not atomic: one record CloudKit refuses no longer takes every other record of the zone down with it
+            // (`batchRequestFailed`). A refused record stays pending on its own. (6.10.0)
+            atomicByZone: false
         )
     }
 
@@ -1823,6 +1858,33 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     )
                 }
                 manager?.updateLastSyncDate()
+                continue
+
+            case .trackConflict(let flightId, _):
+                // As for a flight: the SERVER's change tag first, or the retry repeats the conflict forever.
+                guard let serverRecord else { break }
+                manager?.rememberSystemFields(of: serverRecord)
+                let serverCount = serverRecord["trackCount"] as? Int ?? -1
+                if let local = manager?.getPendingFlight(for: flightId), serverCount >= local.gpsTrack.count {
+                    // The server's track has every point this one has: nothing to send.
+                    manager?.markFlightTrackSynced(flightId, count: local.gpsTrack.count)
+                    manager?.persistSyncedFingerprints()
+                } else {
+                    manager?.requeueSave(failedSave.record.recordID)
+                }
+                continue
+
+            case .staleRecord:
+                // Only an update can be stale: a record sent without a tag that CloudKit still doesn't know is left
+                // pending, so this never loops.
+                guard failedSave.record.recordChangeTag != nil else { break }
+                if recordName == "settings" {
+                    manager?.forgetSettingsRecord()
+                    if let pendingSettings = manager?.getPendingSettings() { manager?.syncSettings(pendingSettings) }
+                } else {
+                    manager?.forgetSystemFields(forRecordName: recordName)
+                    manager?.requeueSave(failedSave.record.recordID)
+                }
                 continue
 
             case .tooLarge(let flightId):

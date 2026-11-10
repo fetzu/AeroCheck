@@ -287,9 +287,13 @@ struct Notam: Decodable, Equatable, Hashable, Identifiable {
         return (centre, corners.map { NotamGeometry.distanceNm(centre, $0) }.max() ?? 0)
     }
 
+    /// When it stops applying: nil for a permanent one, and for an estimated end (EST), which stands until a
+    /// cancellation or a replacement removes it (ICAO Annex 15). The copy drops it when that comes, within 15 minutes.
+    var closes: Date? { estimated ? nil : end }
+
     /// Whether it applies at some moment between two dates.
     func overlaps(from: Date, to: Date) -> Bool {
-        (start ?? .distantPast) <= to && (end ?? .distantFuture) >= from
+        (start ?? .distantPast) <= to && (closes ?? .distantFuture) >= from
     }
 
     /// Goes from the ground to the top of the sky, as most at an aerodrome do: its band says nothing.

@@ -72,6 +72,9 @@ enum L10n {
         static func until(_ day: String) -> String { String(format: String(localized: "notams.until"), day) }
         static func from(_ day: String) -> String { String(format: String(localized: "notams.from"), day) }
         static let permanent = String(localized: "notams.permanent")
+        static func estimatedEndPassed(_ time: String) -> String {
+            String(format: String(localized: "notams.estimatedEndPassed"), time)
+        }
         static func band(_ lower: String, _ upper: String) -> String {
             String(format: String(localized: "notams.band"), lower, upper)
         }

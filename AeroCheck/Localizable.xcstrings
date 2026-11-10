@@ -16515,6 +16515,29 @@
         }
       }
     },
+    "notams.estimatedEndPassed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weiterhin gültig, geschätztes Ende %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "still in force, estimated end %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "toujours en vigueur, fin estimée %@"
+          }
+        }
+      }
+    },
     "notams.from": {
       "extractionState": "manual",
       "localizations": {

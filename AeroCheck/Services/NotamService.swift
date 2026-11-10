@@ -137,7 +137,7 @@ final class NotamService: ObservableObject {
         for country in countries {
             guard hasList(country), let entry = index.countries[country.uppercased()],
                   seen.insert(entry.file).inserted else { continue }
-            out += (files[entry.file]?.notams ?? []).filter { ($0.end ?? .distantFuture) >= at }
+            out += (files[entry.file]?.notams ?? []).filter { ($0.closes ?? .distantFuture) >= at }
         }
         return out
     }
@@ -145,13 +145,13 @@ final class NotamService: ObservableObject {
     /// Everything on the device still in force, for the map.
     var allNotams: [Notam] {
         let at = now()
-        return everything.filter { ($0.end ?? .distantFuture) >= at }
+        return everything.filter { ($0.closes ?? .distantFuture) >= at }
     }
 
     /// A field's NOTAMs on the device, those over left out, the one that applies first on top.
     func notams(at ident: String, now moment: Date? = nil) -> [Notam] {
         let at = moment ?? now()
-        return (byLocation[ident.uppercased()] ?? []).filter { ($0.end ?? .distantFuture) >= at }.sorted { a, b in
+        return (byLocation[ident.uppercased()] ?? []).filter { ($0.closes ?? .distantFuture) >= at }.sorted { a, b in
             let (sa, sb) = (a.start ?? .distantPast, b.start ?? .distantPast)
             return sa != sb ? sa < sb : a.number < b.number
         }

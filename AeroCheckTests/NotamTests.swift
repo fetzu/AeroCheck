@@ -198,6 +198,23 @@ final class NotamTests: NotamTestCase {
         XCTAssertEqual(NotamMapContent.leavingFieldObstacles(items, fields: []).count, 3, "a field not drawn keeps them all")
     }
 
+    /// An estimated end (EST) is no end: it still overlaps a flight after it, and the card says it's past but standing.
+    func testAnEstimatedEndStillApplies() {
+        var n = notam("1", start: noon.addingTimeInterval(-8 * 3600), end: noon.addingTimeInterval(-2 * 3600), kind: .obstacle)
+        XCTAssertFalse(n.overlaps(from: noon, to: noon.addingTimeInterval(3600)), "a firm end closes it")
+        n.estimated = true
+        XCTAssertNil(n.closes)
+        XCTAssertTrue(n.overlaps(from: noon, to: noon.addingTimeInterval(3600)))
+        n.lat = 47.5
+        n.lon = 7.0
+        XCTAssertNotNil(NotamMapContent.item(n, from: noon, to: noon.addingTimeInterval(3600)), "on the map too")
+        XCTAssertEqual(NotamWords.when(n, now: noon), L10n.Notams.estimatedEndPassed(L10n.Notams.today("10:00") + " UTC"))
+        XCTAssertEqual(NotamWords.when(n, now: noon.addingTimeInterval(-3 * 3600)), L10n.Notams.today("04:00–10:00 UTC EST"),
+                       "before its end it reads as before")
+        n.start = nil
+        XCTAssertTrue(NotamWords.when(n, now: noon.addingTimeInterval(-3 * 3600)).hasSuffix(" EST"), "no start: still marked")
+    }
+
     /// The card's header says when and how high once, under the boxed number (decision page 8YkwKvUpdGcvbnpsgtn9fL);
     /// the switch reads back what it stored.
     func testACardsHeaderSaysWhenAndHowHighOnce() {

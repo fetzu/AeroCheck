@@ -78,13 +78,17 @@ enum NotamWords {
         return match.2 == "AGL" || match.2 == "SFC" ? "\(match.1) AGL" : "\(match.1) ft"
     }
 
-    /// "today 08:00–16:00 UTC", "until 12 Nov", "from 7 Nov 08:00 UTC", "permanent".
+    /// "today 08:00–16:00 UTC", "until 12 Nov", "from 7 Nov 08:00 UTC", "permanent", and past an estimated end
+    /// "still in force, estimated end today 16:00 UTC".
     static func when(_ notam: Notam, now: Date, calendar: Calendar = NotamTime.utc) -> String {
+        let suffix = notam.estimated ? " EST" : ""
+        if notam.estimated, let end = notam.end, end < now {
+            return L10n.Notams.estimatedEndPassed(dayAndClock(end, now: now, calendar: calendar) + " UTC")
+        }
         guard let start = notam.start else {
             guard let end = notam.end else { return L10n.Notams.permanent }
-            return L10n.Notams.until(dayMonth(end))
+            return L10n.Notams.until(dayMonth(end)) + suffix
         }
-        let suffix = notam.estimated ? " EST" : ""
         guard let end = notam.end else {
             return start <= now ? L10n.Notams.permanent : L10n.Notams.from(dayAndClock(start, now: now, calendar: calendar) + " UTC")
         }

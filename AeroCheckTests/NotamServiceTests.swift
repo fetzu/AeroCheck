@@ -265,6 +265,18 @@ final class NotamServiceTests: XCTestCase {
         XCTAssertTrue(s.notams(in: ["CH"]).isEmpty)
     }
 
+    /// C) …EST: it stands until a cancellation or a replacement, which the copy brings within 15 minutes, so its
+    /// estimated end never takes it off the list, the field or the map.
+    func testAnEstimatedEndKeepsTheNotamUntilTheCopyDropsIt() {
+        let s = service()
+        let estimated = Notam(id: "1", number: "A1/26", location: "LSZQ", end: start.addingTimeInterval(-3600), estimated: true,
+                              text: "CRANE")
+        s.seedForTesting(index: NotamIndex(countries: ["CH": .init(file: "ch.json")]), files: ["ch.json": NotamFile(notams: [estimated])])
+        XCTAssertEqual(s.notams(in: ["CH"]).map(\.id), ["1"])
+        XCTAssertEqual(s.allNotams.map(\.id), ["1"])
+        XCTAssertEqual(s.notams(at: "LSZQ").map(\.id), ["1"])
+    }
+
     /// Glère, on the Doubs: the coarse borders put it in no country at all, and the chip must still know where it is.
     func testAPointBetweenTheCoarseBordersStillHasACountry() {
         let glere = CLLocationCoordinate2D(latitude: 47.345151, longitude: 6.982395)

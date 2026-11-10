@@ -67,16 +67,53 @@ final class PilotMapCameraTests: XCTestCase {
         typealias C = PilotMapView.Coordinator
         let size = CGSize(width: 820, height: 600)
         XCTAssertEqual(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), 1.0)
-        XCTAssertEqual(C.glidePace(since: 0.01, jump: 1, mapSize: size, onCentre: true, reduceMotion: false), 0.05,
-                       "a dry run at 30x: 50 ms at the least")
+        XCTAssertEqual(C.glidePace(since: 0.01, jump: 1, mapSize: size, onCentre: true, reduceMotion: false), 0.02,
+                       "two fixes in a moment: 20 ms at the least")
         XCTAssertNil(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: true, reduceMotion: true))
         XCTAssertNil(C.glidePace(since: C.glideGap, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), "a gap")
         XCTAssertNil(C.glidePace(since: 1.0, jump: 200, mapSize: size, onCentre: true, reduceMotion: false), "a long jump")
         XCTAssertNil(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: false, reduceMotion: false),
                      "the pilot just asked to follow again")
-        // About a point a frame: 8 at the least (cruise at 1x), 30 at the most (a dry run at 30x).
-        XCTAssertEqual(C.glideFrames(jump: 5, pace: 1.0), 8)
-        XCTAssertEqual(C.glideFrames(jump: 20, pace: 1.0), 20)
-        XCTAssertEqual(C.glideFrames(jump: 8, pace: 0.05), 30)
+        // About a point a frame, a rate that divides 60: 10 at the least (cruise at 1x), 30 at the most (30x).
+        XCTAssertEqual(C.glideFrames(pointsPerSecond: 5), 10)
+        XCTAssertEqual(C.glideFrames(pointsPerSecond: 14), 15)
+        XCTAssertEqual(C.glideFrames(pointsPerSecond: 20), 20)
+        XCTAssertEqual(C.glideFrames(pointsPerSecond: 160), 30)
+    }
+
+    /// One fix, then two in the same 50 ms (a dry run at 30x), or one late: each is shown a fixed delay after its own
+    /// time, so the map covers them at the aircraft's pace, never one speed then twice it, never waiting (the author's
+    /// g-2, round 6: smooth a few frames, then a hitch).
+    func testTheGlideShowsEachFixAFixedDelayAfterItsTime() {
+        typealias C = PilotMapView.Coordinator
+        let size = CGSize(width: 820, height: 600)
+        let delay = C.glideDelay(interval: 1.0 / 30)
+        XCTAssertEqual(delay, 1.0 / 30 + 0.1, accuracy: 1e-9)
+        XCTAssertEqual(C.glideDelay(interval: 1.0), 1.1, accuracy: 1e-9, "in flight: 1.1 s")
+        // Taken 10 ms ago, or 40 ms ago (late): the glide ends at the same moment after each fix's own time.
+        let fresh = C.glidePace(since: 0.05, jump: 5, mapSize: size, onCentre: true, reduceMotion: false, age: 0.01, delay: delay)!
+        let late = C.glidePace(since: 0.05, jump: 5, mapSize: size, onCentre: true, reduceMotion: false, age: 0.04, delay: delay)!
+        XCTAssertEqual(fresh - late, 0.03, accuracy: 1e-9)
+        XCTAssertEqual(C.glidePace(since: 0.8, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), 0.8,
+                       "no time on the fix: as long as since the last one")
+    }
+
+    /// The drive's place at a moment: between the two fixes around it, on along the last leg a little past the last
+    /// fix (one late never stops the map), then held; the heading turns the short way.
+    func testTheDriveFindsTheAircraftBetweenTwoFixes() {
+        typealias C = PilotMapView.Coordinator
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let fixes = [C.GlideFix(time: t0, coordinate: .init(latitude: 47, longitude: 7), heading: 350),
+                     C.GlideFix(time: t0 + 1, coordinate: .init(latitude: 47.001, longitude: 7), heading: 10),
+                     C.GlideFix(time: t0 + 2, coordinate: .init(latitude: 47.002, longitude: 7), heading: 10)]
+        let half = C.glidePosition(fixes, at: t0 + 0.5, reach: 1)!
+        XCTAssertEqual(half.coordinate.latitude, 47.0005, accuracy: 1e-9)
+        XCTAssertEqual(half.heading, 0, accuracy: 1e-9, "350 to 10: through north")
+        XCTAssertEqual(C.glidePosition(fixes, at: t0 + 2.5, reach: 1)!.coordinate.latitude, 47.0025, accuracy: 1e-9,
+                       "a fix late: on along the last leg")
+        XCTAssertEqual(C.glidePosition(fixes, at: t0 + 9, reach: 1)!.coordinate.latitude, 47.003, accuracy: 1e-9,
+                       "then held one leg on")
+        XCTAssertEqual(C.glidePosition(fixes, at: t0 - 1, reach: 1)!.coordinate.latitude, 47, accuracy: 1e-9)
+        XCTAssertNil(C.glidePosition([], at: t0, reach: 1))
     }
 }

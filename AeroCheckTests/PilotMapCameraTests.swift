@@ -59,4 +59,24 @@ final class PilotMapCameraTests: XCTestCase {
         XCTAssertEqual(PlannedRouteLayer.closestSegment(to: CGPoint(x: 290, y: 200), points: points, maxPointDistance: 22), 1)
         XCTAssertNil(PlannedRouteLayer.closestSegment(to: CGPoint(x: 150, y: 250), points: points, maxPointDistance: 22))
     }
+
+    /// The follow's glide (6.10.0, device check f-1): as long as since the last fix, so the map arrives as the next one
+    /// is due; never with Reduce Motion, after a gap, for a jump of a third of the map or more, or with the aircraft
+    /// off the centre to start from.
+    func testTheFollowGlidesAsLongAsSinceTheLastFix() {
+        typealias C = PilotMapView.Coordinator
+        let size = CGSize(width: 820, height: 600)
+        XCTAssertEqual(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), 1.0)
+        XCTAssertEqual(C.glidePace(since: 0.01, jump: 1, mapSize: size, onCentre: true, reduceMotion: false), 0.05,
+                       "a dry run at 30x: 50 ms at the least")
+        XCTAssertNil(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: true, reduceMotion: true))
+        XCTAssertNil(C.glidePace(since: C.glideGap, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), "a gap")
+        XCTAssertNil(C.glidePace(since: 1.0, jump: 200, mapSize: size, onCentre: true, reduceMotion: false), "a long jump")
+        XCTAssertNil(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: false, reduceMotion: false),
+                     "the pilot just asked to follow again")
+        // About a point a frame: 8 at the least (cruise at 1x), 30 at the most (a dry run at 30x).
+        XCTAssertEqual(C.glideFrames(jump: 5, pace: 1.0), 8)
+        XCTAssertEqual(C.glideFrames(jump: 20, pace: 1.0), 20)
+        XCTAssertEqual(C.glideFrames(jump: 8, pace: 0.05), 30)
+    }
 }

@@ -16,6 +16,9 @@ struct AboutSettingsView: View {
     @State private var versionTapCount: Int = 0
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
+    /// iOS's daily reports on the device, to share (`MetricReports`). (6.10.0)
+    @State private var metricReportFiles: [URL] = []
+    @State private var showMetricReports = false
     @State private var showSafetyNotice: Bool = false
     @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
@@ -43,6 +46,9 @@ struct AboutSettingsView: View {
         .sheet(isPresented: $showTransactionDebug) {
             TransactionDebugView()
                 .environmentObject(subscriptionManager)
+        }
+        .sheet(isPresented: $showMetricReports) {
+            ShareSheet(activityItems: metricReportFiles)
         }
         .sheet(isPresented: $showSubscriptionLogs) {
             SubscriptionDebugLogView(debugLogger: subscriptionManager.debugLogger)
@@ -206,6 +212,11 @@ struct AboutSettingsView: View {
             // NOAA. (6.5.0)
             dataSourceRow(name: "FAA NASR", detail: L10n.DataStorage.sourcePatterns,
                           url: "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/")
+            // The NOTAMs (6.10.0): the NMS's terms let us pass them on but forbid calling them FAA data, so the row names
+            // the service they come through and says each country issues them, as other apps on the NMS do. The FAA's own
+            // wording is asked by e-mail; this follows its answer once it comes.
+            dataSourceRow(name: "FAA NOTAM Management Service", detail: L10n.DataStorage.sourceNotams,
+                          url: "https://www.faa.gov/about/initiatives/notam")
             dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
             // Natural Earth is public domain and explicitly waives attribution, so this is courtesy
             // rather than obligation — but the bundled borders decide which countries a trip prefetch
@@ -365,6 +376,16 @@ struct AboutSettingsView: View {
                         await aircraftDataService.fetchAvailableAircraft()
                         await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
                     }
+                }
+
+                // iOS's daily reports (MetricKit), kept on the device: shared only from here. (decision q5, 6.10.0)
+                SettingsButtonRow(icon: "battery.75percent", title: "Share battery and hang reports",
+                                  subtitle: MetricReports.shared.files().isEmpty
+                                    ? "None yet: iOS gives one a day, on a device"
+                                    : "\(MetricReports.shared.files().count) on this device",
+                                  tint: tint, showsChevron: false) {
+                    metricReportFiles = MetricReports.shared.files()
+                    if !metricReportFiles.isEmpty { showMetricReports = true }
                 }
 
                 // Temporary: fire a sample detected event so the restyled confirmation prompt can be

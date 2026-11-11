@@ -98,18 +98,24 @@ enum MarketingScene {
     case flightFollowed
     /// The same flight, for the shot that opens its Prepare blocks.
     case flightPrepare
+    /// LSZQ → LFSB today at 14:00, its page open: the NOTAMs show only on the flight's day, so the screenshot with them
+    /// takes today's flight, not tomorrow's (the author's choice, 8 Nov 2026). (6.10.0)
+    case flightNotams
     /// Vol d'Alpes in CLOSE with its route and its rate.
     case flightCloseOut
     /// LSZQ → LFSB today at 14:00: Today's next flight.
     case homeFlightToday
-    /// Plan › Map close in on LSZQ: its traffic circuit, its arrival sectors and runway, on the national map with the
-    /// airspace off. (6.3.0)
+    /// Plan › Map close in on LSZQ: its traffic circuit, its arrival sectors and runway, on the Atlas (the national map
+    /// until 6.10.0) with the airspace off. (6.3.0)
     case planMapCircuits
     /// Plan › Map on the Atlas over the Three Lakes, centred on La Neuveville on Lake Biel, every layer off. (6.8.0; over
     /// Basel until 3 Nov 2026)
     case planMapAtlas
     /// The same map with every layer on: the website's Atlas shot is the two cut along the diagonal. (3 Nov 2026)
     case planMapAtlasLayers
+    /// Plan › Map on the Atlas between the Jura and Basel, the airspace with its limits and the NOTAM areas on: the
+    /// second App Store screenshot since 6.10.0 (the author's choice, 8 Nov 2026, in place of the Cockpit on its map).
+    case planMapNotams
 }
 
 /// Fixed airport coordinates used to build marketing routes without depending on airport data being
@@ -181,7 +187,7 @@ enum MarketingSceneInjector {
         }
 
         switch scene {
-        case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
+        case .flightFollowed, .flightPrepare, .flightNotams, .flightCloseOut, .homeFlightToday:
             guard let threadManager else {
                 AppLog.marketing.debugLine("Scene \(String(describing: scene)) needs the FlightThreadManager — not injected")
                 return
@@ -221,19 +227,26 @@ enum MarketingSceneInjector {
             injectPlanMapAtlas(appState: appState, locationManager: locationManager, layers: false)
         case .planMapAtlasLayers:
             injectPlanMapAtlas(appState: appState, locationManager: locationManager, layers: true)
-        case .flightFollowed, .flightPrepare, .flightCloseOut, .homeFlightToday:
+        case .planMapNotams:
+            injectPlanMapAtlas(appState: appState, locationManager: locationManager, layers: false)
+            appState.settings.showOpenAIPOverlay = true
+            appState.settings.showNotamAreasOnMap = true
+            appState.settings.showAirportsOnMap = true
+        case .flightFollowed, .flightPrepare, .flightNotams, .flightCloseOut, .homeFlightToday:
             break // dispatched above — they need the thread manager
         }
     }
 
     // MARK: - Plan › Map at LSZQ, the circuits shot (6.3.0)
 
-    /// No flight, Plan › Map, the national map, the airspace off, the traffic circuits and the arrival and
+    /// No flight, Plan › Map, the Atlas, the airspace off, the traffic circuits and the arrival and
     /// departure routes on (the airports too, for the runway). The map frames LSZQ itself as it appears
     /// (`NavigationMapView.frameForCaptureIfAsked`), as the search frames an aerodrome, without its callout.
     private static func injectPlanMapCircuits(appState: AppState) {
         if appState.isFlightActive { appState.cancelFlight() }
-        appState.selectMapLayer(.landeskarten)
+        // The Atlas since 6.10.0: the national map, blown up past its scale at this zoom, was blurred on the iPhone
+        // (the author's choice, 8 Nov 2026).
+        appState.selectMapLayer(.standard)
         appState.settings.showOpenAIPOverlay = false
         appState.settings.showVFRCircuitsOnMap = true
         appState.settings.showVFRRoutesOnMap = true
@@ -269,6 +282,8 @@ enum MarketingSceneInjector {
 
     /// The centre of the Atlas shot, on Lake Biel's shore (`NavigationMapView.frameForCaptureIfAsked`).
     static let laNeuveville = CLLocationCoordinate2D(latitude: 47.0656, longitude: 7.0972)
+    /// The centre of the NOTAM map, between Bressaucourt and Basel.
+    static let notamMapCentre = CLLocationCoordinate2D(latitude: 47.51, longitude: 7.30)
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
 
@@ -502,6 +517,14 @@ enum MarketingSceneInjector {
             // 10 of 12. The count is deliberate: a ring is read at a glance, and a numerator over a
             // denominator of 12 reads as a date. 10/12 is the count the user signed off; 9/11 was
             // caught on a hero shot. Re-check this whenever a task is added to Plan or Prepare.
+            tick(thread.id, leaving: [.navLogReady, .notamChecked], threadManager: threadManager)
+            appState.pendingThreadToOpen = thread.id
+
+        case .flightNotams:
+            guard let plan = makeDemoPlan(departure: todayAtTwo(),
+                                          flightPlanManager: flightPlanManager,
+                                          airportDataService: airportDataService) else { return }
+            let thread = threadManager.createThread(from: plan)
             tick(thread.id, leaving: [.navLogReady, .notamChecked], threadManager: threadManager)
             appState.pendingThreadToOpen = thread.id
 

@@ -99,6 +99,18 @@ struct Airspace: Codable, Identifiable {
         }
     }
 
+    /// The area's designator at the start of its name, letters and digits only, as the server writes the areas a NOTAM
+    /// names: "LF-R68B (AMC…)" and "LF-R68 B" are LFR68B, "EHTSA 16B AMSTERDAM" EHTSA16B, "EY-D 10" EYD10. Nil for a name
+    /// that starts with no designator ("ZRT SAINT-DIZIER"). (6.10.0)
+    var designatorKey: String? { Self.designatorKey(of: name) }
+
+    static func designatorKey(of name: String) -> String? {
+        guard let match = name.uppercased().firstMatch(of: /^([A-Z]{2}-?\s?)?([A-Z]{1,4})[\s-]?(\d{1,5})([A-Z]{0,2}\d{0,2})(?![A-Z0-9])/)
+        else { return nil }
+        let joined = "\(match.1 ?? "")\(match.2)\(match.3)\(match.4)"
+        return joined.filter { $0.isLetter || $0.isNumber }
+    }
+
     /// Human-readable airspace type
     var airspaceType: AirspaceTypeCategory {
         AirspaceTypeCategory(rawValue: type) ?? .other
@@ -476,7 +488,7 @@ struct AltitudeLimit: Codable {
 /// An airspace's look on every map: blue for controlled, dashed blue for class E, charcoal hatched for R, D and P, olive
 /// dashed for glider areas, slate dash-dot for TMZ and RMZ (a1 A, 3 Nov 2026).
 enum AirspaceMapKind: CaseIterable {
-    case controlled, classE, restrictive, glider, zone, neutral
+    case controlled, classE, restrictive, glider, zone, neutral, notam
 
     var color: (red: Double, green: Double, blue: Double) {
         switch self {
@@ -486,6 +498,7 @@ enum AirspaceMapKind: CaseIterable {
         case .glider: return (0.373, 0.420, 0.180)       // #5F6B2E
         case .zone: return (0.290, 0.333, 0.388)         // #4A5563
         case .neutral: return (0.4, 0.4, 0.4)
+        case .notam: return (0.482, 0.184, 0.745)        // #7B2FBE
         }
     }
 
@@ -493,7 +506,7 @@ enum AirspaceMapKind: CaseIterable {
     var dash: [Double] {
         switch self {
         case .controlled, .restrictive: return []
-        case .classE, .glider, .neutral: return [8, 4]
+        case .classE, .glider, .neutral, .notam: return [8, 4]
         case .zone: return [8, 4, 2, 4]
         }
     }

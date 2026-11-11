@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import XCTest
 @testable import AeroCheck
 
@@ -171,5 +172,181 @@ final class ActivationTests: XCTestCase {
         let s = service { _ in wrong }
         await s.refresh()
         XCTAssertFalse(s.board.isLoaded)
+    }
+
+    // MARK: - Abroad, from the NOTAMs (6.10.0)
+
+    private func limitFt(_ ft: Int, _ ref: String) -> ActivationFile.Limit { .init(raw: "\(ft)", ft: ft, ref: ref) }
+
+    /// A Czech tempo R area, 3 NM around a point near Karlovy Vary, 08:00 to 15:00 on the test's day.
+    private func czechArea(areas: [String] = [], shapes: [NotamActivation.Shape]? = nil, kind: NotamActivation.Kind = .restricted,
+                           from: String = "08:00", to: String = "15:00", exact: Bool = true, upper: Int = 4000) -> NotamArea {
+        let window = NotamActivation.Window(start: NotamTime.date("\(day)T\(from):00Z")!, end: NotamTime.date("\(day)T\(to):00Z")!)
+        let activation = NotamActivation(kind: kind, areas: areas,
+                                         shapes: shapes ?? [.circle(latitude: 50.2, longitude: 12.9, radiusNm: 3)],
+                                         windows: [window], exact: exact, lower: limitFt(0, "GND"), upper: limitFt(upper, "MSL"))
+        let notam = Notam(id: "N1", number: "B1/26", location: "LKAA", schedule: exact ? nil : "SR-SS", text: "TEMPO RESTRICTED AREA",
+                          kind: .airspace, activation: activation)
+        return NotamArea(notam: notam, activation: activation, country: "CZ")
+    }
+
+    private func abroad(_ areas: [NotamArea], known: Set<String> = [], at now: Date? = nil) -> ActivationBoard {
+        let moment = now ?? noon
+        return ActivationBoard(files: [:], now: moment, notams: NotamAreaSet(areas: areas, knownAreas: known, now: moment))
+    }
+
+    func testANotamsOwnAreaIsAnRAreaWhileActive() throws {
+        let b = abroad([czechArea()])
+        let drawn = try XCTUnwrap(b.drawnTempAirspaces(in: nil).first)
+        XCTAssertEqual(drawn.airspaceType, .restricted)
+        XCTAssertEqual(drawn.mapKind, .restrictive)
+        XCTAssertEqual(drawn.name, "R NOTAM B1/26")
+        XCTAssertEqual(drawn.upperCeiling.value, 4000)
+        XCTAssertTrue(b.isActive(drawn))
+        XCTAssertEqual(b.applied([]).map(\.id), [drawn.id])
+    }
+
+    func testANotamsAreaIsDrawnFadedBeforeItsWindowAndCountsTenMinutesAhead() throws {
+        let early = abroad([czechArea()], at: noon.addingTimeInterval(-5 * 3600)) // 07:00
+        let drawn = try XCTUnwrap(early.drawnTempAirspaces(in: nil).first)
+        XCTAssertFalse(early.isActive(drawn))
+        XCTAssertTrue(early.applied([]).isEmpty)
+        let soon = abroad([czechArea()], at: noon.addingTimeInterval(-4 * 3600 - 5 * 60)) // 07:55
+        XCTAssertTrue(soon.isActive(try XCTUnwrap(soon.drawnTempAirspaces(in: nil).first)))
+    }
+
+    func testANotamsAreaPastItsWindowOrBeyondTwelveHoursIsNotDrawn() {
+        XCTAssertTrue(abroad([czechArea()], at: noon.addingTimeInterval(4 * 3600)).drawnTempAirspaces(in: nil).isEmpty) // 16:00
+        XCTAssertTrue(abroad([czechArea(from: "23:00", to: "23:30")], at: noon.addingTimeInterval(-13 * 3600))
+            .drawnTempAirspaces(in: nil).isEmpty)
+    }
+
+    func testANotamNamingAnAreaTheDeviceHasDrawsNothingAndPutsItsTimesOnThatCard() {
+        let area = czechArea(areas: ["LKTSA2B"])
+        let b = abroad([area], known: ["LKTSA2B"])
+        XCTAssertTrue(b.drawnTempAirspaces(in: nil).isEmpty)
+        let tsa = airspace("LKTSA2B BREZINA", .tsa, country: "CZ")
+        XCTAssertEqual(b.note(for: tsa), L10n.Nav.dabsActive("08:00–15:00", "NOTAM B1/26"))
+        // Never faded abroad: an area keeps counting as active, NOTAM or not
+        XCTAssertTrue(b.isActive(tsa))
+        XCTAssertTrue(abroad([czechArea(areas: ["LKTSA2B"])], known: ["LKTSA2B"], at: noon.addingTimeInterval(4 * 3600))
+            .isActive(tsa))
+    }
+
+    func testANotamNamingAnAreaTheDeviceLacksDrawsItsShapeUnderThatName() throws {
+        let b = abroad([czechArea(areas: ["LKR9"])], known: [])
+        XCTAssertEqual(try XCTUnwrap(b.drawnTempAirspaces(in: nil).first).name, "LKR9 NOTAM B1/26")
+    }
+
+    /// Past an estimated end the server keeps the area 7 days more (server #216): the card still says the NOTAM's own end,
+    /// marked EST, never the 7 days.
+    func testAnEstimatedEndShowsTheNotamsOwnEnd() {
+        let start = NotamTime.date("\(day)T08:00:00Z")!, end = NotamTime.date("2026-11-06T22:00:00Z")!
+        let activation = NotamActivation(kind: .restricted, windows: [.init(start: start, end: end.addingTimeInterval(7 * 86_400))],
+                                         lower: limitFt(0, "GND"), upper: limitFt(4000, "MSL"))
+        var notam = Notam(id: "N1", number: "W1/26", location: "LSAS", end: end, estimated: true, text: "R-AREA LSR18 ACT",
+                          kind: .airspace, activation: activation)
+        let area = NotamArea(notam: notam, activation: activation, country: "CH")
+        XCTAssertEqual(area.note(now: noon), L10n.Nav.dabsActive("08:00–06.11 22:00", "EST, NOTAM W1/26"))
+        XCTAssertEqual(area.note(now: noon, naming: false), L10n.Nav.notamActive("08:00–06.11 22:00") + " EST")
+
+        let scheduled = NotamActivation(kind: .restricted, windows: [.init(start: start, end: start.addingTimeInterval(4 * 3600)),
+                                                                     .init(start: end, end: end.addingTimeInterval(7 * 86_400))],
+                                        exact: false, lower: limitFt(0, "GND"), upper: limitFt(4000, "MSL"))
+        notam.schedule = "DAILY 0800-1200"
+        let past = NotamArea(notam: notam, activation: scheduled, country: "CH")
+        XCTAssertEqual(past.note(now: end.addingTimeInterval(3600)),
+                       L10n.Nav.dabsActive(L10n.Notams.from("22:00") + ", DAILY 0800-1200", "EST, NOTAM W1/26"))
+        notam.estimated = false
+        XCTAssertEqual(NotamArea(notam: notam, activation: activation, country: "CH").note(now: noon),
+                       L10n.Nav.dabsActive("08:00–13.11 22:00", "NOTAM W1/26"), "a firm end shows its window as it is")
+    }
+
+    func testAnAreaNoNotamNamesAbroadStaysActiveWithNoNote() {
+        let b = abroad([czechArea()])
+        let other = airspace("ED-R54 LEHNIN", country: "DE")
+        XCTAssertTrue(b.isActive(other))
+        XCTAssertNil(b.note(for: other))
+        XCTAssertEqual(b.applied([other]).first?.id, other.id)
+    }
+
+    func testSwitzerlandKeepsTheDabsEvenWhenADesignatorMatches() {
+        let b = abroad([czechArea(areas: ["LSR14"])], known: [])
+        XCTAssertNil(b.note(for: airspace("LSR14 SAENTIS")))
+    }
+
+    func testAPolygonAndADangerAreaKeepTheirKind() throws {
+        let ring = [[12.9, 50.2], [13.0, 50.2], [13.0, 50.3], [12.9, 50.2]]
+        let b = abroad([czechArea(shapes: [.polygon(ring)], kind: .danger)])
+        let drawn = try XCTUnwrap(b.drawnTempAirspaces(in: nil).first)
+        XCTAssertEqual(drawn.airspaceType, .danger)
+        XCTAssertEqual(drawn.polygonCoordinates.count, 4)
+        XCTAssertEqual(drawn.name, "D NOTAM B1/26")
+    }
+
+    func testOnlyTheAreasOverTheRegionAreAdded() {
+        let b = abroad([czechArea()])
+        let far = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 47, longitude: 7),
+                                     span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5))
+        let near = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 50.2, longitude: 12.9),
+                                      span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5))
+        XCTAssertTrue(b.drawnTempAirspaces(in: far).isEmpty)
+        XCTAssertTrue(b.applied([], region: far).isEmpty)
+        XCTAssertEqual(b.applied([], region: near).count, 1)
+    }
+
+    func testAnUnreadScheduleShowsItsWordsAfterTheSpan() throws {
+        let b = abroad([czechArea(exact: false)])
+        let drawn = try XCTUnwrap(b.drawnTempAirspaces(in: nil).first)
+        XCTAssertEqual(b.note(for: drawn), L10n.Nav.notamActive("08:00–15:00, SR-SS"))
+    }
+
+    func testANotamsAreaOnTheCardHasItsTimesOnceAndNoWordOfTheDabs() throws {
+        let b = abroad([czechArea()])
+        let drawn = try XCTUnwrap(b.drawnTempAirspaces(in: nil).first)
+        let stack = try XCTUnwrap(AirspaceStack.make(at: CLLocationCoordinate2D(latitude: 50.2, longitude: 12.9), from: [drawn],
+                                                     altitudeFt: 3000, board: b))
+        XCTAssertEqual(stack.rows.first?.note, L10n.Nav.notamActive("08:00–15:00"))
+        XCTAssertFalse(stack.mentionsBulletin)
+        // A Swiss area's DABS note still says the DABS doesn't replace the NOTAMs
+        let swiss = board(file(areas: [area("LSR14")]))
+        let saentis = airspace("LSR14 SAENTIS")
+        let card = try XCTUnwrap(AirspaceStack.make(at: CLLocationCoordinate2D(latitude: 47.05, longitude: 7.05), from: [saentis],
+                                                    altitudeFt: 3000, board: swiss))
+        XCTAssertTrue(card.mentionsBulletin)
+    }
+
+    func testAnAglCeilingKeepsItsHeight() {
+        let agl = limit("150M AGL", 493, "GND").altitudeLimit
+        XCTAssertEqual([agl.value, agl.unit, agl.referenceDatum], [493, 1, 0])
+        let ground = limit("GND", 0, "GND").altitudeLimit
+        XCTAssertEqual([ground.value, ground.unit, ground.referenceDatum], [0, 1, 0])
+    }
+
+    func testAnAreaTheNotamDrawsGetsATagAndAirspaceAhead() throws {
+        // Westbound at 3000 ft towards the circle's eastern edge, 100 kt: in it within three minutes
+        let b = abroad([czechArea()])
+        let airspaces = b.applied([])
+        let position = CLLocationCoordinate2D(latitude: 50.2, longitude: 12.9 + 7.0 / (60 * cos(50.2 * .pi / 180)))
+        let finding = try XCTUnwrap(AirspaceAheadFinding.first(in: airspaces, from: position, trackDeg: 270, groundSpeedKt: 100,
+                                                               altitudeFt: 3000))
+        XCTAssertEqual(finding.name, "R NOTAM B1/26")
+        let area = AirspaceAheadArea.make(at: position, trackDeg: 270, groundSpeedKt: 100)
+        XCTAssertEqual(AirspaceRelevance.tags(in: airspaces, area: area, altitudeFt: 3000, verticalSpeedFpm: 0).first?.airspace.name,
+                       "R NOTAM B1/26")
+    }
+
+    func testTheServiceBoardLeavesTheNotamsOutOfADryRunAndSwitzerland() {
+        // Built from the NOTAM files: Switzerland's file never adds an area (the DABS has them)
+        let ch = NotamFile(country: "CH", notams: [czechArea().notam])
+        let cz = NotamFile(country: "CZ", notams: [czechArea().notam])
+        let notams = NotamService(folder: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
+                                  fetch: { _, _ in .init() }, now: { self.noon })
+        notams.seedForTesting(index: NotamIndex(countries: ["CH": .init(file: "ch.json"), "CZ": .init(file: "cz.json")]),
+                              files: ["ch.json": ch, "cz.json": cz])
+        XCTAssertEqual(notams.areaActivations.map(\.country), ["CZ"])
+        let service = ActivationService(cacheURL: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
+                                        fetch: { _ in Data() }, now: { self.noon })
+        XCTAssertEqual(service.board(knownAreas: [], notams: notams).drawnTempAirspaces(in: nil).count, 1)
     }
 }

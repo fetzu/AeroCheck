@@ -132,7 +132,6 @@ final class HomeAerodromeTests: XCTestCase {
             let armed = plan("LSZQ", "LSGE")
             manager.add(armed)
             manager.activateFlightPlan(armed)
-            addTeardownBlock { @MainActor in manager.stopChronometer() }
 
             appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: armed.id)
             let recorded = flight(from: "LSZQ", fullStops: [("LSGE", 35)])
@@ -162,7 +161,6 @@ final class HomeAerodromeTests: XCTestCase {
         let armed = plan("LSZQ", "LSGE")
         manager.add(armed)
         manager.activateFlightPlan(armed)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
 
         let flown = flight(from: "LSZQ", fullStops: [("LSGE", 35)], planId: armed.id)
         let settled = try XCTUnwrap(manager.settleFlownPlan(flown, takeoff: t0, landing: flown.fullStopTimes[0],
@@ -193,7 +191,6 @@ final class HomeAerodromeTests: XCTestCase {
         let armed = plan("LSGN", "LSZQ")
         manager.add(armed)
         manager.activateFlightPlan(armed)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
 
         appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: armed.id)
         let track = flight(from: "LSGN", fullStops: [("LSZQ", 35)]).gpsTrack

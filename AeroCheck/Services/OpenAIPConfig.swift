@@ -96,9 +96,9 @@ enum OpenAIPConfig {
 
     /// Predefined country bounding boxes for tile downloads
     /// Format: (minLat, minLon, maxLat, maxLon)
-    /// Coverage: 119 countries with confirmed OpenAIP airspace data
+    /// Coverage: 120 countries with confirmed OpenAIP airspace data (Malta since 6.10.0, once OpenAIP published its airspace)
     static let countryBounds: [String: (minLat: Double, minLon: Double, maxLat: Double, maxLon: Double)] = [
-        // Europe (41 countries)
+        // Europe (42 countries)
         "AL": (minLat: 39.64, minLon: 19.26, maxLat: 42.66, maxLon: 21.06),
         "AM": (minLat: 38.83, minLon: 43.45, maxLat: 41.30, maxLon: 46.63),
         "AT": (minLat: 46.37, minLon: 9.53, maxLat: 49.02, maxLon: 17.16),
@@ -130,6 +130,7 @@ enum OpenAIPConfig {
         "LU": (minLat: 49.45, minLon: 5.73, maxLat: 50.18, maxLon: 6.53),
         "LV": (minLat: 55.70, minLon: 20.97, maxLat: 58.08, maxLon: 28.24),
         "MD": (minLat: 46.35, minLon: 26.62, maxLat: 48.49, maxLon: 30.16),
+        "MT": (minLat: 35.78, minLon: 14.18, maxLat: 36.09, maxLon: 14.58),
         "NL": (minLat: 50.75, minLon: 3.36, maxLat: 53.47, maxLon: 7.21),
         "NO": (minLat: 57.96, minLon: 4.64, maxLat: 71.19, maxLon: 31.08),
         "PL": (minLat: 49.00, minLon: 14.12, maxLat: 54.84, maxLon: 24.15),
@@ -237,13 +238,13 @@ enum OpenAIPConfig {
     }
 
     /// All continents with their countries, ordered for display
-    /// 119 countries total across 6 continent groups
+    /// 120 countries total across 6 continent groups
     static let continents: [Continent] = [
         Continent(id: "europe", name: "Europe", icon: "globe.europe.africa",
                   countries: ["AL", "AM", "AT", "BA", "BE", "BG", "BY", "CH", "CY", "CZ",
                               "DE", "DK", "EE", "ES", "FI", "FO", "FR", "GB", "GE", "GL",
                               "GR", "HR", "HU", "IE", "IM", "IS", "IT", "LT", "LU", "LV",
-                              "MD", "NL", "NO", "PL", "PT", "RO", "RS", "SE", "SI", "SK", "TR"]),
+                              "MD", "MT", "NL", "NO", "PL", "PT", "RO", "RS", "SE", "SI", "SK", "TR"]),
         Continent(id: "northAmerica", name: "North America", icon: "globe.americas",
                   countries: ["CA", "CR", "CW", "MX", "PR", "US"]),
         Continent(id: "southAmerica", name: "South America", icon: "globe.americas",

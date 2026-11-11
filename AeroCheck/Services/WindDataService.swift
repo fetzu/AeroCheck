@@ -44,6 +44,10 @@ class WindDataService: ObservableObject {
     /// interval existed for the live airspeed readout, which no longer exists — at 1 flight/1.5 h
     /// it pulled ~17 MB per user per flight from a free public endpoint for ~1.7 MB of new data.
     private let minimumFetchInterval: TimeInterval = 10 * 60
+    /// The last answer and when it came. A foreground or a return to the Cockpit started the fetch again and downloaded
+    /// MeteoSwiss's 10-minute values at once, whatever their age; within the 10 minutes the copy is read again for the
+    /// aircraft's position instead. (6.10.0)
+    private var lastDownload: (body: Data, at: Date)?
 
     /// Switzerland bounding box with ~5 NM margin (approximately 9.26 km)
     /// Original: 45.82° - 47.81° N, 5.96° - 10.49° E
@@ -131,16 +135,25 @@ class WindDataService: ObservableObject {
                 throw WindFetchError.invalidURL
             }
 
-            // Routed through ExternalRequest for a descriptive User-Agent, a short timeout, and
-            // retry/backoff on transient 429/5xx (MeteoSwiss). (SEC-15 / PERF-23)
-            let (data, httpResponse) = try await ExternalRequest.data(from: url)
+            let data: Data
+            if let last = lastDownload, Date().timeIntervalSince(last.at) < minimumFetchInterval {
+                data = last.body
+            } else {
+                // Routed through ExternalRequest for a descriptive User-Agent, a short timeout, and
+                // retry/backoff on transient 429/5xx (MeteoSwiss). (SEC-15 / PERF-23)
+                let (body, httpResponse) = try await ExternalRequest.data(from: url)
 
-            guard httpResponse.statusCode == 200 else {
-                throw WindFetchError.invalidResponse
+                guard httpResponse.statusCode == 200 else {
+                    throw WindFetchError.invalidResponse
+                }
+                data = body
+                lastDownload = (body, Date())
             }
 
-            let windData = try parseWindData(data, nearCoordinate: coordinate,
-                                             aircraftAltitudeMeters: aircraftAltitudeMeters)
+            // Off the main thread: 155 stations in about 190 KB of JSON. (6.10.0)
+            let windData = try await Task.detached(priority: .utility) { [self] in
+                try parseWindData(data, nearCoordinate: coordinate, aircraftAltitudeMeters: aircraftAltitudeMeters)
+            }.value
 
             await MainActor.run {
                 self.currentWindData = windData
@@ -161,7 +174,7 @@ class WindDataService: ObservableObject {
     /// ridge-top station whose wind describes the ridge, not the valley airfield below it — so
     /// candidates are filtered on both horizontal distance and altitude difference before the
     /// nearest is taken. If nothing qualifies we report no wind rather than a misleading one.
-    private func parseWindData(_ data: Data,
+    private nonisolated func parseWindData(_ data: Data,
                                nearCoordinate: CLLocationCoordinate2D,
                                aircraftAltitudeMeters: Double?) throws -> WindData {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -197,9 +210,8 @@ class WindDataService: ObservableObject {
                 continue
             }
 
-            // Parse timestamp
-            let dateFormatter = ISO8601DateFormatter()
-            guard let timestamp = dateFormatter.date(from: timestampStr) else {
+            // Parse timestamp: Swift's own parser, not a new formatter for each station. (6.10.0)
+            guard let timestamp = try? Date(timestampStr, strategy: .iso8601) else {
                 continue
             }
 
@@ -250,7 +262,7 @@ class WindDataService: ObservableObject {
 
     /// Convert Swiss LV95 coordinates (EPSG:2056) to WGS84
     /// Based on approximate transformation formulas
-    private func convertSwissToWGS84(x: Double, y: Double) -> CLLocationCoordinate2D {
+    private nonisolated func convertSwissToWGS84(x: Double, y: Double) -> CLLocationCoordinate2D {
         // LV95 to LV03 (subtract false origin)
         let y_aux = (x - 2_600_000) / 1_000_000
         let x_aux = (y - 1_200_000) / 1_000_000

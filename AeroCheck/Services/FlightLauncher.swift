@@ -227,6 +227,9 @@ struct FlightLauncher {
         )
         // The day's bulletin before the wheels turn, kept for the flight (6.9.0).
         Task { await ActivationService.shared.refreshIfNeeded(force: true) }
+        // The NOTAMs too, the last time before the air: the aerodrome card reads this copy. Still on the ground here.
+        let route = RouteDataCalculator.countries(crossing: flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? [])
+        Task { await NotamService.shared.refreshIfNeeded(countries: route, onGround: true) }
         return .started
     }
 

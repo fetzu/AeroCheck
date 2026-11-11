@@ -21,6 +21,9 @@ struct AerodromeFacts: Equatable {
     /// Plan › Map's links, after the note (c5 A).
     var feeLink: URL?
     var briefingLink: URL?
+    /// The field's NOTAMs on the device. None, or a country without a list: no row at all, because any text would make a
+    /// pilot expect NOTAMs to be there (the author, 6 Nov 2026).
+    var notams: [Notam] = []
 
     /// What the two sources write for the same surface. Words a pilot reads as written in every language.
     private static let surfaceNames = ["GRS": "GRASS", "ASP": "ASPHALT", "CON": "CONCRETE", "TURF": "GRASS"]
@@ -155,6 +158,11 @@ struct AerodromeCardContent: Equatable {
     }
 
     var weatherRow: String { facts.weather ?? Self.dash }
+
+    /// "NOTAM 2" and the first one's text; nil with none, and the card then has no row. Never a dash here.
+    var notamRow: (count: String, text: String)? {
+        facts.notams.first.map { ("NOTAM \(facts.notams.count)", $0.shownText) }
+    }
 
     /// On the ground the first line of each part written, two lines each; in flight the Arrival part alone, three
     /// lines, as everywhere in the Cockpit (c2 A, n1 A). A note without an Arrival part shows nothing in flight.
@@ -293,6 +301,7 @@ enum AerodromeName {
 final class AerodromeCardView: UIView {
     let content: AerodromeCardContent
     private let onAction: (AerodromeCardContent.Action) -> Void
+    private let onNotams: (() -> Void)?
     private let shape = CAShapeLayer()
     private let stack = UIStackView()
 
@@ -307,9 +316,10 @@ final class AerodromeCardView: UIView {
     }
 
     init(content: AerodromeCardContent, metrics: CalloutMetrics, tint: UIColor, width: CGFloat,
-         onAction: @escaping (AerodromeCardContent.Action) -> Void) {
+         onNotams: (() -> Void)? = nil, onAction: @escaping (AerodromeCardContent.Action) -> Void) {
         self.content = content
         self.onAction = onAction
+        self.onNotams = onNotams
         super.init(frame: CGRect(x: 0, y: 0, width: width, height: 0))
         build(metrics: metrics, tint: tint)
         let fitting = stack.systemLayoutSizeFitting(
@@ -372,6 +382,9 @@ final class AerodromeCardView: UIView {
         }
         stack.addArrangedSubview(rowLabel(content.runwayRow, id: "runways", scale: scale))
         stack.addArrangedSubview(rowLabel(content.weatherRow, id: "weather", scale: scale))
+        if let row = content.notamRow {
+            stack.addArrangedSubview(notamRow(row, metrics: metrics, tint: tint, scale: scale))
+        }
         if !content.note.isEmpty { stack.addArrangedSubview(noteBlock(scale: scale)) }
         if !content.actions.isEmpty {
             stack.addArrangedSubview(buttonRow(metrics: metrics, tint: tint, available: frame.width - 2 * inset))
@@ -432,6 +445,53 @@ final class AerodromeCardView: UIView {
             used += (used > 0 ? 6 : 0) + width
         }
         return rows
+    }
+
+    /// The field's NOTAMs in one row, a tap reads them: gold on the ground, cyan in flight, where gold reads as a caution
+    /// and anything touchable is cyan. As tall as the surface's touch target.
+    private func notamRow(_ row: (count: String, text: String), metrics: CalloutMetrics, tint: UIColor, scale: CGFloat) -> UIView {
+        let mark = content.inFlight ? tint : UIColor(Color.aviationGold)
+        let count = UILabel()
+        count.font = UIFont.aero(size: 13 * scale, weight: .bold)
+        count.textColor = mark
+        count.text = row.count
+        count.setContentHuggingPriority(.required, for: .horizontal)
+        count.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let text = UILabel()
+        text.font = UIFont.aero(size: 13 * scale, monospaced: true)
+        text.textColor = UIColor(Color.primaryText)
+        text.numberOfLines = 2
+        text.lineBreakMode = .byTruncatingTail
+        text.text = row.text
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = UIColor(Color.dimText)
+        chevron.setContentHuggingPriority(.required, for: .horizontal)
+        chevron.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let line = UIStackView(arrangedSubviews: [count, text, chevron])
+        line.axis = .horizontal
+        line.alignment = .center
+        line.spacing = 8 * scale
+        line.isUserInteractionEnabled = false
+        line.translatesAutoresizingMaskIntoConstraints = false
+        // A button, never a plain control: UIKit keeps the map's own tap off a button, and on a plain control that tap took
+        // the touch, closed the card and read nothing.
+        let control = UIButton(primaryAction: UIAction { [weak self] _ in self?.onNotams?() })
+        control.layer.cornerRadius = 8
+        control.layer.borderWidth = 1
+        control.layer.borderColor = UIColor(Color.dimText).cgColor
+        control.addSubview(line)
+        NSLayoutConstraint.activate([
+            line.leadingAnchor.constraint(equalTo: control.leadingAnchor, constant: 9),
+            line.trailingAnchor.constraint(equalTo: control.trailingAnchor, constant: -9),
+            line.topAnchor.constraint(equalTo: control.topAnchor, constant: 5),
+            line.bottomAnchor.constraint(equalTo: control.bottomAnchor, constant: -5),
+            control.heightAnchor.constraint(greaterThanOrEqualToConstant: metrics.target),
+        ])
+        control.isAccessibilityElement = true
+        control.accessibilityTraits = .button
+        control.accessibilityLabel = "\(row.count), \(row.text)"
+        control.accessibilityIdentifier = "aerodromeCard.notams"
+        return control
     }
 
     /// The note's mark: gold on the ground, grey in flight, where gold reads as a caution (c6 A).
@@ -619,5 +679,31 @@ private final class PaddedLabel: UILabel {
     override var intrinsicContentSize: CGSize {
         let size = super.intrinsicContentSize
         return CGSize(width: size.width + insets.left + insets.right, height: size.height + insets.top + insets.bottom)
+    }
+}
+
+extension AerodromeFacts {
+    /// What the card says of a field, from what the app already holds: nothing here fetches. The map and the route builder
+    /// share it; until 6.10.0 the builder's card had none of it and showed a dash on every row (device check n-7).
+    /// - Parameters:
+    ///   - planMap: Plan › Map's links, after the note (c5 A).
+    ///   - dryRun: no NOTAMs in a dry run.
+    @MainActor
+    static func onDevice(_ airport: Airport, airports: AirportDataService, observations: [AviationWeatherService.Metar], planMap: Bool,
+                         dryRun: Bool) -> AerodromeFacts {
+        var facts = AerodromeFacts()
+        facts.isPPR = OpenAIPAirportDataService.shared.pprIcaoCodes.contains(airport.ident)
+        facts.runways = runwayLines(airports.getRunways(for: airport.ident))
+        facts.circuit = circuitText(OFMDataService.shared.procedures(forAerodrome: airport.ident)
+            .filter { $0.kind == .circuit && $0.categories.contains(.powered) }.compactMap(\.altitudeFt))
+        facts.weather = observations.first { $0.icao == airport.ident }
+            .flatMap { weatherLine($0, now: FlightClock.now) }
+        if planMap {
+            facts.feeLink = AirfieldTariffService.shared.tariff(for: airport.ident).flatMap { URL(string: $0.url) }
+            facts.briefingLink = BriefingRegistryService.shared.registry?.country(airport.isoCountry)?.notam.first?.url
+        }
+        // What's on the device, on the ground and in flight, never in a dry run.
+        if !dryRun { facts.notams = NotamService.shared.notams(at: airport.ident) }
+        return facts
     }
 }

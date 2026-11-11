@@ -309,11 +309,7 @@ struct RouteLegsColumn: View {
             VStack(alignment: .leading, spacing: 0) {
                 if showsHeader { RouteColumnHeader(title: L10n.Route.legs) }
                 ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, _ in
-                    RouteLegRow(plan: plan, index: index,
-                           actual: RouteLegRow.actualTime(plan: plan, index: index,
-                                                     legTimer: flightPlanManager.chronometerElapsed)) {
-                        onShowLeg(index)
-                    }
+                    legRow(plan: plan, index: index)
                     .id(LegsPanelReveal.RowID(index: index))
                     if index < plan.waypoints.count - 1 {
                         Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
@@ -321,6 +317,23 @@ struct RouteLegsColumn: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The leg flown counts by the second while the leg timer runs; the others don't change. (6.10.0)
+    @ViewBuilder
+    private func legRow(plan: FlightPlan, index: Int) -> some View {
+        if index == plan.currentWaypointIndex, flightPlanManager.isChronometerRunning {
+            TimelineView(.periodic(from: .now, by: 1)) { _ in row(plan: plan, index: index) }
+        } else {
+            row(plan: plan, index: index)
+        }
+    }
+
+    private func row(plan: FlightPlan, index: Int) -> RouteLegRow {
+        RouteLegRow(plan: plan, index: index,
+                    actual: RouteLegRow.actualTime(plan: plan, index: index, legTimer: flightPlanManager.chronometerElapsed)) {
+            onShowLeg(index)
         }
     }
 }

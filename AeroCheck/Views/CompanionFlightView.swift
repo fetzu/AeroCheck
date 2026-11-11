@@ -28,6 +28,8 @@ struct CompanionFlightView: View {
     /// for as long as the hold takes, as END FLIGHT's button does, and empties if released early. (6.1.0)
     @State private var exitHoldProgress: CGFloat = 0
     @State private var showExitConfirm = false
+    /// The moment the stale banner was last judged at: moved only when the verdict changes, so the screen doesn't run
+    /// again each second for the tick alone. (6.10.0)
     @State private var now = Date()
     /// NEXT's review of the items still open, as on the Cockpit. (v6.0 review, decision 2)
     @State private var openItemsReview: CompanionOpenItemsReview?
@@ -42,7 +44,8 @@ struct CompanionFlightView: View {
     /// The check this phone's slot just sent the iPad to: CHECKLIST once the iPad is there with a list to
     /// run (`CompanionSlotFollow`). (6.3.0)
     @State private var following: CompanionSlotFollow.Pending?
-    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    /// One for the app: a timer made in the view was made again at each of its passes. (6.10.0)
+    private static let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var flightData: CompanionFlightData? { companionConnectivityManager.lastReceivedData }
     private var flightPlan: CompanionFlightPlanSnapshot? { companionConnectivityManager.lastFlightPlanSnapshot }
@@ -56,10 +59,12 @@ struct CompanionFlightView: View {
     private var isConnected: Bool { companionConnectivityManager.connectionState == .connected }
     /// By when the data arrived on this phone, not by the iPad's timestamp: the two clocks differ by a
     /// few seconds, and the banner came and went on a link that was fine. (6.2.0)
-    private var isDataStale: Bool {
+    private var isDataStale: Bool { isDataStale(at: now) }
+
+    private func isDataStale(at moment: Date) -> Bool {
         guard let d = flightData, d.isFlightActive else { return false }
         return CompanionConnectivityManager.flightDataIsStale(
-            receivedAt: companionConnectivityManager.lastReceivedDataAt, now: now)
+            receivedAt: companionConnectivityManager.lastReceivedDataAt, now: moment)
     }
 
     // MARK: - Theme parity (mirror the iPad's day/sunlight/night cockpit theme)
@@ -115,7 +120,10 @@ struct CompanionFlightView: View {
         // Render the reused checklist hero/rows in the SAME theme as the iPad, not this device's theme.
         .environment(\.cockpitTheme, theme)
         .environment(\.isNightMode, themeMode == .night)
-        .onReceive(tick) { now = $0; followSlotTap() }
+        .onReceive(Self.tick) { date in
+            if isDataStale(at: date) != isDataStale { now = date }
+            followSlotTap()
+        }
         .onAppear { applyAutoMode() }
         .onChange(of: isAirborne) { applyAutoMode() }
         .onChange(of: checklist?.phaseRawValue) { followSlotTap() }
@@ -354,7 +362,7 @@ struct CompanionFlightView: View {
         }
         companionConnectivityManager.sendCommand(.checkSlotTap(phaseRawValue: slot.phase.rawValue,
                                                                action: slot.action.rawValue))
-        if let target = CompanionSlotFollow.target(of: slot) { following = .init(phase: target, since: now) }
+        if let target = CompanionSlotFollow.target(of: slot) { following = .init(phase: target, since: Date()) }
         if slot.action == .confirmFromMemory || slot.action == .advanceAndConfirm {
             let raw = slot.phase.rawValue
             memoryUndo = NavUndoOffer(message: L10n.Cockpit.doneFromMemoryToast(slot.phase.shortTitle), style: .outlined) {
@@ -368,7 +376,7 @@ struct CompanionFlightView: View {
     private func followSlotTap() {
         guard let pending = following else { return }
         switch CompanionSlotFollow.outcome(of: pending, phaseRawValue: checklist?.phaseRawValue,
-                                           slot: checkSlot, now: now) {
+                                           slot: checkSlot, now: Date()) {
         case .wait:
             return
         case .showChecklist:

@@ -485,6 +485,57 @@ final class FlightMergeValidationTests: XCTestCase {
 /// and had no coverage at all: only the pure `Flight.merge` / `validatedForIngest` helpers it calls
 /// were tested, not the branch selection that decides which of them runs.
 final class SyncSendFailureClassificationTests: XCTestCase {
+    /// A stale settings record can really be dropped: the cache's nil used to keep the old record (6.10.0).
+    @MainActor
+    func testAStaleSettingsRecordIsForgottenAndTheNextSaveIsAnInsert() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "SyncStaleRecordTests-\(UUID().uuidString)"))
+        let manager = SyncManager(defaults: defaults, backend: StubSyncBackend())
+        manager.cachedSettingsRecord = CKRecord(recordType: "Settings", recordID: CKRecord.ID(recordName: "settings"))
+        manager.markSettingsRecordExists()
+        XCTAssertNotNil(manager.cachedSettingsRecord)
+        manager.forgetSettingsRecord()
+        XCTAssertNil(manager.cachedSettingsRecord, "gone from the defaults too")
+        XCTAssertFalse(manager.settingsRecordExists)
+        XCTAssertFalse(SyncManager(defaults: defaults, backend: StubSyncBackend()).settingsRecordExists, "and after a relaunch")
+    }
+
+    @MainActor
+    func testOneRecordsStaleTagIsForgottenAndNoOther() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "SyncStaleRecordTests-\(UUID().uuidString)"))
+        let manager = SyncManager(defaults: defaults, backend: StubSyncBackend())
+        let id = UUID()
+        let flight = CKRecord(recordType: "Flight", recordID: CKRecord.ID(recordName: id.uuidString))
+        let track = CKRecord(recordType: "FlightTrack", recordID: CKRecord.ID(recordName: SyncManager.trackRecordName(id)))
+        manager.rememberSystemFields(of: flight)
+        manager.rememberSystemFields(of: track)
+        manager.forgetSystemFields(forRecordName: SyncManager.trackRecordName(id))
+        XCTAssertNil(manager.systemFields(forRecordName: SyncManager.trackRecordName(id)))
+        XCTAssertNotNil(manager.systemFields(forRecordName: id.uuidString), "the flight's own tag stays")
+    }
+
+    /// Each batch's line in the device's log: counts only, nothing that names a flight (device pass, 9 Nov 2026).
+    func testASendsLineCountsFailuresByKindAndErrorWithoutAName() {
+        let flight = UUID().uuidString, track = "track-" + UUID().uuidString
+        let line = SyncManager.sentLine(
+            saved: ["settings"],
+            failedSaves: [(track, CKError.serverRecordChanged.rawValue, 2004), (flight, CKError.batchRequestFailed.rawValue, nil),
+                          (UUID().uuidString, CKError.batchRequestFailed.rawValue, nil)],
+            deleted: 0, failedDeletes: 1)
+        XCTAssertEqual(line, "CloudKit sent: saved settings 1; failed flights batchRequestFailed ×2, "
+                       + "tracks serverRecordChanged (server 2004) ×1; deleted 0, failed deletes 1")
+        XCTAssertFalse(line.contains(flight) || line.contains(track), "no record's name")
+        XCTAssertEqual(SyncManager.sentLine(saved: [], failedSaves: [], deleted: 2, failedDeletes: 0),
+                       "CloudKit sent: saved none; failed none; deleted 2, failed deletes 0")
+        XCTAssertEqual(SyncManager.errorName(999), "code 999")
+    }
+
+    func testABatchsLineCountsWhatItCarries() {
+        XCTAssertEqual(SyncManager.batchLine(settings: true, flights: 2, tracks: 1, trackPoints: 2_160, deletions: 0, encodeMs: 41),
+                       "CloudKit batch: settings 1, flights 2, tracks 1 (2160 points), deletions 0, encoded in 41 ms")
+        XCTAssertEqual(SyncManager.batchLine(settings: false, flights: 0, tracks: 0, trackPoints: 0, deletions: 3, encodeMs: 0),
+                       "CloudKit batch: settings 0, flights 0, tracks 0 (0 points), deletions 3, encoded in 0 ms")
+    }
+
 
     private func classify(
         code: Int,
@@ -535,11 +586,23 @@ final class SyncSendFailureClassificationTests: XCTestCase {
                        .flightConflict(flightId: id, hasServerRecord: true))
     }
 
-    /// A conflict on the separate track record has no dedicated handling — its name is not a bare
-    /// UUID, so it must fall through rather than being mistaken for a flight conflict.
-    func testConflictOnATrackRecordFallsThrough() {
-        let name = SyncManager.trackRecordName(UUID())
-        XCTAssertEqual(classify(code: conflict, recordName: name, hasServerRecord: true), .leavePending)
+    /// A conflict on the separate track record is the track's own: never mistaken for a flight conflict, and no
+    /// longer left pending as it was, refused at every send (6.10.0).
+    func testConflictOnATrackRecordIsTheTracksOwn() {
+        let id = UUID()
+        XCTAssertEqual(classify(code: conflict, recordName: SyncManager.trackRecordName(id), hasServerRecord: true),
+                       .trackConflict(flightId: id, hasServerRecord: true))
+        XCTAssertEqual(classify(code: CKError.partialFailure.rawValue, serverErrorCode: 2004,
+                                recordName: SyncManager.trackRecordName(id)),
+                       .trackConflict(flightId: id, hasServerRecord: false), "the server's 2004 counts as a conflict too")
+    }
+
+    /// CloudKit doesn't have the record an update names: the stored tag is stale, whatever the record (FlyPad's
+    /// settings record, 10 Nov 2026). Never left pending as it is.
+    func testUnknownItemOnASaveIsAStaleRecord() {
+        for name in ["settings", UUID().uuidString, SyncManager.trackRecordName(UUID())] {
+            XCTAssertEqual(classify(code: CKError.unknownItem.rawValue, recordName: name), .staleRecord, name)
+        }
     }
 
     // MARK: - Permanent failures

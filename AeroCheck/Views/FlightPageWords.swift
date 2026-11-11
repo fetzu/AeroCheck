@@ -8,7 +8,9 @@ enum FlightPageWords {
 
     /// What makes the words: the flight plan's deadline and the borders' countries need more than the blocks know.
     struct Context {
-        var now: Date = Date()
+        /// The wall clock; a screenshot's 9:41 in a DEBUG build launched with the capture clock, so "Departure in 4 h 19"
+        /// agrees with the status bar (6.10.0).
+        var now: Date = FlightClock.displayNow
         var calendar: Calendar = .current
         var locale: Locale = .current
         /// When the ATC flight plan must be filed, from the departure country's lead time.
@@ -173,7 +175,7 @@ enum FlightPageSummary {
     }
 
     static func make(_ thread: FlightThread, trips: [Trip], plans: [FlightPlan], flights: [Flight],
-                     currentFlight: Flight?, registry: BriefingRegistry?, now: Date = Date()) -> Summary {
+                     currentFlight: Flight?, registry: BriefingRegistry?, now: Date = FlightClock.displayNow) -> Summary {
         let plan = thread.flightPlanId.flatMap { id in plans.first { $0.id == id } }
         let departure = thread.scheduledDeparture ?? (plan?.departureIsEstimate == true ? plan?.plannedDepartureTime : nil)
         let page = FlightPage.make(thread: thread, shared: Trip.sharedTasks(for: thread, in: trips, departure: departure),

@@ -234,6 +234,9 @@ class SyncManager: ObservableObject {
             if let record = newValue,
                let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) {
                 defaults.set(data, forKey: settingsRecordKey)
+            } else if newValue == nil {
+                // nil kept the old record: a stale one could never be dropped (6.10.0).
+                defaults.removeObject(forKey: settingsRecordKey)
             }
         }
     }
@@ -879,6 +882,13 @@ class SyncManager: ObservableObject {
         case settingsConflict(hasServerRecord: Bool)
         /// A flight metadata record conflicted. Merge when both sides are available.
         case flightConflict(flightId: UUID, hasServerRecord: Bool)
+        /// A flight's track record conflicted: take the server's change tag and send the track again, unless the
+        /// server's has as many points. It used to stay pending as it was, refused at every send. (6.10.0)
+        case trackConflict(flightId: UUID, hasServerRecord: Bool)
+        /// CloudKit doesn't have the record this save updates (`unknownItem`): its stored change tag is stale. Forget it
+        /// and send the record as new. A stale settings record refused the author's whole logbook at every launch
+        /// (FlyPad, 10 Nov 2026). (6.10.0)
+        case staleRecord
         /// Permanently oversized. Retrying the identical record is futile, so drop the pending
         /// change. `flightId` is nil for records whose name is not a bare flight UUID.
         case tooLarge(flightId: UUID?)
@@ -911,11 +921,15 @@ class SyncManager: ObservableObject {
             if let flightId = UUID(uuidString: recordName) {
                 return .flightConflict(flightId: flightId, hasServerRecord: hasServerRecord)
             }
-            // A conflict on a record we do not special-case (e.g. a track record, whose name is not
-            // a bare UUID) falls through to the permanent-failure check below, exactly as before.
+            if let flightId = flightId(fromTrackRecordName: recordName) {
+                return .trackConflict(flightId: flightId, hasServerRecord: hasServerRecord)
+            }
+            // A conflict on a record we do not special-case falls through to the permanent-failure check below.
         }
 
         switch CKError.Code(rawValue: errorCode) {
+        case .unknownItem:
+            return .staleRecord
         case .limitExceeded:
             return .tooLarge(flightId: UUID(uuidString: recordName))
         case .quotaExceeded:
@@ -1207,6 +1221,14 @@ class SyncManager: ObservableObject {
         settingsOwed = false
     }
 
+    /// CloudKit has no settings record by the cached one's name and tag: drop the cached copy, so the next save is an
+    /// insert. (6.10.0)
+    func forgetSettingsRecord() {
+        cachedSettingsRecord = nil
+        settingsRecordExists = false
+        defaults.set(false, forKey: settingsRecordExistsKey)
+    }
+
     /// The server holds a settings record already (a conflict told us).
     func markSettingsRecordExists() {
         settingsRecordExists = true
@@ -1292,6 +1314,17 @@ class SyncManager: ObservableObject {
         recordSystemFields.removeValue(forKey: id.uuidString)
         recordSystemFields.removeValue(forKey: SyncManager.trackRecordName(id))
         persistRecordSystemFields()
+    }
+
+    /// Drops one record's stored fields: CloudKit doesn't have it, so its next save must be an insert. (6.10.0)
+    func forgetSystemFields(forRecordName name: String) {
+        guard recordSystemFields.removeValue(forKey: name) != nil else { return }
+        persistRecordSystemFields()
+    }
+
+    /// Queues one record's save again, after its failure was resolved here. (6.10.0)
+    func requeueSave(_ recordID: CKRecord.ID) {
+        syncEngine?.queue([.saveRecord(recordID)])
     }
 
     private func persistRecordSystemFields() {
@@ -1409,6 +1442,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             pending = self.gatherPendingBatch(syncEngine: syncEngine)
         }
         guard let pending else { return nil }
+        let started = DispatchTime.now()
 
         var recordsToSave: [CKRecord] = []
         if let settingsRecord = pending.settingsRecord {
@@ -1430,11 +1464,21 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         guard !recordsToSave.isEmpty || !pending.deletions.isEmpty else {
             return nil
         }
+        // What each batch carries, in counts, kept by the device (`publicNotice`): CloudKit writes its own lines as
+        // <private>, so a launch's send couldn't be told from a log (device pass, 9 Nov 2026).
+        let encodeMs = Int((DispatchTime.now().uptimeNanoseconds - started.uptimeNanoseconds) / 1_000_000)
+        AppLog.sync.publicNotice(SyncManager.batchLine(
+            settings: pending.settingsRecord != nil, flights: pending.flightRecordIDs.count,
+            tracks: pending.trackRecordIDs.count,
+            trackPoints: pending.trackRecordIDs.reduce(0) { $0 + $1.flight.gpsTrack.count },
+            deletions: pending.deletions.count, encodeMs: encodeMs))
 
         return CKSyncEngine.RecordZoneChangeBatch(
             recordsToSave: recordsToSave,
             recordIDsToDelete: pending.deletions,
-            atomicByZone: true
+            // Not atomic: one record CloudKit refuses no longer takes every other record of the zone down with it
+            // (`batchRequestFailed`). A refused record stays pending on its own. (6.10.0)
+            atomicByZone: false
         )
     }
 
@@ -1692,6 +1736,15 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     @MainActor
     private func handleSentRecordZoneChanges(_ changes: CKSyncEngine.Event.SentRecordZoneChanges) async {
         AppLog.sync.debugLine("Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
+        // What CloudKit took and what it refused, by kind and error, kept by the device: the failures' own lines are
+        // private, and FlyPad's log showed every launch's batch refused without saying why (9 Nov 2026).
+        AppLog.sync.publicNotice(SyncManager.sentLine(
+            saved: changes.savedRecords.map(\.recordID.recordName),
+            failedSaves: changes.failedRecordSaves.map { failed in
+                let error = failed.error as NSError
+                return (failed.record.recordID.recordName, error.code, error.userInfo["CKErrorServerErrorCode"] as? Int)
+            },
+            deleted: changes.deletedRecordIDs.count, failedDeletes: changes.failedRecordDeletes.count))
 
         // Clear pending data for successfully saved records
         var didMarkSynced = false
@@ -1807,6 +1860,33 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 manager?.updateLastSyncDate()
                 continue
 
+            case .trackConflict(let flightId, _):
+                // As for a flight: the SERVER's change tag first, or the retry repeats the conflict forever.
+                guard let serverRecord else { break }
+                manager?.rememberSystemFields(of: serverRecord)
+                let serverCount = serverRecord["trackCount"] as? Int ?? -1
+                if let local = manager?.getPendingFlight(for: flightId), serverCount >= local.gpsTrack.count {
+                    // The server's track has every point this one has: nothing to send.
+                    manager?.markFlightTrackSynced(flightId, count: local.gpsTrack.count)
+                    manager?.persistSyncedFingerprints()
+                } else {
+                    manager?.requeueSave(failedSave.record.recordID)
+                }
+                continue
+
+            case .staleRecord:
+                // Only an update can be stale: a record sent without a tag that CloudKit still doesn't know is left
+                // pending, so this never loops.
+                guard failedSave.record.recordChangeTag != nil else { break }
+                if recordName == "settings" {
+                    manager?.forgetSettingsRecord()
+                    if let pendingSettings = manager?.getPendingSettings() { manager?.syncSettings(pendingSettings) }
+                } else {
+                    manager?.forgetSystemFields(forRecordName: recordName)
+                    manager?.requeueSave(failedSave.record.recordID)
+                }
+                continue
+
             case .tooLarge(let flightId):
                 // Record still too large even after the GPS track was offloaded to a CKAsset.
                 // Retrying the identical record is futile — drop the pending change and surface it.
@@ -1825,5 +1905,65 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
             AppLog.sync.debugLine("Failed to save record: \(recordName), error: \(error)")
         }
+    }
+}
+
+extension SyncManager {
+    /// What a send came back with, in one line for the device's log: records by kind, failures by kind and error code.
+    /// Counts only: a record's name is read for its kind and never written (SA-20).
+    nonisolated static func sentLine(saved: [String], failedSaves: [(name: String, code: Int, serverCode: Int?)],
+                                     deleted: Int, failedDeletes: Int) -> String {
+        func kind(_ name: String) -> String {
+            if name == "settings" { return "settings" }
+            if flightId(fromTrackRecordName: name) != nil { return "tracks" }
+            return UUID(uuidString: name) != nil ? "flights" : "other"
+        }
+        let savedByKind = Dictionary(grouping: saved, by: kind).mapValues(\.count)
+        let savedText = ["flights", "tracks", "settings", "other"].compactMap { k in savedByKind[k].map { "\(k) \($0)" } }
+        var failures: [String: Int] = [:]
+        for failure in failedSaves {
+            var label = "\(kind(failure.name)) \(errorName(failure.code))"
+            if let server = failure.serverCode { label += " (server \(server))" }
+            failures[label, default: 0] += 1
+        }
+        let failedText = failures.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+            .map { "\($0.key) ×\($0.value)" }
+        return "CloudKit sent: saved " + (savedText.isEmpty ? "none" : savedText.joined(separator: ", "))
+            + "; failed " + (failedText.isEmpty ? "none" : failedText.joined(separator: ", "))
+            + "; deleted \(deleted), failed deletes \(failedDeletes)"
+    }
+
+    /// A CloudKit error code by its name, the code itself when unknown.
+    nonisolated static func errorName(_ code: Int) -> String {
+        switch CKError.Code(rawValue: code) {
+        case .serverRecordChanged: "serverRecordChanged"
+        case .batchRequestFailed: "batchRequestFailed"
+        case .unknownItem: "unknownItem"
+        case .zoneNotFound: "zoneNotFound"
+        case .userDeletedZone: "userDeletedZone"
+        case .limitExceeded: "limitExceeded"
+        case .quotaExceeded: "quotaExceeded"
+        case .invalidArguments: "invalidArguments"
+        case .permissionFailure: "permissionFailure"
+        case .serverRejectedRequest: "serverRejectedRequest"
+        case .constraintViolation: "constraintViolation"
+        case .assetFileNotFound: "assetFileNotFound"
+        case .assetFileModified: "assetFileModified"
+        case .networkFailure: "networkFailure"
+        case .networkUnavailable: "networkUnavailable"
+        case .serviceUnavailable: "serviceUnavailable"
+        case .requestRateLimited: "requestRateLimited"
+        case .zoneBusy: "zoneBusy"
+        case .notAuthenticated: "notAuthenticated"
+        case .internalError: "internalError"
+        default: "code \(code)"
+        }
+    }
+
+    /// A CloudKit batch in one line, for the device's log: counts only, no name, id or position (SA-20).
+    nonisolated static func batchLine(settings: Bool, flights: Int, tracks: Int, trackPoints: Int, deletions: Int,
+                                      encodeMs: Int) -> String {
+        "CloudKit batch: settings \(settings ? 1 : 0), flights \(flights), tracks \(tracks) (\(trackPoints) points), "
+            + "deletions \(deletions), encoded in \(encodeMs) ms"
     }
 }

@@ -326,11 +326,13 @@ struct ContentView: View {
             case "flightlog", "flightlogdetail": scene = .flightLogDetail
             case "flight", "flightfollowed":    scene = .flightFollowed
             case "prepare", "flightprepare":    scene = .flightPrepare
+            case "flightnotams":                scene = .flightNotams
             case "closeout", "flightcloseout":  scene = .flightCloseOut
             case "homeflight", "homeflighttoday": scene = .homeFlightToday
             case "circuits", "planmapcircuits": scene = .planMapCircuits
             case "atlas", "planmapatlas":       scene = .planMapAtlas
             case "atlaslayers":                 scene = .planMapAtlasLayers
+            case "notammap":                    scene = .planMapNotams
             default:                            scene = nil
             }
             guard let scene else { return }

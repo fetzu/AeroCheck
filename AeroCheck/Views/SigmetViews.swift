@@ -194,3 +194,21 @@ enum SigmetFormat {
         }
     }
 }
+
+/// A note over Plan › Map's chart, in the SIGMET chip's shape, with nothing to tap: what the map isn't showing
+/// (NO NOTAM LIST HERE, 6.10.0).
+struct PlanMapNoteChip: View {
+    @Environment(\.cockpitTheme) private var theme
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.aero(size: 12, weight: .semibold))
+            .lineLimit(1)
+            .foregroundColor(theme.textSecondary)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(theme.panel.opacity(0.92))
+                .overlay(Capsule().strokeBorder(theme.panelStroke, lineWidth: 0.5)))
+    }
+}

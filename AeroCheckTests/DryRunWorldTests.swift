@@ -158,6 +158,7 @@ final class DryRunWorldTests: XCTestCase {
             ],
             "Services/BriefingRegistryService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/ActivationService.swift": ["DataPersistenceManager.shared": (1, "where the day's bulletin is cached: public airspace data, written whatever the flight, the dry run's or a real one")],
+            "Services/NotamService.swift": ["DataPersistenceManager.shared": (1, "where the NOTAM copy is kept: public data, and `mayFetch` refuses during a dry run")],
             "Services/FISAreaService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/NASRPatternService.swift": ["DataPersistenceManager.shared": (1, "a cache of public data, every flight's")],
             "Services/FlightLauncher.swift": ["CompanionConnectivityManager.shared": (4, "a real flight's start, which refuses during a dry run")],
@@ -195,6 +196,7 @@ final class DryRunWorldTests: XCTestCase {
             ],
             "Views/FlightView.swift": ["CompanionConnectivityManager.shared": (3, "the in-flight menu's Companion toggle, hidden in a dry run (`isDryRun`)")],
             "Views/NavigationView.swift": ["WatchConnectivityManager.shared": (1, "Plan › Map, never open in flight")],
+            "Views/NotamSheets.swift": ["@AppStorage": (2, "the NOTAM reader's switch, original or spelled out, the pilot's own choice; a dry run shows no NOTAMs")],
             "Views/Settings/SyncDataSettingsView.swift": [
                 "SyncManager.shared": (1, "Settings, never under a dry run"),
                 "UNUserNotificationCenter": (1, "reads the status for Settings, never under a dry run"),

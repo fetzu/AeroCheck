@@ -5,7 +5,8 @@ import SwiftUI
 /// Uses a TabView for swipe navigation between screens
 struct ContentView: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
-    @State private var now = Date()
+    /// Checked every second, kept when it changes: the whole tree re-ran each second for it. (6.10.0)
+    @State private var stale = false
     /// The page shown with a navigation plan: 0 navigation, 1 flight, 2 frequencies.
     @State private var page = Self.firstPage
     private let staleTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -21,7 +22,6 @@ struct ContentView: View {
 
     var body: some View {
         // Staleness is re-evaluated every second so frozen live data is never shown as live. (UX-05)
-        let stale = connectivityManager.isDataStale(asOf: now)
         ZStack(alignment: .top) {
             screens
                 .opacity(stale ? 0.35 : 1)
@@ -31,7 +31,10 @@ struct ContentView: View {
                     .padding(.top, 2)
             }
         }
-        .onReceive(staleTimer) { now = $0 }
+        .onReceive(staleTimer) { now in
+            let isStale = connectivityManager.isDataStale(asOf: now)
+            if isStale != stale { stale = isStale }
+        }
         #if DEBUG
         .onAppear { WatchPageTurns.shared.onTurn = { page = $0 } }
         #endif
@@ -153,11 +156,13 @@ struct StaleBanner: View {
 
 struct StandbyScreen: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
-    @State private var currentTime = Date()
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
+    /// The clock counts in a `TimelineView`: a timer made in the view was made again at each of its passes. (6.10.0)
     var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in screen(at: context.date) }
+    }
+
+    private func screen(at currentTime: Date) -> some View {
         VStack(spacing: 6) {
             // Compact brand at the very top, leaving the clock the room to be the hero.
             HStack(spacing: 4) {
@@ -198,9 +203,6 @@ struct StandbyScreen: View {
         .padding(.horizontal)
         .padding(.bottom, 8)
         .background(Color.black)
-        .onReceive(timer) { time in
-            currentTime = time
-        }
     }
 }
 
@@ -208,11 +210,13 @@ struct StandbyScreen: View {
 
 struct FlightScreen: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
-    @State private var currentTime = Date()
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
+    /// The clock and the flight time count in a `TimelineView`, as on the standby screen. (6.10.0)
     var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in screen(at: context.date) }
+    }
+
+    private func screen(at currentTime: Date) -> some View {
         VStack(spacing: 4) {
             // Stage-tinted current phase, pinned left (clear of the system clock at top-right).
             HStack {
@@ -279,9 +283,6 @@ struct FlightScreen: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
         .background(Color.black)
-        .onReceive(timer) { time in
-            currentTime = time
-        }
     }
 }
 

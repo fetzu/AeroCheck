@@ -98,9 +98,8 @@ struct GettingStartedCard: View {
     /// The home country, whole, as onboarding offered it.
     private var homeCountry: OfflineCountry? {
         guard let code = OfflineCountryCatalog.home(homeIdent: appState.settings.homeAerodromeIdent) else { return nil }
-        return OfflineCountryCatalog.countries(atlasRegions: pilotMap.regions,
-                                               vfrCountries: Set(OFMDataService.shared.supportedCountries))
-            .first { $0.id == code }
+        return OfflineCountryCatalog.country(code, atlasRegions: pilotMap.regions,
+                                             vfrCountries: Set(OFMDataService.shared.supportedCountries))
     }
 
     private var status: GettingStarted.Status {

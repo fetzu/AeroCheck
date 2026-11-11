@@ -18,7 +18,7 @@ import CoreLocation
 /// **Data:** Natural Earth 1:50m `admin_0_countries` (public domain), reduced to the ISO-2 codes
 /// OpenAIP actually serves, outer rings only, Douglas–Peucker simplified with a tolerance scaled to
 /// each country's extent (2 km for small countries, capped at ~9 km for continent-sized ones) and
-/// rounded to 3 decimal places. 119 countries, ~24 500 vertices, ~350 KB.
+/// rounded to 3 decimal places. 120 countries (Malta added in 6.10.0), ~24 500 vertices, ~350 KB.
 ///
 /// Interior rings (holes) are dropped on purpose: a hole would only ever *exclude* a country, which
 /// is the unsafe direction, and every enclave in the set is a microstate OpenAIP does not serve.

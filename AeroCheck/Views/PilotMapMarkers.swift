@@ -26,11 +26,30 @@ final class PilotMapMarkers {
     /// The aircraft: one marker, moved in place, above every other as on MapKit.
     private let aircraft = PilotAircraftMarker()
     private var aircraftShown = false
+    /// While the map follows the aircraft, its marker rides the camera's centre at every frame of the glide between
+    /// two fixes (`PilotMapView.Coordinator.follow`), instead of jumping to each fix ahead of the map (6.10.0, the
+    /// author's device check f-1: "the plane icon moving a step, and THEN the map refresh underneath it").
+    private(set) var ridesCentre = false
+    /// Where the drive puts the marker while it eases onto the aircraft's place (the pilot asked to follow again);
+    /// nil once it is there: the camera's centre.
+    private var drivenPlace: CLLocationCoordinate2D?
+    /// The drive turns the icon too, to the aircraft's course where it is drawn.
+    private var drivenCourse = false
+    /// The track vector: a view on the aircraft's place, under the markers (`syncVector`).
+    private let vector = PilotTrackVectorView()
+    /// Its lines as the map last gave them, kept through a transient empty (a GPS gap, under 5 kt).
+    private var vectorLines: [MKPolyline] = []
+    /// MapLibre's own view of the markers' views: the vector goes right under it.
+    private weak var markersContainer: UIView?
     /// The airspace's tags on the map, and when they were last placed.
     private var tags: [String: PilotMarker] = [:]
     private var tagsPlaced = Date.distantPast
+    private var tagsZoom = 0.0
+    /// What the tags were last placed for (`tagKey`): nothing to build while it holds and the interval runs.
+    private var tagsKey: Int?
     private var tagKeepOut: [CGRect] = []
-    private var tagRequests: [AirspaceTagContent: Airspace] = [:]
+    private var tagRings: [AirspaceTagContent: [CLLocationCoordinate2D]] = [:]
+    private var tagBeside: [AirspaceTagContent: NotamMapContent.Item] = [:]
     /// Once in this long at most, or when the tags themselves change: a tag stays where it is between.
     private static let tagInterval: TimeInterval = 2
 
@@ -42,6 +61,7 @@ final class PilotMapMarkers {
     func sync(_ map: AeroMapView, on mapView: MLNMapView) {
         plannedRoute.route = map.shownPlannedRoute
         syncAircraft(map, on: mapView)
+        syncVector(map, on: mapView)
         syncTags(map, on: mapView)
         let content = map.shownProcedures
         let plan = map.shownPlan
@@ -70,13 +90,24 @@ final class PilotMapMarkers {
     /// The tags the map should show, placed where they fit. Kept where they are while that holds (`AirspaceTagPlacer`).
     private func syncTags(_ map: AeroMapView, on mapView: MLNMapView) {
         let wanted = map.shownAirspaceTags
-        let contents = wanted.map(AirspaceTagContent.init)
-        let shown = Set(tags.values.compactMap { ($0.base as? AirspaceTagAnnotation)?.content })
-        let changed = Set(contents) != shown
-        guard changed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
+        // The NOTAM areas' after the airspace's: what the pilot is flying through keeps its place. A circle too small on
+        // the screen to take a tag stays a circle, and a tap still reads it.
+        let picked = Self.notamTagItems(map.shownNotams, on: mapView)
+        // Changed or not, from ids alone: the rings and the tags' contents were built at every pass, before this guard,
+        // a tenth of the map's main thread on the author's iPad with the NOTAM layer on (device pass, 9 Nov 2026).
+        let key = Self.tagKey(wanted, picked)
+        // A new zoom moves a small circle's tag beside it: at once, or it stays where the last zoom left it.
+        let rezoomed = !picked.isEmpty && abs(mapView.zoomLevel - tagsZoom) > 0.2
+        guard key != tagsKey || rezoomed || Date().timeIntervalSince(tagsPlaced) >= Self.tagInterval else { return }
+        tagsKey = key
         tagsPlaced = Date()
+        tagsZoom = mapView.zoomLevel
+        let notams = Self.notamTags(picked)
+        let contents = wanted.map(AirspaceTagContent.init) + notams.map(\.content)
         tagKeepOut = map.airspaceTagKeepOut
-        tagRequests = Dictionary(zip(contents, wanted.map(\.airspace)), uniquingKeysWith: { first, _ in first })
+        tagRings = Dictionary(zip(contents, wanted.map(\.airspace.polygonCoordinates) + notams.map(\.ring)),
+                              uniquingKeysWith: { first, _ in first })
+        tagBeside = Dictionary(notams.compactMap { tag in tag.beside.map { (tag.content, $0) } }, uniquingKeysWith: { first, _ in first })
         placeTags(contents, map: map, on: mapView)
     }
 
@@ -84,10 +115,11 @@ final class PilotMapMarkers {
         let toScreen = { (c: CLLocationCoordinate2D) in mapView.convert(c, toPointTo: mapView) }
         let k = CockpitType.label(for: .current) / 20
         let requests = contents.compactMap { content -> AirspaceTagPlacer.Request? in
-            guard let airspace = tagRequests[content] else { return nil }
-            return AirspaceTagPlacer.Request(id: content.id, ring: airspace.polygonCoordinates.map(toScreen),
-                                             size: AirspaceTagImage.size(content, scale: k),
-                                             previous: tags[content.id].map { toScreen($0.coordinate) })
+            guard let ring = tagRings[content] else { return nil }
+            let size = AirspaceTagImage.size(content, scale: k)
+            return AirspaceTagPlacer.Request(id: content.id, ring: ring.map(toScreen), size: size,
+                                             previous: tags[content.id].map { toScreen($0.coordinate) },
+                                             around: tagBeside[content].map { Self.sides(of: $0, size: size, on: mapView) })
         }
         var keepOut = tagKeepOut
         let square = { (point: CGPoint, side: CGFloat) in
@@ -118,23 +150,240 @@ final class PilotMapMarkers {
         }
     }
 
+    /// A circle's radius on the screen from which it takes a tag, and from which the tag fits inside without hiding it.
+    private static let notamTagRadius: CGFloat = 14
+    private static let notamTagInsideRadius: CGFloat = 90
+    /// The tags a NOTAM area may take at a time: the nearest to the map's middle come first.
+    private static let maxNotamTags = 8
+
+    /// What takes a tag, and its circle: inside when the tag fits, else `placeTags` puts it beside, so a small circle stays
+    /// seen.
+    /// The circles that take a tag, and whether it fits inside: cheap, at every pass.
+    static func notamTagItems(_ items: [NotamMapContent.Item], on mapView: MLNMapView) -> [(item: NotamMapContent.Item, inside: Bool)] {
+        notamTagItems(items, metersPerPoint: mapView.metersPerPoint(atLatitude: mapView.centerCoordinate.latitude))
+    }
+
+    static func notamTagItems(_ items: [NotamMapContent.Item], metersPerPoint: Double) -> [(item: NotamMapContent.Item, inside: Bool)] {
+        guard metersPerPoint > 0 else { return [] }
+        let picked = items.compactMap { item -> (item: NotamMapContent.Item, inside: Bool)? in
+            guard case .area(let radius) = item.shape else { return nil }
+            let onScreen = CGFloat(radius * 1852 / metersPerPoint)
+            guard onScreen >= notamTagRadius else { return nil }
+            return (item, onScreen >= notamTagInsideRadius)
+        }
+        return Array(picked.prefix(maxNotamTags))
+    }
+
+    /// Their tags and rings, built when the tags are placed.
+    private static func notamTags(_ picked: [(item: NotamMapContent.Item, inside: Bool)])
+        -> [(content: AirspaceTagContent, ring: [CLLocationCoordinate2D], beside: NotamMapContent.Item?)] {
+        picked.compactMap { pick in
+            guard case .area(let radius) = pick.item.shape else { return nil }
+            return (AirspaceTagContent(notam: pick.item.notam),
+                    NotamMapContent.ring(centre: pick.item.coordinate, radiusNm: radius, points: 24), pick.inside ? nil : pick.item)
+        }
+    }
+
+    /// What decides a tag's content and place: an airspace by its id and its shape (its texts come from the airspace),
+    /// a NOTAM circle by its NOTAM and whether its tag fits inside.
+    static func tagKey(_ wanted: [AirspaceRelevantTag], _ picked: [(item: NotamMapContent.Item, inside: Bool)]) -> Int {
+        var hasher = Hasher()
+        for tag in wanted {
+            hasher.combine(tag.airspace.id)
+            switch tag.kind {
+            case .atLevel: hasher.combine(0)
+            case .floor: hasher.combine(1)
+            case .ceiling: hasher.combine(2)
+            }
+        }
+        hasher.combine(-1)
+        for pick in picked {
+            hasher.combine(pick.item.id)
+            hasher.combine(pick.inside)
+        }
+        return hasher.finalize()
+    }
+
+    /// The four sides of a circle where a tag of `size` touches it, north first.
+    private static func sides(of item: NotamMapContent.Item, size: CGSize, on mapView: MLNMapView) -> [CGPoint] {
+        guard case .area(let radius) = item.shape else { return [] }
+        let centre = mapView.convert(item.coordinate, toPointTo: mapView)
+        let reach = CGFloat(radius * 1852 / mapView.metersPerPoint(atLatitude: item.latitude)) + 6
+        let (x, y) = (reach + size.width / 2, reach + size.height / 2)
+        return [CGPoint(x: centre.x, y: centre.y - y), CGPoint(x: centre.x + x, y: centre.y),
+                CGPoint(x: centre.x, y: centre.y + y), CGPoint(x: centre.x - x, y: centre.y)]
+    }
+
     /// The aircraft on its cached course (it survives GPS gaps), moved rather than replaced so it doesn't blink.
     private func syncAircraft(_ map: AeroMapView, on mapView: MLNMapView) {
         guard let location = map.shownAircraft else {
             if aircraftShown { mapView.removeAnnotation(aircraft); aircraftShown = false }
             return
         }
-        aircraft.heading = map.cachedHeading ?? (location.course >= 0 ? location.course : 0)
-        let moved = abs(aircraft.coordinate.latitude - location.coordinate.latitude) > 0.00001
-            || abs(aircraft.coordinate.longitude - location.coordinate.longitude) > 0.00001
-        if moved { aircraft.coordinate = location.coordinate }
+        if !map.isFollowingAircraft {
+            ridesCentre = false
+            drivenPlace = nil
+        }
+        // Riding the centre, the drive turns it as it moves it.
+        if !(ridesCentre && drivenCourse) {
+            drivenCourse = false
+            aircraft.heading = map.cachedHeading ?? (location.course >= 0 ? location.course : 0)
+        }
+        // Riding the centre, the glide brings it to the fix with the map.
+        if !ridesCentre { place(at: location.coordinate) }
         if !aircraftShown { mapView.addAnnotation(aircraft); aircraftShown = true }
         turnAircraft(on: mapView)
     }
 
+    // MARK: The track vector
+
+    /// The track vector (the line ahead of the aircraft, its dark edge, its marks at 1, 2 and 5 minutes) is a view on
+    /// the aircraft's place, not lines sent to MapLibre. As lines it was sent again at each fix, its speed and track
+    /// estimated anew, and MapLibre drew two frames each time for a map that hadn't moved: a third of the frames
+    /// drawn zoomed out in cruise (the review of 11 Nov, finding 10). As a view it costs the map nothing, starts on
+    /// the icon wherever the follow draws it, and its marks stay the same distance ahead.
+    /// Kept through a transient empty (a GPS gap, under 5 kt), gone when off or with no aircraft.
+    private func syncVector(_ map: AeroMapView, on mapView: MLNMapView) {
+        guard map.shownTrackVector, aircraftShown else {
+            vectorLines = []
+            vector.removeFromSuperview()
+            return
+        }
+        let lines = map.trackVectorOverlays
+        if !lines.isEmpty {
+            vectorLines = lines
+            vector.paint(casing: Self.vectorPaint(lines, casing: true, layerType: map.layerType),
+                         core: Self.vectorPaint(lines, casing: false, layerType: map.layerType), traits: mapView.traitCollection)
+        }
+        layoutVector(on: mapView)
+    }
+
+    /// The vector's paint, as the map's line renderer has it (`AeroMapView.lineRenderer`): nothing here decides a look.
+    static func vectorPaint(_ lines: [MKPolyline], casing: Bool, layerType: MapLayerType) -> PilotMapShapes.Paint? {
+        lines.first { ($0 is TrackVectorCasingPolyline) == casing }
+            .flatMap { PilotMapShapes.Paint(AeroMapView.lineRenderer(for: $0, layerType: layerType)) }
+    }
+
+    /// The vector on the aircraft as drawn, its lines as far as they show on the map: at every move of the map, of
+    /// the aircraft or of the vector itself.
+    func layoutVector(on mapView: MLNMapView) {
+        guard aircraftShown, let first = vectorLines.first, first.pointCount > 0 else {
+            vector.removeFromSuperview()
+            return
+        }
+        // Under every marker, the aircraft's first, and over the map, as the lines it replaces were: MapLibre keeps
+        // the markers' views in one view inside its drawing view, and the vector goes right under that one. (Put on
+        // the map view itself it was drawn over the aircraft: the author, 11 Nov.)
+        if markersContainer?.superview == nil {
+            // The aircraft's own view when it has one, else any marker's (the aircraft off the map).
+            markersContainer = mapView.view(for: aircraft)?.superview
+                ?? markers.values.lazy.compactMap { mapView.view(for: $0)?.superview }.first
+        }
+        guard let container = markersContainer, let host = container.superview else {
+            vector.removeFromSuperview()
+            return
+        }
+        let under = host.subviews.firstIndex(of: container).map { $0 - 1 }
+        if vector.superview !== host || host.subviews.firstIndex(of: vector) != under {
+            host.insertSubview(vector, belowSubview: container)
+        }
+        let at = mapView.convert(aircraft.coordinate, toPointTo: mapView)
+        // The lines are built from the latest fix; drawn from the aircraft's place, each point as far from it as it
+        // is from that fix on the map.
+        let origin = mapView.convert(first.points()[0].coordinate, toPointTo: mapView)
+        let lines = vectorLines.map { line -> (casing: Bool, points: [CGPoint]) in
+            let points = (0..<line.pointCount).map { i -> CGPoint in
+                let p = mapView.convert(line.points()[i].coordinate, toPointTo: mapView)
+                return CGPoint(x: p.x - origin.x, y: p.y - origin.y)
+            }
+            return (line is TrackVectorCasingPolyline, points)
+        }
+        // Only what shows: five minutes of flight are thousands of points long when zoomed in.
+        let shown = mapView.bounds.insetBy(dx: -PilotTrackVectorView.margin, dy: -PilotTrackVectorView.margin)
+            .offsetBy(dx: -at.x, dy: -at.y)
+        vector.show(casing: Self.vectorPath(lines.filter(\.casing).map(\.points), within: shown),
+                    core: Self.vectorPath(lines.filter { !$0.casing }.map(\.points), within: shown),
+                    at: mapView.convert(at, to: host))
+    }
+
+    /// The lines' path, each stretch cut to `rect`.
+    static func vectorPath(_ lines: [[CGPoint]], within rect: CGRect) -> CGPath {
+        let path = CGMutablePath()
+        for line in lines {
+            for (a, b) in zip(line, line.dropFirst()) {
+                guard let (from, to) = clipped(a, b, to: rect) else { continue }
+                path.move(to: from)
+                path.addLine(to: to)
+            }
+        }
+        return path
+    }
+
+    /// The part of the stretch from `a` to `b` inside `rect`; nil when none of it is.
+    static func clipped(_ a: CGPoint, _ b: CGPoint, to rect: CGRect) -> (CGPoint, CGPoint)? {
+        let (dx, dy) = (b.x - a.x, b.y - a.y)
+        var (enter, leave) = (CGFloat(0), CGFloat(1))
+        for (p, q) in [(-dx, a.x - rect.minX), (dx, rect.maxX - a.x), (-dy, a.y - rect.minY), (dy, rect.maxY - a.y)] {
+            if p == 0 {
+                if q < 0 { return nil }
+            } else if p < 0 {
+                enter = max(enter, q / p)
+            } else {
+                leave = min(leave, q / p)
+            }
+        }
+        guard enter <= leave else { return nil }
+        return (CGPoint(x: a.x + dx * enter, y: a.y + dy * enter), CGPoint(x: a.x + dx * leave, y: a.y + dy * leave))
+    }
+
+    /// Exactly there, and nothing when it is: a marker moved, even onto its own place, has the map draw a frame.
+    private func put(at coordinate: CLLocationCoordinate2D) {
+        if aircraft.coordinate.latitude != coordinate.latitude || aircraft.coordinate.longitude != coordinate.longitude {
+            aircraft.coordinate = coordinate
+        }
+    }
+
+    private func place(at coordinate: CLLocationCoordinate2D) {
+        let moved = abs(aircraft.coordinate.latitude - coordinate.latitude) > 0.00001
+            || abs(aircraft.coordinate.longitude - coordinate.longitude) > 0.00001
+        if moved { aircraft.coordinate = coordinate }
+    }
+
+    /// The marker is the drive's from now on: at `place` while it eases onto the aircraft's place, then (nil) on the
+    /// camera's centre, where the follow keeps the aircraft.
+    func ride(at place: CLLocationCoordinate2D?, course: Double? = nil, on mapView: MLNMapView) {
+        ridesCentre = true
+        drivenPlace = place
+        if let course {
+            drivenCourse = true
+            aircraft.heading = course
+        }
+        if aircraftShown { put(at: place ?? mapView.centerCoordinate) }
+    }
+
+    /// Where the marker is now: nil when it isn't on the map.
+    var aircraftCoordinate: CLLocationCoordinate2D? { aircraftShown ? aircraft.coordinate : nil }
+
+    /// Back on its own fix: a finger, the legs panel, a fit or a long jump took the camera.
+    func leaveCentre(at fix: CLLocationCoordinate2D?) {
+        guard ridesCentre else { return }
+        ridesCentre = false
+        drivenPlace = nil
+        drivenCourse = false
+        if let fix { place(at: fix) }
+    }
+
+    /// How far the marker is from the map's centre, in points: nil when it isn't on the map.
+    func aircraftOffset(on mapView: MLNMapView) -> CGFloat? {
+        guard aircraftShown else { return nil }
+        let point = mapView.convert(aircraft.coordinate, toPointTo: mapView)
+        let centre = CGPoint(x: mapView.bounds.midX, y: mapView.bounds.midY)
+        return hypot(point.x - centre.x, point.y - centre.y)
+    }
+
     /// The ownship turned to its heading on screen: its view stays upright with the map, so a track-up map's turn
     /// comes off. The symbol points east.
-    private func turnAircraft(on mapView: MLNMapView) {
+    func turnAircraft(on mapView: MLNMapView) {
         guard aircraftShown, let view = mapView.view(for: aircraft) else { return }
         view.transform = CGAffineTransform(rotationAngle: CGFloat((aircraft.heading - mapView.direction - 90) * .pi / 180))
     }
@@ -157,6 +406,9 @@ final class PilotMapMarkers {
         }
         for obstacle in map.shownObstacles {
             out.append(Wanted(key: "obs|\(obstacle.id)") { ObstacleAnnotation(obstacle: obstacle) })
+        }
+        for item in map.shownNotams where item.shape == .obstacle {
+            out.append(Wanted(key: "notam|\(item.id)") { NotamMarkerAnnotation(item: item) })
         }
         // A label's revision in the key: a point renamed is a new marker. (6.0.1)
         for point in map.shownReportingPoints {
@@ -214,7 +466,7 @@ final class PilotMapMarkers {
         view.accessibilityLabel = Self.accessibilityLabel(for: marker.base)
         view.layer.zPosition = 0   // a reused view may have been a route pin's (raised below)
         view.isHidden = false      // or the moved waypoint's (`hideWaypointMarker`)
-        view.isUserInteractionEnabled = !(marker.base is AirspaceTagAnnotation)
+        view.isUserInteractionEnabled = (marker.base as? AirspaceTagAnnotation).map { $0.content.notamId != nil } ?? true
         switch marker.base {
         case let tag as AirspaceTagAnnotation:
             view.show(AirspaceTagImage.image(tag.content, scale: CockpitType.label(for: .current) / 20))
@@ -225,6 +477,8 @@ final class PilotMapMarkers {
             view.show(AeroMarkerImages.navaid)
         case is ObstacleAnnotation:
             view.show(AeroMarkerImages.obstacle)
+        case is NotamMarkerAnnotation:
+            view.show(NotamMapStyle.obstacleImage)
         case let point as ReportingPointAnnotation:
             view.show(AeroMarkerImages.reportingPoint(compulsory: point.point.compulsory))
         case let waypoint as FlightPlanWaypointAnnotation:
@@ -326,6 +580,9 @@ final class PilotMapMarkers {
     /// callout over its marker; `atRest`, also the routes' names that would cover a marker or another name hidden
     /// (MapKit's collision), which waits for the map to stop.
     func layout(on mapView: MLNMapView, atRest: Bool) {
+        // Each frame of a glide: the aircraft where the camera is now.
+        if ridesCentre, aircraftShown { put(at: drivenPlace ?? mapView.centerCoordinate) }
+        layoutVector(on: mapView)
         let labels = markers.values.filter { $0.base is VFRProcedureAnnotation }
         let heading = mapView.direction
         if !labels.isEmpty, pillsFor.map({ abs($0.heading - heading) > 0.5 || abs($0.zoom - mapView.zoomLevel) > 0.05 }) ?? true {
@@ -377,7 +634,8 @@ final class PilotMapMarkers {
     /// What a marker's tap opens: its card or callout, or nothing (a runway number; a waypoint, whose tap is its time
     /// over).
     static func hasCallout(_ annotation: MKAnnotation) -> Bool {
-        !(annotation is VFRApproachAnnotation || annotation is FlightPlanWaypointAnnotation)
+        !(annotation is VFRApproachAnnotation || annotation is FlightPlanWaypointAnnotation
+          || annotation is NotamMarkerAnnotation || annotation is AirspaceTagAnnotation)
     }
 
     private weak var callout: PilotMarkerCallout?
@@ -407,8 +665,13 @@ final class PilotMapMarkers {
                 isDiverting: map.activeFlightPlan?.diversion != nil)
             let area = PilotMarkerCallout.area(of: mapView)
             let width = min(AerodromeCardView.maxWidth(metrics: metrics), max(area.width, 240))
-            content = AerodromeCardView(content: card, metrics: metrics, tint: palette.action, width: width) {
-                [weak self] action in
+            let ident = airport.airport.ident
+            let openNotams: (() -> Void)? = card.notamRow == nil ? nil : {
+                close()
+                map.notamReader?(card.facts.notams, ident)
+            }
+            content = AerodromeCardView(content: card, metrics: metrics, tint: palette.action, width: width,
+                                        onNotams: openNotams) { [weak self] action in
                 close()
                 switch action {
                 case .chart(let link): map.chartOpener?(link.url)
@@ -477,6 +740,47 @@ final class PilotMarker: NSObject, MLNAnnotation {
     var title: String? { base.title ?? nil }
     var subtitle: String? { base.subtitle ?? nil }
     var isProcedure: Bool { base is VFRProcedureAnnotation || base is VFRApproachAnnotation }
+}
+
+/// The track vector's view: two stroked paths, the dark edge under the line, around the aircraft's place. It takes no
+/// touch and says nothing to VoiceOver, as the lines it replaces.
+final class PilotTrackVectorView: UIView {
+    /// How far past the map's edge the lines are kept, so their round ends never show there.
+    static let margin: CGFloat = 16
+    private let casing = CAShapeLayer()
+    private let core = CAShapeLayer()
+
+    init() {
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        for line in [casing, core] {
+            line.fillColor = nil
+            line.lineCap = .round
+            line.lineJoin = .round
+            // Never eased: the lines are where the map is, at once.
+            line.actions = ["path": NSNull(), "strokeColor": NSNull(), "lineWidth": NSNull(), "position": NSNull()]
+            layer.addSublayer(line)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func paint(casing casingPaint: PilotMapShapes.Paint?, core corePaint: PilotMapShapes.Paint?, traits: UITraitCollection) {
+        for (line, paint) in [(casing, casingPaint), (core, corePaint)] {
+            line.strokeColor = paint?.stroke?.resolvedColor(with: traits).cgColor
+            line.lineWidth = CGFloat(paint?.width ?? 0)
+            line.lineCap = paint?.cap == .butt ? .butt : paint?.cap == .square ? .square : .round
+        }
+    }
+
+    /// The paths, in points from the aircraft's place, and that place in the map's view.
+    func show(casing casingPath: CGPath, core corePath: CGPath, at place: CGPoint) {
+        casing.path = casingPath
+        core.path = corePath
+        if center != place { center = place }
+    }
 }
 
 /// The aircraft's marker: its position moves in place (MapLibre follows `coordinate`), its heading turns its view.

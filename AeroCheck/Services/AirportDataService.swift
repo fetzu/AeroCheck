@@ -602,8 +602,13 @@ class AirportDataService: ObservableObject {
         // doesn't sweep the whole grid. With a maxDistance, derive the exact ring needed (≈60 nm per
         // degree latitude) plus a one-cell margin; without one, expand until we have enough.
         let cappedRing = 8
-        let neededRing: Int? = maxDistanceNm.map {
-            min(cappedRing, max(1, Int(($0 / 60.0 / Self.gridCellDegrees).rounded(.up)) + 1))
+        // The ring reaches `maxDistanceNm` east and west at the highest latitude in reach, where a degree of
+        // longitude is shortest. The detector's 5 NM search every 5 s swept 5 × 5 cells with the old one-cell margin;
+        // 3 × 3 holds it anywhere below 85°. (6.10.0)
+        let neededRing: Int? = maxDistanceNm.map { nm in
+            let farLatitude = min(89.0, abs(lat) + nm / 60)
+            let degrees = max(nm / 60, nm / (60 * cos(farLatitude * .pi / 180)))
+            return min(cappedRing, max(1, Int((degrees / Self.gridCellDegrees).rounded(.up))))
         }
 
         var candidates: [Airport] = []

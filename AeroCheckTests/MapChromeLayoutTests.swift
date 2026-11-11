@@ -48,7 +48,8 @@ final class MapChromeLayoutTests: XCTestCase {
 
     /// The map's (i) carries the OpenStreetMap credit: no chip lies on it, on any chart, in any number.
     func testNoChipCoversTheMapsInformationButton() {
-        let chipSets: [[MapFootChip]] = [[.allLimits], [.airspaceOff], [.allLimits, .noAirspaceData], [.allLimits, .noAirspaceData, .dabsNotLoaded]]
+        let chipSets: [[MapFootChip]] = [[.allLimits], [.airspaceOff], [.allLimits, .noAirspaceData], [.allLimits, .noAirspaceData, .dabsNotLoaded],
+                                        [.allLimits, .noAirspaceData, .dabsNotLoaded, .noNotamList], [.noNotamList]]
         for chart in Chart.allCases {
             let button = CGRect(x: 8, y: chart.size.height - 34, width: 26, height: 26)
             for chips in chipSets {
@@ -240,6 +241,29 @@ final class MapChromeLayoutTests: XCTestCase {
             XCTAssertNil(geometry.edgeArrow(toward: CGPoint(x: w / 2, y: h / 2)), "in sight, \(chart.rawValue)")
             XCTAssertNil(geometry.edgeArrow(toward: CGPoint(x: geometry.statusSlot.maxX - 10, y: 50)),
                          "in sight, at the top, \(chart.rawValue)")
+        }
+    }
+
+    /// The arrow is tappable (the author, round 7, 11 Nov): the map's tap recognizer asks whether a tap is on it, the
+    /// arrow placed as the chrome draws it, its target at least the map's controls' size; nothing when it isn't there.
+    func testATapOnTheEdgeArrowIsOnItsTarget() throws {
+        for chart in Chart.allCases {
+            let geometry = MapChromeGeometry(size: chart.size, scale: chart.scale)
+            let point = try XCTUnwrap(OwnshipEdgeArrow.project(Sample.aircraftOffChart, region: Sample.region,
+                                                               heading: 0, size: chart.size))
+            let arrow = try XCTUnwrap(geometry.edgeArrow(toward: point))
+            let target: CGFloat = 64
+            func hit(_ p: CGPoint) -> Bool {
+                geometry.edgeArrowHit(p, aircraft: Sample.aircraftOffChart, region: Sample.region, heading: 0, target: target)
+            }
+            XCTAssertTrue(hit(arrow.point), "the arrow's middle, \(chart.rawValue)")
+            XCTAssertTrue(hit(CGPoint(x: arrow.point.x - target / 2 + 1, y: arrow.point.y)), "the target's edge, \(chart.rawValue)")
+            XCTAssertFalse(hit(CGPoint(x: arrow.point.x - target / 2 - 2, y: arrow.point.y)), "beside it, \(chart.rawValue)")
+            // The arrow points north-east: the far corner is the chart (the phone's chart is too small for its middle).
+            XCTAssertFalse(hit(CGPoint(x: 10, y: chart.size.height - 10)), "the chart, \(chart.rawValue)")
+            XCTAssertFalse(geometry.edgeArrowHit(CGPoint(x: chart.size.width / 2, y: chart.size.height / 2),
+                                                 aircraft: Sample.region.center, region: Sample.region, heading: 0, target: target),
+                           "the aircraft in sight: no arrow, \(chart.rawValue)")
         }
     }
 

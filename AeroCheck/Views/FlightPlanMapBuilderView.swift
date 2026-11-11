@@ -18,6 +18,7 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var windsAloftService: WindsAloftService
     /// The downloaded charts, for the one chart policy ("Force ICAO chart", offline). (6.7.0)
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var aviationWeatherService: AviationWeatherService
     /// An aerodrome's official chart, from its callout, opens in the browser. (6.2.0)
     @Environment(\.openURL) private var openURL
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
@@ -55,6 +56,10 @@ struct FlightPlanMapBuilderView: View {
     /// read here: as a `@StateObject` this view observed it, and was rebuilt on every frame still. (6.4.2)
     @State private var liveRegion = LiveMapRegion()
     @State private var visibleAirports: [Airport] = []
+    /// The aerodromes' frequencies, for their cards, as the map has them. (6.10.0)
+    @State private var airportFrequencyLines: [String: String] = [:]
+    /// What an aerodrome card's NOTAM row opened. (6.10.0)
+    @State private var notamReading: NotamReading?
     /// Where this editor shows a dry run of its route: over itself (it is a cover, maybe over a flight's page,
     /// which the app's root can't present over). (6.4.0)
     @State private var dryRunToken = UUID().uuidString
@@ -300,9 +305,16 @@ struct FlightPlanMapBuilderView: View {
             .sheet(item: $aerodromeNote) { ref in
                 AerodromeNoteSheet(aerodrome: ref).environmentObject(AerodromeNoteStore.shared)
             }
+            // An aerodrome card's NOTAM row. (6.10.0)
+            .sheet(item: $notamReading) { reading in
+                NotamReaderSheet(notams: reading.notams, title: reading.title)
+                    .environment(appState)
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            // The NOTAMs on the device, for the cards: after a relaunch nothing else has read them yet. (6.10.0)
+            Task { await NotamService.shared.ensureLoaded() }
             Task {
                 // The airports, and the index the airfield search reads, built off the main actor. (6.1)
                 await airportDataService.prepareSearch()
@@ -367,10 +379,16 @@ struct FlightPlanMapBuilderView: View {
             isStrictOfflineMode: policy.strictOffline,
             hasSegelflugCache: policy.segelflugCache,
             airspacePolygons: airspacePolygons,
+            aerodromeFacts: { airport in
+                AerodromeFacts.onDevice(airport, airports: airportDataService, observations: aviationWeatherService.observations,
+                                        planMap: false, dryRun: DryRunCenter.shared.isRunning)
+            },
+            onReadNotams: { notamReading = NotamReading(notams: $0, title: $1) },
             visibleAirports: visibleAirports,
             visibleNavaids: visibleNavaids,
             visibleObstacles: visibleObstacles,
             visibleReportingPoints: visibleReportingPoints,
+            airportFrequencyLines: airportFrequencyLines,
             vfrContent: vfrContent,
             onOpenOfficialChart: { openURL($0) },
             onOpenAerodromeNote: { aerodromeNote = $0 },
@@ -1720,7 +1738,17 @@ struct FlightPlanMapBuilderView: View {
                 types: AirportType.fixedWing, // fixed-wing only (its doc comment says how to re-enable heliports)
                 limit: 80
             )
-            await MainActor.run { visibleAirports = airports }
+            var lines: [String: String] = [:]
+            for airport in airports {
+                let frequencies = airportDataService.getFrequencies(for: airport.ident)
+                if !frequencies.isEmpty {
+                    lines[airport.ident] = frequencies.map { "\($0.type) \($0.formattedFrequency)" }.joined(separator: "\n")
+                }
+            }
+            await MainActor.run {
+                visibleAirports = airports
+                airportFrequencyLines = lines
+            }
         }
     }
 

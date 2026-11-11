@@ -166,7 +166,8 @@ struct FlightPage: Equatable, Sendable {
     ///   - shared: the leg's trip tasks as it sees them (`Trip.tasks(forLegDeparting:legId:)`); none for a flight
     ///     on its own.
     ///   - departure: the flight's departure, or a later leg's estimate; nil for an undated flight.
-    static func make(thread: FlightThread, shared: [ThreadTask] = [], departure: Date?, now: Date = Date(),
+    /// `now`: the wall clock, a screenshot's 9:41 under the capture clock (DEBUG, `AEROCHECK_CLOCK`). (6.10.0)
+    static func make(thread: FlightThread, shared: [ThreadTask] = [], departure: Date?, now: Date = FlightClock.displayNow,
                      calendar: Calendar = .current) -> FlightPage {
         let sharedIds = Set(shared.map(\.id))
         let beforeTheDay: Bool = {

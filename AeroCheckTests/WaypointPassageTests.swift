@@ -207,7 +207,6 @@ final class WaypointPassageTests: XCTestCase {
         })
         manager.add(plan)
         manager.activateFlightPlan(plan)
-        addTeardownBlock { @MainActor in manager.stopChronometer() }
         return manager
     }
 

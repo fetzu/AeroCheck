@@ -47,6 +47,59 @@ enum L10n {
     }
 
     // MARK: - Aerodrome notes (6.7.0)
+    /// The NOTAMs from our copy: the flight page, See all, the detail, the card. (decided 6 Nov 2026)
+    enum Notams {
+        static let readFirst = String(localized: "notams.readFirst")
+        static let alongFlight = String(localized: "notams.alongFlight")
+        /// One key: the author is still choosing the sentence.
+        static let notice = String(localized: "notams.notice")
+        static let noneFound = String(localized: "notams.noneFound")
+        static let noListHere = String(localized: "notams.noListHere")
+        static let noListSection = String(localized: "notams.noListSection")
+        static let readOfficialPage = String(localized: "notams.readOfficialPage")
+        static func all(_ count: Int) -> String { String(localized: "notams.all \(count)") }
+        static func newSinceTick(_ count: Int) -> String { String(localized: "notams.newSinceTick \(count)") }
+        static let refresh = String(localized: "notams.refresh")
+        static func couldNotRefresh(_ time: String) -> String {
+            String(format: String(localized: "notams.couldNotRefresh"), time)
+        }
+        static let notLoaded = String(localized: "notams.notLoaded")
+        static func ageHours(_ hours: String) -> String { String(format: String(localized: "notams.ageHours"), hours) }
+        static func upTo(_ feet: String) -> String { String(format: String(localized: "notams.upTo"), feet) }
+        static let corridor = String(localized: "notams.corridor")
+        static func today(_ time: String) -> String { String(format: String(localized: "notams.today"), time) }
+        static func tomorrow(_ time: String) -> String { String(format: String(localized: "notams.tomorrow"), time) }
+        static func until(_ day: String) -> String { String(format: String(localized: "notams.until"), day) }
+        static func from(_ day: String) -> String { String(format: String(localized: "notams.from"), day) }
+        static let permanent = String(localized: "notams.permanent")
+        static func estimatedEndPassed(_ time: String) -> String {
+            String(format: String(localized: "notams.estimatedEndPassed"), time)
+        }
+        static func band(_ lower: String, _ upper: String) -> String {
+            String(format: String(localized: "notams.band"), lower, upper)
+        }
+        static let groupNotDuring = String(localized: "notams.group.notDuring")
+        static let groupAbove = String(localized: "notams.group.above")
+        static let groupIFR = String(localized: "notams.group.ifr")
+        static let groupAway = String(localized: "notams.group.away")
+        static let groupRegion = String(localized: "notams.group.region")
+        static func copyFooter(_ time: String) -> String { String(format: String(localized: "notams.copyFooter"), time) }
+        static let spelledOut = String(localized: "notams.spelledOut")
+        static let spelledOutHint = String(localized: "notams.spelledOutHint")
+        /// The reader's switch and card (6.10.0, decision page 8YkwKvUpdGcvbnpsgtn9fL).
+        static let original = String(localized: "notams.original")
+        static let fullNotam = String(localized: "notams.fullNotam")
+        static let noSpelledOut = String(localized: "notams.noSpelledOut")
+        static let placeRoute = String(localized: "notams.place.route")
+        static let placeDeparture = String(localized: "notams.place.departure")
+        static let placeDestination = String(localized: "notams.place.destination")
+        static let placeStop = String(localized: "notams.place.stop")
+        static let placeAlternate = String(localized: "notams.place.alternate")
+        static func sideLeft(_ distance: String) -> String { String(format: String(localized: "notams.side.left"), distance) }
+        static func sideRight(_ distance: String) -> String { String(format: String(localized: "notams.side.right"), distance) }
+        static func mapCredit(_ time: String) -> String { String(format: String(localized: "notams.mapCredit"), time) }
+    }
+
     enum AerodromeNotes {
         static let title = String(localized: "aerodromeNote.title")
         static let arrival = String(localized: "aerodromeNote.arrival")
@@ -199,6 +252,8 @@ enum L10n {
         static let notOnDevice = String(localized: "offlineData.notOnDevice")
         static let aeronauticalTitle = String(localized: "offlineData.aeronauticalTitle")
         static let aeronauticalDetail = String(localized: "offlineData.aeronauticalDetail")
+        /// A country OpenAIP has no reporting points for (Malta). (6.10.0)
+        static let aeronauticalDetailNoPoints = String(localized: "offlineData.aeronauticalDetailNoPoints")
         static let vfrTitle = String(localized: "offlineData.vfrTitle")
         static let vfrDetail = String(localized: "offlineData.vfrDetail")
         static let withAeronautical = String(localized: "offlineData.withAeronautical")
@@ -313,6 +368,8 @@ enum L10n {
         static let sourceBriefingName = String(localized: "settings.source.briefingName")
         static let sourceBriefing = String(localized: "settings.source.briefing")
         static let sourcePatterns = String(localized: "settings.source.patterns")
+        /// The NOTAMs' credit (6.10.0): each country issues them, the FAA's NMS hands them on. Its terms forbid calling them FAA data.
+        static let sourceNotams = String(localized: "settings.source.notams")
         static let sourceTypeface = String(localized: "dataStorage.source.typeface")
         static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")
@@ -2959,6 +3016,7 @@ enum L10n {
         static let airspaceOffChip = String(localized: "cockpit.airspaceOffChip")
         static let noAirspaceDataChip = String(localized: "cockpit.noAirspaceDataChip")
         static let dabsNotLoadedChip = String(localized: "cockpit.dabsNotLoadedChip")
+        static let noNotamListChip = String(localized: "cockpit.noNotamListChip")
         static let reportDepartureChip = String(localized: "cockpit.reportDepartureChip")
         static let display = String(localized: "cockpit.display")
         static let options = String(localized: "cockpit.options")
@@ -3893,6 +3951,7 @@ enum L10n {
         static let airspaceCharts = String(localized: "Airspace & charts")
         /// The Map sheet's row for the limits on the map. (6.9.0)
         static let airspaceLimits = String(localized: "nav.airspaceLimits")
+        static let notamAreas = String(localized: "nav.notamAreas")
         /// The aerodrome card's rows and links. (6.9.0)
         static func cardCircuit(_ feet: String) -> String {
             String(format: String(localized: "nav.cardCircuit"), feet)
@@ -3915,6 +3974,10 @@ enum L10n {
             String(format: String(localized: "nav.dabsActive"), windows, source)
         }
         static let dabsNoNotam = String(localized: "nav.dabsNoNotam")
+        /// "Active 08:00–15:00 UTC": the times on the card of an area a NOTAM draws abroad, whose name has its number. (6.10.0)
+        static func notamActive(_ windows: String) -> String {
+            String(format: String(localized: "nav.notamActive"), windows)
+        }
         static let mapMarkers = String(localized: "Map markers")
         static let flightSection = String(localized: "Flight")
         static let showAll = String(localized: "Show all")

@@ -7,6 +7,55 @@ import XCTest
 /// by tier and paint, stacked as MapKit stacked them.
 @MainActor
 final class PilotMapShapesTests: XCTestCase {
+
+    /// The track up to its last whole minute and the live end from there, sharing the cut point (6.10.0).
+    func testTheTrackSplitsAtItsLastWholeMinute() {
+        let t0 = Date(timeIntervalSinceReferenceDate: 60 * 1_000)
+        let track = (0..<30).map { GPSPoint(latitude: 47, longitude: 7 + Double($0) / 1000, altitude: 500,
+                                            timestamp: t0.addingTimeInterval(Double($0) * 5)) }
+        // 29 × 5 s = 145 s: the last whole minute is t0 + 120 s, point 24.
+        let (history, tail) = PilotMapShapes.splitTrack(track)
+        XCTAssertEqual(history.count, 25)
+        XCTAssertEqual(tail.first?.id, history.last?.id, "the line is whole")
+        XCTAssertEqual(tail.last?.id, track.last?.id)
+        // Three points later the history is the same, so the map isn't sent it again.
+        let later = track + (30..<33).map { GPSPoint(latitude: 47, longitude: 7, altitude: 500,
+                                                     timestamp: t0.addingTimeInterval(Double($0) * 5)) }
+        XCTAssertEqual(PilotMapShapes.splitTrack(later).history.last?.id, history.last?.id)
+        XCTAssertTrue(PilotMapShapes.splitTrack([]).history.isEmpty)
+    }
+    /// The line to a diversion field starts at the aircraft as drawn (it started at a fix kept for 150 m of flight).
+    func testTheDiversionLineStartsWhereTheAircraftIsDrawn() {
+        let drawn = CLLocationCoordinate2D(latitude: 46.9995, longitude: 7.0002)
+        let field = CLLocationCoordinate2D(latitude: 47.3, longitude: 7.4)
+        XCTAssertEqual(PilotMapShapes.diversionLine(from: drawn, to: field).count, 2)
+        XCTAssertTrue(PilotMapShapes.diversionLine(from: nil, to: field).isEmpty)
+        XCTAssertTrue(PilotMapShapes.diversionLine(from: drawn, to: nil).isEmpty, "not diverting: no line")
+        XCTAssertFalse(PilotMapShapes.Group.allCases.map(\.sourceID).contains("aero.trackVector"),
+                       "the track vector is a view on the aircraft, not a line of the map's (finding 10)")
+    }
+
+    /// The track reaches the aircraft (the author, 11 Nov: a hole just behind it, filling again): a point every 5 s,
+    /// so a last line from the last recorded point to the aircraft as drawn; gliding, the aircraft is drawn a moment
+    /// behind its latest fix, so the line stops at the last point it has passed.
+    func testTheTrackReachesTheAircraftAsDrawn() {
+        let t0 = Date(timeIntervalSinceReferenceDate: 60 * 1_000)
+        let points = (0..<4).map { GPSPoint(latitude: 47, longitude: 7 + Double($0) / 1000, altitude: 500,
+                                            timestamp: t0.addingTimeInterval(Double($0) * 5)) }
+        let tail = points[...]
+        XCTAssertEqual(PilotMapShapes.passed(tail, at: t0.addingTimeInterval(11)).count, 3, "points 0, 1, 2 passed")
+        XCTAssertEqual(PilotMapShapes.passed(tail, at: t0.addingTimeInterval(99)).count, 4)
+        XCTAssertEqual(PilotMapShapes.passed(tail, at: t0.addingTimeInterval(-1)).count, 1, "the cut point always")
+        XCTAssertTrue(PilotMapShapes.passed([], at: t0).isEmpty)
+
+        let last = CLLocationCoordinate2D(latitude: 47, longitude: 7.002)
+        let aircraft = CLLocationCoordinate2D(latitude: 47, longitude: 7.0027)
+        XCTAssertEqual(PilotMapShapes.liveEnd(from: last, to: aircraft).count, 2)
+        XCTAssertTrue(PilotMapShapes.liveEnd(from: last, to: last).isEmpty, "on its point: no line")
+        XCTAssertTrue(PilotMapShapes.liveEnd(from: nil, to: aircraft).isEmpty)
+        XCTAssertTrue(PilotMapShapes.liveEnd(from: last, to: nil).isEmpty)
+    }
+
     private let traits = UITraitCollection(userInterfaceStyle: .light)
 
     private func line(_ coords: [CLLocationCoordinate2D]) -> MKPolyline {

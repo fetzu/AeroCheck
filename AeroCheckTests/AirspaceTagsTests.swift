@@ -41,6 +41,32 @@ final class AirspaceTagsTests: XCTestCase {
         XCTAssertEqual(AirspaceTagContent.badge(airspace(.tmz)), "TMZ")
     }
 
+    /// The tags are placed again only when their key changes, or the zoom, or 2 s pass (device pass, 9 Nov 2026).
+    @MainActor
+    func testTheTagsKeyChangesWithAnAirspacesShapeAndANotamCircleFitting() {
+        let lsr7 = AirspaceRelevantTag(airspace: airspace(.restricted), kind: .atLevel, weight: 1, distanceNM: 2)
+        let lsr7Floor = AirspaceRelevantTag(airspace: airspace(.restricted), kind: .floor, weight: 1, distanceNM: 2)
+        let farther = AirspaceRelevantTag(airspace: airspace(.restricted), kind: .atLevel, weight: 0.4, distanceNM: 9)
+        let circle = NotamMapContent.Item(notam: Notam(id: "1", number: "A1/26", location: "LFSB", text: "AREA"),
+                                          shape: .area(radiusNm: 3), latitude: 47.5, longitude: 7.5)
+        XCTAssertEqual(PilotMapMarkers.tagKey([lsr7], []), PilotMapMarkers.tagKey([farther], []),
+                       "its distance and weight change nothing on the tag")
+        XCTAssertNotEqual(PilotMapMarkers.tagKey([lsr7], []), PilotMapMarkers.tagKey([lsr7Floor], []))
+        XCTAssertNotEqual(PilotMapMarkers.tagKey([lsr7], [(circle, true)]), PilotMapMarkers.tagKey([lsr7], [(circle, false)]))
+        XCTAssertNotEqual(PilotMapMarkers.tagKey([lsr7], []), PilotMapMarkers.tagKey([lsr7], [(circle, true)]))
+    }
+
+    @MainActor
+    func testANotamCircleTakesATagFromFourteenPointsInsideFromNinety() {
+        let circle = { (id: String) in NotamMapContent.Item(notam: Notam(id: id, number: "A\(id)/26", location: "LFSB", text: "AREA"),
+                                                           shape: .area(radiusNm: 1), latitude: 47.5, longitude: 7.5) }
+        // 1 NM = 1,852 m: 100 m a point makes 18.5 points, 10 m a point 185.
+        XCTAssertTrue(PilotMapMarkers.notamTagItems([circle("1")], metersPerPoint: 200).isEmpty, "9 points: too small")
+        XCTAssertEqual(PilotMapMarkers.notamTagItems([circle("1")], metersPerPoint: 100).map(\.inside), [false])
+        XCTAssertEqual(PilotMapMarkers.notamTagItems([circle("1")], metersPerPoint: 10).map(\.inside), [true])
+        XCTAssertEqual(PilotMapMarkers.notamTagItems((1...12).map { circle("\($0)") }, metersPerPoint: 10).count, 8, "eight at most")
+    }
+
     func testAFullTagIsTallerThanAnArrow() {
         let full = AirspaceTagContent(AirspaceRelevantTag(airspace: airspace(.restricted), kind: .atLevel, weight: 0, distanceNM: 0))
         let arrow = AirspaceTagContent(AirspaceRelevantTag(airspace: airspace(.restricted), kind: .floor, weight: 0.5, distanceNM: 0))

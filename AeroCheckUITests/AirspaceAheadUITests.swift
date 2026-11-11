@@ -65,6 +65,50 @@ final class AirspaceAheadUITests: XCTestCase {
         pilot.check("ah-4", spans <= 1, "no flicker: \(spans) stretch(es) of the CTR's state")
     }
 
+    /// na-1 to na-3 (6.10.0): an area a NOTAM draws abroad counts like an R area. ahead-notam goes west from LSZQ into France
+    /// at 4,500 ft, into a circle of 1 NM that a NOTAM of the run's own makes (`notams-ahead/`, written beside the scenarios
+    /// by `scenarios.py`): GATE is on its east edge, so the mark wp2 is the moment of entry. Without the app's change no
+    /// NOTAM ever reaches the slot.
+    func testANotamsAreaAbroadAheadThenItsCard() throws {
+        let pilot = try CockpitPilot.onDeviceData(self, scenario: "ahead-notam", page: "6100")
+        defer { pilot.attachResults(testName: name) }
+        guard let scenarios = ProcessInfo.processInfo.environment["AEROCHECK_SCENARIOS"], !scenarios.isEmpty,
+              FileManager.default.fileExists(atPath: scenarios + "/notams-ahead/index.json") else {
+            throw XCTSkip("no notams-ahead/ beside the scenarios: scenarios.py writes it")
+        }
+        pilot.app.launchEnvironment["AEROCHECK_NOTAM_DIR"] = scenarios + "/notams-ahead"
+        let s = pilot.scenario
+        pilot.launch()
+        guard pilot.departToClimb() else { return XCTFail("never reached the climb check") }
+        pilot.showPane("map")
+
+        let entry = s.mark("wp2")
+        let name = "NOTAM X0001/26"
+        var tapped = false
+        let log = SlotEntry.watch(pilot, untilTrack: entry + 60) { reading in
+            guard !tapped, reading.isAhead(of: name), pilot.trackNow < entry - 20 else { return }
+            tapped = true
+            pilot.shot("na-1", "ahead")
+            pilot.tap(reading.identifier, timeout: 2)
+            let card = pilot.waitFor("map.airspaceStack", timeout: 3) != nil
+            pilot.shot("na-2", "card")
+            pilot.check("na-2", card, "the slot's tap opens the area at the entry, at \(Int(pilot.trackNow)) s")
+            let named = pilot.texts(containing: "R NOTAM X0001/26")
+            let times = pilot.texts(containing: "UTC").filter { $0.hasPrefix("Active") }
+            pilot.check("na-2", !named.isEmpty && !times.isEmpty, "the card names the area and gives the NOTAM's times: \(named) \(times)")
+            pilot.check("na-2", pilot.texts(containing: "DABS").isEmpty, "no word of the DABS abroad: \(pilot.texts(containing: "DABS"))")
+            pilot.app.buttons["Close"].firstMatch.tap()
+        }
+        pilot.attach(SlotEntry.summary(log), name: "slot-ahead-notam")
+        let area = log.filter { $0.isAhead(of: name) }
+        pilot.check("na-1", !area.isEmpty, "the NOTAM's area in the slot: \(SlotEntry.summary(log))")
+        let amber = area.first { $0.isCaution }
+        pilot.check("na-3", amber.map { $0.t >= entry - 150 && $0.t <= entry } ?? false,
+                    "amber \(amber.map { "\"\($0.label)\" \(Int(entry - $0.t)) s before the area" } ?? "never shown"), like an R area")
+        let inside = log.filter { $0.t > entry + 30 && $0.isAhead(of: name) }
+        pilot.check("na-3", inside.isEmpty, "inside the area: \(inside.isEmpty ? "no longer shown" : SlotEntry.summary(inside))")
+    }
+
     /// ah-5: EVERY AIRSPACE from Menu: the row, the chip at the map's foot, and the chip's tap turns it off.
     func testAllLimitsFromTheMenu() throws {
         let pilot = try CockpitPilot.onDeviceData(self, scenario: "ahead-grenchen", page: "690")

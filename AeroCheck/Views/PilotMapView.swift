@@ -619,7 +619,9 @@ struct PilotMapView: UIViewRepresentable {
             let rate = (FlightClock.virtual?.rate).map { $0 > 0 ? $0 : 1 } ?? 1
             // On the aircraft, the glide after a gap starts from where the camera is.
             let resting = MainActor.assumeIsolated { markers.ridesCentre }
-            glideHistory.note(GlideFix(time: fix.timestamp, coordinate: fix.coordinate, heading: map.mapState.cameraHeading),
+            let course = map.cachedHeading ?? (fix.course >= 0 ? fix.course : nil)
+            glideHistory.note(GlideFix(time: fix.timestamp, coordinate: fix.coordinate, heading: map.mapState.cameraHeading,
+                                       course: course),
                               rate: rate, restingAt: resting ? mapView.centerCoordinate : nil)
         }
 
@@ -672,11 +674,13 @@ struct PilotMapView: UIViewRepresentable {
 
         // MARK: The drive
 
-        /// A fix the camera passes through: its own time, where, and the camera's heading for it (track-up).
+        /// A fix the camera passes through: its own time, where, the camera's heading for it (track-up), and the
+        /// aircraft's course there (nil when unknown), which turns its icon.
         struct GlideFix: Equatable {
             let time: Date
             let coordinate: CLLocationCoordinate2D
             let heading: Double
+            var course: Double?
 
             static func == (a: GlideFix, b: GlideFix) -> Bool {
                 a.time == b.time && Coordinator.same(a.coordinate, b.coordinate) && a.heading == b.heading
@@ -707,7 +711,7 @@ struct PilotMapView: UIViewRepresentable {
                 guard step < Coordinator.glideGap else {
                     let usual = (interval ?? 1 / rate) * rate
                     fixes = [GlideFix(time: fix.time.addingTimeInterval(-usual), coordinate: restingAt ?? last.coordinate,
-                                      heading: fix.heading), fix]
+                                      heading: fix.heading, course: fix.course), fix]
                     return
                 }
                 interval = interval.map { 0.7 * $0 + 0.3 * step } ?? step
@@ -719,7 +723,7 @@ struct PilotMapView: UIViewRepresentable {
             /// (the fixes before are dropped); and every heading is the camera's own now.
             mutating func start(now: Date, rate: Double, heading: Double) {
                 if let last = fixes.last, now.timeIntervalSince(last.time) / max(rate, 1e-6) > Coordinator.glideGap { fixes = [last] }
-                fixes = fixes.map { GlideFix(time: $0.time, coordinate: $0.coordinate, heading: heading) }
+                fixes = fixes.map { GlideFix(time: $0.time, coordinate: $0.coordinate, heading: heading, course: $0.course) }
             }
 
             /// Only the latest fix: the ones before are screens away.
@@ -796,12 +800,30 @@ struct PilotMapView: UIViewRepresentable {
         /// (`leaveAircraft`) or the drive takes it on.
         func stopGlide() {
             glideActive = false
+            glideLook?.cancel()
+            glideLook = nil
             glideEntry = nil
             glideZoom = nil
             glideZoomLevel = nil
         }
 
+        /// The drive's next look when it had nothing to draw: a frame's time later, by a timer of its own.
+        private var glideLook: DispatchWorkItem?
+
+        private func glideLookAgain() {
+            glideLook?.cancel()
+            let look = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.glideLook = nil
+                if self.glideActive { self.glideTick() }
+            }
+            glideLook = look
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1 / Double(glideFrameRate ?? 30), execute: look)
+        }
+
         private func glideTick() {
+            glideLook?.cancel()
+            glideLook = nil
             guard let mapView = glideMap, mapView.window != nil, !isUserInteracting,
                   UIApplication.shared.applicationState != .background else {
                 stopGlide()
@@ -872,16 +894,25 @@ struct PilotMapView: UIViewRepresentable {
                 mapView.setCenter(coordinate, zoomLevel: zoomTarget, direction: turned ? place.heading : mapView.direction,
                                   animated: false)
                 glideMoving = false
-            } else {
-                // Less than half a pixel to go: the same camera, so MapLibre would draw no next frame and the drive
-                // would stall until the next fix, then jump. It asks for the frame itself.
-                mapView.triggerRepaint()
+            } else if !zoomUnderWay {
+                // Less than half a pixel to go: the same camera, so MapLibre draws no next frame and the drive would
+                // stall until the next fix, then jump. It looks again a frame later, without drawing one: asking
+                // for the frame itself, it drew the same picture again and again (zoomed out in cruise the map moves
+                // a pixel or two a second, and eight frames in ten were for nothing, 11 Nov).
+                glideLookAgain()
             }
             // The lines that start at the aircraft start where it is drawn now: the track's end, the track vector,
             // the line to a diversion field. They started at the latest fix, a second's flight ahead of the aircraft
             // as drawn (the author, 11 Nov: "the line ahead has empty spots").
+            let course = Self.glideCourse(glideHistory.fixes, at: shown)
+            // Nothing drawn anew: the icon alone may turn (its view's, no frame of the map's).
+            let drawn = step != .zero || turned || zooming || markerPlace != nil
             MainActor.assumeIsolated {
-                markers.ride(at: markerPlace, on: mapView)
+                markers.ride(at: markerPlace, course: course, on: mapView)
+                guard drawn else {
+                    markers.turnAircraft(on: mapView)
+                    return
+                }
                 if let style {
                     shapes.aircraftAsDrawn = (markerPlace ?? coordinate, shown)
                     shapes.syncAircraftLines(map, style: style, traits: mapView.traitCollection)
@@ -890,7 +921,7 @@ struct PilotMapView: UIViewRepresentable {
             // A zoom under way asks for its next frame itself: its first is where the camera already is, and with the
             // aircraft held nothing else changed, so MapLibre drew nothing more (a tap waited 4.6 s, 11 Nov).
             if zoomUnderWay { mapView.triggerRepaint() }
-            MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) }
+            if drawn { MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) } }
             // Caught up with a fix that no other follows (parked), or the clock stopped (a dry run paused or held: it
             // drew the same frame ten times a second and more until the pilot went on): the drive rests, the map
             // with it.
@@ -912,8 +943,28 @@ struct PilotMapView: UIViewRepresentable {
         /// `reach` (a fix a little late never stops the map), then held there.
         static func glidePosition(_ fixes: [GlideFix], at time: Date,
                                   reach: TimeInterval) -> (coordinate: CLLocationCoordinate2D, heading: Double)? {
-            guard let first = fixes.first, let last = fixes.last else { return nil }
-            if time <= first.time || fixes.count == 1 { return (first.coordinate, first.heading) }
+            guard let first = fixes.first else { return nil }
+            guard let (a, b, along) = around(fixes, at: time, reach: reach) else { return (first.coordinate, first.heading) }
+            let coordinate = CLLocationCoordinate2D(
+                latitude: a.coordinate.latitude + (b.coordinate.latitude - a.coordinate.latitude) * along,
+                longitude: a.coordinate.longitude + (b.coordinate.longitude - a.coordinate.longitude) * along)
+            return (coordinate, turn(from: a.heading, to: b.heading, by: min(along, 1)))
+        }
+
+        /// The aircraft's course at `time`, turned the short way between the two fixes around it: the icon turns with
+        /// the glide. It took each fix's course at once, a second's flight ahead of where it is drawn: in a turn it
+        /// stepped once a second, and on a track-up map it rocked against the map's own smooth turn. Nil with no
+        /// course known.
+        static func glideCourse(_ fixes: [GlideFix], at time: Date) -> Double? {
+            guard let (a, b, along) = around(fixes, at: time, reach: 0) else { return fixes.first?.course }
+            guard let from = a.course, let to = b.course else { return b.course ?? a.course }
+            return turn(from: from, to: to, by: min(along, 1))
+        }
+
+        /// The two fixes around `time` and how far along from the first to the second (past 1 by `reach` after the
+        /// last fix). Nil before the first fix, or with one fix only.
+        private static func around(_ fixes: [GlideFix], at time: Date, reach: TimeInterval) -> (GlideFix, GlideFix, Double)? {
+            guard let first = fixes.first, let last = fixes.last, fixes.count > 1, time > first.time else { return nil }
             var a = fixes[fixes.count - 2], b = last
             for (p, q) in zip(fixes, fixes.dropFirst()) where time <= q.time {
                 a = p
@@ -921,14 +972,15 @@ struct PilotMapView: UIViewRepresentable {
                 break
             }
             let span = max(b.time.timeIntervalSince(a.time), 0.001)
-            let along = min(time.timeIntervalSince(a.time), span + max(reach, 0)) / span
-            let coordinate = CLLocationCoordinate2D(
-                latitude: a.coordinate.latitude + (b.coordinate.latitude - a.coordinate.latitude) * along,
-                longitude: a.coordinate.longitude + (b.coordinate.longitude - a.coordinate.longitude) * along)
-            var turn = (b.heading - a.heading).truncatingRemainder(dividingBy: 360)
+            return (a, b, min(time.timeIntervalSince(a.time), span + max(reach, 0)) / span)
+        }
+
+        /// From one direction to another the short way, `share` (0 to 1) of the turn, in 0..<360.
+        static func turn(from: Double, to: Double, by share: Double) -> Double {
+            var turn = (to - from).truncatingRemainder(dividingBy: 360)
             if turn > 180 { turn -= 360 } else if turn < -180 { turn += 360 }
-            let heading = (a.heading + turn * min(along, 1)).truncatingRemainder(dividingBy: 360)
-            return (coordinate, heading < 0 ? heading + 360 : heading)
+            let direction = (from + turn * share).truncatingRemainder(dividingBy: 360)
+            return direction < 0 ? direction + 360 : direction
         }
 
         /// How long after its own time a fix is shown: one interval between fixes and a margin for a fix that comes

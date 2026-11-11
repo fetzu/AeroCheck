@@ -33,6 +33,8 @@ final class PilotMapMarkers {
     /// Where the drive puts the marker while it eases onto the aircraft's place (the pilot asked to follow again);
     /// nil once it is there: the camera's centre.
     private var drivenPlace: CLLocationCoordinate2D?
+    /// The drive turns the icon too, to the aircraft's course where it is drawn.
+    private var drivenCourse = false
     /// The airspace's tags on the map, and when they were last placed.
     private var tags: [String: PilotMarker] = [:]
     private var tagsPlaced = Date.distantPast
@@ -211,15 +213,26 @@ final class PilotMapMarkers {
             if aircraftShown { mapView.removeAnnotation(aircraft); aircraftShown = false }
             return
         }
-        aircraft.heading = map.cachedHeading ?? (location.course >= 0 ? location.course : 0)
         if !map.isFollowingAircraft {
             ridesCentre = false
             drivenPlace = nil
+        }
+        // Riding the centre, the drive turns it as it moves it.
+        if !(ridesCentre && drivenCourse) {
+            drivenCourse = false
+            aircraft.heading = map.cachedHeading ?? (location.course >= 0 ? location.course : 0)
         }
         // Riding the centre, the glide brings it to the fix with the map.
         if !ridesCentre { place(at: location.coordinate) }
         if !aircraftShown { mapView.addAnnotation(aircraft); aircraftShown = true }
         turnAircraft(on: mapView)
+    }
+
+    /// Exactly there, and nothing when it is: a marker moved, even onto its own place, has the map draw a frame.
+    private func put(at coordinate: CLLocationCoordinate2D) {
+        if aircraft.coordinate.latitude != coordinate.latitude || aircraft.coordinate.longitude != coordinate.longitude {
+            aircraft.coordinate = coordinate
+        }
     }
 
     private func place(at coordinate: CLLocationCoordinate2D) {
@@ -230,10 +243,14 @@ final class PilotMapMarkers {
 
     /// The marker is the drive's from now on: at `place` while it eases onto the aircraft's place, then (nil) on the
     /// camera's centre, where the follow keeps the aircraft.
-    func ride(at place: CLLocationCoordinate2D?, on mapView: MLNMapView) {
+    func ride(at place: CLLocationCoordinate2D?, course: Double? = nil, on mapView: MLNMapView) {
         ridesCentre = true
         drivenPlace = place
-        if aircraftShown { aircraft.coordinate = place ?? mapView.centerCoordinate }
+        if let course {
+            drivenCourse = true
+            aircraft.heading = course
+        }
+        if aircraftShown { put(at: place ?? mapView.centerCoordinate) }
     }
 
     /// Where the marker is now: nil when it isn't on the map.
@@ -244,6 +261,7 @@ final class PilotMapMarkers {
         guard ridesCentre else { return }
         ridesCentre = false
         drivenPlace = nil
+        drivenCourse = false
         if let fix { place(at: fix) }
     }
 
@@ -257,7 +275,7 @@ final class PilotMapMarkers {
 
     /// The ownship turned to its heading on screen: its view stays upright with the map, so a track-up map's turn
     /// comes off. The symbol points east.
-    private func turnAircraft(on mapView: MLNMapView) {
+    func turnAircraft(on mapView: MLNMapView) {
         guard aircraftShown, let view = mapView.view(for: aircraft) else { return }
         view.transform = CGAffineTransform(rotationAngle: CGFloat((aircraft.heading - mapView.direction - 90) * .pi / 180))
     }
@@ -455,7 +473,7 @@ final class PilotMapMarkers {
     /// (MapKit's collision), which waits for the map to stop.
     func layout(on mapView: MLNMapView, atRest: Bool) {
         // Each frame of a glide: the aircraft where the camera is now.
-        if ridesCentre, aircraftShown { aircraft.coordinate = drivenPlace ?? mapView.centerCoordinate }
+        if ridesCentre, aircraftShown { put(at: drivenPlace ?? mapView.centerCoordinate) }
         let labels = markers.values.filter { $0.base is VFRProcedureAnnotation }
         let heading = mapView.direction
         if !labels.isEmpty, pillsFor.map({ abs($0.heading - heading) > 0.5 || abs($0.zoom - mapView.zoomLevel) > 0.05 }) ?? true {

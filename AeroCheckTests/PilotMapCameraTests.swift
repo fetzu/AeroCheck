@@ -168,6 +168,33 @@ final class PilotMapCameraTests: XCTestCase {
         XCTAssertNil(C.glidePosition([], at: t0, reach: 1))
     }
 
+    /// The icon turns with the glide: the aircraft's course where it is drawn, between the two fixes around that
+    /// moment, the short way round (it took each fix's course at once, and stepped once a second in a turn).
+    func testTheIconTurnsWithTheGlide() {
+        typealias C = PilotMapView.Coordinator
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        func fix(_ t: Double, course: Double?) -> C.GlideFix {
+            C.GlideFix(time: t0 + t, coordinate: .init(latitude: 47, longitude: 7), heading: 0, course: course)
+        }
+        let turning = [fix(0, course: 350), fix(1, course: 20), fix(2, course: 50)]
+        XCTAssertEqual(C.glideCourse(turning, at: t0 + 0.5) ?? -1, 5, accuracy: 1e-9, "350 to 20: through north")
+        XCTAssertEqual(C.glideCourse(turning, at: t0 + 1.5) ?? -1, 35, accuracy: 1e-9)
+        XCTAssertEqual(C.glideCourse(turning, at: t0 + 9) ?? -1, 50, accuracy: 1e-9, "past the last fix: its course, no further")
+        XCTAssertEqual(C.glideCourse(turning, at: t0 - 1) ?? -1, 350, accuracy: 1e-9)
+        XCTAssertEqual(C.glideCourse([fix(0, course: nil), fix(1, course: 90)], at: t0 + 0.5), 90, "one course known: that one")
+        XCTAssertNil(C.glideCourse([fix(0, course: nil), fix(1, course: nil)], at: t0 + 0.5))
+        XCTAssertNil(C.glideCourse([], at: t0))
+        XCTAssertEqual(C.turn(from: 10, to: 350, by: 0.5), 0, accuracy: 1e-9)
+        XCTAssertEqual(C.turn(from: 0, to: 180, by: 1), 180, accuracy: 1e-9)
+        // The history keeps each fix's course through a start (only the camera's heading is taken anew).
+        var history = C.GlideHistory()
+        history.note(fix(0, course: 80), rate: 1)
+        history.note(fix(1, course: 90), rate: 1)
+        history.start(now: t0 + 1.2, rate: 1, heading: 33)
+        XCTAssertEqual(history.fixes.map(\.course), [80, 90])
+        XCTAssertEqual(history.fixes.map(\.heading), [33, 33])
+    }
+
     /// The zoom buttons stop at the chart's own limits, and say so: + greyed at the closest, − at the farthest
     /// (device check h-4, round 7: at the limit the scale changed and the map didn't).
     func testTheZoomButtonsStopAtTheChartsLimits() {

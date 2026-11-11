@@ -30,6 +30,9 @@ final class PilotMapMarkers {
     /// two fixes (`PilotMapView.Coordinator.follow`), instead of jumping to each fix ahead of the map (6.10.0, the
     /// author's device check f-1: "the plane icon moving a step, and THEN the map refresh underneath it").
     private(set) var ridesCentre = false
+    /// Where the drive puts the marker while it eases onto the aircraft's place (the pilot asked to follow again);
+    /// nil once it is there: the camera's centre.
+    private var drivenPlace: CLLocationCoordinate2D?
     /// The airspace's tags on the map, and when they were last placed.
     private var tags: [String: PilotMarker] = [:]
     private var tagsPlaced = Date.distantPast
@@ -209,7 +212,10 @@ final class PilotMapMarkers {
             return
         }
         aircraft.heading = map.cachedHeading ?? (location.course >= 0 ? location.course : 0)
-        if !map.isFollowingAircraft { ridesCentre = false }
+        if !map.isFollowingAircraft {
+            ridesCentre = false
+            drivenPlace = nil
+        }
         // Riding the centre, the glide brings it to the fix with the map.
         if !ridesCentre { place(at: location.coordinate) }
         if !aircraftShown { mapView.addAnnotation(aircraft); aircraftShown = true }
@@ -222,16 +228,22 @@ final class PilotMapMarkers {
         if moved { aircraft.coordinate = coordinate }
     }
 
-    /// The marker on the camera's centre from now on, where the follow keeps the aircraft.
-    func rideCentre(on mapView: MLNMapView) {
+    /// The marker is the drive's from now on: at `place` while it eases onto the aircraft's place, then (nil) on the
+    /// camera's centre, where the follow keeps the aircraft.
+    func ride(at place: CLLocationCoordinate2D?, on mapView: MLNMapView) {
         ridesCentre = true
-        if aircraftShown { aircraft.coordinate = mapView.centerCoordinate }
+        drivenPlace = place
+        if aircraftShown { aircraft.coordinate = place ?? mapView.centerCoordinate }
     }
+
+    /// Where the marker is now: nil when it isn't on the map.
+    var aircraftCoordinate: CLLocationCoordinate2D? { aircraftShown ? aircraft.coordinate : nil }
 
     /// Back on its own fix: a finger, the legs panel, a fit or a long jump took the camera.
     func leaveCentre(at fix: CLLocationCoordinate2D?) {
         guard ridesCentre else { return }
         ridesCentre = false
+        drivenPlace = nil
         if let fix { place(at: fix) }
     }
 
@@ -443,7 +455,7 @@ final class PilotMapMarkers {
     /// (MapKit's collision), which waits for the map to stop.
     func layout(on mapView: MLNMapView, atRest: Bool) {
         // Each frame of a glide: the aircraft where the camera is now.
-        if ridesCentre, aircraftShown { aircraft.coordinate = mapView.centerCoordinate }
+        if ridesCentre, aircraftShown { aircraft.coordinate = drivenPlace ?? mapView.centerCoordinate }
         let labels = markers.values.filter { $0.base is VFRProcedureAnnotation }
         let heading = mapView.direction
         if !labels.isEmpty, pillsFor.map({ abs($0.heading - heading) > 0.5 || abs($0.zoom - mapView.zoomLevel) > 0.05 }) ?? true {

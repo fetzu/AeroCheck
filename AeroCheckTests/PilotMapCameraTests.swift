@@ -60,42 +60,93 @@ final class PilotMapCameraTests: XCTestCase {
         XCTAssertNil(PlannedRouteLayer.closestSegment(to: CGPoint(x: 150, y: 250), points: points, maxPointDistance: 22))
     }
 
-    /// The follow's glide (6.10.0, device check f-1): as long as since the last fix, so the map arrives as the next one
-    /// is due; never with Reduce Motion, after a gap, for a jump of a third of the map or more, or with the aircraft
-    /// off the centre to start from.
-    func testTheFollowGlidesAsLongAsSinceTheLastFix() {
+    /// The follow's frames (6.10.0, device check f-1): about a point a frame, a rate that divides 60: 10 at the least
+    /// (cruise at 1x), 30 at the most (30x). And each fix is shown a fixed delay after its own time: one interval and a
+    /// margin (the author's g-2, round 6: smooth a few frames, then a hitch).
+    func testTheGlidesFramesAndDelay() {
         typealias C = PilotMapView.Coordinator
-        let size = CGSize(width: 820, height: 600)
-        XCTAssertEqual(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), 1.0)
-        XCTAssertEqual(C.glidePace(since: 0.01, jump: 1, mapSize: size, onCentre: true, reduceMotion: false), 0.02,
-                       "two fixes in a moment: 20 ms at the least")
-        XCTAssertNil(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: true, reduceMotion: true))
-        XCTAssertNil(C.glidePace(since: C.glideGap, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), "a gap")
-        XCTAssertNil(C.glidePace(since: 1.0, jump: 200, mapSize: size, onCentre: true, reduceMotion: false), "a long jump")
-        XCTAssertNil(C.glidePace(since: 1.0, jump: 5, mapSize: size, onCentre: false, reduceMotion: false),
-                     "the pilot just asked to follow again")
-        // About a point a frame, a rate that divides 60: 10 at the least (cruise at 1x), 30 at the most (30x).
         XCTAssertEqual(C.glideFrames(pointsPerSecond: 5), 10)
         XCTAssertEqual(C.glideFrames(pointsPerSecond: 14), 15)
         XCTAssertEqual(C.glideFrames(pointsPerSecond: 20), 20)
         XCTAssertEqual(C.glideFrames(pointsPerSecond: 160), 30)
+        XCTAssertEqual(C.glideDelay(interval: 1.0 / 30), 1.0 / 30 + 0.1, accuracy: 1e-9)
+        XCTAssertEqual(C.glideDelay(interval: 1.0), 1.1, accuracy: 1e-9, "in flight: 1.1 s")
     }
 
-    /// One fix, then two in the same 50 ms (a dry run at 30x), or one late: each is shown a fixed delay after its own
-    /// time, so the map covers them at the aircraft's pace, never one speed then twice it, never waiting (the author's
-    /// g-2, round 6: smooth a few frames, then a hitch).
-    func testTheGlideShowsEachFixAFixedDelayAfterItsTime() {
+    /// The follow is the pilot's flag and the shared state's centre on the aircraft, whatever the zoom (the author,
+    /// 11 Nov: after a pan and Centre the map went step by step, for good when zoomed in, where a second's flight was
+    /// further on screen than the old rule allowed): the latest fix, the one before (the state is a turn late), or the
+    /// fix the camera is gliding to.
+    func testTheFollowIsTheStatesCentreOnTheAircraft() {
         typealias C = PilotMapView.Coordinator
-        let size = CGSize(width: 820, height: 600)
-        let delay = C.glideDelay(interval: 1.0 / 30)
-        XCTAssertEqual(delay, 1.0 / 30 + 0.1, accuracy: 1e-9)
-        XCTAssertEqual(C.glideDelay(interval: 1.0), 1.1, accuracy: 1e-9, "in flight: 1.1 s")
-        // Taken 10 ms ago, or 40 ms ago (late): the glide ends at the same moment after each fix's own time.
-        let fresh = C.glidePace(since: 0.05, jump: 5, mapSize: size, onCentre: true, reduceMotion: false, age: 0.01, delay: delay)!
-        let late = C.glidePace(since: 0.05, jump: 5, mapSize: size, onCentre: true, reduceMotion: false, age: 0.04, delay: delay)!
-        XCTAssertEqual(fresh - late, 0.03, accuracy: 1e-9)
-        XCTAssertEqual(C.glidePace(since: 0.8, jump: 5, mapSize: size, onCentre: true, reduceMotion: false), 0.8,
-                       "no time on the fix: as long as since the last one")
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let fixes = (0..<5).map { C.GlideFix(time: t0 + Double($0), coordinate: .init(latitude: 47 + Double($0) / 1000, longitude: 7), heading: 0) }
+        XCTAssertTrue(C.follows(.init(latitude: 47.004, longitude: 7), fixes: fixes, target: nil), "the latest fix")
+        XCTAssertTrue(C.follows(.init(latitude: 47.003, longitude: 7), fixes: fixes, target: nil), "the fix before")
+        XCTAssertFalse(C.follows(.init(latitude: 47.0005, longitude: 7.01), fixes: fixes, target: nil), "panned away")
+        XCTAssertFalse(C.follows(.init(latitude: 47, longitude: 7), fixes: fixes, target: nil), "a fix long passed")
+        XCTAssertTrue(C.follows(.init(latitude: 46.5, longitude: 7), fixes: fixes, target: .init(latitude: 46.5, longitude: 7)))
+        XCTAssertFalse(C.follows(.init(latitude: 47, longitude: 7), fixes: [], target: nil))
+    }
+
+    /// The aircraft's last fixes are kept whether the map follows or not, with how fast they come, so the drive can
+    /// take the camera the moment the pilot asks (11 Nov). After a gap the glide to the first fix starts an interval
+    /// before it, from where the aircraft is drawn: no hop, no wait.
+    func testTheFixHistoryKeepsTheFixesPaceAndBridgesAGap() {
+        typealias C = PilotMapView.Coordinator
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        func fix(_ t: Double, _ lat: Double, heading: Double = 0) -> C.GlideFix {
+            C.GlideFix(time: t0 + t, coordinate: .init(latitude: lat, longitude: 7), heading: heading)
+        }
+        var history = C.GlideHistory()
+        history.note(fix(0, 47), rate: 1)
+        XCTAssertNil(history.interval)
+        XCTAssertEqual(history.metresPerSecond, 0)
+        history.note(fix(1, 47.0005), rate: 1)
+        XCTAssertEqual(history.interval ?? 0, 1, accuracy: 1e-9)
+        XCTAssertEqual(history.metresPerSecond, 55.6, accuracy: 0.5, "0.0005° of latitude in a second")
+        history.note(fix(1, 47.0005, heading: 90), rate: 1)
+        XCTAssertEqual(history.fixes.count, 2, "the same fix again: in place")
+        XCTAssertEqual(history.fixes.last?.heading, 90)
+        history.note(fix(0.5, 47.1), rate: 1)
+        XCTAssertEqual(history.fixes.count, 2, "an older fix: left out")
+        for i in 2..<10 { history.note(fix(Double(i), 47 + Double(i) * 0.0005), rate: 1) }
+        XCTAssertEqual(history.fixes.count, 6)
+        // A gap, the camera resting a little past the last fix: one interval before the new fix, from there.
+        let resting = CLLocationCoordinate2D(latitude: 47.0046, longitude: 7)
+        history.note(fix(60, 47.005), rate: 1, restingAt: resting)
+        XCTAssertEqual(history.fixes.count, 2)
+        XCTAssertEqual(history.fixes[0].time, t0 + 59)
+        XCTAssertEqual(history.fixes[0].coordinate.latitude, 47.0046, accuracy: 1e-9)
+        XCTAssertEqual(history.interval ?? 0, 1, accuracy: 1e-9, "the pace from before the gap")
+        // A dry run at 30x: fixes a flight second apart come 33 ms apart, and a gap is 2.5 s of the wall clock.
+        var fast = C.GlideHistory()
+        fast.note(fix(0, 47), rate: 30)
+        fast.note(fix(1, 47.0005), rate: 30)
+        XCTAssertEqual(fast.interval ?? 0, 1.0 / 30, accuracy: 1e-9)
+        fast.note(fix(31, 47.01), rate: 30)
+        XCTAssertEqual(fast.fixes.count, 3, "31 flight seconds at 30x is one second: no gap")
+        // The drive starts: stale fixes say nothing of the way on, and the headings are the camera's now.
+        var parked = C.GlideHistory()
+        parked.note(fix(0, 47, heading: 10), rate: 1)
+        parked.note(fix(1, 47.0001, heading: 20), rate: 1)
+        parked.start(now: t0 + 1.5, rate: 1, heading: 0)
+        XCTAssertEqual(parked.fixes.map(\.heading), [0, 0])
+        parked.start(now: t0 + 30, rate: 1, heading: 0)
+        XCTAssertEqual(parked.fixes.count, 1)
+        XCTAssertEqual(parked.fixes[0].coordinate.latitude, 47.0001, accuracy: 1e-9)
+    }
+
+    /// Asked to follow again, the camera and the marker ease onto the aircraft's place in a third of a second, quick
+    /// first, exactly there at the end.
+    func testTheDriveEasesOntoTheAircraft() {
+        typealias C = PilotMapView.Coordinator
+        XCTAssertEqual(C.glideEntryDuration, 0.35)
+        XCTAssertEqual(C.entryLeft(progress: 0), 1)
+        XCTAssertEqual(C.entryLeft(progress: 1), 0)
+        XCTAssertEqual(C.entryLeft(progress: 4), 0)
+        XCTAssertEqual(C.entryLeft(progress: -1), 1)
+        XCTAssertLessThan(C.entryLeft(progress: 0.5), 0.2, "most of the way at half the time")
     }
 
     /// The drive's place at a moment: between the two fixes around it, on along the last leg a little past the last

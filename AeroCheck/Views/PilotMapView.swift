@@ -214,6 +214,7 @@ struct PilotMapView: UIViewRepresentable {
 
         func deferUpdate(of mapView: MLNMapView) {
             stopGlide()
+            leaveAircraft(on: mapView)
             deferredView = mapView
             guard activeObserver == nil else { return }
             activeObserver = NotificationCenter.default.addObserver(
@@ -505,17 +506,15 @@ struct PilotMapView: UIViewRepresentable {
         func applyCamera(on mapView: MLNMapView) {
             let state = map.mapState
             let map = self.map
+            noteFix(on: mapView)
             // The marker rides the centre only while a glide or a rest on the aircraft has the camera.
             var ridesOn = false
             defer {
                 if !ridesOn {
                     glideTarget = nil
-                    glideFixTime = nil
-                    glideInterval = nil
                     stopGlide()
                     setGlideFrameRate(nil, on: mapView)
-                    let fix = map.shownAircraft?.coordinate
-                        MainActor.assumeIsolated { markers.leaveCentre(at: fix) }
+                    leaveAircraft(on: mapView)
                 }
             }
             // The open legs panel's band has the camera until it has closed and put the pilot's back.
@@ -546,16 +545,17 @@ struct PilotMapView: UIViewRepresentable {
             }
             guard !isUserInteracting else { return }
             let region = state.region
-            // Following: the pilot's follow is on. A fix moves the aircraft at once and reaches the shared state's
-            // region a turn later (`updateFromRegion`): in between, the marker stays on the centre, unless the fix is
-            // far from it (the camera isn't following it: the nav sheet open).
-            let following = map.isFollowingAircraft && fixNearCentre(on: mapView)
-            // A glide on its way to this fix: nothing to ask again. A pass in between (any other change) would start
-            // it over, slower.
-            if following, let glideTarget, Self.same(glideTarget, region.center) {
+            // Following: the pilot's follow is on and the shared state's centre is the aircraft's. A fix reaches the
+            // state's region a turn after the aircraft (`updateFromRegion`), so the fix before counts too. Not how
+            // far the fix is on screen: zoomed in, a second's flight is 80 points, and the follow never took again
+            // after a pan (the author, 11 Nov: step by step for good at the higher zooms).
+            let following = map.isFollowingAircraft
+                && Self.follows(region.center, fixes: glideHistory.fixes, target: glideTarget)
+            // The drive on its way to this fix: nothing to ask again; a zoom tap meanwhile, it eases to it. At rest
+            // (parked after a flight) the pass goes on: a zoom tap there is MapLibre's to do, and was lost here.
+            if following, glideActive, let glideTarget, Self.same(glideTarget, region.center) {
                 ridesOn = true
-                // A zoom tap meanwhile: the drive eases to it, even with the aircraft held (parked, between fixes).
-                if glideActive { wakeGlide() }
+                wakeGlide()
                 return
             }
             let center = mapView.centerCoordinate
@@ -574,13 +574,16 @@ struct PilotMapView: UIViewRepresentable {
             }
             let camera = MLNMapCamera(lookingAtCenter: moved ? region.center : center,
                                       altitude: state.cameraDistance, pitch: 0, heading: state.cameraHeading)
-            if following, moved, let glide = glidePace(to: region.center, on: mapView) {
+            if following, moved, !glideHistory.fixes.isEmpty, !UIAccessibility.isReduceMotionEnabled {
                 ridesOn = true
                 glideTarget = region.center
-                MainActor.assumeIsolated { markers.rideCentre(on: mapView) }
-                setGlideFrameRate(glide.frames, on: mapView)
-                feedGlide(GlideFix(time: map.shownAircraft?.timestamp ?? FlightClock.now, coordinate: region.center,
-                                   heading: state.cameraHeading), on: mapView)
+                glideMap = mapView
+                glideMoved = glideHistory.fixes.last?.time
+                // Asked to follow again, or the first fix after a rest: the drive takes the camera from where it is.
+                if !glideActive { beginGlide(on: mapView) }
+                let speed = glideHistory.metresPerSecond / max(mapView.metersPerPoint(atLatitude: region.center.latitude), 1e-6)
+                setGlideFrameRate(glideEntry != nil ? 30 : Self.glideFrames(pointsPerSecond: speed), on: mapView)
+                wakeGlide()
                 return
             }
             // A turn or a zoom alone keeps the centre: the aircraft stays on it. Gliding, the drive eases to it: a
@@ -596,46 +599,75 @@ struct PilotMapView: UIViewRepresentable {
 
         // MARK: Glide
 
-        /// The fix the camera is gliding to, and when the follow last moved it.
+        /// The fix the camera is gliding to, and the time of the last fix that moved it: parked, the fixes still come
+        /// and the drive rests all the same.
         private var glideTarget: CLLocationCoordinate2D?
-        private var lastFollowMove: CFTimeInterval = 0
-        /// Longer than this between two fixes (a gap, a pause, the first fix) and the camera goes as before.
+        private var glideMoved: Date?
+        /// Longer than this between two fixes (a gap, a pause, parked) and the drive rests.
         static let glideGap: CFTimeInterval = 2.5
 
-        /// How long the glide to `target` takes: as long as since the last fix, so the map arrives as the next one
-        /// is due and never stops between (1 s in flight, 50 ms in a dry run at 30×). Nil when the camera should go
-        /// as before: Reduce Motion, a gap, a jump longer than a third of the map, or the aircraft not on the centre
-        /// to start from (the pilot just asked to follow again).
-        private func glidePace(to target: CLLocationCoordinate2D, on mapView: MLNMapView) -> (pace: TimeInterval, frames: Int)? {
-            let now = CACurrentMediaTime()
-            let since = now - lastFollowMove
-            lastFollowMove = now
-            let point = mapView.convert(target, toPointTo: mapView)
-            let jump = hypot(point.x - mapView.bounds.midX, point.y - mapView.bounds.midY)
-            let onCentre = MainActor.assumeIsolated {
-                markers.ridesCentre || (markers.aircraftOffset(on: mapView).map { $0 < 3 } ?? false)
-            }
-            // The fixes' own times, not when they arrived: the dry run hands out one fix, then two, in the same 50 ms
-            // (30 a second on a 20 Hz timer), and a GPS fix comes a little early or late. Timed by their arrival, the
-            // map ran at one speed then twice it and paused between: smooth a few frames, then a hitch (the author's
-            // g-2, round 6). Each fix is shown a fixed delay after its own time, the camera there just then.
+        /// The aircraft's last fixes, kept whether the map follows or not: asked to follow again, the drive knows
+        /// where the aircraft was a moment ago and how fast the fixes come, and takes the camera at once. It started
+        /// from nothing before, and only with the aircraft within 3 points of the centre: after a pan the map went
+        /// fix by fix, a slide and a stop each second, until a fix happened to move it less than that (the author,
+        /// 11 Nov: "a visible frame by frame for the first few seconds", for good when zoomed in).
+        private var glideHistory = GlideHistory()
+
+        /// The latest fix into the history, at every pass.
+        private func noteFix(on mapView: MLNMapView) {
+            guard let fix = map.shownAircraft else { return }
             let rate = (FlightClock.virtual?.rate).map { $0 > 0 ? $0 : 1 } ?? 1
-            let fixTime = map.shownAircraft?.timestamp
-            if let fixTime, let glideFixTime, fixTime > glideFixTime {
-                let interval = fixTime.timeIntervalSince(glideFixTime) / rate
-                glideInterval = glideInterval.map { 0.7 * $0 + 0.3 * interval } ?? interval
+            // On the aircraft, the glide after a gap starts from where the camera is.
+            let resting = MainActor.assumeIsolated { markers.ridesCentre }
+            glideHistory.note(GlideFix(time: fix.timestamp, coordinate: fix.coordinate, heading: map.mapState.cameraHeading),
+                              rate: rate, restingAt: resting ? mapView.centerCoordinate : nil)
+        }
+
+        /// The shared state's centre is the aircraft's: its latest fix, one of the last (the state is a turn late),
+        /// or the fix the camera is on its way to.
+        static func follows(_ centre: CLLocationCoordinate2D, fixes: [GlideFix], target: CLLocationCoordinate2D?) -> Bool {
+            if let target, same(target, centre) { return true }
+            return fixes.suffix(3).contains { same($0.coordinate, centre) }
+        }
+
+        /// The drive's start away from the aircraft's place (the pilot asked to follow again): how far the camera and
+        /// the marker were from it, in degrees, and since when. Both ease onto it; then the marker rides the centre.
+        private var glideEntry: (camera: CLLocationCoordinate2D, marker: CLLocationCoordinate2D, start: CFTimeInterval)?
+        /// As long as MapLibre's own move to the aircraft took.
+        static let glideEntryDuration: CFTimeInterval = 0.35
+
+        /// What is left of the entry's distance `progress` (0 to 1) of the way through it: quick first, settling.
+        static func entryLeft(progress: Double) -> Double {
+            let p = min(1, max(0, progress))
+            return (1 - p) * (1 - p) * (1 - p)
+        }
+
+        /// The drive takes the camera: from here to the aircraft's place, which moves on meanwhile.
+        private func beginGlide(on mapView: MLNMapView) {
+            let rate = (FlightClock.virtual?.rate).map { $0 > 0 ? $0 : 1 } ?? 1
+            // Fixes from before a rest say nothing of where the aircraft is going now, and a map turned by hand keeps
+            // its turn.
+            glideHistory.start(now: FlightClock.now, rate: rate, heading: map.mapState.cameraHeading)
+            let far = 3 * max(mapView.bounds.width, mapView.bounds.height)
+            if let first = glideHistory.fixes.first, let last = glideHistory.fixes.last {
+                let a = mapView.convert(first.coordinate, toPointTo: mapView), b = mapView.convert(last.coordinate, toPointTo: mapView)
+                if hypot(a.x - b.x, a.y - b.y) > far { glideHistory.keepLatest() }
             }
-            let age = fixTime.map { FlightClock.now.timeIntervalSince($0) / rate }
-            guard let pace = Self.glidePace(since: since, jump: jump, mapSize: mapView.bounds.size, onCentre: onCentre,
-                                            reduceMotion: UIAccessibility.isReduceMotionEnabled, age: age,
-                                            delay: Self.glideDelay(interval: glideInterval ?? since))
-            else {
-                glideFixTime = nil
-                glideInterval = nil
-                return nil
+            let interval = glideHistory.interval ?? 1 / rate
+            let shown = FlightClock.now.addingTimeInterval(-Self.glideDelay(interval: interval) * rate)
+            glideEntry = nil
+            guard let place = Self.glidePosition(glideHistory.fixes, at: shown, reach: interval * rate)?.coordinate else { return }
+            let centre = mapView.centerCoordinate
+            let marker = MainActor.assumeIsolated { markers.aircraftCoordinate } ?? place
+            let onScreen = { (c: CLLocationCoordinate2D) -> CGFloat in
+                let a = mapView.convert(c, toPointTo: mapView), b = mapView.convert(place, toPointTo: mapView)
+                return hypot(a.x - b.x, a.y - b.y)
             }
-            glideFixTime = fixTime
-            return (pace, Self.glideFrames(pointsPerSecond: Double(jump) / pace))
+            // On it already (a rest on the aircraft): nothing to ease. Screens away: there at once, as a jump was.
+            guard max(onScreen(centre), onScreen(marker)) > 0.5, onScreen(centre) < far else { return }
+            glideEntry = (CLLocationCoordinate2D(latitude: centre.latitude - place.latitude, longitude: centre.longitude - place.longitude),
+                          CLLocationCoordinate2D(latitude: marker.latitude - place.latitude, longitude: marker.longitude - place.longitude),
+                          CACurrentMediaTime())
         }
 
         // MARK: The drive
@@ -651,13 +683,65 @@ struct PilotMapView: UIViewRepresentable {
             }
         }
 
+        /// The aircraft's last fixes and how fast they come.
+        struct GlideHistory {
+            private(set) var fixes: [GlideFix] = []
+            /// Between two fixes on the wall clock, smoothed: 1 s in flight, 33 ms in a dry run at 30×.
+            private(set) var interval: TimeInterval?
+
+            /// A fix as it comes, `rate` the clock's. One at the last's own time replaces it. After a gap (parked, a
+            /// pause, GPS lost) the fixes before say nothing of the way here: the glide to this one starts an
+            /// interval before it, from where the aircraft is drawn (`restingAt`, else its last fix), so the map
+            /// leaves at the fixes' pace and never hops to the first of them.
+            mutating func note(_ fix: GlideFix, rate: Double, restingAt: CLLocationCoordinate2D? = nil) {
+                guard let last = fixes.last else {
+                    fixes = [fix]
+                    return
+                }
+                guard fix.time > last.time else {
+                    if fix.time == last.time { fixes[fixes.count - 1] = fix }
+                    return
+                }
+                let rate = max(rate, 1e-6)
+                let step = fix.time.timeIntervalSince(last.time) / rate
+                guard step < Coordinator.glideGap else {
+                    let usual = (interval ?? 1 / rate) * rate
+                    fixes = [GlideFix(time: fix.time.addingTimeInterval(-usual), coordinate: restingAt ?? last.coordinate,
+                                      heading: fix.heading), fix]
+                    return
+                }
+                interval = interval.map { 0.7 * $0 + 0.3 * step } ?? step
+                fixes.append(fix)
+                if fixes.count > 6 { fixes.removeFirst(fixes.count - 6) }
+            }
+
+            /// The drive starts at `now`: with the latest fix older than a gap, the aircraft is where that fix says
+            /// (the fixes before are dropped); and every heading is the camera's own now.
+            mutating func start(now: Date, rate: Double, heading: Double) {
+                if let last = fixes.last, now.timeIntervalSince(last.time) / max(rate, 1e-6) > Coordinator.glideGap { fixes = [last] }
+                fixes = fixes.map { GlideFix(time: $0.time, coordinate: $0.coordinate, heading: heading) }
+            }
+
+            /// Only the latest fix: the ones before are screens away.
+            mutating func keepLatest() {
+                if let last = fixes.last { fixes = [last] }
+            }
+
+            /// The aircraft's speed over the last two fixes, in metres a second of the wall clock (so a dry run's
+            /// rate is in it); 0 until the fixes' interval is known.
+            var metresPerSecond: Double {
+                guard fixes.count >= 2, let interval, interval > 0 else { return 0 }
+                let a = MKMapPoint(fixes[fixes.count - 2].coordinate), b = MKMapPoint(fixes[fixes.count - 1].coordinate)
+                return a.distance(to: b) / interval
+            }
+        }
+
         /// The glide is driven frame by frame: as MapLibre starts each frame, the camera goes where the aircraft was
         /// `glideDelay` ago, between the two fixes around that moment, with no MapLibre animation. A camera move
         /// started while one runs made MapLibre jump the rest of the old one: every fix a frame three times as long as
         /// its neighbours (the author's g-2, round 6, "smooth for a few frames, but then lags"). On MapLibre's own
         /// frames, not a display link of ours: two clocks drew frames 17 ms, then 48 ms apart. Each camera change asks
         /// for the next frame, at the glide's rate; with no fix to follow the frames stop.
-        private var glideFixes: [GlideFix] = []
         private var glideActive = false
         private weak var glideMap: MLNMapView?
         /// True while the drive moves the camera: its own region changes are the drive's, not the pilot's.
@@ -668,17 +752,6 @@ struct PilotMapView: UIViewRepresentable {
         private var glideRestPass: CFTimeInterval = 0
         static let glideRestEvery: CFTimeInterval = 2
 
-        private func feedGlide(_ fix: GlideFix, on mapView: MLNMapView) {
-            if let last = glideFixes.last, fix.time <= last.time {
-                glideFixes[glideFixes.count - 1] = fix
-            } else {
-                glideFixes.append(fix)
-                if glideFixes.count > 6 { glideFixes.removeFirst(glideFixes.count - 6) }
-            }
-            glideMap = mapView
-            wakeGlide()
-        }
-
         /// The first frame, or one after the drive stalled (nothing changed, so MapLibre drew nothing): from there
         /// each frame asks for the next.
         private func wakeGlide() {
@@ -688,11 +761,24 @@ struct PilotMapView: UIViewRepresentable {
             }
         }
 
+        /// The aircraft back on its latest fix, and the lines that start at it: a finger, the legs panel or a fit took
+        /// the camera, or the follow is off.
+        private func leaveAircraft(on mapView: MLNMapView) {
+            let fix = map.shownAircraft?.coordinate
+            let map = self.map
+            MainActor.assumeIsolated {
+                markers.leaveCentre(at: fix)
+                guard shapes.aircraftAsDrawn != nil else { return }
+                shapes.aircraftAsDrawn = nil
+                if let style { shapes.syncAircraftLines(map, style: style, traits: mapView.traitCollection) }
+            }
+        }
+
         /// The zoom level the drive holds between zooms (nil until its first frame, again after it stops).
         private var glideZoomLevel: Double?
         /// When the drive last placed the camera, and the zoom it is on its way through: from, to, since when.
         private var glideLastTick: CFTimeInterval = 0
-        private var glideZoom: (from: Double, to: Double, start: CFTimeInterval)?
+        private var glideZoom: (from: Double, to: Double, start: CFTimeInterval, landed: Bool)?
         /// A zoom tap's move while the drive has the camera: as long as MapLibre's own was.
         static let glideZoomDuration: CFTimeInterval = 0.2
 
@@ -706,10 +792,11 @@ struct PilotMapView: UIViewRepresentable {
             return exp(log(from) + (log(to) - log(from)) * eased)
         }
 
+        /// The drive rests. The aircraft stays where it is drawn, the lines from it too, until it leaves the centre
+        /// (`leaveAircraft`) or the drive takes it on.
         func stopGlide() {
-            if glideActive { MainActor.assumeIsolated { shapes.aircraftAsDrawn = nil } }
             glideActive = false
-            glideFixes = []
+            glideEntry = nil
             glideZoom = nil
             glideZoomLevel = nil
         }
@@ -721,19 +808,33 @@ struct PilotMapView: UIViewRepresentable {
                 return
             }
             let rate = (FlightClock.virtual?.rate).map { $0 > 0 ? $0 : 1 } ?? 1
-            let interval = glideInterval ?? 1
+            let interval = glideHistory.interval ?? 1 / rate
             let shown = FlightClock.now.addingTimeInterval(-Self.glideDelay(interval: interval) * rate)
-            guard let last = glideFixes.last,
-                  let place = Self.glidePosition(glideFixes, at: shown, reach: interval * rate) else {
+            guard let last = glideHistory.fixes.last,
+                  let place = Self.glidePosition(glideHistory.fixes, at: shown, reach: interval * rate) else {
                 stopGlide()
                 return
             }
             let now = CACurrentMediaTime()
+            // Easing onto the aircraft's place: the camera and the marker each what is left of their way from it.
+            var cameraPlace = place.coordinate
+            var markerPlace: CLLocationCoordinate2D?
+            if let entry = glideEntry {
+                let left = Self.entryLeft(progress: (now - entry.start) / Self.glideEntryDuration)
+                if left > 0 {
+                    cameraPlace.latitude += entry.camera.latitude * left
+                    cameraPlace.longitude += entry.camera.longitude * left
+                    markerPlace = CLLocationCoordinate2D(latitude: place.coordinate.latitude + entry.marker.latitude * left,
+                                                         longitude: place.coordinate.longitude + entry.marker.longitude * left)
+                } else {
+                    glideEntry = nil
+                }
+            }
             let target = map.mapState.cameraDistance
             if glideZoom?.to != target {
                 // A new zoom: from where the camera is now, even halfway through the last one.
                 let current = mapView.camera.altitude
-                glideZoom = abs(current / target - 1) < 0.002 ? nil : (current, target, now)
+                glideZoom = abs(current / target - 1) < 0.002 ? nil : (current, target, now, false)
             }
             let altitude = glideZoom.map {
                 Self.zoomedAltitude(from: $0.from, to: $0.to, progress: (now - $0.start) / Self.glideZoomDuration)
@@ -744,7 +845,7 @@ struct PilotMapView: UIViewRepresentable {
             // pixel a frame, and the shading pulsed (the author, 11 Nov: "the terrain shading wobbles"). The camera
             // stays within half a pixel of the aircraft's place.
             let centre = CGPoint(x: mapView.bounds.midX, y: mapView.bounds.midY)
-            let point = mapView.convert(place.coordinate, toPointTo: mapView)
+            let point = mapView.convert(cameraPlace, toPointTo: mapView)
             let step = Self.pixelStep(CGPoint(x: point.x - centre.x, y: point.y - centre.y),
                                       scale: mapView.traitCollection.displayScale)
             let coordinate = step == .zero ? mapView.centerCoordinate
@@ -753,12 +854,15 @@ struct PilotMapView: UIViewRepresentable {
             // The zoom level held, not the distance: a distance gives another zoom level at each latitude, so flying
             // north or south rescaled the shading a little at every frame, and it blended anew each time. It changes
             // only while a zoom is under way.
-            // A zoom is under way for its fifth of a second and one frame more, to land on its last level.
-            let zoomUnderWay = glideZoom.map { now - $0.start <= Self.glideZoomDuration + 0.05 } ?? false
+            // A zoom is under way until a frame has put the camera on its last level. Counted in time (its fifth of a
+            // second and 50 ms more), a frame 100 ms after the one before came too late, and at ten frames a second
+            // the zoom stopped a little short of the scale shown (0.7 % seen on a held dry run, 11 Nov).
+            let zoomUnderWay = glideZoom.map { !$0.landed } ?? false
             let zoomTarget: Double
             if zoomUnderWay || glideZoomLevel == nil {
                 zoomTarget = MLNZoomLevelForAltitude(altitude, 0, coordinate.latitude, mapView.bounds.size)
                 glideZoomLevel = zoomTarget
+                if let zoom = glideZoom, now - zoom.start >= Self.glideZoomDuration { glideZoom?.landed = true }
             } else {
                 zoomTarget = glideZoomLevel ?? mapView.zoomLevel
             }
@@ -773,19 +877,26 @@ struct PilotMapView: UIViewRepresentable {
                 // would stall until the next fix, then jump. It asks for the frame itself.
                 mapView.triggerRepaint()
             }
-            // The track's line to the aircraft where it is drawn now, and to the point it has passed.
-            if let style {
-                MainActor.assumeIsolated {
-                    shapes.aircraftAsDrawn = (coordinate, shown)
-                    shapes.syncTrack(map, style: style, traits: mapView.traitCollection)
+            // The lines that start at the aircraft start where it is drawn now: the track's end, the track vector,
+            // the line to a diversion field. They started at the latest fix, a second's flight ahead of the aircraft
+            // as drawn (the author, 11 Nov: "the line ahead has empty spots").
+            MainActor.assumeIsolated {
+                markers.ride(at: markerPlace, on: mapView)
+                if let style {
+                    shapes.aircraftAsDrawn = (markerPlace ?? coordinate, shown)
+                    shapes.syncAircraftLines(map, style: style, traits: mapView.traitCollection)
                 }
             }
             // A zoom under way asks for its next frame itself: its first is where the camera already is, and with the
             // aircraft held nothing else changed, so MapLibre drew nothing more (a tap waited 4.6 s, 11 Nov).
-            if let zoom = glideZoom, now - zoom.start < Self.glideZoomDuration { mapView.triggerRepaint() }
+            if zoomUnderWay { mapView.triggerRepaint() }
             MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) }
-            // Caught up with a fix that no other follows (parked, paused): the drive rests, the map with it.
-            if shown.timeIntervalSince(last.time) > Self.glideGap * rate {
+            // Caught up with a fix that no other follows (parked), or the clock stopped (a dry run paused or held: it
+            // drew the same frame ten times a second and more until the pilot went on): the drive rests, the map
+            // with it.
+            let clockStopped = FlightClock.virtual.map { $0.rate <= 0 } ?? false
+            let nothingToMove = step == .zero && !turned && !zooming && !zoomUnderWay
+            if glideEntry == nil, shown.timeIntervalSince(glideMoved ?? last.time) > Self.glideGap * rate || (clockStopped && nothingToMove) {
                 stopGlide()
                 self.mapView(mapView, regionDidChangeWith: [], animated: false)
             }
@@ -819,10 +930,6 @@ struct PilotMapView: UIViewRepresentable {
             let heading = (a.heading + turn * min(along, 1)).truncatingRemainder(dividingBy: 360)
             return (coordinate, heading < 0 ? heading + 360 : heading)
         }
-
-        /// The time of the fix the camera glides to, and the fixes' interval on the clock, smoothed.
-        private var glideFixTime: Date?
-        private var glideInterval: TimeInterval?
 
         /// How long after its own time a fix is shown: one interval between fixes and a margin for a fix that comes
         /// late, so the camera reaches each fix as the next is on its way and never waits (1.1 s in flight, 0.13 s
@@ -861,27 +968,6 @@ struct PilotMapView: UIViewRepresentable {
             mapView.preferredFramesPerSecond = frames.map { MLNMapViewPreferredFramesPerSecond(rawValue: $0) } ?? .lowPower
         }
 
-        /// The rule of `glidePace(to:on:)`, without the map: `since` the last fix arrived, `jump` the move on screen in
-        /// points, `age` how long ago the fix was taken (its own time, at the clock's rate), `delay` how long after its
-        /// time a fix is shown. The glide ends at that moment, so the camera reaches every fix the same time after it
-        /// was taken, at the aircraft's own pace, however the fixes arrive: two at once, one late. With no time, as
-        /// long as since the last fix.
-        static func glidePace(since: TimeInterval, jump: CGFloat, mapSize: CGSize, onCentre: Bool, reduceMotion: Bool,
-                              age: TimeInterval? = nil, delay: TimeInterval = 0) -> TimeInterval? {
-            guard !reduceMotion, since < glideGap, onCentre, jump < min(mapSize.width, mapSize.height) / 3 else { return nil }
-            let pace = age.map { delay - $0 } ?? since
-            return min(max(pace, 0.02), glideGap)
-        }
-
-        /// Within this of the centre, a fix is one the camera is on its way to: a second's flight is a few points.
-        static let fixReach: CGFloat = 40
-
-        private func fixNearCentre(on mapView: MLNMapView) -> Bool {
-            guard let fix = map.shownAircraft?.coordinate else { return false }
-            let point = mapView.convert(fix, toPointTo: mapView)
-            return hypot(point.x - mapView.bounds.midX, point.y - mapView.bounds.midY) < Self.fixReach
-        }
-
         static func same(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Bool {
             abs(a.latitude - b.latitude) < 0.000001 && abs(a.longitude - b.longitude) < 0.000001
         }
@@ -897,8 +983,7 @@ struct PilotMapView: UIViewRepresentable {
                 fingerFrameRate(on: mapView)
                 glideTarget = nil
                 stopGlide()
-                let fix = map.shownAircraft?.coordinate
-                MainActor.assumeIsolated { markers.leaveCentre(at: fix) }
+                leaveAircraft(on: mapView)
             }
         }
 

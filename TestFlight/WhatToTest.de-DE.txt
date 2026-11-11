@@ -1,15 +1,14 @@
-6.9.0 bringt die Unter- und Obergrenze jedes Luftraums auf die Karte und zeigt, welche Schweizer Gebiete heute aktiv sind.
+6.10.0 bringt die NOTAM in die App: auf die Flugseite, die Flugplatzkarte und die Karte, für 36 Länder.
 
 Das können Sie ausprobieren:
-- Starten Sie einen Flug und schauen Sie auf die Cockpit-Karte: Etiketten nennen den Luftraum, der jetzt zählt. Menü › Alle Lufträume beschriften (der Chip ALLE LUFTRÄUME) beschriftet alle.
-- Planen › Karte: die Grenzen entlang der Luftraumränder (Kartenblatt › Unter- und Obergrenzen) und die Geländehöhe.
-- Tippen Sie irgendwo auf die Karte: die Lufträume über diesem Punkt, übereinander.
-- Fliegen Sie eine Route auf einen kontrollierten Luftraum zu: LUFTRAUM VORAUS erscheint im Statusfeld.
-- In der Schweiz wird ein heute inaktives R- oder D-Gebiet blass und löst LUFTRAUM VORAUS nicht aus.
-- Tippen Sie auf einen Flugplatz: die Karte in festen Zeilen, am Boden und im Flug.
-- Planen Sie einen Flug über eine Grenze: Die Flugseite sagt, ob Sie einen ATC-Flugplan brauchen. Nach dem Start auf einem Flugplatz ohne Turm erinnert ABFLUG MELDEN daran. Platzrunden verlangen beides nicht.
-- Planen Sie eine Route durch ein Land ohne heruntergeladene Lufträume: Die Flugseite sagt es und bietet es an.
-- Bei einer Neuinstallation zeigt der erste geplante Flug eine Seite zu den Berechtigungen (danach Einstellungen › iCloud & Aufzeichnung › Berechtigungen).
-- Blenden Sie einen Club in den Einstellungen aus und wählen Sie dann eines seiner Flugzeuge unter Premium-Flugzeuge: Es bleibt ausgewählt.
+- Planen Sie einen Flug über eine Grenze und öffnen Sie seine Seite: Unter den offiziellen Seiten listet «Ausserdem entlang Ihres Flugs gefunden» die NOTAM auf Ihrer Route, den Abflug zuerst. Tippen Sie auf eine Zeile oder auf Alle am Fuss des Kastens.
+- Wechseln Sie in einem NOTAM zwischen Original und Ausgeschrieben: Die App merkt sich Ihre Wahl. Ganzes NOTAM zeigt den vollständigen Text.
+- Tippen Sie auf einen Flugplatz mit NOTAM: Seine Karte hat eine NOTAM-Zeile, auch im Flug.
+- Planen › Karte, Kartenblatt: Schalten Sie NOTAM-Gebiete ein. Über einem Land ohne Liste sagt der Chip NOTAM HIER NICHT ANGEZEIGT.
+- Ausserhalb der Schweiz erhält ein NOTAM, das ein Gebiet aktiviert (Fallschirmabsprünge, ein zeitweiliges Beschränkungsgebiet), ein Etikett und LUFTRAUM VORAUS, wie ein R-Gebiet.
+- Malta ist in Einstellungen › Offline-Daten.
+- In der KARTE des Cockpits, im Flug oder in einer Trockenübung: Die Karte folgt dem Flugzeug bei jedem Zoom ohne Ruckeln. Verschieben Sie sie und tippen Sie dann auf den Pfeil am Rand oder auf Zentrieren. Schieben Sie die Karte mit Schwung an und halten Sie sie mit dem Finger an: Sie bleibt, wo Sie sie angehalten haben.
+- Ein langer Flug sollte weniger Akku brauchen als mit 6.9.0.
+- Wenn Ihr Flugbuch nie über iCloud auf Ihre anderen Geräte kam, sollte es jetzt ankommen: Der erste Start sendet es einmal.
 
 Senden Sie, was Ihnen auffällt, aus der TestFlight-App: Ein Screenshot mit einer Zeile Text ist am schnellsten.

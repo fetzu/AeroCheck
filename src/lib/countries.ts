@@ -10,10 +10,11 @@ import map from '../data/europe-map.json';
 export interface MapCountry { d: string; c: [number, number]; b: [number, number, number, number]; dot: boolean; n: string[]; }
 export const MAP = map as unknown as { w: number; h: number; countries: Record<string, MapCountry> };
 
-export type FeatureId = (typeof BRIEFING)[number] | 'border' | 'openaip' | 'circuits' | 'routes' | 'charts' | 'swisstopo'
-  | 'wind' | 'close' | 'fees';
+export type FeatureId = (typeof BRIEFING)[number] | 'notamList' | 'border' | 'openaip' | 'circuits' | 'routes' | 'charts'
+  | 'swisstopo' | 'wind' | 'close' | 'fees';
+// The NOTAM list (6.10.0) right under the NOTAM pages: the link to the official page, then whether the app lists them
 export const CHAPTERS: { id: 'prepare' | 'fly' | 'close'; features: FeatureId[] }[] = [
-  { id: 'prepare', features: [...BRIEFING, 'border'] },
+  { id: 'prepare', features: ['weather', 'notam', 'notamList', 'airspace', 'forecast', 'filing', 'border'] },
   { id: 'fly', features: ['openaip', 'circuits', 'routes', 'charts', 'swisstopo', 'wind'] },
   { id: 'close', features: ['close', 'fees'] },
 ];
@@ -23,13 +24,12 @@ const ALL: FeatureId[] = CHAPTERS.flatMap((c) => c.features);
 // author, 25 Oct 2026). Left out: the swisstopo charts, which only Switzerland has, and the surface wind, model winds
 // everywhere but Switzerland's stations; each country's own panel still lists them. A group of one is a column.
 export const TABLE_GROUPS: { id: 'briefing' | 'flightplan' | 'border' | 'map' | 'fees'; features: FeatureId[] }[] = [
-  { id: 'briefing', features: ['weather', 'notam', 'airspace', 'forecast'] },
+  { id: 'briefing', features: ['weather', 'notam', 'notamList', 'airspace', 'forecast'] },
   { id: 'flightplan', features: ['filing', 'close'] },
   { id: 'border', features: ['border'] },
   { id: 'map', features: ['openaip', 'circuits', 'routes', 'charts'] },
   { id: 'fees', features: ['fees'] },
 ];
-const TABLE: FeatureId[] = TABLE_GROUPS.flatMap((g) => g.features);
 // The first column of each group, which draws the group's left edge down the table.
 const GROUP_START = new Set(TABLE_GROUPS.map((g) => g.features[0]));
 
@@ -85,6 +85,12 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
         if (b.level === 'off') return { level: 'off', html: esc(t.text.no_page) };
         if (b.level === 'part') return { level: 'part', html: fill(esc(t.text.general), { publishers: publishers(b.publishers) }) };
         return { level: 'on', html: publishers(b.publishers) };
+      }
+      case 'notamList': {
+        const l = c.notamList;
+        if (l?.level === 'on') return { level: 'on', html: esc(t.text.notam_list) };
+        if (l?.level === 'part') return { level: 'part', html: fill(esc(t.text.notam_list_gap), { note: esc(l.note?.[lang] ?? l.note?.en ?? '') }) };
+        return { level: 'off', html: esc(t.text.notam_list_off) };
       }
       case 'border':
         return c.border ? { level: 'on', html: esc(cc === 'CH' ? t.text.border_ch : t.text.border) } : { level: 'off', html: esc(t.text.border_off) };
@@ -162,8 +168,8 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
       id,
       name: t.chapters[id],
       rows: features
-        .filter((f) => !(f === 'swisstopo' && !c.swisstopo) && !(f === 'border' && !c.border))
-        .filter((f) => !(c.prohibited && (BRIEFING as readonly string[]).includes(f)))
+        .filter((f) => !(f === 'swisstopo' && !c.swisstopo) && !(f === 'border' && !c.border) && !(f === 'notamList' && !c.notamList))
+        .filter((f) => !(c.prohibited && ([...BRIEFING, 'notamList'] as readonly string[]).includes(f)))
         .map((f) => ({ id: f, label: t.labels[f], ...row(f, c, cc) })),
     })).filter((g) => g.rows.length);
     const near = (MAP.countries[cc]?.n ?? [])
@@ -179,6 +185,11 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
       groups, near, checked, tell: fill(t.tell, { in: phrase(cc) }), onMap: !!MAP.countries[cc],
     };
   });
+
+  // The NOTAM list's column only once the released app has the lists (6.10.0; coverage.ts's `released` drops them before)
+  const lists = codes.some((cc) => coverage.countries[cc].notamList);
+  const groups = TABLE_GROUPS.map((g) => ({ ...g, features: g.features.filter((f) => f !== 'notamList' || lists) }));
+  const TABLE: FeatureId[] = groups.flatMap((g) => g.features);
 
   const matrix: MatrixRow[] = codes.map((cc) => {
     const c = coverage.countries[cc];
@@ -207,7 +218,7 @@ export function buildCountries(coverage: Coverage, lang: Lang, t: CountriesCopy)
   const flightPlan = TABLE_GROUPS.find((g) => g.id === 'flightplan')?.features ?? [];
   const columnHint = (id: FeatureId) => (flightPlan.includes(id) ? `${t.table_hints[id]}. ${t.table.note}` : t.table_hints[id]);
   const column = (id: FeatureId): TableColumn => ({ id, head: t.table_heads[id], hint: columnHint(id), start: GROUP_START.has(id) });
-  const table: TableGroup[] = TABLE_GROUPS.map((g) => ({
+  const table: TableGroup[] = groups.map((g) => ({
     name: g.features.length > 1 ? t.table_groups[g.id] : undefined,
     columns: g.features.map(column),
   }));

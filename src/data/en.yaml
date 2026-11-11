@@ -276,7 +276,8 @@ countries:
   chapters: { prepare: "Before the flight", fly: "In the air", close: "After landing" }
   labels:
     weather: "Weather pages"
-    notam: "NOTAMs"
+    notam: "NOTAM pages"
+    notamList: "NOTAMs in the app"
     airspace: "Airspace activity"
     forecast: "Area forecast"
     filing: "Filing the flight plan"
@@ -290,9 +291,9 @@ countries:
     close: "Closing the flight plan"
     fees: "Landing fees"
   table_groups: { briefing: "Briefing", flightplan: "Flight plan", map: "On the map" }
-  table_heads: { weather: "Weather", notam: "NOTAMs", airspace: "Airspace activity", forecast: "Area forecast", filing: "Filing", close: "Closing", border: "Border rules", openaip: "Airspace & frequencies", circuits: "Traffic circuits", routes: "VFR routes", charts: "Official charts", fees: "Landing fees" }
+  table_heads: { weather: "Weather", notam: "NOTAM pages", notamList: "NOTAM list", airspace: "Airspace activity", forecast: "Area forecast", filing: "Filing", close: "Closing", border: "Border rules", openaip: "Airspace & frequencies", circuits: "Traffic circuits", routes: "VFR routes", charts: "Official charts", fees: "Landing fees" }
   table_words: { link: "a link to the portal", number: "the number and the rule", rule: "the rule only" }
-  table_hints: { weather: "A link to the country's official weather pages", notam: "A link to the country's NOTAM page", airspace: "A link to the country's airspace activity page", forecast: "A link to the country's area forecast", filing: "Where to file the ATC flight plan, and by when", close: "How to close it after landing: the rule and the numbers", border: "Customs aerodrome and notice, to and from Switzerland", openaip: "Airspace, aerodromes and frequencies, from OpenAIP", circuits: "Traffic circuits on the map, with their altitude", routes: "VFR arrival and departure routes on the map, with their sectors", charts: "A link to each aerodrome's official chart", fees: "A link to the operator's tariff, per aerodrome" }
+  table_hints: { weather: "A link to the country's official weather pages", notam: "A link to the country's NOTAM page", notamList: "The country's NOTAMs listed in the app: along your flight, on the aerodrome card and on the map", airspace: "A link to the country's airspace activity page", forecast: "A link to the country's area forecast", filing: "Where to file the ATC flight plan, and by when", close: "How to close it after landing: the rule and the numbers", border: "Customs aerodrome and notice, to and from Switzerland", openaip: "Airspace, aerodromes and frequencies, from OpenAIP", circuits: "Traffic circuits on the map, with their altitude", routes: "VFR arrival and departure routes on the map, with their sectors", charts: "A link to each aerodrome's official chart", fees: "A link to the operator's tariff, per aerodrome" }
   access: { account: "free account", paid: "paid", restricted: "authorised users", signin: "sign-in" }
   text:
     general: "{publishers}, the general page"
@@ -332,6 +333,9 @@ countries:
     close_no_number: "no number"
     fees: { one: "Links to the operator's tariff, {n} aerodrome", other: "Links to the operator's tariff, {n} aerodromes" }
     fees_none: "None yet"
+    notam_list: "Listed along your flight, on the aerodrome card and on the map"
+    notam_list_gap: "Listed, with a known gap. {note}"
+    notam_list_off: "Not listed: use the official page"
   everywhere: "the checklists of all 16 phases, the GPS and the logbook, the nav log, the dry run, METAR, TAF and SIGMET wherever they are reported, winds aloft"
   everywhere_here: "Everywhere, including here"
   everywhere_label: "Everywhere"

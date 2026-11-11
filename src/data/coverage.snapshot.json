@@ -58,7 +58,10 @@
         "level": "on",
         "count": 1
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "AM": {
       "weather": {
@@ -100,7 +103,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "AT": {
       "weather": {
@@ -180,14 +186,20 @@
       "border": {
         "level": "on"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "AU": {
       "charts": {
         "level": "part",
         "kind": "start"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "BA": {
       "weather": {
@@ -240,7 +252,10 @@
         "level": "on",
         "count": 3
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "BE": {
       "weather": {
@@ -304,7 +319,10 @@
         "level": "on",
         "count": 19
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "BG": {
       "weather": {
@@ -377,7 +395,10 @@
         "level": "on",
         "count": 4
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "BY": {
       "weather": {
@@ -404,7 +425,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "CH": {
       "weather": {
@@ -498,7 +522,10 @@
       },
       "openaip": true,
       "swisstopo": true,
-      "wind": "meteoswiss"
+      "wind": "meteoswiss",
+      "notamList": {
+        "level": "on"
+      }
     },
     "CY": {
       "weather": {
@@ -562,7 +589,10 @@
         "level": "on",
         "count": 2
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "CZ": {
       "weather": {
@@ -640,7 +670,15 @@
         "level": "on",
         "count": 22
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "part",
+        "note": {
+          "en": "Czechia: military aerodrome NOTAMs are missing here.",
+          "fr": "Tchéquie : les NOTAM des aérodromes militaires manquent ici.",
+          "de": "Tschechien: NOTAM von Militärflugplätzen fehlen hier."
+        }
+      }
     },
     "DE": {
       "weather": {
@@ -720,7 +758,10 @@
       "border": {
         "level": "on"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "DK": {
       "weather": {
@@ -789,7 +830,10 @@
         "level": "on",
         "count": 9
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "EE": {
       "weather": {
@@ -856,7 +900,10 @@
         "level": "on",
         "count": 4
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "ES": {
       "weather": {
@@ -919,7 +966,10 @@
         "level": "on",
         "count": 60
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "FI": {
       "weather": {
@@ -997,7 +1047,10 @@
         "level": "on",
         "count": 27
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "FO": {
       "weather": {
@@ -1038,7 +1091,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "FR": {
       "weather": {
@@ -1118,7 +1174,15 @@
       "border": {
         "level": "on"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "part",
+        "note": {
+          "en": "France: some regional aerodrome NOTAMs are missing here.",
+          "fr": "France : certains NOTAM d'aérodromes régionaux manquent ici.",
+          "de": "Frankreich: Einige NOTAM regionaler Flugplätze fehlen hier."
+        }
+      }
     },
     "GB": {
       "weather": {
@@ -1188,7 +1252,10 @@
       "border": {
         "level": "on"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "GE": {
       "weather": {
@@ -1249,7 +1316,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "GL": {
       "weather": {
@@ -1290,7 +1360,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "GR": {
       "weather": {
@@ -1349,7 +1422,10 @@
         "level": "on",
         "count": 10
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "HR": {
       "weather": {
@@ -1425,7 +1501,10 @@
         "level": "on",
         "count": 5
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "HU": {
       "weather": {
@@ -1505,7 +1584,10 @@
         "level": "on",
         "count": 12
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "IE": {
       "weather": {
@@ -1559,7 +1641,10 @@
         "level": "on",
         "count": 13
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "IM": {
       "weather": {
@@ -1622,7 +1707,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "IS": {
       "weather": {
@@ -1686,7 +1774,10 @@
         "level": "on",
         "count": 5
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "IT": {
       "weather": {
@@ -1748,7 +1839,10 @@
       "border": {
         "level": "on"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "LI": {
       "charts": {
@@ -1758,7 +1852,10 @@
         "level": "on",
         "count": 1
       },
-      "openaip": false
+      "openaip": false,
+      "notamList": {
+        "level": "on"
+      }
     },
     "LT": {
       "weather": {
@@ -1800,7 +1897,10 @@
         "level": "on",
         "count": 3
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "LU": {
       "weather": {
@@ -1877,7 +1977,10 @@
         "level": "on",
         "count": 2
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "LV": {
       "weather": {
@@ -1944,7 +2047,10 @@
         "level": "on",
         "count": 6
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "MD": {
       "weather": {
@@ -2004,7 +2110,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "ME": {
       "charts": {
@@ -2014,7 +2123,10 @@
         "level": "on",
         "count": 2
       },
-      "openaip": false
+      "openaip": false,
+      "notamList": {
+        "level": "off"
+      }
     },
     "MK": {
       "charts": {
@@ -2024,7 +2136,10 @@
         "level": "on",
         "count": 2
       },
-      "openaip": false
+      "openaip": false,
+      "notamList": {
+        "level": "on"
+      }
     },
     "MT": {
       "weather": {
@@ -2086,7 +2201,10 @@
         "level": "on",
         "count": 1
       },
-      "openaip": false
+      "openaip": false,
+      "notamList": {
+        "level": "on"
+      }
     },
     "NL": {
       "weather": {
@@ -2163,7 +2281,10 @@
         "level": "on",
         "count": 16
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "NO": {
       "weather": {
@@ -2232,14 +2353,20 @@
         "level": "on",
         "count": 56
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "NZ": {
       "charts": {
         "level": "part",
         "kind": "start"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "PL": {
       "weather": {
@@ -2318,7 +2445,10 @@
         "level": "on",
         "count": 28
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "PT": {
       "weather": {
@@ -2383,7 +2513,10 @@
         "level": "on",
         "count": 11
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "RO": {
       "weather": {
@@ -2445,7 +2578,10 @@
         "level": "on",
         "count": 10
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "RS": {
       "weather": {
@@ -2497,7 +2633,10 @@
         "level": "on",
         "count": 4
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "SE": {
       "weather": {
@@ -2577,7 +2716,10 @@
         "level": "on",
         "count": 52
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "SI": {
       "weather": {
@@ -2651,7 +2793,10 @@
         "level": "on",
         "count": 8
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "SK": {
       "weather": {
@@ -2729,7 +2874,10 @@
         "level": "on",
         "count": 8
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "TR": {
       "weather": {
@@ -2780,7 +2928,10 @@
       "charts": {
         "level": "off"
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "off"
+      }
     },
     "US": {
       "circuits": {
@@ -2794,7 +2945,10 @@
         "kind": "every",
         "count": 5279
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     },
     "ZA": {
       "circuits": {
@@ -2812,7 +2966,10 @@
         "kind": "every",
         "count": 42
       },
-      "openaip": true
+      "openaip": true,
+      "notamList": {
+        "level": "on"
+      }
     }
   }
 }

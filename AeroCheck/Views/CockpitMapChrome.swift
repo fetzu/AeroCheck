@@ -357,6 +357,18 @@ struct MapChromeGeometry: Equatable {
                                           degrees: placed.degrees)
     }
 
+    /// Whether a tap at `tap` is on the edge arrow for the aircraft, the arrow placed as the chrome draws it (from the
+    /// shared state's region and heading), its target at least `target` points square: the map's controls' size,
+    /// round the smaller arrow. The map's own tap recognizer asks, so a pan that starts on the arrow still pans
+    /// (the author, round 7, 11 Nov: the arrow tappable, as the centre button).
+    func edgeArrowHit(_ tap: CGPoint, aircraft: CLLocationCoordinate2D, region: MKCoordinateRegion, heading: Double,
+                      target: CGFloat) -> Bool {
+        guard let point = OwnshipEdgeArrow.project(aircraft, region: region, heading: heading, size: size),
+              let arrow = edgeArrow(toward: point) else { return false }
+        let side = max(metrics.arrowSize, target)
+        return CGRect(x: arrow.point.x - side / 2, y: arrow.point.y - side / 2, width: side, height: side).contains(tap)
+    }
+
     /// The chart the chrome covers, in square points: the controls, and the slot while a state shows.
     /// The edge arrow and the scale come and go, small, and are left out.
     func coveredArea(statusShown: Bool) -> CGFloat {
@@ -464,7 +476,8 @@ struct CockpitMapChrome: View {
                 .offset(x: geometry.footChips.minX, y: geometry.footChips.minY)
             }
             if let arrow = edgeArrow(geometry) {
-                MapChromeEdgeArrow(degrees: arrow.degrees, size: geometry.metrics.arrowSize, language: language)
+                MapChromeEdgeArrow(degrees: arrow.degrees, size: geometry.metrics.arrowSize, language: language,
+                                   action: actions.centre)
                     .modifier(MapChromePlacement(element: .edgeArrow, frame: arrowFrame(arrow, geometry),
                                                  onPlace: onPlace))
             }
@@ -673,12 +686,15 @@ struct MapChromeControlButton: View {
 
 // MARK: - The edge arrow
 
-/// The arrow at the chart's edge pointing to the aircraft, once panned away from it. An indicator, not a
-/// button: centre, filled meanwhile, brings the aircraft back. Read as a clock position from the top.
+/// The arrow at the chart's edge pointing to the aircraft, once panned away from it. A tap on it does what centre
+/// does (the author, round 7, 11 Nov): the map's own tap recognizer takes it (`MapChromeGeometry.edgeArrowHit`), so
+/// the touch stays the map's and a pan that starts on the arrow still pans. Read as a clock position from the top.
 struct MapChromeEdgeArrow: View {
     let degrees: Double
     let size: CGFloat
     var language: String? = nil
+    /// VoiceOver's activation: what the tap does.
+    var action: (() -> Void)? = nil
 
     @Environment(\.cockpitTheme) private var theme
 
@@ -693,6 +709,8 @@ struct MapChromeEdgeArrow: View {
             .allowsHitTesting(false)
             .accessibilityElement()
             .accessibilityLabel(L10n.MapChrome.aircraftOffScreen(clock: Self.clock(degrees), language: language))
+            .accessibilityAddTraits(action == nil ? [] : .isButton)
+            .accessibilityAction { action?() }
             .accessibilityIdentifier("map.edgeArrow")
     }
 

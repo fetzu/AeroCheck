@@ -1978,6 +1978,8 @@ struct NavigationMapView: View {
             airspacePolygons: visibleAirspacePolygons,
             airspaceTags: airspaceTags,
             airspaceTagKeepOut: chrome == .plan ? [] : cockpitChromeGeometry.tagKeepOut,
+            edgeArrowGeometry: chrome == .plan ? nil : cockpitChromeGeometry,
+            onEdgeArrowTap: { centerOnAircraft() },
             onAirspaceTap: { chartTapped(at: $0) },
             aerodromeFacts: { aerodromeFacts(for: $0) },
             notamItems: visibleNotams,
@@ -4397,6 +4399,10 @@ struct AeroMapView: View {
     /// The airspace that gets a tag, ranked, and what the tags keep clear of (the chrome's frames). (6.9.0)
     var airspaceTags: [AirspaceRelevantTag] = []
     var airspaceTagKeepOut: [CGRect] = []
+    /// The Cockpit chrome's geometry, for a tap on its edge arrow (nil on Plan › Map, which has no arrow), and what
+    /// the tap does: centre's action. (6.10.0)
+    var edgeArrowGeometry: MapChromeGeometry? = nil
+    var onEdgeArrowTap: (() -> Void)? = nil
     /// A tap on the chart with no marker under it. (6.9.0)
     var onAirspaceTap: ((CLLocationCoordinate2D) -> Void)?
     /// A field's rows for its card. (6.9.0, c1 A)

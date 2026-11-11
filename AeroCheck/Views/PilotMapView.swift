@@ -274,6 +274,14 @@ struct PilotMapView: UIViewRepresentable {
         @objc func mapTapped(_ gesture: UITapGestureRecognizer) {
             guard gesture.state == .ended, let mapView = gesture.view as? MLNMapView else { return }
             let point = gesture.location(in: mapView)
+            // The edge arrow, panned away from the aircraft: back to it, as centre. Before the markers: it sits over them.
+            if !map.isFollowingAircraft, let geometry = map.edgeArrowGeometry, let aircraft = map.shownAircraft,
+               let onTap = map.onEdgeArrowTap,
+               geometry.edgeArrowHit(point, aircraft: aircraft.coordinate, region: map.mapState.region,
+                                     heading: mapView.direction, target: CockpitTarget.control) {
+                onTap()
+                return
+            }
             var hit = mapView.hitTest(point, with: nil)
             while let view = hit {
                 if view is PilotMarkerView || view is PilotMarkerCallout { return }

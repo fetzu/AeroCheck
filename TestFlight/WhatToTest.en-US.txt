@@ -1,15 +1,14 @@
-6.9.0 puts each airspace's floor and ceiling on the map, and tells you which Swiss areas are active today.
+6.10.0 brings NOTAMs into the app: on the flight page, the aerodrome card and the map, for 36 countries.
 
 What to try:
-- Start a flight and watch the Cockpit's map: tags name the airspace that matters now. Menu › Label every airspace (the EVERY AIRSPACE chip) labels all of them.
-- Plan › Map: the limits along the boundaries (Map sheet › Floors & ceilings) and the ground height.
-- Tap the map anywhere: the stack of airspaces over that point.
-- Fly or replay a route towards controlled airspace: AIRSPACE AHEAD appears in the status slot.
-- In Switzerland, an R or D area that is off today is faded, and doesn't trigger AIRSPACE AHEAD.
-- Tap an aerodrome: the card in fixed rows, on the ground and in flight.
-- Plan a flight across a border: the flight page tells you if you need a flight plan. After take-off from an aerodrome without a tower, REPORT DEPARTURE reminds you. Circuits ask for neither.
-- Plan a route through a country without downloaded airspace: the flight page says so and offers it.
-- On a fresh install, the first flight you plan shows one page about permissions (Settings › iCloud & Log › Permissions afterwards).
-- Hide a club in Settings, then pick one of its aircraft under Premium aircraft: it stays selected.
+- Plan a flight across a border and open its page: under the official pages, "Also found along your flight" lists the NOTAMs on your route, departure first. Tap a row, or All at the foot of the box.
+- In a NOTAM, switch between Original and Spelled out: the app keeps your choice. Full NOTAM shows the whole text.
+- Tap an aerodrome that has NOTAMs: its card has a NOTAM row, in flight too.
+- Plan › Map, Map sheet: turn on NOTAM areas. Over a country without a list, the chip says NOTAMS NOT SHOWN HERE.
+- Outside Switzerland, a NOTAM that activates an area (a parachuting zone, a temporary restricted area) gets a tag and AIRSPACE AHEAD, like an R area.
+- Malta is in Settings › Offline data.
+- In the Cockpit's MAP, during a flight or a dry run: the map follows the aircraft smoothly at every zoom. Pan away, then tap the arrow at the edge or Centre. Flick the map and stop it with a finger: it stays where you stopped it.
+- A long flight should use less battery than with 6.9.0.
+- If your logbook never reached your other devices through iCloud, it should now: the first launch sends it once.
 
 Send what you notice from the TestFlight app: a screenshot with a line of text is the quickest way.

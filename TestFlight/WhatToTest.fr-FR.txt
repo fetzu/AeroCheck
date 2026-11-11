@@ -1,15 +1,14 @@
-6.9.0 place le plancher et le plafond de chaque espace aérien sur la carte, et indique les zones suisses actives aujourd'hui.
+6.10.0 apporte les NOTAM dans l'app : sur la page du vol, la fiche d'aérodrome et la carte, pour 36 pays.
 
 À essayer :
-- Démarrez un vol et regardez la carte du Cockpit : des étiquettes nomment l'espace qui compte maintenant. Menu › Étiqueter tous les espaces (la puce TOUS LES ESPACES) les étiquette tous.
-- Planifier › Carte : les limites le long des frontières (feuille Carte › Planchers et plafonds) et la hauteur du sol.
-- Touchez la carte n'importe où : la pile des espaces au-dessus de ce point.
-- Volez ou rejouez une route vers un espace contrôlé : ESPACE AÉRIEN DEVANT apparaît dans l'emplacement d'état.
-- En Suisse, une zone R ou D inactive aujourd'hui s'estompe et ne déclenche pas ESPACE AÉRIEN DEVANT.
-- Touchez un aérodrome : la fiche en rangées fixes, au sol et en vol.
-- Planifiez un vol qui passe une frontière : la page du vol dit s'il vous faut un plan de vol. Après un décollage d'un aérodrome sans tour, ANNONCER LE DÉPART vous le rappelle. Les tours de piste ne demandent ni l'un ni l'autre.
-- Planifiez une route par un pays sans espaces aériens téléchargés : la page du vol le dit et le propose.
-- Sur une nouvelle installation, le premier vol planifié montre une page sur les autorisations (ensuite Réglages › iCloud et journal › Autorisations).
-- Masquez un club dans les Réglages, puis choisissez un de ses avions sous Avions Premium : il reste sélectionné.
+- Planifiez un vol qui passe une frontière et ouvrez sa page : sous les pages officielles, « Également trouvé sur votre trajet » liste les NOTAM de votre route, le départ d'abord. Touchez une ligne, ou Tous au pied du cadre.
+- Dans un NOTAM, passez de Original à En toutes lettres : l'app garde votre choix. NOTAM complet montre le texte entier.
+- Touchez un aérodrome qui a des NOTAM : sa fiche a une ligne NOTAM, en vol aussi.
+- Planifier › Carte, feuille Carte : activez Zones NOTAM. Au-dessus d'un pays sans liste, la puce dit NOTAM NON AFFICHÉS ICI.
+- Hors de Suisse, un NOTAM qui active une zone (largage de parachutistes, zone réglementée temporaire) a une étiquette et ESPACE AÉRIEN DEVANT, comme une zone R.
+- Malte est dans Réglages › Données hors ligne.
+- Dans la CARTE du Cockpit, en vol ou en vol à blanc : la carte suit l'avion sans à-coups à tous les zooms. Déplacez-la, puis touchez la flèche au bord ou Centrer. Lancez la carte d'un geste et arrêtez-la du doigt : elle reste où vous l'avez arrêtée.
+- Un long vol devrait consommer moins de batterie qu'avec 6.9.0.
+- Si votre carnet de vol n'arrivait jamais sur vos autres appareils par iCloud, il devrait y arriver : le premier lancement l'envoie une fois.
 
 Envoyez ce que vous remarquez depuis l'app TestFlight : une capture avec une ligne de texte est le plus rapide.

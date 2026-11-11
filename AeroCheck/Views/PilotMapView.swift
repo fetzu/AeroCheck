@@ -772,6 +772,7 @@ struct PilotMapView: UIViewRepresentable {
             let map = self.map
             MainActor.assumeIsolated {
                 markers.leaveCentre(at: fix)
+                markers.layoutVector(on: mapView)
                 guard shapes.aircraftAsDrawn != nil else { return }
                 shapes.aircraftAsDrawn = nil
                 if let style { shapes.syncAircraftLines(map, style: style, traits: mapView.traitCollection) }
@@ -901,8 +902,8 @@ struct PilotMapView: UIViewRepresentable {
                 // a pixel or two a second, and eight frames in ten were for nothing, 11 Nov).
                 glideLookAgain()
             }
-            // The lines that start at the aircraft start where it is drawn now: the track's end, the track vector,
-            // the line to a diversion field. They started at the latest fix, a second's flight ahead of the aircraft
+            // The lines that start at the aircraft start where it is drawn now: the track's end and the line to a
+            // diversion field (the track vector is a view on the marker: `PilotMapMarkers.syncVector`). They started at the latest fix, a second's flight ahead of the aircraft
             // as drawn (the author, 11 Nov: "the line ahead has empty spots").
             let course = Self.glideCourse(glideHistory.fixes, at: shown)
             // Nothing drawn anew: the icon alone may turn (its view's, no frame of the map's).

@@ -24,31 +24,15 @@ final class PilotMapShapesTests: XCTestCase {
         XCTAssertEqual(PilotMapShapes.splitTrack(later).history.last?.id, history.last?.id)
         XCTAssertTrue(PilotMapShapes.splitTrack([]).history.isEmpty)
     }
-    /// The track vector starts at the aircraft as drawn, its ticks moved with it (the author, 11 Nov: a hole between
-    /// the aircraft and the line ahead, the glide drawing the aircraft a second's flight behind its latest fix); and
-    /// the line to a diversion field starts there too.
-    func testTheAircraftsLinesStartWhereItIsDrawn() {
-        var main = [CLLocationCoordinate2D(latitude: 47, longitude: 7), CLLocationCoordinate2D(latitude: 47.1, longitude: 7)]
-        var tick = [CLLocationCoordinate2D(latitude: 47.02, longitude: 6.999), CLLocationCoordinate2D(latitude: 47.02, longitude: 7.001)]
-        let lines: [MKPolyline] = [TrackVectorCasingPolyline(coordinates: &main, count: 2), TrackVectorPolyline(coordinates: &main, count: 2),
-                                   TrackVectorCasingPolyline(coordinates: &tick, count: 2), TrackVectorPolyline(coordinates: &tick, count: 2)]
+    /// The line to a diversion field starts at the aircraft as drawn (it started at a fix kept for 150 m of flight).
+    func testTheDiversionLineStartsWhereTheAircraftIsDrawn() {
         let drawn = CLLocationCoordinate2D(latitude: 46.9995, longitude: 7.0002)
-        let moved = PilotMapShapes.vector(lines, from: drawn)
-        XCTAssertEqual(moved.count, 4)
-        XCTAssertTrue(moved[0] is TrackVectorCasingPolyline)
-        XCTAssertFalse(moved[1] is TrackVectorCasingPolyline)
-        XCTAssertEqual(moved[1].points()[0].coordinate.latitude, 46.9995, accuracy: 1e-7)
-        XCTAssertEqual(moved[1].points()[0].coordinate.longitude, 7.0002, accuracy: 1e-7)
-        XCTAssertEqual(moved[3].points()[1].coordinate.latitude, 47.0195, accuracy: 1e-7, "the ticks with it")
-        XCTAssertEqual(moved[3].points()[1].coordinate.longitude, 7.0012, accuracy: 1e-7)
-        XCTAssertTrue(PilotMapShapes.vector(lines, from: nil)[0] === lines[0], "on its fix: the same lines")
-        XCTAssertTrue(PilotMapShapes.vector(lines, from: main[0])[0] === lines[0])
-        XCTAssertTrue(PilotMapShapes.vector([], from: drawn).isEmpty)
-
         let field = CLLocationCoordinate2D(latitude: 47.3, longitude: 7.4)
         XCTAssertEqual(PilotMapShapes.diversionLine(from: drawn, to: field).count, 2)
         XCTAssertTrue(PilotMapShapes.diversionLine(from: nil, to: field).isEmpty)
         XCTAssertTrue(PilotMapShapes.diversionLine(from: drawn, to: nil).isEmpty, "not diverting: no line")
+        XCTAssertFalse(PilotMapShapes.Group.allCases.map(\.sourceID).contains("aero.trackVector"),
+                       "the track vector is a view on the aircraft, not a line of the map's (finding 10)")
     }
 
     /// The track reaches the aircraft (the author, 11 Nov: a hole just behind it, filling again): a point every 5 s,

@@ -5,8 +5,8 @@ import UIKit
 // MARK: - The map's lines and areas on MapLibre (6.8.0)
 
 /// `AeroMapView`'s lines and areas drawn by MapLibre (the plan's PR 6): the airspace, the aerodrome procedures, the
-/// flown track, the planned route, the route and its diversion line, the track vector. (The aircraft is a marker, above
-/// every marker as on MapKit: `PilotMapMarkers`.)
+/// flown track, the planned route, the route and its diversion line. (The aircraft is a marker, above every marker as
+/// on MapKit, and the track vector a view on it: `PilotMapMarkers`.)
 ///
 /// Nothing here decides a colour or a width. Each group is built as the MapKit view builds it (the same overlay
 /// objects, from the same functions) and painted as its MapKit renderer says (`Paint`, read off the renderer the
@@ -31,7 +31,6 @@ final class PilotMapShapes {
         /// From the aircraft as drawn to a diversion field: its own two points, so it follows the aircraft without
         /// the route being sent again.
         case diversion
-        case trackVector
 
         var sourceID: String { "aero.\(self)" }
     }
@@ -220,12 +219,12 @@ final class PilotMapShapes {
     /// lines that start at the aircraft start there. Nil otherwise: the aircraft is on its latest fix.
     var aircraftAsDrawn: (coordinate: CLLocationCoordinate2D, time: Date)?
 
-    /// The lines that start at the aircraft, from where it is drawn: the track's end, the line to a diversion field,
-    /// the track vector. Each frame of a glide redraws these few points; the rest of the map's lines stay.
+    /// The lines that start at the aircraft, from where it is drawn: the track's end and the line to a diversion
+    /// field. Each frame of a glide redraws these few points; the rest of the map's lines stay. (The track vector
+    /// starts there too, as a view on the aircraft's marker: `PilotMapMarkers.syncVector`.)
     func syncAircraftLines(_ map: AeroMapView, style: MLNStyle, traits: UITraitCollection) {
         syncTrack(map, style: style, traits: traits)
         syncDiversion(map, style: style, traits: traits)
-        syncVector(map, style: style, traits: traits)
     }
 
     /// The line from the aircraft to a diversion field, amber. It started at a fix kept until the aircraft had flown
@@ -244,47 +243,6 @@ final class PilotMapShapes {
     nonisolated static func diversionLine(from aircraft: CLLocationCoordinate2D?, to field: CLLocationCoordinate2D?) -> [CLLocationCoordinate2D] {
         guard let aircraft, let field else { return [] }
         return [aircraft, field]
-    }
-
-    /// Where the track vector drawn starts (nil with none).
-    private(set) var vectorOriginDrawn: CLLocationCoordinate2D?
-
-    /// The track vector over its casing, from the aircraft as drawn: it is built from the latest fix, a second's
-    /// flight ahead of the aircraft the glide draws, and left a hole between them (the author, 11 Nov). Kept through
-    /// a transient empty (a GPS gap, under 5 kt), gone when off.
-    func syncVector(_ map: AeroMapView, style: MLNStyle, traits: UITraitCollection) {
-        guard map.shownTrackVector else {
-            sync(.trackVector, signature: 0, on: style, traits: traits) { [] }
-            vectorOriginDrawn = nil
-            return
-        }
-        let vector = map.trackVectorOverlays
-        guard !vector.isEmpty else { return }
-        let lines = Self.vector(vector, from: aircraftAsDrawn?.coordinate)
-        vectorOriginDrawn = lines.first.flatMap { $0.pointCount > 0 ? $0.points()[0].coordinate : nil }
-        sync(.trackVector, signature: Self.hash(TrackVectorPolyline.geometry(of: lines)), on: style, traits: traits) {
-            lines.map { line in
-                Shape(overlay: line, renderer: AeroMapView.lineRenderer(for: line, layerType: map.layerType),
-                      tier: line is TrackVectorCasingPolyline ? 0 : 1)
-            }
-        }
-    }
-
-    /// The track vector's lines moved as one so that the vector starts at `origin` (its first line's first point
-    /// there): the ticks keep their one, two and five minutes from the aircraft as drawn. The same lines with no
-    /// origin, or already there.
-    nonisolated static func vector(_ lines: [MKPolyline], from origin: CLLocationCoordinate2D?) -> [MKPolyline] {
-        guard let origin, let first = lines.first, first.pointCount > 0 else { return lines }
-        let start = first.points()[0].coordinate
-        let (dLat, dLon) = (origin.latitude - start.latitude, origin.longitude - start.longitude)
-        guard abs(dLat) > 1e-9 || abs(dLon) > 1e-9 else { return lines }
-        return lines.map { line in
-            var coords = [CLLocationCoordinate2D](repeating: CLLocationCoordinate2D(), count: line.pointCount)
-            line.getCoordinates(&coords, range: NSRange(location: 0, length: line.pointCount))
-            coords = coords.map { CLLocationCoordinate2D(latitude: $0.latitude + dLat, longitude: $0.longitude + dLon) }
-            return line is TrackVectorCasingPolyline ? TrackVectorCasingPolyline(coordinates: coords, count: coords.count)
-                : TrackVectorPolyline(coordinates: coords, count: coords.count)
-        }
     }
 
     /// The flown track, in its layer's colour: up to the last whole minute, then its live end, then the line to the
@@ -491,7 +449,6 @@ extension PilotMapShapes {
         }
 
         syncDiversion(map, style: style, traits: traits)
-        syncVector(map, style: style, traits: traits)
     }
 
     /// The limits along the airspace's boundaries: one text layer over one source of closed lines. (6.9.0)

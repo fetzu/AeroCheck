@@ -135,6 +135,46 @@ final class PilotMapMarkersTests: XCTestCase {
         XCTAssertGreaterThan(bubble.bounds.height, PilotMarkerBubble.tailHeight + 20)
     }
 
+    /// The track vector is a view on the aircraft's place (the review of 11 Nov, finding 10): painted as the map's
+    /// line renderer says, its lines cut to what the map shows (five minutes of flight are thousands of points long
+    /// zoomed in).
+    func testTheTrackVectorIsAViewCutToTheMap() {
+        typealias M = PilotMapMarkers
+        let rect = CGRect(x: -100, y: -200, width: 200, height: 400)
+        // Straight up from the aircraft, far past the top: kept from the aircraft to the edge.
+        let up = M.clipped(.zero, CGPoint(x: 0, y: -15_000), to: rect)
+        XCTAssertEqual(up?.0, .zero)
+        XCTAssertEqual(up?.1, CGPoint(x: 0, y: -200))
+        // A mark across the line, wholly inside: as it is.
+        let mark = M.clipped(CGPoint(x: -20, y: -50), CGPoint(x: 20, y: -50), to: rect)
+        XCTAssertEqual(mark?.0, CGPoint(x: -20, y: -50))
+        XCTAssertEqual(mark?.1, CGPoint(x: 20, y: -50))
+        // The five-minute mark, off the map: nothing.
+        XCTAssertNil(M.clipped(CGPoint(x: -20, y: -9_000), CGPoint(x: 20, y: -9_000), to: rect))
+        // The aircraft off the map to the left, the vector crossing it: the part inside.
+        let across = M.clipped(CGPoint(x: -500, y: 0), CGPoint(x: 500, y: 100), to: rect)
+        XCTAssertEqual(across?.0.x ?? 0, -100, accuracy: 1e-9)
+        XCTAssertEqual(across?.1.x ?? 0, 100, accuracy: 1e-9)
+        XCTAssertEqual(across?.0.y ?? 0, 40, accuracy: 1e-9)
+        XCTAssertNil(M.clipped(CGPoint(x: 150, y: 0), CGPoint(x: 150, y: 50), to: rect), "beside the map")
+        XCTAssertNotNil(M.clipped(CGPoint(x: 5, y: 5), CGPoint(x: 5, y: 5), to: rect), "a point inside stays")
+
+        let path = M.vectorPath([[.zero, CGPoint(x: 0, y: -15_000)], [CGPoint(x: -20, y: -9_000), CGPoint(x: 20, y: -9_000)]],
+                                within: rect)
+        XCTAssertEqual(path.boundingBoxOfPath, CGRect(x: 0, y: -200, width: 0, height: 200), "only what shows")
+        XCTAssertTrue(M.vectorPath([], within: rect).isEmpty)
+
+        var main = [CLLocationCoordinate2D(latitude: 47, longitude: 7), CLLocationCoordinate2D(latitude: 47.1, longitude: 7)]
+        let lines: [MKPolyline] = [TrackVectorCasingPolyline(coordinates: &main, count: 2), TrackVectorPolyline(coordinates: &main, count: 2)]
+        let casing = M.vectorPaint(lines, casing: true, layerType: .icao)
+        let core = M.vectorPaint(lines, casing: false, layerType: .icao)
+        XCTAssertEqual(casing?.width, 6)
+        XCTAssertEqual(core?.width, 3)
+        XCTAssertEqual(casing?.stroke?.cgColor.alpha ?? 0, 0.5, accuracy: 1e-6, "the dark edge, half see-through")
+        XCTAssertEqual(core?.cap, .round)
+        XCTAssertNil(M.vectorPaint([], casing: true, layerType: .icao))
+    }
+
     func testTheAircraftIsNotAShapeAnyMore() {
         XCTAssertFalse(PilotMapShapes.Group.allCases.map(\.sourceID).contains("aero.aircraft"),
                        "the aircraft is a marker, above the others")

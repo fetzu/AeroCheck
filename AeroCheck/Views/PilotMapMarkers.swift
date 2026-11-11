@@ -35,6 +35,12 @@ final class PilotMapMarkers {
     private var drivenPlace: CLLocationCoordinate2D?
     /// The drive turns the icon too, to the aircraft's course where it is drawn.
     private var drivenCourse = false
+    /// The track vector: a view on the aircraft's place, under the markers (`syncVector`).
+    private let vector = PilotTrackVectorView()
+    /// Its lines as the map last gave them, kept through a transient empty (a GPS gap, under 5 kt).
+    private var vectorLines: [MKPolyline] = []
+    /// MapLibre's own view of the markers' views: the vector goes right under it.
+    private weak var markersContainer: UIView?
     /// The airspace's tags on the map, and when they were last placed.
     private var tags: [String: PilotMarker] = [:]
     private var tagsPlaced = Date.distantPast
@@ -55,6 +61,7 @@ final class PilotMapMarkers {
     func sync(_ map: AeroMapView, on mapView: MLNMapView) {
         plannedRoute.route = map.shownPlannedRoute
         syncAircraft(map, on: mapView)
+        syncVector(map, on: mapView)
         syncTags(map, on: mapView)
         let content = map.shownProcedures
         let plan = map.shownPlan
@@ -226,6 +233,107 @@ final class PilotMapMarkers {
         if !ridesCentre { place(at: location.coordinate) }
         if !aircraftShown { mapView.addAnnotation(aircraft); aircraftShown = true }
         turnAircraft(on: mapView)
+    }
+
+    // MARK: The track vector
+
+    /// The track vector (the line ahead of the aircraft, its dark edge, its marks at 1, 2 and 5 minutes) is a view on
+    /// the aircraft's place, not lines sent to MapLibre. As lines it was sent again at each fix, its speed and track
+    /// estimated anew, and MapLibre drew two frames each time for a map that hadn't moved: a third of the frames
+    /// drawn zoomed out in cruise (the review of 11 Nov, finding 10). As a view it costs the map nothing, starts on
+    /// the icon wherever the follow draws it, and its marks stay the same distance ahead.
+    /// Kept through a transient empty (a GPS gap, under 5 kt), gone when off or with no aircraft.
+    private func syncVector(_ map: AeroMapView, on mapView: MLNMapView) {
+        guard map.shownTrackVector, aircraftShown else {
+            vectorLines = []
+            vector.removeFromSuperview()
+            return
+        }
+        let lines = map.trackVectorOverlays
+        if !lines.isEmpty {
+            vectorLines = lines
+            vector.paint(casing: Self.vectorPaint(lines, casing: true, layerType: map.layerType),
+                         core: Self.vectorPaint(lines, casing: false, layerType: map.layerType), traits: mapView.traitCollection)
+        }
+        layoutVector(on: mapView)
+    }
+
+    /// The vector's paint, as the map's line renderer has it (`AeroMapView.lineRenderer`): nothing here decides a look.
+    static func vectorPaint(_ lines: [MKPolyline], casing: Bool, layerType: MapLayerType) -> PilotMapShapes.Paint? {
+        lines.first { ($0 is TrackVectorCasingPolyline) == casing }
+            .flatMap { PilotMapShapes.Paint(AeroMapView.lineRenderer(for: $0, layerType: layerType)) }
+    }
+
+    /// The vector on the aircraft as drawn, its lines as far as they show on the map: at every move of the map, of
+    /// the aircraft or of the vector itself.
+    func layoutVector(on mapView: MLNMapView) {
+        guard aircraftShown, let first = vectorLines.first, first.pointCount > 0 else {
+            vector.removeFromSuperview()
+            return
+        }
+        // Under every marker, the aircraft's first, and over the map, as the lines it replaces were: MapLibre keeps
+        // the markers' views in one view inside its drawing view, and the vector goes right under that one. (Put on
+        // the map view itself it was drawn over the aircraft: the author, 11 Nov.)
+        if markersContainer?.superview == nil {
+            // The aircraft's own view when it has one, else any marker's (the aircraft off the map).
+            markersContainer = mapView.view(for: aircraft)?.superview
+                ?? markers.values.lazy.compactMap { mapView.view(for: $0)?.superview }.first
+        }
+        guard let container = markersContainer, let host = container.superview else {
+            vector.removeFromSuperview()
+            return
+        }
+        let under = host.subviews.firstIndex(of: container).map { $0 - 1 }
+        if vector.superview !== host || host.subviews.firstIndex(of: vector) != under {
+            host.insertSubview(vector, belowSubview: container)
+        }
+        let at = mapView.convert(aircraft.coordinate, toPointTo: mapView)
+        // The lines are built from the latest fix; drawn from the aircraft's place, each point as far from it as it
+        // is from that fix on the map.
+        let origin = mapView.convert(first.points()[0].coordinate, toPointTo: mapView)
+        let lines = vectorLines.map { line -> (casing: Bool, points: [CGPoint]) in
+            let points = (0..<line.pointCount).map { i -> CGPoint in
+                let p = mapView.convert(line.points()[i].coordinate, toPointTo: mapView)
+                return CGPoint(x: p.x - origin.x, y: p.y - origin.y)
+            }
+            return (line is TrackVectorCasingPolyline, points)
+        }
+        // Only what shows: five minutes of flight are thousands of points long when zoomed in.
+        let shown = mapView.bounds.insetBy(dx: -PilotTrackVectorView.margin, dy: -PilotTrackVectorView.margin)
+            .offsetBy(dx: -at.x, dy: -at.y)
+        vector.show(casing: Self.vectorPath(lines.filter(\.casing).map(\.points), within: shown),
+                    core: Self.vectorPath(lines.filter { !$0.casing }.map(\.points), within: shown),
+                    at: mapView.convert(at, to: host))
+    }
+
+    /// The lines' path, each stretch cut to `rect`.
+    static func vectorPath(_ lines: [[CGPoint]], within rect: CGRect) -> CGPath {
+        let path = CGMutablePath()
+        for line in lines {
+            for (a, b) in zip(line, line.dropFirst()) {
+                guard let (from, to) = clipped(a, b, to: rect) else { continue }
+                path.move(to: from)
+                path.addLine(to: to)
+            }
+        }
+        return path
+    }
+
+    /// The part of the stretch from `a` to `b` inside `rect`; nil when none of it is.
+    static func clipped(_ a: CGPoint, _ b: CGPoint, to rect: CGRect) -> (CGPoint, CGPoint)? {
+        let (dx, dy) = (b.x - a.x, b.y - a.y)
+        var (enter, leave) = (CGFloat(0), CGFloat(1))
+        for (p, q) in [(-dx, a.x - rect.minX), (dx, rect.maxX - a.x), (-dy, a.y - rect.minY), (dy, rect.maxY - a.y)] {
+            if p == 0 {
+                if q < 0 { return nil }
+            } else if p < 0 {
+                enter = max(enter, q / p)
+            } else {
+                leave = min(leave, q / p)
+            }
+        }
+        guard enter <= leave else { return nil }
+        return (CGPoint(x: a.x + dx * enter, y: a.y + dy * enter), CGPoint(x: a.x + dx * leave, y: a.y + dy * leave))
     }
 
     /// Exactly there, and nothing when it is: a marker moved, even onto its own place, has the map draw a frame.
@@ -474,6 +582,7 @@ final class PilotMapMarkers {
     func layout(on mapView: MLNMapView, atRest: Bool) {
         // Each frame of a glide: the aircraft where the camera is now.
         if ridesCentre, aircraftShown { put(at: drivenPlace ?? mapView.centerCoordinate) }
+        layoutVector(on: mapView)
         let labels = markers.values.filter { $0.base is VFRProcedureAnnotation }
         let heading = mapView.direction
         if !labels.isEmpty, pillsFor.map({ abs($0.heading - heading) > 0.5 || abs($0.zoom - mapView.zoomLevel) > 0.05 }) ?? true {
@@ -631,6 +740,47 @@ final class PilotMarker: NSObject, MLNAnnotation {
     var title: String? { base.title ?? nil }
     var subtitle: String? { base.subtitle ?? nil }
     var isProcedure: Bool { base is VFRProcedureAnnotation || base is VFRApproachAnnotation }
+}
+
+/// The track vector's view: two stroked paths, the dark edge under the line, around the aircraft's place. It takes no
+/// touch and says nothing to VoiceOver, as the lines it replaces.
+final class PilotTrackVectorView: UIView {
+    /// How far past the map's edge the lines are kept, so their round ends never show there.
+    static let margin: CGFloat = 16
+    private let casing = CAShapeLayer()
+    private let core = CAShapeLayer()
+
+    init() {
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        for line in [casing, core] {
+            line.fillColor = nil
+            line.lineCap = .round
+            line.lineJoin = .round
+            // Never eased: the lines are where the map is, at once.
+            line.actions = ["path": NSNull(), "strokeColor": NSNull(), "lineWidth": NSNull(), "position": NSNull()]
+            layer.addSublayer(line)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func paint(casing casingPaint: PilotMapShapes.Paint?, core corePaint: PilotMapShapes.Paint?, traits: UITraitCollection) {
+        for (line, paint) in [(casing, casingPaint), (core, corePaint)] {
+            line.strokeColor = paint?.stroke?.resolvedColor(with: traits).cgColor
+            line.lineWidth = CGFloat(paint?.width ?? 0)
+            line.lineCap = paint?.cap == .butt ? .butt : paint?.cap == .square ? .square : .round
+        }
+    }
+
+    /// The paths, in points from the aircraft's place, and that place in the map's view.
+    func show(casing casingPath: CGPath, core corePath: CGPath, at place: CGPoint) {
+        casing.path = casingPath
+        core.path = corePath
+        if center != place { center = place }
+    }
 }
 
 /// The aircraft's marker: its position moves in place (MapLibre follows `coordinate`), its heading turns its view.

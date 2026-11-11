@@ -116,4 +116,32 @@ final class PilotMapCameraTests: XCTestCase {
         XCTAssertEqual(C.glidePosition(fixes, at: t0 - 1, reach: 1)!.coordinate.latitude, 47, accuracy: 1e-9)
         XCTAssertNil(C.glidePosition([], at: t0, reach: 1))
     }
+
+    /// The zoom buttons stop at the chart's own limits, and say so: + greyed at the closest, − at the farthest
+    /// (device check h-4, round 7: at the limit the scale changed and the map didn't).
+    func testTheZoomButtonsStopAtTheChartsLimits() {
+        let state = SharedMapState()
+        XCTAssertTrue(state.canZoom(in: true), "no limits yet: both buttons")
+        state.zoomLimits = 1_000...100_000
+        state.cameraDistance = 1_000
+        XCTAssertFalse(state.canZoom(in: true))
+        XCTAssertTrue(state.canZoom(in: false))
+        state.cameraDistance = 100_000
+        XCTAssertTrue(state.canZoom(in: true))
+        XCTAssertFalse(state.canZoom(in: false))
+    }
+
+    /// Gliding, the drive does a zoom tap's move itself, in a fifth of a second: from where it was to the new distance,
+    /// in the scale's terms, quick first, exactly there at the end (device check h-4, round 7: a MapLibre zoom under
+    /// the drive stuttered).
+    func testTheDriveZoomsInAFifthOfASecond() {
+        typealias C = PilotMapView.Coordinator
+        XCTAssertEqual(C.glideZoomDuration, 0.2)
+        XCTAssertEqual(C.zoomedAltitude(from: 10_000, to: 5_000, progress: 0), 10_000, accuracy: 1e-6)
+        XCTAssertEqual(C.zoomedAltitude(from: 10_000, to: 5_000, progress: 1), 5_000)
+        XCTAssertEqual(C.zoomedAltitude(from: 10_000, to: 5_000, progress: 3), 5_000, "past the end: there")
+        let half = C.zoomedAltitude(from: 10_000, to: 5_000, progress: 0.5)
+        XCTAssertLessThan(half, 10_000 / 2.squareRoot(), "past halfway on the scale at half the time")
+        XCTAssertGreaterThan(half, 5_000)
+    }
 }

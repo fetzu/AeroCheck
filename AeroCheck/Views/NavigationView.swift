@@ -164,6 +164,15 @@ class SharedMapState: ObservableObject {
     @Published var region: MKCoordinateRegion
     // cameraDistance is not @Published - only read when creating a new map view
     var cameraDistance: Double = 10000
+    /// The chart's camera distances, closest to farthest, as the map last set them (`PilotMapView.applyZoomLimits`):
+    /// the zoom buttons stop there. Nil until the map is on screen.
+    var zoomLimits: ClosedRange<Double>?
+
+    /// Whether a zoom button still does something: + until the closest distance, − until the farthest.
+    func canZoom(in zoomIn: Bool) -> Bool {
+        guard let limits = zoomLimits else { return true }
+        return zoomIn ? cameraDistance > limits.lowerBound * 1.01 : cameraDistance < limits.upperBound / 1.01
+    }
     // cameraHeading is published so the compass UI updates in real-time; only when it turns by more than a tenth of
     // a degree, as the map's own reports and track-up set it at every fix. (6.10.0)
     var cameraHeading: Double {
@@ -2592,8 +2601,8 @@ struct NavigationMapView: View {
                          title: L10n.Nav.centre, prominent: !isFollowingAircraft) { centerOnAircraft() }
             if withZoom {
                 HStack(spacing: 10) {
-                    zoomButton(icon: "minus", label: L10n.Nav.zoomOut) { zoom(by: 2.0) }
-                    zoomButton(icon: "plus", label: L10n.Nav.zoomIn) { zoom(by: 0.5) }
+                    zoomButton(icon: "minus", label: L10n.Nav.zoomOut, enabled: mapState.canZoom(in: false)) { zoom(by: 2.0) }
+                    zoomButton(icon: "plus", label: L10n.Nav.zoomIn, enabled: mapState.canZoom(in: true)) { zoom(by: 0.5) }
                 }
             }
         }
@@ -2657,7 +2666,7 @@ struct NavigationMapView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func zoomButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func zoomButton(icon: String, label: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.aero(size: CockpitType.response, weight: .semibold))
@@ -2668,6 +2677,8 @@ struct NavigationMapView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.35)
         .accessibilityLabel(label)
     }
 
@@ -3332,7 +3343,14 @@ struct NavigationMapView: View {
         // The map camera is distance-driven (setCamera fromDistance: mapState.cameraDistance), so a
         // span-only change never zoomed the tile layers — it just got reverted by regionDidChange.
         // Scale the camera distance AND nudge the region so updateUIView re-applies the camera. (v4 UI/UX Revamp fix)
-        mapState.cameraDistance = min(max(mapState.cameraDistance * factor, 800), 4_000_000)
+        // Within the chart's own limits: past them the scale moved and the map couldn't (device check h-4, round 7).
+        let limits = mapState.zoomLimits ?? 800...4_000_000
+        let distance = min(max(mapState.cameraDistance * factor, limits.lowerBound), limits.upperBound)
+        guard abs(distance / mapState.cameraDistance - 1) > 0.001 else { return }
+        mapState.cameraDistance = distance
+        // The distance isn't published: a tap reached the map only through the region's change below, and with the
+        // span at its clamp there was none, so the map waited for the next update (4 to 5 s, 11 Nov).
+        mapState.objectWillChange.send()
         let r = mapState.region
         let lat = min(max(r.span.latitudeDelta * factor, 0.0015), 80)
         let lon = min(max(r.span.longitudeDelta * factor, 0.0015), 80)

@@ -484,6 +484,12 @@ struct PilotMapView: UIViewRepresentable {
             let maxZoom = MLNZoomLevelForAltitude(range.minCenterCoordinateDistance, 0, latitude, size)
             if abs(mapView.minimumZoomLevel - minZoom) > 0.01 { mapView.minimumZoomLevel = max(0, minZoom) }
             if abs(mapView.maximumZoomLevel - maxZoom) > 0.01 { mapView.maximumZoomLevel = min(22, maxZoom) }
+            // The zoom buttons stop where the chart does, and grey out there (device check h-4, round 7: the scale
+            // changed but the map didn't, at its limit). The distances the map can reach at these zoom levels, not the
+            // range's: a level converted back gives another distance (5,952 m for a range's 3,341 m, 11 Nov).
+            let closest = MLNAltitudeForZoomLevel(mapView.maximumZoomLevel, 0, latitude, size)
+            let farthest = MLNAltitudeForZoomLevel(mapView.minimumZoomLevel, 0, latitude, size)
+            if closest > 0, farthest > closest { map.mapState.zoomLimits = closest...farthest }
         }
 
         /// The shared state's camera, when it moved without the pilot's finger: a north reset, a fit, the aircraft
@@ -540,6 +546,8 @@ struct PilotMapView: UIViewRepresentable {
             // it over, slower.
             if following, let glideTarget, Self.same(glideTarget, region.center) {
                 ridesOn = true
+                // A zoom tap meanwhile: the drive eases to it, even with the aircraft held (parked, between fixes).
+                if glideActive { wakeGlide() }
                 return
             }
             let center = mapView.centerCoordinate
@@ -567,8 +575,13 @@ struct PilotMapView: UIViewRepresentable {
                                    heading: state.cameraHeading), on: mapView)
                 return
             }
-            // A turn or a zoom alone keeps the centre: the aircraft stays on it. Its animation at the follow's 30.
+            // A turn or a zoom alone keeps the centre: the aircraft stays on it. Gliding, the drive eases to it: a
+            // MapLibre animation would be cut by the drive's next frame (device check h-4, round 7: it stuttered).
             ridesOn = following && !moved && MainActor.assumeIsolated({ markers.ridesCentre })
+            if ridesOn, glideActive {
+                wakeGlide()
+                return
+            }
             setGlideFrameRate(nil, on: mapView)
             mapView.setCamera(camera, animated: DryRunCameraPace.animates)
         }
@@ -641,6 +654,8 @@ struct PilotMapView: UIViewRepresentable {
         private weak var glideMap: MLNMapView?
         /// True while the drive moves the camera: its own region changes are the drive's, not the pilot's.
         private var glideMoving = false
+        /// A finger moved the map since it last came to rest: a flick's coast, stopped by a touch, ends "cancelled".
+        private var fingerMoved = false
         /// The full work of a map at rest (credits, shapes for the zoom, names that collide): every 2 s while gliding.
         private var glideRestPass: CFTimeInterval = 0
         static let glideRestEvery: CFTimeInterval = 2
@@ -653,16 +668,38 @@ struct PilotMapView: UIViewRepresentable {
                 if glideFixes.count > 6 { glideFixes.removeFirst(glideFixes.count - 6) }
             }
             glideMap = mapView
-            // The first frame: from there each frame asks for the next.
-            if !glideActive {
+            wakeGlide()
+        }
+
+        /// The first frame, or one after the drive stalled (nothing changed, so MapLibre drew nothing): from there
+        /// each frame asks for the next.
+        private func wakeGlide() {
+            if !glideActive || CACurrentMediaTime() - glideLastTick > 0.2 {
                 glideActive = true
                 glideTick()
             }
         }
 
+        /// When the drive last placed the camera, and the zoom it is on its way through: from, to, since when.
+        private var glideLastTick: CFTimeInterval = 0
+        private var glideZoom: (from: Double, to: Double, start: CFTimeInterval)?
+        /// A zoom tap's move while the drive has the camera: as long as MapLibre's own was.
+        static let glideZoomDuration: CFTimeInterval = 0.2
+
+        /// The camera's distance `progress` (0 to 1) of the way through a zoom from `from` to `to`: in the scale's
+        /// terms (logarithmic, as each tap halves or doubles), quick first and settling at the end.
+        static func zoomedAltitude(from: Double, to: Double, progress: Double) -> Double {
+            guard from > 0, to > 0 else { return to }
+            let p = min(1, max(0, progress))
+            guard p < 1 else { return to }
+            let eased = 1 - (1 - p) * (1 - p)
+            return exp(log(from) + (log(to) - log(from)) * eased)
+        }
+
         func stopGlide() {
             glideActive = false
             glideFixes = []
+            glideZoom = nil
         }
 
         private func glideTick() {
@@ -679,11 +716,24 @@ struct PilotMapView: UIViewRepresentable {
                 stopGlide()
                 return
             }
-            let camera = MLNMapCamera(lookingAtCenter: place.coordinate, altitude: map.mapState.cameraDistance, pitch: 0,
-                                      heading: place.heading)
+            let now = CACurrentMediaTime()
+            let target = map.mapState.cameraDistance
+            if glideZoom?.to != target {
+                // A new zoom: from where the camera is now, even halfway through the last one.
+                let current = mapView.camera.altitude
+                glideZoom = abs(current / target - 1) < 0.002 ? nil : (current, target, now)
+            }
+            let altitude = glideZoom.map {
+                Self.zoomedAltitude(from: $0.from, to: $0.to, progress: (now - $0.start) / Self.glideZoomDuration)
+            } ?? target
+            glideLastTick = now
+            let camera = MLNMapCamera(lookingAtCenter: place.coordinate, altitude: altitude, pitch: 0, heading: place.heading)
             glideMoving = true
             mapView.setCamera(camera, animated: false)
             glideMoving = false
+            // A zoom under way asks for its next frame itself: its first is where the camera already is, and with the
+            // aircraft held nothing else changed, so MapLibre drew nothing more (a tap waited 4.6 s, 11 Nov).
+            if let zoom = glideZoom, now - zoom.start < Self.glideZoomDuration { mapView.triggerRepaint() }
             MainActor.assumeIsolated { markers.layout(on: mapView, atRest: false) }
             // Caught up with a fix that no other follows (parked, paused): the drive rests, the map with it.
             if shown.timeIntervalSince(last.time) > Self.glideGap * rate {
@@ -786,6 +836,7 @@ struct PilotMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, regionWillChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             if !reason.intersection(Self.gestures).isEmpty {
+                fingerMoved = true
                 isUserInteracting = true
                 map.isFollowingAircraft = false
                 fingerFrameRate(on: mapView)
@@ -825,8 +876,11 @@ struct PilotMapView: UIViewRepresentable {
             }
             isUserInteracting = false
             restoreFollowFrameRate(on: mapView)
-            // An animation cut short by the next one (two zoom taps): its halfway camera is nobody's.
-            if reason.contains(.transitionCancelled) { return }
+            // An animation cut short by the next one (two zoom taps): its halfway camera is nobody's. But a flick
+            // stopped by a finger ends cancelled too, and there the camera is the pilot's: kept, or the next pass put
+            // the map back where it was before the flick (the author, round 7, as on MapKit once).
+            if reason.contains(.transitionCancelled), !fingerMoved, reason.intersection(Self.gestures).isEmpty { return }
+            fingerMoved = false
             // Not before the view is on screen at its size: the placeholder's camera is nobody's.
             guard mapView.window != nil, placedAt != CGSize(width: 320, height: 320) else { return }
             // The band's camera isn't the pilot's: the shared state keeps theirs, to go back to.
@@ -851,7 +905,9 @@ struct PilotMapView: UIViewRepresentable {
             // A glide's end is the fix it went to, already in the shared state, or an older one when the next fix
             // came first: written back, it would take the newer fix's place and stop the follow.
             if glideTarget == nil || !reason.intersection(Self.gestures).isEmpty { state.updateFromRegion(region) }
-            state.cameraDistance = mapView.camera.altitude
+            // Gliding, the camera's distance is on its way to the state's (a zoom tap's): written back halfway, it
+            // took the tap's place and the zoom stopped short (11 Nov).
+            if glideTarget == nil || !reason.intersection(Self.gestures).isEmpty { state.cameraDistance = mapView.camera.altitude }
             let heading = mapView.direction
             // Gliding, the camera's heading is on its way to the state's: not the pilot's to keep.
             if glideTarget == nil, Self.angle(state.cameraHeading, heading) > 0.1 {

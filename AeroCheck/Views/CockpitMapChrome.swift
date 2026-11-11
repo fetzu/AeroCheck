@@ -52,6 +52,9 @@ struct MapChromeModel {
     var calloutOpen = false
     /// What the map says at its foot, bottom up. (6.9.0)
     var footChips: [MapFootChip] = []
+    /// + greyed at the chart's closest, − at its farthest (device check h-4, round 7).
+    var canZoomIn = true
+    var canZoomOut = true
 }
 
 /// A chip at the chart's foot. EVERY AIRSPACE is touchable and turns itself off; the others are traces of what the map
@@ -555,9 +558,19 @@ struct MapChromeControlButton: View {
 
     @Environment(\.cockpitTheme) private var theme
 
+    private var enabled: Bool {
+        switch control {
+        case .zoomIn: return model.canZoomIn
+        case .zoomOut: return model.canZoomOut
+        default: return true
+        }
+    }
+
     var body: some View {
         Button(action: action) { face }
             .buttonStyle(.plain)
+            .disabled(!enabled)
+            .opacity(enabled ? 1 : 0.35)
             .accessibilityLabel(MapChromeControlButton.label(control, model: model, language: language))
             .accessibilityValue(MapChromeControlButton.value(control, model: model, language: language))
             .accessibilityIdentifier(MapChromeControlButton.identifier(control))
@@ -1305,7 +1318,8 @@ struct CockpitChartChrome: View {
                                   aircraft: locationManager.currentLocation?.coordinate,
                                   zoom: mapState.cameraDistance,
                                   nauticalMiles: appState.settings.distanceInNauticalMiles,
-                                  calloutOpen: mapState.isCalloutOpen, footChips: footChips),
+                                  calloutOpen: mapState.isCalloutOpen, footChips: footChips,
+                                  canZoomIn: mapState.canZoom(in: true), canZoomOut: mapState.canZoom(in: false)),
             actions: wiredActions, showsStack: showsStack, footRoom: footRoom)
             // A waypoint the flight marked, or a check just confirmed, withdraws the band's older offer.
             .modifier(UndoOfferFollower(cockpitNav: cockpitNav))

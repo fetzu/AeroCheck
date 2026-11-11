@@ -705,6 +705,7 @@ struct PilotMapView: UIViewRepresentable {
         }
 
         func stopGlide() {
+            if glideActive { MainActor.assumeIsolated { shapes.aircraftAsDrawn = nil } }
             glideActive = false
             glideFixes = []
             glideZoom = nil
@@ -739,6 +740,13 @@ struct PilotMapView: UIViewRepresentable {
             glideMoving = true
             mapView.setCamera(camera, animated: false)
             glideMoving = false
+            // The track's line to the aircraft where it is drawn now, and to the point it has passed.
+            if let style {
+                MainActor.assumeIsolated {
+                    shapes.aircraftAsDrawn = (place.coordinate, shown)
+                    shapes.syncTrack(map, style: style, traits: mapView.traitCollection)
+                }
+            }
             // A zoom under way asks for its next frame itself: its first is where the camera already is, and with the
             // aircraft held nothing else changed, so MapLibre drew nothing more (a tap waited 4.6 s, 11 Nov).
             if let zoom = glideZoom, now - zoom.start < Self.glideZoomDuration { mapView.triggerRepaint() }

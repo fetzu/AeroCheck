@@ -23,6 +23,9 @@ final class PilotMapShapes {
         case track
         /// The track's live end, from the last whole minute (`splitTrack`).
         case trackTail
+        /// From the last recorded point to the aircraft as drawn: the track records a point every 5 s, so the line
+        /// ended up to 5 s of flight behind the aircraft (the author, 11 Nov: a hole just behind it, filling again).
+        case trackLive
         case plannedRoute
         case route
         case trackVector
@@ -210,6 +213,47 @@ final class PilotMapShapes {
         layers.values.flatMap { $0 }.sorted().lazy.compactMap { style.layer(withIdentifier: $0.id) }.first
     }
 
+    /// Where the aircraft is drawn while the follow's drive has the camera, and the time it shows (`glideTick`): the
+    /// track's line ends there. Nil otherwise: the aircraft is on its latest fix.
+    var aircraftAsDrawn: (coordinate: CLLocationCoordinate2D, time: Date)?
+
+    /// The flown track, in its layer's colour: up to the last whole minute, then its live end, then the line to the
+    /// aircraft as drawn. Each frame of a glide redraws only that last line (two points); the rest changes with the
+    /// recorded points.
+    func syncTrack(_ map: AeroMapView, style: MLNStyle, traits: UITraitCollection) {
+        let track = map.shownTrack
+        let (history, recorded) = Self.splitTrack(track)
+        // Gliding, the aircraft is drawn a moment behind its latest fix: the line stops at the last point it has passed.
+        let tail = aircraftAsDrawn.map { drawn in Self.passed(recorded, at: drawn.time) } ?? recorded
+        let trackLine = { (points: [CLLocationCoordinate2D]) -> [Shape] in
+            guard points.count > 1 else { return [] }
+            let line = GPSTrackPolyline(coordinates: points, count: points.count)
+            return [Shape(overlay: line, renderer: AeroMapView.lineRenderer(for: line, layerType: map.layerType), tier: 0)]
+        }
+        sync(.track, signature: Self.hash(history.count, history.last?.timestamp, map.layerType.rawValue), on: style,
+             traits: traits) { trackLine(subsampledTrackCoordinates(Array(history))) }
+        sync(.trackTail, signature: Self.hash(tail.count, tail.last?.timestamp, map.layerType.rawValue), on: style,
+             traits: traits) { trackLine(subsampledTrackCoordinates(Array(tail))) }
+        let end = aircraftAsDrawn?.coordinate ?? map.shownAircraft?.coordinate
+        let live = Self.liveEnd(from: tail.last?.coordinate ?? history.last?.coordinate, to: end)
+        sync(.trackLive, signature: Self.hash(live.map { "\($0.latitude),\($0.longitude)" }, map.layerType.rawValue),
+             on: style, traits: traits) { trackLine(live) }
+    }
+
+    /// The recorded points the aircraft has passed at `time`, the first of them always (the cut at the last minute).
+    nonisolated static func passed(_ points: ArraySlice<GPSPoint>, at time: Date) -> ArraySlice<GPSPoint> {
+        guard let start = points.indices.first else { return points }
+        let shown = points.prefix { $0.timestamp <= time }
+        return shown.isEmpty ? points[start...start] : shown
+    }
+
+    /// The line from the last recorded point to the aircraft: none while they meet (or with no aircraft or no track).
+    nonisolated static func liveEnd(from last: CLLocationCoordinate2D?, to aircraft: CLLocationCoordinate2D?) -> [CLLocationCoordinate2D] {
+        guard let last, let aircraft,
+              abs(last.latitude - aircraft.latitude) > 1e-7 || abs(last.longitude - aircraft.longitude) > 1e-7 else { return [] }
+        return [last, aircraft]
+    }
+
     /// Draws `group` from `shapes` (built only when `signature` differs from the last one drawn).
     /// The flown track in two: up to its last whole minute, sent to the map once a minute, and the live end from there
     /// (the cut point in both, so the line is whole). The track was sent whole at each recorded point, up to 3,000
@@ -349,19 +393,7 @@ extension PilotMapShapes {
             return shapes
         }
 
-        // The flown track, in its layer's colour: up to the last whole minute, then its live end.
-        let track = map.shownTrack
-        let (history, tail) = Self.splitTrack(track)
-        let trackLine = { (points: [GPSPoint]) -> [Shape] in
-            guard points.count > 1 else { return [] }
-            let coords = subsampledTrackCoordinates(points)
-            let line = GPSTrackPolyline(coordinates: coords, count: coords.count)
-            return [Shape(overlay: line, renderer: AeroMapView.lineRenderer(for: line, layerType: map.layerType), tier: 0)]
-        }
-        sync(.track, signature: Self.hash(history.count, history.last?.timestamp, map.layerType.rawValue), on: style,
-             traits: traits) { trackLine(Array(history)) }
-        sync(.trackTail, signature: Self.hash(tail.count, tail.last?.timestamp, map.layerType.rawValue), on: style,
-             traits: traits) { trackLine(Array(tail)) }
+        syncTrack(map, style: style, traits: traits)
 
         // The route builder's route: the selected leg's halo, the casing, the core.
         // While a finger drags it, the working geometry, with no leg selected.

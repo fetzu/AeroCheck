@@ -380,6 +380,15 @@ struct DryRunCoachCard: View {
     private let paper = Color(red: 0.957, green: 0.945, blue: 0.918)
     private let ink = Color(red: 0.106, green: 0.11, blue: 0.125)
 
+    /// The website's frames leave the card out (`DryRunFrames`).
+    private var frameOpacity: Double {
+        #if DEBUG
+        DryRunFrames.cardOpacity
+        #else
+        1
+        #endif
+    }
+
     /// "Fly it · chapter 2 of 7 · Engine and taxi", "Plan a flight"; shorter on a phone. The first flight: "A circuit
     /// on the ground", its moment where the story's part goes (`partLine`).
     private var header: String {
@@ -395,6 +404,7 @@ struct DryRunCoachCard: View {
         }
         .foregroundColor(ink)
         .background(RoundedRectangle(cornerRadius: 14).fill(paper))
+        .opacity(frameOpacity)
         // How far into its part: a bar along the top edge that fills card by card (the author's second dry run
         // checks: four marks that never moved within a part read as a progress gone wrong).
         .overlay(alignment: .top) {
@@ -656,6 +666,11 @@ struct DryRunCoachVeil: View {
 
     var body: some View {
         GeometryReader { geo in
+            #if DEBUG
+            let _ = DryRunFrames.current?.note(step.id, ring: target.map {
+                $0.offsetBy(dx: geo.frame(in: .global).minX, dy: geo.frame(in: .global).minY)
+            })
+            #endif
             if target == nil, step.veils {
                 Color.black.opacity(0.62)
                     .frame(width: geo.size.width + 800, height: geo.size.height + 800)

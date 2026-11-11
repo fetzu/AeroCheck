@@ -48,10 +48,13 @@ struct GroundReplayScenario: Decodable {
 
     /// Wait at `t` (seconds into the track) until `until` holds: `engineStart`, `lineUp` (LINE UP
     /// tapped, or the LINE UP check reached), `phase:<name>` (that check or a later one reached),
-    /// `phaseIs:<name>` (that check exactly: the line-up again after a stop-and-go), `flightActive`.
+    /// `phaseIs:<name>` (that check exactly: the line-up again after a stop-and-go), `flightActive`, or
+    /// `frame:<id>`, a frame of a capture (`GroundReplayFrames`).
     struct Hold: Decodable {
         let t: Double
         let until: String
+        /// A frame's chart, by `MapLayerType`'s raw value ("ICAO Chart"), chosen as the replay stops there.
+        var layer: String? = nil
     }
 
     struct RoutePoint: Decodable {
@@ -78,6 +81,10 @@ struct GroundReplayScenario: Decodable {
         /// A flight planned for today on the route (Plan new flight), rather than the route alone, which
         /// has no date (a route's departure time is swept at launch).
         let planned: Bool?
+        /// A planned flight's preparation as done (`ThreadTaskKey`'s raw values), and its fuel on board, litres: a
+        /// capture's flight, prepared as a pilot would have. (6.10.0)
+        let ticked: [String]?
+        let fuelOnBoard: Double?
     }
 
     let name: String
@@ -93,6 +100,11 @@ struct GroundReplayScenario: Decodable {
     let deviceData: Bool?
     let holds: [Hold]?
     let route: Route?
+    /// The clock's rate at a hold, when the scenario asks for one: what a hold's wall seconds are worth in the flight's
+    /// times. Without it, the replay's own rate, at the holds too. (6.10.0)
+    let holdRate: Double?
+    /// The traffic circuits on the map (Settings › Map), off by default: a frame that shows them. (6.10.0)
+    let trafficCircuitsOnMap: Bool?
 
     static func load(path: String) throws -> GroundReplayScenario {
         try JSONDecoder().decode(GroundReplayScenario.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
@@ -173,8 +185,14 @@ struct GroundReplayCursor: Equatable {
         /// already, and comes back to it through AFTER LANDING and NEW CIRCUIT. (6.3.0)
         case phaseIs(ChecklistPhase)
         case flightActive
+        /// A frame of a capture: the clock stopped, until `<id>.go` is in the capture's folder. (6.10.0)
+        case frame(String)
 
         init?(_ text: String) {
+            if text.hasPrefix("frame:") {
+                self = .frame(String(text.dropFirst("frame:".count)))
+                return
+            }
             let lower = text.lowercased()
             func phase(after prefix: String) -> ChecklistPhase? {
                 guard lower.hasPrefix(prefix) else { return nil }
@@ -202,6 +220,8 @@ struct GroundReplayCursor: Equatable {
         var engineStarted = false
         var linedUp = false
         var phase: ChecklistPhase = .preflight
+        /// The frames let go so far.
+        var framesTaken: Set<String> = []
 
         func satisfies(_ condition: Condition) -> Bool {
             switch condition {
@@ -210,6 +230,7 @@ struct GroundReplayCursor: Equatable {
             case .phase(let target): return isFlightActive && phase.rawValue >= target.rawValue
             case .phaseIs(let target): return isFlightActive && phase == target
             case .flightActive: return isFlightActive
+            case .frame(let id): return framesTaken.contains(id)
             }
         }
     }
@@ -269,6 +290,11 @@ final class GroundReplay {
     private var fixIndex = 0
     private var lastDelivered: (index: Int, at: Date)?
     private var lastSaved = Date.distantPast
+    /// The frames of a capture, when the launch names their folder.
+    private let frames = GroundReplayFrames.fromEnvironment()
+    /// The rate outside the holds, and the one last set.
+    private let flightRate = FlightClock.virtual?.rate ?? 10
+    private var rateNow = FlightClock.virtual?.rate ?? 10
 
     private init(path: String, scenario: GroundReplayScenario, fixes: [GroundReplayFix], cursor: GroundReplayCursor,
                  appState: AppState, locationManager: LocationManager) {
@@ -287,6 +313,7 @@ final class GroundReplay {
 
     /// The replay's clock, from the launch environment: nil without `AEROCHECK_REPLAY`. Started now at
     /// the wall clock's time, or, resumed, where the last run left it plus the time the app was gone.
+    /// A fresh one starts at the capture clock when there is one (`AEROCHECK_CLOCK`), at the replay's rate.
     nonisolated static func clockAtLaunch() -> FlightClock.Virtual? {
         let env = ProcessInfo.processInfo.environment
         guard let path = env["AEROCHECK_REPLAY"], !path.isEmpty else { return nil }
@@ -297,7 +324,8 @@ final class GroundReplay {
             let virtual = saved.virtualNow.addingTimeInterval(wall.timeIntervalSince(saved.wallNow) * saved.rate)
             return FlightClock.Virtual(wallAnchor: wall, virtualAnchor: virtual, rate: saved.rate)
         }
-        return FlightClock.Virtual(wallAnchor: wall, virtualAnchor: wall, rate: max(rate, 0.1))
+        let start = FlightClock.captureClockAtLaunch()?.virtualAnchor ?? wall
+        return FlightClock.Virtual(wallAnchor: wall, virtualAnchor: start, rate: max(rate, 0.1))
     }
 
     /// Starts the replay `AEROCHECK_REPLAY` names, if any: true when it did. A fresh replay abandons a
@@ -331,6 +359,7 @@ final class GroundReplay {
         }
 
         useAerodromes(of: scenario, in: airportDataService)
+        if scenario.trafficCircuitsOnMap == true { appState.settings.showVFRCircuitsOnMap = true }
 
         let holds = (scenario.holds ?? [.init(t: 0, until: "engineStart")]).compactMap { hold in
             GroundReplayCursor.Condition(hold.until).map { GroundReplayCursor.Hold(t: hold.t, condition: $0) }
@@ -434,12 +463,25 @@ final class GroundReplay {
                 return
             }
         }
-        let plan = FlightCreator.plan(fromRoute: template, intent: intent)
+        var plan = FlightCreator.plan(fromRoute: template, intent: intent)
+        plan.fuelOnBoard = route.fuelOnBoard ?? plan.fuelOnBoard
         plans.add(plan)
         threads.createThread(from: plan, profile: intent.kind.profile,
                              routeLabel: FlightThreadManager.routeLabel(for: plan),
                              aircraftRegistration: intent.aircraftRegistration)
         plans.activateFlightPlan(plan)
+        tick(route.ticked ?? [], of: plan, in: threads)
+    }
+
+    /// The tasks named, done now on the replay's clock.
+    private static func tick(_ keys: [String], of plan: FlightPlan, in threads: FlightThreadManager) {
+        for key in keys {
+            guard let thread = threads.threads.first(where: { $0.flightPlanId == plan.id }) else { return }
+            // A key can be several tasks, one per country.
+            for task in thread.tasks where task.key.rawValue == key {
+                threads.setTaskState(.done, taskId: task.id, threadId: thread.id, now: FlightClock.now)
+            }
+        }
     }
 
     private static func plan(of route: GroundReplayScenario.Route, name: String) -> FlightPlan {
@@ -473,8 +515,30 @@ final class GroundReplay {
 
     private var flightState: GroundReplayCursor.FlightState {
         guard let appState else { return .init() }
+        var taken: Set<String> = []
+        if case .frame(let id)? = cursor.waitingAt?.condition, frames?.isLetGo(id) == true { taken.insert(id) }
         return .init(isFlightActive: appState.isFlightActive, engineStarted: appState.engineStartTime != nil,
-                     linedUp: appState.lineUpTime != nil, phase: appState.currentPhase)
+                     linedUp: appState.lineUpTime != nil, phase: appState.currentPhase, framesTaken: taken)
+    }
+
+    /// The clock's rate at the cursor: stopped at a frame, so the frame is the same however long it takes; the
+    /// scenario's `holdRate` at another hold; the replay's own in between.
+    private func paceTheClock() {
+        var rate = flightRate
+        if let hold = cursor.waitingAt {
+            if case .frame = hold.condition { rate = 0 } else { rate = scenario.holdRate ?? flightRate }
+        }
+        guard rate != rateNow else { return }
+        rateNow = rate
+        FlightClock.setVirtualRate(rate)
+    }
+
+    /// The fix of a frame's hold delivered: its chart chosen, and the capture told it can look.
+    private func noteFrame() {
+        guard case .frame(let id)? = cursor.waitingAt?.condition, let frames, !frames.isHeld(id) else { return }
+        let hold = scenario.holds?.first { $0.until == "frame:\(id)" }
+        if let layer = hold?.layer.flatMap(MapLayerType.init(rawValue:)) { appState?.selectMapLayer(layer) }
+        frames.noteHeld(id)
     }
 
     private func tick() {
@@ -489,6 +553,8 @@ final class GroundReplay {
             locationManager?.feedReplayFix(fix.location(at: now), baroRelativeAltitudeM: fix.baroRelativeM)
             lastDelivered = (index, now)
         }
+        noteFrame()
+        paceTheClock()
         if Date().timeIntervalSince(lastSaved) >= 1 {
             lastSaved = Date()
             GroundReplaySavedState(scenarioPath: scenarioPath, trackT: cursor.t, released: cursor.released,
@@ -497,6 +563,28 @@ final class GroundReplay {
                        phase: flightState.phase).save()
         }
     }
+}
+
+// MARK: - A capture's frames
+
+/// The folder a capture shares with a replay (`AEROCHECK_REPLAY_FRAMES`): the replay writes `<id>.held` once it stands at
+/// a frame's hold, and goes on once `<id>.go` is there. A UI test and the host do what the frame needs in between, the
+/// clock stopped, so nothing has to be caught as it flies past. (6.10.0)
+struct GroundReplayFrames {
+    let folder: URL
+
+    static func fromEnvironment() -> GroundReplayFrames? {
+        guard let path = ProcessInfo.processInfo.environment["AEROCHECK_REPLAY_FRAMES"], !path.isEmpty else { return nil }
+        return GroundReplayFrames(folder: URL(fileURLWithPath: path, isDirectory: true))
+    }
+
+    private func file(_ id: String, _ suffix: String) -> String {
+        folder.appendingPathComponent("\(id).\(suffix)").path
+    }
+
+    func isHeld(_ id: String) -> Bool { FileManager.default.fileExists(atPath: file(id, "held")) }
+    func isLetGo(_ id: String) -> Bool { FileManager.default.fileExists(atPath: file(id, "go")) }
+    func noteHeld(_ id: String) { FileManager.default.createFile(atPath: file(id, "held"), contents: Data()) }
 }
 
 // MARK: - Relaunch

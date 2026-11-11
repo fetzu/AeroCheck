@@ -688,6 +688,8 @@ struct PilotMapView: UIViewRepresentable {
             }
         }
 
+        /// The zoom level the drive holds between zooms (nil until its first frame, again after it stops).
+        private var glideZoomLevel: Double?
         /// When the drive last placed the camera, and the zoom it is on its way through: from, to, since when.
         private var glideLastTick: CFTimeInterval = 0
         private var glideZoom: (from: Double, to: Double, start: CFTimeInterval)?
@@ -709,6 +711,7 @@ struct PilotMapView: UIViewRepresentable {
             glideActive = false
             glideFixes = []
             glideZoom = nil
+            glideZoomLevel = nil
         }
 
         private func glideTick() {
@@ -736,14 +739,44 @@ struct PilotMapView: UIViewRepresentable {
                 Self.zoomedAltitude(from: $0.from, to: $0.to, progress: (now - $0.start) / Self.glideZoomDuration)
             } ?? target
             glideLastTick = now
-            let camera = MLNMapCamera(lookingAtCenter: place.coordinate, altitude: altitude, pitch: 0, heading: place.heading)
-            glideMoving = true
-            mapView.setCamera(camera, animated: false)
-            glideMoving = false
+            // By whole screen pixels: the hill shading and the charts are pictures, and moved by a fraction of a pixel
+            // they are blended, sharp at whole pixels and blurred between. Zoomed out the glide moves a fraction of a
+            // pixel a frame, and the shading pulsed (the author, 11 Nov: "the terrain shading wobbles"). The camera
+            // stays within half a pixel of the aircraft's place.
+            let centre = CGPoint(x: mapView.bounds.midX, y: mapView.bounds.midY)
+            let point = mapView.convert(place.coordinate, toPointTo: mapView)
+            let step = Self.pixelStep(CGPoint(x: point.x - centre.x, y: point.y - centre.y),
+                                      scale: mapView.traitCollection.displayScale)
+            let coordinate = step == .zero ? mapView.centerCoordinate
+                : mapView.convert(CGPoint(x: centre.x + step.x, y: centre.y + step.y), toCoordinateFrom: mapView)
+            let turned = Self.angle(mapView.direction, place.heading) > 0.05
+            // The zoom level held, not the distance: a distance gives another zoom level at each latitude, so flying
+            // north or south rescaled the shading a little at every frame, and it blended anew each time. It changes
+            // only while a zoom is under way.
+            // A zoom is under way for its fifth of a second and one frame more, to land on its last level.
+            let zoomUnderWay = glideZoom.map { now - $0.start <= Self.glideZoomDuration + 0.05 } ?? false
+            let zoomTarget: Double
+            if zoomUnderWay || glideZoomLevel == nil {
+                zoomTarget = MLNZoomLevelForAltitude(altitude, 0, coordinate.latitude, mapView.bounds.size)
+                glideZoomLevel = zoomTarget
+            } else {
+                zoomTarget = glideZoomLevel ?? mapView.zoomLevel
+            }
+            let zooming = abs(mapView.zoomLevel - zoomTarget) > 0.0005
+            if step != .zero || turned || zooming {
+                glideMoving = true
+                mapView.setCenter(coordinate, zoomLevel: zoomTarget, direction: turned ? place.heading : mapView.direction,
+                                  animated: false)
+                glideMoving = false
+            } else {
+                // Less than half a pixel to go: the same camera, so MapLibre would draw no next frame and the drive
+                // would stall until the next fix, then jump. It asks for the frame itself.
+                mapView.triggerRepaint()
+            }
             // The track's line to the aircraft where it is drawn now, and to the point it has passed.
             if let style {
                 MainActor.assumeIsolated {
-                    shapes.aircraftAsDrawn = (place.coordinate, shown)
+                    shapes.aircraftAsDrawn = (coordinate, shown)
                     shapes.syncTrack(map, style: style, traits: mapView.traitCollection)
                 }
             }
@@ -756,6 +789,12 @@ struct PilotMapView: UIViewRepresentable {
                 stopGlide()
                 self.mapView(mapView, regionDidChangeWith: [], animated: false)
             }
+        }
+
+        /// A move on screen, in points, rounded to whole screen pixels (`scale` pixels a point): zero under half a pixel.
+        static func pixelStep(_ move: CGPoint, scale: CGFloat) -> CGPoint {
+            let s = max(scale, 1)
+            return CGPoint(x: (move.x * s).rounded() / s, y: (move.y * s).rounded() / s)
         }
 
         /// Where the camera is at `time`: between the two fixes around it; past the last, on along its last leg for

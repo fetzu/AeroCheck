@@ -144,4 +144,14 @@ final class PilotMapCameraTests: XCTestCase {
         XCTAssertLessThan(half, 10_000 / 2.squareRoot(), "past halfway on the scale at half the time")
         XCTAssertGreaterThan(half, 5_000)
     }
+
+    /// The drive moves the camera by whole screen pixels (the author, 11 Nov: zoomed out, the terrain shading wobbled,
+    /// a picture moved by a fraction of a pixel blended sharp and blurred in turn).
+    func testTheDriveMovesByWholePixels() {
+        typealias C = PilotMapView.Coordinator
+        XCTAssertEqual(C.pixelStep(CGPoint(x: 0.2, y: -0.2), scale: 2), .zero, "under half a pixel: no move")
+        XCTAssertEqual(C.pixelStep(CGPoint(x: 0.3, y: 0.76), scale: 2), CGPoint(x: 0.5, y: 1.0))
+        XCTAssertEqual(C.pixelStep(CGPoint(x: -1.26, y: 3.1), scale: 3), CGPoint(x: -4.0 / 3, y: 3))
+        XCTAssertEqual(C.pixelStep(CGPoint(x: 0.6, y: 0.4), scale: 1), CGPoint(x: 1, y: 0))
+    }
 }

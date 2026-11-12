@@ -3549,6 +3549,8 @@ class AppState {
     func updateFlightCost(_ flight: Flight, cost: FlightCostEntry?) {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].costEntry = (cost?.isEmpty ?? true) ? nil : cost
+            // A fee answer is something a 6.10 build would drop: such a flight gets the newer stamp.
+            flights[index].stampForContent()
             flights[index].touch()
             saveFlight(flights[index])
         }

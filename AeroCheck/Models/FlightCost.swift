@@ -44,13 +44,72 @@ struct AircraftRateProfile: Codable, Equatable, Sendable {
     }
 }
 
-/// One thing paid on the ground.
+/// How a fee was settled. (6.11.0, the author's f2)
+enum FeeStatus: String, CaseIterable, Sendable {
+    /// Paid, at the desk or later.
+    case paid
+    /// The invoice hasn't come yet. The close-out counts it as dealt with; the ledger lists it as
+    /// open until it is marked paid. (f3)
+    case invoice
+    /// It goes on the club's bill.
+    case club
+    /// Nothing to pay.
+    case none
+}
+
+/// One thing paid on the ground, or still to pay.
+///
+/// A landing fee's line carries its aerodrome, how it was settled and, when the pilot knows it, the
+/// amount. No amount ever comes from the app or the server: every figure is the pilot's.
 struct FeeItem: Codable, Identifiable, Equatable, Sendable {
     var id: UUID = UUID()
     var label: String
+    /// 0 when no amount was entered: see `hasAmount`.
     var amount: Double
     /// Aerodrome it belongs to, when it is a landing or parking fee.
     var icao: String?
+
+    // 6.11.0. All optional: a line written by an older build has none of them. A flight that
+    // carries any of them is stamped with record version 3 (`Flight.stampForContent`).
+
+    /// How it was settled, as text, so a word a later build adds still decodes here.
+    var statusRaw: String?
+    /// The fee's own currency, when it isn't the flight's. Never converted. (f6)
+    var currency: String?
+    /// The landings the app counted at that aerodrome on this flight. (f4)
+    var landings: Int?
+    /// False when the pilot gave an answer without an amount ("Invoice to come" before it comes).
+    /// Nil on a line written before 6.11.0, which always had an amount.
+    var hasAmount: Bool?
+    /// When the answer was given.
+    var settledAt: Date?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, label, amount, icao, currency, landings, hasAmount, settledAt
+        case statusRaw = "status"
+    }
+
+    var status: FeeStatus? {
+        get { statusRaw.flatMap(FeeStatus.init(rawValue:)) }
+        set { statusRaw = newValue?.rawValue }
+    }
+
+    /// Whether the line has anything an older build would drop.
+    var carriesAnswer: Bool {
+        statusRaw != nil || currency != nil || landings != nil || hasAmount != nil || settledAt != nil
+    }
+
+    /// Whether its amount is money spent or owed: a line with an amount, paid or to be invoiced, or
+    /// a line of an older build. A fee on the club's bill or waived adds nothing here.
+    var countsInTotals: Bool {
+        guard hasAmount ?? true, amount.isFinite, amount > 0 else { return false }
+        switch status {
+        case nil, .paid, .invoice: return true
+        case .club, .some(.none): return false
+        }
+    }
+
+    var isInvoiceToCome: Bool { status == .invoice }
 }
 
 /// What a flight cost, stored on the flight itself.
@@ -72,9 +131,50 @@ struct FlightCostEntry: Codable, Equatable, Sendable {
         return rate * hours
     }
 
-    var feesTotal: Double { fees.reduce(0) { $0 + $1.amount } }
+    /// The currency a fee is in: its own, else the flight's.
+    func currency(of fee: FeeItem) -> String { fee.currency ?? currency }
+
+    /// The fees in the flight's own currency. A fee in another currency is never added to it
+    /// (`totalsByCurrency` has every currency side by side). (6.11.0, f6)
+    var feesTotal: Double {
+        fees.filter { $0.countsInTotals && currency(of: $0) == currency }.reduce(0) { $0 + $1.amount }
+    }
 
     var total: Double { aircraftCost + feesTotal }
+
+    /// What the flight cost, per currency: the aircraft in the flight's currency, each fee in its
+    /// own. Never converted.
+    var totalsByCurrency: [String: Double] {
+        var totals: [String: Double] = [:]
+        if aircraftCost > 0 { totals[currency, default: 0] += aircraftCost }
+        for fee in fees where fee.countsInTotals {
+            totals[currency(of: fee), default: 0] += fee.amount
+        }
+        return totals
+    }
+
+    /// Whether any fee carries what an older build would drop.
+    var carriesFeeAnswers: Bool { fees.contains { $0.carriesAnswer } }
+
+    /// The landing fee's line of an aerodrome, when the flight has one.
+    func feeLine(for icao: String) -> FeeItem? {
+        fees.first { $0.icao?.uppercased() == icao.uppercased() }
+    }
+
+    /// Records how the fee at an aerodrome was settled, on its line (made if there is none). A nil
+    /// amount keeps the answer without a figure.
+    mutating func settleFee(at icao: String, label: String, status: FeeStatus, amount: Double?,
+                            currency feeCurrency: String?, landings: Int?, at date: Date) {
+        var line = feeLine(for: icao) ?? FeeItem(label: label, amount: 0, icao: icao.uppercased())
+        line.status = status
+        let entered = amount.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
+        line.amount = entered ?? 0
+        line.hasAmount = entered != nil
+        line.currency = (feeCurrency == nil || feeCurrency == currency) ? nil : feeCurrency
+        if let landings { line.landings = landings }
+        line.settledAt = date
+        if let index = fees.firstIndex(where: { $0.id == line.id }) { fees[index] = line } else { fees.append(line) }
+    }
 
     /// Whether this entry contributes nothing at all.
     ///
@@ -140,6 +240,17 @@ enum FlightCostCalculator {
     static func formatAmount(_ amount: Double, currency: String) -> String {
         "\(currency) \(Int(amount.rounded()))"
     }
+
+    /// Totals in several currencies, side by side and never added: "CHF 395 + EUR 18", the flight's
+    /// own currency first, the others in alphabetical order. (6.11.0, f6)
+    static func formatTotals(_ totals: [String: Double], first: String) -> String {
+        let order = totals.keys.sorted { a, b in
+            if (a == first) != (b == first) { return a == first }
+            return a < b
+        }
+        guard !order.isEmpty else { return formatAmount(0, currency: first) }
+        return order.map { formatAmount(totals[$0] ?? 0, currency: $0) }.joined(separator: " + ")
+    }
 }
 
 // MARK: - Ledger
@@ -151,11 +262,26 @@ struct CostLedgerSummary: Equatable, Sendable {
     var fees: Double
     var flightsWithCost: Int
     var flightsMissingCost: Int
+    /// Every currency of the period, side by side: the aircraft and the fees of each. (6.11.0)
+    var totalsByCurrency: [String: Double] = [:]
+    /// The fees whose invoice hasn't come yet, oldest first. (6.11.0, f3)
+    var invoicesToCome: [CostLedger.OpenInvoice] = []
 
     var total: Double { aircraftCost + fees }
 }
 
 enum CostLedger {
+
+    /// A fee the pilot is still waiting to be invoiced for.
+    struct OpenInvoice: Equatable, Sendable {
+        var flightId: UUID
+        var date: Date?
+        var icao: String?
+        var label: String
+        /// Nil when no amount is known yet.
+        var amount: Double?
+        var currency: String
+    }
 
     /// Total what is recorded, and say how many flights have nothing recorded.
     ///
@@ -172,15 +298,32 @@ enum CostLedger {
     static func summarize(flights: [Flight],
                           rates: [String: AircraftRateProfile] = [:],
                           fallbackCurrency: String = "CHF") -> CostLedgerSummary {
+        var totalsByCurrency: [String: Double] = [:]
+        var invoices: [OpenInvoice] = []
         let entries = flights.compactMap { flight -> FlightCostEntry? in
-            if let stored = flight.costEntry, !stored.isEmpty { return stored }
-            // A stored entry wins even when empty — the pilot may have deliberately cleared it.
-            if flight.costEntry != nil { return nil }
-            guard let key = FlightCostCalculator.profileKey(for: flight),
-                  let profile = rates[key] else { return nil }
-            let derived = FlightCostCalculator.makeEntry(for: flight, profile: profile)
-            return derived.isEmpty ? nil : derived
+            let entry: FlightCostEntry?
+            if let stored = flight.costEntry, !stored.isEmpty {
+                entry = stored
+            } else if flight.costEntry != nil {
+                // A stored entry wins even when empty — the pilot may have deliberately cleared it.
+                entry = nil
+            } else if let key = FlightCostCalculator.profileKey(for: flight), let profile = rates[key] {
+                let derived = FlightCostCalculator.makeEntry(for: flight, profile: profile)
+                entry = derived.isEmpty ? nil : derived
+            } else {
+                entry = nil
+            }
+            guard let entry else { return nil }
+            for (currency, amount) in entry.totalsByCurrency { totalsByCurrency[currency, default: 0] += amount }
+            for fee in entry.fees where fee.isInvoiceToCome {
+                invoices.append(OpenInvoice(flightId: flight.id, date: flight.startTime, icao: fee.icao,
+                                            label: fee.label,
+                                            amount: (fee.hasAmount ?? true) ? fee.amount : nil,
+                                            currency: entry.currency(of: fee)))
+            }
+            return entry
         }
+        invoices.sort { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
         guard !entries.isEmpty else {
             return CostLedgerSummary(currency: fallbackCurrency, aircraftCost: 0, fees: 0,
                                      flightsWithCost: 0, flightsMissingCost: flights.count)
@@ -198,7 +341,80 @@ enum CostLedger {
             aircraftCost: matching.reduce(0) { $0 + $1.aircraftCost },
             fees: matching.reduce(0) { $0 + $1.feesTotal },
             flightsWithCost: matching.count,
-            flightsMissingCost: flights.count - matching.count
+            flightsMissingCost: flights.count - matching.count,
+            totalsByCurrency: totalsByCurrency,
+            invoicesToCome: invoices
         )
     }
+}
+
+// MARK: - Landing fee lines (6.11.0)
+
+/// Where a flight landed, and how often: what its landing fee lines are made from.
+///
+/// One line per aerodrome landed at other than the one the flight left from, with the number of
+/// landings the app counted there (the author's f4 and f5). The landings are placed from the
+/// flight's own track, so a touch-and-go at another field and back in one flight gets its line.
+enum LandingFeeLines {
+
+    struct Visit: Equatable, Sendable {
+        var icao: String
+        var landings: Int
+    }
+
+    /// Two logged landings closer than this are one touchdown (as `Flight.landingCounts` counts).
+    private static let sameLanding: TimeInterval = 30
+    /// A track point further than this from a landing's time says nothing about where it was.
+    private static let trackReach: TimeInterval = 120
+
+    /// The aerodromes the flight landed at, in the order of their first landing, without the one it
+    /// left from. `nearestAerodrome` gives the ICAO code of the field at a position, or nil.
+    ///
+    /// A flight with no usable track falls back to its arrival field, as before 6.11.0.
+    static func visits(for flight: Flight,
+                       nearestAerodrome: (_ latitude: Double, _ longitude: Double) -> String?) -> [Visit] {
+        let departure = flight.departureAirportIdent?.uppercased()
+        var times: [Date] = []
+        for time in (flight.touchAndGoTimes + flight.fullStopTimes).sorted() {
+            if let last = times.last, time.timeIntervalSince(last) < sameLanding { continue }
+            times.append(time)
+        }
+
+        var order: [String] = []
+        var counts: [String: Int] = [:]
+        let track = flight.gpsTrack
+        for time in times {
+            guard let point = track.min(by: {
+                abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time))
+            }), abs(point.timestamp.timeIntervalSince(time)) <= trackReach,
+                  let icao = nearestAerodrome(point.latitude, point.longitude)?.uppercased() else { continue }
+            if counts[icao] == nil { order.append(icao) }
+            counts[icao, default: 0] += 1
+        }
+
+        if order.isEmpty, let arrival = flight.arrivalAirportIdent?.uppercased(), !arrival.isEmpty {
+            // No landing could be placed: the arrival field, once, as before.
+            order = [arrival]
+            counts[arrival] = 1
+        }
+        return order.filter { $0 != departure }.map { Visit(icao: $0, landings: counts[$0] ?? 1) }
+    }
+
+    /// The currency a fee at an aerodrome most likely is in, from its country; nil where the app
+    /// would be guessing. It is only the start value of the line: the pilot can change it.
+    static func currency(forCountry isoCountry: String?) -> String? {
+        guard let country = isoCountry?.uppercased() else { return nil }
+        if euroCountries.contains(country) { return "EUR" }
+        return otherCurrencies[country]
+    }
+
+    private static let euroCountries: Set<String> = [
+        "AT", "BE", "BG", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL",
+        "PT", "SI", "SK", "MC", "SM", "AD"
+    ]
+
+    private static let otherCurrencies: [String: String] = [
+        "CH": "CHF", "LI": "CHF", "GB": "GBP", "IM": "GBP", "JE": "GBP", "GG": "GBP", "CZ": "CZK", "PL": "PLN",
+        "HU": "HUF", "RO": "RON", "SE": "SEK", "DK": "DKK", "NO": "NOK", "IS": "ISK", "US": "USD"
+    ]
 }

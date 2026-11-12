@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		85EBBE6BF14F2871535BB8DD /* MassBalanceDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8DBD0EA4244394BAAC456 /* MassBalanceDataTests.swift */; };
+		94904401D761307525AB84F0 /* MassBalanceSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38529BC69EF02AD782B56AD /* MassBalanceSetup.swift */; };
 		CDC0EB952B1CE312E53D0184 /* FeeAnswerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5ACAC6DCC2BC34E5EA8E00 /* FeeAnswerView.swift */; };
 		B349C391EA0D699491994205 /* FeesPaidTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D776C532AA5F0DC685532946 /* FeesPaidTests.swift */; };
 		BC0257D9774529388B3578C1 /* MassBalanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F709874D569CECB0049E97 /* MassBalanceTests.swift */; };
@@ -541,6 +543,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		81F8DBD0EA4244394BAAC456 /* MassBalanceDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceDataTests.swift; sourceTree = "<group>"; };
+		D38529BC69EF02AD782B56AD /* MassBalanceSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceSetup.swift; sourceTree = "<group>"; };
 		FA5ACAC6DCC2BC34E5EA8E00 /* FeeAnswerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeAnswerView.swift; sourceTree = "<group>"; };
 		D776C532AA5F0DC685532946 /* FeesPaidTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeesPaidTests.swift; sourceTree = "<group>"; };
 		06F709874D569CECB0049E97 /* MassBalanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceTests.swift; sourceTree = "<group>"; };
@@ -1123,6 +1127,7 @@
 				A50000F9111111110000001 /* PrepareWeatherTests.swift */,
 				A50000FA111111110000001 /* TrafficPatternTests.swift */,
 				A5000030111111110000001 /* FlightNumbersTests.swift */,
+				81F8DBD0EA4244394BAAC456 /* MassBalanceDataTests.swift */,
 				D776C532AA5F0DC685532946 /* FeesPaidTests.swift */,
 				06F709874D569CECB0049E97 /* MassBalanceTests.swift */,
 				A5000032111111110000001 /* BorderCrossingTests.swift */,
@@ -1440,6 +1445,7 @@
 				DC64B354BEF9C17CD8D0B3B3 /* AerodromeNote.swift */,
 				E1000001111111110000024 /* FlightThread.swift */,
 				E1000001111111110000028 /* WeightBalance.swift */,
+				D38529BC69EF02AD782B56AD /* MassBalanceSetup.swift */,
 				F99A46E5E4863F738350D75E /* MassBalanceSheet.swift */,
 				326465318043093E1EA3D77F /* MassBalanceData.swift */,
 				E1000001111111110000029 /* BorderCrossing.swift */,
@@ -1956,6 +1962,7 @@
 				A50000F9111111110000002 /* PrepareWeatherTests.swift in Sources */,
 				A50000FA111111110000002 /* TrafficPatternTests.swift in Sources */,
 				A5000030111111110000002 /* FlightNumbersTests.swift in Sources */,
+				85EBBE6BF14F2871535BB8DD /* MassBalanceDataTests.swift in Sources */,
 				B349C391EA0D699491994205 /* FeesPaidTests.swift in Sources */,
 				BC0257D9774529388B3578C1 /* MassBalanceTests.swift in Sources */,
 				A5000032111111110000002 /* BorderCrossingTests.swift in Sources */,
@@ -2253,6 +2260,7 @@
 				1944437BB5C83B275FA73612 /* AerodromeNote.swift in Sources */,
 				E1000001211111110000024 /* FlightThread.swift in Sources */,
 				E1000001211111110000028 /* WeightBalance.swift in Sources */,
+				94904401D761307525AB84F0 /* MassBalanceSetup.swift in Sources */,
 				72C37802F0FF7E923C431C7D /* MassBalanceSheet.swift in Sources */,
 				22E16C90D611A7D399B4D007 /* MassBalanceData.swift in Sources */,
 				E1000001211111110000029 /* BorderCrossing.swift in Sources */,

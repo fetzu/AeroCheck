@@ -252,6 +252,9 @@ struct AppSettings: Codable, Equatable {
     var aircraftRates: [String: AircraftRateProfile] = [:]
     /// Mass & balance setup per registration. Empty until the pilot enters their aircraft's figures.
     var weightBalanceProfiles: [String: WeightBalanceProfile] = [:]
+    /// The pilot's side of mass and balance since 6.11.0: per registration the confirmation of the server's
+    /// data, a newer empty mass, the pilot's own figures and the last load; and the pilot's own mass.
+    var massBalance = MassBalanceSettings()
     /// Usable fuel with full tanks, in litres, per registration: the pilot's figure, used when the
     /// aircraft's data doesn't give one (`FullTanks.resolve`). (on-device review #4, point 3)
     var fullTanksLitres: [String: Double] = [:]
@@ -271,7 +274,7 @@ struct AppSettings: Codable, Equatable {
 
     /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
     /// to `protectedFields` below.
-    static let currentSchemaVersion = 10
+    static let currentSchemaVersion = 11
 
     /// A field a settings schema protects: the schema that brought it (or changed what it means), its
     /// key, and how to keep or compare this device's value. (review F8; one table since 6.1)
@@ -322,6 +325,8 @@ struct AppSettings: Codable, Equatable {
         ProtectedField(9, .showAirspaceLimits, \.showAirspaceLimits),
         // Schema 10: the NOTAM areas' switch, for the same reason.
         ProtectedField(10, .showNotamAreasOnMap, \.showNotamAreasOnMap),
+        // Schema 11 (6.11.0): the confirmations, own figures and last loads of mass and balance.
+        ProtectedField(11, .massBalance, \.massBalance),
     ]
 
     /// Whether the writer of this record could not express `field`: its schema came before the field,
@@ -486,6 +491,7 @@ struct AppSettings: Codable, Equatable {
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case massBalance
         case fullTanksLitres
         case cruiseSpeedKIAS
         case schemaVersion
@@ -598,6 +604,7 @@ struct AppSettings: Codable, Equatable {
         // to "profiles not set up" is bad; silently resetting the whole store is worse.
         aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
         weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
+        massBalance = (try? container.decodeIfPresent(MassBalanceSettings.self, forKey: .massBalance)) ?? MassBalanceSettings()
         fullTanksLitres = (try? container.decodeIfPresent([String: Double].self, forKey: .fullTanksLitres)) ?? [:]
         cruiseSpeedKIAS = (try? container.decodeIfPresent([String: Int].self, forKey: .cruiseSpeedKIAS)) ?? [:]
         // Absent means a writer from before the version existed, which is exactly schema 1.

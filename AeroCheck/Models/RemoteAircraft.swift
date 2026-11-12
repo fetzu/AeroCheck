@@ -17,6 +17,8 @@ struct RemoteAircraftRegistration: Codable, Identifiable, Equatable {
     var usableFuelLitres: Double? = nil
     /// This tail's planning cruise speed, KIAS (`RemoteAircraftMetadata.cruiseSpeedKIAS`). (6.1)
     var cruiseSpeedKIAS: Double? = nil
+    /// The revision of this tail's mass and balance file (`RemoteAircraftMetadata.massBalanceRevision`). (6.11.0)
+    var massBalanceRevision: Double? = nil
 }
 
 /// Selection/cache token for a specific tail of a multi-registration aircraft: "id~REG".
@@ -97,6 +99,11 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     /// better (`CruiseSpeed.resolve`). Nil on older servers. Decoded as a Double, though the server only
     /// sends whole knots: an `Int` field fails the WHOLE list on one fractional value. Additive. (6.1)
     var cruiseSpeedKIAS: Double? = nil
+    /// The revision of this registration's mass and balance file on the server, when it has one: the app
+    /// fetches the file again when it differs from the copy it holds. A Double for the same reason as the
+    /// cruise speed, though the server only sends whole numbers. Nil on older servers and for a
+    /// registration without a file. Additive. (6.11.0)
+    var massBalanceRevision: Double? = nil
 
     /// Whether this aircraft is bundled locally in the app
     var isBundled: Bool {
@@ -148,7 +155,8 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
                 availableLanguages: reg.availableLanguages ?? availableLanguages,
                 registrations: nil,
                 usableFuelLitres: reg.usableFuelLitres,
-                cruiseSpeedKIAS: reg.cruiseSpeedKIAS
+                cruiseSpeedKIAS: reg.cruiseSpeedKIAS,
+                massBalanceRevision: reg.massBalanceRevision
             )
         }
     }

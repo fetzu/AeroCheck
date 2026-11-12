@@ -23,6 +23,9 @@ final class SettingsSyncTests: XCTestCase {
         settings.sunlightBoost = true
         settings.aircraftRates = ["HB-PFA": AircraftRateProfile(hourlyRate: 280)]
         settings.weightBalanceProfiles = ["HB-PFA": WeightBalanceProfile(emptyWeightKg: 620, maxTakeoffWeightKg: 1000)]
+        settings.massBalance = MassBalanceSettings(
+            setups: ["HB-PFA": MassBalanceSetup(confirmedRevision: 1, confirmedAt: Date(timeIntervalSince1970: 1_763_000_000))],
+            pilotMassKg: 82)
         settings.enableCostTracking = false
         settings.learningMode = false
         settings.stepByStepHighlighting = false

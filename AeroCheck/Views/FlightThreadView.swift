@@ -333,6 +333,7 @@ struct FlightThreadView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     /// A dry run's: its coach hears the chips, and its card shows over the page. Nil for the app's own. (6.4.0)
@@ -477,8 +478,10 @@ struct FlightThreadView: View {
             set: { if !$0 { weightBalanceRegistration = nil } }
         )) {
             if let registration = weightBalanceRegistration {
-                WeightBalanceView(registration: registration,
-                                  onClose: { weightBalanceRegistration = nil })
+                // The sheet when there is data for this registration, the pilot's own figures otherwise. (6.11.0)
+                MassBalanceEntryView(registration: registration,
+                                     onClose: { weightBalanceRegistration = nil })
+                    .environmentObject(aircraftDataService)
             }
         }
         .sheet(isPresented: Binding(

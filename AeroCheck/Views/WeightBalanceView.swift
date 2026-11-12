@@ -12,6 +12,11 @@ struct WeightBalanceView: View {
     /// Registration this profile belongs to; empty mass is per tail, never per type.
     let registration: String
     var onClose: (() -> Void)?
+    /// A line above the calculator, with one action: since 6.11.0, that the app's own data for this
+    /// aircraft was switched off by the pilot, and the way back to it.
+    var notice: String?
+    var noticeAction: String?
+    var onNotice: (() -> Void)?
 
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
@@ -28,6 +33,23 @@ struct WeightBalanceView: View {
                 Color.cockpitBackground.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 16) {
+                        if let notice {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(notice)
+                                    .scaledFont(size: 14, relativeTo: .subheadline)
+                                    .foregroundColor(.aviationAmber)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let noticeAction, let onNotice {
+                                    Button(noticeAction, action: onNotice)
+                                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                                        .foregroundColor(.altimeterBlue)
+                                        .frame(minHeight: 44)
+                                }
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: 14).fill(Color.cardBackground))
+                        }
                         if draft.isConfigured {
                             verdictCard
                             stationsCard

@@ -1,0 +1,411 @@
+import SwiftUI
+
+// MARK: - The mass and balance sheet (6.11.0)
+//
+// A ground screen, used at home the evening before and standing at the aircraft: 17 pt text at least,
+// 22 pt figures, controls 52 pt high. It is never offered in flight. The pilot types kilograms and
+// litres; every figure is also shown in the handbook's own units, so the result can be held against
+// the paper form.
+//
+// The iPad shows the cabin from above and, under it, the same load as the handbook's table. The
+// iPhone shows the load as rows, with a one-line verdict and a small chart that stay on top.
+// (the author's m5, m6, m10)
+
+/// What opens for a registration: the sheet when there is data to compute with, the 5.0.0 calculator
+/// with the pilot's own figures when there is none.
+struct MassBalanceEntryView: View {
+    let registration: String
+    var onClose: (() -> Void)?
+
+    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var aircraftDataService: AircraftDataService
+    @State private var showSteps = false
+
+    private var shipped: AircraftMassBalance? {
+        _ = aircraftDataService.massBalanceChangeCount
+        return aircraftDataService.massBalance(forRegistration: registration)
+    }
+
+    var body: some View {
+        let setup = appState.settings.massBalance[registration]
+        Group {
+            if let basis = setup.basis(shipped: shipped, now: Date()) {
+                MassBalanceSheetView(registration: registration, basis: basis, shipped: shipped, onClose: onClose)
+            } else {
+                // No data from the server, or data the pilot said isn't this aircraft's: their own figures.
+                WeightBalanceView(registration: registration, onClose: onClose,
+                                  notice: shipped == nil ? nil : L10n.MassBalance.nodataDeclined(registration),
+                                  noticeAction: shipped == nil ? nil : L10n.MassBalance.nodataLookAgain,
+                                  onNotice: { showSteps = true })
+            }
+        }
+        .sheet(isPresented: $showSteps) {
+            if let shipped {
+                MassBalanceSetupSteps(registration: registration, shipped: shipped) { showSteps = false }
+                    .environment(appState)
+            }
+        }
+        .task { await aircraftDataService.refreshMassBalance(forRegistration: registration) }
+    }
+}
+
+struct MassBalanceSheetView: View {
+    let registration: String
+    let basis: MassBalanceBasis
+    let shipped: AircraftMassBalance?
+    var onClose: (() -> Void)?
+
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    @State private var load = MassBalanceLoad()
+    @State private var loaded = false
+    @State private var showSteps = false
+
+    private var data: AircraftMassBalance { basis.data }
+    private var result: MassBalanceResult {
+        MassBalanceCalculator.compute(data: data, empty: basis.empty, load: load, isConfirmed: basis.isConfirmed)
+    }
+    private var isWide: Bool { sizeClass == .regular }
+
+    var body: some View {
+        let result = self.result
+        NavigationStack {
+            ZStack {
+                Color.cockpitBackground.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 16) {
+                        if isWide {
+                            verdict(result)
+                            HStack(alignment: .top, spacing: 14) {
+                                MassBalanceChart(data: data, result: result)
+                                    .frame(height: 380)
+                                MassBalancePointCards(data: data, result: result, stacked: true)
+                                    .frame(width: 230)
+                            }
+                            MassBalanceSectionTitle(text: L10n.MassBalance.loadTitle, note: L10n.MassBalance.loadUnits)
+                            MassBalanceSeatPlan(data: data, empty: basis.empty, result: result, load: $load)
+                            MassBalanceSectionTitle(text: L10n.MassBalance.tableTitle, note: nil)
+                            MassBalanceLoadTable(data: data, empty: basis.empty, result: result, load: load)
+                        } else {
+                            MassBalanceVerdictLines(lines: lines(result), verdict: result.verdict,
+                                                    onTodays: sayTodays, onCheckData: canCheckData ? { showSteps = true } : nil)
+                            MassBalancePointCards(data: data, result: result, stacked: false)
+                            MassBalanceSectionTitle(text: L10n.MassBalance.loadTitle, note: L10n.MassBalance.loadUnits)
+                            MassBalanceLoadRows(data: data, empty: basis.empty, result: result, load: $load)
+                        }
+                        MassBalanceFootnote(registration: registration, basis: basis, confirmedAt: confirmedAt)
+                    }
+                    .padding(isWide ? 20 : 14)
+                    .frame(maxWidth: 780)
+                    .frame(maxWidth: .infinity)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if !isWide {
+                    // The verdict in one line and a small chart stay on top while the rows scroll, so
+                    // the point is seen to move as the fuel changes.
+                    VStack(spacing: 8) {
+                        MassBalanceVerdictChip(verdict: result.verdict)
+                        MassBalanceChart(data: data, result: result, compact: true)
+                            .frame(height: 190)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.cockpitBackground)
+                }
+            }
+            .navigationTitle("\(L10n.MassBalance.title) · \(registration)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // It saves as it goes: one Close, on the left.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.close) { if let onClose { onClose() } else { dismiss() } }
+                }
+            }
+        }
+        .onAppear(perform: start)
+        .onChange(of: load) { _, new in persist(new) }
+        .sheet(isPresented: $showSteps) {
+            if let shipped {
+                MassBalanceSetupSteps(registration: registration, shipped: shipped) { showSteps = false }
+                    .environment(appState)
+            }
+        }
+    }
+
+    private var canCheckData: Bool { basis.source == .shipped && shipped != nil }
+
+    private var confirmedAt: Date? {
+        let setup = appState.settings.massBalance[registration]
+        return basis.source == .shipped ? setup.confirmedAt : setup.ownConfirmedAt
+    }
+
+    private func lines(_ result: MassBalanceResult) -> [String] {
+        MassBalanceWords.lines(for: result, basis: basis, registration: registration, load: load)
+    }
+
+    private func verdict(_ result: MassBalanceResult) -> some View {
+        MassBalanceVerdictCard(verdict: result.verdict, lines: lines(result), onTodays: sayTodays,
+                               onCheckData: canCheckData ? { showSteps = true } : nil)
+    }
+
+    private func sayTodays() {
+        load.isTodays = true
+        load.copiedFrom = nil
+    }
+
+    // MARK: - The load, kept per aircraft
+
+    /// Last time's load, marked as not today's unless it was prepared today; the pilot's own mass in the
+    /// pilot's seat of a first sheet.
+    private func start() {
+        guard !loaded else { return }
+        loaded = true
+        let setup = appState.settings.massBalance[registration]
+        if let last = setup.lastLoad, let day = setup.lastLoadDay {
+            load = Calendar.current.isDateInToday(day) ? last : last.carriedOver(from: day)
+        } else if let own = appState.settings.massBalance.pilotMassKg,
+                  let seat = data.seatStations.flatMap({ $0.seats ?? [] }).first(where: { $0.role == .pilot }) {
+            load.seats[seat.id] = .person(kg: own)
+        }
+    }
+
+    private func persist(_ new: MassBalanceLoad) {
+        guard loaded else { return }
+        var setup = appState.settings.massBalance[registration]
+        guard setup.lastLoad != new else { return }
+        setup.lastLoad = new
+        setup.lastLoadDay = Date()
+        appState.settings.massBalance[registration] = setup
+        if let seat = data.seatStations.flatMap({ $0.seats ?? [] }).first(where: { $0.role == .pilot }),
+           case .person(let kg)? = new.seats[seat.id] {
+            appState.settings.massBalance.pilotMassKg = kg
+        }
+        appState.saveSettings()
+    }
+}
+
+// MARK: - The verdict
+
+private func verdictColour(_ verdict: MassBalanceVerdict) -> Color {
+    switch verdict {
+    case .insideLimits: return .aviationGreen
+    case .outsideLimits: return .aviationRed
+    case .incomplete, .notConfirmed, .lastTimesLoad: return .aviationAmber
+    }
+}
+
+/// The verdict on the iPad: the word with its shape, then what it means in words.
+struct MassBalanceVerdictCard: View {
+    let verdict: MassBalanceVerdict
+    let lines: [String]
+    var onTodays: () -> Void
+    var onCheckData: (() -> Void)?
+
+    var body: some View {
+        let tint = verdictColour(verdict)
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: MassBalanceWords.symbol(verdict))
+                .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
+                .foregroundColor(tint)
+                .frame(width: 52, height: 52)
+                .overlay(Circle().strokeBorder(tint, lineWidth: 3))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(MassBalanceWords.title(verdict))
+                    .scaledFont(size: 28, weight: .bold, relativeTo: .title)
+                    .foregroundColor(tint)
+                    .accessibilityIdentifier("mb.verdict")
+                MassBalanceVerdictLines(lines: lines, verdict: verdict, onTodays: onTodays, onCheckData: onCheckData)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(tint, lineWidth: 2))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// The lines under a verdict and the one button it may need.
+struct MassBalanceVerdictLines: View {
+    let lines: [String]
+    let verdict: MassBalanceVerdict
+    var onTodays: () -> Void
+    var onCheckData: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .scaledFont(size: 17, relativeTo: .body)
+                    .foregroundColor(.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if verdict == .lastTimesLoad {
+                Button(L10n.MassBalance.buttonTodays, action: onTodays)
+                    .buttonStyle(MassBalanceActionStyle())
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("mb.todays")
+            } else if verdict == .notConfirmed, let onCheckData {
+                Button(L10n.MassBalance.buttonCheckData, action: onCheckData)
+                    .buttonStyle(MassBalanceActionStyle())
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("mb.checkData")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The verdict in one line, for the iPhone's pinned header.
+struct MassBalanceVerdictChip: View {
+    let verdict: MassBalanceVerdict
+
+    var body: some View {
+        let tint = verdictColour(verdict)
+        HStack(spacing: 10) {
+            Image(systemName: MassBalanceWords.symbol(verdict))
+                .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
+                .frame(width: 30, height: 30)
+                .overlay(Circle().strokeBorder(tint, lineWidth: 2.5))
+                .accessibilityHidden(true)
+            Text(MassBalanceWords.title(verdict))
+                .scaledFont(size: 20, weight: .bold, relativeTo: .title3)
+                .accessibilityIdentifier("mb.verdict")
+            Spacer(minLength: 0)
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2))
+    }
+}
+
+struct MassBalanceActionStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaledFont(size: 17, weight: .bold, relativeTo: .body)
+            .foregroundColor(.black)
+            .padding(.horizontal, 18)
+            .frame(minHeight: 52)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.altimeterBlue.opacity(configuration.isPressed ? 0.7 : 1)))
+    }
+}
+
+// MARK: - The three points
+
+struct MassBalancePointCards: View {
+    let data: AircraftMassBalance
+    let result: MassBalanceResult
+    let stacked: Bool
+
+    var body: some View {
+        let cards = [
+            (L10n.MassBalance.pointTakeoff, "arrowtriangle.up.fill", result.takeoff,
+             result.takeoff.map { $0.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside } ?? ""),
+            (L10n.MassBalance.pointLanding, "arrowtriangle.down.fill", result.landing,
+             result.landing.map { "\(L10n.MassBalance.pointLeft(Int($0.fuelLitres.rounded()))) · \($0.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside)" }
+                ?? L10n.MassBalance.pointNoTrip),
+            (L10n.MassBalance.pointEmptyTanks, "circle", result.emptyTanks,
+             result.emptyTanks.map { $0.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside } ?? "")
+        ]
+        let layout = stacked ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+        layout {
+            ForEach(Array(cards.enumerated()), id: \.offset) { _, card in
+                MassBalancePointCard(title: card.0, symbol: card.1, point: card.2, note: card.3, data: data, small: !stacked)
+            }
+        }
+    }
+}
+
+private struct MassBalancePointCard: View {
+    let title: String
+    let symbol: String
+    let point: MassBalancePoint?
+    let note: String
+    let data: AircraftMassBalance
+    let small: Bool
+
+    var body: some View {
+        let tint: Color = point.map { $0.isInside ? Color.primaryText : Color.aviationRed } ?? .dimText
+        VStack(alignment: .leading, spacing: 3) {
+            Label(title.uppercased(), systemImage: symbol)
+                .scaledFont(size: small ? 11 : 13, weight: .semibold, relativeTo: .caption)
+                .foregroundColor(point?.isInside == false ? .aviationRed : .dimText)
+            Text(point.map { MassBalanceWords.mass($0.mass, data.units, withKilograms: false) } ?? "—")
+                .scaledFont(size: small ? 16 : 22, design: .monospaced, relativeTo: .title3)
+                .foregroundColor(tint)
+            Text(point.map { MassBalanceWords.arm($0.arm, data.units) } ?? " ")
+                .scaledFont(size: small ? 16 : 22, design: .monospaced, relativeTo: .title3)
+                .foregroundColor(tint)
+            Text(note)
+                .scaledFont(size: small ? 12 : 14, relativeTo: .footnote)
+                .foregroundColor(.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(small ? 9 : 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct MassBalanceSectionTitle: View {
+    let text: String
+    let note: String?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(text.uppercased())
+                .scaledFont(size: 13, weight: .bold, design: .monospaced, relativeTo: .footnote)
+                .tracking(0.8)
+                .foregroundColor(.aviationGold)
+            if let note {
+                Text(note)
+                    .scaledFont(size: 14, relativeTo: .footnote)
+                    .foregroundColor(.dimText)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+    }
+}
+
+/// Where the figures come from and what decides: under every sheet, never folded away.
+struct MassBalanceFootnote: View {
+    let registration: String
+    let basis: MassBalanceBasis
+    let confirmedAt: Date?
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(statement + " " + L10n.MassBalance.footDecides)
+                .scaledFont(size: 14, relativeTo: .footnote)
+                .foregroundColor(.aviationAmber)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(Array((basis.data.sources ?? []).enumerated()), id: \.offset) { _, source in
+                Text([source.document, source.revision.map { "rev. \($0)" }, source.date.map(MassBalanceWords.day)]
+                        .compactMap { $0 }.joined(separator: " · "))
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 6)
+    }
+
+    private var statement: String {
+        if basis.source == .pilot { return L10n.MassBalance.footYours }
+        guard basis.isConfirmed, let confirmedAt else { return L10n.MassBalance.lineNotConfirmed(registration) }
+        return L10n.MassBalance.footConfirmed(registration, confirmedAt.formatted(date: .abbreviated, time: .omitted))
+    }
+}

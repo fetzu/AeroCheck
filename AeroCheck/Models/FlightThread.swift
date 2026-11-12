@@ -226,6 +226,11 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     var arrivalIdent: String?
     var arrivalCountry: String?
 
+    /// The aerodromes the flight landed at, other than the one it left from, read from its track at END FLIGHT: one
+    /// landing fee task each, so a touch-and-go elsewhere and back gets its own. Nil until the flight has ended and
+    /// on threads written before 6.11.0, which keep the planned arrival's task. (6.11.0, the author's f5)
+    var landedIdents: [String]?
+
     var tasks: [ThreadTask] = []
 
     /// Set when the pilot ticks "flight plan filed". This is what arms the close reminder — a thread
@@ -413,6 +418,7 @@ extension FlightThread {
         homeCountry = try c.decodeIfPresent(String.self, forKey: .homeCountry)
         arrivalIdent = try c.decodeIfPresent(String.self, forKey: .arrivalIdent)
         arrivalCountry = try c.decodeIfPresent(String.self, forKey: .arrivalCountry)
+        landedIdents = try c.decodeIfPresent([String].self, forKey: .landedIdents)
         tasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .tasks)?.tasks ?? []
         flightPlanFiledAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanFiledAt)
         flightPlanClosedAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanClosedAt)

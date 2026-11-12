@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 import UIKit
 
@@ -11,6 +12,7 @@ struct FlightNumbersView: View {
     var onClose: (() -> Void)?
 
     @Environment(AppState.self) private var appState
+    @EnvironmentObject private var airportDataService: AirportDataService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -93,6 +95,8 @@ struct FlightNumbersView: View {
         let entry = flight.costEntry ?? FlightCostCalculator.makeEntry(for: flight, profile: profile)
 
         card(title: L10n.Cost.title.uppercased(), tint: .aviationGold) {
+          VStack(alignment: .leading, spacing: 14) {
+            landingFees(flight, entry: entry)
             if profile == nil && flight.costEntry == nil {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.Cost.noRateSet)
@@ -116,8 +120,9 @@ struct FlightNumbersView: View {
                             .foregroundColor(.aviationAmber)
                     }
 
-                    ForEach(entry.fees) { fee in
-                        row(fee.label, value: FlightCostCalculator.formatAmount(fee.amount, currency: entry.currency)) {
+                    // A landing fee's line is shown with its answers above; here are the other fees.
+                    ForEach(entry.fees.filter { $0.icao == nil }) { fee in
+                        row(fee.label, value: FlightCostCalculator.formatAmount(fee.amount, currency: entry.currency(of: fee))) {
                             removeFee(fee, from: flight)
                         }
                     }
@@ -125,8 +130,9 @@ struct FlightNumbersView: View {
                     addFeeRow(flight)
 
                     Divider().overlay(Color.white.opacity(0.08))
+                    // Each currency by itself, side by side: a fee in euros is never added to francs. (6.11.0)
                     row(L10n.Cost.total,
-                        value: FlightCostCalculator.formatAmount(entry.total, currency: entry.currency),
+                        value: FlightCostCalculator.formatTotals(entry.totalsByCurrency, first: entry.currency),
                         emphasised: true)
 
                     Button(L10n.Cost.setRate) { beginRateEdit(flight) }
@@ -135,8 +141,41 @@ struct FlightNumbersView: View {
                         .buttonStyle(.plain)
                 }
             }
+          }
         }
         .sheet(isPresented: $showRateEditor) { rateEditor(flight) }
+        .task { await airportDataService.ensureLoaded() }
+    }
+
+    /// The landing fee of each aerodrome the flight landed at, other than the one it left from: the landings
+    /// the app counted there and how the fee was settled. Also any aerodrome a fee was already answered for. (6.11.0)
+    @ViewBuilder
+    private func landingFees(_ flight: Flight, entry: FlightCostEntry) -> some View {
+        let visits = LandingFeeLines.visits(for: flight) { latitude, longitude in
+            airportDataService.aerodromeIdent(at: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+        }
+        let answered = entry.fees.compactMap { $0.icao?.uppercased() }.filter { code in !visits.contains { $0.icao == code } }
+        let aerodromes = visits.map(\.icao) + answered
+        if !aerodromes.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(L10n.Cost.landingFees.uppercased())
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                    .tracking(0.5)
+                    .foregroundColor(.dimText)
+                ForEach(aerodromes, id: \.self) { icao in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L10n.Cost.landingFee(icao))
+                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                            .foregroundColor(.primaryText)
+                        FeeAnswerView(flightId: flight.id, icao: icao,
+                                      landings: visits.first { $0.icao == icao }?.landings,
+                                      startCurrency: LandingFeeLines.currency(
+                                        forCountry: airportDataService.findAirport(byIdent: icao)?.isoCountry))
+                    }
+                }
+                Divider().overlay(Color.white.opacity(0.08))
+            }
+        }
     }
 
     private func addFeeRow(_ flight: Flight) -> some View {

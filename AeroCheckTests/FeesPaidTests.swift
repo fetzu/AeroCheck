@@ -207,6 +207,28 @@ final class FeesPaidTests: XCTestCase {
         XCTAssertEqual(summary.invoicesToCome.last?.currency, "EUR")
     }
 
+    // MARK: - The Costs CSV
+
+    func testTheCostsFileHasOneRowPerFlightAndPerFee() {
+        var flight = Flight(airplane: "dr400-140b", aircraftRegistration: "HB-KFD")
+        flight.startTime = day
+        var entry = costed(rate: 395)
+        entry.settleFee(at: "LSZS", label: "Landing fee LSZS", status: .paid, amount: 62, currency: nil, landings: 1, at: day)
+        entry.settleFee(at: "LFSM", label: "Landing fee LFSM", status: .invoice, amount: nil, currency: "EUR", landings: 2, at: day)
+        flight.costEntry = entry
+        let uncosted = Flight(airplane: "dr400-140b")
+
+        let words = CostsCSV.Words(header: ["Date", "Flight", "Aircraft", "Item", "Aerodrome", "Landings", "Settled", "Amount", "Currency"],
+                                   aircraft: "Aircraft", status: { $0?.rawValue ?? "" })
+        let rows = CostsCSV.csv(flights: [uncosted, flight], rates: [:], words: words).components(separatedBy: "\n")
+
+        XCTAssertEqual(rows.count, 4, "the header, the aircraft and two fees; a flight with no cost has no row")
+        XCTAssertEqual(rows[0], "Date,Flight,Aircraft,Item,Aerodrome,Landings,Settled,Amount,Currency")
+        XCTAssertTrue(rows[1].hasSuffix(",HB-KFD,Aircraft,,,,395.00,CHF"), rows[1])
+        XCTAssertTrue(rows[2].hasSuffix(",HB-KFD,Landing fee LSZS,LSZS,1,paid,62.00,CHF"), rows[2])
+        XCTAssertTrue(rows[3].hasSuffix(",HB-KFD,Landing fee LFSM,LFSM,2,invoice,,"), "no figure yet: no amount and no currency")
+    }
+
     // MARK: - Where the landings were
 
     /// A track point every 10 s along a list of (seconds, latitude) legs; the fake lookup names the

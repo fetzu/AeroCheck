@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CDC0EB952B1CE312E53D0184 /* FeeAnswerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5ACAC6DCC2BC34E5EA8E00 /* FeeAnswerView.swift */; };
 		B349C391EA0D699491994205 /* FeesPaidTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D776C532AA5F0DC685532946 /* FeesPaidTests.swift */; };
 		BC0257D9774529388B3578C1 /* MassBalanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F709874D569CECB0049E97 /* MassBalanceTests.swift */; };
 		72C37802F0FF7E923C431C7D /* MassBalanceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F99A46E5E4863F738350D75E /* MassBalanceSheet.swift */; };
@@ -540,6 +541,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FA5ACAC6DCC2BC34E5EA8E00 /* FeeAnswerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeeAnswerView.swift; sourceTree = "<group>"; };
 		D776C532AA5F0DC685532946 /* FeesPaidTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeesPaidTests.swift; sourceTree = "<group>"; };
 		06F709874D569CECB0049E97 /* MassBalanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceTests.swift; sourceTree = "<group>"; };
 		F99A46E5E4863F738350D75E /* MassBalanceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceSheet.swift; sourceTree = "<group>"; };
@@ -1393,6 +1395,7 @@
 				HB0A0001111111110000002 /* AerodromeIdentField.swift */,
 				F1000001111111110000034 /* UpcomingFlightsList.swift */,
 				F1000001111111110000005 /* WeightBalanceView.swift */,
+				FA5ACAC6DCC2BC34E5EA8E00 /* FeeAnswerView.swift */,
 				F1000001111111110000004 /* FlightNumbersView.swift */,
 				REC00001111111110000002 /* FlightReconciliationView.swift */,
 				G1000001111111110000001 /* HourMeterInputView.swift */,
@@ -2298,6 +2301,7 @@
 				HB0A0001211111110000002 /* AerodromeIdentField.swift in Sources */,
 				F1000001211111110000034 /* UpcomingFlightsList.swift in Sources */,
 				F1000001211111110000005 /* WeightBalanceView.swift in Sources */,
+				CDC0EB952B1CE312E53D0184 /* FeeAnswerView.swift in Sources */,
 				F1000001211111110000004 /* FlightNumbersView.swift in Sources */,
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,
 				I1000001211111110000001 /* AircraftSettingsView.swift in Sources */,

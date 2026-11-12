@@ -673,6 +673,7 @@ final class FlightThreadTests: XCTestCase {
         thread.skippedStop = SkippedStop(ident: "LSGE", filedPlanToCancel: "LSGE → LSGN")
         thread.homeCountry = "CH"
         thread.arrivalIdent = "LSZE"
+        thread.landedIdents = ["LSGN", "LSZE"]
         thread.arrivalCountry = "CH"
         thread.tasks = [task]
         thread.flightPlanFiledAt = date
@@ -736,7 +737,7 @@ final class FlightThreadTests: XCTestCase {
         let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
         XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
                                       "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
-                                      "landedElsewhere", "skippedStop", "homeCountry", "arrivalIdent", "arrivalCountry", "tasks",
+                                      "landedElsewhere", "skippedStop", "homeCountry", "arrivalIdent", "arrivalCountry", "landedIdents", "tasks",
                                       "flightPlanFiledAt",
                                       "flightPlanClosedAt", "createdAt", "updatedAt"])
         let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))
@@ -911,6 +912,34 @@ final class FlightThreadTests: XCTestCase {
         let after = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
         XCTAssertEqual(after?.state, .done, "enough on board — the AUTO row settles itself")
         XCTAssertEqual(after?.detail, "REQ 60 L · FOB 80 L")
+    }
+
+    /// Once flown, the landing fee tasks are those of the aerodromes the flight landed at, from its track: the
+    /// planned arrival's task goes when the flight didn't land there, and a task already answered stays. (6.11.0)
+    @MainActor
+    func testTheFeeTasksFollowWhereTheFlightLanded() {
+        let manager = makeTestThreadManager()
+        let plan = swissPlan()
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+        func feeSubjects() -> [String] {
+            (manager.thread(withId: thread.id)?.tasks ?? []).filter { $0.key == .feesPaid }.compactMap(\.subject)
+        }
+        let planned = feeSubjects()
+        XCTAssertEqual(planned.count, 1, "before the flight: the planned arrival")
+
+        manager.recordLandedAerodromes(threadId: thread.id, idents: ["lsgn", planned[0]], plan: plan)
+        XCTAssertEqual(Set(feeSubjects()), ["LSGN", planned[0]], "one task per aerodrome landed at")
+
+        let answered = manager.thread(withId: thread.id)!.tasks.first { $0.key == .feesPaid && $0.subject == "LSGN" }!
+        manager.setTaskState(.done, taskId: answered.id, threadId: thread.id)
+        manager.recordLandedAerodromes(threadId: thread.id, idents: ["LSGN"], plan: plan)
+        XCTAssertEqual(feeSubjects(), ["LSGN"], "the field not landed at has no fee")
+        XCTAssertEqual(manager.thread(withId: thread.id)?.tasks.first { $0.key == .feesPaid }?.state, .done,
+                       "and an answer given stays")
+
+        manager.recordLandedAerodromes(threadId: thread.id, idents: [], plan: plan)
+        XCTAssertTrue(feeSubjects().isEmpty, "landed nowhere but home: no landing fee task")
     }
 
     @MainActor

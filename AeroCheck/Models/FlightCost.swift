@@ -161,6 +161,11 @@ struct FlightCostEntry: Codable, Equatable, Sendable {
         fees.first { $0.icao?.uppercased() == icao.uppercased() }
     }
 
+    /// Takes back the answer for an aerodrome: its line goes, as if the fee had never been answered.
+    mutating func clearFee(at icao: String) {
+        fees.removeAll { $0.icao?.uppercased() == icao.uppercased() }
+    }
+
     /// Records how the fee at an aerodrome was settled, on its line (made if there is none). A nil
     /// amount keeps the answer without a figure.
     mutating func settleFee(at icao: String, label: String, status: FeeStatus, amount: Double?,
@@ -417,4 +422,50 @@ enum LandingFeeLines {
         "CH": "CHF", "LI": "CHF", "GB": "GBP", "IM": "GBP", "JE": "GBP", "GG": "GBP", "CZ": "CZK", "PL": "PLN",
         "HU": "HUF", "RO": "RON", "SE": "SEK", "DK": "DKK", "NO": "NOK", "IS": "ISK", "US": "USD"
     ]
+}
+
+// MARK: - The Costs CSV (6.11.0, the author's f7)
+
+/// What a period cost, as a file a spreadsheet opens: one row per flight for the aircraft, one row per fee.
+/// Money is the pilot's alone, so it has its own file; the logbook's exports carry none of it.
+enum CostsCSV {
+
+    /// The words of the file, passed in so this stays pure (the caller has the localisation).
+    struct Words {
+        var header: [String]
+        var aircraft: String
+        var status: (FeeStatus?) -> String
+    }
+
+    static func csv(flights: [Flight], rates: [String: AircraftRateProfile], words: Words) -> String {
+        var rows = [words.header.map(LogbookLineBuilder.escapeCSV).joined(separator: ",")]
+        let day = ISO8601DateFormatter()
+        day.formatOptions = [.withFullDate]
+        for flight in flights.sorted(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) {
+            let entry: FlightCostEntry
+            if let stored = flight.costEntry {
+                entry = stored
+            } else if let key = FlightCostCalculator.profileKey(for: flight), let profile = rates[key] {
+                entry = FlightCostCalculator.makeEntry(for: flight, profile: profile)
+            } else {
+                continue
+            }
+            let date = flight.startTime.map(day.string(from:)) ?? ""
+            let aircraft = flight.aircraftRegistration ?? flight.airplane
+            func row(_ item: String, _ aerodrome: String, _ landings: String, _ settled: String, _ amount: Double?, _ currency: String) {
+                let cells = [date, flight.title, aircraft, item, aerodrome, landings, settled,
+                             amount.map { String(format: "%.2f", $0) } ?? "", amount == nil ? "" : currency]
+                rows.append(cells.map(LogbookLineBuilder.escapeCSV).joined(separator: ","))
+            }
+            if entry.aircraftCost > 0 {
+                row(words.aircraft, "", "", "", entry.aircraftCost, entry.currency)
+            }
+            for fee in entry.fees {
+                let amount: Double? = (fee.hasAmount ?? true) ? fee.amount : nil
+                row(fee.label, fee.icao ?? "", fee.landings.map(String.init) ?? "", words.status(fee.status),
+                    amount, entry.currency(of: fee))
+            }
+        }
+        return rows.joined(separator: "\n")
+    }
 }

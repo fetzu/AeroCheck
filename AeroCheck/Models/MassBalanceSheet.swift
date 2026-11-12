@@ -91,6 +91,11 @@ struct MassBalanceLoad: Codable, Equatable, Sendable {
         copiedFrom = try container.decodeIfPresent(Date.self, forKey: .copiedFrom)
     }
 
+    /// Whether nothing is entered: no seat answered, no baggage, no fuel.
+    var isBlank: Bool {
+        seats.values.allSatisfy { $0 == .unset } && baggageKg.isEmpty && fuelLitres == nil && tripLitres == nil
+    }
+
     /// The same load for another flight: nothing is today's until the pilot says so.
     func carriedOver(from day: Date) -> MassBalanceLoad {
         var copy = self
@@ -173,6 +178,13 @@ struct MassBalanceResult: Equatable, Sendable {
     var notBelowLitres: Double?
     var notBelowReason: MassBalanceOutside?
     var otherCategories: [MassBalanceCategoryNote] = []
+
+    /// Whether every row is entered. Until then the points are a sum so far, not a loading
+    /// condition, and nothing may call them inside or outside.
+    var isComplete: Bool { unset.isEmpty }
+
+    /// Whether everything but the fuel is entered: what "how much fuel can I take" needs.
+    var loadIsEntered: Bool { unset.allSatisfy { $0 == Self.fuelRowId } }
 
     static func == (a: MassBalanceResult, b: MassBalanceResult) -> Bool {
         a.verdict == b.verdict && a.takeoff == b.takeoff && a.landing == b.landing && a.emptyTanks == b.emptyTanks

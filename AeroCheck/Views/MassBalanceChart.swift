@@ -21,7 +21,10 @@ struct MassBalanceChart: View {
         .accessibilityLabel(MassBalanceWords.spoken(result, data: data))
     }
 
-    private var points: [MassBalancePoint] { [result.takeoff, result.landing, result.emptyTanks].compactMap { $0 } }
+    /// With a row still to enter there is one point, the sum so far.
+    private var points: [MassBalancePoint] {
+        result.isComplete ? [result.takeoff, result.landing, result.emptyTanks].compactMap { $0 } : [result.takeoff].compactMap { $0 }
+    }
 
     /// The ranges shown: every corner and every point, with a little air around them.
     private var ranges: (x: ClosedRange<Double>, y: ClosedRange<Double>) {
@@ -101,6 +104,22 @@ struct MassBalanceChart: View {
             }
         }
 
+        let s: CGFloat = compact ? 7 : 9
+        guard result.isComplete else {
+            // A row is still to enter: the sum so far as a hollow square in a quiet colour, called
+            // neither inside nor outside, because where the CG ends up is not known yet.
+            if let soFar = result.takeoff {
+                let at = CGPoint(x: x(soFar.arm), y: y(soFar.mass))
+                let square = Path(CGRect(x: at.x - s * 0.7, y: at.y - s * 0.7, width: s * 1.4, height: s * 1.4))
+                context.fill(square, with: .color(Color.panelBackground))
+                context.stroke(square, with: .color(Color.secondaryText), lineWidth: 2)
+                let onRight = at.x < plot.maxX - (compact ? 80 : 110)
+                context.draw(Text(L10n.MassBalance.chartSoFar).font(.system(size: fontSize, weight: .semibold)).foregroundColor(Color.secondaryText),
+                             at: CGPoint(x: at.x + (onRight ? 12 : -12), y: at.y), anchor: onRight ? .leading : .trailing)
+            }
+            return
+        }
+
         // The fuel line: solid from take-off to landing, dashed on down to empty tanks.
         if let takeoff = result.takeoff, let empty = result.emptyTanks {
             let middle = result.landing ?? takeoff
@@ -117,7 +136,6 @@ struct MassBalanceChart: View {
             context.draw(Text(text).font(.system(size: fontSize, weight: .bold)).foregroundColor(colour(point)),
                          at: CGPoint(x: at.x + (onRight ? 12 : -12), y: at.y + dy), anchor: onRight ? .leading : .trailing)
         }
-        let s: CGFloat = compact ? 7 : 9
         if let empty = result.emptyTanks {
             let at = CGPoint(x: x(empty.arm), y: y(empty.mass))
             let ring = Path(ellipseIn: CGRect(x: at.x - s * 0.7, y: at.y - s * 0.7, width: s * 1.4, height: s * 1.4))

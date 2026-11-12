@@ -725,12 +725,14 @@ enum L10n {
         static let pointEmptyTanks = String(localized: "mb.point.emptyTanks")
         static let pointInside = String(localized: "mb.point.inside")
         static let pointOutside = String(localized: "mb.point.outside")
+        static let pointSoFar = String(localized: "mb.point.soFar")
         static func pointLeft(_ a0: Int) -> String { String(localized: "mb.point.left \(a0)") }
         static let pointNoTrip = String(localized: "mb.point.noTrip")
         static func chartCgAxis(_ a0: String) -> String { String(localized: "mb.chart.cgAxis \(a0)") }
         static func chartMassAxis(_ a0: String) -> String { String(localized: "mb.chart.massAxis \(a0)") }
         static func chartPoint(_ a0: String, _ a1: String, _ a2: String, _ a3: String) -> String { String(localized: "mb.chart.point \(a0) \(a1) \(a2) \(a3)") }
         static let chartLabel = String(localized: "mb.chart.label")
+        static let chartSoFar = String(localized: "mb.chart.soFar")
         static func categoryInside(_ a0: String) -> String { String(localized: "mb.category.inside \(a0)") }
         static func categoryOutside(_ a0: String) -> String { String(localized: "mb.category.outside \(a0)") }
         static func categoryForbidden(_ a0: String) -> String { String(localized: "mb.category.forbidden \(a0)") }

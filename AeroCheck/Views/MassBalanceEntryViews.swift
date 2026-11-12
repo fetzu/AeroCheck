@@ -150,10 +150,13 @@ struct MassBalanceFuelControls: View {
                 HStack(alignment: .bottom, spacing: 16) { fuelBlock(fuel, full); tripBlock(trip) }
                 VStack(alignment: .leading, spacing: 10) { fuelBlock(fuel, full); tripBlock(trip) }
             }
-            Text(tip)
-                .scaledFont(size: 15, weight: flagged || result.mostFuelLitres == nil ? .semibold : .regular, relativeTo: .subheadline)
-                .foregroundColor(flagged || result.mostFuelLitres == nil ? .aviationRed : .altimeterBlue)
-                .fixedSize(horizontal: false, vertical: true)
+            // How much fuel fits is only known once the seats and the baggage are entered.
+            if flagged || result.loadIsEntered {
+                Text(tip)
+                    .scaledFont(size: 15, weight: flagged || result.mostFuelLitres == nil ? .semibold : .regular, relativeTo: .subheadline)
+                    .foregroundColor(flagged || result.mostFuelLitres == nil ? .aviationRed : .altimeterBlue)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -405,13 +408,23 @@ struct MassBalanceLoadTable: View {
                 break
             }
         }
-        if let none = result.emptyTanks { add(L10n.MassBalance.tableNoFuel, none.mass, none.arm, .sub) }
+        // A total is written only when every row above it is entered: a sum with a blank in it is a
+        // dash, as on the paper form, never the figure so far.
+        if let none = result.emptyTanks {
+            let known = result.loadIsEntered
+            add(L10n.MassBalance.tableNoFuel, known ? none.mass : nil, known ? none.arm : nil, .sub)
+        }
         if let fuel = data.fuelStation, let density = fuel.density {
             add(L10n.MassBalance.rowFuel, load.fuelLitres.map { $0 * data.units.fuel.perLitre * density }, fuel.arm)
             if let taxi = data.limits.taxiFuel, taxi > 0 { add(L10n.MassBalance.tableTaxi, -taxi, fuel.arm) }
         }
-        if let takeoff = result.takeoff { add(L10n.MassBalance.pointTakeoff, takeoff.mass, takeoff.arm, .total) }
-        if let landing = result.landing { add(L10n.MassBalance.pointLanding, landing.mass, landing.arm, .sub) }
+        if let takeoff = result.takeoff {
+            let known = result.isComplete
+            add(L10n.MassBalance.pointTakeoff, known ? takeoff.mass : nil, known ? takeoff.arm : nil, .total)
+        }
+        if result.isComplete, let landing = result.landing {
+            add(L10n.MassBalance.pointLanding, landing.mass, landing.arm, .sub)
+        }
         return rows
     }
 

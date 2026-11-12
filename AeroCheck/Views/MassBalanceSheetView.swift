@@ -30,7 +30,10 @@ struct MassBalanceEntryView: View {
         let setup = appState.settings.massBalance[registration]
         Group {
             if let basis = setup.basis(shipped: shipped, now: Date()) {
+                // A page on the iPad, so the seat plan and the handbook's table have their width;
+                // iPadOS 17 keeps the form sheet and shows the rows of the iPhone in it.
                 MassBalanceSheetView(registration: registration, basis: basis, shipped: shipped, onClose: onClose)
+                    .pageSizedSheet()
             } else {
                 // No data from the server, or data the pilot said isn't this aircraft's: their own figures.
                 WeightBalanceView(registration: registration, onClose: onClose,
@@ -95,7 +98,11 @@ struct MassBalanceSheetView: View {
                             MassBalanceSectionTitle(text: L10n.MassBalance.loadTitle, note: L10n.MassBalance.loadUnits)
                             MassBalanceLoadRows(data: data, empty: basis.empty, result: result, load: $load)
                         }
-                        MassBalanceFootnote(registration: registration, basis: basis, confirmedAt: confirmedAt)
+                        // The way to the first-time steps is there from a blank sheet on, not only once
+                        // every row is entered and the verdict itself asks for it.
+                        MassBalanceFootnote(registration: registration, basis: basis, confirmedAt: confirmedAt,
+                                            onCheckData: canCheckData && !basis.isConfirmed && result.verdict != .notConfirmed
+                                                ? { showSteps = true } : nil)
                     }
                     .padding(isWide ? 20 : 14)
                     .frame(maxWidth: 780)
@@ -117,7 +124,8 @@ struct MassBalanceSheetView: View {
                     .background(Color.cockpitBackground)
                 }
             }
-            .navigationTitle("\(L10n.MassBalance.title) · \(registration)")
+            // The registration first: a long title is cut at its end, and it must not be the aircraft.
+            .navigationTitle("\(registration) · \(L10n.MassBalance.title)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // It saves as it goes: one Close, on the left.
@@ -165,18 +173,25 @@ struct MassBalanceSheetView: View {
         guard !loaded else { return }
         loaded = true
         let setup = appState.settings.massBalance[registration]
-        if let last = setup.lastLoad, let day = setup.lastLoadDay {
-            load = Calendar.current.isDateInToday(day) ? last : last.carriedOver(from: day)
-        } else if let own = appState.settings.massBalance.pilotMassKg,
-                  let seat = data.seatStations.flatMap({ $0.seats ?? [] }).first(where: { $0.role == .pilot }) {
-            load.seats[seat.id] = .person(kg: own)
+        if let last = setup.startingLoad() {
+            load = last
+            return
         }
+        // A sheet started from nothing is today's: only a load taken over from an earlier flight has
+        // to be said to be. The pilot's own mass is the one figure it starts with.
+        var fresh = MassBalanceLoad(isTodays: true)
+        if let own = appState.settings.massBalance.pilotMassKg,
+           let seat = data.seatStations.flatMap({ $0.seats ?? [] }).first(where: { $0.role == .pilot }) {
+            fresh.seats[seat.id] = .person(kg: own)
+        }
+        load = fresh
     }
 
     private func persist(_ new: MassBalanceLoad) {
         guard loaded else { return }
         var setup = appState.settings.massBalance[registration]
-        guard setup.lastLoad != new else { return }
+        // A sheet left blank is not kept as a load.
+        guard setup.lastLoad != new, !(new.isBlank && setup.lastLoad == nil) else { return }
         setup.lastLoad = new
         setup.lastLoadDay = Date()
         appState.settings.massBalance[registration] = setup
@@ -305,20 +320,23 @@ struct MassBalancePointCards: View {
     let result: MassBalanceResult
     let stacked: Bool
 
+    private func word(_ point: MassBalancePoint) -> String { MassBalanceWords.pointWord(point, in: result) }
+
     var body: some View {
+        // With a row still to enter the figures are a sum so far: no card says inside or outside.
+        let judged = result.isComplete
         let cards = [
-            (L10n.MassBalance.pointTakeoff, "arrowtriangle.up.fill", result.takeoff,
-             result.takeoff.map { $0.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside } ?? ""),
+            (L10n.MassBalance.pointTakeoff, "arrowtriangle.up.fill", result.takeoff, result.takeoff.map(word) ?? ""),
             (L10n.MassBalance.pointLanding, "arrowtriangle.down.fill", result.landing,
-             result.landing.map { "\(L10n.MassBalance.pointLeft(Int($0.fuelLitres.rounded()))) · \($0.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside)" }
+             result.landing.map { "\(L10n.MassBalance.pointLeft(Int($0.fuelLitres.rounded()))) · \(word($0))" }
                 ?? L10n.MassBalance.pointNoTrip),
-            (L10n.MassBalance.pointEmptyTanks, "circle", result.emptyTanks,
-             result.emptyTanks.map { $0.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside } ?? "")
+            (L10n.MassBalance.pointEmptyTanks, "circle", result.emptyTanks, result.emptyTanks.map(word) ?? "")
         ]
         let layout = stacked ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
         layout {
             ForEach(Array(cards.enumerated()), id: \.offset) { _, card in
-                MassBalancePointCard(title: card.0, symbol: card.1, point: card.2, note: card.3, data: data, small: !stacked)
+                MassBalancePointCard(title: card.0, symbol: card.1, point: card.2, note: card.3, data: data,
+                                     small: !stacked, judged: judged)
             }
         }
     }
@@ -331,13 +349,15 @@ private struct MassBalancePointCard: View {
     let note: String
     let data: AircraftMassBalance
     let small: Bool
+    let judged: Bool
 
     var body: some View {
-        let tint: Color = point.map { $0.isInside ? Color.primaryText : Color.aviationRed } ?? .dimText
+        let isOutside = judged && point?.isInside == false
+        let tint: Color = point == nil ? .dimText : isOutside ? .aviationRed : judged ? .primaryText : .secondaryText
         VStack(alignment: .leading, spacing: 3) {
             Label(title.uppercased(), systemImage: symbol)
                 .scaledFont(size: small ? 11 : 13, weight: .semibold, relativeTo: .caption)
-                .foregroundColor(point?.isInside == false ? .aviationRed : .dimText)
+                .foregroundColor(isOutside ? .aviationRed : .dimText)
             Text(point.map { MassBalanceWords.mass($0.mass, data.units, withKilograms: false) } ?? "—")
                 .scaledFont(size: small ? 16 : 22, design: .monospaced, relativeTo: .title3)
                 .foregroundColor(tint)
@@ -382,6 +402,7 @@ struct MassBalanceFootnote: View {
     let registration: String
     let basis: MassBalanceBasis
     let confirmedAt: Date?
+    var onCheckData: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 6) {
@@ -390,6 +411,12 @@ struct MassBalanceFootnote: View {
                 .foregroundColor(.aviationAmber)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            if let onCheckData {
+                Button(L10n.MassBalance.buttonCheckData, action: onCheckData)
+                    .buttonStyle(MassBalanceActionStyle())
+                    .padding(.vertical, 4)
+                    .accessibilityIdentifier("mb.checkData")
+            }
             ForEach(Array((basis.data.sources ?? []).enumerated()), id: \.offset) { _, source in
                 Text([source.document, source.revision.map { "rev. \($0)" }, source.date.map(MassBalanceWords.day)]
                         .compactMap { $0 }.joined(separator: " · "))

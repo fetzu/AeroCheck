@@ -170,9 +170,13 @@ extension MassBalanceSetup {
         confirmedAt = nil
     }
 
-    /// The load a new flight's sheet starts with: last time's, marked as not today's.
-    func startingLoad() -> MassBalanceLoad? {
-        guard let lastLoad, let lastLoadDay else { return nil }
-        return lastLoad.carriedOver(from: lastLoadDay)
+    /// The load a sheet starts with: today's as it was left, an earlier day's marked as not
+    /// today's, and none when nothing was ever entered.
+    func startingLoad(on day: Date = Date(), calendar: Calendar = .current) -> MassBalanceLoad? {
+        // A sheet opened and left blank is no load: the next one starts from nothing, and is today's.
+        guard let lastLoad, let lastLoadDay, !lastLoad.isBlank else { return nil }
+        // The same day, the sheet is as it was left. From an earlier day it is last time's load,
+        // and nothing better than that until the pilot says it is today's.
+        return calendar.isDate(lastLoadDay, inSameDayAs: day) ? lastLoad : lastLoad.carriedOver(from: lastLoadDay)
     }
 }

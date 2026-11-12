@@ -56,6 +56,9 @@ struct MassBalanceSetupSteps: View {
                 }
             }
         }
+        // A page on the iPad: an aircraft with two categories and four stations has more lines to
+        // compare than a form sheet shows, and "something differs" must not be below the fold.
+        .pageSizedSheet()
         .onAppear { typing = shipped.empty == nil }
     }
 

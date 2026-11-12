@@ -101,6 +101,36 @@ final class MassBalanceWordsTests: XCTestCase {
         XCTAssertFalse(MassBalanceWords.spoken(result, data: four).isEmpty)
     }
 
+    /// A blank sheet's point is the empty aircraft, far outside every envelope, and a half-filled
+    /// one can sit inside by chance. Neither is a loading condition: no word judges it.
+    func testWithARowStillToEnterNoPointIsCalledInsideOrOutside() {
+        let four = aircraft(mass: "lb", arm: "in", fuel: "usgal", rows: fourSeats)
+        let empty = AircraftMassBalance.EmptyMass(mass: 1500, moment: 130_500, date: "2025-02-18")
+
+        var load = MassBalanceLoad()
+        var result = MassBalanceCalculator.compute(data: four, empty: empty, load: load, isConfirmed: true)
+        XCTAssertFalse(result.isComplete)
+        XCTAssertFalse(result.loadIsEntered, "how much fuel fits is not known before the seats are")
+        let blank = try! XCTUnwrap(result.takeoff)
+        XCTAssertEqual(MassBalanceWords.pointWord(blank, in: result), L10n.MassBalance.pointSoFar)
+        let spoken = MassBalanceWords.spoken(result, data: four)
+        XCTAssertTrue(spoken.contains(L10n.MassBalance.chartSoFar), spoken)
+        XCTAssertFalse(spoken.contains(L10n.MassBalance.pointEmptyTanks), "one point so far, not three: \(spoken)")
+
+        load = MassBalanceLoad(seats: ["p": .person(kg: 80), "f": .empty, "rl": .empty, "rr": .empty],
+                               baggageKg: ["bagA": 0, "bagB": 0])
+        result = MassBalanceCalculator.compute(data: four, empty: empty, load: load, isConfirmed: true)
+        XCTAssertFalse(result.isComplete, "the fuel is still to enter")
+        XCTAssertTrue(result.loadIsEntered)
+        XCTAssertEqual(MassBalanceWords.pointWord(try! XCTUnwrap(result.takeoff), in: result), L10n.MassBalance.pointSoFar)
+
+        load.fuelLitres = 100
+        load.isTodays = true
+        result = MassBalanceCalculator.compute(data: four, empty: empty, load: load, isConfirmed: true)
+        XCTAssertTrue(result.isComplete)
+        XCTAssertEqual(MassBalanceWords.pointWord(try! XCTUnwrap(result.takeoff), in: result), L10n.MassBalance.pointInside)
+    }
+
     func testADateIsWrittenForTheReaderAndAnOddOneIsLeftAsItIs() {
         XCTAssertNotEqual(MassBalanceWords.day("2025-02-18"), "2025-02-18")
         XCTAssertTrue(MassBalanceWords.day("2025-02-18").contains("2025"))

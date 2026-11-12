@@ -259,12 +259,22 @@ enum MassBalanceWords {
         return lines
     }
 
+    /// What is said of a point: inside or outside, and neither while a row is still to enter. The
+    /// figures are then a sum so far, and where the CG ends up is not known.
+    static func pointWord(_ point: MassBalancePoint, in result: MassBalanceResult) -> String {
+        guard result.isComplete else { return L10n.MassBalance.pointSoFar }
+        return point.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside
+    }
+
     /// One sentence per point, for VoiceOver: the chart without sight of it.
     static func spoken(_ result: MassBalanceResult, data: AircraftMassBalance) -> String {
         func sentence(_ name: String, _ point: MassBalancePoint?) -> String? {
             guard let point else { return nil }
             return L10n.MassBalance.chartPoint(name, mass(point.mass, data.units), arm(point.arm, data.units),
-                                               point.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside)
+                                               pointWord(point, in: result))
+        }
+        guard result.isComplete else {
+            return [L10n.MassBalance.chartLabel, sentence(L10n.MassBalance.chartSoFar, result.takeoff)].compactMap { $0 }.joined(separator: " ")
         }
         return [L10n.MassBalance.chartLabel,
                 sentence(L10n.MassBalance.pointTakeoff, result.takeoff),

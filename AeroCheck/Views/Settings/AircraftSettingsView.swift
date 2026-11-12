@@ -559,7 +559,9 @@ private struct FullTanksSettingRow: View {
 
     private var resolved: FullTanks? {
         FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
-                          pilotValues: appState.settings.fullTanksLitres)
+                          pilotValues: appState.settings.fullTanksLitres,
+                          massBalanceLitres: FullTanks.massBalanceLitres(registration: registration, service: aircraftDataService,
+                                                                         settings: appState.settings.massBalance))
     }
 
     var body: some View {

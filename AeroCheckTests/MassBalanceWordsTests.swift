@@ -73,6 +73,19 @@ final class MassBalanceWordsTests: XCTestCase {
         XCTAssertEqual(Set(all.map(MassBalanceWords.symbol)).count, 5, "a shape of its own, so nothing depends on colour")
     }
 
+    func testEveryStateOfAFlightHasItsOwnLineAndShape() {
+        let at = Date(timeIntervalSince1970: 1_763_000_000)
+        let all: [MassBalanceFlightState] = [.notDone, .lastTimesLoad, .incomplete, .notConfirmed,
+                                             .outsideLimits(at: at), .insideLimits(at: at)]
+        XCTAssertEqual(Set(all.map { MassBalanceWords.stateLine($0, now: at) }).count, 6)
+        XCTAssertEqual(Set(all.map(MassBalanceWords.stateSymbol)).count, 6)
+        // A verdict carries the sheet's time; with the day once it isn't today's.
+        let sameDay = MassBalanceWords.stateLine(.insideLimits(at: at), now: at)
+        let nextDay = MassBalanceWords.stateLine(.insideLimits(at: at), now: at.addingTimeInterval(2 * 86_400))
+        XCTAssertTrue(sameDay.contains(at.formatted(date: .omitted, time: .shortened)), sameDay)
+        XCTAssertGreaterThan(nextDay.count, sameDay.count, "\(sameDay) / \(nextDay)")
+    }
+
     func testTheLinesNameWhatIsMissingAndWhereALimitIsPassed() {
         let four = aircraft(mass: "lb", arm: "in", fuel: "usgal", rows: fourSeats)
         let empty = AircraftMassBalance.EmptyMass(mass: 1500, moment: 130_500, date: "2025-02-18")

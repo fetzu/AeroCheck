@@ -174,6 +174,36 @@ enum MassBalanceWords {
         }
     }
 
+    // MARK: A flight's state, in one line
+
+    /// The sheet's last state for a flight, with the sheet's time where it gave a verdict.
+    static func stateLine(_ state: MassBalanceFlightState, now: Date = Date(), calendar: Calendar = .current) -> String {
+        func time(_ date: Date) -> String {
+            calendar.isDate(date, inSameDayAs: now) ? date.formatted(date: .omitted, time: .shortened)
+                                                    : date.formatted(date: .abbreviated, time: .shortened)
+        }
+        switch state {
+        case .notDone: return L10n.MassBalance.stateNotDone
+        case .lastTimesLoad: return L10n.MassBalance.stateLastTime
+        case .incomplete: return L10n.MassBalance.stateIncomplete
+        case .notConfirmed: return L10n.MassBalance.stateNotConfirmed
+        case .outsideLimits(let at): return L10n.MassBalance.stateOutside(time(at))
+        case .insideLimits(let at): return L10n.MassBalance.stateInside(time(at))
+        }
+    }
+
+    /// The same shapes as the sheet's verdicts, and a plain ring for a sheet not started.
+    static func stateSymbol(_ state: MassBalanceFlightState) -> String {
+        switch state {
+        case .notDone: return "circle.dashed"
+        case .lastTimesLoad: return symbol(.lastTimesLoad)
+        case .incomplete: return symbol(.incomplete)
+        case .notConfirmed: return symbol(.notConfirmed)
+        case .outsideLimits: return symbol(.outsideLimits)
+        case .insideLimits: return symbol(.insideLimits)
+        }
+    }
+
     static func why(_ reason: MassBalanceOutside) -> String {
         switch reason {
         case .overMaximumMass: return L10n.MassBalance.whyOverMax

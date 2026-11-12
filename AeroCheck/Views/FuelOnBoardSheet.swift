@@ -18,11 +18,15 @@ struct FullTanks: Equatable {
     let litres: Double
     let source: Source
 
-    /// The aircraft's data wins; otherwise the pilot's figure for this registration; otherwise nil,
-    /// and the sheet asks for it.
+    /// The aircraft's data wins, its mass and balance file first (the handbook's usable fuel for this
+    /// registration, 6.11.0); otherwise the pilot's figure for this registration; otherwise nil, and
+    /// the sheet asks for it.
     static func resolve(registration: String?, available: [RemoteAircraftMetadata],
-                        pilotValues: [String: Double]) -> FullTanks? {
+                        pilotValues: [String: Double], massBalanceLitres: Double? = nil) -> FullTanks? {
         guard let key = key(for: registration) else { return nil }
+        if let litres = massBalanceLitres, isPlausible(litres) {
+            return FullTanks(litres: litres, source: .aircraftData)
+        }
         if let litres = available.first(where: { $0.registration.uppercased() == key })?.usableFuelLitres,
            isPlausible(litres) {
             return FullTanks(litres: litres, source: .aircraftData)
@@ -31,6 +35,17 @@ struct FullTanks: Equatable {
             return FullTanks(litres: litres, source: .pilot)
         }
         return nil
+    }
+
+    /// The usable fuel of the registration's mass and balance file, to the tenth of a litre. Nil
+    /// when there is no file, or when the pilot said its figures aren't this aircraft's.
+    @MainActor
+    static func massBalanceLitres(registration: String?, service: AircraftDataService,
+                                  settings: MassBalanceSettings, now: Date = Date()) -> Double? {
+        guard let registration = key(for: registration),
+              let basis = settings[registration].basis(shipped: service.massBalance(forRegistration: registration), now: now),
+              basis.source == .shipped, let litres = basis.data.usableFuelLitres else { return nil }
+        return (litres * 10).rounded() / 10
     }
 
     /// The settings key for a registration: trimmed and upper-cased, nil when there's none.
@@ -105,7 +120,10 @@ struct FuelOnBoardSheet: View {
     private var fullTanks: FullTanks? {
         FullTanks.resolve(registration: plan?.aircraftRegistration,
                           available: aircraftDataService.availableAircraft,
-                          pilotValues: appState.settings.fullTanksLitres)
+                          pilotValues: appState.settings.fullTanksLitres,
+                          massBalanceLitres: FullTanks.massBalanceLitres(registration: plan?.aircraftRegistration,
+                                                                         service: aircraftDataService,
+                                                                         settings: appState.settings.massBalance))
     }
 
     var body: some View {
@@ -313,7 +331,9 @@ struct FullTanksButtons: View {
 
     private var fullTanks: FullTanks? {
         FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
-                          pilotValues: appState.settings.fullTanksLitres)
+                          pilotValues: appState.settings.fullTanksLitres,
+                          massBalanceLitres: FullTanks.massBalanceLitres(registration: registration, service: aircraftDataService,
+                                                                         settings: appState.settings.massBalance))
     }
 
     var body: some View {

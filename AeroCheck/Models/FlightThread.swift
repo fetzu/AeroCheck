@@ -230,6 +230,10 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
     /// landing fee task each, so a touch-and-go elsewhere and back gets its own. Nil until the flight has ended and
     /// on threads written before 6.11.0, which keep the planned arrival's task. (6.11.0, the author's f5)
     var landedIdents: [String]?
+    /// This flight's mass and balance load, while it is being prepared. Optional: a thread written
+    /// by an older build has none, and one that passed through such a build loses it and starts
+    /// again from the aircraft's last load. (6.11.0)
+    var massBalance: ThreadMassBalance?
 
     var tasks: [ThreadTask] = []
 
@@ -419,6 +423,8 @@ extension FlightThread {
         arrivalIdent = try c.decodeIfPresent(String.self, forKey: .arrivalIdent)
         arrivalCountry = try c.decodeIfPresent(String.self, forKey: .arrivalCountry)
         landedIdents = try c.decodeIfPresent([String].self, forKey: .landedIdents)
+        // `try?`: a load this build can't read is no load, never a thread that fails to decode.
+        massBalance = try? c.decodeIfPresent(ThreadMassBalance.self, forKey: .massBalance)
         tasks = try c.decodeIfPresent(LossyTaskList.self, forKey: .tasks)?.tasks ?? []
         flightPlanFiledAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanFiledAt)
         flightPlanClosedAt = try c.decodeIfPresent(Date.self, forKey: .flightPlanClosedAt)

@@ -842,9 +842,24 @@ class AircraftDataService: ObservableObject {
     func massBalance(forRegistration registration: String) -> AircraftMassBalance? {
         guard let aircraft = aircraft(forRegistration: registration), canFly(aircraft),
               let url = cacheFileURL(aircraftId: aircraft.id, suffix: Self.massBalanceSuffix),
-              let data = try? Data(contentsOf: url),
-              let file = try? JSONDecoder().decode(AircraftMassBalance.self, from: data) else { return nil }
+              let file = massBalanceFile(at: url) else { return nil }
         return Self.accepted(file, for: aircraft)
+    }
+
+    /// The file as read from the cache, kept in memory until a file changes: Today and the flight's
+    /// page ask for it on every pass over their views, and must not read the disk each time.
+    private var massBalanceFilesRead: [URL: AircraftMassBalance?] = [:]
+    private var massBalanceFilesReadAt = -1
+
+    private func massBalanceFile(at url: URL) -> AircraftMassBalance? {
+        if massBalanceFilesReadAt != massBalanceChangeCount {
+            massBalanceFilesRead = [:]
+            massBalanceFilesReadAt = massBalanceChangeCount
+        }
+        if let read = massBalanceFilesRead[url] { return read }
+        let file = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(AircraftMassBalance.self, from: $0) }
+        massBalanceFilesRead[url] = .some(file)
+        return file
     }
 
     /// The file as given, or nil when it is not this registration's or not usable. A file for another

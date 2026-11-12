@@ -726,6 +726,12 @@ enum L10n {
         static let pointInside = String(localized: "mb.point.inside")
         static let pointOutside = String(localized: "mb.point.outside")
         static let pointSoFar = String(localized: "mb.point.soFar")
+        static let stateNotDone = String(localized: "mb.state.notDone")
+        static let stateLastTime = String(localized: "mb.state.lastTime")
+        static let stateIncomplete = String(localized: "mb.state.incomplete")
+        static let stateNotConfirmed = String(localized: "mb.state.notConfirmed")
+        static func stateOutside(_ a0: String) -> String { String(localized: "mb.state.outside \(a0)") }
+        static func stateInside(_ a0: String) -> String { String(localized: "mb.state.inside \(a0)") }
         static func pointLeft(_ a0: Int) -> String { String(localized: "mb.point.left \(a0)") }
         static let pointNoTrip = String(localized: "mb.point.noTrip")
         static func chartCgAxis(_ a0: String) -> String { String(localized: "mb.chart.cgAxis \(a0)") }

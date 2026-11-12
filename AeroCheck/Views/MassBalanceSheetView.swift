@@ -13,8 +13,17 @@ import SwiftUI
 
 /// What opens for a registration: the sheet when there is data to compute with, the 5.0.0 calculator
 /// with the pilot's own figures when there is none.
+/// The flight a sheet is opened for: what it starts with, and where a change goes. Without one the
+/// sheet is a check of the aircraft alone (Today, Settings), kept per registration.
+struct MassBalanceFlightContext {
+    /// `MassBalanceFlight.startingLoad`: nil starts the sheet from nothing.
+    var load: MassBalanceLoad?
+    var onChange: (MassBalanceLoad) -> Void
+}
+
 struct MassBalanceEntryView: View {
     let registration: String
+    var flight: MassBalanceFlightContext?
     var onClose: (() -> Void)?
 
     @Environment(AppState.self) private var appState
@@ -32,7 +41,8 @@ struct MassBalanceEntryView: View {
             if let basis = setup.basis(shipped: shipped, now: Date()) {
                 // A page on the iPad, so the seat plan and the handbook's table have their width;
                 // iPadOS 17 keeps the form sheet and shows the rows of the iPhone in it.
-                MassBalanceSheetView(registration: registration, basis: basis, shipped: shipped, onClose: onClose)
+                MassBalanceSheetView(registration: registration, basis: basis, shipped: shipped, flight: flight,
+                                     onClose: onClose)
                     .pageSizedSheet()
             } else {
                 // No data from the server, or data the pilot said isn't this aircraft's: their own figures.
@@ -56,6 +66,7 @@ struct MassBalanceSheetView: View {
     let registration: String
     let basis: MassBalanceBasis
     let shipped: AircraftMassBalance?
+    var flight: MassBalanceFlightContext?
     var onClose: (() -> Void)?
 
     @Environment(AppState.self) private var appState
@@ -64,6 +75,8 @@ struct MassBalanceSheetView: View {
 
     @State private var load = MassBalanceLoad()
     @State private var loaded = false
+    /// What the sheet opened with. Opening a sheet writes nothing: only a change does.
+    @State private var opened: MassBalanceLoad?
     @State private var showSteps = false
 
     private var data: AircraftMassBalance { basis.data }
@@ -173,22 +186,26 @@ struct MassBalanceSheetView: View {
         guard !loaded else { return }
         loaded = true
         let setup = appState.settings.massBalance[registration]
-        if let last = setup.startingLoad() {
-            load = last
-            return
-        }
-        // A sheet started from nothing is today's: only a load taken over from an earlier flight has
-        // to be said to be. The pilot's own mass is the one figure it starts with.
-        var fresh = MassBalanceLoad(isTodays: true)
-        if let own = appState.settings.massBalance.pilotMassKg,
+        // A flight's sheet opens with that flight's load; a check of the aircraft alone with the
+        // aircraft's. A sheet started from nothing is today's: only a load taken over from an
+        // earlier flight has to be said to be.
+        var first = (flight != nil ? flight?.load : setup.startingLoad()) ?? MassBalanceLoad(isTodays: true)
+        // The pilot's own mass is the one figure a sheet with no seat answered starts with.
+        if first.seats.values.allSatisfy({ $0 == .unset }), let own = appState.settings.massBalance.pilotMassKg,
            let seat = data.seatStations.flatMap({ $0.seats ?? [] }).first(where: { $0.role == .pilot }) {
-            fresh.seats[seat.id] = .person(kg: own)
+            first.seats[seat.id] = .person(kg: own)
         }
-        load = fresh
+        opened = first
+        load = first
     }
 
     private func persist(_ new: MassBalanceLoad) {
         guard loaded else { return }
+        if let opened {
+            guard new != opened else { return }
+            self.opened = nil
+        }
+        flight?.onChange(new)
         var setup = appState.settings.massBalance[registration]
         // A sheet left blank is not kept as a load.
         guard setup.lastLoad != new, !(new.isBlank && setup.lastLoad == nil) else { return }

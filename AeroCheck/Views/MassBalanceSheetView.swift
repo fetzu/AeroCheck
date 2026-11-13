@@ -236,6 +236,8 @@ struct MassBalanceVerdictCard: View {
     let lines: [String]
     var onTodays: () -> Void
     var onCheckData: (() -> Void)?
+    /// A kept sheet: the words, and no button.
+    var isReadOnly = false
 
     var body: some View {
         let tint = verdictColour(verdict)
@@ -251,7 +253,8 @@ struct MassBalanceVerdictCard: View {
                     .scaledFont(size: 28, weight: .bold, relativeTo: .title)
                     .foregroundColor(tint)
                     .accessibilityIdentifier("mb.verdict")
-                MassBalanceVerdictLines(lines: lines, verdict: verdict, onTodays: onTodays, onCheckData: onCheckData)
+                MassBalanceVerdictLines(lines: lines, verdict: verdict, onTodays: onTodays, onCheckData: onCheckData,
+                                        isReadOnly: isReadOnly)
             }
             Spacer(minLength: 0)
         }
@@ -269,6 +272,7 @@ struct MassBalanceVerdictLines: View {
     let verdict: MassBalanceVerdict
     var onTodays: () -> Void
     var onCheckData: (() -> Void)?
+    var isReadOnly = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -278,7 +282,9 @@ struct MassBalanceVerdictLines: View {
                     .foregroundColor(.primaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if verdict == .lastTimesLoad {
+            if isReadOnly {
+                EmptyView()
+            } else if verdict == .lastTimesLoad {
                 Button(L10n.MassBalance.buttonTodays, action: onTodays)
                     .buttonStyle(MassBalanceActionStyle())
                     .padding(.top, 6)
@@ -344,8 +350,9 @@ struct MassBalancePointCards: View {
         let judged = result.isComplete
         let cards = [
             (L10n.MassBalance.pointTakeoff, "arrowtriangle.up.fill", result.takeoff, result.takeoff.map(word) ?? ""),
-            (L10n.MassBalance.pointLanding, "arrowtriangle.down.fill", result.landing,
-             result.landing.map { "\(L10n.MassBalance.pointLeft(Int($0.fuelLitres.rounded()))) · \(word($0))" }
+            // No landing figures before the take-off ones are whole: three cards of sums so far say less than one.
+            (L10n.MassBalance.pointLanding, "arrowtriangle.down.fill", judged ? result.landing : nil,
+             !judged ? "" : result.landing.map { "\(L10n.MassBalance.pointLeft(Int($0.fuelLitres.rounded()))) · \(word($0))" }
                 ?? L10n.MassBalance.pointNoTrip),
             (L10n.MassBalance.pointEmptyTanks, "circle", result.emptyTanks, result.emptyTanks.map(word) ?? "")
         ]

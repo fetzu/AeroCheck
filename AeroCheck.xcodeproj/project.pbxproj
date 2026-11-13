@@ -12,6 +12,7 @@
 		82B66A3AE991F2DCA5012888 /* MassBalanceEntryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEB543AF55C0CACF9C8213C5 /* MassBalanceEntryViews.swift */; };
 		8F29E937AEFE2C3AF9D7369D /* MassBalanceSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05339D1466DDB25A1002043F /* MassBalanceSheetView.swift */; };
 		51ABF1756AEEFAE6B8464F62 /* MassBalanceChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231C3D7AC95765EED1332476 /* MassBalanceChart.swift */; };
+		7389A74A72FB9F43986D21EF /* MassBalanceRecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494D87A5BB431BB0FDA38680 /* MassBalanceRecordView.swift */; };
 		9F252FF7107F9EE8796E36CD /* MassBalanceWords.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046C13B5068B90AEA869804D /* MassBalanceWords.swift */; };
 		85EBBE6BF14F2871535BB8DD /* MassBalanceDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8DBD0EA4244394BAAC456 /* MassBalanceDataTests.swift */; };
 		94904401D761307525AB84F0 /* MassBalanceSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38529BC69EF02AD782B56AD /* MassBalanceSetup.swift */; };
@@ -555,6 +556,7 @@
 		BEB543AF55C0CACF9C8213C5 /* MassBalanceEntryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceEntryViews.swift; sourceTree = "<group>"; };
 		05339D1466DDB25A1002043F /* MassBalanceSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceSheetView.swift; sourceTree = "<group>"; };
 		231C3D7AC95765EED1332476 /* MassBalanceChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceChart.swift; sourceTree = "<group>"; };
+		494D87A5BB431BB0FDA38680 /* MassBalanceRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceRecordView.swift; sourceTree = "<group>"; };
 		046C13B5068B90AEA869804D /* MassBalanceWords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceWords.swift; sourceTree = "<group>"; };
 		81F8DBD0EA4244394BAAC456 /* MassBalanceDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceDataTests.swift; sourceTree = "<group>"; };
 		D38529BC69EF02AD782B56AD /* MassBalanceSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceSetup.swift; sourceTree = "<group>"; };
@@ -1419,6 +1421,7 @@
 				BEB543AF55C0CACF9C8213C5 /* MassBalanceEntryViews.swift */,
 				05339D1466DDB25A1002043F /* MassBalanceSheetView.swift */,
 				231C3D7AC95765EED1332476 /* MassBalanceChart.swift */,
+				494D87A5BB431BB0FDA38680 /* MassBalanceRecordView.swift */,
 				046C13B5068B90AEA869804D /* MassBalanceWords.swift */,
 				FA5ACAC6DCC2BC34E5EA8E00 /* FeeAnswerView.swift */,
 				F1000001111111110000004 /* FlightNumbersView.swift */,
@@ -2336,6 +2339,7 @@
 				82B66A3AE991F2DCA5012888 /* MassBalanceEntryViews.swift in Sources */,
 				8F29E937AEFE2C3AF9D7369D /* MassBalanceSheetView.swift in Sources */,
 				51ABF1756AEEFAE6B8464F62 /* MassBalanceChart.swift in Sources */,
+				7389A74A72FB9F43986D21EF /* MassBalanceRecordView.swift in Sources */,
 				9F252FF7107F9EE8796E36CD /* MassBalanceWords.swift in Sources */,
 				CDC0EB952B1CE312E53D0184 /* FeeAnswerView.swift in Sources */,
 				F1000001211111110000004 /* FlightNumbersView.swift in Sources */,

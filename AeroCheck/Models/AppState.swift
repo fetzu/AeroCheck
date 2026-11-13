@@ -982,6 +982,15 @@ class AppState {
         if let missed = freda.stop() { recordFreda(.missed(missed)) }
     }
 
+    /// Keeps the mass and balance sheet with the flight that has just started. Once: a flight that
+    /// has one keeps it. (6.11.0)
+    func keepMassBalance(_ record: FlightMassBalance) {
+        guard let flight = currentFlight, flight.massBalance == nil else { return }
+        currentFlight?.massBalance = record
+        currentFlight?.stampForContent()
+        checkpointActiveFlight(force: true)
+    }
+
     private func recordFreda(_ check: FredaCheck) {
         guard let flight = currentFlight else { return }
         // Read before the write: with optional chaining, the right-hand side of `currentFlight?.x = …`

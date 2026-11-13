@@ -211,10 +211,23 @@ struct FlightLauncher {
         // The flight is real: tell the followed flight it is under way, so it shows FLY rather than
         // sitting in PREPARE until landing, and stops offering to start a flight already running.
         // Only ever on an exact signal — see `threadToAttach`. (v5.x)
+        var followed: FlightThread?
         if let threadManager, let startedFlightId = appState.currentFlight?.id,
            let threadId = threadManager.threadToAttach(explicitThreadId: followedFlightId,
                                                        planId: flightPlanId) {
+            // Read before it is attached: the sheet kept is the one of the flight being prepared.
+            followed = threadManager.thread(withId: threadId)
             threadManager.attachFlight(startedFlightId, toThreadId: threadId)
+        }
+        // The mass and balance sheet as it stands, kept with the flight. Never asked for and never
+        // a condition of the start: a flight with no sheet starts the same. (6.11.0, m12 and m13)
+        if let registration = appState.currentFlight?.aircraftRegistration, !registration.isEmpty,
+           let record = MassBalanceFlight.record(
+               thread: followed, registration: registration,
+               shipped: aircraftDataService.massBalance(forRegistration: registration),
+               setup: appState.settings.massBalance[registration],
+               plan: flightPlanId.flatMap { id in flightPlanManager.flightPlans.first { $0.id == id } }) {
+            appState.keepMassBalance(record)
         }
 
         locationManager.startTracking(

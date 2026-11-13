@@ -322,6 +322,11 @@ struct Flight: Identifiable, Codable {
     /// once, at END FLIGHT, so `merge` keeps whichever side has it; no schema bump is needed.
     var checkOutcomes: [CheckOutcome]?
 
+    /// The mass and balance sheet as it was when the flight started (6.11.0, the author's m13). Nil
+    /// on a flight nobody prepared a sheet for and on every flight recorded before. Written once, at
+    /// START; a flight that carries one is stamped 3, like one with fee answers.
+    var massBalance: FlightMassBalance?
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
     /// Bumped to 2 in v5.0.0 for `costEntry` and `logbook`. Left at 1, a v5 flight was
@@ -330,7 +335,8 @@ struct Flight: Identifiable, Codable {
     /// win `merge` — erasing the cost entry and logbook overrides on every device, permanently and
     /// with no visible cue. That rejection is exactly what this constant is for. (review F7)
     ///
-    /// 3 in 6.11.0, for what a fee line gained (how it was settled, its own currency, its landings).
+    /// 3 in 6.11.0, for what a fee line gained (how it was settled, its own currency, its landings)
+    /// and for the mass and balance sheet kept at START.
     /// Unlike 2, it is stamped only on the flights that carry such data (`stampForContent`): the
     /// author's choice of 12 Nov 2026 is that a device still on 6.10 doesn't show those flights until
     /// it is updated, and keeps showing every other one.
@@ -341,7 +347,7 @@ struct Flight: Identifiable, Codable {
 
     /// The lowest record version that keeps everything this flight carries.
     var requiredSchemaVersion: Int {
-        (costEntry?.carriesFeeAnswers ?? false) ? 3 : Flight.baseSchemaVersion
+        (costEntry?.carriesFeeAnswers ?? false) || massBalance != nil ? 3 : Flight.baseSchemaVersion
     }
 
     /// Raises the stamp to what the content needs. Never lowers it: a flight that was once hidden
@@ -371,6 +377,7 @@ struct Flight: Identifiable, Codable {
         case fredaChecks
         case checkRecords
         case checkOutcomes
+        case massBalance
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -448,6 +455,8 @@ struct Flight: Identifiable, Codable {
         fredaChecks = try container.decodeIfPresent([FredaCheck].self, forKey: .fredaChecks)
         checkRecords = try container.decodeIfPresent([CheckRecord].self, forKey: .checkRecords)
         checkOutcomes = try container.decodeIfPresent([CheckOutcome].self, forKey: .checkOutcomes)
+        // New in 6.11.0. `try?`: a sheet this build can't read is no sheet, never a flight that fails to load.
+        massBalance = try? container.decodeIfPresent(FlightMassBalance.self, forKey: .massBalance)
     }
 
     init(
@@ -551,9 +560,14 @@ struct Flight: Identifiable, Codable {
         // (which holds its older copy) would erase the fee answers everywhere. (6.11.0)
         if a.schemaVersion != b.schemaVersion {
             let higher = a.schemaVersion > b.schemaVersion ? a : b
-            if higher.schemaVersion >= 3 { result.costEntry = higher.costEntry }
+            if higher.schemaVersion >= 3 {
+                result.costEntry = higher.costEntry
+                result.massBalance = higher.massBalance
+            }
             result.schemaVersion = higher.schemaVersion
         }
+        // Written once, at START: whichever side has it.
+        result.massBalance = result.massBalance ?? a.massBalance ?? b.massBalance
         result.gpsTrack = a.gpsTrack.count >= b.gpsTrack.count ? a.gpsTrack : b.gpsTrack
         result.goAroundCount = max(a.goAroundCount, b.goAroundCount)
         result.touchAndGoCount = max(a.touchAndGoCount, b.touchAndGoCount)

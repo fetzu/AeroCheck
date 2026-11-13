@@ -474,6 +474,38 @@ final class MassBalanceDataTests: XCTestCase {
         XCTAssertEqual(appState.currentFlight?.massBalance?.verdict, .insideLimits, "as it was at the start, not as it is later")
     }
 
+    // MARK: - Settings
+
+    @MainActor
+    func testTheAircraftPagesRowSaysWhereTheConfirmationStands() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        func summary(_ shipped: AircraftMassBalance?, _ setup: MassBalanceSetup, at date: Date? = nil) -> String {
+            MassBalanceAircraftPage.summary(registration: "F-HVXA", shipped: shipped, setup: setup, now: date ?? now)
+        }
+        var setup = MassBalanceSetup()
+        XCTAssertEqual(summary(nil, setup), L10n.MassBalance.settingsOwnFigures)
+        XCTAssertEqual(summary(shipped, setup), L10n.MassBalance.settingsNotConfirmed)
+
+        setup.confirm(revision: 2, at: now)
+        XCTAssertEqual(summary(shipped, setup),
+                       L10n.MassBalance.settingsConfirmedOn(now.formatted(date: .abbreviated, time: .omitted)))
+        XCTAssertEqual(summary(data(file("wt9-dynamic", "F-HVXA", revision: 3)), setup), L10n.MassBalance.lineDataChanged("F-HVXA"))
+        XCTAssertEqual(summary(shipped, setup, at: now.addingTimeInterval(366 * 86_400)), L10n.MassBalance.lineYearPassed("F-HVXA"))
+
+        setup.decline(revision: 2)
+        XCTAssertEqual(summary(shipped, setup), L10n.MassBalance.settingsSwitchedOff)
+    }
+
+    @MainActor
+    func testTheFiguresToHoldAgainstTheHandbookAreTheSameInTheStepsAndInSettings() {
+        let rows = MassBalanceFacts.identityRows(for: data(file("wt9-dynamic", "F-HVXA")))
+        XCTAssertEqual(rows.map(\.0), [L10n.MassBalance.step1Type, L10n.MassBalance.step1Serial, L10n.MassBalance.step1Mtom,
+                                       rows[3].0, rows[4].0, L10n.MassBalance.step1Fuel])
+        XCTAssertEqual(rows[1].1, "TT-001")
+        XCTAssertTrue(rows[4].1.contains("40"), "the baggage area's maximum: \(rows[4].1)")
+        XCTAssertTrue(rows[5].1.contains("90"), "the usable fuel: \(rows[5].1)")
+    }
+
     // MARK: - Stored
 
     func testTheSetupsDecoderReadsEveryStoredProperty() {

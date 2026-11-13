@@ -68,7 +68,7 @@ struct MassBalanceSetupSteps: View {
         Group {
             title(L10n.MassBalance.step1Title)
             text(L10n.MassBalance.step1Body(registration))
-            MassBalanceFacts(rows: identityRows)
+            MassBalanceFacts(rows: MassBalanceFacts.identityRows(for: shipped))
             sources
             primary(L10n.MassBalance.step1Matches, identifier: "mb.step.matches") { step = 2 }
             secondary(L10n.MassBalance.step1Differs, identifier: "mb.step.differs") {
@@ -79,34 +79,6 @@ struct MassBalanceSetupSteps: View {
                 onDone()
             }
         }
-    }
-
-    private var identityRows: [(String, String)] {
-        var rows: [(String, String)] = []
-        if let identity = shipped.identity {
-            rows.append((L10n.MassBalance.step1Type, identity.designation))
-            rows.append((L10n.MassBalance.step1Serial, identity.serialNumber))
-        }
-        for category in shipped.categories {
-            let name = shipped.categories.count > 1 ? " (\(MassBalanceWords.category(category.id)))" : ""
-            rows.append((L10n.MassBalance.step1Mtom + name, MassBalanceWords.mass(category.maxTakeoff, units, withKilograms: false)))
-        }
-        if let datum = shipped.datum {
-            let language = Locale.current.language.languageCode?.identifier ?? "en"
-            if let text = datum[language] ?? datum["en"] { rows.append((L10n.MassBalance.step1Datum, text)) }
-        }
-        for station in shipped.stations where station.kind != .fuel {
-            var value = MassBalanceWords.arm(station.arm, units)
-            if station.kind == .baggage, let maximum = station.max {
-                value += " · " + L10n.MassBalance.rowAtMost(MassBalanceWords.mass(maximum, units, withKilograms: false))
-            }
-            rows.append((MassBalanceWords.rowName(station, in: shipped), value))
-        }
-        if let fuel = shipped.fuelStation, let usable = fuel.usable {
-            rows.append((L10n.MassBalance.step1Fuel,
-                         L10n.MassBalance.step1Usable(MassBalanceWords.arm(fuel.arm, units), MassBalanceWords.fuelCapacity(usable, units))))
-        }
-        return rows
     }
 
     private var sources: some View {
@@ -291,5 +263,37 @@ struct MassBalanceFacts: View {
             }
         }
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.cardBackground))
+    }
+}
+
+extension MassBalanceFacts {
+    /// What identifies an aircraft's data, to hold against its handbook: the first step and Settings.
+    static func identityRows(for shipped: AircraftMassBalance) -> [(String, String)] {
+        let units = shipped.units
+        var rows: [(String, String)] = []
+        if let identity = shipped.identity {
+            rows.append((L10n.MassBalance.step1Type, identity.designation))
+            rows.append((L10n.MassBalance.step1Serial, identity.serialNumber))
+        }
+        for category in shipped.categories {
+            let name = shipped.categories.count > 1 ? " (\(MassBalanceWords.category(category.id)))" : ""
+            rows.append((L10n.MassBalance.step1Mtom + name, MassBalanceWords.mass(category.maxTakeoff, units, withKilograms: false)))
+        }
+        if let datum = shipped.datum {
+            let language = Locale.current.language.languageCode?.identifier ?? "en"
+            if let text = datum[language] ?? datum["en"] { rows.append((L10n.MassBalance.step1Datum, text)) }
+        }
+        for station in shipped.stations where station.kind != .fuel {
+            var value = MassBalanceWords.arm(station.arm, units)
+            if station.kind == .baggage, let maximum = station.max {
+                value += " · " + L10n.MassBalance.rowAtMost(MassBalanceWords.mass(maximum, units, withKilograms: false))
+            }
+            rows.append((MassBalanceWords.rowName(station, in: shipped), value))
+        }
+        if let fuel = shipped.fuelStation, let usable = fuel.usable {
+            rows.append((L10n.MassBalance.step1Fuel,
+                         L10n.MassBalance.step1Usable(MassBalanceWords.arm(fuel.arm, units), MassBalanceWords.fuelCapacity(usable, units))))
+        }
+        return rows
     }
 }

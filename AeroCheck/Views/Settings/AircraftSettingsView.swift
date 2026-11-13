@@ -46,6 +46,25 @@ struct AircraftSettingsView: View {
                                   footer: L10n.FuelOnBoard.fullTanksRowFooter) {
                         FullTanksSettingRow(registration: selectedRegistration)
                     }
+                    // The figures the mass and balance sheet works with, and the pilot's confirmation. (6.11.0)
+                    SettingsGroup(title: L10n.MassBalance.title, tint: .aviationGold, footer: L10n.MassBalance.settingsFooter) {
+                        NavigationLink(destination: MassBalanceAircraftPage(registration: selectedRegistration)
+                            .environmentObject(aircraftDataService)
+                        ) {
+                            HStack(spacing: 10) {
+                                SettingsRowLabel(icon: "scalemass", title: selectedRegistration,
+                                                 subtitle: massBalanceSummary, tint: tint)
+                                Image(systemName: "chevron.right")
+                                    .font(.aero(size: 13, weight: .semibold))
+                                    .foregroundColor(.dimText)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 11)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("aircraft.massBalance")
+                    }
                     // What every leg of this aircraft is timed with, and where it comes from. (6.1)
                     SettingsGroup(title: L10n.EETPlanning.planningGroup, tint: .aviationGold,
                                   footer: L10n.EETPlanning.cruiseRowFooter) {
@@ -191,6 +210,13 @@ struct AircraftSettingsView: View {
     private var selectedRegistration: String {
         flyableAircraft.first { $0.isSelected(in: appState.settings) }?.registration
             ?? appState.settings.selectedAircraft.registration
+    }
+
+    private var massBalanceSummary: String {
+        _ = aircraftDataService.massBalanceChangeCount
+        return MassBalanceAircraftPage.summary(registration: selectedRegistration,
+                                               shipped: aircraftDataService.massBalance(forRegistration: selectedRegistration),
+                                               setup: appState.settings.massBalance[selectedRegistration])
     }
 
     private func fly(_ option: AircraftOption) {

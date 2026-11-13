@@ -730,6 +730,37 @@ enum L10n {
         static let pointSoFar = String(localized: "mb.point.soFar")
         static let stateNotDone = String(localized: "mb.state.notDone")
         static func recordNote(_ a0: String) -> String { String(localized: "mb.record.note \(a0)") }
+        static let ownTitle = String(localized: "mb.own.title")
+        static let ownWhy = String(localized: "mb.own.why")
+        static let ownEnter = String(localized: "mb.own.enter")
+        static let ownChange = String(localized: "mb.own.change")
+        static let ownChoices = String(localized: "mb.own.choices")
+        static let ownOldNotice = String(localized: "mb.own.oldNotice")
+        static func ownIntro(_ a0: String) -> String { String(localized: "mb.own.intro \(a0)") }
+        static let ownFromOld = String(localized: "mb.own.fromOld")
+        static let ownUnits = String(localized: "mb.own.units")
+        static let ownUnitsNote = String(localized: "mb.own.unitsNote")
+        static let ownMass = String(localized: "mb.own.mass")
+        static let ownArm = String(localized: "mb.own.arm")
+        static let ownLimits = String(localized: "mb.own.limits")
+        static let ownSeatsNote = String(localized: "mb.own.seatsNote")
+        static func ownRowArm(_ a0: Int) -> String { String(localized: "mb.own.rowArm \(a0)") }
+        static func ownRow(_ a0: Int) -> String { String(localized: "mb.own.row \(a0)") }
+        static let ownOneSeat = String(localized: "mb.own.oneSeat")
+        static let ownTwoSeats = String(localized: "mb.own.twoSeats")
+        static let ownRemove = String(localized: "mb.own.remove")
+        static let ownPilotRow = String(localized: "mb.own.pilotRow")
+        static let ownAddRow = String(localized: "mb.own.addRow")
+        static func ownAreaArm(_ a0: Int) -> String { String(localized: "mb.own.areaArm \(a0)") }
+        static let ownAreaMax = String(localized: "mb.own.areaMax")
+        static let ownAddBaggage = String(localized: "mb.own.addBaggage")
+        static let ownUsable = String(localized: "mb.own.usable")
+        static let ownDensity = String(localized: "mb.own.density")
+        static let ownEnvelope = String(localized: "mb.own.envelope")
+        static let ownEnvelopeNote = String(localized: "mb.own.envelopeNote")
+        static let ownAddCorner = String(localized: "mb.own.addCorner")
+        static let ownWhole = String(localized: "mb.own.whole")
+        static func ownMissing(_ a0: String) -> String { String(localized: "mb.own.missing \(a0)") }
         static let settingsFigures = String(localized: "mb.settings.figures")
         static let settingsSource = String(localized: "mb.settings.source")
         static func settingsRevision(_ a0: Int, _ a1: String) -> String { String(localized: "mb.settings.revision \(a0) \(a1)") }

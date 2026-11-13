@@ -14,6 +14,9 @@ struct MassBalanceQuantityField: View {
     var flagged: Bool = false
     let label: String
     var identifier: String?
+    /// How many decimals the figure is shown with once the box is left: one for a mass, three for an arm in metres.
+    var decimals = 1
+    var width: CGFloat = 84
 
     @State private var text = ""
     @FocusState private var focused: Bool
@@ -25,7 +28,7 @@ struct MassBalanceQuantityField: View {
                 .multilineTextAlignment(.trailing)
                 .scaledFont(size: 22, design: .monospaced, relativeTo: .title3)
                 .foregroundColor(flagged ? .aviationRed : .primaryText)
-                .frame(width: 84)
+                .frame(width: width)
                 .frame(minHeight: 52)
                 .padding(.horizontal, 10)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground))
@@ -46,21 +49,26 @@ struct MassBalanceQuantityField: View {
             }
             .frame(minWidth: 26, alignment: .leading)
         }
-        .onAppear { text = Self.display(value) }
-        .onChange(of: value) { _, new in if !focused { text = Self.display(new) } }
+        .onAppear { text = display(value) }
+        .onChange(of: value) { _, new in if !focused { text = display(new) } }
         .onChange(of: text) { _, new in
             // Typing, not this view writing the figure back into the box. Not `focused`: a first
             // digit can arrive before the focus is reported, and was dropped (seen with one digit).
-            guard new != Self.display(value) else { return }
+            guard new != display(value) else { return }
             let cleaned = new.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
             if cleaned.isEmpty { value = nil } else if let typed = Double(cleaned), typed.isFinite, typed >= 0 { value = typed }
         }
-        .onChange(of: focused) { _, isFocused in if !isFocused { text = Self.display(value) } }
+        .onChange(of: focused) { _, isFocused in if !isFocused { text = display(value) } }
     }
 
-    private static func display(_ value: Double?) -> String {
+    /// The figure as the box shows it: no more decimals than it has, and never fewer than were typed
+    /// within `decimals`, so leaving the box doesn't change what it holds.
+    private func display(_ value: Double?) -> String {
         guard let value else { return "" }
-        return value == value.rounded() ? String(Int(value)) : MassBalanceWords.plain(value, decimals: 1)
+        if value == value.rounded(), abs(value) < 1e12 { return String(Int(value)) }
+        var text = MassBalanceWords.plain(value, decimals: decimals)
+        while text.contains("."), text.hasSuffix("0") { text.removeLast() }
+        return text.hasSuffix(".") ? String(text.dropLast()) : text
     }
 }
 

@@ -15999,6 +15999,29 @@
         }
       }
     },
+    "fuelOnBoard.fromOwnFigures": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausfliegbarer Treibstoff, aus Ihren Zahlen für Masse und Schwerpunkt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usable fuel, from your mass and balance figures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant utilisable, selon vos chiffres de masse et centrage"
+          }
+        }
+      }
+    },
     "gettingStarted.base": {
       "extractionState": "manual",
       "localizations": {

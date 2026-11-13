@@ -3011,6 +3011,8 @@ enum L10n {
             String(format: String(localized: "fuelOnBoard.fullTanks"), litres)
         }
         static let fromAircraftData = String(localized: "fuelOnBoard.fromAircraftData")
+        /// The usable fuel of the pilot's own mass and balance figures. (6.11.0)
+        static let fromOwnFigures = String(localized: "fuelOnBoard.fromOwnFigures")
         static func yourFigure(_ registration: String) -> String {
             String(format: String(localized: "fuelOnBoard.yourFigure"), registration)
         }

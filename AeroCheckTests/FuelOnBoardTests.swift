@@ -27,6 +27,21 @@ final class FuelOnBoardTests: XCTestCase {
                                          massBalanceLitres: 0)?.litres, 150, "a figure that can't be a tank is passed over")
     }
 
+    /// The pilot's own mass and balance figures: the figure their sheet computes with, before the
+    /// checklist data's and the one typed for the tail. One figure for one fact. (6.11.0)
+    func testOwnMassAndBalanceFiguresGiveTheFigure() {
+        let resolved = FullTanks.resolve(registration: "HB-KFD", available: [aircraft("HB-KFD", usableFuel: 110)],
+                                         pilotValues: ["HB-KFD": 105], ownFiguresLitres: 109)
+        XCTAssertEqual(resolved, FullTanks(litres: 109, source: .ownFigures))
+        XCTAssertEqual(FullTanks.resolve(registration: "HB-KFD", available: [], pilotValues: ["HB-KFD": 105],
+                                         ownFiguresLitres: 0)?.source, .pilot, "a figure that can't be a tank is passed over")
+        // Each source says where the figure comes from, and only the pilot's reads as theirs to change.
+        let lines = [FullTanks.Source.aircraftData, .ownFigures, .pilot]
+            .map { FullTanks(litres: 100, source: $0).sourceLine(registration: "HB-KFD") }
+        XCTAssertEqual(Set(lines).count, 3, "\(lines)")
+        XCTAssertTrue(lines[2].contains("HB-KFD"))
+    }
+
     func testTheAircraftsDataWinsOverThePilotsFigure() {
         let resolved = FullTanks.resolve(registration: "HB-PFA", available: [aircraft("HB-PFA", usableFuel: 181.7)],
                                          pilotValues: ["HB-PFA": 150])

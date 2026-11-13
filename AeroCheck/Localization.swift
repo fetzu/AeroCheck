@@ -660,6 +660,127 @@ enum L10n {
         static let csvCurrency = String(localized: "fee.csv.currency")
     }
 
+    // MARK: - Mass and balance, the sheet (6.11.0)
+    enum MassBalance {
+        static let title = String(localized: "mb.title")
+        static let verdictInside = String(localized: "mb.verdict.inside")
+        static let verdictOutside = String(localized: "mb.verdict.outside")
+        static let verdictIncomplete = String(localized: "mb.verdict.incomplete")
+        static let verdictNotConfirmed = String(localized: "mb.verdict.notConfirmed")
+        static let verdictLastTime = String(localized: "mb.verdict.lastTime")
+        static func lineUnderMTOM(_ a0: String) -> String { String(localized: "mb.line.underMTOM \(a0)") }
+        static func lineCg(_ a0: String, _ a1: String) -> String { String(localized: "mb.line.cg \(a0) \(a1)") }
+        static func lineNotBelow(_ a0: Int, _ a1: String) -> String { String(localized: "mb.line.notBelow \(a0) \(a1)") }
+        static let whyUnderMin = String(localized: "mb.why.underMin")
+        static let whyOverMax = String(localized: "mb.why.overMax")
+        static let whyForward = String(localized: "mb.why.forward")
+        static let whyAft = String(localized: "mb.why.aft")
+        static let lineNoTrip = String(localized: "mb.line.noTrip")
+        static func lineIncomplete(_ a0: String) -> String { String(localized: "mb.line.incomplete \(a0)") }
+        static let lineEmptySeat = String(localized: "mb.line.emptySeat")
+        static func lineNotConfirmed(_ a0: String) -> String { String(localized: "mb.line.notConfirmed \(a0)") }
+        static func lineDataChanged(_ a0: String) -> String { String(localized: "mb.line.dataChanged \(a0)") }
+        static func lineYearPassed(_ a0: String) -> String { String(localized: "mb.line.yearPassed \(a0)") }
+        static func lineNoEmpty(_ a0: String) -> String { String(localized: "mb.line.noEmpty \(a0)") }
+        static let lineCalculationOnly = String(localized: "mb.line.calculationOnly")
+        static func lineLastTime(_ a0: String) -> String { String(localized: "mb.line.lastTime \(a0)") }
+        static let lineLastTimeHow = String(localized: "mb.line.lastTimeHow")
+        static let buttonTodays = String(localized: "mb.button.todays")
+        static let buttonCheckData = String(localized: "mb.button.checkData")
+        static func failOverRamp(_ a0: String) -> String { String(localized: "mb.fail.overRamp \(a0)") }
+        static func failOverMTOM(_ a0: String) -> String { String(localized: "mb.fail.overMTOM \(a0)") }
+        static func failTakeoff(_ a0: String) -> String { String(localized: "mb.fail.takeoff \(a0)") }
+        static func failLanding(_ a0: Int, _ a1: String) -> String { String(localized: "mb.fail.landing \(a0) \(a1)") }
+        static func failSeatMax(_ a0: String, _ a1: String) -> String { String(localized: "mb.fail.seatMax \(a0) \(a1)") }
+        static func failSeatMin(_ a0: String, _ a1: String) -> String { String(localized: "mb.fail.seatMin \(a0) \(a1)") }
+        static func failBaggageMax(_ a0: String, _ a1: String) -> String { String(localized: "mb.fail.baggageMax \(a0) \(a1)") }
+        static func failFuelMax(_ a0: Int) -> String { String(localized: "mb.fail.fuelMax \(a0)") }
+        static let seatPilot = String(localized: "mb.seat.pilot")
+        static let seatPassenger = String(localized: "mb.seat.passenger")
+        static let seatFrontPassenger = String(localized: "mb.seat.frontPassenger")
+        static let seatRearLeft = String(localized: "mb.seat.rearLeft")
+        static let seatRearRight = String(localized: "mb.seat.rearRight")
+        static let seatRear = String(localized: "mb.seat.rear")
+        static func seatRow(_ a0: Int, _ a1: Int) -> String { String(localized: "mb.seat.row \(a0) \(a1)") }
+        static let rowSeats = String(localized: "mb.row.seats")
+        static let rowFrontSeats = String(localized: "mb.row.frontSeats")
+        static let rowRearSeats = String(localized: "mb.row.rearSeats")
+        static func rowSeatRow(_ a0: Int) -> String { String(localized: "mb.row.seatRow \(a0)") }
+        static let rowBaggage = String(localized: "mb.row.baggage")
+        static func rowBaggageN(_ a0: Int) -> String { String(localized: "mb.row.baggageN \(a0)") }
+        static let rowFuel = String(localized: "mb.row.fuel")
+        static let rowFuelStart = String(localized: "mb.row.fuelStart")
+        static let rowTrip = String(localized: "mb.row.trip")
+        static let rowEmpty = String(localized: "mb.row.empty")
+        static func rowRecordOf(_ a0: String) -> String { String(localized: "mb.row.recordOf \(a0)") }
+        static func rowArm(_ a0: String) -> String { String(localized: "mb.row.arm \(a0)") }
+        static func rowAtMost(_ a0: String) -> String { String(localized: "mb.row.atMost \(a0)") }
+        static let buttonEmpty = String(localized: "mb.button.empty")
+        static let buttonFullTanks = String(localized: "mb.button.fullTanks")
+        static func tipMost(_ a0: Int) -> String { String(localized: "mb.tip.most \(a0)") }
+        static func tipFull(_ a0: Int) -> String { String(localized: "mb.tip.full \(a0)") }
+        static let tipNone = String(localized: "mb.tip.none")
+        static let pointTakeoff = String(localized: "mb.point.takeoff")
+        static let pointLanding = String(localized: "mb.point.landing")
+        static let pointEmptyTanks = String(localized: "mb.point.emptyTanks")
+        static let pointInside = String(localized: "mb.point.inside")
+        static let pointOutside = String(localized: "mb.point.outside")
+        static let pointSoFar = String(localized: "mb.point.soFar")
+        static func pointLeft(_ a0: Int) -> String { String(localized: "mb.point.left \(a0)") }
+        static let pointNoTrip = String(localized: "mb.point.noTrip")
+        static func chartCgAxis(_ a0: String) -> String { String(localized: "mb.chart.cgAxis \(a0)") }
+        static func chartMassAxis(_ a0: String) -> String { String(localized: "mb.chart.massAxis \(a0)") }
+        static func chartPoint(_ a0: String, _ a1: String, _ a2: String, _ a3: String) -> String { String(localized: "mb.chart.point \(a0) \(a1) \(a2) \(a3)") }
+        static let chartLabel = String(localized: "mb.chart.label")
+        static let chartSoFar = String(localized: "mb.chart.soFar")
+        static func categoryInside(_ a0: String) -> String { String(localized: "mb.category.inside \(a0)") }
+        static func categoryOutside(_ a0: String) -> String { String(localized: "mb.category.outside \(a0)") }
+        static func categoryForbidden(_ a0: String) -> String { String(localized: "mb.category.forbidden \(a0)") }
+        static let catNormal = String(localized: "mb.cat.normal")
+        static let catUtility = String(localized: "mb.cat.utility")
+        static let catAerobatic = String(localized: "mb.cat.aerobatic")
+        static let tableTitle = String(localized: "mb.table.title")
+        static func tableArm(_ a0: String) -> String { String(localized: "mb.table.arm \(a0)") }
+        static let tableMoment = String(localized: "mb.table.moment")
+        static let tableNoFuel = String(localized: "mb.table.noFuel")
+        static let tableTaxi = String(localized: "mb.table.taxi")
+        static let footDecides = String(localized: "mb.foot.decides")
+        static func footConfirmed(_ a0: String, _ a1: String) -> String { String(localized: "mb.foot.confirmed \(a0) \(a1)") }
+        static let footYours = String(localized: "mb.foot.yours")
+        static let loadTitle = String(localized: "mb.load.title")
+        static let loadUnits = String(localized: "mb.load.units")
+        static func stepOf(_ a0: Int, _ a1: Int) -> String { String(localized: "mb.step.of \(a0) \(a1)") }
+        static let step1Title = String(localized: "mb.step1.title")
+        static func step1Body(_ a0: String) -> String { String(localized: "mb.step1.body \(a0)") }
+        static let step1Type = String(localized: "mb.step1.type")
+        static let step1Serial = String(localized: "mb.step1.serial")
+        static let step1Mtom = String(localized: "mb.step1.mtom")
+        static let step1Datum = String(localized: "mb.step1.datum")
+        static let step1Fuel = String(localized: "mb.step1.fuel")
+        static func step1Usable(_ a0: String, _ a1: String) -> String { String(localized: "mb.step1.usable \(a0) \(a1)") }
+        static let step1Matches = String(localized: "mb.step1.matches")
+        static let step1Differs = String(localized: "mb.step1.differs")
+        static let step2Title = String(localized: "mb.step2.title")
+        static func step2Body(_ a0: String) -> String { String(localized: "mb.step2.body \(a0)") }
+        static let step2Date = String(localized: "mb.step2.date")
+        static let step2Mass = String(localized: "mb.step2.mass")
+        static let step2Cg = String(localized: "mb.step2.cg")
+        static func step2Question(_ a0: String) -> String { String(localized: "mb.step2.question \(a0)") }
+        static let step2Same = String(localized: "mb.step2.same")
+        static let step2Newer = String(localized: "mb.step2.newer")
+        static func step2None(_ a0: String) -> String { String(localized: "mb.step2.none \(a0)") }
+        static func step2AsWritten(_ a0: String, _ a1: String) -> String { String(localized: "mb.step2.asWritten \(a0) \(a1)") }
+        static func step2Implausible(_ a0: String) -> String { String(localized: "mb.step2.implausible \(a0)") }
+        static let step2Use = String(localized: "mb.step2.use")
+        static let step3Title = String(localized: "mb.step3.title")
+        static func step3Body(_ a0: String, _ a1: String) -> String { String(localized: "mb.step3.body \(a0) \(a1)") }
+        static let step3Again = String(localized: "mb.step3.again")
+        static func nodataBody(_ a0: String) -> String { String(localized: "mb.nodata.body \(a0)") }
+        static func nodataDeclined(_ a0: String) -> String { String(localized: "mb.nodata.declined \(a0)") }
+        static let nodataLookAgain = String(localized: "mb.nodata.lookAgain")
+        static let source = String(localized: "mb.source")
+    }
+
     // MARK: - Mass & balance (v5.0.0)
     enum WeightBalance {
         static let title = String(localized: "Mass & balance")

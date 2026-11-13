@@ -230,6 +230,25 @@ final class MassBalanceDataTests: XCTestCase {
         XCTAssertEqual(setup.startingLoad()?.seats["pilot"], .person(kg: 82))
     }
 
+    /// Typed this morning and reopened at the aircraft, the sheet is as it was left: it was never
+    /// last time's load. A sheet opened and left blank is no load at all.
+    func testALoadOfTheSameDayComesBackAsItWasAndABlankOneIsNoLoad() {
+        var setup = MassBalanceSetup()
+        setup.lastLoad = MassBalanceLoad(seats: ["pilot": .person(kg: 82)], fuelLitres: 90, isTodays: true)
+        setup.lastLoadDay = now
+        let later = now.addingTimeInterval(3600)
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        XCTAssertEqual(setup.startingLoad(on: later, calendar: utc), setup.lastLoad)
+        XCTAssertEqual(setup.startingLoad(on: now.addingTimeInterval(3 * 86_400), calendar: utc)?.isTodays, false)
+
+        setup.lastLoad = MassBalanceLoad(seats: ["pilot": .unset], isTodays: true)
+        XCTAssertTrue(setup.lastLoad?.isBlank ?? false)
+        XCTAssertNil(setup.startingLoad(on: later, calendar: utc))
+        XCTAssertFalse(MassBalanceLoad(seats: ["pilot": .empty]).isBlank, "an empty seat is an answer")
+        XCTAssertFalse(MassBalanceLoad(baggageKg: ["bag": 0]).isBlank, "no baggage is an answer")
+    }
+
     // MARK: - Stored
 
     func testTheSetupsDecoderReadsEveryStoredProperty() {

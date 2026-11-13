@@ -171,6 +171,8 @@ struct HomeView: View {
     @State private var planningNewFlight: NewFlightIntent?
     /// The aircraft-request sheet, from the aircraft menu's "Not listed?". (6.3.0)
     @State private var sendingAircraftRequest = false
+    /// The aircraft whose mass and balance is opened from Today, without a flight. (6.11.0)
+    @State private var massBalanceRegistration: String?
     /// What START FLIGHT needs to ask before it departs. (v5.x)
     @State private var startPrompt: StartPrompt?
 
@@ -341,6 +343,14 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $sendingAircraftRequest) { AircraftRequestSheet() }
+        // A check of the aircraft alone: no flight's load is read or written. (6.11.0, the author's m11)
+        .sheet(isPresented: Binding(get: { massBalanceRegistration != nil },
+                                    set: { if !$0 { massBalanceRegistration = nil } })) {
+            if let registration = massBalanceRegistration {
+                MassBalanceEntryView(registration: registration, onClose: { massBalanceRegistration = nil })
+                    .environmentObject(aircraftDataService)
+            }
+        }
         #if DEBUG
         // The dry run's DEBUG autopilot, in place of a tap: Plan new flight, the flight's page. (6.4.0)
         .dryRunAutopilotTap { tap in
@@ -779,6 +789,17 @@ struct HomeView: View {
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
+                // The mass and balance sheet's last state, once there is one to show. START never
+                // asks and never blocks on it. (6.11.0, the author's m12)
+                if !inFlight, let state = massBalanceState(thread), state != .notDone {
+                    Label("\(L10n.MassBalance.title): \(MassBalanceWords.stateLine(state))",
+                          systemImage: MassBalanceWords.stateSymbol(state))
+                        .scaledFont(size: isCompact ? 13 : 16, weight: .semibold, relativeTo: .footnote)
+                        .foregroundColor(state.tint)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                        .accessibilityIdentifier("home.massBalance.state")
+                }
             }
             .padding(isCompact ? 14 : 20)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -817,6 +838,15 @@ struct HomeView: View {
         FlightPageSummary.make(thread, trips: threadManager.trips, plans: flightPlanManager.flightPlans,
                                flights: appState.flights, currentFlight: appState.currentFlight,
                                registry: BriefingRegistryService.shared.registry)
+    }
+
+    private func massBalanceState(_ thread: FlightThread) -> MassBalanceFlightState? {
+        guard let registration = thread.aircraftRegistration, !registration.isEmpty,
+              thread.tasks.contains(where: { $0.key == .massAndBalance && $0.state != .notApplicable }) else { return nil }
+        _ = aircraftDataService.massBalanceChangeCount
+        return MassBalanceFlight.state(for: thread, shipped: aircraftDataService.massBalance(forRegistration: registration),
+                                       setup: appState.settings.massBalance[registration],
+                                       plan: thread.flightPlanId.flatMap { id in flightPlanManager.flightPlans.first { $0.id == id } })
     }
 
     private func heroDetail(_ summary: FlightPageSummary.Summary) -> String {
@@ -895,6 +925,12 @@ struct HomeView: View {
             Divider()
             Button { appState.groundTab = .aircraft } label: {
                 Label(L10n.Ground.aircraftDetails, systemImage: "speedometer")
+            }
+            // Not while Pro is not active for the selected aircraft: the sheet would be another aircraft's.
+            if locked == nil, dryRunSession == nil {
+                Button { massBalanceRegistration = option?.registration ?? appState.settings.selectedAircraft.registration } label: {
+                    Label(L10n.MassBalance.title, systemImage: "scalemass")
+                }
             }
             // Not from a dry run's Today: a request leaves the app. (6.4.0)
             if dryRunSession == nil {

@@ -479,7 +479,7 @@ struct FlightThreadView: View {
         )) {
             if let registration = weightBalanceRegistration {
                 // The sheet when there is data for this registration, the pilot's own figures otherwise. (6.11.0)
-                MassBalanceEntryView(registration: registration,
+                MassBalanceEntryView(registration: registration, flight: massBalanceContext(registration),
                                      onClose: { weightBalanceRegistration = nil })
                     .environmentObject(aircraftDataService)
             }
@@ -781,6 +781,33 @@ struct FlightThreadView: View {
     private func sharedTasks(of thread: FlightThread) -> [ThreadTask] {
         Trip.sharedTasks(for: thread, in: threadManager.trips,
                          departure: plan(for: thread).flatMap { $0.departureIsEstimate == true ? $0.plannedDepartureTime : nil })
+    }
+
+    // MARK: - Mass and balance (6.11.0)
+
+    /// The sheet's last state for this flight, in one line under its task. Nil for an aircraft the app
+    /// has no data for, which keeps the task's plain hint. (the author's m12)
+    private func massBalanceState(for task: ThreadTask, in thread: FlightThread) -> MassBalanceFlightState? {
+        guard task.key == .massAndBalance, task.state != .notApplicable,
+              let registration = thread.aircraftRegistration, !registration.isEmpty else { return nil }
+        _ = aircraftDataService.massBalanceChangeCount
+        return MassBalanceFlight.state(for: thread, shipped: aircraftDataService.massBalance(forRegistration: registration),
+                                       setup: appState.settings.massBalance[registration], plan: plan(for: thread))
+    }
+
+    /// This flight's load for its sheet, and where a change goes: the thread keeps the load, and the
+    /// plan keeps the fuel on board, one figure for one fact.
+    private func massBalanceContext(_ registration: String) -> MassBalanceFlightContext? {
+        guard let thread = threadManager.thread(withId: threadId) else { return nil }
+        let start = MassBalanceFlight.startingLoad(for: thread, setup: appState.settings.massBalance[registration],
+                                                   plan: plan(for: thread))
+        return MassBalanceFlightContext(load: start) { load in
+            threadManager.setMassBalance(load, registration: registration, threadId: threadId)
+            if var plan = plan(for: thread), plan.fuelOnBoard != load.fuelLitres {
+                plan.fuelOnBoard = load.fuelLitres
+                flightPlanManager.updateFlightPlan(plan)
+            }
+        }
     }
 
     /// Fuel on board short of what the flight requires, said on the flight's page and not only in
@@ -1396,6 +1423,7 @@ struct FlightThreadView: View {
         if block.kind == .route, let notes = noteCount(thread) { words.append(notes) }
         if let since = block.recheckSince { words.append(L10n.Flights.recheckForThisLeg(shortTime(since))) }
         if let task = block.task, let warning = fuelWarning(for: task, in: thread) { words.append(warning) }
+        if let task = block.task, let state = massBalanceState(for: task, in: thread) { words.append(MassBalanceWords.stateLine(state)) }
         return words.isEmpty ? nil : words.joined(separator: " · ")
     }
 
@@ -1535,7 +1563,8 @@ struct FlightThreadView: View {
                                       caution: task.key == .flightPlanFiled ? activationLine(for: thread) : nil,
                                       toolLabel: toolLabel(for: task, in: thread),
                                       onOpenTool: { runTool { openTool(for: task, in: thread) } },
-                                      warning: fuelWarning(for: task, in: thread))
+                                      warning: fuelWarning(for: task, in: thread),
+                                      massBalance: massBalanceState(for: task, in: thread))
                     if block.kind == .route {
                         routeTools(thread)
                         // The pilot's notes on the flight's aerodromes, never a task; not in a dry run (n7 B). (6.7.0)
@@ -2264,6 +2293,18 @@ private struct ProhibitedCountryRow: View {
     }
 }
 
+extension MassBalanceFlightState {
+    /// Green only for a sheet that is inside limits, red only for one that is outside.
+    var tint: Color {
+        switch self {
+        case .insideLimits: return .aviationGreen
+        case .outsideLimits: return .aviationRed
+        case .notDone: return .secondaryText
+        case .lastTimesLoad, .incomplete, .notConfirmed: return .aviationAmber
+        }
+    }
+}
+
 // MARK: - A block's body
 
 /// What a block of one task shows under its head (6.6.0): the task's detail or hint, a caution, the pilot's note, a
@@ -2287,6 +2328,8 @@ struct ThreadTaskDetails: View {
     var onOpenTool: (() -> Void)?
     /// A caution in amber: fuel on board short of the required fuel. (v6.0 review, B3)
     var warning: String?
+    /// The mass and balance sheet's last state for this flight, in place of the task's hint. (6.11.0)
+    var massBalance: MassBalanceFlightState?
 
     private var presentation: ThreadTaskPresentation { .make(for: task, briefing: briefing) }
     private var links: [ThreadTaskLink] {
@@ -2297,7 +2340,7 @@ struct ThreadTaskDetails: View {
     /// The border's facts one a line, as the author's round 2 drew them; they were joined by dots.
     private var lines: [String] {
         if let detail = task.detail, !detail.isEmpty { return [detail] }
-        guard let hint = presentation.hint else { return [] }
+        guard massBalance == nil, let hint = presentation.hint else { return [] }
         return task.key == .customsNotified ? hint.components(separatedBy: " · ") : [hint]
     }
 
@@ -2308,6 +2351,14 @@ struct ThreadTaskDetails: View {
                     .scaledFont(size: 13, design: task.detail?.isEmpty == false ? .monospaced : .default, relativeTo: .footnote)
                     .foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if let massBalance {
+                // Its word and its shape first; the colour comes third.
+                Label(MassBalanceWords.stateLine(massBalance), systemImage: MassBalanceWords.stateSymbol(massBalance))
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundColor(massBalance.tint)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("thread.massBalance.state")
             }
             if let caution, task.state != .notApplicable {
                 Text(caution)

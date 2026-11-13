@@ -497,6 +497,16 @@ class FlightThreadManager: ObservableObject {
         regenerateTasks(threadId: threadId, plan: plan)
     }
 
+    /// The flight's own mass and balance load, as its sheet has it now. (6.11.0)
+    func setMassBalance(_ load: MassBalanceLoad, registration: String, threadId: UUID, now: Date = Date()) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        if let kept = threads[index].massBalance, kept.load == load,
+           kept.registration.caseInsensitiveCompare(registration) == .orderedSame { return }
+        threads[index].massBalance = ThreadMassBalance(registration: registration, load: load, updatedAt: now)
+        threads[index].touch()
+        saveThreads()
+    }
+
     func recordLanding(threadId: UUID, plannedIdent: String, landedIdent: String, landedName: String) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }),
               plannedIdent.uppercased() != landedIdent.uppercased() else { return }

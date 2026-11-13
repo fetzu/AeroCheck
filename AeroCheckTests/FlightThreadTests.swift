@@ -674,6 +674,10 @@ final class FlightThreadTests: XCTestCase {
         thread.homeCountry = "CH"
         thread.arrivalIdent = "LSZE"
         thread.landedIdents = ["LSGN", "LSZE"]
+        thread.massBalance = ThreadMassBalance(registration: "HB-KFD",
+                                               load: MassBalanceLoad(seats: ["pilot": .person(kg: 82), "passenger": .empty],
+                                                                     baggageKg: ["baggage": 5], fuelLitres: 60, isTodays: true),
+                                               updatedAt: date)
         thread.arrivalCountry = "CH"
         thread.tasks = [task]
         thread.flightPlanFiledAt = date
@@ -730,6 +734,28 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertEqual(try decoded(encoded(thread)), thread)
     }
 
+    /// A flight keeps its own mass and balance load, and a load this build can't read is no load:
+    /// the thread still opens. (6.11.0)
+    @MainActor
+    func testAFlightKeepsItsOwnMassAndBalanceLoad() throws {
+        let manager = makeTestThreadManager()
+        let thread = manager.createThread(from: swissPlan(), profile: .full, aircraftRegistration: "F-HVXA")
+        defer { manager.deleteThread(threadId: thread.id) }
+        let load = MassBalanceLoad(seats: ["pilot": .person(kg: 82)], fuelLitres: 60, isTodays: true)
+        let first = Date(timeIntervalSince1970: 1_763_000_000)
+        manager.setMassBalance(load, registration: "F-HVXA", threadId: thread.id, now: first)
+        XCTAssertEqual(manager.thread(withId: thread.id)?.massBalance?.load, load)
+        // The same load again is no change: the sheet's time stays the one of the last change.
+        manager.setMassBalance(load, registration: "F-HVXA", threadId: thread.id, now: first.addingTimeInterval(60))
+        XCTAssertEqual(manager.thread(withId: thread.id)?.massBalance?.updatedAt, first)
+
+        var json = try encoded(try XCTUnwrap(manager.thread(withId: thread.id)))
+        json["massBalance"] = ["registration": 7]
+        let read = try decoded(json)
+        XCTAssertNil(read.massBalance)
+        XCTAssertEqual(read.id, thread.id)
+    }
+
     /// The decoders are written by hand: a stored property they don't read decodes as its default,
     /// silently. A new one fails here until it is read in `init(from:)` (with `decodeIfPresent`, so
     /// files written before it still load) and listed below.
@@ -737,7 +763,7 @@ final class FlightThreadTests: XCTestCase {
         let threadFields = Set(Mirror(reflecting: populatedThread()).children.compactMap(\.label))
         XCTAssertEqual(threadFields, ["id", "flightPlanId", "flightId", "profile", "state", "routeLabel", "name",
                                       "aircraftRegistration", "scheduledDeparture", "countries", "tripId",
-                                      "landedElsewhere", "skippedStop", "homeCountry", "arrivalIdent", "arrivalCountry", "landedIdents", "tasks",
+                                      "landedElsewhere", "skippedStop", "homeCountry", "arrivalIdent", "arrivalCountry", "landedIdents", "massBalance", "tasks",
                                       "flightPlanFiledAt",
                                       "flightPlanClosedAt", "createdAt", "updatedAt"])
         let taskFields = Set(Mirror(reflecting: ThreadTask(key: .routePlanned, kind: .check)).children.compactMap(\.label))

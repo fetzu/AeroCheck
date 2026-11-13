@@ -17,6 +17,16 @@ final class FuelOnBoardTests: XCTestCase {
 
     // MARK: - Full tanks
 
+    /// The handbook's usable fuel from the registration's mass and balance file, before everything
+    /// else: the Fuel on board sheet no longer asks for it. (6.11.0)
+    func testTheMassAndBalanceFilesUsableFuelWinsOverBoth() {
+        let resolved = FullTanks.resolve(registration: "HB-PFA", available: [aircraft("HB-PFA", usableFuel: 181.7)],
+                                         pilotValues: ["HB-PFA": 150], massBalanceLitres: 181.6)
+        XCTAssertEqual(resolved, FullTanks(litres: 181.6, source: .aircraftData))
+        XCTAssertEqual(FullTanks.resolve(registration: "HB-PFA", available: [], pilotValues: ["HB-PFA": 150],
+                                         massBalanceLitres: 0)?.litres, 150, "a figure that can't be a tank is passed over")
+    }
+
     func testTheAircraftsDataWinsOverThePilotsFigure() {
         let resolved = FullTanks.resolve(registration: "HB-PFA", available: [aircraft("HB-PFA", usableFuel: 181.7)],
                                          pilotValues: ["HB-PFA": 150])

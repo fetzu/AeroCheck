@@ -249,6 +249,97 @@ final class MassBalanceDataTests: XCTestCase {
         XCTAssertFalse(MassBalanceLoad(baggageKg: ["bag": 0]).isBlank, "no baggage is an answer")
     }
 
+    // MARK: - One flight's load
+
+    private func thread(_ registration: String? = "F-HVXA") -> FlightThread {
+        var thread = FlightThread(routeLabel: "LSZQ → LFSB")
+        thread.aircraftRegistration = registration
+        return thread
+    }
+
+    /// Worked by hand on the invented two-seater: 460.2 kg at 2.714 m with 60 L, 417 kg at 2.737 m
+    /// with empty tanks, both inside.
+    private let solo = MassBalanceLoad(seats: ["pilot": .person(kg: 82), "passenger": .empty], baggageKg: ["baggage": 5],
+                                       fuelLitres: 60, isTodays: true)
+
+    func testAFlightOpensWithItsOwnLoadAndAnotherFlightsLoadIsNeverItsOwn() {
+        var setup = MassBalanceSetup()
+        var flight = thread()
+        XCTAssertNil(MassBalanceFlight.startingLoad(for: flight, setup: setup, plan: nil), "the sheet starts from nothing")
+
+        // The aircraft's last load, another flight's, of a minute ago: taken over, and not this flight's.
+        setup.lastLoad = solo
+        setup.lastLoadDay = now
+        let carried = MassBalanceFlight.startingLoad(for: flight, setup: setup, plan: nil)
+        XCTAssertEqual(carried?.isTodays, false)
+        XCTAssertEqual(carried?.copiedFrom, now)
+        XCTAssertEqual(carried?.seats, solo.seats)
+
+        flight.massBalance = ThreadMassBalance(registration: "f-hvxa", load: solo, updatedAt: now)
+        XCTAssertEqual(MassBalanceFlight.startingLoad(for: flight, setup: setup, plan: nil), solo)
+
+        // Another aircraft on the flight: the load was not worked for it.
+        flight.aircraftRegistration = "HB-PFA"
+        XCTAssertNil(MassBalanceFlight.ownLoad(of: flight))
+    }
+
+    func testTheFuelOfAFlightsSheetIsThePlansFuelOnBoard() {
+        var flight = thread()
+        flight.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        var plan = FlightPlan(name: "Basel")
+        // No fuel on board in the plan yet: not entered in the sheet either, whatever the load remembered.
+        XCTAssertNil(MassBalanceFlight.startingLoad(for: flight, setup: .init(), plan: plan)?.fuelLitres)
+
+        plan.fuelOnBoard = 75
+        plan.tripFuel = 8
+        let load = MassBalanceFlight.startingLoad(for: flight, setup: .init(), plan: plan)
+        XCTAssertEqual(load?.fuelLitres, 75)
+        XCTAssertEqual(load?.tripLitres, 8)
+        XCTAssertEqual(load?.seats, solo.seats)
+
+        // A flight with nothing but its plan's fuel starts with that, and is nobody's earlier load.
+        let fresh = MassBalanceFlight.startingLoad(for: thread(), setup: .init(), plan: plan)
+        XCTAssertEqual(fresh?.fuelLitres, 75)
+        XCTAssertEqual(fresh?.isTodays, true)
+        XCTAssertNil(MassBalanceFlight.startingLoad(for: thread(), setup: .init(), plan: FlightPlan(name: "Empty")))
+    }
+
+    func testAFlightsStateIsOneOfSixAndFollowsThePlansFuel() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var setup = MassBalanceSetup()
+        var flight = thread()
+        func state(_ plan: FlightPlan? = nil) -> MassBalanceFlightState? {
+            MassBalanceFlight.state(for: flight, shipped: shipped, setup: setup, plan: plan, now: now)
+        }
+        XCTAssertNil(MassBalanceFlight.state(for: flight, shipped: nil, setup: setup, plan: nil, now: now),
+                     "no data for the aircraft: the task keeps its plain hint")
+        XCTAssertNil(MassBalanceFlight.state(for: thread(nil), shipped: shipped, setup: setup, plan: nil, now: now))
+
+        XCTAssertEqual(state(), .notDone)
+        setup.lastLoad = solo
+        setup.lastLoadDay = now
+        XCTAssertEqual(state(), .lastTimesLoad, "another flight's load says nothing of this one")
+
+        flight.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        XCTAssertEqual(state(), .notConfirmed)
+        setup.confirm(revision: 2, at: now)
+        XCTAssertEqual(state(), .insideLimits(at: now))
+
+        // The fuel on board changes in the plan after the sheet was closed: the line follows.
+        var plan = FlightPlan(name: "Basel")
+        plan.fuelOnBoard = 60
+        XCTAssertEqual(state(plan), .insideLimits(at: now))
+        plan.fuelOnBoard = 95 // the tanks hold 90
+        XCTAssertEqual(state(plan), .outsideLimits(at: now))
+        plan.fuelOnBoard = nil
+        XCTAssertEqual(state(plan), .incomplete)
+
+        var open = solo
+        open.seats["passenger"] = .unset
+        flight.massBalance = ThreadMassBalance(registration: "F-HVXA", load: open, updatedAt: now)
+        XCTAssertEqual(state(), .incomplete, "a seat left blank is never a pass")
+    }
+
     // MARK: - Stored
 
     func testTheSetupsDecoderReadsEveryStoredProperty() {

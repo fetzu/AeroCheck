@@ -584,10 +584,7 @@ private struct FullTanksSettingRow: View {
     @FocusState private var focused: Bool
 
     private var resolved: FullTanks? {
-        FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
-                          pilotValues: appState.settings.fullTanksLitres,
-                          massBalanceLitres: FullTanks.massBalanceLitres(registration: registration, service: aircraftDataService,
-                                                                         settings: appState.settings.massBalance))
+        FullTanks.resolve(registration: registration, service: aircraftDataService, settings: appState.settings)
     }
 
     var body: some View {
@@ -596,14 +593,14 @@ private struct FullTanksSettingRow: View {
                 Text(L10n.FuelOnBoard.fullTanksRow)
                     .font(.aero(.body))
                     .foregroundColor(.primaryText)
-                Text(resolved?.source == .aircraftData
-                     ? L10n.FuelOnBoard.fromAircraftData
-                     : L10n.FuelOnBoard.yourFigure(registration))
+                Text(resolved?.sourceLine(registration: registration) ?? L10n.FuelOnBoard.yourFigure(registration))
                     .font(.aero(.caption))
                     .foregroundColor(.secondaryText)
             }
             Spacer(minLength: 8)
-            if let resolved, resolved.source == .aircraftData {
+            // Only the pilot's figure for this registration is typed here: the file's is the
+            // aircraft's, and their own mass and balance figures are changed in their form.
+            if let resolved, resolved.source != .pilot {
                 Text("\(FuelEntry.text(resolved.litres)) L")
                     .font(.aero(.body, design: .monospaced))
                     .foregroundColor(.primaryText)

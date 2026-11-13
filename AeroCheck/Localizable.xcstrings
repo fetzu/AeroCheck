@@ -15999,6 +15999,29 @@
         }
       }
     },
+    "fuelOnBoard.fromOwnFigures": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausfliegbarer Treibstoff, aus Ihren Zahlen für Masse und Schwerpunkt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usable fuel, from your mass and balance figures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant utilisable, selon vos chiffres de masse et centrage"
+          }
+        }
+      }
+    },
     "gettingStarted.base": {
       "extractionState": "manual",
       "localizations": {
@@ -16570,6 +16593,719 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pour l'instant"
+          }
+        }
+      }
+    },
+    "mb.own.addBaggage": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gepäckraum hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a baggage area"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une soute"
+          }
+        }
+      }
+    },
+    "mb.own.addCorner": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eckpunkt hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a corner"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un sommet"
+          }
+        }
+      }
+    },
+    "mb.own.addRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sitzreihe hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a row of seats"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une rangée de sièges"
+          }
+        }
+      }
+    },
+    "mb.own.areaArm %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gepäckraum %lld, Hebelarm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baggage area %lld, arm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soute %lld, bras"
+          }
+        }
+      }
+    },
+    "mb.own.areaMax": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höchstmasse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum mass"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masse maximale"
+          }
+        }
+      }
+    },
+    "mb.own.arm": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hebelarm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bras"
+          }
+        }
+      }
+    },
+    "mb.own.change": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Zahlen ändern"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change your figures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier vos chiffres"
+          }
+        }
+      }
+    },
+    "mb.own.choices": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neues Ladeblatt einrichten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up the new sheet"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurer le nouveau devis"
+          }
+        }
+      }
+    },
+    "mb.own.density": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dichte, kg pro Liter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Density, kg per litre"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Densité, kg par litre"
+          }
+        }
+      }
+    },
+    "mb.own.enter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zahlen des Flugzeugs eingeben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the aircraft's figures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisir les chiffres de l'avion"
+          }
+        }
+      }
+    },
+    "mb.own.envelope": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schwerpunktbereich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envelope"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Domaine de centrage"
+          }
+        }
+      }
+    },
+    "mb.own.envelopeNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seine Eckpunkte der Reihe nach, wie im Diagramm des Handbuchs: je ein Hebelarm und eine Masse. Mindestens drei."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its corners in order around it, as the manual's chart draws it: an arm and a mass each. Three at least."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses sommets dans l'ordre, comme sur le diagramme du manuel : un bras et une masse chacun. Trois au moins."
+          }
+        }
+      }
+    },
+    "mb.own.fromOld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Ihren früheren Zahlen übernommen: die Höchstmasse, der Schwerpunktbereich, die Leermasse und der Hebelarm des Treibstoffs. Prüfen Sie jede Angabe."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taken over from your earlier figures: the maximum mass, the envelope, the empty mass and the fuel's arm. Check each one."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repris de vos chiffres précédents : la masse maximale, le domaine, la masse à vide et le bras du carburant. Vérifiez chacun."
+          }
+        }
+      }
+    },
+    "mb.own.intro %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie die Zahlen so ein, wie sie im Flughandbuch von %@ und in seinem Wägebericht stehen, in den Einheiten des Handbuchs. Nichts davon wird mit einer Quelle verglichen: Es sind Ihre Zahlen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type the figures as %@'s flight manual and its mass and balance record write them, in the manual's own units. Nothing here is checked against a source: the figures are yours."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez les chiffres tels que le manuel de vol de %@ et sa fiche de pesée les écrivent, dans les unités du manuel. Rien ici n'est vérifié par rapport à une source : ces chiffres sont les vôtres."
+          }
+        }
+      }
+    },
+    "mb.own.limits": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grenze"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite"
+          }
+        }
+      }
+    },
+    "mb.own.mass": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mass"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masse"
+          }
+        }
+      }
+    },
+    "mb.own.missing %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch einzugeben: %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still to enter: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reste à saisir : %@."
+          }
+        }
+      }
+    },
+    "mb.own.oldNotice": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das neue Ladeblatt zeichnet das Diagramm des Handbuchs und wird mit jedem Flug aufbewahrt. Es braucht einmal die Zahlen des Flugzeugs."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new sheet draws the manual's chart and is kept with each flight. It needs the aircraft's figures once."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le nouveau devis trace le diagramme du manuel et est conservé avec chaque vol. Il lui faut les chiffres de l'avion, une fois."
+          }
+        }
+      }
+    },
+    "mb.own.oneSeat": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Sitz"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 seat"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 siège"
+          }
+        }
+      }
+    },
+    "mb.own.pilotRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Pilot sitzt in"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pilot sits in"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le pilote est assis en"
+          }
+        }
+      }
+    },
+    "mb.own.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer"
+          }
+        }
+      }
+    },
+    "mb.own.row %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reihe %lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Row %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rangée %lld"
+          }
+        }
+      }
+    },
+    "mb.own.rowArm %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sitzreihe %lld, Hebelarm"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seat row %lld, arm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rangée de sièges %lld, bras"
+          }
+        }
+      }
+    },
+    "mb.own.seatsNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Von vorn nach hinten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Front to back."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De l'avant vers l'arrière."
+          }
+        }
+      }
+    },
+    "mb.own.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Zahlen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your figures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos chiffres"
+          }
+        }
+      }
+    },
+    "mb.own.twoSeats": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 Sitze"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 seats"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 sièges"
+          }
+        }
+      }
+    },
+    "mb.own.units": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einheiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Units"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unités"
+          }
+        }
+      }
+    },
+    "mb.own.unitsNote": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Einheiten, in denen das Handbuch Massen, Hebelarme und Treibstoff angibt. Im Ladeblatt geben Sie weiterhin Kilogramm und Liter ein."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The units the manual writes its masses, arms and fuel in. In the sheet you still type kilograms and litres."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les unités dans lesquelles le manuel écrit ses masses, ses bras et son carburant. Dans le devis, vous saisissez toujours des kilogrammes et des litres."
+          }
+        }
+      }
+    },
+    "mb.own.usable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausfliegbarer Treibstoff, volle Tanks"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usable fuel, full tanks"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant utilisable, pleins faits"
+          }
+        }
+      }
+    },
+    "mb.own.whole": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es fehlt nichts."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is missing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il ne manque rien."
+          }
+        }
+      }
+    },
+    "mb.own.why": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit den Zahlen des Flugzeugs zeichnet das Ladeblatt das Diagramm des Handbuchs und prüft daran eine Beladung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With the aircraft's own figures, the sheet draws the manual's chart and checks a load against it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avec les chiffres de l'avion, le devis trace le diagramme du manuel et y vérifie un chargement."
           }
         }
       }

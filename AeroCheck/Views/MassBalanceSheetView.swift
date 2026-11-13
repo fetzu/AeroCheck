@@ -29,10 +29,17 @@ struct MassBalanceEntryView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject private var aircraftDataService: AircraftDataService
     @State private var showSteps = false
+    @State private var showOwn = false
+    @State private var showChoices = false
 
     private var shipped: AircraftMassBalance? {
         _ = aircraftDataService.massBalanceChangeCount
         return aircraftDataService.massBalance(forRegistration: registration)
+    }
+
+    /// Whether the pilot set the 5.0.0 calculator up for this aircraft: it stays theirs to use.
+    private var hasOldFigures: Bool {
+        appState.settings.weightBalanceProfiles[registration]?.isConfigured ?? false
     }
 
     var body: some View {
@@ -44,13 +51,20 @@ struct MassBalanceEntryView: View {
                 MassBalanceSheetView(registration: registration, basis: basis, shipped: shipped, flight: flight,
                                      onClose: onClose)
                     .pageSizedSheet()
+            } else if hasOldFigures {
+                // No data to compute with, and the pilot's 5.0.0 calculator is set up: it opens as it
+                // always did, with the way to the new sheet above it.
+                WeightBalanceView(registration: registration, onClose: onClose,
+                                  notice: shipped == nil ? L10n.MassBalance.ownOldNotice : L10n.MassBalance.nodataDeclined(registration),
+                                  noticeAction: L10n.MassBalance.ownChoices,
+                                  onNotice: { showChoices = true })
             } else {
                 // No data from the server, or data the pilot said isn't this aircraft's: their own figures.
-                WeightBalanceView(registration: registration, onClose: onClose,
-                                  notice: shipped == nil ? nil : L10n.MassBalance.nodataDeclined(registration),
-                                  noticeAction: shipped == nil ? nil : L10n.MassBalance.nodataLookAgain,
-                                  onNotice: { showSteps = true })
+                noData { if let onClose { onClose() } }
             }
+        }
+        .sheet(isPresented: $showChoices) {
+            noData { showChoices = false }
         }
         .sheet(isPresented: $showSteps) {
             if let shipped {
@@ -58,7 +72,27 @@ struct MassBalanceEntryView: View {
                     .environment(appState)
             }
         }
+        .sheet(isPresented: $showOwn) {
+            MassBalanceOwnFiguresView(registration: registration) { showOwn = false }
+                .environment(appState)
+        }
         .task { await aircraftDataService.refreshMassBalance(forRegistration: registration) }
+    }
+
+    /// The ways on from "no data": the pilot's own figures, the app's data again when it was switched off.
+    /// One sheet at a time: the choices close before the next opens.
+    private func noData(onClose close: @escaping () -> Void) -> some View {
+        MassBalanceNoDataView(
+            registration: registration, isDeclined: shipped != nil,
+            onEnter: { open { showOwn = true } },
+            onLookAgain: { open { showSteps = true } },
+            onClose: close)
+    }
+
+    private func open(_ next: @escaping () -> Void) {
+        guard showChoices else { return next() }
+        showChoices = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: next)
     }
 }
 
@@ -78,6 +112,7 @@ struct MassBalanceSheetView: View {
     /// What the sheet opened with. Opening a sheet writes nothing: only a change does.
     @State private var opened: MassBalanceLoad?
     @State private var showSteps = false
+    @State private var showOwn = false
 
     private var data: AircraftMassBalance { basis.data }
     private var result: MassBalanceResult {
@@ -106,7 +141,7 @@ struct MassBalanceSheetView: View {
                             MassBalanceLoadTable(data: data, empty: basis.empty, result: result, load: load)
                         } else {
                             MassBalanceVerdictLines(lines: lines(result), verdict: result.verdict,
-                                                    onTodays: sayTodays, onCheckData: canCheckData ? { showSteps = true } : nil)
+                                                    onTodays: sayTodays, onCheckData: canCheckData ? checkData : nil)
                             MassBalancePointCards(data: data, result: result, stacked: false)
                             MassBalanceSectionTitle(text: L10n.MassBalance.loadTitle, note: L10n.MassBalance.loadUnits)
                             MassBalanceLoadRows(data: data, empty: basis.empty, result: result, load: $load)
@@ -115,7 +150,7 @@ struct MassBalanceSheetView: View {
                         // every row is entered and the verdict itself asks for it.
                         MassBalanceFootnote(registration: registration, basis: basis, confirmedAt: confirmedAt,
                                             onCheckData: canCheckData && !basis.isConfirmed && result.verdict != .notConfirmed
-                                                ? { showSteps = true } : nil)
+                                                ? checkData : nil)
                     }
                     .padding(isWide ? 20 : 14)
                     .frame(maxWidth: 780)
@@ -128,7 +163,10 @@ struct MassBalanceSheetView: View {
                     // The verdict in one line and a small chart stay on top while the rows scroll, so
                     // the point is seen to move as the fuel changes.
                     VStack(spacing: 8) {
-                        MassBalanceVerdictChip(verdict: result.verdict)
+                        MassBalanceVerdictChip(
+                            verdict: result.verdict,
+                            action: result.verdict == .notConfirmed && canCheckData
+                                ? (L10n.MassBalance.buttonCheckData, checkData) : nil)
                         MassBalanceChart(data: data, result: result, compact: true)
                             .frame(height: 190)
                     }
@@ -155,9 +193,18 @@ struct MassBalanceSheetView: View {
                     .environment(appState)
             }
         }
+        .sheet(isPresented: $showOwn) {
+            MassBalanceOwnFiguresView(registration: registration) { showOwn = false }
+                .environment(appState)
+        }
     }
 
-    private var canCheckData: Bool { basis.source == .shipped && shipped != nil }
+    /// The app's data is checked in the first-time steps; the pilot's own figures in their form.
+    private var canCheckData: Bool { basis.source == .pilot || shipped != nil }
+
+    private func checkData() {
+        if basis.source == .pilot { showOwn = true } else { showSteps = true }
+    }
 
     private var confirmedAt: Date? {
         let setup = appState.settings.massBalance[registration]
@@ -170,7 +217,7 @@ struct MassBalanceSheetView: View {
 
     private func verdict(_ result: MassBalanceResult) -> some View {
         MassBalanceVerdictCard(verdict: result.verdict, lines: lines(result), onTodays: sayTodays,
-                               onCheckData: canCheckData ? { showSteps = true } : nil)
+                               onCheckData: canCheckData ? checkData : nil)
     }
 
     private func sayTodays() {
@@ -303,10 +350,23 @@ struct MassBalanceVerdictLines: View {
 /// The verdict in one line, for the iPhone's pinned header.
 struct MassBalanceVerdictChip: View {
     let verdict: MassBalanceVerdict
+    /// What the verdict asks for, when it asks for something: the data check while the data isn't
+    /// confirmed. The lines that say so are at the top of the rows, out of sight once they scroll.
+    var action: (title: String, run: () -> Void)?
 
     var body: some View {
+        if let action {
+            Button(action: action.run) { label(action.title) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("mb.verdict.action")
+        } else {
+            label(nil)
+        }
+    }
+
+    private func label(_ actionTitle: String?) -> some View {
         let tint = verdictColour(verdict)
-        HStack(spacing: 10) {
+        return HStack(spacing: 10) {
             Image(systemName: MassBalanceWords.symbol(verdict))
                 .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
                 .frame(width: 30, height: 30)
@@ -315,9 +375,21 @@ struct MassBalanceVerdictChip: View {
             Text(MassBalanceWords.title(verdict))
                 .scaledFont(size: 20, weight: .bold, relativeTo: .title3)
                 .accessibilityIdentifier("mb.verdict")
+                .layoutPriority(1)
             Spacer(minLength: 0)
+            if let actionTitle {
+                Text(actionTitle)
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 13, weight: .bold, relativeTo: .footnote)
+                    .accessibilityHidden(true)
+            }
         }
         .foregroundColor(tint)
+        .frame(minHeight: actionTitle == nil ? nil : 36)
+        .contentShape(Rectangle())
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))

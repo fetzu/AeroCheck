@@ -11,6 +11,7 @@ struct MassBalanceAircraftPage: View {
     @EnvironmentObject private var aircraftDataService: AircraftDataService
     @State private var showSteps = false
     @State private var showSheet = false
+    @State private var showOwn = false
 
     private let tint: Color = .aviationGold
 
@@ -32,6 +33,12 @@ struct MassBalanceAircraftPage: View {
                 SettingsGroup(title: L10n.MassBalance.settingsSource, tint: tint) {
                     if basis.source == .pilot {
                         MassBalanceSettingsLine(text: L10n.MassBalance.footYours)
+                        SettingsButtonRow(icon: "pencil", title: L10n.MassBalance.ownChange, tint: tint) { showOwn = true }
+                        // The way back to the app's data, which the pilot once said isn't this aircraft's.
+                        if shipped != nil {
+                            SettingsButtonRow(icon: "doc.text.magnifyingglass", title: L10n.MassBalance.nodataLookAgain,
+                                              subtitle: L10n.MassBalance.step1Title, tint: tint) { showSteps = true }
+                        }
                     } else {
                         ForEach(Array((basis.data.sources ?? []).enumerated()), id: \.offset) { _, source in
                             MassBalanceSettingsLine(text: [source.document, source.revision.map { "rev. \($0)" },
@@ -53,7 +60,7 @@ struct MassBalanceAircraftPage: View {
                 }
                 if let empty = basis.empty {
                     SettingsGroup(title: L10n.MassBalance.step2Title, tint: tint,
-                                  footer: basis.emptyIsPilots ? L10n.MassBalance.settingsYourLine : nil) {
+                                  footer: basis.emptyIsPilots && basis.source == .shipped ? L10n.MassBalance.settingsYourLine : nil) {
                         MassBalanceSettingsFact(label: L10n.MassBalance.step2Date, value: MassBalanceWords.day(empty.date))
                         MassBalanceSettingsFact(label: L10n.MassBalance.step2Mass, value: MassBalanceWords.mass(empty.mass, basis.data.units))
                         MassBalanceSettingsFact(label: L10n.MassBalance.tableMoment,
@@ -67,6 +74,8 @@ struct MassBalanceAircraftPage: View {
                 SettingsGroup(title: L10n.MassBalance.settingsFigures, tint: tint) {
                     MassBalanceSettingsLine(text: shipped == nil ? L10n.MassBalance.nodataBody(registration)
                                                                  : L10n.MassBalance.nodataDeclined(registration))
+                    SettingsButtonRow(icon: "pencil", title: L10n.MassBalance.ownEnter, subtitle: L10n.MassBalance.ownWhy,
+                                      tint: tint) { showOwn = true }
                     if shipped != nil {
                         SettingsButtonRow(icon: "doc.text.magnifyingglass", title: L10n.MassBalance.nodataLookAgain,
                                           subtitle: L10n.MassBalance.step1Title, tint: tint) { showSteps = true }
@@ -85,6 +94,10 @@ struct MassBalanceAircraftPage: View {
                 MassBalanceSetupSteps(registration: registration, shipped: shipped) { showSteps = false }
                     .environment(appState)
             }
+        }
+        .sheet(isPresented: $showOwn) {
+            MassBalanceOwnFiguresView(registration: registration) { showOwn = false }
+                .environment(appState)
         }
         .sheet(isPresented: $showSheet) {
             MassBalanceEntryView(registration: registration, onClose: { showSheet = false })

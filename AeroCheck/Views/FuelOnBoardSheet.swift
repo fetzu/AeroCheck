@@ -11,6 +11,9 @@ struct FullTanks: Equatable {
     enum Source: Equatable {
         /// The aircraft's checklist data, through the server (`usableFuelLitres`).
         case aircraftData
+        /// The pilot's own mass and balance figures for this registration: the figure the sheet
+        /// computes with, changed in their form and nowhere else.
+        case ownFigures
         /// What the pilot entered for this registration, kept in the settings.
         case pilot
     }
@@ -18,14 +21,19 @@ struct FullTanks: Equatable {
     let litres: Double
     let source: Source
 
-    /// The aircraft's data wins, its mass and balance file first (the handbook's usable fuel for this
-    /// registration, 6.11.0); otherwise the pilot's figure for this registration; otherwise nil, and
-    /// the sheet asks for it.
+    /// What the mass and balance sheet computes with wins, so there is one figure for one fact: the
+    /// registration's file (the handbook's usable fuel, 6.11.0), or the pilot's own figures where
+    /// those stand in for it. Otherwise the aircraft's checklist data; otherwise the pilot's figure
+    /// for this registration; otherwise nil, and the sheet asks for it.
     static func resolve(registration: String?, available: [RemoteAircraftMetadata],
-                        pilotValues: [String: Double], massBalanceLitres: Double? = nil) -> FullTanks? {
+                        pilotValues: [String: Double], massBalanceLitres: Double? = nil,
+                        ownFiguresLitres: Double? = nil) -> FullTanks? {
         guard let key = key(for: registration) else { return nil }
         if let litres = massBalanceLitres, isPlausible(litres) {
             return FullTanks(litres: litres, source: .aircraftData)
+        }
+        if let litres = ownFiguresLitres, isPlausible(litres) {
+            return FullTanks(litres: litres, source: .ownFigures)
         }
         if let litres = available.first(where: { $0.registration.uppercased() == key })?.usableFuelLitres,
            isPlausible(litres) {
@@ -37,15 +45,29 @@ struct FullTanks: Equatable {
         return nil
     }
 
-    /// The usable fuel of the registration's mass and balance file, to the tenth of a litre. Nil
-    /// when there is no file, or when the pilot said its figures aren't this aircraft's.
+    /// The registration's figure from everything the app has: what the views ask. The usable fuel
+    /// of what the mass and balance sheet works with is taken to the tenth of a litre: the file's,
+    /// or the pilot's own figures when there is no file or they said it isn't this aircraft's.
     @MainActor
-    static func massBalanceLitres(registration: String?, service: AircraftDataService,
-                                  settings: MassBalanceSettings, now: Date = Date()) -> Double? {
-        guard let registration = key(for: registration),
-              let basis = settings[registration].basis(shipped: service.massBalance(forRegistration: registration), now: now),
-              basis.source == .shipped, let litres = basis.data.usableFuelLitres else { return nil }
-        return (litres * 10).rounded() / 10
+    static func resolve(registration: String?, service: AircraftDataService, settings: AppSettings,
+                        now: Date = Date()) -> FullTanks? {
+        let basis = key(for: registration).flatMap {
+            settings.massBalance[$0].basis(shipped: service.massBalance(forRegistration: $0), now: now)
+        }
+        let litres = basis?.data.usableFuelLitres.map { ($0 * 10).rounded() / 10 }
+        return resolve(registration: registration, available: service.availableAircraft,
+                       pilotValues: settings.fullTanksLitres,
+                       massBalanceLitres: basis?.source == .shipped ? litres : nil,
+                       ownFiguresLitres: basis?.source == .pilot ? litres : nil)
+    }
+
+    /// The line under the figure that says where it comes from.
+    func sourceLine(registration: String) -> String {
+        switch source {
+        case .aircraftData: return L10n.FuelOnBoard.fromAircraftData
+        case .ownFigures: return L10n.FuelOnBoard.fromOwnFigures
+        case .pilot: return L10n.FuelOnBoard.yourFigure(registration)
+        }
     }
 
     /// The settings key for a registration: trimmed and upper-cased, nil when there's none.
@@ -118,12 +140,8 @@ struct FuelOnBoardSheet: View {
     private var plan: FlightPlan? { flightPlanManager.flightPlans.first { $0.id == planId } }
     private var onBoard: Double? { FuelEntry.litres(from: onBoardText) }
     private var fullTanks: FullTanks? {
-        FullTanks.resolve(registration: plan?.aircraftRegistration,
-                          available: aircraftDataService.availableAircraft,
-                          pilotValues: appState.settings.fullTanksLitres,
-                          massBalanceLitres: FullTanks.massBalanceLitres(registration: plan?.aircraftRegistration,
-                                                                         service: aircraftDataService,
-                                                                         settings: appState.settings.massBalance))
+        FullTanks.resolve(registration: plan?.aircraftRegistration, service: aircraftDataService,
+                          settings: appState.settings)
     }
 
     var body: some View {
@@ -330,10 +348,7 @@ struct FullTanksButtons: View {
     @FocusState private var focused: Bool
 
     private var fullTanks: FullTanks? {
-        FullTanks.resolve(registration: registration, available: aircraftDataService.availableAircraft,
-                          pilotValues: appState.settings.fullTanksLitres,
-                          massBalanceLitres: FullTanks.massBalanceLitres(registration: registration, service: aircraftDataService,
-                                                                         settings: appState.settings.massBalance))
+        FullTanks.resolve(registration: registration, service: aircraftDataService, settings: appState.settings)
     }
 
     var body: some View {
@@ -347,9 +362,7 @@ struct FullTanksButtons: View {
             if FullTanks.key(for: registration) != nil {
                 if let fullTanks, !editing {
                     HStack(spacing: 8) {
-                        Text(fullTanks.source == .aircraftData
-                             ? L10n.FuelOnBoard.fromAircraftData
-                             : L10n.FuelOnBoard.yourFigure(registration))
+                        Text(fullTanks.sourceLine(registration: registration))
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.dimText)
                         if fullTanks.source == .pilot {

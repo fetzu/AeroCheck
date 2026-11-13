@@ -244,7 +244,10 @@ enum MassBalanceWords {
             return result.failures.prefix(4).map { failure($0, in: data) }
         case .incomplete:
             let names = result.unset.map { name(ofId: $0, in: data) }.joined(separator: ", ")
-            return [L10n.MassBalance.lineIncomplete(names), L10n.MassBalance.lineEmptySeat]
+            // The rule about empty seats only when a seat is what is missing, not under a missing fuel figure.
+            let seatIds = Set(data.stations.flatMap { $0.seats ?? [] }.map(\.id))
+            let seatIsUnset = result.unset.contains { seatIds.contains($0) }
+            return [L10n.MassBalance.lineIncomplete(names)] + (seatIsUnset ? [L10n.MassBalance.lineEmptySeat] : [])
         case .notConfirmed:
             if basis.empty == nil { return [L10n.MassBalance.lineNoEmpty(registration)] }
             let first: String

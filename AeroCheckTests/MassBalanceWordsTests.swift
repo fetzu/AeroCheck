@@ -98,6 +98,15 @@ final class MassBalanceWordsTests: XCTestCase {
         let missing = MassBalanceWords.lines(for: result, basis: basis, registration: "T-EST", load: load)
         let rearRight = MassBalanceWords.seatName(four.seatStations[1].seats![1], in: four)
         XCTAssertTrue(missing[0].contains(rearRight), "\(missing)")
+        XCTAssertEqual(missing.count, 2, "a seat is unset: the rule about empty seats follows. \(missing)")
+
+        // Only the fuel missing: the rule about empty seats has nothing to say.
+        var noFuel = load
+        noFuel.seats["rr"] = .empty
+        noFuel.fuelLitres = nil
+        let noFuelResult = MassBalanceCalculator.compute(data: four, empty: empty, load: noFuel, isConfirmed: true)
+        XCTAssertEqual(noFuelResult.verdict, .incomplete)
+        XCTAssertEqual(MassBalanceWords.lines(for: noFuelResult, basis: basis, registration: "T-EST", load: noFuel).count, 1)
 
         load.seats["rr"] = .empty
         load.baggageKg["bagA"] = 95 // 209 lb, over the area's 200

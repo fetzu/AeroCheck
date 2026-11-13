@@ -185,6 +185,33 @@ final class MassBalanceDataTests: XCTestCase {
         XCTAssertEqual(setup.basis(shipped: shipped, now: now.addingTimeInterval(366 * 86_400))?.unconfirmed, .yearPassed)
     }
 
+    func testTheEmptyMassOfOwnFiguresNeverStandsUnderTheAppsData() throws {
+        // The pilot said the app's data isn't the aircraft's and typed their own, with their own
+        // datum and a line of the record dated later than the app's.
+        let shipped = data(file("wt9-dynamic", "F-HVXA", emptyDate: "2025-03-10"))
+        var own = data(file("own", "F-HVXA", revision: 0, emptyDate: "2026-11-13"))
+        own.empty = .init(mass: 320, moment: 160, date: "2026-11-13", entry: nil)
+        var setup = MassBalanceSetup()
+        setup.decline(revision: shipped.revision)
+        setup.ownData = own
+        setup.ownConfirmedAt = now
+        let pilots = try XCTUnwrap(setup.basis(shipped: shipped, now: now))
+        XCTAssertEqual(pilots.source, .pilot)
+        XCTAssertEqual(pilots.empty?.moment, 160)
+
+        // Back on the app's data, by a confirmation or by a new revision: its own line, in its own datum.
+        setup.confirm(revision: shipped.revision, at: now)
+        let apps = try XCTUnwrap(setup.basis(shipped: shipped, now: now))
+        XCTAssertEqual(apps.source, .shipped)
+        XCTAssertEqual(apps.empty?.mass, 330)
+        XCTAssertFalse(apps.emptyIsPilots)
+        setup.decline(revision: shipped.revision)
+        let next = data(file("wt9-dynamic", "F-HVXA", revision: 3, emptyDate: "2025-03-10"))
+        XCTAssertEqual(setup.basis(shipped: next, now: now)?.empty?.mass, 330)
+        // The pilot's figures are kept, for the day they are wanted again.
+        XCTAssertNotNil(setup.ownData)
+    }
+
     func testTheNewerLineOfTheRecordWinsWhoeverHoldsIt() {
         let shipped = data(file("wt9-dynamic", "F-HVXA", emptyDate: "2025-03-10"))
         var setup = MassBalanceSetup()

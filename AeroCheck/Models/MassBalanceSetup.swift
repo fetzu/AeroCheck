@@ -17,7 +17,9 @@ struct MassBalanceSetup: Equatable, Sendable {
     var confirmedAt: Date?
     /// The pilot said the server's data is not this aircraft's ("something differs"): it is not used.
     var declinedRevision: Int?
-    /// The empty aircraft from a line of the record newer than the server's, typed by the pilot.
+    /// The empty aircraft from a line of the record newer than the server's, typed by the pilot in
+    /// the server data's units and datum. It only ever stands under the server's data: the pilot's
+    /// own figures carry their own empty mass (`ownData.empty`), in their own datum.
     var ownEmpty: AircraftMassBalance.EmptyMass?
     /// The pilot's own figures, for an aircraft with no data from the server or with data declined.
     var ownData: AircraftMassBalance?
@@ -151,7 +153,7 @@ extension MassBalanceSetup {
         } else {
             why = .never
         }
-        return MassBalanceBasis(data: ownData, source: .pilot, empty: ownEmpty ?? ownData.empty,
+        return MassBalanceBasis(data: ownData, source: .pilot, empty: ownData.empty,
                                 emptyIsPilots: true, isConfirmed: why == nil, unconfirmed: why)
     }
 

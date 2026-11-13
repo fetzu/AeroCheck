@@ -145,7 +145,6 @@ final class MassBalanceOwnFiguresTests: XCTestCase {
         let draft = twoSeater()
         var setup = MassBalanceSetup()
         setup.ownData = try XCTUnwrap(draft.data(registration: "T-EST", updated: now))
-        setup.ownEmpty = draft.empty()
         XCTAssertEqual(setup.basis(shipped: nil, now: now)?.unconfirmed, .never)
         setup.ownConfirmedAt = now
         let basis = try XCTUnwrap(setup.basis(shipped: nil, now: now))

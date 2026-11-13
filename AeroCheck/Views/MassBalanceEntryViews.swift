@@ -38,9 +38,12 @@ struct MassBalanceQuantityField: View {
                 .accessibilityLabel("\(label), \(unit)")
                 .accessibilityIdentifier(identifier ?? "")
             VStack(alignment: .leading, spacing: 1) {
+                // Never broken over two lines: "kg/L" and "kg·m" were, at an iPhone's width.
                 Text(unit)
                     .scaledFont(size: 15, relativeTo: .subheadline)
                     .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+                    .fixedSize()
                 if let alternative {
                     Text(alternative)
                         .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)

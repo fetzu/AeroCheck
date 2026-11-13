@@ -125,7 +125,7 @@ struct MassBalanceOwnFiguresView: View {
         loaded = true
         let setup = appState.settings.massBalance[registration]
         if let own = setup.ownData {
-            draft = MassBalanceOwnDraft(data: own, empty: setup.ownEmpty ?? own.empty)
+            draft = MassBalanceOwnDraft(data: own, empty: own.empty)
         } else if let old = appState.settings.weightBalanceProfiles[registration], old.isConfigured {
             draft = MassBalanceOwnDraft(profile: old)
             tookOver = true
@@ -135,8 +135,10 @@ struct MassBalanceOwnFiguresView: View {
     private func save() {
         guard draft.missing.isEmpty, let data = draft.data(registration: registration) else { return }
         var setup = appState.settings.massBalance[registration]
+        // The empty mass goes with the figures (`data.empty`), in their datum. Never into `ownEmpty`:
+        // that line stands under the app's data, and would come back under it with the wrong datum
+        // the day the app's data is used again.
         setup.ownData = data
-        setup.ownEmpty = draft.empty()
         // Typing the figures in is saying they are the aircraft's: asked again in a year, like the app's own data.
         setup.ownConfirmedAt = Date()
         appState.settings.massBalance[registration] = setup
@@ -432,7 +434,7 @@ private struct MassBalanceOwnMissing: View {
                 .foregroundColor(.aviationGreen)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            Text(L10n.MassBalance.ownMissing(Self.names(missing).joined(separator: ", ")))
+            Text(L10n.MassBalance.ownMissing(Self.names(missing).joined(separator: " · ")))
                 .scaledFont(size: 17, relativeTo: .body)
                 .foregroundColor(.aviationAmber)
                 .fixedSize(horizontal: false, vertical: true)

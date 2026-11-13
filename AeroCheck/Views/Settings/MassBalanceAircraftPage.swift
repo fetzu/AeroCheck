@@ -34,6 +34,11 @@ struct MassBalanceAircraftPage: View {
                     if basis.source == .pilot {
                         MassBalanceSettingsLine(text: L10n.MassBalance.footYours)
                         SettingsButtonRow(icon: "pencil", title: L10n.MassBalance.ownChange, tint: tint) { showOwn = true }
+                        // The way back to the app's data, which the pilot once said isn't this aircraft's.
+                        if shipped != nil {
+                            SettingsButtonRow(icon: "doc.text.magnifyingglass", title: L10n.MassBalance.nodataLookAgain,
+                                              subtitle: L10n.MassBalance.step1Title, tint: tint) { showSteps = true }
+                        }
                     } else {
                         ForEach(Array((basis.data.sources ?? []).enumerated()), id: \.offset) { _, source in
                             MassBalanceSettingsLine(text: [source.document, source.revision.map { "rev. \($0)" },
@@ -55,7 +60,7 @@ struct MassBalanceAircraftPage: View {
                 }
                 if let empty = basis.empty {
                     SettingsGroup(title: L10n.MassBalance.step2Title, tint: tint,
-                                  footer: basis.emptyIsPilots ? L10n.MassBalance.settingsYourLine : nil) {
+                                  footer: basis.emptyIsPilots && basis.source == .shipped ? L10n.MassBalance.settingsYourLine : nil) {
                         MassBalanceSettingsFact(label: L10n.MassBalance.step2Date, value: MassBalanceWords.day(empty.date))
                         MassBalanceSettingsFact(label: L10n.MassBalance.step2Mass, value: MassBalanceWords.mass(empty.mass, basis.data.units))
                         MassBalanceSettingsFact(label: L10n.MassBalance.tableMoment,

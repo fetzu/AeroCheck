@@ -163,7 +163,10 @@ struct MassBalanceSheetView: View {
                     // The verdict in one line and a small chart stay on top while the rows scroll, so
                     // the point is seen to move as the fuel changes.
                     VStack(spacing: 8) {
-                        MassBalanceVerdictChip(verdict: result.verdict)
+                        MassBalanceVerdictChip(
+                            verdict: result.verdict,
+                            action: result.verdict == .notConfirmed && canCheckData
+                                ? (L10n.MassBalance.buttonCheckData, checkData) : nil)
                         MassBalanceChart(data: data, result: result, compact: true)
                             .frame(height: 190)
                     }
@@ -347,10 +350,23 @@ struct MassBalanceVerdictLines: View {
 /// The verdict in one line, for the iPhone's pinned header.
 struct MassBalanceVerdictChip: View {
     let verdict: MassBalanceVerdict
+    /// What the verdict asks for, when it asks for something: the data check while the data isn't
+    /// confirmed. The lines that say so are at the top of the rows, out of sight once they scroll.
+    var action: (title: String, run: () -> Void)?
 
     var body: some View {
+        if let action {
+            Button(action: action.run) { label(action.title) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("mb.verdict.action")
+        } else {
+            label(nil)
+        }
+    }
+
+    private func label(_ actionTitle: String?) -> some View {
         let tint = verdictColour(verdict)
-        HStack(spacing: 10) {
+        return HStack(spacing: 10) {
             Image(systemName: MassBalanceWords.symbol(verdict))
                 .scaledFont(size: 15, weight: .bold, relativeTo: .subheadline)
                 .frame(width: 30, height: 30)
@@ -359,9 +375,21 @@ struct MassBalanceVerdictChip: View {
             Text(MassBalanceWords.title(verdict))
                 .scaledFont(size: 20, weight: .bold, relativeTo: .title3)
                 .accessibilityIdentifier("mb.verdict")
+                .layoutPriority(1)
             Spacer(minLength: 0)
+            if let actionTitle {
+                Text(actionTitle)
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 13, weight: .bold, relativeTo: .footnote)
+                    .accessibilityHidden(true)
+            }
         }
         .foregroundColor(tint)
+        .frame(minHeight: actionTitle == nil ? nil : 36)
+        .contentShape(Rectangle())
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))

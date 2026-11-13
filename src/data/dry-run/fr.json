@@ -1,0 +1,644 @@
+[
+ {
+  "id": "today",
+  "part": 1,
+  "partTitle": "Préparer un vol",
+  "title": "Préparez un vol",
+  "body": "Chaque vol commence sur Aujourd'hui. Touchez Planifier un vol.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/01-today.jpg",
+   "ring": {
+    "x": 50.12,
+    "y": 39.7,
+    "width": 38.41,
+    "height": 6.44
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/01-today.jpg",
+   "ring": {
+    "x": 49.75,
+    "y": 46.72,
+    "width": 47.76,
+    "height": 8.7
+   }
+  }
+ },
+ {
+  "id": "planSheet",
+  "part": 1,
+  "partTitle": "Préparer un vol",
+  "title": "Le vol",
+  "body": "Ici, vous choisissez le départ, la destination, les escales, le jour et l'avion. Pour ce vol à blanc, la route est prête : votre aérodrome, deux points de virage et retour. Un vol prévu un autre jour reçoit un rappel la veille. Touchez Créer le vol.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/02-planSheet.jpg",
+   "ring": {
+    "x": 15.85,
+    "y": 71.31,
+    "width": 68.29,
+    "height": 6.14
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/02-planSheet.jpg",
+   "ring": {
+    "x": 2.49,
+    "y": 87.15,
+    "width": 95.02,
+    "height": 8.28
+   }
+  }
+ },
+ {
+  "id": "flightPage",
+  "part": 1,
+  "partTitle": "Préparer un vol",
+  "title": "Une page par vol",
+  "body": "Chaque vol a sa page, du plan au carnet : le fil du vol. Ses quatre chapitres (Planifier, Préparer, Voler et Clôturer) suivent les étapes de chaque vol ; ceux où il y a à faire maintenant sont ouverts, les autres tiennent sur une ligne. La ligne sous le titre dit quand vous partez et ce qui reste.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/03-flightPage.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 6.4
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/03-flightPage.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 10.45
+   }
+  }
+ },
+ {
+  "id": "nextCard",
+  "part": 1,
+  "partTitle": "Préparer un vol",
+  "title": "Ce qui reste",
+  "body": "Ce qui reste est toujours dans la ligne sous le titre, et sur Aujourd’hui. Un appui sur un élément vous y mène.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/04-nextCard.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 6.4
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/04-nextCard.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 10.45
+   }
+  }
+ },
+ {
+  "id": "startFlight",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "DÉMARRER LE VOL",
+  "body": "DÉMARRER LE VOL, dans le chapitre Voler, ouvre le cockpit. Pour ce vol à blanc, le reste de Planifier et Préparer a été coché pour vous. En vrai vol, DÉMARRER LE VOL liste d'abord ce qui reste ouvert.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/05-startFlight.jpg",
+   "ring": {
+    "x": 3.41,
+    "y": 31.14,
+    "width": 93.17,
+    "height": 5.55
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/05-startFlight.jpg",
+   "ring": {
+    "x": 5.47,
+    "y": 43.06,
+    "width": 89.05,
+    "height": 7.48
+   }
+  }
+ },
+ {
+  "id": "cockpitAfterPlan",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Votre premier vol, au sol",
+  "body": "Voici le cockpit, ouvert par DÉMARRER LE VOL. L'avion vous attend à chaque étape.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/06-cockpitAfterPlan.jpg"
+  },
+  "iphone": {
+   "image": "fr/iphone/06-cockpitAfterPlan.jpg"
+  }
+ },
+ {
+  "id": "checkOnce",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Cochez un élément",
+  "body": "COCHER valide l'élément en surbrillance et passe au suivant. Touchez-le une fois.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/07-checkOnce.jpg",
+   "ring": {
+    "x": 33.17,
+    "y": 87.97,
+    "width": 31.95,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/07-checkOnce.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "engineStart",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "MISE EN MARCHE",
+  "body": "Touchez-le une fois le moteur en marche : l'app enregistre l'heure, et les temps du vol partent de là.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/08-engineStart.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 31.95,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/08-engineStart.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "defer",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Reporter un élément",
+  "body": "Un élément impossible à faire maintenant ? REPORTER le met de côté, et l'app le garde pour plus tard. Essayez maintenant.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/09-defer.jpg",
+   "ring": {
+    "x": 65.12,
+    "y": 87.97,
+    "width": 16.83,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/09-defer.jpg",
+   "ring": {
+    "x": 54.06,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "deferredChip",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Rien ne se perd",
+  "body": "Tout ce que vous avez reporté attend ici, en ambre. Touchez-le à tout moment pour le terminer.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/10-deferredChip.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 25.47,
+    "width": 9.88,
+    "height": 5.42
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/10-deferredChip.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 23.84,
+    "width": 17.66,
+    "height": 6.64
+   }
+  }
+ },
+ {
+  "id": "readyForLineUp",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "PRÊT POUR L'ALIGNEMENT",
+  "body": "Touchez-le. L'app prend ce moment comme heure de décollage et chronomètre la route à partir de là.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/11-readyForLineUp.jpg",
+   "ring": {
+    "x": 33.17,
+    "y": 87.97,
+    "width": 31.95,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/11-readyForLineUp.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "mapTakeoff",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Regardez le décollage",
+  "body": "Ouvrez CARTE. En vol à blanc, l'avion s'aligne et décolle automatiquement ; votre prochaine étape est la vérification de montée, une fois en l'air.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/12-mapTakeoff.jpg",
+   "ring": {
+    "x": 22.5,
+    "y": 31.1,
+    "width": 16.95,
+    "height": 5.42
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/12-mapTakeoff.jpg",
+   "ring": {
+    "x": 36.57,
+    "y": 31.69,
+    "width": 32.26,
+    "height": 6.18
+   }
+  }
+ },
+ {
+  "id": "airborne",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Décollage détecté",
+  "body": "AéroCheck a détecté le décollage et noté son heure pour le carnet de vol. Il fait de même pour les remises de gaz, les posés-décollés et les atterrissages complets : vous pouvez vous concentrer sur le pilotage.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/13-airborne.jpg"
+  },
+  "iphone": {
+   "image": "fr/iphone/13-airborne.jpg"
+  }
+ },
+ {
+  "id": "trackLine",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Où vous serez",
+  "body": "La ligne bleue devant l'avion montre où vous serez dans 1, 2 et 5 minutes, à cette vitesse et sur cette route.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/14-trackLine.jpg"
+  },
+  "iphone": {
+   "image": "fr/iphone/14-trackLine.jpg"
+  }
+ },
+ {
+  "id": "readBand",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Ce que vous lisez",
+  "body": "GS, ALT et TRK viennent du GPS. En dessous, vous trouvez où mène la branche en cours et quand vous y serez, puis qui appeler : ACT et SUIV.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/15-readBand.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 14.15,
+    "width": 101.46,
+    "height": 16.78
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/15-readBand.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 12.59,
+    "width": 102.99,
+    "height": 19.79
+   }
+  }
+ },
+ {
+  "id": "radioDue",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Changé de fréquence ? Touchez SUIV",
+  "body": "SUIV est encadré : c'est le moment d'y passer, et la ligne à son pied s'épuise jusqu'à l'endroit où l'app change d'elle-même. Quand vous changez de fréquence, touchez SUIV (sur un téléphone, la ligne ACT) et il devient ACT. Annuler revient en arrière.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/16-radioDue.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 26.06,
+    "width": 97.56,
+    "height": 4.87
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/16-radioDue.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 26.85,
+    "width": 97.01,
+    "height": 5.53
+   }
+  }
+ },
+ {
+  "id": "timeOver",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Le point de virage",
+  "body": "L'app a détecté le passage de ce point de virage : elle a noté l'heure de passage sur ROUTE et est passée automatiquement à la branche suivante. Si c'était trop tôt, Annuler ici revient en arrière.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/17-timeOver.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 38.05,
+    "width": 60.0,
+    "height": 7.63
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/17-timeOver.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 38.56,
+    "width": 97.01,
+    "height": 11.9
+   }
+  }
+ },
+ {
+  "id": "goAround",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Essayez une remise de gaz",
+  "body": "Sur cette finale, choisissez REMISE DE GAZ dans l'encadré : l'avion remonte et l'app détecte la remise de gaz. En vrai vol, c'est vous qui remettez les gaz.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/18-goAround.jpg",
+   "ring": {
+    "x": 0.73,
+    "y": 75.85,
+    "width": 69.76,
+    "height": 11.44
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/18-goAround.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 72.85,
+    "width": 97.01,
+    "height": 14.34
+   }
+  }
+ },
+ {
+  "id": "goAroundCard",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Remise de gaz détectée",
+  "body": "L'app a détecté la remise de gaz et l'a enregistrée automatiquement : les vérifications sont revenues à celle de montée. Si ce n'en était pas une, Annuler revient en arrière pendant quelques secondes. Après un vrai vol, vous la confirmez dans la Revue du vol.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/19-goAroundCard.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 78.31,
+    "width": 97.56,
+    "height": 8.98
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/19-goAroundCard.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 78.72,
+    "width": 97.01,
+    "height": 8.47
+   }
+  }
+ },
+ {
+  "id": "fullStop",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "Cette fois, un atterrissage complet",
+  "body": "COMPLET est déjà choisi : l'avion se pose. En courte finale, touchez la vérification d'atterrissage et faites ses éléments.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/20-fullStop.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 31.95,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/20-fullStop.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "engineShutdown",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "ARRÊT MOTEUR",
+  "body": "Le moteur est arrêté : touchez-le, et l'app enregistre l'heure.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/21-engineShutdown.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 87.97,
+    "width": 31.95,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/21-engineShutdown.jpg",
+   "ring": {
+    "x": 1.49,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "endFlight",
+  "part": 2,
+  "partTitle": "Le voler",
+  "title": "TERMINER LE VOL",
+  "body": "Clôt le vol et crée son entrée de carnet, avec les heures de la trace GPS. C'est un vol à blanc : rien n'en est gardé.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/22-endFlight.jpg",
+   "ring": {
+    "x": 33.17,
+    "y": 87.97,
+    "width": 31.95,
+    "height": 9.83
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/22-endFlight.jpg",
+   "ring": {
+    "x": 27.78,
+    "y": 87.87,
+    "width": 27.78,
+    "height": 7.78
+   }
+  }
+ },
+ {
+  "id": "closeOut",
+  "part": 3,
+  "partTitle": "Clôturer",
+  "title": "Après le vol",
+  "body": "TERMINER LE VOL a mis le vol en CLÔTURE : la page s’ouvre maintenant sur Clôturer, et la ligne sous le titre compte ce qui reste. Avec un plan de vol déposé, sa clôture viendrait en premier, en rouge, avec le numéro à appeler.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/23-closeOut.jpg",
+   "ring": {
+    "x": -0.73,
+    "y": 11.19,
+    "width": 101.46,
+    "height": 5.04
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/23-closeOut.jpg",
+   "ring": {
+    "x": -1.49,
+    "y": 18.31,
+    "width": 102.99,
+    "height": 6.83
+   }
+  }
+ },
+ {
+  "id": "numbers",
+  "part": 3,
+  "partTitle": "Clôturer",
+  "title": "Carnet et coûts",
+  "body": "Temps bloc et temps de vol, les atterrissages, les heures moteur, et le coût au tarif de l'avion. Copier la ligne la met dans le presse-papiers. Fermez la feuille quand vous l'avez lue.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/24-numbers.jpg"
+  },
+  "iphone": {
+   "image": "fr/iphone/24-numbers.jpg"
+  }
+ },
+ {
+  "id": "finish",
+  "part": 3,
+  "partTitle": "Clôturer",
+  "title": "Terminer",
+  "body": "Terminer ferme la page du vol ; le vol reste dans votre carnet.",
+  "kind": "act",
+  "ipad": {
+   "image": "fr/ipad/25-finish.jpg",
+   "ring": {
+    "x": 39.21,
+    "y": 33.56,
+    "width": 21.59,
+    "height": 6.14
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/25-finish.jpg",
+   "ring": {
+    "x": 28.03,
+    "y": 47.83,
+    "width": 44.03,
+    "height": 8.28
+   }
+  }
+ },
+ {
+  "id": "dashboard",
+  "part": 4,
+  "partTitle": "Votre carnet",
+  "title": "L'année en un coup d'œil",
+  "body": "Vos heures, vols et atterrissages, les heures par avion, ce que vous avez dépensé et comment vos vérifications se sont passées. Le carnet du vol à blanc a cinq vols inventés avant le vôtre.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/26-dashboard.jpg",
+   "ring": {
+    "x": 1.22,
+    "y": 8.64,
+    "width": 97.56,
+    "height": 14.7
+   }
+  },
+  "iphone": {
+   "image": "fr/iphone/26-dashboard.jpg",
+   "ring": {
+    "x": 2.49,
+    "y": 18.76,
+    "width": 95.02,
+    "height": 35.28
+   }
+  }
+ },
+ {
+  "id": "track",
+  "part": 4,
+  "partTitle": "Votre carnet",
+  "title": "La page du vol",
+  "body": "Tout ce vol est ici : sa trace sur la carte, le graphique d'altitude et de vitesse (glissez dessus pour rejouer le vol), la chronologie, comment chaque vérification s'est terminée, les heures moteur et le plan comparé au vol. Regardez à votre guise, puis touchez Suivant.",
+  "kind": "look",
+  "ipad": {
+   "image": "fr/ipad/27-track.jpg"
+  },
+  "iphone": {
+   "image": "fr/iphone/27-track.jpg"
+  }
+ }
+]

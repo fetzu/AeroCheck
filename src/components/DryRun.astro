@@ -1,0 +1,168 @@
+---
+// The dry run in the browser (/dry-run, /fr/dry-run, /de/dry-run; decided 18 Oct 2026, cut to about five minutes on
+// 7 Nov): the app's guided flight, one real screen at a time, the iPad's on wide screens and the iPhone's on phones. The
+// ring is the app's, drawn in the frame; a tap on it goes on, a tap beside it only points at it. A card's words are the
+// app's, so they stay as the app has them. Without a script the cards are one long list, every one of them readable.
+import type { Lang, SiteData } from '../lib/site';
+import { langBase } from '../lib/site';
+import { cardImage, dryRunCards, type Ring } from '../lib/dryrun';
+import StoreBadge from './StoreBadge.astro';
+interface Props { site: SiteData; }
+const { site } = Astro.props;
+const copy = site.dry_run;
+const lang: Lang = site.lang;
+const base = langBase(lang);
+const cards = dryRunCards(lang).map((card) => ({ ...card, ipadImage: cardImage(card.ipad.image), iphoneImage: cardImage(card.iphone.image) }));
+const total = cards.length;
+const place = (ring: Ring) => `left:${ring.x}%;top:${ring.y}%;width:${ring.width}%;height:${ring.height}%`;
+const stepText = (n: number) => copy.step.replace('[n]', String(n)).replace('[total]', String(total));
+const storyHref = `${base}${copy.end.story.href}`;
+---
+<section class="dr-hero">
+  <div class="container">
+    <p class="eyebrow">{copy.eyebrow}</p>
+    <h1>{copy.title}</h1>
+    <p class="dr-sub">{copy.subtitle}</p>
+  </div>
+</section>
+
+<section class="dr" data-dry-run data-total={total} data-step={copy.step}
+  data-hint-elsewhere={copy.hint_elsewhere}>
+  <div class="container">
+    <ol class="dr-cards">
+      {cards.map((card, i) => {
+        const tapsRing = card.kind === 'act' && Boolean(card.ipad.ring && card.iphone.ring);
+        return (
+          <li class="dr-card" data-card={card.id} data-taps-ring={tapsRing ? '1' : undefined}>
+            <div class="dr-copy">
+              <p class="dr-part"><span>{card.partTitle !== card.title ? card.partTitle : ''}</span><span>{stepText(i + 1)}</span></p>
+              <h2>{card.title}</h2>
+              <p class="dr-body">{card.body}</p>
+              <p class="dr-hint" data-hint>{tapsRing ? copy.hint_tap : copy.hint_look}</p>
+            </div>
+            <div class="dr-screen">
+              <picture>
+                <source media="(min-width: 761px)" srcset={card.ipadImage.srcset ?? card.ipadImage.src} sizes="420px" />
+                <img src={card.iphoneImage.src} srcset={card.iphoneImage.srcset} sizes="(max-width: 760px) 260px, 420px" alt="" loading={i < 2 ? 'eager' : 'lazy'} decoding="async" />
+              </picture>
+              {tapsRing && <button type="button" class="dr-ring dr-ring--ipad" style={place(card.ipad.ring!)} aria-label={`${copy.ring_label}: ${card.title}`} data-ring></button>}
+              {tapsRing && <button type="button" class="dr-ring dr-ring--iphone" style={place(card.iphone.ring!)} aria-label={`${copy.ring_label}: ${card.title}`} data-ring></button>}
+            </div>
+          </li>
+        );
+      })}
+      <li class="dr-end" data-card="end">
+        <h2>{copy.end.title}</h2>
+        <p>{copy.end.text}</p>
+        <StoreBadge store={site.store} lang={lang} />
+        <a class="dr-story" href={storyHref}>{copy.end.story.label} <span aria-hidden="true">→</span></a>
+      </li>
+    </ol>
+    <div class="dr-nav" data-nav hidden>
+      <button type="button" class="btn btn--ghost" data-back>{copy.back}</button>
+      <button type="button" class="btn btn--primary" data-next>{copy.next}</button>
+    </div>
+    <p class="dr-note">{copy.note}</p>
+  </div>
+</section>
+
+<script>
+  // One card at a time. Everything here is the visitor's alone, and nothing is kept.
+  const root = document.querySelector<HTMLElement>('[data-dry-run]');
+  if (root) {
+    const cards = [...root.querySelectorAll<HTMLElement>('[data-card]')];
+    const nav = root.querySelector<HTMLElement>('[data-nav]')!;
+    const back = root.querySelector<HTMLButtonElement>('[data-back]')!;
+    const next = root.querySelector<HTMLButtonElement>('[data-next]')!;
+    let at = 0;
+    const load = (card?: HTMLElement) => card?.querySelector('img')?.setAttribute('loading', 'eager');
+    function show(index: number, move = true) {
+      at = Math.max(0, Math.min(cards.length - 1, index));
+      // Back and Next under the card's words, where the eye is.
+      const phone = window.matchMedia('(max-width: 760px)').matches;
+      (phone ? cards[at] : cards[at].querySelector('.dr-copy') ?? cards[at]).append(nav);
+      cards.forEach((card, i) => { card.hidden = i !== at; });
+      load(cards[at]);
+      load(cards[at + 1]);
+      back.disabled = at === 0;
+      const last = at === cards.length - 1;
+      nav.hidden = false;
+      next.hidden = last;
+      if (!move) return;
+      history.replaceState(null, '', at === 0 ? location.pathname : `#${cards[at].dataset.card}`);
+      // The card at the top of the window, under the nav: the whole screen in view.
+      const top = root!.getBoundingClientRect().top - 64;
+      if (Math.abs(top) > 8) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
+    }
+    root.classList.add('is-tour');
+    next.addEventListener('click', () => show(at + 1));
+    back.addEventListener('click', () => show(at - 1));
+    root.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      const card = cards[at];
+      if (target.closest('[data-ring]')) return show(at + 1);
+      if (!card.dataset.tapsRing || !target.closest('.dr-screen')) return;
+      // Beside the ring: it points at it, and stays.
+      const hint = card.querySelector<HTMLElement>('[data-hint]');
+      if (hint) hint.textContent = root!.dataset.hintElsewhere ?? '';
+      card.classList.remove('is-pointing');
+      void card.offsetWidth;
+      card.classList.add('is-pointing');
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') show(at + 1);
+      if (event.key === 'ArrowLeft') show(at - 1);
+    });
+    const hash = location.hash.slice(1);
+    const start = cards.findIndex((card) => card.dataset.card === hash);
+    show(start < 0 ? 0 : start, false);
+  }
+</script>
+
+<style>
+  .dr-hero { padding: 40px 0 8px; }
+  .dr-hero h1 { font-size: clamp(30px, 4.4vw, 46px); margin: 10px 0 12px; }
+  .dr-sub { color: var(--muted); font-size: 18px; line-height: 1.6; max-width: 56ch; margin: 0; }
+  .dr { padding: 12px 0 56px; scroll-margin-top: 72px; }
+  .dr-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px; }
+  .is-tour .dr-cards { gap: 0; }
+  .dr-cards > [hidden] { display: none; }
+  .dr-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 48px; align-items: center; }
+  .dr-copy { min-width: 0; }
+  .dr-part { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; font-family: var(--mono); font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+  .dr-part span:last-child { color: var(--dim); letter-spacing: 0; text-transform: none; }
+  .dr-copy h2 { font-size: clamp(24px, 3vw, 32px); line-height: 1.18; margin-bottom: 12px; }
+  .dr-body { color: var(--muted); font-size: 17px; line-height: 1.65; margin: 0 0 14px; max-width: 50ch; }
+  .dr-hint { display: none; color: var(--cyan); font-weight: 700; margin: 0; }
+  .is-tour .dr-hint { display: block; }
+  .dr-screen { position: relative; width: fit-content; justify-self: end; line-height: 0; border-radius: 16px; overflow: hidden; background: #0A0A0D; box-shadow: 0 22px 54px var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, .07); }
+  /* The whole screen in view, the iPad's as tall as the window allows, at most its own 600 px. */
+  .dr-screen img { display: block; height: min(600px, calc(100vh - 150px)); width: auto; max-width: 100%; }
+  .dr-ring { position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 14px; }
+  .dr-ring--iphone { display: none; }
+  .dr-ring:focus-visible { outline: 3px solid var(--cyan-fill); outline-offset: 3px; }
+  .is-pointing .dr-ring { animation: dr-point .7s ease-out 2; }
+  @keyframes dr-point { 0% { box-shadow: 0 0 0 0 rgba(61, 199, 237, .9); } 100% { box-shadow: 0 0 0 18px rgba(61, 199, 237, 0); } }
+  .dr-end { text-align: center; padding: 48px 0; display: grid; gap: 16px; justify-items: center; }
+  .dr-end h2 { font-size: clamp(28px, 4vw, 40px); }
+  .dr-end p { color: var(--muted); max-width: 52ch; margin: 0; font-size: 17px; line-height: 1.65; }
+  .dr-story { color: var(--cyan); font-weight: 700; }
+  .dr-nav { display: flex; gap: 12px; margin-top: 22px; }
+  .dr-nav button[hidden] { display: none; }
+  .dr-nav button:disabled { opacity: .4; }
+  .dr-note { color: var(--dim); font-size: 14px; margin: 24px 0 0; }
+  @media (prefers-reduced-motion: reduce) { .is-pointing .dr-ring { animation: none; outline: 3px solid var(--cyan-fill); } }
+  @media (max-width: 760px) {
+    .dr-hero { padding-top: 32px; }
+    .dr-sub { font-size: 16px; }
+    .dr-card { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .dr-body { font-size: 15px; line-height: 1.45; margin-bottom: 6px; }
+    .dr-copy h2 { font-size: 21px; margin-bottom: 6px; }
+    .dr-hint { font-size: 14.5px; }
+    /* The whole screen in view, with the card above it: the visitor never scrolls to find the ring. */
+    .dr-screen { justify-self: center; max-width: 100%; border-radius: 12px; }
+    .dr-screen img { height: min(50dvh, 470px); width: auto; max-width: 100%; }
+    .dr-ring--ipad { display: none; }
+    .dr-ring--iphone { display: block; }
+  }
+</style>

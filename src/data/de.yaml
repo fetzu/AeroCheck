@@ -38,7 +38,7 @@ dryrun:
   band: "TROCKENÜBUNG · 4×"
   title: "Ihr erster Flug mit AéroCheck, am Boden."
   text: "Ist die App einmal auf Ihrem iPad oder iPhone, führt Sie die Trockenübung vom Schreibtisch aus durch einen ganzen Flug: eine geführte Geschichte in vier Teilen, von der Planung bis zum Flugbuch, im echten Cockpit. Danach freies Üben: Platzrunden auf jedem Flugplatz mit Piste oder eine Ihrer Routen. Im Flugbuch landet davon nichts, und Sie müssen nicht einmal vom Stuhl aufstehen."
-  link: { label: "So funktioniert die Trockenübung", href: "/manual#trockenübung" }
+  link: { label: "Im Browser ausprobieren", href: "/dry-run" }
   shot: "dryrun"
   alt: "Eine geführte Trockenübung im ersten Endanflug, auf einem iPhone"
 
@@ -153,7 +153,7 @@ story:
     band: "TROCKENÜBUNG · 4×"
     title: "Vor dem ersten Flug mit der App: ein Flug am Boden."
     text: "Sobald die App installiert ist: ein geführter Flug in vier Teilen, von der Planung bis zum Flugbuch, im echten Cockpit, an Ihrem Schreibtisch. Danach freies Üben: Platzrunden auf jedem Flugplatz, ein Durchstarten im zweiten Endanflug. Im Flugbuch landet davon nichts."
-    link: { label: "So funktioniert die Trockenübung", href: "/manual#trockenübung" }
+    link: { label: "Im Browser ausprobieren", href: "/dry-run" }
     shot: "dryrun"
     alt: "Eine geführte Trockenübung im ersten Endanflug, auf einem iPad"
   moments:
@@ -224,6 +224,27 @@ story:
 
 device_labels: { ipad: "iPad", iphone: "iPhone", dots: "Bildschirm wählen" }
 
+
+# Die Trockenübung im Browser (/de/dry-run, 7. Nov. 2026). Die Worte der Karten sind die der App (src/data/dry-run/).
+dry_run:
+  meta:
+    title: "Trockenübung"
+    description: "Ein ganzer Flug in AéroCheck, von der Planung bis zum Flugbuch, in rund fünf Minuten. Im Browser, ohne etwas zu installieren."
+  eyebrow: "Trockenübung · im Browser"
+  title: "Ein ganzer Flug, in fünf Minuten."
+  subtitle: "Von der Planung bis zum Flugbuch, auf den echten Bildschirmen der App. Tippen Sie auf das, was der Ring zeigt, und Sie müssen nicht einmal etwas installieren."
+  note: "Das sind echte Bildschirme der App, einer nach dem anderen: Die Zahlen ändern sich also nur von Schritt zu Schritt. In der App fliegt das Flugzeug."
+  back: "Zurück"
+  next: "Weiter"
+  step: "[n] von [total]"
+  hint_tap: "Tippen Sie auf den Ring auf dem Bildschirm."
+  hint_look: "Schauen Sie es sich an, dann tippen Sie auf Weiter."
+  hint_elsewhere: "Nicht dort: Tippen Sie in den Ring."
+  ring_label: "Hier tippen"
+  end:
+    title: "Gelandet und eingetragen."
+    text: "In der App fliegt die Trockenübung diesen Flug wirklich, mit jeder Kontrolle und in Ihrem Tempo. Danach üben Sie Platzrunden auf jedem Flugplatz mit Piste oder fliegen eine Ihrer Routen."
+    story: { label: "Einen echten Flug mitverfolgen, von Bressaucourt nach Samedan", href: "/flight" }
 
 footer:
   safety: "AéroCheck ist ein Hilfsmittel, keine zertifizierte Avionik und kein primäres Navigationsmittel."

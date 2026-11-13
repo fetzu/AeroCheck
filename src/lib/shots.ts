@@ -89,11 +89,17 @@ function shotsIn(lang: Lang): Record<string, Shot> {
 export const SHOTS: Record<string, Shot> = shotsIn(DEFAULT_LANG);
 
 // The story page (/flight): one real flight, Bressaucourt to Samedan in F-HVXA, replayed from its own GPS track on
-// the simulator and captured as it went (6.4.0 site). iPad only, in the order the page tells it.
+// the simulator and captured as it went (6.4.0 site; recaptured from 6.9.0 by one command, SCREENSHOTS.md). iPad only,
+// English only, in the order the page tells it.
 export const STORY: Record<string, string> = Object.fromEntries(
   ['route', 'prepare', 'lineup', 'automark', 'alps', 'approach', 'closeout', 'log']
     .map((key) => [key, versioned(`/assets/screenshot/v6/story/${key}.jpg`)]),
 );
+
+// A frame of the dry run in the browser, by its path under v6/dry-run/ (src/lib/dryrun.ts).
+export function dryRunImage(path: string): string {
+  return versioned(`/assets/screenshot/v6/dry-run/${path}`);
+}
 
 // The guard rail: put a key in PLACEHOLDERS if its image is ever a stand-in, and `shot()` warns on
 // every build until it is recaptured.

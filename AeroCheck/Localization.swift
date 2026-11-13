@@ -370,6 +370,8 @@ enum L10n {
         static let sourcePatterns = String(localized: "settings.source.patterns")
         /// The NOTAMs' credit (6.10.0): each country issues them, the FAA's NMS hands them on. Its terms forbid calling them FAA data.
         static let sourceNotams = String(localized: "settings.source.notams")
+        /// The UK's and the Isle of Man's NOTAMs, from NATS's own bulletin. (6.11.0)
+        static let sourceNotamsUK = String(localized: "settings.source.notamsUK")
         static let sourceTypeface = String(localized: "dataStorage.source.typeface")
         static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")

@@ -217,6 +217,11 @@ struct AboutSettingsView: View {
             // wording is asked by e-mail; this follows its answer once it comes.
             dataSourceRow(name: "FAA NOTAM Management Service", detail: L10n.DataStorage.sourceNotams,
                           url: "https://www.faa.gov/about/initiatives/notam")
+            // The United Kingdom's and the Isle of Man's NOTAMs (6.11.0) are not the row above's: they are read from
+            // NATS's own bulletin, which NATS agreed to on 11 Nov 2026. Its AIS terms ask for no credit; given anyway, as
+            // for the others, so the row above doesn't claim a country it doesn't serve.
+            dataSourceRow(name: "NATS Aeronautical Information Service", detail: L10n.DataStorage.sourceNotamsUK,
+                          url: "https://www.nats.aero/do-it-online/pre-flight-information-bulletins/")
             dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
             // Natural Earth is public domain and explicitly waives attribution, so this is courtesy
             // rather than obligation — but the bundled borders decide which countries a trip prefetch

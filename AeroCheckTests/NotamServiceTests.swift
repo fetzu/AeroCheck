@@ -57,6 +57,33 @@ final class NotamServiceTests: XCTestCase {
         XCTAssertEqual(s.notams(at: "LSZQ").map(\.id), ["1"])
     }
 
+    /// The United Kingdom's file comes from another job on the server (6.11.0): its index entry carries a `source`
+    /// this build doesn't read, and the Isle of Man reads the same file. A flight over both fetches it once, and
+    /// a UK NOTAM's id and a SNOWTAM's number, which look like no other country's, are taken as they come.
+    func testTheUnitedKingdomAndTheIsleOfManReadOneFile() async {
+        publish()
+        var index = server["index.json"] as! [String: Any]
+        var countries = index["countries"] as! [String: Any]
+        let entry: [String: Any] = ["file": "gb.json", "count": 2, "updatedUtc": "2026-11-13T07:00:37Z", "note": NSNull(),
+                                    "bytes": 1200, "source": "nats"]
+        countries["GB"] = entry
+        countries["IM"] = entry
+        index["countries"] = countries
+        server["index.json"] = index
+        server["gb.json"] = ["v": 1, "country": "GB", "updatedUtc": "2026-11-13T07:00:37Z", "notams": [
+            ["id": "EGGN-L0012-26", "number": "L0012/26", "location": "EGNS", "text": "INVENTED CRANE"],
+            ["id": "SNOWTAM-1", "number": "SWEG11130500", "location": "EGZX", "text": "SNOWTAM\nEGZX\n11130500 08 6/6/6"]
+        ]] as [String: Any]
+
+        let s = service()
+        await s.refreshIfNeeded(countries: ["GB", "IM"], onGround: true)
+        XCTAssertEqual(requests, ["index.json", "gb.json"], "one file for both")
+        XCTAssertTrue(s.hasList("GB"))
+        XCTAssertTrue(s.hasList("IM"))
+        XCTAssertEqual(s.notams(in: ["GB", "IM"]).map(\.id).sorted(), ["EGGN-L0012-26", "SNOWTAM-1"], "and each NOTAM once")
+        XCTAssertEqual(s.notams(at: "EGNS").map(\.number), ["L0012/26"])
+    }
+
     func testNothingFetchesInFlightThoughTheCopyStays() async {
         let folder = makeTestDirectory()
         publish(ch: [notam("1")])

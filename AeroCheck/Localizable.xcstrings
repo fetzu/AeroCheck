@@ -25918,6 +25918,29 @@
         }
       }
     },
+    "settings.source.notamsUK": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM des Vereinigten Königreichs und der Isle of Man · aus dem Bulletin von NATS"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAMs of the United Kingdom and the Isle of Man · from NATS's own bulletin"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NOTAM du Royaume-Uni et de l'île de Man · issus du bulletin de NATS"
+          }
+        }
+      }
+    },
     "settings.source.patterns": {
       "extractionState": "manual",
       "localizations": {

@@ -329,7 +329,26 @@ struct Flight: Identifiable, Codable {
     /// dropped the two unknown keys on decode, and the first `touch()` there made its stripped copy
     /// win `merge` — erasing the cost entry and logbook overrides on every device, permanently and
     /// with no visible cue. That rejection is exactly what this constant is for. (review F7)
-    static let currentSchemaVersion = 2
+    ///
+    /// 3 in 6.11.0, for what a fee line gained (how it was settled, its own currency, its landings).
+    /// Unlike 2, it is stamped only on the flights that carry such data (`stampForContent`): the
+    /// author's choice of 12 Nov 2026 is that a device still on 6.10 doesn't show those flights until
+    /// it is updated, and keeps showing every other one.
+    static let currentSchemaVersion = 3
+
+    /// What a flight is stamped with when it carries nothing newer: every build since 5.0.0 reads it.
+    static let baseSchemaVersion = 2
+
+    /// The lowest record version that keeps everything this flight carries.
+    var requiredSchemaVersion: Int {
+        (costEntry?.carriesFeeAnswers ?? false) ? 3 : Flight.baseSchemaVersion
+    }
+
+    /// Raises the stamp to what the content needs. Never lowers it: a flight that was once hidden
+    /// from an older build stays hidden, so that build can't hold a stale copy to strip later.
+    mutating func stampForContent() {
+        schemaVersion = max(schemaVersion, requiredSchemaVersion)
+    }
 
     // MARK: - Coding Keys
 
@@ -467,7 +486,7 @@ struct Flight: Identifiable, Codable {
         touchAndGoTimes: [Date] = [],
         fullStopTimes: [Date] = [],
         modifiedAt: Date = Date(),
-        schemaVersion: Int = Flight.currentSchemaVersion,
+        schemaVersion: Int = Flight.baseSchemaVersion,
         cachedDistanceKm: Double? = nil,
         cachedMaxAltitudeMeters: Double? = nil,
         cachedDurationSeconds: Double? = nil,
@@ -526,6 +545,15 @@ struct Flight: Identifiable, Codable {
     /// longer track or a higher landing count recorded on the other. (ARCH-02)
     static func merge(_ a: Flight, _ b: Flight) -> Flight {
         var result = a.modifiedAt >= b.modifiedAt ? a : b
+        // A copy stamped lower was written by a build that can't read what the higher stamp is for,
+        // so it can't have removed it on purpose: what a version added comes from the side stamped
+        // higher, whatever the dates. Without this, renaming a flight on a device still on 6.10
+        // (which holds its older copy) would erase the fee answers everywhere. (6.11.0)
+        if a.schemaVersion != b.schemaVersion {
+            let higher = a.schemaVersion > b.schemaVersion ? a : b
+            if higher.schemaVersion >= 3 { result.costEntry = higher.costEntry }
+            result.schemaVersion = higher.schemaVersion
+        }
         result.gpsTrack = a.gpsTrack.count >= b.gpsTrack.count ? a.gpsTrack : b.gpsTrack
         result.goAroundCount = max(a.goAroundCount, b.goAroundCount)
         result.touchAndGoCount = max(a.touchAndGoCount, b.touchAndGoCount)

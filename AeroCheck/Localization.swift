@@ -728,6 +728,18 @@ enum L10n {
         static let pointSoFar = String(localized: "mb.point.soFar")
         static let stateNotDone = String(localized: "mb.state.notDone")
         static func recordNote(_ a0: String) -> String { String(localized: "mb.record.note \(a0)") }
+        static let settingsFigures = String(localized: "mb.settings.figures")
+        static let settingsSource = String(localized: "mb.settings.source")
+        static func settingsRevision(_ a0: Int, _ a1: String) -> String { String(localized: "mb.settings.revision \(a0) \(a1)") }
+        static let settingsConfirmation = String(localized: "mb.settings.confirmation")
+        static func settingsConfirmedOn(_ a0: String) -> String { String(localized: "mb.settings.confirmedOn \(a0)") }
+        static let settingsNotConfirmed = String(localized: "mb.settings.notConfirmed")
+        static let settingsYourLine = String(localized: "mb.settings.yourLine")
+        static let settingsOpen = String(localized: "mb.settings.open")
+        static let settingsOpenNote = String(localized: "mb.settings.openNote")
+        static let settingsOwnFigures = String(localized: "mb.settings.ownFigures")
+        static let settingsSwitchedOff = String(localized: "mb.settings.switchedOff")
+        static let settingsFooter = String(localized: "mb.settings.footer")
         static func recordFigures(_ a0: String, _ a1: Int) -> String { String(localized: "mb.record.figures \(a0) \(a1)") }
         static let stateLastTime = String(localized: "mb.state.lastTime")
         static let stateIncomplete = String(localized: "mb.state.incomplete")

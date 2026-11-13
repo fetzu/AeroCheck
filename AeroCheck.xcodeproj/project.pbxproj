@@ -465,6 +465,7 @@
 		A1000001211111110000906 /* BriefingWind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000906 /* BriefingWind.swift */; };
 		A1000001211111110000910 /* SigmetRelevance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000910 /* SigmetRelevance.swift */; };
 		I1000001211111110000001 /* AircraftSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000001 /* AircraftSettingsView.swift */; };
+		3227928E3378E133F7CD7357 /* MassBalanceAircraftPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 613325D9310D5C389F2A321D /* MassBalanceAircraftPage.swift */; };
 		I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000002 /* ChecklistFlightSettingsView.swift */; };
 		I1000001211111110000003 /* OfflineCountryPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000003 /* OfflineCountryPages.swift */; };
 		I1000001211111110000010 /* OfflineDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000010 /* OfflineDataSettingsView.swift */; };
@@ -1004,6 +1005,7 @@
 		A1000001111111110000906 /* BriefingWind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingWind.swift; sourceTree = "<group>"; };
 		A1000001111111110000910 /* SigmetRelevance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetRelevance.swift; sourceTree = "<group>"; };
 		I1000001111111110000001 /* AircraftSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftSettingsView.swift; sourceTree = "<group>"; };
+		613325D9310D5C389F2A321D /* MassBalanceAircraftPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MassBalanceAircraftPage.swift; sourceTree = "<group>"; };
 		I1000001111111110000002 /* ChecklistFlightSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistFlightSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000003 /* OfflineCountryPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineCountryPages.swift; sourceTree = "<group>"; };
 		I1000001111111110000010 /* OfflineDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineDataSettingsView.swift; sourceTree = "<group>"; };
@@ -1436,6 +1438,7 @@
 			children = (
 				I1000001111111110000006 /* AboutSettingsView.swift */,
 				I1000001111111110000001 /* AircraftSettingsView.swift */,
+				613325D9310D5C389F2A321D /* MassBalanceAircraftPage.swift */,
 				I1000001111111110000002 /* ChecklistFlightSettingsView.swift */,
 				I1000001111111110000004 /* FlightPlanningSettingsView.swift */,
 				I1000001111111110000003 /* OfflineCountryPages.swift */,
@@ -2345,6 +2348,7 @@
 				F1000001211111110000004 /* FlightNumbersView.swift in Sources */,
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,
 				I1000001211111110000001 /* AircraftSettingsView.swift in Sources */,
+				3227928E3378E133F7CD7357 /* MassBalanceAircraftPage.swift in Sources */,
 				I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */,
 				I1000001211111110000003 /* OfflineCountryPages.swift in Sources */,
 				I1000001211111110000010 /* OfflineDataSettingsView.swift in Sources */,

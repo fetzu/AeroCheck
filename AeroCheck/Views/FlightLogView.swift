@@ -44,6 +44,8 @@ struct FlightLogView: View {
         let spokenTitle: String
     }
     @State private var showExportAllSheet = false
+    /// The period's costs as a CSV, while its share sheet is up. (6.11.0)
+    @State private var costsCSV: Data?
     @State private var exportAllType: ExportAllType = .gpx
     /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
     /// `exportAllZipData` is ready. `isPreparingExportAll` drives a progress indicator meanwhile.
@@ -241,6 +243,14 @@ struct FlightLogView: View {
         .preferredColorScheme(mode == .combined ? .dark : nil)
         .fullScreenCover(isPresented: $showFlightPlanning) {
             FlightPlanningView()
+        }
+        .sheet(isPresented: Binding(get: { costsCSV != nil }, set: { if !$0 { costsCSV = nil } })) {
+            if let costsCSV {
+                ShareSheet(activityItems: [
+                    ShareFile(data: costsCSV, filename: "AeroCheck_\(formattedExportDate)_Costs.csv",
+                              dataTypeIdentifier: "public.comma-separated-values-text")
+                ])
+            }
         }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
@@ -985,17 +995,44 @@ struct FlightLogView: View {
                     .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
                     .tracking(0.5)
                     .foregroundColor(.dimText)
-                Text(FlightCostCalculator.formatAmount(summary.total, currency: summary.currency))
+                // One currency as before; with several, each by itself and side by side. (6.11.0)
+                Text(summary.totalsByCurrency.count > 1
+                     ? FlightCostCalculator.formatTotals(summary.totalsByCurrency, first: summary.currency)
+                     : FlightCostCalculator.formatAmount(summary.total, currency: summary.currency))
                     .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(.aviationGold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Spacer(minLength: 6)
-                if summary.flightsMissingCost > 0 {
-                    Text(L10n.Cost.missingCost(summary.flightsMissingCost))
-                        .scaledFont(size: 11, relativeTo: .caption2)
-                        .foregroundColor(.aviationAmber.opacity(0.9))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                VStack(alignment: .trailing, spacing: 2) {
+                    if !summary.invoicesToCome.isEmpty {
+                        // An invoice the pilot still waits for: open here until it is marked paid. (f3)
+                        Label(L10n.Cost.invoicesToCome(summary.invoicesToCome.count), systemImage: "hourglass")
+                            .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                            .foregroundColor(.aviationAmber)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    if summary.flightsMissingCost > 0 {
+                        Text(L10n.Cost.missingCost(summary.flightsMissingCost))
+                            .scaledFont(size: 11, relativeTo: .caption2)
+                            .foregroundColor(.aviationAmber.opacity(0.9))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
+                Button {
+                    costsCSV = Data(costsCSVText().utf8)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.altimeterBlue)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Cost.exportCosts)
+                .accessibilityIdentifier("log.exportCosts")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -1006,6 +1043,17 @@ struct FlightLogView: View {
                         .strokeBorder(Color.aviationGold.opacity(0.22), lineWidth: 1))
             )
         }
+    }
+
+    /// The costs of the flights shown (the year and aircraft chosen), one row per flight and per fee. (6.11.0, f7)
+    private func costsCSVText() -> String {
+        let words = CostsCSV.Words(
+            header: [L10n.Cost.csvDate, L10n.Cost.csvFlight, L10n.Cost.csvAircraft, L10n.Cost.csvItem,
+                     L10n.Cost.csvAerodrome, L10n.Cost.csvLandings, L10n.Cost.csvSettled, L10n.Cost.csvAmount,
+                     L10n.Cost.csvCurrency],
+            aircraft: L10n.Cost.csvAircraft,
+            status: { $0.map(L10n.Cost.feeStatus) ?? "" })
+        return CostsCSV.csv(flights: filteredFlights, rates: appState.settings.aircraftRates, words: words)
     }
 
     private var metricColumns: [GridItem] {
@@ -2241,6 +2289,7 @@ struct FlightDetailView: View {
         .sheet(isPresented: $showNumbers) {
             FlightNumbersView(flightId: flight.id, onClose: { showNumbers = false })
                 .environment(appState)
+                .environmentObject(airportDataService)
         }
         .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
             Button(L10n.FlightDetail.exportFormatGPX) {

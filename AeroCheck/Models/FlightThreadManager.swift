@@ -198,6 +198,10 @@ class FlightThreadManager: ObservableObject {
             ?? Self.pprIdents(on: plan, fallingBackTo: existing)
         context.destinationFuels = Self.destinationFuels(on: plan)
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
+        // Once flown, the landing fees are those of the aerodromes actually landed at. (6.11.0)
+        if let landed = threads[index].landedIdents {
+            context.feeIdents = landed.filter(Self.looksLikeICAO)
+        }
         // Filed, and still not gone: red again until the plan is delayed and ticked anew.
         if context.flightPlanFiled, threads[index].flightId == nil,
            let late = Self.flightPlanLateAt(plan: plan, rules: context.registry?.flightPlan,
@@ -481,6 +485,18 @@ class FlightThreadManager: ObservableObject {
     /// The flight ended somewhere other than planned. Call BEFORE `beginCloseOut`, so the open-flight-
     /// plan banner and the close reminder already name where the aircraft actually is — the aerodrome
     /// the pilot has to tell the FIC about. (v5.1)
+    /// Where the flight landed, from its track: the thread's landing fee tasks become one per aerodrome. A task
+    /// already answered for the same aerodrome keeps its state. (6.11.0)
+    func recordLandedAerodromes(threadId: UUID, idents: [String], plan: FlightPlan?) {
+        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        let landed = idents.map { $0.uppercased() }
+        guard threads[index].landedIdents != landed else { return }
+        threads[index].landedIdents = landed
+        threads[index].touch()
+        saveThreads()
+        regenerateTasks(threadId: threadId, plan: plan)
+    }
+
     func recordLanding(threadId: UUID, plannedIdent: String, landedIdent: String, landedName: String) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }),
               plannedIdent.uppercased() != landedIdent.uppercased() else { return }

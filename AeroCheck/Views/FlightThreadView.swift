@@ -487,6 +487,7 @@ struct FlightThreadView: View {
         )) {
             if let id = numbersFlightId {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
+                    .environmentObject(airportDataService)
                     .environment(\.dryRunSession, dryRunSession)
                     .dryRunCoachScreen(.numbers)
             }
@@ -1514,6 +1515,16 @@ struct FlightThreadView: View {
         default:
             if let task = block.task {
                 VStack(alignment: .leading, spacing: 6) {
+                    // Once the flight exists, the landing fee is answered here: how it was settled, and the amount
+                    // if the pilot knows it. The answer ticks the task; the tick stays the pilot's too. (6.11.0)
+                    if task.key == .feesPaid, let flightId = thread.flightId, let icao = task.subject, !icao.isEmpty {
+                        FeeAnswerView(flightId: flightId, icao: icao,
+                                      landings: landingsCounted(at: icao, flightId: flightId),
+                                      startCurrency: LandingFeeLines.currency(
+                                        forCountry: airportDataService.findAirport(byIdent: icao)?.isoCountry)) { status in
+                            threadManager.setTaskState(status == nil ? .pending : .done, taskId: task.id, threadId: thread.id)
+                        }
+                    }
                     ThreadTaskDetails(task: task, onOpen: { openURL($0) }, tariffURL: tariffURL(for: task),
                                       chartLink: chartLink(for: task),
                                       touchesSwitzerland: thread.countries?.contains("CH") ?? false,
@@ -2066,6 +2077,14 @@ struct FlightThreadView: View {
                                              frequencyTypes: airportDataService.getFrequencies(for: ident).map(\.type))
         else { return nil }
         return L10n.Thread.activateWithoutATS(ident)
+    }
+
+    /// The landings the flight's track puts at an aerodrome, for its fee line. (6.11.0)
+    private func landingsCounted(at icao: String, flightId: UUID) -> Int? {
+        guard let flight = appState.flights.first(where: { $0.id == flightId }) else { return nil }
+        return LandingFeeLines.visits(for: flight) { latitude, longitude in
+            airportDataService.aerodromeIdent(at: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+        }.first { $0.icao == icao.uppercased() }?.landings
     }
 
     /// The operator's tariff page for a fee task, when the registry has a verified one.

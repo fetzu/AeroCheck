@@ -627,6 +627,37 @@ enum L10n {
         static let openTariff = String(localized: "Operator's tariff")
         static let rateProfiles = String(localized: "Aircraft rates")
         static let rateProfilesHint = String(localized: "Your club's hourly rate per aircraft, and the time it bills on")
+
+        // Fees paid (6.11.0)
+        static func landingFee(_ ident: String) -> String { String(localized: "fee.landingFee \(ident)") }
+        static let feePaid = String(localized: "fee.status.paid")
+        static let feeInvoice = String(localized: "fee.status.invoice")
+        static let feeClub = String(localized: "fee.status.club")
+        static let feeNone = String(localized: "fee.status.none")
+        static func feeStatus(_ status: FeeStatus) -> String {
+            switch status {
+            case .paid: return feePaid
+            case .invoice: return feeInvoice
+            case .club: return feeClub
+            case .none: return feeNone
+            }
+        }
+        static let feeAmountOptional = String(localized: "fee.amount.optional")
+        static let feeAmountLater = String(localized: "fee.amount.later")
+        static func feeLandings(_ count: Int) -> String { String(localized: "fee.landings \(count)") }
+        static func feeAnswerLabel(_ ident: String) -> String { String(localized: "fee.answer.label \(ident)") }
+        static func invoicesToCome(_ count: Int) -> String { String(localized: "fee.invoicesToCome \(count)") }
+        static let landingFees = String(localized: "fee.section.landingFees")
+        static let exportCosts = String(localized: "fee.export.costs")
+        static let csvDate = String(localized: "fee.csv.date")
+        static let csvFlight = String(localized: "fee.csv.flight")
+        static let csvAircraft = String(localized: "fee.csv.aircraft")
+        static let csvItem = String(localized: "fee.csv.item")
+        static let csvAerodrome = String(localized: "fee.csv.aerodrome")
+        static let csvLandings = String(localized: "fee.csv.landings")
+        static let csvSettled = String(localized: "fee.csv.settled")
+        static let csvAmount = String(localized: "fee.csv.amount")
+        static let csvCurrency = String(localized: "fee.csv.currency")
     }
 
     // MARK: - Mass & balance (v5.0.0)

@@ -339,6 +339,13 @@ struct FlightEnder {
                                             landedName: landedDiversion.name)
             }
             threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
+            // One landing fee task per aerodrome landed at, from the flight's own track. (6.11.0)
+            if let endedFlightId, let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
+                let visits = LandingFeeLines.visits(for: flown) { latitude, longitude in
+                    airportDataService.aerodromeIdent(at: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+                }
+                threadManager.recordLandedAerodromes(threadId: closingThreadId, idents: visits.map(\.icao), plan: flownPlan)
+            }
         } else if wasCircuits, let endedFlightId,
                   let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
             // Circuits resolve to no thread by design — they cannot be planned. Offer the

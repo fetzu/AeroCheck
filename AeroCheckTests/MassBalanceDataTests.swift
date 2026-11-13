@@ -1,0 +1,269 @@
+import XCTest
+@testable import AeroCheck
+
+/// Where the mass and balance data comes from and what the app keeps beside it (6.11.0): the revision
+/// in the aircraft list, each registration's file fetched and cached, and the pilot's side (the
+/// confirmation, a newer empty mass, their own figures, the last load). Every figure is invented.
+@MainActor
+final class MassBalanceDataTests: XCTestCase {
+
+    typealias Gating = AircraftDataServiceSeamTests.FakeGating
+    typealias Routed = AircraftDataServiceSeamTests.RoutedHTTPClient
+
+    // MARK: - Fixtures
+
+    private func file(_ aircraftId: String, _ registration: String, revision: Int = 2, emptyDate: String = "2025-03-10") -> String {
+        #"""
+        {"schema":1,"aircraftId":"\#(aircraftId)","registration":"\#(registration)","revision":\#(revision),"updated":"2026-01-15",
+         "identity":{"designation":"Test Two","serialNumber":"TT-001"},
+         "units":{"mass":"kg","arm":"m","fuel":"l"},
+         "limits":{"maxTakeoff":600},
+         "categories":[{"id":"normal","maxTakeoff":600,"envelope":[[2.70,400],[2.70,540],[2.75,600],[2.85,600],[2.85,460],[2.72,400]]}],
+         "stations":[{"id":"row1","kind":"seats","arm":3.10,"layout":"side-by-side",
+                      "seats":[{"id":"pilot","role":"pilot"},{"id":"passenger","role":"passenger"}]},
+                     {"id":"baggage","kind":"baggage","arm":3.80,"max":40},
+                     {"id":"fuel","kind":"fuel","arm":2.50,"usable":90,"density":0.72}],
+         "handbookChecks":["takeoff"],
+         "empty":{"mass":330,"moment":867.9,"date":"\#(emptyDate)","entry":"weighed"},
+         "sources":[{"what":"everything","document":"an invented handbook"}]}
+        """#
+    }
+
+    private func data(_ json: String) -> AircraftMassBalance {
+        try! JSONDecoder().decode(AircraftMassBalance.self, from: Data(json.utf8))
+    }
+
+    /// The list: the free two-seater with a file at `free`, and a premium aircraft with two registrations,
+    /// the second with a file at `premium`.
+    private func list(free: Int?, premium: Int?, hasAccess: Bool = true) -> String {
+        let freeRevision = free.map { #","massBalanceRevision":\#($0)"# } ?? ""
+        let premiumRevision = premium.map { #","massBalanceRevision":\#($0)"# } ?? ""
+        return #"""
+        {"success":true,"data":{"aircraft":[
+         {"id":"wt9-dynamic","aircraftType":"WT9","registration":"F-HVXA","modelName":"Two","shortModelName":"Two",
+          "version":"1.0","lastUpdated":"x","isFree":true,"stallSpeed":40,"pageCount":4,"hasAccess":true\#(freeRevision)},
+         {"id":"dr400-140b","aircraftType":"DR400","registration":"HB-KFD","modelName":"Four","shortModelName":"Four",
+          "version":"1.0","lastUpdated":"x","isFree":false,"stallSpeed":50,"pageCount":4,"hasAccess":\#(hasAccess),
+          "registrations":[
+            {"registration":"HB-KFD","modelName":"Four","shortModelName":"Four","version":"1.0","lastUpdated":"x"},
+            {"registration":"HB-KFI","modelName":"Four","shortModelName":"Four","version":"1.0","lastUpdated":"x"\#(premiumRevision)}]}]}}
+        """#
+    }
+
+    /// A service whose server answers the list and each registration's file from `files` (path?reg → body).
+    private func service(list: @escaping () -> String, files: @escaping (String) -> (Int, String),
+                         gating: Gating? = nil) -> (AircraftDataService, Routed) {
+        let http = Routed { request in
+            let url = request.url!
+            if url.path.hasSuffix("/aircraft/available") { return (200, list()) }
+            if url.path.hasSuffix("/mass-balance") {
+                let reg = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "reg" }?.value ?? ""
+                let (status, body) = files(reg)
+                return (status, status == 200 ? #"{"success":true,"data":\#(body)}"# : body)
+            }
+            return (404, "{}")
+        }
+        return (makeTestAircraftDataService(subscriptionManager: gating ?? Gating(), httpClient: http), http)
+    }
+
+    private func massBalanceRequests(_ http: Routed) -> [String] {
+        http.capturedRequests.compactMap { $0.url }.filter { $0.path.hasSuffix("/mass-balance") }.map { $0.path + "?" + ($0.query ?? "") }
+    }
+
+    // MARK: - The list
+
+    func testTheRevisionComesWithEachRegistrationOfTheList() async {
+        let (service, _) = service(list: { self.list(free: 2, premium: 5) }, files: { _ in (404, "{}") })
+        await service.fetchAvailableAircraft()
+        XCTAssertEqual(service.aircraft(forRegistration: "f-hvxa")?.massBalanceRevision, 2)
+        XCTAssertNil(service.aircraft(forRegistration: "HB-KFD")?.massBalanceRevision, "the first registration has no file")
+        XCTAssertEqual(service.aircraft(forRegistration: "HB-KFI")?.massBalanceRevision, 5)
+        XCTAssertEqual(service.aircraft(forRegistration: "HB-KFI")?.id, "dr400-140b~HB-KFI")
+    }
+
+    // MARK: - The files
+
+    func testAFileIsFetchedOnceForItsRegistrationAndReadFromTheCacheAfterwards() async {
+        let (service, http) = service(list: { self.list(free: 2, premium: 5) },
+                                      files: { reg in reg == "F-HVXA" ? (200, self.file("wt9-dynamic", "F-HVXA")) : (200, self.file("dr400-140b", "HB-KFI", revision: 5)) })
+        await service.fetchAvailableAircraft()
+
+        XCTAssertEqual(Set(massBalanceRequests(http)),
+                       ["/api/v3/aircraft/wt9-dynamic/mass-balance?reg=F-HVXA", "/api/v3/aircraft/dr400-140b/mass-balance?reg=HB-KFI"],
+                       "the registration is always named, and only registrations with a revision are asked for")
+        XCTAssertEqual(service.massBalance(forRegistration: "F-HVXA")?.revision, 2)
+        XCTAssertEqual(service.massBalance(forRegistration: "HB-KFI")?.registration, "HB-KFI")
+        XCTAssertNil(service.massBalance(forRegistration: "HB-KFD"), "never a sibling's data")
+
+        let before = massBalanceRequests(http).count
+        await service.fetchAvailableAircraft()
+        XCTAssertEqual(massBalanceRequests(http).count, before, "the same revisions: nothing is fetched again")
+    }
+
+    func testANewRevisionInTheListFetchesTheFileAgain() async {
+        var revision = 2
+        let (service, http) = service(list: { self.list(free: revision, premium: nil) },
+                                      files: { _ in (200, self.file("wt9-dynamic", "F-HVXA", revision: revision)) })
+        await service.fetchAvailableAircraft()
+        let changes = service.massBalanceChangeCount
+        revision = 3
+        await service.fetchAvailableAircraft()
+        XCTAssertEqual(massBalanceRequests(http).count, 2)
+        XCTAssertEqual(service.massBalance(forRegistration: "F-HVXA")?.revision, 3)
+        XCTAssertGreaterThan(service.massBalanceChangeCount, changes, "a sheet showing it reads it again")
+    }
+
+    func testAFileWithdrawnFromTheListIsDroppedHere() async {
+        var revision: Int? = 2
+        let (service, _) = service(list: { self.list(free: revision, premium: nil) },
+                                   files: { _ in (200, self.file("wt9-dynamic", "F-HVXA")) })
+        await service.fetchAvailableAircraft()
+        XCTAssertNotNil(service.massBalance(forRegistration: "F-HVXA"))
+        revision = nil
+        await service.fetchAvailableAircraft()
+        XCTAssertNil(service.massBalance(forRegistration: "F-HVXA"))
+    }
+
+    func testAFileForAnotherRegistrationOrAircraftIsRefused() async {
+        for wrong in [file("wt9-dynamic", "F-OTHER"), file("another-type", "F-HVXA")] {
+            let (service, _) = service(list: { self.list(free: 2, premium: nil) }, files: { _ in (200, wrong) })
+            await service.fetchAvailableAircraft()
+            XCTAssertNil(service.massBalance(forRegistration: "F-HVXA"), "not this registration's: not kept, not used")
+        }
+    }
+
+    func testAFileThisBuildCannotComputeWithIsNotKept() async {
+        let stones = file("wt9-dynamic", "F-HVXA").replacingOccurrences(of: #""mass":"kg""#, with: #""mass":"stone""#)
+        let (service, _) = service(list: { self.list(free: 2, premium: nil) }, files: { _ in (200, stones) })
+        await service.fetchAvailableAircraft()
+        XCTAssertNil(service.massBalance(forRegistration: "F-HVXA"))
+    }
+
+    func testAPremiumFileIsNotAskedForNorReadWithoutAccess() async {
+        // The server lists the aircraft without access, and this device holds no entitlement either.
+        let (service, http) = service(list: { self.list(free: nil, premium: 5, hasAccess: false) },
+                                      files: { _ in (403, #"{"success":false,"code":"ACCESS_DENIED"}"#) },
+                                      gating: Gating(allowPremium: false))
+        await service.fetchAvailableAircraft()
+        XCTAssertTrue(massBalanceRequests(http).isEmpty)
+        XCTAssertNil(service.massBalance(forRegistration: "HB-KFI"))
+    }
+
+    func testClearingAnAircraftsCacheTakesItsMassAndBalanceFileToo() async {
+        let (service, _) = service(list: { self.list(free: nil, premium: 5) },
+                                   files: { _ in (200, self.file("dr400-140b", "HB-KFI", revision: 5)) })
+        await service.fetchAvailableAircraft()
+        XCTAssertNotNil(service.massBalance(forRegistration: "HB-KFI"))
+        service.clearPremiumCaches()
+        XCTAssertNil(service.massBalance(forRegistration: "HB-KFI"))
+    }
+
+    // MARK: - The pilot's side
+
+    private let now = Date(timeIntervalSince1970: 1_763_000_000)
+
+    func testServerDataIsNotConfirmedUntilThePilotSaysSoAndOnlyForThatRevision() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var setup = MassBalanceSetup()
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now)?.unconfirmed, .never)
+
+        setup.confirm(revision: 2, at: now)
+        let basis = setup.basis(shipped: shipped, now: now.addingTimeInterval(86_400))
+        XCTAssertEqual(basis?.isConfirmed, true)
+        XCTAssertEqual(basis?.source, .shipped)
+        XCTAssertEqual(basis?.empty?.date, "2025-03-10")
+
+        let newer = data(file("wt9-dynamic", "F-HVXA", revision: 3))
+        XCTAssertEqual(setup.basis(shipped: newer, now: now)?.unconfirmed, .dataChanged, "a new revision asks again")
+    }
+
+    func testAConfirmationLastsTwelveMonths() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA"))
+        var setup = MassBalanceSetup()
+        setup.confirm(revision: 2, at: now)
+        XCTAssertTrue(setup.basis(shipped: shipped, now: now.addingTimeInterval(364 * 86_400))!.isConfirmed)
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now.addingTimeInterval(366 * 86_400))?.unconfirmed, .yearPassed)
+    }
+
+    func testTheNewerLineOfTheRecordWinsWhoeverHoldsIt() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", emptyDate: "2025-03-10"))
+        var setup = MassBalanceSetup()
+        setup.ownEmpty = .init(mass: 331, moment: 870.5, date: "2026-02-01", entry: "calculated")
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now)?.empty?.mass, 331)
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now)?.emptyIsPilots, true)
+
+        // The club's next file carries a line newer than the pilot's: theirs is used again.
+        let later = data(file("wt9-dynamic", "F-HVXA", revision: 3, emptyDate: "2026-06-20"))
+        XCTAssertEqual(setup.basis(shipped: later, now: now)?.empty?.mass, 330)
+        XCTAssertEqual(setup.basis(shipped: later, now: now)?.emptyIsPilots, false)
+    }
+
+    func testDataThePilotDeclinedIsNotUsedAndALaterRevisionIsOfferedAgain() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var setup = MassBalanceSetup()
+        setup.decline(revision: 2)
+        XCTAssertNil(setup.basis(shipped: shipped, now: now), "nothing to compute with: the steps ask for the pilot's figures")
+
+        var own = shipped
+        own.limits.maxTakeoff = 580
+        setup.ownData = own
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now)?.source, .pilot)
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now)?.unconfirmed, .never)
+        setup.ownConfirmedAt = now
+        XCTAssertEqual(setup.basis(shipped: shipped, now: now)?.isConfirmed, true)
+
+        let next = data(file("wt9-dynamic", "F-HVXA", revision: 3))
+        XCTAssertEqual(setup.basis(shipped: next, now: now)?.source, .shipped)
+    }
+
+    func testWithNeitherDataNorOwnFiguresThereIsNothingToComputeWith() {
+        XCTAssertNil(MassBalanceSetup().basis(shipped: nil, now: now))
+    }
+
+    func testTheLastLoadStartsTheNextFlightsSheetButIsNotTodays() {
+        var setup = MassBalanceSetup()
+        XCTAssertNil(setup.startingLoad())
+        setup.lastLoad = MassBalanceLoad(seats: ["pilot": .person(kg: 82)], fuelLitres: 90, isTodays: true)
+        setup.lastLoadDay = now
+        XCTAssertEqual(setup.startingLoad()?.isTodays, false)
+        XCTAssertEqual(setup.startingLoad()?.copiedFrom, now)
+        XCTAssertEqual(setup.startingLoad()?.seats["pilot"], .person(kg: 82))
+    }
+
+    // MARK: - Stored
+
+    func testTheSetupsDecoderReadsEveryStoredProperty() {
+        let fields = Set(Mirror(reflecting: MassBalanceSetup()).children.compactMap(\.label))
+        XCTAssertEqual(fields, ["confirmedRevision", "confirmedAt", "declinedRevision", "ownEmpty", "ownData",
+                                "ownConfirmedAt", "lastLoad", "lastLoadDay"],
+                       "a new stored property needs its line in MassBalanceSetup.init(from:)")
+        XCTAssertEqual(Set(Mirror(reflecting: MassBalanceSettings()).children.compactMap(\.label)), ["setups", "pilotMassKg"])
+    }
+
+    func testTheSettingsCarryItThroughARoundTripAndReadARecordWrittenBeforeIt() throws {
+        var settings = AppSettings()
+        var setup = MassBalanceSetup()
+        setup.confirm(revision: 2, at: now)
+        setup.ownData = data(file("wt9-dynamic", "F-HVXA"))
+        setup.lastLoad = MassBalanceLoad(seats: ["pilot": .person(kg: 82), "passenger": .empty], baggageKg: ["baggage": 5], fuelLitres: 60)
+        setup.lastLoadDay = now
+        settings.massBalance["f-hvxa"] = setup
+        settings.massBalance.pilotMassKg = 82
+
+        let again = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(again.massBalance, settings.massBalance)
+        XCTAssertEqual(again.massBalance["F-HVXA"].confirmedRevision, 2, "keyed by the registration in capitals")
+
+        let older = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"pilotName":"J. Bono","schemaVersion":10}"#.utf8))
+        XCTAssertEqual(older.massBalance, MassBalanceSettings())
+    }
+
+    func testOwnFiguresALaterBuildWroteAreDroppedNotTheWholeRecord() throws {
+        let stones = file("wt9-dynamic", "F-HVXA").replacingOccurrences(of: #""mass":"kg""#, with: #""mass":"stone""#)
+        let json = #"{"massBalance":{"setups":{"F-HVXA":{"confirmedRevision":2,"ownData":\#(stones)}},"pilotMassKg":82}}"#
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        XCTAssertEqual(settings.massBalance["F-HVXA"].confirmedRevision, 2)
+        XCTAssertNil(settings.massBalance["F-HVXA"].ownData)
+        XCTAssertEqual(settings.massBalance.pilotMassKg, 82)
+    }
+}

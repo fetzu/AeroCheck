@@ -98,6 +98,10 @@ class AircraftDataService: ObservableObject {
     /// Incremented when a checklist is updated in the background, so views can reload
     @Published var checklistUpdateCount: Int = 0
 
+    /// Goes up when a registration's mass and balance file changes on this device, so a sheet showing it
+    /// reads it again. (6.11.0)
+    @Published private(set) var massBalanceChangeCount: Int = 0
+
     /// Why the last premium checklist couldn't be loaded, so a refused flight start can say why
     /// instead of "check your connection and subscription". nil after a load that worked.
     /// (on-device review #4, point 1)
@@ -188,6 +192,9 @@ class AircraftDataService: ObservableObject {
 
             // Cache the metadata
             cacheMetadata(aircraft)
+
+            // The list says which mass and balance files exist and at which revision. (6.11.0)
+            await refreshMassBalanceFiles()
 
         } catch {
             errorMessage = "Failed to fetch aircraft: \(error.localizedDescription)"
@@ -752,6 +759,12 @@ class AircraftDataService: ObservableObject {
             if fileManager.fileExists(atPath: metadataPath.path) {
                 try fileManager.removeItem(at: metadataPath)
             }
+            // Its mass and balance file is behind the same access as its checklist. (6.11.0)
+            if let massBalancePath = cacheFileURL(aircraftId: aircraftId, suffix: Self.massBalanceSuffix),
+               fileManager.fileExists(atPath: massBalancePath.path) {
+                try fileManager.removeItem(at: massBalancePath)
+                massBalanceChangeCount += 1
+            }
             AppLog.aircraftData.debugLine("Cleared cache for \(aircraftId)")
         } catch {
             AppLog.aircraftData.debugLine("Failed to clear cache for \(aircraftId): \(error)")
@@ -806,6 +819,113 @@ class AircraftDataService: ObservableObject {
         AppLog.aircraftData.debugLine("Subscription access definitively denied, clearing premium caches")
         clearPremiumCaches()
         return false
+    }
+
+    // MARK: - Mass and balance (6.11.0)
+    //
+    // One file per registration, from `GET /api/v3/aircraft/:id/mass-balance?reg=`, behind the checklist's
+    // access. Per registration and never per type: a lookup never falls back to another registration's
+    // file, and a file that names another registration is not used. A registration without a file works
+    // with the pilot's own figures.
+
+    private static let massBalanceSuffix = ".massbalance.json"
+
+    /// The list's entry for a registration, each registration being an entry of its own.
+    func aircraft(forRegistration registration: String) -> RemoteAircraftMetadata? {
+        let wanted = registration.trimmingCharacters(in: .whitespaces).uppercased()
+        guard !wanted.isEmpty else { return nil }
+        return availableAircraft.first { $0.registration.uppercased() == wanted }
+    }
+
+    /// The mass and balance data this device holds for a registration: the copy last fetched. Nil when it
+    /// has none, when the pilot can't fly the aircraft, or when this build can't compute with the copy.
+    func massBalance(forRegistration registration: String) -> AircraftMassBalance? {
+        guard let aircraft = aircraft(forRegistration: registration), canFly(aircraft),
+              let url = cacheFileURL(aircraftId: aircraft.id, suffix: Self.massBalanceSuffix),
+              let data = try? Data(contentsOf: url),
+              let file = try? JSONDecoder().decode(AircraftMassBalance.self, from: data) else { return nil }
+        return Self.accepted(file, for: aircraft)
+    }
+
+    /// The file as given, or nil when it is not this registration's or not usable. A file for another
+    /// registration is a server or cache mistake, and the one mistake this data must never survive.
+    nonisolated static func accepted(_ file: AircraftMassBalance, for aircraft: RemoteAircraftMetadata) -> AircraftMassBalance? {
+        let (baseId, _) = AircraftRegistrationToken.split(aircraft.id)
+        guard file.isUsable, file.aircraftId == baseId,
+              file.registration.uppercased() == aircraft.registration.uppercased() else { return nil }
+        return file
+    }
+
+    /// Fetches the files the list names at a revision this device doesn't hold, for the aircraft the pilot
+    /// can fly. A registration the list gives no revision for loses its cached copy: the file was withdrawn.
+    func refreshMassBalanceFiles() async {
+        for aircraft in availableAircraft where canFly(aircraft) {
+            guard let url = cacheFileURL(aircraftId: aircraft.id, suffix: Self.massBalanceSuffix) else { continue }
+            let held = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(AircraftMassBalance.self, from: $0) }
+            guard let revision = aircraft.massBalanceRevision.flatMap({ $0.rounded() == $0 ? Int(exactly: $0) : nil }) else {
+                if held != nil {
+                    try? fileManager.removeItem(at: url)
+                    massBalanceChangeCount += 1
+                }
+                continue
+            }
+            if let held, held.revision == revision, Self.accepted(held, for: aircraft) != nil { continue }
+            await fetchMassBalance(for: aircraft, into: url)
+        }
+    }
+
+    /// One registration's file, asked for when its sheet opens and nothing is held yet.
+    func refreshMassBalance(forRegistration registration: String) async {
+        guard let aircraft = aircraft(forRegistration: registration), canFly(aircraft),
+              aircraft.massBalanceRevision != nil,
+              let url = cacheFileURL(aircraftId: aircraft.id, suffix: Self.massBalanceSuffix),
+              !fileManager.fileExists(atPath: url.path) else { return }
+        await fetchMassBalance(for: aircraft, into: url)
+    }
+
+    private func fetchMassBalance(for aircraft: RemoteAircraftMetadata, into url: URL) async {
+        guard AircraftRegistrationToken.isWellFormed(aircraft.id) else { return }
+        let (baseId, _) = AircraftRegistrationToken.split(aircraft.id)
+        let encodedId = baseId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? baseId
+        // The registration is always named: the data is this registration's or nothing.
+        guard let encodedReg = aircraft.registration.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let requestURL = URL(string: "\(apiBaseURL)/api/v3/aircraft/\(encodedId)/mass-balance?reg=\(encodedReg)") else { return }
+        var request = URLRequest(url: requestURL)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 30
+        if let credential = await gating.getAuthCredential() {
+            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await httpClient.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return }
+            switch http.statusCode {
+            case 200:
+                let file = try JSONDecoder().decode(MassBalanceResponse.self, from: data).data
+                guard let accepted = Self.accepted(file, for: aircraft) else {
+                    AppLog.aircraftData.debugLine("Mass and balance file refused for \(aircraft.id): not this registration's, or not usable")
+                    return
+                }
+                try JSONEncoder().encode(accepted).write(to: url, options: .atomic)
+                massBalanceChangeCount += 1
+            case 404:
+                // No file for this registration (any more).
+                if fileManager.fileExists(atPath: url.path) {
+                    try? fileManager.removeItem(at: url)
+                    massBalanceChangeCount += 1
+                }
+            case 403 where gating.isPremiumAccessDefinitivelyDenied():
+                if fileManager.fileExists(atPath: url.path) {
+                    try? fileManager.removeItem(at: url)
+                    massBalanceChangeCount += 1
+                }
+            default:
+                // A lagging entitlement or a server hiccup: what is held stays.
+                break
+            }
+        } catch {
+            AppLog.aircraftData.debugLine("Mass and balance file not fetched for \(aircraft.id): \(error)")
+        }
     }
 
     // MARK: - Private Methods
@@ -1192,6 +1312,10 @@ enum AircraftDataError: LocalizedError {
 }
 
 // MARK: - API Response Types
+
+private struct MassBalanceResponse: Decodable {
+    let data: AircraftMassBalance
+}
 
 private struct ChecklistResponse: Codable {
     let success: Bool

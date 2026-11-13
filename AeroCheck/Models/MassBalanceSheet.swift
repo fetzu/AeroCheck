@@ -137,7 +137,7 @@ enum MassBalanceFailure: Equatable, Sendable {
 }
 
 /// One loading condition: a mass and a CG in the data's units.
-struct MassBalancePoint: Equatable, Sendable {
+struct MassBalancePoint: Codable, Equatable, Sendable {
     var mass: Double
     var arm: Double
     /// Usable fuel in the tanks at this point, in litres.

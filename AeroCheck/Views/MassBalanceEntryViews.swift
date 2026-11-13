@@ -49,7 +49,9 @@ struct MassBalanceQuantityField: View {
         .onAppear { text = Self.display(value) }
         .onChange(of: value) { _, new in if !focused { text = Self.display(new) } }
         .onChange(of: text) { _, new in
-            guard focused else { return }
+            // Typing, not this view writing the figure back into the box. Not `focused`: a first
+            // digit can arrive before the focus is reported, and was dropped (seen with one digit).
+            guard new != Self.display(value) else { return }
             let cleaned = new.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
             if cleaned.isEmpty { value = nil } else if let typed = Double(cleaned), typed.isFinite, typed >= 0 { value = typed }
         }

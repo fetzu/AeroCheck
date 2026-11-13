@@ -727,6 +727,8 @@ enum L10n {
         static let pointOutside = String(localized: "mb.point.outside")
         static let pointSoFar = String(localized: "mb.point.soFar")
         static let stateNotDone = String(localized: "mb.state.notDone")
+        static func recordNote(_ a0: String) -> String { String(localized: "mb.record.note \(a0)") }
+        static func recordFigures(_ a0: String, _ a1: Int) -> String { String(localized: "mb.record.figures \(a0) \(a1)") }
         static let stateLastTime = String(localized: "mb.state.lastTime")
         static let stateIncomplete = String(localized: "mb.state.incomplete")
         static let stateNotConfirmed = String(localized: "mb.state.notConfirmed")

@@ -16597,6 +16597,52 @@
         }
       }
     },
+    "mb.record.figures %@ %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten von %1$@, Revision %2$lld."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@'s data, revision %2$lld."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données de %1$@, révision %2$lld."
+          }
+        }
+      }
+    },
+    "mb.record.note %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stand bei Flugbeginn, %@. Nur zur Ansicht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As it stood when the flight started, %@. Read only."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "État au début du vol, %@. En lecture seule."
+          }
+        }
+      }
+    },
     "mb.state.incomplete": {
       "extractionState": "manual",
       "localizations": {

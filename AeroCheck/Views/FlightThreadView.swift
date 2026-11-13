@@ -350,6 +350,8 @@ struct FlightThreadView: View {
     @State private var scrollToBlock: FlightBlockKind?
     /// Registration whose mass & balance is open, from the PLAN task. (v5.0.0)
     @State private var weightBalanceRegistration: String?
+    /// The sheet kept with a flight that has started, opened to read. (6.11.0)
+    @State private var massBalanceRecord: FlightMassBalance?
     /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
     @State private var numbersFlightId: UUID?
     /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
@@ -482,6 +484,12 @@ struct FlightThreadView: View {
                 MassBalanceEntryView(registration: registration, flight: massBalanceContext(registration),
                                      onClose: { weightBalanceRegistration = nil })
                     .environmentObject(aircraftDataService)
+            }
+        }
+        .sheet(isPresented: Binding(get: { massBalanceRecord != nil },
+                                    set: { if !$0 { massBalanceRecord = nil } })) {
+            if let record = massBalanceRecord {
+                MassBalanceRecordView(record: record, onClose: { massBalanceRecord = nil })
             }
         }
         .sheet(isPresented: Binding(
@@ -792,7 +800,29 @@ struct FlightThreadView: View {
               let registration = thread.aircraftRegistration, !registration.isEmpty else { return nil }
         _ = aircraftDataService.massBalanceChangeCount
         return MassBalanceFlight.state(for: thread, shipped: aircraftDataService.massBalance(forRegistration: registration),
-                                       setup: appState.settings.massBalance[registration], plan: plan(for: thread))
+                                       setup: appState.settings.massBalance[registration], plan: plan(for: thread),
+                                       kept: keptMassBalance(for: thread))
+    }
+
+    /// The sheet kept with this thread's flight, running or flown.
+    private func keptMassBalance(for thread: FlightThread) -> FlightMassBalance? {
+        guard let flightId = thread.flightId else { return nil }
+        if let current = appState.currentFlight, current.id == flightId { return current.massBalance }
+        return appState.flights.first { $0.id == flightId }?.massBalance
+    }
+
+    /// What the Mass and balance task opens. Before the flight: the sheet (or the 5.0.0 calculator for
+    /// an aircraft without data). Once the flight has started: the kept sheet to read, and nothing
+    /// to work for an aircraft with data, whose sheet is not done after the fact.
+    private enum MassBalanceTool { case sheet(String), record(FlightMassBalance) }
+
+    private func massBalanceTool(in thread: FlightThread) -> MassBalanceTool? {
+        guard let registration = thread.aircraftRegistration, !registration.isEmpty else { return nil }
+        guard thread.flightId != nil else { return .sheet(registration) }
+        if let kept = keptMassBalance(for: thread) { return .record(kept) }
+        let hasFigures = appState.settings.massBalance[registration]
+            .basis(shipped: aircraftDataService.massBalance(forRegistration: registration), now: Date()) != nil
+        return hasFigures ? nil : .sheet(registration)
     }
 
     /// This flight's load for its sheet, and where a change goes: the thread keeps the load, and the
@@ -2136,7 +2166,7 @@ struct FlightThreadView: View {
             guard let plan = plan(for: thread), plan.waypoints.count >= 2 else { return nil }
             return L10n.Nav.copyICAOFlightPlan
         case .massAndBalance:
-            return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
+            return massBalanceTool(in: thread) != nil ? L10n.WeightBalance.title : nil
         case .routePlanned:
             // The route is the one thing this screen could describe but not open, which left the
             // app's most-used editor unreachable from the flight it belongs to.
@@ -2176,7 +2206,11 @@ struct FlightThreadView: View {
             UIPasteboard.general.string = plan.toICAOFlightPlan()
             copiedFPL = true
         case .massAndBalance:
-            weightBalanceRegistration = thread.aircraftRegistration
+            switch massBalanceTool(in: thread) {
+            case .sheet(let registration): weightBalanceRegistration = registration
+            case .record(let kept): massBalanceRecord = kept
+            case nil: break
+            }
         case .routePlanned:
             guard let plan = plan(for: thread) else { return }
             routeBuilderPlanId = plan.id

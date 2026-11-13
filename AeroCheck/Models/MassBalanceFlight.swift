@@ -29,7 +29,69 @@ enum MassBalanceFlightState: Equatable, Sendable {
     case insideLimits(at: Date)
 }
 
+/// The sheet as it was when the flight started, kept with the flight. (the author's m13)
+///
+/// It carries the figures it was worked with, not a pointer to them: the aircraft's data and its
+/// empty mass can change afterwards, and what the pilot saw before this flight must not. The verdict
+/// and the three points are kept as they were, and are never worked out again for display.
+struct FlightMassBalance: Codable, Equatable, Sendable {
+    var registration: String
+    var load: MassBalanceLoad
+    var data: AircraftMassBalance
+    var empty: AircraftMassBalance.EmptyMass?
+    /// Whether the figures were the pilot's own rather than the aircraft's file.
+    var isPilots: Bool
+    var isConfirmed: Bool
+    var verdict: MassBalanceVerdict
+    var takeoff: MassBalancePoint?
+    var landing: MassBalancePoint?
+    var emptyTanks: MassBalancePoint?
+    /// When the sheet was last changed, and when it was kept: the start of the flight.
+    var sheetAt: Date
+    var keptAt: Date
+
+    /// The state it reads as, in one line.
+    var state: MassBalanceFlightState {
+        switch verdict {
+        case .outsideLimits: return .outsideLimits(at: sheetAt)
+        case .incomplete: return .incomplete
+        case .notConfirmed: return .notConfirmed
+        case .lastTimesLoad: return .lastTimesLoad
+        case .insideLimits: return .insideLimits(at: sheetAt)
+        }
+    }
+}
+
 enum MassBalanceFlight {
+
+    /// What is kept with a flight at its start: the followed flight's own sheet; for a flight with
+    /// no flight followed (circuits, a flight without a plan), the aircraft's sheet when it was
+    /// worked that day and said to be the day's. Nil when there is no such sheet, or no figures to
+    /// work it with. Nothing is made up for a flight nobody prepared a sheet for.
+    static func record(thread: FlightThread?, registration: String, shipped: AircraftMassBalance?,
+                       setup: MassBalanceSetup, plan: FlightPlan?, now: Date = Date(),
+                       calendar: Calendar = .current) -> FlightMassBalance? {
+        guard let basis = setup.basis(shipped: shipped, now: now) else { return nil }
+        let load: MassBalanceLoad
+        let sheetAt: Date
+        if let thread {
+            guard let own = ownLoad(of: thread),
+                  own.registration.caseInsensitiveCompare(registration) == .orderedSame else { return nil }
+            load = startingLoad(for: thread, setup: setup, plan: plan) ?? own.load
+            sheetAt = own.updatedAt
+        } else {
+            guard let last = setup.lastLoad, !last.isBlank, last.isTodays, let day = setup.lastLoadDay,
+                  calendar.isDate(day, inSameDayAs: now) else { return nil }
+            load = last
+            sheetAt = day
+        }
+        let result = MassBalanceCalculator.compute(data: basis.data, empty: basis.empty, load: load,
+                                                   isConfirmed: basis.isConfirmed)
+        return FlightMassBalance(registration: registration, load: load, data: basis.data, empty: basis.empty,
+                                 isPilots: basis.source == .pilot, isConfirmed: basis.isConfirmed,
+                                 verdict: result.verdict, takeoff: result.takeoff, landing: result.landing,
+                                 emptyTanks: result.emptyTanks, sheetAt: sheetAt, keptAt: now)
+    }
 
     /// The thread's own load, when it was worked for the aircraft the thread has now.
     static func ownLoad(of thread: FlightThread) -> ThreadMassBalance? {
@@ -62,8 +124,12 @@ enum MassBalanceFlight {
 
     /// The line for the flight's page and Today. Nil where there is nothing to say: no aircraft on
     /// the flight, or no data to compute with (the 5.0.0 calculator keeps no state).
+    ///
+    /// Once the flight has started, the line is the kept sheet's and nothing else: the sheet of a
+    /// running or flown flight is not worked again.
     static func state(for thread: FlightThread, shipped: AircraftMassBalance?, setup: MassBalanceSetup,
-                      plan: FlightPlan?, now: Date = Date()) -> MassBalanceFlightState? {
+                      plan: FlightPlan?, kept: FlightMassBalance? = nil, now: Date = Date()) -> MassBalanceFlightState? {
+        if thread.flightId != nil { return kept?.state }
         guard thread.aircraftRegistration?.isEmpty == false,
               let basis = setup.basis(shipped: shipped, now: now) else { return nil }
         guard let own = ownLoad(of: thread) else {

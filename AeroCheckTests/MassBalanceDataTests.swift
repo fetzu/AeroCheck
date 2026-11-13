@@ -340,6 +340,140 @@ final class MassBalanceDataTests: XCTestCase {
         XCTAssertEqual(state(), .incomplete, "a seat left blank is never a pass")
     }
 
+    // MARK: - Kept with the flight
+
+    private func confirmed() -> MassBalanceSetup {
+        var setup = MassBalanceSetup()
+        setup.confirm(revision: 2, at: now)
+        return setup
+    }
+
+    func testTheFollowedFlightsSheetIsKeptAtTheStartAsItStood() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var flight = thread()
+        XCTAssertNil(MassBalanceFlight.record(thread: flight, registration: "F-HVXA", shipped: shipped, setup: confirmed(),
+                                              plan: nil, now: now), "nobody prepared a sheet for this flight: none is made up")
+
+        let sheetAt = now.addingTimeInterval(-3600)
+        flight.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: sheetAt)
+        var plan = FlightPlan(name: "Basel")
+        plan.fuelOnBoard = 70
+        let kept = try XCTUnwrap(MassBalanceFlight.record(thread: flight, registration: "F-HVXA", shipped: shipped,
+                                                          setup: confirmed(), plan: plan, now: now))
+        XCTAssertEqual(kept.verdict, .insideLimits)
+        XCTAssertEqual(kept.load.fuelLitres, 70, "the plan's fuel on board, as at the start")
+        XCTAssertEqual(kept.takeoff?.mass ?? 0, 330 + 82 + 5 + 70 * 0.72, accuracy: 0.001)
+        XCTAssertEqual(kept.data.revision, 2)
+        XCTAssertEqual(kept.empty?.date, "2025-03-10")
+        XCTAssertEqual(kept.sheetAt, sheetAt)
+        XCTAssertEqual(kept.keptAt, now)
+        XCTAssertEqual(kept.state, .insideLimits(at: sheetAt))
+
+        // A sheet that was not a pass is kept as what it was.
+        XCTAssertEqual(MassBalanceFlight.record(thread: flight, registration: "F-HVXA", shipped: shipped,
+                                                setup: MassBalanceSetup(), plan: nil, now: now)?.verdict, .notConfirmed)
+        // Another aircraft was started than the one the sheet was worked for.
+        XCTAssertNil(MassBalanceFlight.record(thread: flight, registration: "HB-PFA", shipped: shipped, setup: confirmed(),
+                                              plan: nil, now: now))
+        XCTAssertNil(MassBalanceFlight.record(thread: flight, registration: "F-HVXA", shipped: nil, setup: confirmed(),
+                                              plan: nil, now: now), "no figures to work it with")
+    }
+
+    /// Circuits and a flight without a plan follow no flight: the aircraft's sheet counts when it was
+    /// worked that day and said to be the day's, and no other.
+    func testAFlightThatFollowsNoneKeepsTheAircraftsSheetOfTheDay() {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        func kept(_ setup: MassBalanceSetup) -> FlightMassBalance? {
+            MassBalanceFlight.record(thread: nil, registration: "F-HVXA", shipped: shipped, setup: setup, plan: nil,
+                                     now: now, calendar: utc)
+        }
+        var setup = confirmed()
+        XCTAssertNil(kept(setup))
+        setup.lastLoad = solo
+        setup.lastLoadDay = now.addingTimeInterval(-1800)
+        XCTAssertEqual(kept(setup)?.verdict, .insideLimits)
+        setup.lastLoadDay = now.addingTimeInterval(-2 * 86_400)
+        XCTAssertNil(kept(setup), "another day's sheet")
+        setup.lastLoadDay = now.addingTimeInterval(-1800)
+        setup.lastLoad = solo.carriedOver(from: now.addingTimeInterval(-86_400))
+        XCTAssertNil(kept(setup), "never said to be the day's")
+    }
+
+    func testOnceTheFlightHasStartedTheLineIsTheKeptSheets() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var flight = thread()
+        flight.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        let record = try XCTUnwrap(MassBalanceFlight.record(thread: flight, registration: "F-HVXA", shipped: shipped,
+                                                            setup: confirmed(), plan: nil, now: now))
+        flight.flightId = UUID()
+        // The aircraft's data changes afterwards, the confirmation with it: what was seen before the flight stays.
+        let newer = data(file("wt9-dynamic", "F-HVXA", revision: 3))
+        XCTAssertEqual(MassBalanceFlight.state(for: flight, shipped: newer, setup: confirmed(), plan: nil, kept: record, now: now),
+                       .insideLimits(at: now))
+        XCTAssertNil(MassBalanceFlight.state(for: flight, shipped: newer, setup: confirmed(), plan: nil, kept: nil, now: now),
+                     "a flight started without a sheet gets none afterwards")
+    }
+
+    func testAFlightWithAKeptSheetIsStampedThreeAndKeepsItThroughAMerge() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var followed = thread()
+        followed.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        let record = try XCTUnwrap(MassBalanceFlight.record(thread: followed, registration: "F-HVXA", shipped: shipped,
+                                                            setup: confirmed(), plan: nil, now: now))
+        var onTheIPad = Flight(airplane: "wt9-dynamic", aircraftRegistration: "F-HVXA")
+        XCTAssertEqual(onTheIPad.requiredSchemaVersion, Flight.baseSchemaVersion)
+        onTheIPad.massBalance = record
+        onTheIPad.stampForContent()
+        XCTAssertEqual(onTheIPad.schemaVersion, 3, "a 6.10 build doesn't show it, and can't strip it")
+
+        let read = try JSONDecoder().decode(Flight.self, from: JSONEncoder().encode(onTheIPad))
+        XCTAssertEqual(read.massBalance, record)
+
+        // A stale copy on a device still on 6.10, renamed there later: the sheet survives both ways round.
+        var stale = onTheIPad
+        stale.massBalance = nil
+        stale.schemaVersion = Flight.baseSchemaVersion
+        stale.name = "Renamed"
+        stale.modifiedAt = onTheIPad.modifiedAt.addingTimeInterval(600)
+        for merged in [Flight.merge(onTheIPad, stale), Flight.merge(stale, onTheIPad)] {
+            XCTAssertEqual(merged.massBalance, record)
+            XCTAssertEqual(merged.schemaVersion, 3)
+            XCTAssertEqual(merged.name, "Renamed")
+        }
+
+        // A sheet this build can't read is no sheet: the flight still loads.
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(onTheIPad)) as? [String: Any])
+        json["massBalance"] = ["registration": 7]
+        let odd = try JSONDecoder().decode(Flight.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(odd.massBalance)
+        XCTAssertEqual(odd.id, onTheIPad.id)
+    }
+
+    @MainActor
+    func testTheRunningFlightKeepsTheSheetOnceAndIsStampedForIt() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var followed = thread()
+        followed.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        let record = try XCTUnwrap(MassBalanceFlight.record(thread: followed, registration: "F-HVXA", shipped: shipped,
+                                                            setup: confirmed(), plan: nil, now: now))
+        let appState = makeTestAppState()
+        appState.keepMassBalance(record)
+        XCTAssertNil(appState.currentFlight, "no flight, nothing kept")
+
+        appState.startFlight(withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA", aircraftType: "WT9")
+        defer { appState.cancelFlight() }
+        appState.keepMassBalance(record)
+        XCTAssertEqual(appState.currentFlight?.massBalance, record)
+        XCTAssertEqual(appState.currentFlight?.schemaVersion, 3)
+
+        var later = record
+        later.verdict = .outsideLimits
+        appState.keepMassBalance(later)
+        XCTAssertEqual(appState.currentFlight?.massBalance?.verdict, .insideLimits, "as it was at the start, not as it is later")
+    }
+
     // MARK: - Stored
 
     func testTheSetupsDecoderReadsEveryStoredProperty() {

@@ -675,6 +675,7 @@ enum L10n {
         static func lineNotBelow(_ a0: Int, _ a1: String) -> String { String(localized: "mb.line.notBelow \(a0) \(a1)") }
         static let whyUnderMin = String(localized: "mb.why.underMin")
         static let whyOverMax = String(localized: "mb.why.overMax")
+        static let whyOverLanding = String(localized: "mb.why.overLanding")
         static let whyForward = String(localized: "mb.why.forward")
         static let whyAft = String(localized: "mb.why.aft")
         static let lineNoTrip = String(localized: "mb.line.noTrip")
@@ -693,6 +694,8 @@ enum L10n {
         static func failOverMTOM(_ a0: String) -> String { String(localized: "mb.fail.overMTOM \(a0)") }
         static func failTakeoff(_ a0: String) -> String { String(localized: "mb.fail.takeoff \(a0)") }
         static func failLanding(_ a0: Int, _ a1: String) -> String { String(localized: "mb.fail.landing \(a0) \(a1)") }
+        static func failFuelLine(_ a0: Int, _ a1: String) -> String { String(localized: "mb.fail.fuelLine \(a0) \(a1)") }
+        static func failTripOverFuel(_ a0: Int, _ a1: Int) -> String { String(localized: "mb.fail.tripOverFuel \(a0) \(a1)") }
         static func failSeatMax(_ a0: String, _ a1: String) -> String { String(localized: "mb.fail.seatMax \(a0) \(a1)") }
         static func failSeatMin(_ a0: String, _ a1: String) -> String { String(localized: "mb.fail.seatMin \(a0) \(a1)") }
         static func failBaggageMax(_ a0: String, _ a1: String) -> String { String(localized: "mb.fail.baggageMax \(a0) \(a1)") }
@@ -713,6 +716,8 @@ enum L10n {
         static let rowFuel = String(localized: "mb.row.fuel")
         static let rowFuelStart = String(localized: "mb.row.fuelStart")
         static let rowTrip = String(localized: "mb.row.trip")
+        static let rowTripFromRoute = String(localized: "mb.row.tripFromRoute")
+        static let fieldRefused = String(localized: "mb.field.refused")
         static let rowEmpty = String(localized: "mb.row.empty")
         static func rowRecordOf(_ a0: String) -> String { String(localized: "mb.row.recordOf \(a0)") }
         static func rowArm(_ a0: String) -> String { String(localized: "mb.row.arm \(a0)") }
@@ -808,6 +813,8 @@ enum L10n {
         static let step1Type = String(localized: "mb.step1.type")
         static let step1Serial = String(localized: "mb.step1.serial")
         static let step1Mtom = String(localized: "mb.step1.mtom")
+        static let step1MaxLanding = String(localized: "mb.step1.maxLanding")
+        static let step1MinFlying = String(localized: "mb.step1.minFlying")
         static let step1Datum = String(localized: "mb.step1.datum")
         static let step1Fuel = String(localized: "mb.step1.fuel")
         static func step1Usable(_ a0: String, _ a1: String) -> String { String(localized: "mb.step1.usable \(a0) \(a1)") }

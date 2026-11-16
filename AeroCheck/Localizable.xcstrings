@@ -16597,6 +16597,75 @@
         }
       }
     },
+    "mb.fail.fuelLine %lld %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vor der Landung, mit %1$lld L Rest: %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before landing, with %1$lld L left: %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avant l'atterrissage, avec %1$lld L restants : %2$@"
+          }
+        }
+      }
+    },
+    "mb.fail.tripOverFuel %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streckentreibstoff: %1$lld L, mehr als die %2$lld L beim Start"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trip fuel: %1$lld L, more than the %2$lld L at take-off"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carburant d'étape : %1$lld L, plus que les %2$lld L au décollage"
+          }
+        }
+      }
+    },
+    "mb.field.refused": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu gross, nicht übernommen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too large, not taken"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop grand, non pris en compte"
+          }
+        }
+      }
+    },
     "mb.own.addBaggage": {
       "extractionState": "manual",
       "localizations": {
@@ -17379,6 +17448,29 @@
         }
       }
     },
+    "mb.row.tripFromRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aus der Route"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from the route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "de la route"
+          }
+        }
+      }
+    },
     "mb.settings.confirmation": {
       "extractionState": "manual",
       "localizations": {
@@ -17793,6 +17885,52 @@
         }
       }
     },
+    "mb.step1.maxLanding": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höchstzulässige Landemasse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum landing mass"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masse maximale à l'atterrissage"
+          }
+        }
+      }
+    },
+    "mb.step1.minFlying": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mindestflugmasse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimum flying mass"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masse minimale de vol"
+          }
+        }
+      }
+    },
     "mb.title": {
       "extractionState": "manual",
       "localizations": {
@@ -17996,6 +18134,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pas en dessous de %1$lld L de carburant utilisable : %2$@."
+          }
+        }
+      }
+    },
+    "mb.why.overLanding": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "über der höchstzulässigen Landemasse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "over the maximum landing mass"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "au-dessus de la masse maximale à l'atterrissage"
           }
         }
       }

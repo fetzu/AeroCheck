@@ -279,6 +279,13 @@ extension MassBalanceFacts {
             let name = shipped.categories.count > 1 ? " (\(MassBalanceWords.category(category.id)))" : ""
             rows.append((L10n.MassBalance.step1Mtom + name, MassBalanceWords.mass(category.maxTakeoff, units, withKilograms: false)))
         }
+        // The two other limits the sheet holds the points against, to compare with the AFM (ST11-09).
+        if let maxLanding = shipped.limits.maxLanding {
+            rows.append((L10n.MassBalance.step1MaxLanding, MassBalanceWords.mass(maxLanding, units, withKilograms: false)))
+        }
+        if let minFlying = shipped.limits.minFlying {
+            rows.append((L10n.MassBalance.step1MinFlying, MassBalanceWords.mass(minFlying, units, withKilograms: false)))
+        }
         if let datum = shipped.datum {
             let language = Locale.current.language.languageCode?.identifier ?? "en"
             if let text = datum[language] ?? datum["en"] { rows.append((L10n.MassBalance.step1Datum, text)) }

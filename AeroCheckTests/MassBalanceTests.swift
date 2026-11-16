@@ -341,6 +341,115 @@ final class MassBalanceTests: XCTestCase {
         XCTAssertNil(result.notBelowLitres)
     }
 
+    // MARK: - The file's other limits, the fuel line and the trip (review of 14 Nov 2026)
+
+    /// The two-seater with its JSON changed, for a limit the shipped fixture leaves at its default.
+    private func metric(replacing old: String, with new: String) -> AircraftMassBalance {
+        XCTAssertTrue(metricJSON.contains(old), old)
+        return try! decode(metricJSON.replacingOccurrences(of: old, with: new))
+    }
+
+    /// ST11-09. A landing limit under the take-off limit: 570.4 kg at take-off, inside; 563.2 kg at
+    /// the landing, inside the envelope but over a 560 kg maximum landing mass.
+    func testALandingOverTheMaximumLandingMassIsOutsideLimits() {
+        let data = metric(replacing: #""maxLanding": 600"#, with: #""maxLanding": 560"#)
+        let load = MassBalanceLoad(seats: ["pilot": .person(kg: 80), "passenger": .person(kg: 100)],
+                                   baggageKg: ["baggage": 10], fuelLitres: 70, tripLitres: 10, isTodays: true)
+        let result = compute(data, load)
+        XCTAssertEqual(result.takeoff?.isInside, true)
+        XCTAssertEqual(result.landing?.mass ?? 0, 563.2, accuracy: 1e-9)
+        XCTAssertEqual(result.verdict, .outsideLimits)
+        XCTAssertEqual(result.landing?.outside, .overMaximumLandingMass)
+        XCTAssertEqual(result.failures, [.landingOutside(.overMaximumLandingMass, litresLeft: 60)])
+        // The same load on the fixture, where the landing limit is the take-off one: inside.
+        XCTAssertEqual(compute(metric, load).verdict, .insideLimits)
+    }
+
+    /// ST11-09. A minimum flying mass above the envelope's floor: 456 kg at 2.7125 m is inside the
+    /// drawn corners and under a 470 kg minimum.
+    func testATakeOffUnderTheMinimumFlyingMassIsOutsideLimits() {
+        let data = metric(replacing: #""minFlying": 400"#, with: #""minFlying": 470"#)
+        let load = MassBalanceLoad(seats: ["pilot": .person(kg: 90), "passenger": .empty],
+                                   baggageKg: ["baggage": 0], fuelLitres: 50, tripLitres: 10, isTodays: true)
+        let result = compute(data, load)
+        XCTAssertEqual(result.takeoff?.mass ?? 0, 456, accuracy: 1e-9)
+        XCTAssertTrue(MassBalanceCalculator.contains(arm: result.takeoff?.arm ?? 0, mass: 456,
+                                                     envelope: data.mainCategory!.envelope), "inside the corners")
+        XCTAssertEqual(result.verdict, .outsideLimits)
+        XCTAssertEqual(result.failures.first, .takeoffOutside(.underMinimumMass))
+        XCTAssertEqual(compute(metric, load).verdict, .insideLimits)
+    }
+
+    /// An invented single-seater with a notch in its envelope's aft edge, 450 kg at 2.8447 m without
+    /// fuel. Take-off with 125 L and the landing with 28 L are both inside; between them, at 83 L, the
+    /// fuel line crosses the notch.
+    private let notched = """
+    { "schema": 1, "aircraftId": "test-notch", "registration": "T-EST2", "revision": 1, "updated": "2026-01-15",
+      "units": { "mass": "kg", "arm": "m", "fuel": "l" },
+      "limits": { "maxTakeoff": 600 },
+      "categories": [ { "id": "normal", "maxTakeoff": 600,
+        "envelope": [[2.70, 400], [2.70, 600], [2.85, 600], [2.85, 520], [2.76, 500], [2.85, 480], [2.85, 400]] } ],
+      "stations": [
+        { "id": "row1", "kind": "seats", "arm": 3.10, "layout": "single", "seats": [ { "id": "pilot", "role": "pilot" } ] },
+        { "id": "fuel", "kind": "fuel", "arm": 2.50, "usable": 150, "density": 0.72 } ],
+      "empty": { "mass": 370, "moment": 1032.115, "date": "2025-03-10" },
+      "sources": [] }
+    """
+
+    /// ST11-26. Take-off and the planned landing decide, and so does the flight between them.
+    func testAFuelLineLeavingTheEnvelopeBeforeTheLandingIsOutsideLimits() throws {
+        let data = try decode(notched)
+        let load = MassBalanceLoad(seats: ["pilot": .person(kg: 80)], fuelLitres: 125, tripLitres: 97, isTodays: true)
+        let result = MassBalanceCalculator.compute(data: data, empty: data.empty, load: load, isConfirmed: true)
+        XCTAssertEqual(result.takeoff?.isInside, true)
+        XCTAssertEqual(result.landing?.isInside, true)
+        XCTAssertEqual(result.landing?.fuelLitres, 28)
+        XCTAssertEqual(result.notBelowLitres, 84)
+        XCTAssertEqual(result.verdict, .outsideLimits)
+        XCTAssertEqual(result.failures, [.fuelLineOutside(.behindAftLimit, litresLeft: 83)])
+        // A trip that lands above the notch is inside, with "not below 84 litres".
+        var short = load
+        short.tripLitres = 30
+        let inside = MassBalanceCalculator.compute(data: data, empty: data.empty, load: short, isConfirmed: true)
+        XCTAssertEqual(inside.verdict, .insideLimits)
+        XCTAssertEqual(inside.notBelowLitres, 84)
+    }
+
+    /// ST11-37. A trip the fuel can't cover: no landing at empty tanks called inside.
+    func testATripLargerThanTheFuelAtTakeOffIsOutsideLimits() {
+        let result = compute(metric, soloMetric(fuel: 30, trip: 40))
+        XCTAssertEqual(result.verdict, .outsideLimits)
+        XCTAssertNil(result.landing, "no landing to draw")
+        XCTAssertEqual(result.failures, [.tripOverFuel(tripLitres: 40, takeoffLitres: 30)])
+        XCTAssertEqual(result.failures.first?.stationOrSeatId, MassBalanceResult.fuelRowId, "the fuel row is marked")
+        // A trip of all the fuel lands with empty tanks, which is a landing.
+        XCTAssertEqual(compute(metric, soloMetric(fuel: 30, trip: 30)).verdict, .insideLimits)
+        // Fuel not entered yet: nothing to compare the trip with.
+        XCTAssertEqual(compute(metric, soloMetric(fuel: nil, trip: 40)).verdict, .incomplete)
+    }
+
+    /// ST11-05. A usable fuel of nine digits was a countdown of a hundred million steps at every
+    /// computation, and from sixteen digits one that never ended. Such a file is not used.
+    func testAFileWithAnImplausibleFigureIsNotUsed() {
+        XCTAssertTrue(metric.isUsable)
+        XCTAssertFalse(metric(replacing: #""usable": 90"#, with: #""usable": 123456789"#).isUsable)
+        XCTAssertFalse(metric(replacing: #""maxTakeoff": 600, "maxLanding""#, with: #""maxTakeoff": 6e9, "maxLanding""#).isUsable)
+        XCTAssertFalse(metric(replacing: "[2.70, 400], [2.70, 540]", with: "[2.70, 400], [1e9, 540]").isUsable)
+        XCTAssertFalse(metric(replacing: #""density": 0.72"#, with: #""density": 720"#).isUsable)
+    }
+
+    /// ST11-05. A stored or synced load with a figure no box takes reads that figure as not entered.
+    func testAStoredLoadWithAnImplausibleFigureDropsIt() throws {
+        let json = #"{"seats": {"pilot": {"state": "person", "kg": 1e9}, "passenger": {"state": "person", "kg": 70}},"#
+            + #" "baggageKg": {"baggage": 5000}, "fuelLitres": 1e12, "tripLitres": 6000, "isTodays": true}"#
+        let load = try JSONDecoder().decode(MassBalanceLoad.self, from: Data(json.utf8))
+        XCTAssertEqual(load.seats["pilot"], .unset)
+        XCTAssertEqual(load.seats["passenger"], .person(kg: 70))
+        XCTAssertTrue(load.baggageKg.isEmpty)
+        XCTAssertNil(load.fuelLitres)
+        XCTAssertNil(load.tripLitres)
+    }
+
     // MARK: - Categories
 
     func testTheFirstCategoryDecidesAndTheOtherGetsItsSentence() {

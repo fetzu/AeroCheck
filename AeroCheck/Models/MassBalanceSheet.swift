@@ -37,7 +37,7 @@ extension MassBalanceSeatLoad: Codable {
         let state = try container.decodeIfPresent(String.self, forKey: .state) ?? "unset"
         let kg = try container.decodeIfPresent(Double.self, forKey: .kg)
         switch (state, kg) {
-        case ("person", let kg?) where kg.isFinite && kg >= 0: self = .person(kg: kg)
+        case ("person", let kg?) where MassBalanceBounds.personKg.contains(kg): self = .person(kg: kg)
         case ("empty", _): self = .empty
         default: self = .unset
         }
@@ -53,6 +53,29 @@ extension MassBalanceSeatLoad: Codable {
             try container.encode(kg, forKey: .kg)
         }
     }
+}
+
+/// The range of each figure the pilot types for mass and balance, and that a file or a stored load
+/// may carry. A figure outside is refused when typed, dropped when a load is decoded, and makes a file
+/// unusable: nine digits in the usable fuel hung the sheet, Today and START FLIGHT, at every launch.
+/// Every bound is far beyond any light aircraft. (review ST11-05)
+enum MassBalanceBounds {
+    /// One person with what they carry, in kilograms.
+    static let personKg: ClosedRange<Double> = 0...500
+    /// One baggage area's load, in kilograms.
+    static let baggageKg: ClosedRange<Double> = 0...1_000
+    /// Fuel in the tanks or for a trip, in litres.
+    static let fuelLitres = PlausibleRange.fuelLitres
+    /// A mass in a file's unit (kg or lb): a limit, a corner, a station's maximum, the empty aircraft.
+    static let mass: ClosedRange<Double> = 0...20_000
+    /// An arm in a file's unit (m, mm or in), either side of the datum.
+    static let arm: ClosedRange<Double> = -50_000...50_000
+    /// A moment in a file's units.
+    static let moment: ClosedRange<Double> = -1e10...1e10
+    /// A fuel's density, in a file's mass unit per fuel unit (0.72 kg/L, 6 lb/US gal).
+    static let density: ClosedRange<Double> = 0...20
+    /// What a box takes when nothing narrower is said.
+    static let anyFigure: ClosedRange<Double> = 0...100_000
 }
 
 /// The load of one flight, as the pilot types it: kilograms and litres.
@@ -84,9 +107,13 @@ struct MassBalanceLoad: Codable, Equatable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         seats = try container.decodeIfPresent([String: MassBalanceSeatLoad].self, forKey: .seats) ?? [:]
-        baggageKg = try container.decodeIfPresent([String: Double].self, forKey: .baggageKg) ?? [:]
+        // A figure no box can take is dropped, so a stored or synced load can't stall the sheet (ST11-05).
+        baggageKg = (try container.decodeIfPresent([String: Double].self, forKey: .baggageKg) ?? [:])
+            .filter { MassBalanceBounds.baggageKg.contains($0.value) }
         fuelLitres = try container.decodeIfPresent(Double.self, forKey: .fuelLitres)
+            .flatMap { MassBalanceBounds.fuelLitres.contains($0) ? $0 : nil }
         tripLitres = try container.decodeIfPresent(Double.self, forKey: .tripLitres)
+            .flatMap { MassBalanceBounds.fuelLitres.contains($0) ? $0 : nil }
         isTodays = try container.decodeIfPresent(Bool.self, forKey: .isTodays) ?? false
         copiedFrom = try container.decodeIfPresent(Date.self, forKey: .copiedFrom)
     }
@@ -112,6 +139,8 @@ enum MassBalanceVerdict: String, Codable, Equatable, Sendable {
 /// Why a point is outside.
 enum MassBalanceOutside: String, Codable, Equatable, Sendable {
     case overMaximumMass, underMinimumMass, aheadOfForwardLimit, behindAftLimit
+    /// Over the file's maximum landing mass, at the planned landing. (ST11-09)
+    case overMaximumLandingMass
 }
 
 /// A limit that is passed. The view writes the words; the order here is the order shown.
@@ -121,6 +150,11 @@ enum MassBalanceFailure: Equatable, Sendable {
     case overMaxTakeoff(by: Double)
     case takeoffOutside(MassBalanceOutside)
     case landingOutside(MassBalanceOutside, litresLeft: Double)
+    /// The fuel line leaves the limits between take-off and the planned landing, at this much fuel
+    /// left: the landing point is inside, but the flight to it is not. (ST11-26)
+    case fuelLineOutside(MassBalanceOutside, litresLeft: Double)
+    /// The trip burns more than the fuel at take-off: the planned landing can't be reached. (ST11-37)
+    case tripOverFuel(tripLitres: Double, takeoffLitres: Double)
     case seatOverMaximum(seatId: String, maximum: Double)
     case seatUnderMinimum(seatId: String, minimum: Double)
     case baggageOverMaximum(stationId: String, maximum: Double)
@@ -130,7 +164,7 @@ enum MassBalanceFailure: Equatable, Sendable {
     var stationOrSeatId: String? {
         switch self {
         case .seatOverMaximum(let id, _), .seatUnderMinimum(let id, _), .baggageOverMaximum(let id, _): return id
-        case .fuelOverUsable: return MassBalanceResult.fuelRowId
+        case .fuelOverUsable, .tripOverFuel: return MassBalanceResult.fuelRowId
         default: return nil
         }
     }
@@ -207,7 +241,8 @@ enum MassBalanceCalculator {
                         isConfirmed: Bool) -> MassBalanceResult {
         guard data.isUsable, let category = data.mainCategory, let fuelStation = data.fuelStation,
               let density = fuelStation.density, let usable = fuelStation.usable,
-              let empty, empty.mass > 0, empty.mass.isFinite, empty.moment.isFinite else {
+              let empty, empty.mass > 0, MassBalanceBounds.mass.contains(empty.mass),
+              MassBalanceBounds.moment.contains(empty.moment) else {
             // No empty mass, or data the arithmetic cannot run on: nothing is claimed.
             return MassBalanceResult(verdict: .notConfirmed)
         }
@@ -282,13 +317,18 @@ enum MassBalanceCalculator {
 
         let taxiLitres = max(0, (data.limits.taxiFuel ?? 0) / density / perLitre)
         let maxRamp = category.maxRamp ?? data.limits.maxRamp
+        // The file's other two limits (ST11-09): the minimum flying mass holds at every point, the
+        // maximum landing mass at the planned landing.
+        let minFlying = data.limits.minFlying.flatMap { $0 > 0 && $0.isFinite ? $0 : nil }
+        let maxLanding = data.limits.maxLanding.flatMap { $0 > 0 && $0.isFinite ? $0 : nil }
 
         /// The aircraft with `litres` of usable fuel in the tanks.
-        func point(litres: Double) -> MassBalancePoint {
+        func point(litres: Double, isLanding: Bool = false) -> MassBalancePoint {
             let fuelMass = litres * perLitre * density
             let m = mass + fuelMass
             let arm = (moment + fuelMass * fuelStation.arm) / m
-            let why = outside(arm: arm, mass: m, category: category)
+            let why = outside(arm: arm, mass: m, category: category, minFlying: minFlying,
+                              maxLanding: isLanding ? maxLanding : nil)
             return MassBalancePoint(mass: m, arm: arm, fuelLitres: litres, isInside: why == nil, outside: why)
         }
         /// Whether starting the engine with `litres` on board is inside every limit at take-off.
@@ -302,7 +342,10 @@ enum MassBalanceCalculator {
         let takeoff = point(litres: takeoffLitres)
         let emptyTanks = point(litres: 0)
         let trip = load.tripLitres.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
-        let landing = trip.map { point(litres: max(0, takeoffLitres - $0)) }
+        // A trip the fuel at take-off can't cover has no landing to draw: it is a fuel fault, said as
+        // one, never a landing at empty tanks called inside. (ST11-37)
+        let tripIsFlyable = trip.map { !fuelIsSet || $0 <= takeoffLitres + 1e-9 } ?? true
+        let landing = tripIsFlyable ? trip.map { point(litres: max(0, takeoffLitres - $0), isLanding: true) } : nil
 
         if let maxRamp, let rampMass, rampMass > maxRamp + massTolerance {
             failures.append(.overMaxRamp(by: rampMass - maxRamp))
@@ -318,21 +361,19 @@ enum MassBalanceCalculator {
         if isComplete, takeoff.isInside, let landing, let why = landing.outside {
             failures.append(.landingOutside(why, litresLeft: landing.fuelLitres))
         }
-        failures += stationFailures
-
-        // The most fuel at engine start this load allows, in whole litres.
-        var mostFuel: Double?
-        var litres = usableLitres.rounded(.down)
-        while litres >= 0 {
-            if startIsFine(litres: litres) { mostFuel = litres; break }
-            litres -= 1
+        if let trip, !tripIsFlyable {
+            failures.append(.tripOverFuel(tripLitres: trip, takeoffLitres: takeoffLitres))
         }
+
+        // The walks below are bounded whatever a file or a box says: a usable fuel of nine digits was
+        // a countdown of a hundred million steps on every computation. (ST11-05)
+        let ceiling = MassBalanceBounds.fuelLitres.upperBound
 
         // How far down the tanks may go before the aircraft leaves the limits.
         var notBelow: Double?
         var notBelowReason: MassBalanceOutside?
         if isComplete, takeoff.isInside {
-            var level = takeoffLitres.rounded(.down)
+            var level = min(takeoffLitres, ceiling).rounded(.down)
             while level >= 0 {
                 let low = point(litres: level)
                 if !low.isInside {
@@ -342,6 +383,22 @@ enum MassBalanceCalculator {
                 }
                 level -= 1
             }
+        }
+        // Take-off and the planned landing decide (m9), and so does the flight between them: a fuel
+        // line that leaves the limits before the planned landing fuel is reached is a flight outside
+        // them, even with both ends inside (a notched envelope). (ST11-26)
+        if let landing, landing.isInside, let notBelow, let reason = notBelowReason,
+           notBelow - 1 > landing.fuelLitres {
+            failures.append(.fuelLineOutside(reason, litresLeft: notBelow - 1))
+        }
+        failures += stationFailures
+
+        // The most fuel at engine start this load allows, in whole litres.
+        var mostFuel: Double?
+        var litres = min(usableLitres, ceiling).rounded(.down)
+        while litres >= 0 {
+            if startIsFine(litres: litres) { mostFuel = litres; break }
+            litres -= 1
         }
 
         let notes = data.categories.dropFirst().map { other -> MassBalanceCategoryNote in
@@ -381,9 +438,11 @@ enum MassBalanceCalculator {
     private static let massTolerance = 1e-6
 
     /// Nil when the point is inside the category, else why it is not.
-    static func outside(arm: Double, mass: Double,
-                        category: AircraftMassBalance.Category) -> MassBalanceOutside? {
+    static func outside(arm: Double, mass: Double, category: AircraftMassBalance.Category,
+                        minFlying: Double? = nil, maxLanding: Double? = nil) -> MassBalanceOutside? {
         if mass > category.maxTakeoff + massTolerance { return .overMaximumMass }
+        if let maxLanding, mass > maxLanding + massTolerance { return .overMaximumLandingMass }
+        if let minFlying, mass < minFlying - massTolerance { return .underMinimumMass }
         if contains(arm: arm, mass: mass, envelope: category.envelope) { return nil }
         guard let limits = limits(atMass: mass, envelope: category.envelope) else {
             let masses = category.envelope.map(\.mass)

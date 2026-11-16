@@ -210,6 +210,7 @@ enum MassBalanceWords {
         case .underMinimumMass: return L10n.MassBalance.whyUnderMin
         case .aheadOfForwardLimit: return L10n.MassBalance.whyForward
         case .behindAftLimit: return L10n.MassBalance.whyAft
+        case .overMaximumLandingMass: return L10n.MassBalance.whyOverLanding
         }
     }
 
@@ -223,7 +224,11 @@ enum MassBalanceWords {
         case .takeoffOutside(let reason):
             return L10n.MassBalance.failTakeoff(why(reason))
         case .landingOutside(let reason, let litresLeft):
-            return L10n.MassBalance.failLanding(Int(litresLeft.rounded()), why(reason))
+            return L10n.MassBalance.failLanding(litres(litresLeft), why(reason))
+        case .fuelLineOutside(let reason, let litresLeft):
+            return L10n.MassBalance.failFuelLine(litres(litresLeft), why(reason))
+        case .tripOverFuel(let trip, let takeoff):
+            return L10n.MassBalance.failTripOverFuel(litres(trip), litres(takeoff))
         case .seatOverMaximum(let seatId, let maximum):
             return L10n.MassBalance.failSeatMax(name(ofId: seatId, in: data), mass(maximum, units, withKilograms: false))
         case .seatUnderMinimum(let seatId, let minimum):
@@ -231,9 +236,12 @@ enum MassBalanceWords {
         case .baggageOverMaximum(let stationId, let maximum):
             return L10n.MassBalance.failBaggageMax(name(ofId: stationId, in: data), mass(maximum, units, withKilograms: false))
         case .fuelOverUsable(let usableLitres):
-            return L10n.MassBalance.failFuelMax(Int(usableLitres.rounded()))
+            return L10n.MassBalance.failFuelMax(litres(usableLitres))
         }
     }
+
+    /// Whole litres for a sentence. Never a trap, whatever a file or a stored figure holds (ST11-05).
+    static func litres(_ value: Double) -> Int { value.safeRoundedInt(or: 0) }
 
     /// The lines under the verdict's title: what is wrong, what is missing, or the margins.
     static func lines(for result: MassBalanceResult, basis: MassBalanceBasis, registration: String,
@@ -280,7 +288,7 @@ enum MassBalanceWords {
                                                  gap(limits.aft - takeoff.arm, data.units)))
         }
         if let level = result.notBelowLitres, let reason = result.notBelowReason {
-            lines.append(L10n.MassBalance.lineNotBelow(Int(level.rounded()), why(reason)))
+            lines.append(L10n.MassBalance.lineNotBelow(litres(level), why(reason)))
         }
         if result.landing == nil { lines.append(L10n.MassBalance.lineNoTrip) }
         for note in result.otherCategories {

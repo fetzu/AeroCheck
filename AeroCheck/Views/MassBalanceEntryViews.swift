@@ -17,12 +17,29 @@ struct MassBalanceQuantityField: View {
     /// How many decimals the figure is shown with once the box is left: one for a mass, three for an arm in metres.
     var decimals = 1
     var width: CGFloat = 84
+    /// What the box takes. A figure outside it is refused: the box keeps its figure and says so, and
+    /// shows it again once left. (review ST11-05)
+    var range: ClosedRange<Double> = MassBalanceBounds.anyFigure
 
     @State private var text = ""
+    @State private var refused = false
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
+        VStack(alignment: .trailing, spacing: 2) {
+            box
+            if refused {
+                Text(L10n.MassBalance.fieldRefused)
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                    .foregroundColor(.aviationRed)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var box: some View {
+        let flagged = self.flagged || refused
+        return HStack(spacing: 6) {
             TextField("—", text: $text)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
@@ -36,6 +53,7 @@ struct MassBalanceQuantityField: View {
                     .strokeBorder(flagged ? Color.aviationRed : Color.white.opacity(0.08), lineWidth: flagged ? 1.5 : 1))
                 .focused($focused)
                 .accessibilityLabel("\(label), \(unit)")
+                .accessibilityHint(refused ? L10n.MassBalance.fieldRefused : "")
                 .accessibilityIdentifier(identifier ?? "")
             VStack(alignment: .leading, spacing: 1) {
                 // Never broken over two lines: "kg/L" and "kg·m" were, at an iPhone's width.
@@ -59,9 +77,20 @@ struct MassBalanceQuantityField: View {
             // digit can arrive before the focus is reported, and was dropped (seen with one digit).
             guard new != display(value) else { return }
             let cleaned = new.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
-            if cleaned.isEmpty { value = nil } else if let typed = Double(cleaned), typed.isFinite, typed >= 0 { value = typed }
+            if cleaned.isEmpty {
+                value = nil
+                refused = false
+            } else if let typed = Double(cleaned), typed.isFinite, typed >= 0 {
+                refused = !range.contains(typed)
+                if !refused { value = typed }
+            }
         }
-        .onChange(of: focused) { _, isFocused in if !isFocused { text = display(value) } }
+        .onChange(of: focused) { _, isFocused in
+            if !isFocused {
+                refused = false
+                text = display(value)
+            }
+        }
     }
 
     /// The figure as the box shows it: no more decimals than it has, and never fewer than were typed
@@ -93,7 +122,8 @@ struct MassBalanceSeatControl: View {
     var body: some View {
         let field = MassBalanceQuantityField(
             value: kilograms, unit: "kg",
-            alternative: alternative, flagged: flagged, label: name, identifier: "mb.seat.\(seat.id)")
+            alternative: alternative, flagged: flagged, label: name, identifier: "mb.seat.\(seat.id)",
+            range: MassBalanceBounds.personKg)
         let empty = Button {
             load.seats[seat.id] = state == .empty ? .unset : .empty
         } label: {
@@ -137,13 +167,16 @@ struct MassBalanceFuelControls: View {
     let result: MassBalanceResult
     @Binding var load: MassBalanceLoad
     var vertical: Bool = false
+    /// The route's trip, when the flight has one: shown, not typed (ST11-10).
+    @Environment(\.massBalanceRouteTrip) private var routeTrip
 
     private var flagged: Bool { result.failures.contains { $0.stationOrSeatId == MassBalanceResult.fuelRowId } }
 
     var body: some View {
         let fuel = MassBalanceQuantityField(value: $load.fuelLitres, unit: "L",
                                             alternative: load.fuelLitres.flatMap { MassBalanceWords.fuel(litres: $0, data.units) },
-                                            flagged: flagged, label: L10n.MassBalance.rowFuel, identifier: "mb.fuel")
+                                            flagged: flagged, label: L10n.MassBalance.rowFuel, identifier: "mb.fuel",
+                                            range: MassBalanceBounds.fuelLitres)
         let full = Button(L10n.MassBalance.buttonFullTanks) {
             if let usable = data.usableFuelLitres { load.fuelLitres = usable.rounded(.down) }
         }
@@ -156,7 +189,8 @@ struct MassBalanceFuelControls: View {
         .accessibilityIdentifier("mb.fullTanks")
         let trip = MassBalanceQuantityField(value: $load.tripLitres, unit: "L",
                                             alternative: load.tripLitres.flatMap { MassBalanceWords.fuel(litres: $0, data.units) },
-                                            label: L10n.MassBalance.rowTrip, identifier: "mb.trip")
+                                            label: L10n.MassBalance.rowTrip, identifier: "mb.trip",
+                                            range: MassBalanceBounds.fuelLitres)
 
         VStack(alignment: .leading, spacing: 10) {
             ViewThatFits(in: .horizontal) {
@@ -188,7 +222,27 @@ struct MassBalanceFuelControls: View {
             Text(L10n.MassBalance.rowTrip)
                 .scaledFont(size: 15, relativeTo: .subheadline)
                 .foregroundColor(.secondaryText)
-            trip
+            if let routeTrip {
+                // The route's figure, as the flight's page and the kept sheet use it: a figure, not a box.
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(MassBalanceWords.plain(routeTrip, decimals: routeTrip == routeTrip.rounded() ? 0 : 1)) L")
+                        .scaledFont(size: 22, design: .monospaced, relativeTo: .title3)
+                        .foregroundColor(.primaryText)
+                    if let alternative = MassBalanceWords.fuel(litres: routeTrip, data.units) {
+                        Text(alternative)
+                            .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
+                            .foregroundColor(.dimText)
+                    }
+                    Text(L10n.MassBalance.rowTripFromRoute)
+                        .scaledFont(size: 15, relativeTo: .subheadline)
+                        .foregroundColor(.secondaryText)
+                }
+                .frame(minHeight: 52)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("mb.trip.route")
+            } else {
+                trip
+            }
         }
     }
 
@@ -199,7 +253,8 @@ struct MassBalanceFuelControls: View {
         }
         guard let most = result.mostFuelLitres else { return L10n.MassBalance.tipNone }
         let usable = (data.usableFuelLitres ?? 0).rounded(.down)
-        return most < usable ? L10n.MassBalance.tipMost(Int(most)) : L10n.MassBalance.tipFull(Int(usable))
+        return most < usable ? L10n.MassBalance.tipMost(MassBalanceWords.litres(most))
+            : L10n.MassBalance.tipFull(MassBalanceWords.litres(usable))
     }
 }
 
@@ -234,7 +289,8 @@ private struct MassBalanceBaggageControl: View {
             alternative: data.units.mass == .kg ? nil : load.baggageKg[station.id].map {
                 "\(MassBalanceWords.plain($0 * data.units.mass.perKilogram, decimals: 0)) \(data.units.mass.rawValue)"
             },
-            flagged: flagged, label: MassBalanceWords.rowName(station, in: data), identifier: "mb.baggage.\(station.id)")
+            flagged: flagged, label: MassBalanceWords.rowName(station, in: data), identifier: "mb.baggage.\(station.id)",
+            range: MassBalanceBounds.baggageKg)
     }
 }
 

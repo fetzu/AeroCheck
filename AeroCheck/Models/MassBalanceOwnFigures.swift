@@ -50,6 +50,12 @@ struct MassBalanceOwnDraft: Equatable {
     var emptyDate = Date()
 
     static let avgasKgPerLitre = 0.72
+    /// What the usable fuel's box takes, in the fuel unit (ST11-05).
+    static func usableRange(_ unit: MassBalanceFuelUnit) -> ClosedRange<Double> {
+        0...(MassBalanceBounds.fuelLitres.upperBound * unit.perLitre)
+    }
+    /// A fuel density in kilograms per litre: avgas 0.72, jet fuel 0.80, water 1.
+    static let densityRangeKgPerLitre: ClosedRange<Double> = 0...2
     static let maximumRows = 3
     static let maximumBaggageAreas = 3
     /// The registry id of figures no file stands behind.

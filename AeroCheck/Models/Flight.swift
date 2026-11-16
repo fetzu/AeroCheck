@@ -702,6 +702,8 @@ struct Flight: Identifiable, Codable {
         }
 
         bounded.flightPlan = flightPlan?.salvagedForFlight()
+        // The cost entry too: the import, the sync ingest and the local load all pass here. (ST11-04)
+        bounded.costEntry = costEntry?.withPlausibleValues()
         if let records = checkRecords, records.count > CheckRecord.maxPerFlight {
             bounded.checkRecords = Array(records.prefix(CheckRecord.maxPerFlight))
         }

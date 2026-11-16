@@ -622,6 +622,7 @@ enum L10n {
         static let noRateSet = String(localized: "No hourly rate set for this aircraft")
         static let setRate = String(localized: "Set a rate")
         static let notRecorded = String(localized: "No cost recorded")
+        static let noBillableTime = String(localized: "cost.noBillableTime")
         static func missingCost(_ count: Int) -> String {
             String(localized: "\(count) flights without a recorded cost")
         }
@@ -648,6 +649,7 @@ enum L10n {
         static let feeAmountLater = String(localized: "fee.amount.later")
         static func feeLandings(_ count: Int) -> String { String(localized: "fee.landings \(count)") }
         static func feeAnswerLabel(_ ident: String) -> String { String(localized: "fee.answer.label \(ident)") }
+        static func feeLineAnswerLabel(_ label: String) -> String { String(localized: "fee.answer.lineLabel \(label)") }
         static func invoicesToCome(_ count: Int) -> String { String(localized: "fee.invoicesToCome \(count)") }
         static let landingFees = String(localized: "fee.section.landingFees")
         static let exportCosts = String(localized: "fee.export.costs")

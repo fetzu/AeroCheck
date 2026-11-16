@@ -6277,6 +6277,29 @@
         }
       }
     },
+    "cost.noBillableTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine verrechenbare Zeit erfasst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No billable time recorded"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun temps facturable enregistré"
+          }
+        }
+      }
+    },
     "dryRun.band": {
       "extractionState": "manual",
       "localizations": {
@@ -13899,6 +13922,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Format JSON invalide : %@"
+          }
+        }
+      }
+    },
+    "fee.answer.lineLabel %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begleichung: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How %@ was settled"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Règlement : %@"
           }
         }
       }

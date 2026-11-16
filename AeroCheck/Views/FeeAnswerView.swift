@@ -9,6 +9,9 @@ import SwiftUI
 struct FeeAnswerView: View {
     let flightId: UUID
     let icao: String
+    /// A line added by hand, answered by its id rather than by an aerodrome (`icao` is then only its
+    /// accessibility name). Taking its answer back keeps the line. (UX11-22)
+    var lineId: UUID? = nil
     /// The landings the app counted there, when it could place them.
     var landings: Int?
     /// The currency the amount starts in: the aerodrome's country's, else the flight's.
@@ -25,12 +28,16 @@ struct FeeAnswerView: View {
 
     private var entry: FlightCostEntry? {
         guard let flight else { return nil }
-        if let stored = flight.costEntry { return stored }
         let key = FlightCostCalculator.profileKey(for: flight)
-        return FlightCostCalculator.makeEntry(for: flight, profile: key.flatMap { appState.settings.aircraftRates[$0] })
+        // The same entry the card and the ledger read: a rate set after the entry was stored is taken.
+        return FlightCostCalculator.entry(for: flight, profile: key.flatMap { appState.settings.aircraftRates[$0] })
+            ?? FlightCostEntry()
     }
 
-    private var line: FeeItem? { entry?.feeLine(for: icao) }
+    private var line: FeeItem? {
+        if let lineId { return entry?.fees.first { $0.id == lineId } }
+        return entry?.feeLine(for: icao)
+    }
 
     private var currency: String {
         if let line, let entry { return entry.currency(of: line) }
@@ -52,7 +59,7 @@ struct FeeAnswerView: View {
                 }
             }
             .accessibilityElement(children: .contain)
-            .accessibilityLabel(L10n.Cost.feeAnswerLabel(icao))
+            .accessibilityLabel(lineId == nil ? L10n.Cost.feeAnswerLabel(icao) : L10n.Cost.feeLineAnswerLabel(icao))
 
             if let status = line?.status, status == .paid || status == .invoice {
                 amountRow(status)
@@ -89,7 +96,7 @@ struct FeeAnswerView: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(chosen ? .isSelected : [])
-        .accessibilityIdentifier("fee.answer.\(icao).\(status.rawValue)")
+        .accessibilityIdentifier("fee.answer.\(lineId.map { "line.\($0.uuidString.prefix(8))" } ?? icao).\(status.rawValue)")
     }
 
     private func amountRow(_ status: FeeStatus) -> some View {
@@ -122,7 +129,7 @@ struct FeeAnswerView: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
                 .focused($amountFocused)
                 .accessibilityLabel(L10n.Cost.feeAmount)
-                .accessibilityIdentifier("fee.amount.\(icao)")
+                .accessibilityIdentifier("fee.amount.\(lineId.map { "line.\($0.uuidString.prefix(8))" } ?? icao)")
                 .onChange(of: amountText) { _, _ in if amountFocused { save(status: status, currency: currency) } }
         }
     }
@@ -143,7 +150,8 @@ struct FeeAnswerView: View {
         guard force || loadedFor != icao else { return }
         loadedFor = icao
         if let line, line.hasAmount ?? true, line.amount > 0 {
-            amountText = line.amount == line.amount.rounded() ? String(Int(line.amount)) : String(line.amount)
+            // Never a trap, whatever a synced line holds (ST11-04).
+            amountText = line.amount == line.amount.rounded() ? String(line.amount.safeRoundedInt(or: 0)) : String(line.amount)
         } else {
             amountText = ""
         }
@@ -152,12 +160,22 @@ struct FeeAnswerView: View {
     /// Both separators: a Swiss tariff page writes 23,50 and 19.50 in the same table.
     private var typedAmount: Double? {
         let cleaned = amountText.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
-        guard !cleaned.isEmpty, let value = Double(cleaned), value.isFinite, value >= 0 else { return nil }
+        guard !cleaned.isEmpty, let value = Double(cleaned),
+              PlausibleRange.isPlausible(value, in: PlausibleRange.moneyAmount) else { return nil }
         return value
     }
 
     private func answer(_ status: FeeStatus?) {
         guard let flight, var entry else { return }
+        if let lineId {
+            let keepsAmount = status == .paid || status == .invoice || status == nil
+            entry.settleLine(lineId, status: status, amount: keepsAmount ? (typedAmount ?? line?.amount) : nil,
+                             currency: currency, at: Date())
+            if !keepsAmount { amountText = "" }
+            appState.updateFlightCost(flight, cost: entry)
+            onAnswered?(status)
+            return
+        }
         if let status {
             let keepsAmount = status == .paid || status == .invoice
             entry.settleFee(at: icao, label: L10n.Cost.landingFee(icao.uppercased()), status: status,
@@ -174,6 +192,11 @@ struct FeeAnswerView: View {
 
     private func save(status: FeeStatus, currency: String) {
         guard let flight, var entry else { return }
+        if let lineId {
+            entry.settleLine(lineId, status: status, amount: typedAmount, currency: currency, at: Date())
+            appState.updateFlightCost(flight, cost: entry)
+            return
+        }
         entry.settleFee(at: icao, label: L10n.Cost.landingFee(icao.uppercased()), status: status,
                         amount: typedAmount, currency: currency, landings: shownLandings, at: Date())
         appState.updateFlightCost(flight, cost: entry)

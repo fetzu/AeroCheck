@@ -75,6 +75,11 @@ enum PlausibleRange {
     static let plannedAirspeedKnots: ClosedRange<Double> = 1...1_000
     /// A wind speed in knots, entered on a waypoint or forecast aloft.
     static let windSpeedKnots: ClosedRange<Double> = 0...300
+    /// A sum of money in a currency's units: a fee, an hourly rate. No light aircraft's hour or
+    /// landing comes near it; nineteen digits trapped the logbook at every opening. (review ST11-04)
+    static let moneyAmount: ClosedRange<Double> = 0...1_000_000
+    /// Hours billed for one flight.
+    static let billedHours: ClosedRange<Double> = 0...1_000
     /// One route leg in nautical miles. No great-circle leg is longer than half the Earth.
     static let legDistanceNM: ClosedRange<Double> = 0...10_800
 

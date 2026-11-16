@@ -29,7 +29,7 @@ final class FeesPaidTests: XCTestCase {
         XCTAssertEqual(line.status, .paid)
         XCTAssertEqual(line.amount, 62)
         XCTAssertEqual(line.hasAmount, true)
-        XCTAssertNil(line.currency, "the flight's own currency is not repeated on the line")
+        XCTAssertEqual(line.currency, "CHF", "written out, so a later rate in another currency can't move it")
         XCTAssertEqual(line.landings, 1)
         XCTAssertEqual(line.settledAt, day)
         XCTAssertEqual(entry.total, 362)
@@ -205,6 +205,92 @@ final class FeesPaidTests: XCTestCase {
         XCTAssertNil(summary.invoicesToCome.first?.amount, "no figure yet")
         XCTAssertEqual(summary.invoicesToCome.last?.amount, 18)
         XCTAssertEqual(summary.invoicesToCome.last?.currency, "EUR")
+    }
+
+    // MARK: - The review of 14 Nov 2026
+
+    /// UX11-22: a fee in the flight's currency kept it as "the flight's", and a rate set later in
+    /// another currency moved it (CHF 25 read EUR 25). Each fee keeps its own currency (f6).
+    func testAFeeKeepsItsCurrencyWhenARateInAnotherIsSetLater() {
+        var entry = FlightCostEntry()
+        entry.settleFee(at: "LSZS", label: "Landing fee LSZS", status: .paid, amount: 25, currency: "CHF", landings: 1, at: day)
+        XCTAssertEqual(entry.feeLine(for: "LSZS")?.currency, "CHF")
+        entry.settleFee(at: "LSGE", label: "Landing fee LSGE", status: .paid, amount: 30, currency: nil, landings: 1, at: day)
+        XCTAssertEqual(entry.feeLine(for: "LSGE")?.currency, "CHF", "no currency given: the flight's, written out")
+
+        // A line an older build wrote, in the flight's currency by omission, then a rate in euros.
+        var older = FlightCostEntry()
+        older.fees = [FeeItem(label: "Parking", amount: 12)]
+        var rerated = costed(rate: 200, currency: "EUR")
+        rerated.fees = older.feesInTheirOwnCurrency
+        XCTAssertEqual(rerated.totalsByCurrency, ["EUR": 200, "CHF": 12])
+    }
+
+    /// UX11-22: a fee added by hand takes the same four answers, in its own currency.
+    func testAFeeAddedByHandTakesTheFourAnswers() {
+        var entry = costed()
+        let parking = FeeItem(label: "Parking", amount: 15, currency: "EUR", hasAmount: true)
+        entry.fees.append(parking)
+        entry.settleLine(parking.id, status: .club, amount: nil, currency: "EUR", at: day)
+        XCTAssertEqual(entry.fees.first?.status, .club)
+        XCTAssertEqual(entry.totalsByCurrency, ["CHF": 300], "on the club's bill, it adds nothing")
+        entry.settleLine(parking.id, status: .paid, amount: 15, currency: "EUR", at: day)
+        XCTAssertEqual(entry.totalsByCurrency, ["CHF": 300, "EUR": 15])
+        entry.settleLine(parking.id, status: nil, amount: 15, currency: "EUR", at: day)
+        XCTAssertEqual(entry.fees.count, 1, "taking the answer back keeps the line")
+        XCTAssertNil(entry.fees.first?.status)
+    }
+
+    /// UX11-23: a fee answered before the aircraft's rate was set wrote an entry without a rate; the
+    /// ledger then took that entry, never the rate, and counted the flight as costed at zero.
+    func testAFlightAnsweredBeforeItsRateWasSetIsCostedFromTheRate() {
+        func answered(_ status: FeeStatus, amount: Double?) -> Flight {
+            var flight = Flight(airplane: "dr400-140b", aircraftRegistration: "HB-TST")
+            flight.startTime = day
+            flight.engineHourStart = 100
+            flight.engineHourEnd = 101.5
+            var entry = FlightCostEntry()
+            entry.settleFee(at: "LSGE", label: "Landing fee LSGE", status: status, amount: amount, currency: "CHF", landings: 1, at: day)
+            flight.costEntry = entry
+            return flight
+        }
+        let rates = ["HB-TST": AircraftRateProfile(hourlyRate: 200, currency: "CHF", basis: .engineHours)]
+        let noFee = answered(FeeStatus.none, amount: nil)
+        let summary = CostLedger.summarize(flights: [noFee], rates: rates)
+        XCTAssertEqual(summary.aircraftCost, 300, accuracy: 1e-9, "the rate, 1.5 h")
+        XCTAssertEqual(summary.flightsWithCost, 1)
+        XCTAssertEqual(summary.flightsMissingCost, 0)
+
+        // Without a rate, "No fee" carries no money: the flight is one without cost.
+        let bare = CostLedger.summarize(flights: [noFee])
+        XCTAssertEqual(bare.flightsWithCost, 0)
+        XCTAssertEqual(bare.flightsMissingCost, 1)
+        // A fee with money is a cost, rate or not.
+        XCTAssertEqual(CostLedger.summarize(flights: [answered(.paid, amount: 40)]).flightsWithCost, 1)
+    }
+
+    /// ST11-04: a fee or a rate of nineteen digits trapped the flight's numbers and the Flight Log at
+    /// every opening. A flight file, a record or the local load bounds them.
+    func testAnImplausibleFeeOrRateIsBoundedOnArrival() {
+        var flight = Flight(airplane: "dr400-140b")
+        var entry = costed(rate: 1e19, hours: 1)
+        entry.fees = [FeeItem(label: "Landing fee", amount: 1e300, icao: "LSGE")]
+        flight.costEntry = entry
+        let bounded = flight.withPlausibleValues()
+        XCTAssertNil(bounded.costEntry?.hourlyRate)
+        XCTAssertEqual(bounded.costEntry?.fees.first?.amount, 0)
+        XCTAssertEqual(bounded.costEntry?.fees.first?.hasAmount, false)
+        XCTAssertEqual(bounded.costEntry?.fees.first?.label, "Landing fee", "the line itself stays")
+    }
+
+    /// ST11-04: a figure that still reaches the screen is written without a trap.
+    func testAnAmountOfAnySizeIsWrittenWithoutATrap() {
+        XCTAssertEqual(FlightCostCalculator.formatAmount(1e300, currency: "CHF"), "CHF 0")
+        XCTAssertEqual(FlightCostCalculator.formatAmount(.infinity, currency: "CHF"), "CHF 0")
+        XCTAssertEqual(FlightCostCalculator.formatAmount(62.4, currency: "CHF"), "CHF 62")
+        var entry = costed()
+        entry.settleFee(at: "LSGE", label: "Landing fee LSGE", status: .paid, amount: 1e19, currency: nil, landings: 1, at: day)
+        XCTAssertEqual(entry.feeLine(for: "LSGE")?.hasAmount, false, "refused when typed")
     }
 
     // MARK: - The Costs CSV

@@ -17540,6 +17540,29 @@
         }
       }
     },
+    "mb.point.tripOverFuel": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Strecke braucht mehr Treibstoff"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the trip needs more fuel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "l'étape demande plus de carburant"
+          }
+        }
+      }
+    },
     "mb.record.figures %@ %lld": {
       "extractionState": "manual",
       "localizations": {

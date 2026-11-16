@@ -51,8 +51,10 @@ struct MassBalanceAircraftPage: View {
                 }
                 SettingsGroup(title: L10n.MassBalance.settingsConfirmation, tint: tint, footer: L10n.MassBalance.step3Again) {
                     MassBalanceSettingsLine(text: Self.confirmation(basis, setup: setup, registration: registration),
-                                            colour: basis.isConfirmed ? .aviationGreen : .aviationAmber,
-                                            symbol: basis.isConfirmed ? "checkmark" : "questionmark")
+                                            colour: basis.source == .pilot ? .secondaryText
+                                                : basis.isConfirmed ? .aviationGreen : .aviationAmber,
+                                            symbol: basis.source == .pilot ? "pencil"
+                                                : basis.isConfirmed ? "checkmark" : "questionmark")
                     if basis.source == .shipped, shipped != nil {
                         SettingsButtonRow(icon: "doc.text.magnifyingglass", title: L10n.MassBalance.buttonCheckData,
                                           subtitle: L10n.MassBalance.step1Title, tint: tint) { showSteps = true }
@@ -108,6 +110,11 @@ struct MassBalanceAircraftPage: View {
 
     /// Where the confirmation stands, in one line: also the row's subtitle on the Aircraft page.
     static func confirmation(_ basis: MassBalanceBasis, setup: MassBalanceSetup, registration: String) -> String {
+        // Figures the pilot typed are entered, not confirmed: nothing was compared with anything, and
+        // "Confirmed by you" with a green tick read as a check someone made. (UX11-24, the author's d5)
+        if basis.source == .pilot, basis.isConfirmed, let at = setup.ownConfirmedAt {
+            return L10n.MassBalance.settingsEnteredOn(at.formatted(date: .abbreviated, time: .omitted))
+        }
         if basis.isConfirmed {
             let at = basis.source == .shipped ? setup.confirmedAt : setup.ownConfirmedAt
             return at.map { L10n.MassBalance.settingsConfirmedOn($0.formatted(date: .abbreviated, time: .omitted)) }

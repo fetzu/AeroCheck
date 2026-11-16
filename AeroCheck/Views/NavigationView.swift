@@ -1902,6 +1902,7 @@ struct NavigationMapView: View {
                     station: windDataService.currentWindData,
                     model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
                     aircraftAltitudeM: locationManager.currentAltitudeMeters,
+                    aircraftPosition: locationManager.getCurrentCoordinate(),
                     now: Date())?.directionDeg.map(Double.init)
             }
         } else {

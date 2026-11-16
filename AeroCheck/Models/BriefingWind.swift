@@ -28,6 +28,9 @@ struct BriefingWind: Equatable {
     /// Distance from the aircraft to the reporting station. Nil for the model, which has no station.
     let distanceNm: Double?
     let observedAt: Date?
+    /// How old a METAR was when the briefing chose it, in whole minutes: shown in the row, so an
+    /// hour-old report never reads as the wind now. (review ST11-14)
+    var ageMinutes: Int? = nil
 
     var isVariable: Bool { directionDeg == nil }
 
@@ -46,7 +49,8 @@ struct BriefingWind: Equatable {
         let distance = distanceNm.map { String(format: "%.0f nm", $0) }
         switch source {
         case .metar(let icao):
-            return [.some("METAR \(icao)"), distance].compactMap { $0 }.joined(separator: ", ")
+            let age = ageMinutes.map(L10n.Briefing.windAge)
+            return [.some("METAR \(icao)"), distance, age].compactMap { $0 }.joined(separator: ", ")
         case .meteoSwiss(let station):
             return [.some(station), distance].compactMap { $0 }.joined(separator: ", ")
         case .model:
@@ -84,16 +88,37 @@ enum BriefingWindLadder {
     /// `reference_ts` in a successful fetch, was briefed as current. (UX-04)
     static let maxStationAge: TimeInterval = 20 * 60
 
+    /// A METAR older than this is not the wind now: the aerodrome card's limit (`AerodromeCard.weatherLine`).
+    /// A report without a time goes the same way. The step had no age at all: on an iPad with no data
+    /// in the air, the approach briefing showed the departure field's report, hours old, with the
+    /// distance it had on the ground. (review ST11-14, the author's d3)
+    static let maxMetarAge: TimeInterval = 60 * 60
+
     /// A candidate observation from the aviation weather proxy.
     struct MetarCandidate: Equatable {
         let icao: String
-        let distanceNm: Double
+        /// As the proxy worked it out at the fetch; measured again from the aircraft when both
+        /// positions are known (`measured(from:)`).
+        var distanceNm: Double
         let elevationM: Double?
         let directionDeg: Int?
         let isVariable: Bool
         let speedKt: Int?
         let gustKt: Int?
         let observedAt: Date?
+        /// The station, when the report carries it.
+        var latitude: Double? = nil
+        var longitude: Double? = nil
+
+        /// The candidate with its distance from `position`, the aircraft now. A report fetched on the
+        /// ground kept the departure field's distance for the whole flight.
+        func measured(from position: CLLocationCoordinate2D?) -> MetarCandidate {
+            guard let position, let latitude, let longitude, latitude.isFinite, longitude.isFinite else { return self }
+            var copy = self
+            copy.distanceNm = CLLocation(latitude: position.latitude, longitude: position.longitude)
+                .distance(from: CLLocation(latitude: latitude, longitude: longitude)) / 1852
+            return copy
+        }
     }
 
     /// The model fallback.
@@ -111,20 +136,26 @@ enum BriefingWindLadder {
     ///   - station: the MeteoSwiss reading, when one was fetched.
     ///   - model: Open-Meteo's surface wind, when the winds-aloft call returned one.
     ///   - aircraftAltitudeM: used to reject a reading taken at a very different elevation.
-    ///   - now: the time the briefing is for, to age the MeteoSwiss reading.
+    ///   - aircraftPosition: where the aircraft is now, to measure each report's distance again.
+    ///   - now: the time the briefing is for, to age the METARs and the MeteoSwiss reading.
     static func select(
         metars: [MetarCandidate],
         station: WindData?,
         model: ModelCandidate?,
         aircraftAltitudeM: Double?,
+        aircraftPosition: CLLocationCoordinate2D? = nil,
         now: Date = Date()
     ) -> BriefingWind? {
 
         // 1 — METAR. Nearest first, but only among reports that are close enough, plausibly at the
         // same elevation, and actually carry a wind. A report present but wind-less is skipped
         // rather than shown as calm.
+        // An hour old at most, and as far as it is from the aircraft now, not from where it was at
+        // the fetch. (ST11-14)
         let usableMetars = metars
             .filter { $0.speedKt != nil }
+            .filter { metar in metar.observedAt.map { now.timeIntervalSince($0) < maxMetarAge } ?? false }
+            .map { $0.measured(from: aircraftPosition) }
             .filter { $0.distanceNm <= maxMetarDistanceNm }
             .filter { altitudeIsPlausible(readingM: $0.elevationM, aircraftM: aircraftAltitudeM) }
             .sorted { $0.distanceNm < $1.distanceNm }
@@ -136,7 +167,8 @@ enum BriefingWindLadder {
                 gustKt: best.gustKt,
                 source: .metar(icao: best.icao),
                 distanceNm: best.distanceNm,
-                observedAt: best.observedAt
+                observedAt: best.observedAt,
+                ageMinutes: best.observedAt.map { max(0, Int(now.timeIntervalSince($0) / 60)) }
             )
         }
 

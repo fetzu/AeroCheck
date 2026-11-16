@@ -8,13 +8,15 @@ final class BriefingWindLadderTests: XCTestCase {
 
     // MARK: - Builders
 
+    /// A report `ageMinutes` old now: `select` ages it against the clock unless given a `now`.
     private func metar(
         _ icao: String = "LSGG", distanceNm: Double = 10, elevationM: Double? = 400,
-        dir: Int? = 240, variable: Bool = false, speedKt: Int? = 8, gustKt: Int? = nil
+        dir: Int? = 240, variable: Bool = false, speedKt: Int? = 8, gustKt: Int? = nil,
+        ageMinutes: Double? = 10
     ) -> BriefingWindLadder.MetarCandidate {
         .init(icao: icao, distanceNm: distanceNm, elevationM: elevationM,
               directionDeg: dir, isVariable: variable, speedKt: speedKt, gustKt: gustKt,
-              observedAt: Date(timeIntervalSince1970: 1_785_196_800))
+              observedAt: ageMinutes.map { Date().addingTimeInterval(-$0 * 60) })
     }
 
     /// A reading `ageMinutes` old now: `select` ages it against the clock unless given a `now`.
@@ -217,5 +219,50 @@ final class BriefingWindLadderTests: XCTestCase {
         let wind = BriefingWind(directionDeg: 270, speedKt: 10, gustKt: nil,
                                 source: .meteoSwiss(station: "Sion"), distanceNm: 2.7, observedAt: nil)
         XCTAssertEqual(wind.display, "270° 10 kt (Sion, 3 nm)")
+    }
+    // MARK: - The METAR's age and distance (review ST11-14, the author's d3)
+
+    /// A METAR an hour old is not the wind now, as on the aerodrome card. The briefing falls to the
+    /// next rung instead of briefing the departure field's report of two hours before.
+    func testAMetarAnHourOldOrWithoutATimeIsNotUsed() {
+        for old in [metar(ageMinutes: 60), metar(ageMinutes: 125), metar(ageMinutes: nil)] {
+            let wind = BriefingWindLadder.select(metars: [old], station: station(), model: model, aircraftAltitudeM: 400)
+            XCTAssertEqual(wind?.source, .meteoSwiss(station: "Sion"))
+        }
+        let fresh = BriefingWindLadder.select(metars: [metar(ageMinutes: 59)], station: station(), model: model,
+                                              aircraftAltitudeM: 400)
+        XCTAssertEqual(fresh?.source, .metar(icao: "LSGG"))
+        // A fresh report further away still beats an old one close by.
+        let mixed = BriefingWindLadder.select(metars: [metar("LSZG", distanceNm: 2, ageMinutes: 120),
+                                                       metar("LSZB", distanceNm: 30, ageMinutes: 20)],
+                                              station: nil, model: model, aircraftAltitudeM: 400)
+        XCTAssertEqual(mixed?.source, .metar(icao: "LSZB"))
+    }
+
+    /// The distance is the aircraft's now, not the one worked out when the report was fetched.
+    func testTheDistanceIsMeasuredFromWhereTheAircraftIsNow() {
+        var grenchen = metar("LSZG", distanceNm: 2)
+        grenchen.latitude = 47.18
+        grenchen.longitude = 7.42
+        // 74 NM further on, over the Alps: too far for this report, whatever the fetch said.
+        let overTheAlps = CLLocationCoordinate2D(latitude: 46.0, longitude: 7.9)
+        let far = BriefingWindLadder.select(metars: [grenchen], station: nil, model: model, aircraftAltitudeM: 400,
+                                            aircraftPosition: overTheAlps)
+        XCTAssertEqual(far?.source, .model)
+        let near = BriefingWindLadder.select(metars: [grenchen], station: nil, model: model, aircraftAltitudeM: 400,
+                                             aircraftPosition: CLLocationCoordinate2D(latitude: 47.25, longitude: 7.42))
+        XCTAssertEqual(near?.source, .metar(icao: "LSZG"))
+        XCTAssertEqual(near?.distanceNm ?? 0, 4.2, accuracy: 0.1, "measured again, not the 2 NM of the fetch")
+    }
+
+    /// The row says how old the report is.
+    func testTheWindRowSaysHowOldTheReportIs() {
+        let now = Date()
+        let report = BriefingWindLadder.MetarCandidate(icao: "LSGG", distanceNm: 21.4, elevationM: 400, directionDeg: 240,
+                                                       isVariable: false, speedKt: 8, gustKt: nil,
+                                                       observedAt: now.addingTimeInterval(-25 * 60 - 20))
+        let wind = BriefingWindLadder.select(metars: [report], station: nil, model: nil, aircraftAltitudeM: 400, now: now)
+        XCTAssertEqual(wind?.ageMinutes, 25)
+        XCTAssertEqual(wind?.provenance, "METAR LSGG, 21 nm, \(L10n.Briefing.windAge(25))")
     }
 }

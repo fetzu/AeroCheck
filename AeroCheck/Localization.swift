@@ -1562,6 +1562,7 @@ enum L10n {
     enum Briefing {
         /// Provenance qualifier when the briefing wind came from the model rather than a station.
         static let windModelForecast = String(localized: "briefing.wind.modelForecast")
+        static func windAge(_ minutes: Int) -> String { String(localized: "briefing.wind.age \(minutes)") }
         /// VoiceOver label for the raw TAF, which is unreadable letter-by-letter.
         static func tafAccessibility(_ icao: String) -> String {
             String(format: String(localized: "briefing.taf.accessibility"), icao)

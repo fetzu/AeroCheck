@@ -792,6 +792,7 @@ enum L10n {
         static func stateYourFigures(_ a0: String) -> String { String(localized: "mb.state.yourFigures \(a0)") }
         static func pointLeft(_ a0: Int) -> String { String(localized: "mb.point.left \(a0)") }
         static let pointNoTrip = String(localized: "mb.point.noTrip")
+        static let pointTripOverFuel = String(localized: "mb.point.tripOverFuel")
         static func chartCgAxis(_ a0: String) -> String { String(localized: "mb.chart.cgAxis \(a0)") }
         static func chartMassAxis(_ a0: String) -> String { String(localized: "mb.chart.massAxis \(a0)") }
         static func chartPoint(_ a0: String, _ a1: String, _ a2: String, _ a3: String) -> String { String(localized: "mb.chart.point \(a0) \(a1) \(a2) \(a3)") }

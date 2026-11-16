@@ -441,7 +441,7 @@ struct MassBalancePointCards: View {
             // No landing figures before the take-off ones are whole: three cards of sums so far say less than one.
             (L10n.MassBalance.pointLanding, "arrowtriangle.down.fill", judged ? result.landing : nil,
              !judged ? "" : result.landing.map { "\(L10n.MassBalance.pointLeft(MassBalanceWords.litres($0.fuelLitres))) · \(word($0))" }
-                ?? L10n.MassBalance.pointNoTrip),
+                ?? MassBalanceWords.noLandingNote(result)),
             (L10n.MassBalance.pointEmptyTanks, "circle", result.emptyTanks, result.emptyTanks.map(word) ?? "")
         ]
         let layout = stacked ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(alignment: .top, spacing: 8))

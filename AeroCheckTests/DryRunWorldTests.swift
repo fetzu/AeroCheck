@@ -178,7 +178,7 @@ final class DryRunWorldTests: XCTestCase {
             "Services/PhaseFrequencyPlanner.swift": ["WatchConnectivityManager.shared": (1, "the radio's default; a dry run's tells the Watch nothing (D8)")],
             "Services/SyncManager.swift": [
                 "CKContainer": (3, "the service itself"),
-                "DataPersistenceManager.shared": (2, "the service itself"),
+                "DataPersistenceManager.shared": (1, "the service itself"),
             ],
             "Services/WatchConnectivityManager.swift": ["WCSession": (9, "the service itself")],
             "Services/WidgetBridge.swift": ["WidgetCenter": (1, "the widget, from the aircraft list")],

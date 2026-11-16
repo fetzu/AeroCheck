@@ -257,7 +257,7 @@ final class DeletionRecordsTests: XCTestCase {
         XCTAssertTrue(store.saveFlight(removedElsewhere))
         let appState = makeTestAppState(datastore: store, syncManager: sync)
         try await waitUntil { appState.flights.count == 2 }
-        await sync.onFlightsUpdated?([kept])
+        await sync.onFlightsUpdated?(SyncManager.FlightIngest(inbound: [kept], deletedIds: [removedElsewhere.id]))
         XCTAssertFalse(files(in: "Flights", of: cloud).contains(DataPersistenceManager.flightFilename(for: removedElsewhere)))
 
         XCTAssertTrue(records(in: cloud).isEmpty, "\(records(in: cloud))")

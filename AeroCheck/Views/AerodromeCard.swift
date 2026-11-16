@@ -72,7 +72,7 @@ struct AerodromeFacts: Equatable {
 
     /// A METAR as one line, or nil over an hour old: wind, visibility, QNH, each left out where the report has none.
     static func weatherLine(_ metar: AviationWeatherService.Metar, now: Date) -> String? {
-        guard let observed = metar.observedAt, now.timeIntervalSince(observed) < 3600 else { return nil }
+        guard let observed = metar.observedAt, now.timeIntervalSince(observed) < BriefingWindLadder.maxMetarAge else { return nil }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
         let time = calendar.dateComponents([.hour, .minute], from: observed)

@@ -150,6 +150,7 @@ struct FlightView: View {
             station: windDataService.currentWindData,
             model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
             aircraftAltitudeM: locationManager.currentAltitudeMeters,
+            aircraftPosition: locationManager.getCurrentCoordinate(),
             now: Date()
         )
 

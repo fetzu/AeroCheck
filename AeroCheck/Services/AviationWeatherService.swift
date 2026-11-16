@@ -317,7 +317,9 @@ final class AviationWeatherService: ObservableObject {
                   isVariable: $0.windVariable,
                   speedKt: $0.windSpeedKt,
                   gustKt: $0.windGustKt,
-                  observedAt: $0.observedAt)
+                  observedAt: $0.observedAt,
+                  latitude: $0.lat,
+                  longitude: $0.lon)
         }
     }
 }

@@ -150,6 +150,20 @@ class DataPersistenceManager: ObservableObject {
         return localAppDirectory.appendingPathComponent(settingsFileName)
     }
 
+    /// This device's own copy of the settings it last saved, in the local datastore and never in iCloud
+    /// Drive (nor in `mergedRootFiles`). settings.json in iCloud Drive is one file for every device on
+    /// the Apple ID, and an older build rewrites it without the fields it doesn't know: a 6.10 device
+    /// drops the whole mass and balance side. What that file's writer could not express is taken from
+    /// here at launch (`AppSettings.takingFile(_:lastSavedHere:)`). (review ST11-13)
+    nonisolated static let deviceSettingsFileName = "settings-this-device.json"
+
+    private var deviceSettingsFileURL: URL {
+        localAppDirectory.appendingPathComponent(Self.deviceSettingsFileName)
+    }
+
+    /// Where settings.json is now: iCloud Drive while it is the active store, else the local datastore.
+    var settingsFileLocation: URL { settingsFileURL }
+
     /// Whether iCloud is available
     var isICloudAvailable: Bool {
         iCloudContainerURL != nil
@@ -873,6 +887,10 @@ class DataPersistenceManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(settings)
             try data.write(to: settingsFileURL, options: Self.protectedWriteOptions)
+            // Only while settings.json is the shared one: a local settings.json is this device's own already.
+            if isUsingICloudDrive {
+                try data.write(to: deviceSettingsFileURL, options: Self.protectedWriteOptions)
+            }
             AppLog.general.debugLine("Settings saved to file")
         } catch {
             AppLog.general.debugLine("Failed to save settings: \(error.localizedDescription)")
@@ -894,6 +912,14 @@ class DataPersistenceManager: ObservableObject {
             return nil
         }
         return Self.decodeSettings(at: url)
+    }
+
+    /// The settings this device last saved itself (see `deviceSettingsFileName`). Local, so it never
+    /// waits on iCloud. Nil before the first save of a 6.11 build, or while settings.json is local
+    /// (then that file is this device's own already).
+    func loadDeviceSettingsCopy() -> AppSettings? {
+        guard isUsingICloudDrive, FileManager.default.fileExists(atPath: deviceSettingsFileURL.path) else { return nil }
+        return Self.decodeSettings(at: deviceSettingsFileURL)
     }
 
     /// Loads + decodes settings OFF the main actor (blocking on an iCloud download is acceptable

@@ -351,6 +351,22 @@ struct AppSettings: Codable, Equatable {
         return merged
     }
 
+    /// A settings file as this device takes it: clamped and migrated, and every protected field its
+    /// writer could not express taken from the copy this device last saved itself. settings.json in
+    /// iCloud Drive is shared by every device on the Apple ID; a 6.10 device rewrites it without the
+    /// mass and balance side, at its launch and for every settings record it receives, and taking the
+    /// file whole lost the confirmations, the own figures and the last loads on the next launch. The
+    /// same rule as a CloudKit record's (`preservingFieldsUnknownTo`), on the file path. (review ST11-13)
+    static func takingFile(_ file: AppSettings, lastSavedHere: AppSettings?) -> AppSettings {
+        var taken = file.clampedForIngest().migratedLocally()
+        guard let lastSavedHere else { return taken }
+        // Only what the copy's own writer could express: a copy is never older than the field it fills in.
+        for field in protectedFields where file.couldNotExpress(field) && !lastSavedHere.couldNotExpress(field) {
+            field.keep(&taken, lastSavedHere)
+        }
+        return taken
+    }
+
     /// Whether `preservingFieldsUnknownTo(incoming)` gave back a value `incoming` doesn't hold: the
     /// record in CloudKit then lacks it, and this device sends the merged one back, so the next device
     /// to fetch gets the newer record again. (6.1)
@@ -1366,7 +1382,9 @@ class AppState {
             fileSettings.iCloudSyncEnabled = self.persistence.usesICloudDrive
             guard fileSettings != launchSettings,
                   self.settings == launchSettings else { return }
-            self.settings = fileSettings.clampedForIngest().migratedLocally() // SEC-C25
+            // SEC-C25; what an older writer left out comes from this device's own copy (ST11-13).
+            self.settings = AppSettings.takingFile(fileSettings,
+                                                   lastSavedHere: self.persistence.loadDeviceSettingsCopy())
             self.saveSettings()
         }
     }
@@ -3705,8 +3723,15 @@ class AppState {
             // Flights/ and NavigationPlans/, so it is exactly as untrusted as a synced record.
             // SyncManager.settingsFromRecord already clamps; this sibling path did not, leaving
             // the numeric ranges (e.g. gpsRecordingInterval) unguarded on the file route.
-            settings = loadedSettings.clampedForIngest().migratedLocally()
-            if settings.schemaVersion != loadedSettings.schemaVersion { persistence.saveSettings(settings) }
+            // An older build may have rewritten the shared file without the fields it doesn't know:
+            // those come from the copy this device last saved itself, and the file is written back
+            // with them, so the next device to read it gets them too. (review ST11-13)
+            let lastSavedHere = persistence.loadDeviceSettingsCopy()
+            settings = AppSettings.takingFile(loadedSettings, lastSavedHere: lastSavedHere)
+            if settings.schemaVersion != loadedSettings.schemaVersion
+                || lastSavedHere?.restoresFields(missingFrom: loadedSettings) == true {
+                persistence.saveSettings(settings)
+            }
         }
         reconcileSyncSwitch()
 

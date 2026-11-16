@@ -792,7 +792,9 @@ struct HomeView: View {
                 // The mass and balance sheet's last state, once there is one to show. START never
                 // asks and never blocks on it. (6.11.0, the author's m12)
                 if !inFlight, let state = massBalanceState(thread), state != .notDone {
-                    Label("\(L10n.MassBalance.title): \(MassBalanceWords.stateLine(state, yourFigures: massBalanceIsPilots(thread)))",
+                    // Each language its own colon: French writes a space before it. (UX11-42)
+                    Label(L10n.MassBalance.labelled(L10n.MassBalance.title,
+                                                    MassBalanceWords.stateLine(state, yourFigures: massBalanceIsPilots(thread))),
                           systemImage: MassBalanceWords.stateSymbol(state))
                         .scaledFont(size: isCompact ? 13 : 16, weight: .semibold, relativeTo: .footnote)
                         .foregroundColor(state.tint)

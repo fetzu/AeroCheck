@@ -240,6 +240,16 @@ enum MassBalanceWords {
         }
     }
 
+    /// The landing card's word when there is no landing point: no trip entered, or a trip the fuel
+    /// at take-off can't cover ("no trip fuel" read wrong under a trip typed as 40 L). (ST11-37)
+    static func noLandingNote(_ result: MassBalanceResult) -> String {
+        let tripTooLong = result.failures.contains { failure in
+            if case .tripOverFuel = failure { return true }
+            return false
+        }
+        return tripTooLong ? L10n.MassBalance.pointTripOverFuel : L10n.MassBalance.pointNoTrip
+    }
+
     /// Whole litres for a sentence. Never a trap, whatever a file or a stored figure holds (ST11-05).
     static func litres(_ value: Double) -> Int { value.safeRoundedInt(or: 0) }
 

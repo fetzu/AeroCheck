@@ -208,4 +208,15 @@ final class MassBalanceWordsTests: XCTestCase {
         plan.tripFuel = 12.5
         XCTAssertEqual(MassBalanceFlight.startingLoad(for: thread, setup: .init(), plan: plan)?.tripLitres, 12.5)
     }
+
+    /// ST11-37, seen on a simulator: with a trip the fuel can't cover, the landing card said "no trip
+    /// fuel" under a trip typed as 40 L. It says the trip needs more fuel.
+    func testTheLandingCardSaysWhyThereIsNoLanding() {
+        let four = aircraft(mass: "lb", arm: "in", fuel: "usgal", rows: fourSeats)
+        var noTrip = MassBalanceCalculator.compute(data: four, empty: .init(mass: 1500, moment: 130_500, date: "2025-02-18"),
+                                                   load: MassBalanceLoad(), isConfirmed: true)
+        XCTAssertEqual(MassBalanceWords.noLandingNote(noTrip), L10n.MassBalance.pointNoTrip)
+        noTrip.failures = [.tripOverFuel(tripLitres: 40, takeoffLitres: 30)]
+        XCTAssertEqual(MassBalanceWords.noLandingNote(noTrip), L10n.MassBalance.pointTripOverFuel)
+    }
 }

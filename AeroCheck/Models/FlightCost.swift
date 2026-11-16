@@ -110,6 +110,10 @@ struct FeeItem: Codable, Identifiable, Equatable, Sendable {
     }
 
     var isInvoiceToCome: Bool { status == .invoice }
+
+    /// The amount the pilot entered, nil when none was: a line kept without one stores 0. (UX11-22, seen
+    /// on a simulator: Paid on a hand-added line without an amount read "EUR 0".)
+    var enteredAmount: Double? { (hasAmount ?? true) ? amount : nil }
 }
 
 /// What a flight cost, stored on the flight itself.

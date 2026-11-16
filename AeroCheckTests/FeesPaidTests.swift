@@ -241,6 +241,20 @@ final class FeesPaidTests: XCTestCase {
         XCTAssertNil(entry.fees.first?.status)
     }
 
+    /// UX11-22, seen on a simulator: a line answered "On the club's bill" keeps no amount; answered Paid
+    /// again with the box empty, it read "EUR 0". Its entered amount is none.
+    func testALineWithoutAnAmountStaysWithoutOne() {
+        var entry = costed()
+        let parking = FeeItem(label: "Parking", amount: 15, currency: "EUR", hasAmount: true)
+        entry.fees.append(parking)
+        XCTAssertEqual(entry.fees.first?.enteredAmount, 15)
+        entry.settleLine(parking.id, status: .club, amount: nil, currency: "EUR", at: day)
+        XCTAssertNil(entry.fees.first?.enteredAmount)
+        entry.settleLine(parking.id, status: .paid, amount: entry.fees.first?.enteredAmount, currency: "EUR", at: day)
+        XCTAssertEqual(entry.fees.first?.hasAmount, false, "Paid with no amount typed: no figure, not EUR 0")
+        XCTAssertEqual(entry.totalsByCurrency, ["CHF": 300])
+    }
+
     /// UX11-23: a fee answered before the aircraft's rate was set wrote an entry without a rate; the
     /// ledger then took that entry, never the rate, and counted the flight as costed at zero.
     func testAFlightAnsweredBeforeItsRateWasSetIsCostedFromTheRate() {

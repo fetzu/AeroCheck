@@ -165,4 +165,58 @@ final class MassBalanceWordsTests: XCTestCase {
         XCTAssertEqual(MassBalanceChart.step(for: 0.15, count: 6), 0.02, accuracy: 1e-12)
         XCTAssertEqual(MassBalanceChart.step(for: 0, count: 6), 1)
     }
+    // MARK: - The review of 14 Nov 2026
+
+    /// ST11-05: a figure of twenty digits in a failure's sentence used to trap in `Int(…)`.
+    func testAFailureWithAnImplausibleFigureIsWordedWithoutATrap() {
+        let four = aircraft(mass: "lb", arm: "in", fuel: "usgal", rows: fourSeats)
+        for failure: MassBalanceFailure in [.fuelOverUsable(usableLitres: 1e300), .landingOutside(.behindAftLimit, litresLeft: 1e20),
+                                            .fuelLineOutside(.behindAftLimit, litresLeft: .infinity),
+                                            .tripOverFuel(tripLitres: 1e19, takeoffLitres: -1e19)] {
+            XCTAssertFalse(MassBalanceWords.failure(failure, in: four).isEmpty)
+        }
+        XCTAssertEqual(MassBalanceWords.litres(83.4), 83)
+    }
+
+    /// ST11-09: the first-time step and Settings show the two limits the sheet now holds the points to.
+    func testTheFactsToCompareWithTheAFMIncludeTheLandingAndMinimumMasses() throws {
+        let json = """
+        {"schema":1,"aircraftId":"test","registration":"T-EST","revision":1,"updated":"2026-01-01",
+         "units":{"mass":"kg","arm":"m","fuel":"l"},"limits":{"maxTakeoff":600,"maxLanding":570,"minFlying":420},
+         "categories":[{"id":"normal","maxTakeoff":600,"envelope":[[2.7,400],[2.7,600],[2.85,600],[2.85,400]]}],
+         "stations":[{"id":"row1","kind":"seats","arm":3.1,"layout":"single","seats":[{"id":"p","role":"pilot"}]},
+                     {"id":"fuel","kind":"fuel","arm":2.5,"usable":90,"density":0.72}],"sources":[]}
+        """
+        let data = try JSONDecoder().decode(AircraftMassBalance.self, from: Data(json.utf8))
+        let rows = Dictionary(MassBalanceFacts.identityRows(for: data), uniquingKeysWith: { a, _ in a })
+        XCTAssertEqual(rows[L10n.MassBalance.step1MaxLanding], "570.0 kg")
+        XCTAssertEqual(rows[L10n.MassBalance.step1MinFlying], "420.0 kg")
+    }
+
+    /// ST11-10, the author's d4: with a route, the sheet's trip is the route's (shown, not typed);
+    /// without one, or with no trip in the route, the box stays.
+    func testTheTripOfAFlightWithARouteIsTheRoutes() {
+        var plan = FlightPlan(name: "Basel")
+        XCTAssertNil(MassBalanceFlight.routeTrip(of: nil))
+        XCTAssertNil(MassBalanceFlight.routeTrip(of: plan), "a route without a trip keeps the box")
+        plan.tripFuel = 12.5
+        XCTAssertEqual(MassBalanceFlight.routeTrip(of: plan), 12.5)
+        plan.tripFuel = 1e12
+        XCTAssertNil(MassBalanceFlight.routeTrip(of: plan), "not a trip")
+        var thread = FlightThread(routeLabel: "LSZQ → LFSB")
+        thread.aircraftRegistration = "T-EST"
+        plan.tripFuel = 12.5
+        XCTAssertEqual(MassBalanceFlight.startingLoad(for: thread, setup: .init(), plan: plan)?.tripLitres, 12.5)
+    }
+
+    /// ST11-37, seen on a simulator: with a trip the fuel can't cover, the landing card said "no trip
+    /// fuel" under a trip typed as 40 L. It says the trip needs more fuel.
+    func testTheLandingCardSaysWhyThereIsNoLanding() {
+        let four = aircraft(mass: "lb", arm: "in", fuel: "usgal", rows: fourSeats)
+        var noTrip = MassBalanceCalculator.compute(data: four, empty: .init(mass: 1500, moment: 130_500, date: "2025-02-18"),
+                                                   load: MassBalanceLoad(), isConfirmed: true)
+        XCTAssertEqual(MassBalanceWords.noLandingNote(noTrip), L10n.MassBalance.pointNoTrip)
+        noTrip.failures = [.tripOverFuel(tripLitres: 40, takeoffLitres: 30)]
+        XCTAssertEqual(MassBalanceWords.noLandingNote(noTrip), L10n.MassBalance.pointTripOverFuel)
+    }
 }

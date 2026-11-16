@@ -18,7 +18,21 @@ import SwiftUI
 struct MassBalanceFlightContext {
     /// `MassBalanceFlight.startingLoad`: nil starts the sheet from nothing.
     var load: MassBalanceLoad?
+    /// The route's trip fuel (`MassBalanceFlight.routeTrip`): the sheet's trip, not to be typed.
+    var routeTripLitres: Double? = nil
     var onChange: (MassBalanceLoad) -> Void
+}
+
+/// The route's trip fuel for the sheet's fuel row: shown, not typed. Nil keeps the box.
+private struct MassBalanceRouteTripKey: EnvironmentKey {
+    static let defaultValue: Double? = nil
+}
+
+extension EnvironmentValues {
+    var massBalanceRouteTrip: Double? {
+        get { self[MassBalanceRouteTripKey.self] }
+        set { self[MassBalanceRouteTripKey.self] = newValue }
+    }
 }
 
 struct MassBalanceEntryView: View {
@@ -185,6 +199,7 @@ struct MassBalanceSheetView: View {
                 }
             }
         }
+        .environment(\.massBalanceRouteTrip, flight?.routeTripLitres)
         .onAppear(perform: start)
         .onChange(of: load) { _, new in persist(new) }
         .sheet(isPresented: $showSteps) {
@@ -237,6 +252,7 @@ struct MassBalanceSheetView: View {
         // aircraft's. A sheet started from nothing is today's: only a load taken over from an
         // earlier flight has to be said to be.
         var first = (flight != nil ? flight?.load : setup.startingLoad()) ?? MassBalanceLoad(isTodays: true)
+        if let trip = flight?.routeTripLitres { first.tripLitres = trip }
         // The pilot's own mass is the one figure a sheet with no seat answered starts with.
         if first.seats.values.allSatisfy({ $0 == .unset }), let own = appState.settings.massBalance.pilotMassKg,
            let seat = data.seatStations.flatMap({ $0.seats ?? [] }).first(where: { $0.role == .pilot }) {
@@ -424,8 +440,8 @@ struct MassBalancePointCards: View {
             (L10n.MassBalance.pointTakeoff, "arrowtriangle.up.fill", result.takeoff, result.takeoff.map(word) ?? ""),
             // No landing figures before the take-off ones are whole: three cards of sums so far say less than one.
             (L10n.MassBalance.pointLanding, "arrowtriangle.down.fill", judged ? result.landing : nil,
-             !judged ? "" : result.landing.map { "\(L10n.MassBalance.pointLeft(Int($0.fuelLitres.rounded()))) · \(word($0))" }
-                ?? L10n.MassBalance.pointNoTrip),
+             !judged ? "" : result.landing.map { "\(L10n.MassBalance.pointLeft(MassBalanceWords.litres($0.fuelLitres))) · \(word($0))" }
+                ?? MassBalanceWords.noLandingNote(result)),
             (L10n.MassBalance.pointEmptyTanks, "circle", result.emptyTanks, result.emptyTanks.map(word) ?? "")
         ]
         let layout = stacked ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(alignment: .top, spacing: 8))

@@ -114,12 +114,20 @@ enum MassBalanceFlight {
             load = last.carriedOver(from: setup.lastLoadDay ?? Date())
         }
         guard let plan else { return load }
-        let trip = plan.tripFuel.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        let trip = routeTrip(of: plan)
         guard load != nil || plan.fuelOnBoard != nil || trip != nil else { return nil }
         var withFuel = load ?? MassBalanceLoad(isTodays: true)
         withFuel.fuelLitres = plan.fuelOnBoard
         if let trip { withFuel.tripLitres = trip }
         return withFuel
+    }
+
+    /// The trip fuel a flight's route gives, when it gives one. With it, the sheet's trip is the
+    /// route's: shown, marked "from the route", never typed. A trip typed there counted only while
+    /// the sheet was open, and the flight's page, Today and the kept sheet used the route's (the
+    /// author's d4, review ST11-10). A flight without a route keeps its box.
+    static func routeTrip(of plan: FlightPlan?) -> Double? {
+        plan?.tripFuel.flatMap { MassBalanceBounds.fuelLitres.contains($0) && $0 > 0 ? $0 : nil }
     }
 
     /// The line for the flight's page and Today. Nil where there is nothing to say: no aircraft on

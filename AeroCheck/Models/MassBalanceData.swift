@@ -192,6 +192,16 @@ struct AircraftMassBalance: Codable, Equatable, Sendable {
         guard let fuel = fuelStation, let usable = fuel.usable, usable > 0,
               let density = fuel.density, density > 0 else { return false }
         guard stations.allSatisfy({ $0.arm.isFinite }) else { return false }
+        // Every figure within reach of a light aircraft: the pilot's own figures are typed, and a
+        // usable fuel of nine digits stalled every computation (ST11-05).
+        let bounded = MassBalanceBounds.self
+        guard usable / units.fuel.perLitre <= bounded.fuelLitres.upperBound, bounded.density.contains(density),
+              bounded.mass.contains(limits.maxTakeoff),
+              [limits.maxLanding, limits.maxRamp, limits.minFlying, limits.taxiFuel].allSatisfy({ $0.map(bounded.mass.contains) ?? true }),
+              categories.allSatisfy({ bounded.mass.contains($0.maxTakeoff)
+                  && $0.envelope.allSatisfy { bounded.mass.contains($0.mass) && bounded.arm.contains($0.arm) } }),
+              stations.allSatisfy({ bounded.arm.contains($0.arm) && ($0.max.map(bounded.mass.contains) ?? true) })
+        else { return false }
         guard seatStations.contains(where: { ($0.seats ?? []).contains { $0.role == .pilot } }) else { return false }
         return true
     }

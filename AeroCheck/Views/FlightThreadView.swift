@@ -831,7 +831,7 @@ struct FlightThreadView: View {
         guard let thread = threadManager.thread(withId: threadId) else { return nil }
         let start = MassBalanceFlight.startingLoad(for: thread, setup: appState.settings.massBalance[registration],
                                                    plan: plan(for: thread))
-        return MassBalanceFlightContext(load: start) { load in
+        return MassBalanceFlightContext(load: start, routeTripLitres: MassBalanceFlight.routeTrip(of: plan(for: thread))) { load in
             threadManager.setMassBalance(load, registration: registration, threadId: threadId)
             if var plan = plan(for: thread), plan.fuelOnBoard != load.fuelLitres {
                 plan.fuelOnBoard = load.fuelLitres

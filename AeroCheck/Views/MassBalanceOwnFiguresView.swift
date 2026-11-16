@@ -193,6 +193,7 @@ private struct MassBalanceOwnRow: View {
     let unit: String
     var decimals = 1
     var identifier: String?
+    var range: ClosedRange<Double> = MassBalanceBounds.mass
 
     var body: some View {
         HStack(spacing: 10) {
@@ -201,7 +202,8 @@ private struct MassBalanceOwnRow: View {
                 .foregroundColor(.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
-            MassBalanceQuantityField(value: $value, unit: unit, label: label, identifier: identifier, decimals: decimals, width: 116)
+            MassBalanceQuantityField(value: $value, unit: unit, label: label, identifier: identifier, decimals: decimals,
+                                     width: 116, range: range)
         }
     }
 }
@@ -256,7 +258,7 @@ private struct MassBalanceOwnSeats: View {
                 VStack(alignment: .leading, spacing: 8) {
                     MassBalanceOwnRow(label: L10n.MassBalance.ownRowArm(index + 1), value: $row.arm,
                                       unit: draft.units.arm.rawValue, decimals: armDecimals(draft.units),
-                                      identifier: "mb.own.row\(index + 1)")
+                                      identifier: "mb.own.row\(index + 1)", range: MassBalanceBounds.arm)
                     HStack(spacing: 10) {
                         Picker(L10n.MassBalance.rowSeats, selection: $row.seats) {
                             Text(L10n.MassBalance.ownOneSeat).tag(1)
@@ -323,7 +325,8 @@ private struct MassBalanceOwnBaggage: View {
                 let index = draft.baggage.firstIndex { $0.id == area.id } ?? 0
                 VStack(alignment: .leading, spacing: 8) {
                     MassBalanceOwnRow(label: L10n.MassBalance.ownAreaArm(index + 1), value: $area.arm,
-                                      unit: draft.units.arm.rawValue, decimals: armDecimals(draft.units))
+                                      unit: draft.units.arm.rawValue, decimals: armDecimals(draft.units),
+                                      range: MassBalanceBounds.arm)
                     MassBalanceOwnRow(label: L10n.MassBalance.ownAreaMax, value: $area.max, unit: draft.units.mass.rawValue)
                     Button(L10n.MassBalance.ownRemove) { draft.baggage.removeAll { $0.id == area.id } }
                         .scaledFont(size: 15, relativeTo: .subheadline)
@@ -344,10 +347,12 @@ private struct MassBalanceOwnFuel: View {
     var body: some View {
         MassBalanceOwnCard(title: L10n.MassBalance.step1Fuel) {
             MassBalanceOwnRow(label: L10n.MassBalance.ownArm, value: $draft.fuelArm, unit: draft.units.arm.rawValue,
-                              decimals: armDecimals(draft.units), identifier: "mb.own.fuelArm")
+                              decimals: armDecimals(draft.units), identifier: "mb.own.fuelArm", range: MassBalanceBounds.arm)
             MassBalanceOwnRow(label: L10n.MassBalance.ownUsable, value: $draft.fuelUsable,
-                              unit: draft.units.fuel == .litre ? "L" : "US gal", identifier: "mb.own.usable")
-            MassBalanceOwnRow(label: L10n.MassBalance.ownDensity, value: $draft.fuelDensityKgPerLitre, unit: "kg/L", decimals: 3)
+                              unit: draft.units.fuel == .litre ? "L" : "US gal", identifier: "mb.own.usable",
+                              range: MassBalanceOwnDraft.usableRange(draft.units.fuel))
+            MassBalanceOwnRow(label: L10n.MassBalance.ownDensity, value: $draft.fuelDensityKgPerLitre, unit: "kg/L", decimals: 3,
+                              range: MassBalanceOwnDraft.densityRangeKgPerLitre)
         }
     }
 }
@@ -363,9 +368,11 @@ private struct MassBalanceOwnEnvelope: View {
                 // drawing below shows the order.
                 HStack(spacing: 8) {
                     MassBalanceQuantityField(value: $corner.arm, unit: draft.units.arm.rawValue,
-                                             label: "\(L10n.MassBalance.ownArm) \(index + 1)", decimals: armDecimals(draft.units), width: 76)
+                                             label: "\(L10n.MassBalance.ownArm) \(index + 1)", decimals: armDecimals(draft.units), width: 76,
+                                             range: MassBalanceBounds.arm)
                     MassBalanceQuantityField(value: $corner.mass, unit: draft.units.mass.rawValue,
-                                             label: "\(L10n.MassBalance.ownMass) \(index + 1)", width: 76)
+                                             label: "\(L10n.MassBalance.ownMass) \(index + 1)", width: 76,
+                                             range: MassBalanceBounds.mass)
                     Spacer(minLength: 0)
                     if draft.corners.count > 3 {
                         Button { draft.corners.removeAll { $0.id == corner.id } } label: {
@@ -401,7 +408,8 @@ private struct MassBalanceOwnEmpty: View {
             MassBalanceOwnRow(label: L10n.MassBalance.step2Mass, value: $draft.emptyMass, unit: units.mass.rawValue,
                               identifier: "mb.own.emptyMass")
             MassBalanceOwnRow(label: L10n.MassBalance.tableMoment, value: $draft.emptyMoment,
-                              unit: "\(units.mass.rawValue)·\(units.arm.rawValue)", decimals: 2, identifier: "mb.own.emptyMoment")
+                              unit: "\(units.mass.rawValue)·\(units.arm.rawValue)", decimals: 2, identifier: "mb.own.emptyMoment",
+                              range: 0...MassBalanceBounds.moment.upperBound)
             DatePicker(L10n.MassBalance.step2Date, selection: $draft.emptyDate, in: ...Date(), displayedComponents: .date)
                 .scaledFont(size: 17, relativeTo: .body)
                 .foregroundColor(.primaryText)

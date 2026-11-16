@@ -223,4 +223,93 @@ final class SettingsSyncTests: XCTestCase {
         XCTAssertEqual(migrated.schemaVersion, AppSettings.currentSchemaVersion)
         XCTAssertFalse(migrated.learningMode, "nothing else touched")
     }
+    // MARK: - The settings file in iCloud Drive (review ST11-13)
+
+    /// The pilot's whole mass and balance side, every part away from its default. Invented figures.
+    private func massBalanceSide() throws -> MassBalanceSettings {
+        let own = try JSONDecoder().decode(AircraftMassBalance.self, from: Data("""
+        { "schema": 1, "aircraftId": "test-own", "registration": "T-OWN1", "revision": 0, "updated": "2026-11-01",
+          "units": { "mass": "kg", "arm": "m", "fuel": "l" },
+          "limits": { "maxTakeoff": 600 },
+          "categories": [ { "id": "normal", "maxTakeoff": 600, "envelope": [[2.70, 400], [2.70, 600], [2.85, 600], [2.85, 400]] } ],
+          "stations": [ { "id": "row1", "kind": "seats", "arm": 3.10, "layout": "side-by-side",
+                          "seats": [ { "id": "pilot", "role": "pilot" } ] },
+                        { "id": "fuel", "kind": "fuel", "arm": 2.50, "usable": 90, "density": 0.72 } ],
+          "empty": { "mass": 330, "moment": 867.9, "date": "2025-03-10" },
+          "sources": [] }
+        """.utf8))
+        let day = Date(timeIntervalSince1970: 1_763_000_000)
+        return MassBalanceSettings(setups: [
+            "T-EST1": MassBalanceSetup(confirmedRevision: 2, confirmedAt: day,
+                                       ownEmpty: .init(mass: 335, moment: 880.1, date: "2026-10-02", entry: "weighed"),
+                                       lastLoad: MassBalanceLoad(seats: ["pilot": .person(kg: 77)], fuelLitres: 60,
+                                                                 isTodays: true),
+                                       lastLoadDay: day),
+            "T-OWN1": MassBalanceSetup(declinedRevision: 1, ownData: own, ownConfirmedAt: day),
+        ], pilotMassKg: 77)
+    }
+
+    /// A 6.10 device rewrites the shared settings.json at its launch and for every settings record it
+    /// receives: without the mass and balance key, stamped 10. The next launch here took that file
+    /// whole, and the confirmations, the own figures, the newer empty mass and the last loads were gone
+    /// on every 6.11 device. They come from this device's own copy now; what 6.10 can express still
+    /// wins, and the shared file gets the side back.
+    func testASettingsFileAnOlderBuildRewroteKeepsTheMassAndBalanceSide() throws {
+        let root = makeTestDirectory()
+        let cloud = root.appendingPathComponent("iCloud", isDirectory: true)
+        let local = root.appendingPathComponent("local", isDirectory: true)
+        let defaults = makeTestDefaults()
+        let side = try massBalanceSide()
+
+        let before = makeTestAppState(
+            datastore: DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults),
+            defaults: defaults)
+        before.settings.massBalance = side
+        before.settings.pilotName = "A. Pilot"
+        before.saveSettings()
+
+        // The 6.10 device's file: everything it knows, a change of its own, no mass and balance.
+        let file = cloud.appendingPathComponent("settings.json")
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        XCTAssertNotNil(object["massBalance"], "the fixture's file carries the side")
+        object.removeValue(forKey: "massBalance")
+        object["schemaVersion"] = 10
+        object["pilotName"] = "B. Pilot"
+        try JSONSerialization.data(withJSONObject: object).write(to: file)
+
+        let after = makeTestAppState(
+            datastore: DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults),
+            defaults: defaults)
+        XCTAssertEqual(after.settings.massBalance, side, "confirmations, own figures, newer empty mass, last loads")
+        XCTAssertEqual(after.settings.pilotName, "B. Pilot", "a field the older build can express is taken at its word")
+
+        let shared = try JSONDecoder().decode(AppSettings.self, from: Data(contentsOf: file))
+        XCTAssertEqual(shared.massBalance, side, "the shared file is written back with the side")
+        XCTAssertEqual(shared.schemaVersion, AppSettings.currentSchemaVersion)
+    }
+
+    /// A file a 6.11 device wrote is taken at its word, a cleared side included: the copy only fills in
+    /// what the writer could not express.
+    func testASettingsFileThatCarriesTheSideIsTakenAtItsWord() throws {
+        let root = makeTestDirectory()
+        let cloud = root.appendingPathComponent("iCloud", isDirectory: true)
+        let local = root.appendingPathComponent("local", isDirectory: true)
+        let defaults = makeTestDefaults()
+
+        let before = makeTestAppState(
+            datastore: DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults),
+            defaults: defaults)
+        before.settings.massBalance = try massBalanceSide()
+        before.saveSettings()
+
+        // Another 6.11 device cleared it and wrote the file.
+        var other = before.settings
+        other.massBalance = MassBalanceSettings()
+        try JSONEncoder().encode(other).write(to: cloud.appendingPathComponent("settings.json"))
+
+        let after = makeTestAppState(
+            datastore: DataPersistenceManager(rootDirectory: local, iCloudDocumentsDirectory: cloud, preferences: defaults),
+            defaults: defaults)
+        XCTAssertEqual(after.settings.massBalance, MassBalanceSettings())
+    }
 }

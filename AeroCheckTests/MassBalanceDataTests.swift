@@ -390,8 +390,8 @@ final class MassBalanceDataTests: XCTestCase {
         XCTAssertEqual(kept.verdict, .insideLimits)
         XCTAssertEqual(kept.load.fuelLitres, 70, "the plan's fuel on board, as at the start")
         XCTAssertEqual(kept.takeoff?.mass ?? 0, 330 + 82 + 5 + 70 * 0.72, accuracy: 0.001)
-        XCTAssertEqual(kept.data.revision, 2)
-        XCTAssertEqual(kept.empty?.date, "2025-03-10")
+        XCTAssertEqual(kept.revision, 2)
+        XCTAssertEqual(kept.emptyDate, "2025-03-10")
         XCTAssertEqual(kept.sheetAt, sheetAt)
         XCTAssertEqual(kept.keptAt, now)
         XCTAssertEqual(kept.state, .insideLimits(at: sheetAt))
@@ -404,6 +404,100 @@ final class MassBalanceDataTests: XCTestCase {
                                               plan: nil, now: now))
         XCTAssertNil(MassBalanceFlight.record(thread: flight, registration: "F-HVXA", shipped: nil, setup: confirmed(),
                                               plan: nil, now: now), "no figures to work it with")
+    }
+
+    /// SEC11-04, the author's d2: the sheet kept with a flight holds what the pilot sees when they open
+    /// it later, never the club's whole file. The flight's JSON export (and the Export all ZIP, which
+    /// writes each flight's `toJSON()`) carries no data file, no arm, no empty mass, no source.
+    func testTheKeptSheetAndTheFlightsExportCarryNoDataFile() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var page = thread()
+        page.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        let kept = try XCTUnwrap(MassBalanceFlight.record(thread: page, registration: "F-HVXA", shipped: shipped,
+                                                          setup: confirmed(), plan: nil, now: now))
+        var flight = Flight(airplane: "wt9-dynamic", aircraftRegistration: "F-HVXA")
+        flight.massBalance = kept
+
+        let export = try XCTUnwrap(flight.toJSON())
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: export) as? [String: Any])
+        let exported = try XCTUnwrap(root["flight"] as? [String: Any])
+        let sheet = try XCTUnwrap(exported["massBalance"] as? [String: Any])
+        XCTAssertNil(sheet["data"], "the club's file")
+        XCTAssertNil(sheet["empty"], "the empty mass and its moment")
+        let text = String(decoding: export, as: UTF8.self)
+        for word in ["\"sources\"", "\"identity\"", "\"serialNumber\"", "\"usable\"", "\"density\"", "\"moment\"",
+                     "\"emptyCheck\""] {
+            XCTAssertFalse(text.contains(word), word)
+        }
+        // The flight file itself, as the datastore writes it.
+        let stored = String(decoding: try JSONEncoder().encode(flight), as: UTF8.self)
+        XCTAssertFalse(stored.contains("\"sources\""))
+        XCTAssertFalse(stored.contains("\"serialNumber\""))
+    }
+
+    /// What the record shows is all there: the load, the points, the verdict and its words, the
+    /// envelope it was judged against, the revision, the empty mass's date.
+    func testTheKeptSheetHoldsWhatTheRecordShows() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var page = thread()
+        page.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        let kept = try XCTUnwrap(MassBalanceFlight.record(thread: page, registration: "F-HVXA", shipped: shipped,
+                                                          setup: confirmed(), plan: nil, now: now))
+        let worked = MassBalanceCalculator.compute(data: shipped, empty: shipped.empty, load: solo, isConfirmed: true)
+        var expected = worked
+        expected.mostFuelLitres = nil
+        expected.rampMass = nil
+        XCTAssertEqual(kept.keptResult, expected, "the verdict, the points and every word of it")
+        XCTAssertEqual(kept.drawing.envelope, shipped.mainCategory?.envelope)
+        XCTAssertEqual(kept.drawing.units, shipped.units)
+        XCTAssertEqual(kept.drawnData.seatStations.flatMap { $0.seats ?? [] }.map(\.id), ["pilot", "passenger"])
+        XCTAssertTrue(kept.drawnData.stations.allSatisfy { $0.arm == 0 && $0.max == nil && $0.usable == nil })
+
+        let again = try JSONDecoder().decode(FlightMassBalance.self, from: JSONEncoder().encode(kept))
+        XCTAssertEqual(again, kept)
+    }
+
+    /// The author's two devices hold flights kept by the stack's head during the device checks, with
+    /// the whole file: they still open, with the same words, and lose the file at their next save.
+    func testASheetKeptInTheEarlierShapeStillOpensAndLosesTheFileAtItsNextSave() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        let worked = MassBalanceCalculator.compute(data: shipped, empty: shipped.empty, load: solo, isConfirmed: true)
+        let encoder = JSONEncoder()
+        func json<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: encoder.encode(value)) }
+        var earlier: [String: Any] = [
+            "registration": "F-HVXA", "load": try json(solo), "data": try json(shipped), "isPilots": false,
+            "isConfirmed": true, "verdict": "insideLimits", "sheetAt": now.timeIntervalSinceReferenceDate,
+            "keptAt": now.timeIntervalSinceReferenceDate,
+        ]
+        earlier["empty"] = try json(try XCTUnwrap(shipped.empty))
+        earlier["takeoff"] = try json(try XCTUnwrap(worked.takeoff))
+        earlier["landing"] = nil
+        earlier["emptyTanks"] = try json(try XCTUnwrap(worked.emptyTanks))
+        let old = try JSONDecoder().decode(FlightMassBalance.self, from: JSONSerialization.data(withJSONObject: earlier))
+
+        XCTAssertEqual(old.verdict, .insideLimits)
+        XCTAssertEqual(old.revision, 2)
+        XCTAssertEqual(old.emptyDate, "2025-03-10")
+        XCTAssertEqual(old.drawing.envelope, shipped.mainCategory?.envelope)
+        XCTAssertEqual(old.words.massMargin, worked.massMargin)
+        XCTAssertEqual(old.takeoff, worked.takeoff)
+
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(old)) as? [String: Any])
+        XCTAssertNil(saved["data"])
+        XCTAssertNil(saved["empty"])
+    }
+
+    /// The kept sheet's decoder is written by hand: a stored property added without its line would
+    /// decode its default silently (memory: codable-new-field-decode-trap).
+    func testTheKeptSheetsDecoderReadsEveryStoredProperty() throws {
+        let shipped = data(file("wt9-dynamic", "F-HVXA", revision: 2))
+        var page = thread()
+        page.massBalance = ThreadMassBalance(registration: "F-HVXA", load: solo, updatedAt: now)
+        let kept = try XCTUnwrap(MassBalanceFlight.record(thread: page, registration: "F-HVXA", shipped: shipped,
+                                                          setup: confirmed(), plan: nil, now: now))
+        let fields = Set(Mirror(reflecting: kept).children.compactMap(\.label))
+        XCTAssertEqual(fields, ["registration", "load", "isPilots", "isConfirmed", "verdict", "takeoff", "landing",
+                                "emptyTanks", "sheetAt", "keptAt", "revision", "emptyDate", "drawing", "words"])
     }
 
     /// Circuits and a flight without a plan follow no flight: the aircraft's sheet counts when it was

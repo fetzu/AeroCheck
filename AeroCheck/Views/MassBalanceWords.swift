@@ -177,7 +177,22 @@ enum MassBalanceWords {
     // MARK: A flight's state, in one line
 
     /// The sheet's last state for a flight, with the sheet's time where it gave a verdict.
-    static func stateLine(_ state: MassBalanceFlightState, now: Date = Date(), calendar: Calendar = .current) -> String {
+    ///
+    /// `yourFigures`: the sheet works with figures the pilot typed. A verdict on them says so, as the
+    /// sheet names its source: the line read the same for typed figures and for the club's data
+    /// checked against the AFM. (review UX11-24, the author's d5)
+    static func stateLine(_ state: MassBalanceFlightState, yourFigures: Bool = false, now: Date = Date(),
+                          calendar: Calendar = .current) -> String {
+        let line = stateWords(state, now: now, calendar: calendar)
+        switch state {
+        case .outsideLimits, .insideLimits, .notConfirmed, .lastTimesLoad, .incomplete:
+            return yourFigures ? L10n.MassBalance.stateYourFigures(line) : line
+        case .notDone:
+            return line
+        }
+    }
+
+    private static func stateWords(_ state: MassBalanceFlightState, now: Date, calendar: Calendar) -> String {
         func time(_ date: Date) -> String {
             calendar.isDate(date, inSameDayAs: now) ? date.formatted(date: .omitted, time: .shortened)
                                                     : date.formatted(date: .abbreviated, time: .shortened)
@@ -302,9 +317,20 @@ enum MassBalanceWords {
 
     /// What is said of a point: inside or outside, and neither while a row is still to enter. The
     /// figures are then a sum so far, and where the CG ends up is not known.
+    ///
+    /// Until the pilot has said it is today's load (LAST TIME'S LOAD) or confirmed the data (NOT
+    /// CONFIRMED), the point stays where it is, and its word says what it rests on: "inside" alone read
+    /// as the pass the verdict withholds. (review UX11-05, the verifier's fix)
     static func pointWord(_ point: MassBalancePoint, in result: MassBalanceResult) -> String {
         guard result.isComplete else { return L10n.MassBalance.pointSoFar }
-        return point.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside
+        switch result.verdict {
+        case .lastTimesLoad:
+            return point.isInside ? L10n.MassBalance.pointInsideLastTime : L10n.MassBalance.pointOutsideLastTime
+        case .notConfirmed:
+            return point.isInside ? L10n.MassBalance.pointInsideCalculated : L10n.MassBalance.pointOutsideCalculated
+        default:
+            return point.isInside ? L10n.MassBalance.pointInside : L10n.MassBalance.pointOutside
+        }
     }
 
     /// One sentence per point, for VoiceOver: the chart without sight of it.

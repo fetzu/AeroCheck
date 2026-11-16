@@ -130,6 +130,14 @@ enum MassBalanceFlight {
         plan?.tripFuel.flatMap { MassBalanceBounds.fuelLitres.contains($0) && $0 > 0 ? $0 : nil }
     }
 
+    /// Whether a flight's sheet works with figures the pilot typed: its line then ends with "your
+    /// figures" (the author's d5, review UX11-24). Once the flight has started, the kept sheet's.
+    static func isPilotsFigures(for thread: FlightThread, shipped: AircraftMassBalance?, setup: MassBalanceSetup,
+                                kept: FlightMassBalance? = nil, now: Date = Date()) -> Bool {
+        if thread.flightId != nil { return kept?.isPilots ?? false }
+        return setup.basis(shipped: shipped, now: now)?.source == .pilot
+    }
+
     /// The line for the flight's page and Today. Nil where there is nothing to say: no aircraft on
     /// the flight, or no data to compute with (the 5.0.0 calculator keeps no state).
     ///

@@ -208,4 +208,63 @@ final class MassBalanceWordsTests: XCTestCase {
         plan.tripFuel = 12.5
         XCTAssertEqual(MassBalanceFlight.startingLoad(for: thread, setup: .init(), plan: plan)?.tripLitres, 12.5)
     }
+    // MARK: - Reading the sheet (review UX11-05, UX11-24)
+
+    private var own: AircraftMassBalance {
+        try! JSONDecoder().decode(AircraftMassBalance.self, from: Data("""
+        {"schema":1,"aircraftId":"own","registration":"T-OWN","revision":0,"updated":"2026-11-01",
+         "units":{"mass":"kg","arm":"m","fuel":"l"},"limits":{"maxTakeoff":600},
+         "categories":[{"id":"normal","maxTakeoff":600,"envelope":[[2.7,400],[2.7,600],[2.85,600],[2.85,400]]}],
+         "stations":[{"id":"row1","kind":"seats","arm":3.1,"layout":"single","seats":[{"id":"p","role":"pilot"}]},
+                     {"id":"fuel","kind":"fuel","arm":2.5,"usable":90,"density":0.72}],
+         "empty":{"mass":330,"moment":907.5,"date":"2025-03-10"},"sources":[]}
+        """.utf8))
+    }
+
+    /// UX11-05: until the pilot says it is today's load, or confirms the data, no card reads as the
+    /// pass the verdict withholds. The point stays; its word says what it rests on.
+    func testAPointIsNeverJustInsideWhileTheVerdictIsWithheld() throws {
+        let load = MassBalanceLoad(seats: ["p": .person(kg: 80)], fuelLitres: 40, tripLitres: 10, isTodays: false)
+        let lastTime = MassBalanceCalculator.compute(data: own, empty: own.empty, load: load, isConfirmed: true)
+        XCTAssertEqual(lastTime.verdict, .lastTimesLoad)
+        let takeoff = try XCTUnwrap(lastTime.takeoff)
+        XCTAssertTrue(takeoff.isInside)
+        XCTAssertNotEqual(MassBalanceWords.pointWord(takeoff, in: lastTime), L10n.MassBalance.pointInside)
+        XCTAssertEqual(MassBalanceWords.pointWord(takeoff, in: lastTime), L10n.MassBalance.pointInsideLastTime)
+
+        var todays = load
+        todays.isTodays = true
+        let unconfirmed = MassBalanceCalculator.compute(data: own, empty: own.empty, load: todays, isConfirmed: false)
+        XCTAssertEqual(unconfirmed.verdict, .notConfirmed)
+        XCTAssertNotEqual(MassBalanceWords.pointWord(takeoff, in: unconfirmed), L10n.MassBalance.pointInside)
+        XCTAssertEqual(MassBalanceWords.pointWord(takeoff, in: unconfirmed), L10n.MassBalance.pointInsideCalculated)
+
+        let inside = MassBalanceCalculator.compute(data: own, empty: own.empty, load: todays, isConfirmed: true)
+        XCTAssertEqual(inside.verdict, .insideLimits)
+        XCTAssertEqual(MassBalanceWords.pointWord(takeoff, in: inside), L10n.MassBalance.pointInside)
+    }
+
+    /// UX11-24, the author's d5: figures the pilot typed are "entered", not "confirmed", and the line
+    /// on Today and the flight's page says the verdict rests on them.
+    func testThePilotsOwnFiguresAreEnteredAndTheLineSaysSo() {
+        let day = Date(timeIntervalSince1970: 1_763_078_400)
+        let setup = MassBalanceSetup(ownData: own, ownConfirmedAt: day)
+        let basis = setup.basis(shipped: nil, now: day)!
+        XCTAssertEqual(basis.source, .pilot)
+        let text = MassBalanceAircraftPage.confirmation(basis, setup: setup, registration: "T-OWN")
+        let date = day.formatted(date: .abbreviated, time: .omitted)
+        XCTAssertNotEqual(text, L10n.MassBalance.settingsConfirmedOn(date))
+        XCTAssertEqual(text, L10n.MassBalance.settingsEnteredOn(date))
+        // A year on, it is asked again, as before.
+        let later = setup.basis(shipped: nil, now: day.addingTimeInterval(400 * 86_400))!
+        XCTAssertEqual(MassBalanceAircraftPage.confirmation(later, setup: setup, registration: "T-OWN"),
+                       L10n.MassBalance.lineYearPassed("T-OWN"))
+
+        var thread = FlightThread(routeLabel: "LSZQ → LFSB")
+        thread.aircraftRegistration = "T-OWN"
+        XCTAssertTrue(MassBalanceFlight.isPilotsFigures(for: thread, shipped: nil, setup: setup, now: day))
+        let line = MassBalanceWords.stateLine(.insideLimits(at: day), yourFigures: true, now: day)
+        XCTAssertEqual(line, L10n.MassBalance.stateYourFigures(MassBalanceWords.stateLine(.insideLimits(at: day), now: day)))
+        XCTAssertEqual(MassBalanceWords.stateLine(.notDone, yourFigures: true), L10n.MassBalance.stateNotDone)
+    }
 }

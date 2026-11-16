@@ -675,6 +675,10 @@ enum L10n {
         static func lineNotBelow(_ a0: Int, _ a1: String) -> String { String(localized: "mb.line.notBelow \(a0) \(a1)") }
         static let whyUnderMin = String(localized: "mb.why.underMin")
         static let whyOverMax = String(localized: "mb.why.overMax")
+        static let pointInsideLastTime = String(localized: "mb.point.insideLastTime")
+        static let pointOutsideLastTime = String(localized: "mb.point.outsideLastTime")
+        static let pointInsideCalculated = String(localized: "mb.point.insideCalculated")
+        static let pointOutsideCalculated = String(localized: "mb.point.outsideCalculated")
         static let whyOverLanding = String(localized: "mb.why.overLanding")
         static let whyForward = String(localized: "mb.why.forward")
         static let whyAft = String(localized: "mb.why.aft")
@@ -771,6 +775,7 @@ enum L10n {
         static func settingsRevision(_ a0: Int, _ a1: String) -> String { String(localized: "mb.settings.revision \(a0) \(a1)") }
         static let settingsConfirmation = String(localized: "mb.settings.confirmation")
         static func settingsConfirmedOn(_ a0: String) -> String { String(localized: "mb.settings.confirmedOn \(a0)") }
+        static func settingsEnteredOn(_ a0: String) -> String { String(localized: "mb.settings.enteredOn \(a0)") }
         static let settingsNotConfirmed = String(localized: "mb.settings.notConfirmed")
         static let settingsYourLine = String(localized: "mb.settings.yourLine")
         static let settingsOpen = String(localized: "mb.settings.open")
@@ -784,6 +789,7 @@ enum L10n {
         static let stateNotConfirmed = String(localized: "mb.state.notConfirmed")
         static func stateOutside(_ a0: String) -> String { String(localized: "mb.state.outside \(a0)") }
         static func stateInside(_ a0: String) -> String { String(localized: "mb.state.inside \(a0)") }
+        static func stateYourFigures(_ a0: String) -> String { String(localized: "mb.state.yourFigures \(a0)") }
         static func pointLeft(_ a0: Int) -> String { String(localized: "mb.point.left \(a0)") }
         static let pointNoTrip = String(localized: "mb.point.noTrip")
         static func chartCgAxis(_ a0: String) -> String { String(localized: "mb.chart.cgAxis \(a0)") }

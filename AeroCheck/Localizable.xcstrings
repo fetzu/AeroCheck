@@ -17379,6 +17379,98 @@
         }
       }
     },
+    "mb.point.insideCalculated": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "innerhalb, gemäss Berechnung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "inside, as calculated"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dans les limites, selon le calcul"
+          }
+        }
+      }
+    },
+    "mb.point.insideLastTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "innerhalb, letzte Beladung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "inside, last time's load"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dans les limites, chargement précédent"
+          }
+        }
+      }
+    },
+    "mb.point.outsideCalculated": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ausserhalb, gemäss Berechnung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "outside, as calculated"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hors limites, selon le calcul"
+          }
+        }
+      }
+    },
+    "mb.point.outsideLastTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ausserhalb, letzte Beladung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "outside, last time's load"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hors limites, chargement précédent"
+          }
+        }
+      }
+    },
     "mb.point.soFar": {
       "extractionState": "manual",
       "localizations": {
@@ -17513,6 +17605,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Confirmé par vous le %@"
+          }
+        }
+      }
+    },
+    "mb.settings.enteredOn %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Zahlen, eingegeben am %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your figures, entered %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos chiffres, saisis le %@"
           }
         }
       }
@@ -17881,6 +17996,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hors limites · %@"
+          }
+        }
+      }
+    },
+    "mb.state.yourFigures %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Ihre Zahlen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · your figures"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · vos chiffres"
           }
         }
       }

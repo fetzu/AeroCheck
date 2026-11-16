@@ -110,6 +110,10 @@ struct FeeItem: Codable, Identifiable, Equatable, Sendable {
     }
 
     var isInvoiceToCome: Bool { status == .invoice }
+
+    /// The amount the pilot entered, nil when none was: a line kept without one stores 0. (UX11-22, seen
+    /// on a simulator: Paid on a hand-added line without an amount read "EUR 0".)
+    var enteredAmount: Double? { (hasAmount ?? true) ? amount : nil }
 }
 
 /// What a flight cost, stored on the flight itself.
@@ -172,13 +176,73 @@ struct FlightCostEntry: Codable, Equatable, Sendable {
                             currency feeCurrency: String?, landings: Int?, at date: Date) {
         var line = feeLine(for: icao) ?? FeeItem(label: label, amount: 0, icao: icao.uppercased())
         line.status = status
-        let entered = amount.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
+        let entered = amount.flatMap { PlausibleRange.isPlausible($0, in: PlausibleRange.moneyAmount) ? $0 : nil }
         line.amount = entered ?? 0
         line.hasAmount = entered != nil
-        line.currency = (feeCurrency == nil || feeCurrency == currency) ? nil : feeCurrency
+        // Always written, never "the flight's": a rate set later in another currency re-snapshots the
+        // entry, and a fee kept as "the flight's" moved with it (CHF 25 read EUR 25). (UX11-22, f6)
+        line.currency = feeCurrency ?? currency
         if let landings { line.landings = landings }
         line.settledAt = date
         if let index = fees.firstIndex(where: { $0.id == line.id }) { fees[index] = line } else { fees.append(line) }
+    }
+
+    /// The fees, each with its currency written out: what a fee kept as "the flight's" is in, before
+    /// the entry's currency changes. (UX11-22)
+    var feesInTheirOwnCurrency: [FeeItem] {
+        fees.map { fee in
+            var pinned = fee
+            pinned.currency = fee.currency ?? currency
+            return pinned
+        }
+    }
+
+    /// This entry with the aircraft's cost from `derived` (an entry made from the aircraft's rate),
+    /// its fees kept, each in its own currency. For an entry stored without a rate: a fee answered
+    /// before the rate was set. (UX11-23)
+    func takingAircraftCost(from derived: FlightCostEntry) -> FlightCostEntry {
+        var entry = self
+        entry.fees = feesInTheirOwnCurrency
+        entry.currency = derived.currency
+        entry.hourlyRate = derived.hourlyRate
+        entry.basis = derived.basis
+        entry.billedHours = derived.billedHours
+        return entry
+    }
+
+    /// Every figure within reach of a real flight: a cost entry from a flight file or a record is as
+    /// untrusted as its track, and a figure of nineteen digits trapped the Flight Log. (ST11-04)
+    func withPlausibleValues() -> FlightCostEntry {
+        var bounded = self
+        func inRange(_ value: Double?, _ range: ClosedRange<Double>) -> Double? {
+            value.flatMap { PlausibleRange.isPlausible($0, in: range) ? $0 : nil }
+        }
+        bounded.hourlyRate = inRange(hourlyRate, PlausibleRange.moneyAmount)
+        bounded.billedHours = inRange(billedHours, PlausibleRange.billedHours)
+        bounded.fees = fees.map { fee in
+            var line = fee
+            if !PlausibleRange.isPlausible(fee.amount, in: PlausibleRange.moneyAmount) {
+                line.amount = 0
+                line.hasAmount = false
+            }
+            return line
+        }
+        return bounded
+    }
+
+    /// Records how a fee line added by hand (parking, a hangar night, the home field) was settled: the
+    /// same four answers as an aerodrome's, in its own currency. Nil takes the answer back and keeps
+    /// the line. (UX11-22, the plan's "Add a fee")
+    mutating func settleLine(_ id: UUID, status: FeeStatus?, amount: Double?, currency feeCurrency: String, at date: Date) {
+        guard let index = fees.firstIndex(where: { $0.id == id }) else { return }
+        var line = fees[index]
+        line.status = status
+        let entered = amount.flatMap { PlausibleRange.isPlausible($0, in: PlausibleRange.moneyAmount) ? $0 : nil }
+        line.amount = entered ?? 0
+        line.hasAmount = entered != nil
+        line.currency = feeCurrency
+        line.settledAt = status == nil ? nil : date
+        fees[index] = line
     }
 
     /// Whether this entry contributes nothing at all.
@@ -189,10 +253,15 @@ struct FlightCostEntry: Codable, Equatable, Sendable {
     /// flight WITH a cost, and contributed 0 — so the dashboard read "LEDGER CHF 0" over twenty
     /// priced flights with no "N without cost" caveat, because the very guard that would have
     /// raised one was satisfied. (review F-cost-4)
-    var isEmpty: Bool { !hasCost && (note?.isEmpty ?? true) }
+    ///
+    /// A fee line without money ("No fee", "On the club's bill") is still a record: the entry isn't
+    /// empty, though it has no cost.
+    var isEmpty: Bool { aircraftCost <= 0 && fees.isEmpty && (note?.isEmpty ?? true) }
 
-    /// True when this entry actually produces money.
-    var hasCost: Bool { aircraftCost > 0 || !fees.isEmpty }
+    /// True when this entry actually produces money: the aircraft, or a fee that counts in a total.
+    /// Any fee answer counted, so a flight answered "No fee" before a rate was set read as costed,
+    /// and left the "N without cost" count. (review UX11-23)
+    var hasCost: Bool { aircraftCost > 0 || fees.contains { $0.countsInTotals } }
 }
 
 // MARK: - Calculator
@@ -240,10 +309,22 @@ enum FlightCostCalculator {
         return nil
     }
 
+    /// The entry a flight is shown and totalled with: its own, which takes the aircraft's rate when it
+    /// was stored without one (a fee answered before the rate was set); else one from the rate. The
+    /// Flight cost card, the fee answers and the ledger all read this one, so they agree. (UX11-23)
+    static func entry(for flight: Flight, profile: AircraftRateProfile?) -> FlightCostEntry? {
+        if let stored = flight.costEntry {
+            guard stored.hourlyRate == nil, let profile else { return stored }
+            return stored.takingAircraftCost(from: makeEntry(for: flight, profile: profile))
+        }
+        return profile.map { makeEntry(for: flight, profile: $0) }
+    }
+
     /// Rounded to whole currency units for display. Club invoices are in francs, not centimes, and a
-    /// figure like "CHF 464.83" implies a precision an estimate does not have.
+    /// figure like "CHF 464.83" implies a precision an estimate does not have. Never a trap, whatever
+    /// a stored or synced figure holds (ST11-04).
     static func formatAmount(_ amount: Double, currency: String) -> String {
-        "\(currency) \(Int(amount.rounded()))"
+        "\(currency) \(amount.safeRoundedInt(or: 0))"
     }
 
     /// Totals in several currencies, side by side and never added: "CHF 395 + EUR 18", the flight's
@@ -306,19 +387,10 @@ enum CostLedger {
         var totalsByCurrency: [String: Double] = [:]
         var invoices: [OpenInvoice] = []
         let entries = flights.compactMap { flight -> FlightCostEntry? in
-            let entry: FlightCostEntry?
-            if let stored = flight.costEntry, !stored.isEmpty {
-                entry = stored
-            } else if flight.costEntry != nil {
-                // A stored entry wins even when empty — the pilot may have deliberately cleared it.
-                entry = nil
-            } else if let key = FlightCostCalculator.profileKey(for: flight), let profile = rates[key] {
-                let derived = FlightCostCalculator.makeEntry(for: flight, profile: profile)
-                entry = derived.isEmpty ? nil : derived
-            } else {
-                entry = nil
-            }
-            guard let entry else { return nil }
+            // A stored entry wins even when empty — the pilot may have deliberately cleared it.
+            if let stored = flight.costEntry, stored.isEmpty { return nil }
+            let profile = FlightCostCalculator.profileKey(for: flight).flatMap { rates[$0] }
+            guard let entry = FlightCostCalculator.entry(for: flight, profile: profile), !entry.isEmpty else { return nil }
             for (currency, amount) in entry.totalsByCurrency { totalsByCurrency[currency, default: 0] += amount }
             for fee in entry.fees where fee.isInvoiceToCome {
                 invoices.append(OpenInvoice(flightId: flight.id, date: flight.startTime, icao: fee.icao,
@@ -326,7 +398,9 @@ enum CostLedger {
                                             amount: (fee.hasAmount ?? true) ? fee.amount : nil,
                                             currency: entry.currency(of: fee)))
             }
-            return entry
+            // A flight with nothing but fee answers that carry no money ("No fee") has no cost: it is
+            // counted under "N without cost", not as a flight costed at zero. (UX11-23)
+            return entry.hasCost ? entry : nil
         }
         invoices.sort { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
         guard !entries.isEmpty else {

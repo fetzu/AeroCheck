@@ -22,6 +22,8 @@ struct FlightNumbersView: View {
     @State private var currency = "CHF"
     @State private var newFeeLabel = ""
     @State private var newFeeAmount = ""
+    /// The currency a fee added by hand is in; nil is the flight's. (UX11-22)
+    @State private var newFeeCurrency: String?
     @State private var showLogbookEditor = false
     /// The line laid out as the paper form's twelve column groups, for transcription. (v5.x)
     @State private var showLogbookRow = false
@@ -79,7 +81,8 @@ struct FlightNumbersView: View {
     @ViewBuilder
     private func costSection(_ flight: Flight) -> some View {
         let profile = rateProfile(for: flight)
-        let entry = flight.costEntry ?? FlightCostCalculator.makeEntry(for: flight, profile: profile)
+        // What the ledger totals too: a rate set after a fee was answered is taken. (UX11-23)
+        let entry = FlightCostCalculator.entry(for: flight, profile: profile) ?? FlightCostEntry()
 
         card(title: L10n.Cost.title.uppercased(), tint: .aviationGold) {
           VStack(alignment: .leading, spacing: 14) {
@@ -101,16 +104,22 @@ struct FlightNumbersView: View {
                             value: FlightCostCalculator.formatAmount(entry.aircraftCost, currency: entry.currency)
                         )
                     } else if entry.hourlyRate != nil {
-                        // Rate known but the basis was never recorded on this flight.
-                        Text(L10n.Cost.notRecorded)
+                        // Rate known but the basis was never recorded on this flight: no billable time,
+                        // which a fee's total under it must not contradict. (UX11-23)
+                        Text(L10n.Cost.noBillableTime)
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.aviationAmber)
                     }
 
-                    // A landing fee's line is shown with its answers above; here are the other fees.
+                    // A landing fee's line is shown with its answers above; here are the other fees, with
+                    // the same four answers, each in its own currency. (UX11-22, f6)
                     ForEach(entry.fees.filter { $0.icao == nil }) { fee in
-                        row(fee.label, value: FlightCostCalculator.formatAmount(fee.amount, currency: entry.currency(of: fee))) {
-                            removeFee(fee, from: flight)
+                        VStack(alignment: .leading, spacing: 6) {
+                            row(fee.label, value: (fee.hasAmount ?? true)
+                                    ? FlightCostCalculator.formatAmount(fee.amount, currency: entry.currency(of: fee)) : "—") {
+                                removeFee(fee, from: flight)
+                            }
+                            FeeAnswerView(flightId: flight.id, icao: fee.label, lineId: fee.id)
                         }
                     }
 
@@ -172,6 +181,18 @@ struct FlightNumbersView: View {
                 .scaledFont(size: 13, relativeTo: .footnote)
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
+            Menu {
+                ForEach(feeCurrencyChoices(flight), id: \.self) { code in
+                    Button(code) { newFeeCurrency = code }
+                }
+            } label: {
+                Text(newFeeCurrency ?? flightCurrency(flight))
+                    .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .footnote)
+                    .foregroundColor(.altimeterBlue)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
+            }
+            .accessibilityLabel(L10n.Cost.currency)
             TextField(L10n.Cost.feeAmount, text: $newFeeAmount)
                 .textFieldStyle(.plain)
                 .keyboardType(.decimalPad)
@@ -190,6 +211,16 @@ struct FlightNumbersView: View {
             .disabled(!canAddFee)
             .accessibilityLabel(L10n.Cost.addFee)
         }
+    }
+
+    /// The flight's own currency, as its entry has it.
+    private func flightCurrency(_ flight: Flight) -> String {
+        (FlightCostCalculator.entry(for: flight, profile: rateProfile(for: flight)) ?? FlightCostEntry()).currency
+    }
+
+    private func feeCurrencyChoices(_ flight: Flight) -> [String] {
+        var seen = Set<String>()
+        return [flightCurrency(flight), "CHF", "EUR", "GBP"].filter { seen.insert($0).inserted }
     }
 
     private var canAddFee: Bool {
@@ -525,9 +556,10 @@ struct FlightNumbersView: View {
         appState.saveSettings()
 
         // Re-snapshot this flight's cost from the new rate, keeping any fees already entered. The
-        // snapshot is what stops a future rate change from silently rewriting a past flight.
+        // snapshot is what stops a future rate change from silently rewriting a past flight. Each fee
+        // keeps its currency: one kept as "the flight's" took the new rate's. (UX11-22)
         var entry = FlightCostCalculator.makeEntry(for: flight, profile: profile)
-        entry.fees = flight.costEntry?.fees ?? []
+        entry.fees = flight.costEntry?.feesInTheirOwnCurrency ?? []
         entry.note = flight.costEntry?.note
         appState.updateFlightCost(flight, cost: entry)
         showRateEditor = false
@@ -535,11 +567,14 @@ struct FlightNumbersView: View {
 
     private func addFee(to flight: Flight) {
         guard let amount = parseAmount(newFeeAmount) else { return }
-        var entry = flight.costEntry ?? FlightCostCalculator.makeEntry(for: flight, profile: rateProfile(for: flight))
-        entry.fees.append(FeeItem(label: newFeeLabel.trimmingCharacters(in: .whitespaces), amount: amount))
+        var entry = FlightCostCalculator.entry(for: flight, profile: rateProfile(for: flight)) ?? FlightCostEntry()
+        // Its currency written on the line, as an aerodrome's; its answer below it. (UX11-22)
+        entry.fees.append(FeeItem(label: newFeeLabel.trimmingCharacters(in: .whitespaces), amount: amount,
+                                  currency: newFeeCurrency ?? entry.currency, hasAmount: true))
         appState.updateFlightCost(flight, cost: entry)
         newFeeLabel = ""
         newFeeAmount = ""
+        newFeeCurrency = nil
     }
 
     private func removeFee(_ fee: FeeItem, from flight: Flight) {
@@ -552,7 +587,8 @@ struct FlightNumbersView: View {
     /// same table, so a pilot copying a figure will type either.
     private func parseAmount(_ text: String) -> Double? {
         let normalised = text.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)
-        guard let value = Double(normalised), value >= 0, value.isFinite else { return nil }
+        // A fee or a rate no flight comes near is refused: nineteen digits trapped the logbook (ST11-04).
+        guard let value = Double(normalised), PlausibleRange.isPlausible(value, in: PlausibleRange.moneyAmount) else { return nil }
         return value
     }
 

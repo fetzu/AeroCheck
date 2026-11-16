@@ -144,7 +144,7 @@ enum MassBalanceOutside: String, Codable, Equatable, Sendable {
 }
 
 /// A limit that is passed. The view writes the words; the order here is the order shown.
-enum MassBalanceFailure: Equatable, Sendable {
+enum MassBalanceFailure: Codable, Equatable, Sendable {
     /// By how much, in the data's mass unit.
     case overMaxRamp(by: Double)
     case overMaxTakeoff(by: Double)
@@ -182,7 +182,7 @@ struct MassBalancePoint: Codable, Equatable, Sendable {
 }
 
 /// Whether the take-off point also fits another category (utility, say).
-struct MassBalanceCategoryNote: Equatable, Sendable {
+struct MassBalanceCategoryNote: Codable, Equatable, Sendable {
     var categoryId: String
     var isInside: Bool
     /// True when a station the category does not allow is loaded (rear seats or baggage in utility).

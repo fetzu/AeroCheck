@@ -792,6 +792,8 @@ enum L10n {
         static func stateOutside(_ a0: String) -> String { String(localized: "mb.state.outside \(a0)") }
         static func stateInside(_ a0: String) -> String { String(localized: "mb.state.inside \(a0)") }
         static func stateYourFigures(_ a0: String) -> String { String(localized: "mb.state.yourFigures \(a0)") }
+        /// "Label: value", each language with its own colon ("Masse et centrage : …"). (UX11-42)
+        static func labelled(_ a0: String, _ a1: String) -> String { String(localized: "mb.labelled \(a0) \(a1)") }
         static func pointLeft(_ a0: Int) -> String { String(localized: "mb.point.left \(a0)") }
         static let pointNoTrip = String(localized: "mb.point.noTrip")
         static let pointTripOverFuel = String(localized: "mb.point.tripOverFuel")

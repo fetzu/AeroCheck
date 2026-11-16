@@ -68,7 +68,8 @@ struct MassBalanceRecordView: View {
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                             if let date = record.emptyDate {
-                                Text("\(L10n.MassBalance.rowEmpty): \(L10n.MassBalance.rowRecordOf(MassBalanceWords.day(date)))")
+                                Text(L10n.MassBalance.labelled(L10n.MassBalance.rowEmpty,
+                                                               L10n.MassBalance.rowRecordOf(MassBalanceWords.day(date))))
                                     .scaledFont(size: 12, relativeTo: .caption)
                                     .foregroundColor(.dimText)
                             }

@@ -16735,6 +16735,29 @@
         }
       }
     },
+    "mb.labelled %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ : %2$@"
+          }
+        }
+      }
+    },
     "mb.own.addBaggage": {
       "extractionState": "manual",
       "localizations": {
@@ -16994,19 +17017,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seine Eckpunkte der Reihe nach, wie im Diagramm des Handbuchs: je ein Hebelarm und eine Masse. Mindestens drei."
+            "value": "Die Eckpunkte der Reihe nach rund um den Schwerpunktbereich, wie im Diagramm des Handbuchs. Jeder hat einen Hebelarm und eine Masse. Mindestens drei."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Its corners in order around it, as the manual's chart draws it: an arm and a mass each. Three at least."
+            "value": "List the corners in order around the envelope, as the manual's chart draws it. Each has an arm and a mass. Three at least."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ses sommets dans l'ordre, comme sur le diagramme du manuel : un bras et une masse chacun. Trois au moins."
+            "value": "Les sommets dans l'ordre autour du domaine, comme sur le centrogramme du manuel. Chacun a un bras et une masse. Trois au moins."
           }
         }
       }
@@ -17144,7 +17167,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le nouveau devis trace le diagramme du manuel et est conservé avec chaque vol. Il lui faut les chiffres de l'avion, une fois."
+            "value": "Le nouveau devis trace le centrogramme du manuel et est conservé avec chaque vol. Il lui faut les chiffres de l'avion, une fois."
           }
         }
       }
@@ -17443,7 +17466,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avec les chiffres de l'avion, le devis trace le diagramme du manuel et y vérifie un chargement."
+            "value": "Avec les chiffres de l'avion, le devis trace le centrogramme du manuel et y vérifie un chargement."
           }
         }
       }
@@ -17753,19 +17776,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Womit das Ladeblatt für dieses Flugzeug rechnet, und Ihre Bestätigung."
+            "value": "Die Zahlen, die das Ladeblatt für dieses Flugzeug verwendet, und Ihre Bestätigung."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What the sheet works with for this aircraft, and your confirmation."
+            "value": "The figures the sheet uses for this aircraft, and your confirmation."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce avec quoi le devis calcule pour cet avion, et votre confirmation."
+            "value": "Les chiffres que le devis utilise pour cet avion, et votre confirmation."
           }
         }
       }
@@ -17822,19 +17845,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Kontrolle des Flugzeugs, ohne Flug"
+            "value": "Eine Beladung berechnen, ohne Flug"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A check of the aircraft, without a flight"
+            "value": "Work out a load, without a flight"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un contrôle de l'avion, sans vol"
+            "value": "Un calcul de chargement, sans vol"
           }
         }
       }
@@ -18535,19 +18558,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein leerer Sitz wird als leer angegeben, nie offen gelassen."
+            "value": "Markieren Sie einen leeren Sitz als leer: Ein offenes Feld ist keine Antwort."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "An empty seat is said empty, never left blank."
+            "value": "Mark an empty seat as empty: a blank seat is not an answer."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un siège vide se déclare vide, il ne reste jamais sans réponse."
+            "value": "Indiquez un siège vide comme vide : une case laissée vide n'est pas une réponse."
           }
         }
       }
@@ -18777,7 +18800,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ au-dessus de la masse maximale au roulage"
+            "value": "%@ au-dessus de la masse maximale de roulage"
           }
         }
       }
@@ -19915,19 +19938,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieselbe Beladung wie im Formular des Handbuchs"
+            "value": "Dieselbe Beladung, wie im Formular des Flughandbuchs"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The same load, as the handbook's form"
+            "value": "The same load, laid out as the AFM's form"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le même chargement, comme le devis du manuel"
+            "value": "Le même chargement, sur le modèle du devis du manuel de vol"
           }
         }
       }
@@ -20513,7 +20536,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ist der %@ die letzte Zeile des Berichts im Flugzeug?"
+            "value": "Ist der %@ die letzte Zeile des Wägeberichts im Flugzeug?"
           }
         },
         "en": {
@@ -20525,7 +20548,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le %@ est-il la dernière ligne de la fiche dans l'avion ?"
+            "value": "Le %@ est-il la dernière ligne de la fiche de pesée dans l'avion ?"
           }
         }
       }
@@ -20582,7 +20605,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App hat keine Leermasse für %@. Geben Sie die letzte Zeile des Berichts im Flugzeug ein."
+            "value": "Die App hat keine Leermasse für %@. Geben Sie die letzte Zeile des Wägeberichts im Flugzeug ein."
           }
         },
         "en": {
@@ -20594,7 +20617,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app n'a pas de masse à vide pour %@. Saisissez la dernière ligne de la fiche dans l'avion."
+            "value": "L'app n'a pas de masse à vide pour %@. Saisissez la dernière ligne de la fiche de pesée de l'avion."
           }
         }
       }
@@ -20703,13 +20726,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@'s data and its empty mass of %2$@ are confirmed by you."
+            "value": "%1$@'s data and the empty mass dated %2$@ are confirmed by you."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les données de %1$@ et sa masse à vide du %2$@ sont confirmées par vous."
+            "value": "Les données de %1$@ et la masse à vide datée du %2$@ sont confirmées par vous."
           }
         }
       }
@@ -20720,7 +20743,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Blatt fragt erneut, wenn sich die Daten ändern, und einmal im Jahr."
+            "value": "Das Ladeblatt fragt erneut, wenn sich die Daten ändern, und einmal im Jahr."
           }
         },
         "en": {
@@ -20732,7 +20755,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La feuille redemande quand les données changent, et une fois par an."
+            "value": "Le devis redemande quand les données changent, et une fois par an."
           }
         }
       }

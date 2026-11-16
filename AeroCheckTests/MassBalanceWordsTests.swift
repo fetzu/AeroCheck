@@ -278,4 +278,13 @@ final class MassBalanceWordsTests: XCTestCase {
         noTrip.failures = [.tripOverFuel(tripLitres: 40, takeoffLitres: 30)]
         XCTAssertEqual(MassBalanceWords.noLandingNote(noTrip), L10n.MassBalance.pointTripOverFuel)
     }
+
+    /// UX11-42: the colon belongs to each language. French writes a no-break space before it.
+    func testALabelledLineHasEachLanguagesColon() throws {
+        XCTAssertEqual(L10n.MassBalance.labelled("Mass and balance", "Inside limits"), "Mass and balance: Inside limits")
+        let catalog = try XCTUnwrap(Bundle.main.url(forResource: "fr", withExtension: "lproj")
+            .flatMap { Bundle(url: $0) })
+        let french = catalog.localizedString(forKey: "mb.labelled %@ %@", value: nil, table: nil)
+        XCTAssertEqual(String(format: french, "Masse et centrage", "Dans les limites"), "Masse et centrage\u{00A0}: Dans les limites")
+    }
 }

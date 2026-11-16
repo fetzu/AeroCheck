@@ -403,6 +403,93 @@ final class FlightMergeValidationTests: XCTestCase {
                        "A track-stripped metadata record never drops the local track")
     }
 
+    // MARK: - A fetch merged into the logbook as it is (review ST11-08)
+
+    /// The fetch handler used to read the logbook from disk, await, and hand that copy over to replace
+    /// the list in memory, deleting the file of every flight the copy lacked. A flight ended, or a fee
+    /// answered, in that second was lost. What a fetch brings is now merged into the list as it is.
+    @MainActor
+    func testAFlightEndedOrEditedWhileAFetchArrivesIsStillThereAfterIt() async throws {
+        let store = makeTestDatastore()
+        let answered = flight(modifiedAt: Date(timeIntervalSince1970: 100), name: "Out")
+        let other = flight(modifiedAt: Date(timeIntervalSince1970: 100), name: "Back")
+        XCTAssertTrue(store.saveFlight(answered))
+        XCTAssertTrue(store.saveFlight(other))
+        let sync = SyncManager(defaults: makeTestDefaults(), backend: StubSyncBackend())
+        let appState = makeTestAppState(datastore: store, syncManager: sync)
+        try await waitForTheLogbook(appState, count: 2)
+
+        // On this device, as the fetch is being decoded: END FLIGHT, and a fee answered on another.
+        let ended = flight(modifiedAt: Date(timeIntervalSince1970: 300), name: "Just flown")
+        appState.flights.insert(ended, at: 0)
+        XCTAssertTrue(store.saveFlight(ended))
+        let index = try XCTUnwrap(appState.flights.firstIndex { $0.id == answered.id })
+        appState.flights[index].name = "Out, fee paid"
+        appState.flights[index].modifiedAt = Date(timeIntervalSince1970: 300)
+        XCTAssertTrue(store.saveFlight(appState.flights[index]))
+
+        // The fetch: an edit of the other flight and a flight from the other device.
+        var renamed = other
+        renamed.name = "Back, renamed elsewhere"
+        renamed.modifiedAt = Date(timeIntervalSince1970: 200)
+        let fromElsewhere = flight(modifiedAt: Date(timeIntervalSince1970: 250), name: "Elsewhere")
+        await sync.onFlightsUpdated?(SyncManager.FlightIngest(inbound: [renamed, fromElsewhere]))
+
+        let byId = Dictionary(uniqueKeysWithValues: appState.flights.map { ($0.id, $0) })
+        XCTAssertEqual(Set(byId.keys), [answered.id, other.id, ended.id, fromElsewhere.id])
+        XCTAssertEqual(byId[answered.id]?.name, "Out, fee paid", "the edit made here stands")
+        XCTAssertEqual(byId[other.id]?.name, "Back, renamed elsewhere", "the fetched edit is applied")
+        let onDisk = Dictionary(uniqueKeysWithValues: store.loadFlights().map { ($0.id, $0) })
+        XCTAssertEqual(Set(onDisk.keys), Set(byId.keys), "the flight just flown keeps its file")
+        XCTAssertEqual(onDisk[answered.id]?.name, "Out, fee paid")
+    }
+
+    /// A flight is deleted only when CloudKit said so, never because a fetch didn't bring it.
+    @MainActor
+    func testOnlyAFlightCloudKitDeletedIsDeleted() async throws {
+        let store = makeTestDatastore()
+        let kept = flight(modifiedAt: Date(timeIntervalSince1970: 100), name: "Kept")
+        let deleted = flight(modifiedAt: Date(timeIntervalSince1970: 100), name: "Deleted elsewhere")
+        XCTAssertTrue(store.saveFlight(kept))
+        XCTAssertTrue(store.saveFlight(deleted))
+        let sync = SyncManager(defaults: makeTestDefaults(), backend: StubSyncBackend())
+        let appState = makeTestAppState(datastore: store, syncManager: sync)
+        try await waitForTheLogbook(appState, count: 2)
+
+        await sync.onFlightsUpdated?(SyncManager.FlightIngest(inbound: []))
+        XCTAssertEqual(Set(store.loadFlights().map(\.id)), [kept.id, deleted.id], "nothing brought, nothing deleted")
+
+        await sync.onFlightsUpdated?(SyncManager.FlightIngest(inbound: [], deletedIds: [deleted.id]))
+        XCTAssertEqual(appState.flights.map(\.id), [kept.id])
+        XCTAssertEqual(store.loadFlights().map(\.id), [kept.id])
+    }
+
+    /// The merge itself: copies of one flight fold in order (metadata, then track), a new one is added,
+    /// a deleted one goes, and an edit on both sides is reported.
+    func testAnIngestFoldsIntoTheLocalLogbook() {
+        let id = UUID()
+        let local = [flight(id: id, modifiedAt: Date(timeIntervalSince1970: 100), name: "Mine", notes: "a")]
+        let metadata = flight(id: id, modifiedAt: Date(timeIntervalSince1970: 200), name: "Theirs", notes: "b")
+        let track = flight(id: id, modifiedAt: Date(timeIntervalSince1970: 50), track: (0..<5).map { point(46 + Double($0) * 0.01, 7) })
+        let added = flight(modifiedAt: Date(timeIntervalSince1970: 10))
+        let gone = flight(modifiedAt: Date(timeIntervalSince1970: 10))
+
+        let (flights, conflicted) = SyncManager.applying(
+            SyncManager.FlightIngest(inbound: [metadata, track, added], deletedIds: [gone.id]), to: local + [gone])
+        XCTAssertEqual(Set(flights.map(\.id)), [id, added.id])
+        let merged = flights.first { $0.id == id }
+        XCTAssertEqual(merged?.name, "Theirs")
+        XCTAssertEqual(merged?.gpsTrack.count, 5)
+        XCTAssertTrue(conflicted)
+    }
+
+    @MainActor
+    private func waitForTheLogbook(_ appState: AppState, count: Int) async throws {
+        let deadline = Date().addingTimeInterval(5)
+        while appState.flights.count < count, Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(appState.flights.count, count, "the logbook loaded")
+    }
+
     // MARK: - Settings clamping
 
     func testSettingsClampsOutOfRangeNumerics() {

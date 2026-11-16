@@ -1442,27 +1442,39 @@ class AppState {
             AppLog.general.debugLine("Settings updated from iCloud sync")
         }
 
-        syncManager.onFlightsUpdated = { @MainActor [weak self] flights in
+        syncManager.onFlightsUpdated = { @MainActor [weak self] ingest in
             guard let self else { return }
-            // PR-09: persist only the flights whose content actually changed (by modifiedAt),
-            // instead of rewriting EVERY flight file. Batched OFF the main actor (was a per-flight
-            // saveFlight on the main actor — a visible hitch when a large initial sync landed).
+            // Merged into the logbook as loaded: the launch's load would otherwise replace it later.
+            await self.flightsLoad?.value
+            // From here to `self.flights = …` nothing suspends, so a flight ended or edited while the
+            // fetch was decoded is in the list the fetch is merged into. (review ST11-08)
             let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let (flights, conflicted) = SyncManager.applying(ingest, to: self.flights)
             self.flights = flights
             // Sync delivered the logbook — clear the launch spinner in case the initial local
             // load found nothing (e.g. a fresh install whose flights only exist in CloudKit). (fresh-install fix)
             self.isLoadingFlights = false
+            if conflicted { self.syncManager?.onSyncConflict?(SyncManager.mergedFlightNotice) }
+            // PR-09: persist only the flights whose content changed (by modifiedAt), batched off the
+            // main actor.
             let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
             await self.persistence.saveFlightsOffMain(changed)
-            // Delete the local file for any flight the sync removed (a cloud-initiated delete from
-            // another device). Without this the orphaned *.json survives on disk, and because the
-            // logbook is rebuilt by enumerating the flights directory, the deleted flight resurrects
-            // on the next launch. (v4.1.0 pre-tag fix)
-            let incomingIds = Set(flights.map { $0.id })
-            for (id, previous) in previousById where !incomingIds.contains(id) {
-                self.persistence.deleteFlight(previous)
+            // A flight edited or deleted here during that write: its file now has the copy written
+            // above. Memory is right; the file follows it.
+            for written in changed {
+                if let now = self.flights.first(where: { $0.id == written.id }) {
+                    if now.modifiedAt != written.modifiedAt { _ = self.persistence.saveFlight(now) }
+                } else if !ingest.deletedIds.contains(written.id) {
+                    self.persistence.deleteFlight(written)
+                }
             }
-            self.eetCalibration?.refresh(from: flights)
+            // The local file of each flight CloudKit deleted (another device deleted it). Without this
+            // the orphaned *.json survives and the flight comes back at the next launch. (v4.1.0)
+            // Only those: a flight missing from what a fetch brought is not a deleted one. (ST11-08)
+            for id in ingest.deletedIds {
+                if let previous = previousById[id] { self.persistence.deleteFlight(previous) }
+            }
+            self.eetCalibration?.refresh(from: self.flights)
             AppLog.general.debugLine("Flights updated from iCloud sync")
         }
 

@@ -149,10 +149,51 @@ class SyncManager: ObservableObject {
     /// applied before the next one, and before the catch-up reads the settings.
     var onSettingsUpdated: (@MainActor (AppSettings) async -> Void)?
 
-    /// Callback when flights are updated from sync. Awaited: the catch-up after the first fetch must
-    /// see the logbook with the fetched changes applied, or it would send back a flight another
-    /// device has just deleted or edited.
-    var onFlightsUpdated: (@MainActor ([Flight]) async -> Void)?
+    /// Callback when a fetch brought flights or deletions. Awaited: the catch-up after the first
+    /// fetch must see the logbook with the fetched changes applied, or it would send back a flight
+    /// another device has just deleted or edited.
+    ///
+    /// It gets what the fetch brought, never a whole logbook: the handler used to read every flight
+    /// from disk, await, and hand that copy over to replace the list in memory, deleting the file of
+    /// each flight the copy lacked. A flight ended, or a fee answered, during that second was lost on
+    /// this device. AppState merges the ingest into the list as it is (`applying(_:to:)`), in one
+    /// step on the main actor, and deletes only what CloudKit deleted. (review ST11-08)
+    var onFlightsUpdated: (@MainActor (FlightIngest) async -> Void)?
+
+    /// What one fetch brought for the logbook.
+    struct FlightIngest {
+        /// The inbound copies, deletion records applied; a flight may come twice (its metadata and its
+        /// track), merged in order.
+        var inbound: [Flight]
+        /// The flights CloudKit said were deleted.
+        var deletedIds: Set<UUID> = []
+    }
+
+    /// `local` with a fetch merged in: each inbound copy merged into the flight it is a copy of
+    /// (ARCH-02), or added; the deleted ones removed; newest first. `conflicted` when a flight edited
+    /// on both sides was merged. Pure, so the caller can apply it without a suspension.
+    nonisolated static func applying(_ ingest: FlightIngest, to local: [Flight]) -> (flights: [Flight], conflicted: Bool) {
+        var flights = local
+        var conflicted = false
+        for flight in ingest.inbound {
+            if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+                let mine = flights[index]
+                flights[index] = Flight.merge(mine, flight)
+                // Both sides edited (neither copy is the other's): tell the UI it was auto-merged.
+                if mine.modifiedAt != flight.modifiedAt, mine.notes != flight.notes || mine.name != flight.name {
+                    conflicted = true
+                }
+            } else {
+                flights.append(flight)
+            }
+        }
+        flights.removeAll { ingest.deletedIds.contains($0.id) }
+        flights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
+        return (flights, conflicted)
+    }
+
+    /// The message shown when `applying(_:to:)` merged a flight edited on both sides.
+    static let mergedFlightNotice = "A flight edited on another device was merged."
 
     /// What this device holds, for the catch-up when the engine comes up: the logbook and the
     /// settings as they are now. AppState provides it; nil queues nothing.
@@ -1287,7 +1328,7 @@ class SyncManager: ObservableObject {
         } else {
             flights.append(merged)
         }
-        await onFlightsUpdated?(flights)
+        await onFlightsUpdated?(FlightIngest(inbound: [merged]))
         syncFlight(merged, allFlights: flights)
     }
 
@@ -1658,47 +1699,24 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
         // Notify about flight updates
         if !decodedFlights.isEmpty || !deletedFlightIds.isEmpty {
-            // Load the current set OFF the main actor (decoding a 50-flight logbook is heavy); merge on
-            // the main actor where the conflict callback runs. The persistence write is batched off-main
-            // in the onFlightsUpdated handler, not per-flight on the main actor.
-            var currentFlights = await DataPersistenceManager.shared.loadFlightsOffMain()
+            // The logbook as this device holds it, for the deletion records and the stamps below. Never
+            // a copy read from disk to hand back: AppState merges what the fetch brought into its list
+            // in memory, in one step (ST11-08).
+            let localFlights = await manager?.localSnapshot?()?.flights ?? []
 
             // Deletion records (6.1), before the merge: a copy of a flight deleted here and not edited
             // since (deleted with the switch off, its delete not sent yet) is dropped, or the fetch
             // would bring it back. An edit made after the deletion still comes through.
-            let inbound = await manager?.applyingDeletionRecords(toInbound: decodedFlights, local: currentFlights)
+            let inbound = await manager?.applyingDeletionRecords(toInbound: decodedFlights, local: localFlights)
                 ?? SyncManager.InboundFlights(live: decodedFlights)
-            let updatedFlights = inbound.live
             // The copies CloudKit deleted, with this device's stamp, for their deletion records.
             let deletedHere = deletedFlightIds.map { id in
-                (id: id, stamp: currentFlights.first { $0.id == id }?.modifiedAt)
+                (id: id, stamp: localFlights.first { $0.id == id }?.modifiedAt)
             }
 
-            // Apply updates. Merge rather than blindly overwrite, so a concurrent local edit (or a
-            // longer locally-recorded track) is never silently dropped by an inbound record. (ARCH-02)
-            for flight in updatedFlights {
-                if let index = currentFlights.firstIndex(where: { $0.id == flight.id }) {
-                    let local = currentFlights[index]
-                    let merged = Flight.merge(local, flight)
-                    currentFlights[index] = merged
-                    // If both sides had been edited (neither modifiedAt strictly dominates by a
-                    // clear margin and content differs), tell the UI the conflict was auto-merged.
-                    if local.modifiedAt != flight.modifiedAt,
-                       local.notes != flight.notes || local.name != flight.name {
-                        manager?.onSyncConflict?("A flight edited on another device was merged.")
-                    }
-                } else {
-                    currentFlights.append(flight)
-                }
-            }
-
-            // Apply deletions
-            currentFlights.removeAll { deletedFlightIds.contains($0.id) }
-
-            // Sort by start time (newest first)
-            currentFlights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
-
-            await manager?.onFlightsUpdated?(currentFlights)
+            // Merged rather than blindly overwritten, so a concurrent local edit (or a longer
+            // locally-recorded track) is never dropped by an inbound record (ARCH-02): see `applying`.
+            await manager?.onFlightsUpdated?(SyncManager.FlightIngest(inbound: inbound.live, deletedIds: Set(deletedFlightIds)))
 
             // A device that deleted with CloudKit but no iCloud Drive leaves no record here: one is
             // written now, unless the deleting device's own record came first (6.1).

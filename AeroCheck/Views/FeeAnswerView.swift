@@ -169,7 +169,7 @@ struct FeeAnswerView: View {
         guard let flight, var entry else { return }
         if let lineId {
             let keepsAmount = status == .paid || status == .invoice || status == nil
-            entry.settleLine(lineId, status: status, amount: keepsAmount ? (typedAmount ?? line?.amount) : nil,
+            entry.settleLine(lineId, status: status, amount: keepsAmount ? (typedAmount ?? line?.enteredAmount) : nil,
                              currency: currency, at: Date())
             if !keepsAmount { amountText = "" }
             appState.updateFlightCost(flight, cost: entry)
